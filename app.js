@@ -1,0 +1,1791 @@
+
+const FALLBACK_BUSINESSES = [
+  { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
+  { id:'seoul', name:'Seoul BBQ Denver', category:'한식 BBQ', address:'2080 S Havana St, Aurora, CO', phone:'303-337-2000', image:'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80', coupon:true, is_new:true, new_rank:2, desc:'점심 특선과 저녁 바비큐 메뉴를 홍보하는 업소 예시입니다.', email:'hello@seoulbbq.example', lat:39.6792, lng:-104.8658, created_at:'2026-03-09', region:'colorado' },
+  { id:'beauty', name:'Beauty Town', category:'미용', address:'1234 Havana St, Aurora, CO', phone:'303-555-1234', image:'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:2, desc:'뷰티 업소 예시입니다.', lat:39.671, lng:-104.86, created_at:'2026-03-08', region:'colorado' },
+  { id:'manna', name:'Manna BBQ', category:'한식', address:'8100 E Arapahoe Rd, Greenwood Village, CO', phone:'303-790-9292', image:'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80', is_popular:true, popular_rank:2, desc:'인기 업소 예시입니다.', lat:39.595, lng:-104.897, created_at:'2026-03-07', region:'colorado' },
+  { id:'ace', name:'Ace Mart', category:'마켓', address:'1111 S Federal Blvd, Denver, CO', phone:'303-555-9876', image:'https://images.unsplash.com/photo-1604719312566-8912e9c8a213?auto=format&fit=crop&w=1200&q=80', coupon:true, is_popular:true, popular_rank:3, desc:'쿠폰 노출 업소 예시입니다.', lat:39.695, lng:-105.027, created_at:'2026-03-06', region:'colorado' },
+  { id:'wonder', name:'Wonder Bakery', category:'베이커리', address:'555 Bakery St, Aurora, CO', phone:'303-555-2222', image:'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80', coupon:true, desc:'오늘 쿠폰 시안용 업소입니다.', lat:39.68, lng:-104.84, created_at:'2026-03-05', region:'colorado' }
+];
+let businesses = [...FALLBACK_BUSINESSES];
+let coupons = [];
+let couponViewTab = 'today';
+let selectedCouponId = null;
+let couponUseTimer = null;
+let currentPage = 'home';
+let lastBasePage = 'home';
+let selectedBizId = businesses[0]?.id || null;
+let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
+const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
+const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
+const REGION_CENTER_MAP = { colorado: COLORADO_CENTER, dallas: DALLAS_CENTER, dfw: DALLAS_CENTER };
+const TEST_FORCE_CENTER = false;
+let currentRegion = getPreferredRegion();
+let suppressCardClickUntil = 0;
+let boardPosts = [];
+let slideRows = [];
+let currentDetailVideoOverride = '';
+let businessQuickFilter = '';
+let selectedBoardType = 'notice';
+let selectedBoardPost = null;
+let adminSession = false;
+const ADMIN_EMAIL = 'admin@kfocusapp.com';
+let mapSearchQuery = '';
+let searchDebounce = null;
+const RECENT_SEARCH_KEY = 'kfocus_recent_searches';
+const FALLBACK_BOARD_POSTS = [
+  { id:'notice-1', type:'notice', title:'덴버 한인회 행사 안내', content:'콜로라도 지역 행사와 공지 예시입니다.' },
+  { id:'job-1', type:'job', title:'구인구직 안내', content:'지역 업소 채용 정보 예시입니다.' },
+  { id:'rent-1', type:'rent', title:'렌트 정보 모음', content:'하우징/렌트 관련 예시 글입니다.' },
+  { id:'sale-1', type:'sale', title:'중고/매매 게시판', content:'생활 매매 정보 예시 글입니다.' }
+];
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const heroViewport = $('#heroViewport');
+const heroTrack = $('#heroTrack');
+const heroDotsWrap = $('#heroDots');
+const homeBoardList = $('#homeBoardList');
+const homeNearbyList = $('#homeNearbyList');
+const homeFeaturedList = $('#homeFeaturedList');
+const homeNewList = $('#homeNewList');
+const homePopularList = $('#homePopularList');
+const homeBoardMoreBtn = $('#homeBoardMoreBtn');
+const communityTabs = $('#communityTabs');
+const businessList = $('#businessList');
+const couponTodayList = $('#couponTodayList');
+const couponAllList = $('#couponAllList');
+const couponDetailCard = $('#couponDetailCard');
+const couponUseCard = $('#couponUseCard');
+const detailCard = $('#detailCard');
+const businessSearch = $('#businessSearch');
+const categoryRow = $('#categoryRow');
+const mapNotice = $('#mapNotice');
+const boardTitle = $('#boardTitle');
+const mapRadiusRow = $('#mapRadiusRow');
+const mapFilterRow = $('#mapFilterRow');
+const mapCategoryRow = $('#mapCategoryRow');
+const mapSearchAreaBtn = $('#mapSearchAreaBtn');
+const mapLocateBtn = $('#mapLocateBtn');
+const mapBottomPanel = $('#mapBottomPanel');
+const mapBottomList = $('#mapBottomList');
+const mapBottomClose = $('#mapBottomClose');
+const searchOverlay = $('#searchOverlay');
+const globalSearchInput = $('#globalSearchInput');
+const searchCloseBtn = $('#searchCloseBtn');
+const searchClearBtn = $('#searchClearBtn');
+const recentSearches = $('#recentSearches');
+const searchResults = $('#searchResults');
+const searchBusinessSection = $('#searchBusinessSection');
+const searchCouponSection = $('#searchCouponSection');
+const searchBoardSection = $('#searchBoardSection');
+const searchBusinessList = $('#searchBusinessList');
+const searchCouponList = $('#searchCouponList');
+const searchBoardList = $('#searchBoardList');
+const searchEmpty = $('#searchEmpty');
+const mapSearchInput = $('#mapSearchInput');
+
+function getConfig(){ return window.KFOCUS_CONFIG || {}; }
+
+function normalizeRegionKey(v=''){
+  const s = String(v||'').trim().toLowerCase();
+  if(s === 'dfw') return 'dallas';
+  if(s === 'denver') return 'colorado';
+  if(s.includes('dallas') || s.includes('fort worth')) return 'dallas';
+  if(s.includes('colorado') || s.includes('denver')) return 'colorado';
+  return s || 'dallas';
+}
+
+function getAdminMode() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('admin') === '1';
+}
+
+function getAdminRegionOverride() {
+  const params = new URLSearchParams(window.location.search);
+  const region = params.get('region');
+  return region ? normalizeRegionKey(region) : '';
+}
+function getPreferredRegion() {
+  if(getAdminMode() && getAdminRegionOverride()){
+    return normalizeRegionKey(getAdminRegionOverride());
+  }
+  const saved = localStorage.getItem('region');
+  return normalizeRegionKey(saved || 'dallas');
+}
+
+function persistRegion(region){
+  currentRegion = normalizeRegionKey(region);
+  localStorage.setItem('region', currentRegion);
+
+  if (window.OneSignalDeferred) {
+    OneSignalDeferred.push(async function (OneSignal) {
+      await OneSignal.User.addTag("region", currentRegion);
+    });
+  }
+
+  if(typeof updateTopRegionLabel === 'function') updateTopRegionLabel();
+  return currentRegion;
+}
+
+function getRegionCenter(region){
+  return REGION_CENTER_MAP[normalizeRegionKey(region)] || COLORADO_CENTER;
+}
+function detectRegionFromCoords(lat, lng){
+  const latNum = Number(lat);
+  const lngNum = Number(lng);
+  if(!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return currentRegion || 'colorado';
+  if(latNum > 31 && latNum < 34.8 && lngNum > -98.8 && lngNum < -95.5) return 'dallas';
+  if(latNum > 38 && latNum < 40.6 && lngNum > -106.2 && lngNum < -103.2) return 'colorado';
+  return currentRegion || 'dallas';
+}
+function applyRegionDistanceCenter(region, force=false){
+  currentRegion = normalizeRegionKey(region);
+  const center = getRegionCenter(currentRegion);
+
+  if(!currentCenter || !Number.isFinite(Number(currentCenter.lat)) || !Number.isFinite(Number(currentCenter.lng))){
+    currentCenter = { lat: center.lat, lng: center.lng };
+    return;
+  }
+
+  if(!force){
+    const tooFarFromSelectedRegion =
+      haversineMiles(
+        Number(currentCenter.lat),
+        Number(currentCenter.lng),
+        center.lat,
+        center.lng
+      ) > 150;
+
+    if(tooFarFromSelectedRegion){
+      currentCenter = { lat: center.lat, lng: center.lng };
+    }
+  }
+}
+
+function getRegionLabel(region){
+  const key = normalizeRegionKey(region);
+  if(key === 'dallas') return 'Dallas–Fort Worth';
+  if(key === 'colorado') return 'Denver Metro';
+  return region || '';
+}
+
+function updateTopRegionLabel(){
+  const el = document.getElementById('topRegionLabel');
+  if(!el) return;
+  el.textContent = getRegionLabel(currentRegion) || 'Denver Metro';
+  if(document && document.title){
+    document.title = `K ${getRegionLabel(currentRegion) || 'Colorado'}`;
+  }
+}
+
+
+async function detectInitialRegion(){
+  const adminRegion = getAdminRegionOverride();
+
+  if(getAdminMode() && adminRegion){
+    currentRegion = normalizeRegionKey(adminRegion);
+    currentCenter = getRegionCenter(currentRegion);
+    applyRegionDistanceCenter(currentRegion, true);
+    return currentRegion;
+  }
+
+  const saved = localStorage.getItem('region');
+  const selected = normalizeRegionKey(saved || 'dallas');
+
+  currentRegion = selected;
+  currentCenter = getRegionCenter(currentRegion);
+  applyRegionDistanceCenter(currentRegion, true);
+  return currentRegion;
+}
+
+
+function normalizeSearchText(v=''){ return String(v||'').toLowerCase().replace(//g,' ').trim(); }
+function queryMatches(query, values){
+  const q = normalizeSearchText(query);
+  if(!q) return true;
+  const hay = values.filter(Boolean).map(normalizeSearchText).join(' ');
+  return q.split(/\s+/).every(part=>hay.includes(part));
+}
+
+function normalizeBoardType(v=''){
+  const s = normalizeSearchText(v);
+  if(['notice','event','events','행사','공지','공지/행사'].includes(s)) return 'notice';
+  if(['job','jobs','구인','구직','구인구직','구인/구직'].includes(s)) return 'job';
+  if(['rent','rental','렌트','임대','하우징'].includes(s)) return 'rent';
+  if(['sale','market','매매','중고','판매'].includes(s)) return 'sale';
+  return 'notice';
+}
+function boardLabel(type){
+  return ({ notice:'행사안내', job:'구인/구직', rent:'렌트', sale:'매매' })[type] || '행사안내';
+}
+function boardThumbEmoji(type){
+  return ({ notice:'🎉', job:'💼', rent:'🏘️', sale:'🏠' })[type] || '📝';
+}
+function boardPostsByType(type){
+  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
+}
+function getRecentSearches(){ try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+function saveRecentSearch(query){
+  const q = String(query||'').trim();
+  if(!q) return;
+  const next = [q, ...getRecentSearches().filter(v=>normalizeSearchText(v)!==normalizeSearchText(q))].slice(0,5);
+  localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
+}
+function renderRecentSearches(){
+  if(!recentSearches) return;
+  const items = getRecentSearches();
+  recentSearches.innerHTML = items.length ? `<div class="recent-title">최근 검색</div><div class="recent-chip-row">${items.map(v=>`<button class="recent-chip" data-recent-search="${esc(v)}">${esc(v)}</button>`).join('')}</div>` : '<div class="recent-title">최근 검색이 없습니다.</div>';
+}
+async function loadBoardPostsFromSupabase(){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  boardPosts = [...FALLBACK_BOARD_POSTS];
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  const tryTables = ['posts','board_posts'];
+  const selects = [
+    'id,business_id,title,content,type,region,image_url,address,phone,start_at,end_at,created_at',
+    'id,business_id,title,content,type,region,image_url,start_at,end_at,created_at',
+    'id,business_id,title,content,type,region,created_at'
+  ];
+  for(const table of tryTables){
+    for(const select of selects){
+      try {
+        const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&order=created_at.desc.nullslast&limit=50`;
+        const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+        if(!res.ok) continue;
+        const rows = await res.json();
+        if(Array.isArray(rows)){
+          boardPosts = rows.map((row, idx)=>({
+            id: row.id || `${table}-${idx+1}`,
+            type: normalizeBoardType(row.type),
+            title: row.title || '게시판',
+            content: row.content || '',
+            region: row.region || 'colorado',
+            image_url: row.image_url || '',
+            address: row.address || '',
+            phone: row.phone || '',
+            business_id: row.business_id || '',
+            start_at: row.start_at || '',
+            end_at: row.end_at || '',
+            created_at: row.created_at || ''
+          }));
+          return true;
+        }
+      } catch(e){}
+    }
+  }
+  return false;
+}
+function businessSearchResults(query){
+  const q = normalizeSearchText(query);
+  if(!q) return [];
+  return businesses.filter(b => queryMatches(q, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)])).slice(0,8);
+}
+function couponSearchResults(query){
+  const q = normalizeSearchText(query);
+  if(!q) return [];
+  return activeCoupons(coupons).filter(c => {
+    const biz = getBiz(c.businessId) || {};
+    return queryMatches(q, [c.title, c.description, c.couponCode, biz.name, biz.category]);
+  }).slice(0,8);
+}
+function boardSearchResults(query){
+  const q = normalizeSearchText(query);
+  if(!q) return [];
+  return boardPosts.filter(p => (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion) && queryMatches(q, [p.title, p.content, p.type])).slice(0,8);
+}
+function openSearchOverlay(prefill=''){
+  if(!searchOverlay) return;
+  closeSideMenu();
+  searchOverlay.classList.add('open');
+  searchOverlay.setAttribute('aria-hidden','false');
+  if(globalSearchInput){
+    if(prefill) globalSearchInput.value = prefill;
+    globalSearchInput.focus();
+    globalSearchInput.select();
+  }
+  if((globalSearchInput?.value || '').trim()) renderSearchResults(globalSearchInput.value.trim());
+  else { renderRecentSearches(); recentSearches?.classList.remove('hidden'); searchResults?.classList.add('hidden'); searchClearBtn?.classList.add('hidden'); }
+}
+function closeSearchOverlay(){
+  if(!searchOverlay) return;
+  searchOverlay.classList.remove('open');
+  searchOverlay.setAttribute('aria-hidden','true');
+}
+function renderSearchResults(query){
+  const q = String(query||'').trim();
+  if(searchClearBtn) searchClearBtn.classList.toggle('hidden', !q);
+  if(!q){
+    renderRecentSearches();
+    recentSearches?.classList.remove('hidden');
+    searchResults?.classList.add('hidden');
+    return;
+  }
+  recentSearches?.classList.add('hidden');
+  searchResults?.classList.remove('hidden');
+  const biz = businessSearchResults(q);
+  const cpn = couponSearchResults(q);
+  const brd = boardSearchResults(q);
+  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}"><strong>${esc(b.name)}</strong><span>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
+  if(searchCouponList) searchCouponList.innerHTML = cpn.map(c=>{ const biz=getBiz(c.businessId) || {}; return `<button class="search-result-item" data-search-type="coupon" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(biz.name || '')}${biz.name?' · ':''}${esc(countdownLabel(c.endAt,true))}</span></button>`; }).join('');
+  if(searchBoardList) searchBoardList.innerHTML = brd.map(p=>`<button class="search-result-item" data-search-type="board" data-board-result="${esc(p.type)}" data-board-title="${esc(p.title)}"><strong>${esc(p.title)}</strong><span>${esc(p.content || p.type || '')}</span></button>`).join('');
+  searchBusinessSection?.classList.toggle('hidden', !biz.length);
+  searchCouponSection?.classList.toggle('hidden', !cpn.length);
+  searchBoardSection?.classList.toggle('hidden', !brd.length);
+  searchEmpty?.classList.toggle('hidden', !!(biz.length || cpn.length || brd.length));
+}
+function parseArr(v){ if(Array.isArray(v)) return v; try { const p = JSON.parse(v||'[]'); return Array.isArray(p)?p:[]; } catch { return []; } }
+function esc(s=''){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function normalizeUrl(u=''){ const s = String(u||'').trim(); if(!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; }
+
+async function logBusinessActivity(businessId, actionType){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY || !businessId || !actionType) return;
+  const biz = getBiz(businessId);
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/business_activity`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, Prefer:'return=minimal' },
+      body: JSON.stringify({ business_id: businessId, action_type: actionType, region: biz?.region || 'colorado', area: biz?.address || '' })
+    });
+  } catch(e){ console.warn('activity log skipped', e); }
+}
+function milesToZoom(m){ if(m==='3') return 15; if(m==='5') return 13; if(m==='7') return 12; if(m==='10') return 11; return 10; }
+function radiusByZoom(z){ if(z <= 10) return '10'; if(z <= 12) return '7'; if(z <= 14) return '5'; return '3'; }
+function activeMapCoupons(){ return activeCoupons(coupons); }
+function getMainCategoryLabel(cat=''){
+  const s = String(cat || '').toLowerCase();
+
+  if (/식당|restaurant|bbq|치킨|분식|한식|중식|일식|카페|bakery|베이커리|cafe|coffee|디저트|dessert/.test(s)) return '식당';
+  if (/쇼핑|마트|마켓|잡화|수산|의류|전자|gift|liquor|주류|wine|beer|spirits|store|market|shopping/.test(s)) return '쇼핑';
+  if (/병원|치과|한의원|약국|의원|clinic|medical|doctor|dental|pharmacy/.test(s)) return '병원';
+  if (/금융|은행|보험|회계|세무|finance|financial|mortgage|loan|bank|investment|accounting|tax/.test(s)) return '금융';
+  if (/법률|변호사|법무|이민|교통사고|가정법|law|lawyer|attorney|legal|immigration/.test(s)) return '법률';
+  if (/교회|성당|church|catholic|mission|선교/.test(s)) return '교회';
+  if (/부동산|리얼터|렌트|매매|realtor|real estate|lease|rental|property/.test(s)) return '부동산';
+  if (/자동차|정비|카센터|오토|auto|repair|body shop|mechanic|tire/.test(s)) return '서비스';
+
+  return '서비스';
+}
+function renderMapFilters(){
+  $$('.map-filter-chip').forEach(btn=>btn.classList.toggle('active', btn.dataset.mapFilter===mapMode));
+  const categories = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  if(mapCategoryRow){
+    mapCategoryRow.innerHTML = categories.map(c=>`<button class="map-category-chip ${c===mapCategory?'active':''}" data-map-cat="${esc(c)}">${esc(c)}</button>`).join('');
+    mapCategoryRow.classList.toggle('hidden', mapMode!=='business');
+  }
+}
+
+async function loadRealData(){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
+  try {
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
+    const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
+    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    if(!res.ok) throw new Error(`Supabase ${res.status}`);
+    const rows = await res.json();
+    if(Array.isArray(rows) && rows.length){
+      businesses = rows.map((row)=>{
+        const images = parseArr(row.image_urls);
+        const image = row.image_url || images[0] || 'assets/kfocus-logo.jpeg';
+        return {
+          id: row.id,
+          name: row.name_ko || row.name_en || row.name || '이름 없음',
+          category: row.category_ko || row.category || '기타',
+          address: row.address || '',
+          phone: row.phone || '',
+          image,
+          website: row.website || '',
+          email: row.email || '',
+          video_url: row.video_url || '',
+          youtube_url: row.youtube_url || '',
+          desc: row.description || '',
+          lat: row.lat == null ? null : Number(row.lat),
+          lng: row.lng == null ? null : Number(row.lng),
+          featured: !!row.is_featured,
+          featured_rank: row.featured_rank == null ? 1000 : Number(row.featured_rank),
+          is_new: !!row.is_new,
+          new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
+          is_popular: !!row.is_popular,
+          popular_rank: row.popular_rank == null ? 1000 : Number(row.popular_rank),
+          coupon: !!row.promo_enabled,
+          video: !!(row.video_url || row.youtube_url),
+          home_fixed: !!row.home_fixed,
+          home_fixed_sort: row.home_fixed_sort == null ? 1000 : Number(row.home_fixed_sort),
+          promo_image_url: row.promo_image_url || '',
+          promo_text: row.promo_text || '',
+          created_at: row.created_at || '',
+          region: row.region || 'colorado'
+        };
+      }).filter(b=>normalizeRegionKey(b.region)===currentRegion);
+      selectedBizId = businesses[0]?.id || selectedBizId;
+    }
+  } catch(e){ console.warn('Using fallback data', e); }
+  await loadCouponsFromSupabase();
+  await loadBoardPostsFromSupabase();
+  await loadSlidesFromSupabase();
+  finalizeData();
+}
+
+
+
+async function loadSlidesFromSupabase(){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  slideRows = [];
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  try {
+    const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at';
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&or=(region.eq.${encodeURIComponent(currentRegion)},region.is.null)&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
+    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    if(!res.ok) throw new Error(`Slides ${res.status}`);
+    const rows = await res.json();
+    slideRows = Array.isArray(rows) ? rows : [];
+    return true;
+  } catch(e){
+    console.warn('Using business promo fallback', e);
+    slideRows = [];
+    return false;
+  }
+}
+async function loadCouponsFromSupabase(){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  try {
+    const select = 'id,business_id,title,description,coupon_code,image_url,start_at,end_at,is_active,is_today_coupon,sort_order,created_at';
+    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
+    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    if(!res.ok) throw new Error(`Coupons ${res.status}`);
+    const rows = await res.json();
+    const bizIds = new Set(businesses.map(b=>String(b.id)));
+    coupons = (Array.isArray(rows)?rows:[]).filter(r=>bizIds.has(String(r.business_id))).map((row, idx)=>({
+      id: row.id || `cp${idx+1}`,
+      businessId: row.business_id,
+      title: row.title || '쿠폰',
+      description: row.description || '',
+      couponCode: row.coupon_code || '',
+      imageUrl: row.image_url || '',
+      startAt: row.start_at || '',
+      endAt: row.end_at || '',
+      isActive: row.is_active !== false,
+      isToday: !!row.is_today_coupon,
+      sortOrder: row.sort_order == null ? 1000 : Number(row.sort_order),
+      createdAt: row.created_at || ''
+    }));
+    return true;
+  } catch (e) {
+    console.warn('Using fallback coupons', e);
+    return false;
+  }
+}
+
+function buildFallbackCoupons(){
+  const couponBusinesses = businesses.filter(b=>b.coupon).slice(0,6);
+  coupons = couponBusinesses.map((b,i)=>({
+    id:`cp${i+1}`,
+    businessId:b.id,
+    title: i===0?'20% OFF': i===1?'15% OFF':'특별 혜택',
+    description: `${b.name} 매장에서 사용할 수 있는 샘플 쿠폰입니다.`,
+    couponCode: i===0?'KFOCUS20':'',
+    imageUrl: b.image,
+    startAt:'2026-03-01T00:00:00Z',
+    endAt:'2026-04-30T23:59:59Z',
+    isActive:true,
+    isToday:i<2,
+    sortOrder:i+1,
+    createdAt:`2026-03-0${i+1}`
+  }));
+}
+
+function finalizeData(){
+  businesses.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+  if(!coupons.length) buildFallbackCoupons();
+  buildHeroSlides();
+}
+
+function buildHeroSlides() {
+  const bizMap = new Map((businesses || []).map((b) => [String(b.id), b]));
+  const now = Date.now();
+
+  const activeSlides = (slideRows || []).filter((s) => {
+    if (!s) return false;
+
+    const enabled = s.promo_enabled === true || s.promo_enabled === 1 || s.promo_enabled === 'true';
+    if (!enabled) return false;
+
+    const startTime = s.promo_start_at ? new Date(s.promo_start_at).getTime() : null;
+    const endTime = s.promo_end_at ? new Date(s.promo_end_at).getTime() : null;
+
+    const startOk = !startTime || (Number.isFinite(startTime) && startTime <= now);
+    const endOk = !endTime || (Number.isFinite(endTime) && endTime >= now);
+
+    return startOk && endOk;
+  }).sort((a, b) =>
+    (Number(a.home_fixed_sort ?? 1000) - Number(b.home_fixed_sort ?? 1000)) ||
+    String(b.created_at || '').localeCompare(String(a.created_at || ''))
+  );
+
+  heroSlides = activeSlides.map((s) => {
+    const b = bizMap.get(String(s.business_id)) || {};
+
+    return {
+      type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
+      title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
+      desc: b.category
+        ? `${b.category} · ${getRegionLabel(b.region || currentRegion)}`
+        : '홈 상단 슬라이드',
+      button: '상세 보기',
+      bg: s.promo_image_url || b.image_url || b.image || 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
+      bizId: String(b.id || s.business_id || ''),
+      video_url: s.video_url || ''
+    };
+  }).filter((s) => !!(s.bg || s.video_url));
+
+  if (!heroSlides.length) {
+    heroSlides = [
+      {
+        type: 'BANNER',
+        title: '추천 업소',
+        desc: '홈 상단 배너 영역입니다.',
+        button: '상세 보기',
+        bg: 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
+        bizId: '',
+        video_url: ''
+      }
+    ];
+  }
+
+  console.log('buildHeroSlides result =', heroSlides);
+}
+
+function routeFor(page){
+  const base = `${location.pathname}${location.search}`;
+  return page === 'home' ? base : `${base}#${page}`;
+}
+function setRoute(page){ history.replaceState(null,'', routeFor(page)); }
+function getRoute(){ return location.hash.replace('#','') || 'home'; }
+function getPageOrder(){ return ['home','business','coupon','map','saved']; }
+function getBiz(id){ return businesses.find(b=>String(b.id)===String(id)) || businesses[0]; }
+
+function isVerticalVideo(url){
+  const v = String(url || '').toLowerCase().trim();
+  if(!v) return false;
+  if(v.includes('instagram.com/reel/')) return true;
+  if(v.includes('instagram.com/p/')) return true;
+  if(v.includes('youtube.com/shorts/')) return true;
+  if(v.includes('facebook.com/reel/')) return true;
+  return false;
+}
+
+function getYouTubeEmbed(url){
+  const v = String(url || '').trim();
+  if(!v) return '';
+
+  let m = v.match(/youtube\.com\/shorts\/([^?&/]+)/i);
+  if(m) return `https://www.youtube.com/embed/${m[1]}`;
+
+  m = v.match(/[?&]v=([^?&/]+)/i);
+  if(m) return `https://www.youtube.com/embed/${m[1]}`;
+
+  m = v.match(/youtu\.be\/([^?&/]+)/i);
+  if(m) return `https://www.youtube.com/embed/${m[1]}`;
+
+  return '';
+}
+
+function getYouTubeEmbedUrl(url){
+  return getYouTubeEmbed(url);
+}
+
+function getFacebookEmbed(url){
+  const v = String(url || '').trim();
+  if(!/facebook\.com|fb\.watch/i.test(v)) return '';
+  if(/facebook\.com\/stories\//i.test(v)) return '';
+  return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v)}&show_text=false`;
+}
+
+function getFacebookEmbedUrl(url){
+  return getFacebookEmbed(url);
+}
+
+function getInstagramEmbed(url){
+  const v = String(url || '').trim();
+  if(!/instagram\.com/i.test(v)) return '';
+  return `${v.replace(/\/?$/, '/') }embed/`;
+}
+
+function getInstagramEmbedUrl(url){
+  return getInstagramEmbed(url);
+}
+
+function getSlideMediaHTML(slide){
+  const videoUrl = String(slide?.video_url || '').trim();
+  const bg = String(slide?.bg || '').trim();
+
+  if(!videoUrl){
+    return `<div class="hero-slide-bg" style="background-image:url('${esc(bg)}')"></div>`;
+  }
+
+  const verticalClass = isVerticalVideo(videoUrl) ? 'vertical' : 'horizontal';
+
+  const yt = getYouTubeEmbed(videoUrl);
+  if(yt){
+    return `
+      <div class="hero-media ${verticalClass}">
+        <iframe
+          src="${esc(yt)}"
+          title="youtube video"
+          loading="lazy"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen>
+        </iframe>
+      </div>
+    `;
+  }
+
+  const fb = getFacebookEmbed(videoUrl);
+  if(fb){
+    return `
+      <div class="hero-media ${verticalClass}">
+        <iframe
+          src="${esc(fb)}"
+          title="facebook video"
+          loading="lazy"
+          scrolling="no"
+          frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          allowfullscreen>
+        </iframe>
+      </div>
+    `;
+  }
+
+  const ig = getInstagramEmbed(videoUrl);
+  if(ig){
+    return `
+      <div class="hero-media ${verticalClass}">
+        <iframe
+          src="${esc(ig)}"
+          title="instagram video"
+          loading="lazy"
+          frameborder="0"
+          allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+          allowfullscreen>
+        </iframe>
+      </div>
+    `;
+  }
+
+  return `<div class="hero-slide-bg" style="background-image:url('${esc(bg)}')"></div>`;
+}
+
+function businessVideoHTML(b){
+  if(!b) return '';
+
+  const slide = (slideRows || []).find(s => String(s.business_id) === String(b.id));
+const video =
+  currentDetailVideoOverride ||
+  slide?.video_url ||
+  b.youtube_url ||
+  b.video_url ||
+  '';
+
+  if(!video) return '';
+
+  const yt = getYouTubeId(video);
+  if(yt){
+    const vertical = isVerticalVideo(video) ? 'vertical' : 'horizontal';
+
+    return `
+      <div class="detail-video ${vertical}">
+        <iframe
+          src="https://www.youtube.com/embed/${yt}?autoplay=1&mute=1&playsinline=1"
+          title="${esc(b.name || '')} 영상"
+          loading="lazy"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen>
+        </iframe>
+      </div>
+    `;
+  }
+
+  const videoUrl = normalizeUrl ? normalizeUrl(video) : video;
+  if(videoUrl){
+    return `
+      <div class="detail-video">
+        <video controls playsinline webkit-playsinline preload="metadata">
+          <source src="${esc(videoUrl)}">
+        </video>
+      </div>
+    `;
+  }
+
+  return '';
+}
+
+function badgeStackHTML(b, compact=true){
+  const arr=[];
+  if(b.video) arr.push(`<span class="badge purple${compact?' compact':''}">VIDEO</span>`);
+  if(b.coupon) arr.push(`<span class="badge orange${compact?' compact':''}">COUPON</span>`);
+  if(b.is_new) arr.push(`<span class="badge green${compact?' compact':''}">NEW</span>`);
+  if(b.featured) arr.push(`<span class="badge blue${compact?' compact':''}">추천</span>`);
+  if(b.is_popular) arr.push(`<span class="badge red${compact?' compact':''}">인기</span>`);
+  return arr.join('');
+}
+function miniCardHTML(b){
+  return `<button class="mini-card biz-open" data-biz="${esc(b.id)}"><div class="mini-image-wrap"><img class="mini-image" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="mini-badge-stack">${badgeStackHTML(b,true)}</div></div><div class="mini-name">${esc(b.name)}</div></button>`;
+}
+function listCardHTML(b){
+  return `<button class="list-card biz-open" data-biz="${esc(b.id)}"><img class="list-thumb" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="list-main"><h4>${esc(b.name)}</h4><p>${esc(b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
+}
+function formatDateLabel(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(Number.isNaN(d.getTime())) return String(v).slice(0,10);
+  return `${d.getMonth()+1}/${d.getDate()}까지`;
+}
+function formatPeriod(start, end){
+  const a = start ? formatDateLabel(start).replace('까지','') : '';
+  const b = end ? formatDateLabel(end).replace('까지','') : '';
+  return a && b ? `${a} ~ ${b}` : (b ? `${b}까지` : a);
+}
+function getCountdownParts(endAt){
+  const end = new Date(endAt).getTime();
+  if(!end || Number.isNaN(end)) return null;
+  let diff = end - Date.now();
+  if(diff < 0) diff = 0;
+  const sec = Math.floor(diff / 1000);
+  const days = Math.floor(sec / 86400);
+  const hours = Math.floor((sec % 86400) / 3600);
+  const mins = Math.floor((sec % 3600) / 60);
+  const secs = sec % 60;
+  return { days, hours, mins, secs, total: sec };
+}
+function countdownLabel(endAt, short=false){
+  const c = getCountdownParts(endAt);
+  if(!c) return '';
+  if(short){
+    if(c.days > 0) return `⏰ ${c.days}일 ${c.hours}시간 남음`;
+    return `⏰ ${String(c.hours).padStart(2,'0')}:${String(c.mins).padStart(2,'0')}:${String(c.secs).padStart(2,'0')}`;
+  }
+  if(c.days > 0) return `${c.days}일 ${c.hours}시간 ${c.mins}분`;
+  return `${String(c.hours).padStart(2,'0')}:${String(c.mins).padStart(2,'0')}:${String(c.secs).padStart(2,'0')}`;
+}
+function activeCoupons(list=coupons){
+  const now = Date.now();
+  return list.filter(c=>{
+    if(c.isActive === false) return false;
+    const startOk = !c.startAt || new Date(c.startAt).getTime() <= now;
+    const endOk = !c.endAt || new Date(c.endAt).getTime() >= now;
+    return startOk && endOk;
+  }).sort((a,b)=> (a.sortOrder||1000)-(b.sortOrder||1000) || (new Date(a.endAt||'2999-01-01') - new Date(b.endAt||'2999-01-01')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+}
+function todayCoupons(){
+  return activeCoupons(coupons).filter(c=>c.isToday);
+}
+function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
+function couponCardHTML(c, mode='all'){
+  const b=getBiz(c.businessId);
+  const img = c.imageUrl || b.image;
+  const timeLabel = mode==='today' ? countdownLabel(c.endAt, true) : formatDateLabel(c.endAt);
+  return `<article class="coupon-card card-skin"><div class="coupon-thumb-wrap"><img class="coupon-thumb" src="${esc(img)}" alt="${esc(c.title)}"></div><div class="coupon-main"><div class="coupon-title"><h4>${esc(c.title)}</h4><span class="badge orange">DEAL</span></div><p class="coupon-business">${esc(b.name)}</p><div class="coupon-expire">${esc(timeLabel)}</div><button class="action-btn business coupon-open" data-coupon="${esc(c.id)}">쿠폰 보기</button></div></article>`;
+}
+
+function boardListItemHTML(post){
+  const type = normalizeBoardType(post.type);
+  const summary = (post.content || '').replace(/\s+/g,' ').trim();
+  const thumb = post.image_url ? `<img class="board-row-thumb-img" src="${esc(post.image_url)}" alt="${esc(post.title)}">` : boardThumbEmoji(type);
+  return `<button class="board-row-btn" data-board-post="${esc(post.id)}"><span class="board-row-thumb">${thumb}</span><span class="board-row-copy"><strong>${esc(post.title)}</strong><span>${esc(summary || post.address || boardLabel(type))}</span></span></button>`;
+}
+function mapBottomItemHTML(b){
+  const miles = (b.lat != null && b.lng != null && currentCenter) ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
+  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  if(miles != null && Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
+  return `<button class="map-bottom-item" data-map-biz="${esc(b.id)}"><img class="map-bottom-thumb" src="${esc(b.image || 'assets/kfocus-logo.jpeg')}" alt="${esc(b.name)}"><span class="map-bottom-copy"><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span></span></button>`;
+}
+
+function renderMapBottomList(list){
+  if(!mapBottomList) return;
+  const rows = list || [];
+  mapBottomList.innerHTML = rows.length ? rows.map(mapBottomItemHTML).join('') : '<div class="map-bottom-empty">표시할 업소가 없습니다.</div>';
+  mapBottomPanel?.classList.toggle('hidden', !rows.length);
+  if(rows.length && mapMode === 'business') mapBottomPanel?.classList.remove('collapsed');
+}
+
+function nearbyBusinessItemHTML(b){
+  const base = currentCenter || getRegionCenter(currentRegion);
+  const miles = (b.lat != null && b.lng != null)
+    ? haversineMiles(Number(base.lat), Number(base.lng), Number(b.lat), Number(b.lng))
+    : null;
+
+  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  if(miles != null && Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
+
+  const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
+  const thumb = b.image || b.image_url || 'assets/kfocus-logo.jpeg';
+
+  return `
+    <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
+      <img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">
+      <div class="nearby-copy">
+        <strong>${esc(bizName)}</strong>
+        <span>${esc(meta.join(' · '))}</span>
+      </div>
+    </button>
+  `;
+}
+function renderHomeBoardSection(type='notice'){
+  selectedBoardType = type;
+  if(communityTabs){
+    $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.board===type));
+  }
+  const rows = boardPostsByType(type).slice(0,4);
+  if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
+  if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
+}
+function renderHome(){
+  renderHomeBoardSection(selectedBoardType || 'notice');
+  const featured = sortBusinessesByDistance(
+    businesses.filter(b=>b.featured)
+  )
+    .slice()
+    .sort((a,b)=>(Number(a.featured_rank ?? 1000) - Number(b.featured_rank ?? 1000)) || String(b.created_at||'').localeCompare(String(a.created_at||'')))
+    .slice(0,5);
+  if(homeFeaturedList) homeFeaturedList.innerHTML = featured.length ? featured.map(nearbyBusinessItemHTML).join('') : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
+  
+  // ⭐ 추천 업소 바로 아래에 추가
+
+// 🆕 신규 업소
+const newList = businesses
+  .filter(b => b.is_new)
+  .sort((a, b) =>
+    Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
+    String(b.created_at || '').localeCompare(String(a.created_at || ''))
+  )
+  .slice(0, 5);
+
+if (homeNewList) {
+  homeNewList.innerHTML = newList.length
+    ? newList.map(nearbyBusinessItemHTML).join('')
+    : `<div class="board-empty">등록된 신규 업소가 없습니다.</div>`;
+}
+
+
+// 🔥 인기 업소
+const popularList = businesses
+  .filter(b => b.is_popular)
+  .sort((a, b) =>
+    Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
+  )
+  .slice(0, 5);
+
+if (homePopularList) {
+  homePopularList.innerHTML = popularList.length
+    ? popularList.map(nearbyBusinessItemHTML).join('')
+    : `<div class="board-empty">등록된 인기 업소가 없습니다.</div>`;
+}
+  
+  const featuredIds = new Set(featured.map(b=>String(b.id)));
+  const nearby = businesses
+    .filter(b=>!featuredIds.has(String(b.id)) && b.lat != null && b.lng != null)
+    .slice()
+    .sort((a,b)=>haversineMiles(COLORADO_CENTER.lat, COLORADO_CENTER.lng, Number(a.lat), Number(a.lng)) - haversineMiles(COLORADO_CENTER.lat, COLORADO_CENTER.lng, Number(b.lat), Number(b.lng)))
+    .slice(0,6);
+  if(homeNearbyList) homeNearbyList.innerHTML = nearby.map(nearbyBusinessItemHTML).join('');
+}
+function renderBusinessList(){
+  const q = (businessSearch?.value || '').trim().toLowerCase();
+  const quick = businessQuickFilter || '';
+
+  const filtered = businesses.filter(b => {
+    const mainCat = getMainCategoryLabel(b.category_ko || b.category || b.name_ko || '');
+
+    if (quick && mainCat !== quick) return false;
+
+    if (q && !`${b.name} ${b.category || ''} ${b.category_ko || ''} ${b.address || ''} ${mainCat}`.toLowerCase().includes(q)) {
+      return false;
+    }
+
+    return true;
+  });
+
+  businessList.innerHTML = filtered.length
+    ? filtered.map(listCardHTML).join('')
+    : '<div class="board-empty">조건에 맞는 업소가 없습니다.</div>';
+}
+
+function renderCategories(){
+  const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  categoryRow.innerHTML = cats.map(c=>`<button class="category-chip ${c===businessQuickFilter?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+}
+
+function renderCoupons(){
+  if(!couponTodayList || !couponAllList) return;
+  const today = todayCoupons();
+  const all = activeCoupons(coupons);
+  couponTodayList.innerHTML = today.length ? today.map(c=>couponCardHTML(c,'today')).join('') : '<p class="empty">오늘 쿠폰이 없습니다.</p>';
+  couponAllList.innerHTML = all.length ? all.map(c=>couponCardHTML(c,'all')).join('') : '<p class="empty">등록된 쿠폰이 없습니다.</p>';
+  updateCouponTabUI();
+}
+function updateCouponTabUI(){
+  $$('.coupon-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.couponTab===couponViewTab));
+  couponTodayList?.classList.toggle('hidden', couponViewTab!=='today');
+  couponAllList?.classList.toggle('hidden', couponViewTab!=='all');
+}
+function renderDetail(id){
+  const b = businesses.find(v => String(v.id) === String(id)) || businesses[0];
+  if(!b || !detailCard) return;
+  selectedBizId = b.id;
+  const regionLabel = getRegionLabel(b.region || currentRegion);
+  const safeWebsite = normalizeUrl(b.website || '');
+  const safeEmail = (b.email || '').trim();
+  const phoneDigits = (b.phone||'').replace(/[^\d]/g,'');
+  const bizCoupons = activeCoupons(coupons).filter(c=>String(c.businessId)===String(b.id));
+  logBusinessActivity(b.id, 'view');
+  const videoHtml = businessVideoHTML(b);
+  const couponHtml = bizCoupons.length ? `<div class="detail-coupon-block"><h3 class="subsection-title">사용 가능한 쿠폰</h3><div class="detail-coupon-list">${bizCoupons.map(c=>`<button class="detail-coupon-item coupon-open" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(formatDateLabel(c.endAt))}</span></button>`).join('')}</div></div>` : '';
+  detailCard.innerHTML = `
+  ${videoHtml}
+  <div class="detail-top">
+    <img src="${esc(b.image)}" alt="${esc(b.name)}"><div class="detail-badges stack-badges">${badgeStackHTML(b,false)}</div></div><h2>${esc(b.name)}</h2><div class="detail-meta">${esc(b.category)} · ${esc(regionLabel)}</div><div class="detail-meta">${esc(b.address)}</div><p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p><div class="icon-actions"><a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a><a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a><a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>${safeWebsite?`<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>`:''}${safeEmail?`<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>`:''}</div>${couponHtml}`;
+}
+
+function renderCouponDetail(id){
+  const c = getCoupon(id);
+  if(!c || !couponDetailCard) return;
+  selectedCouponId = c.id;
+  const b = getBiz(c.businessId);
+  logBusinessActivity(c.businessId, 'coupon_view');
+  const img = c.imageUrl || b.image;
+  couponDetailCard.innerHTML = `<div class="detail-top coupon-top"><img src="${esc(img)}" alt="${esc(c.title)}"></div><h2>${esc(c.title)}</h2><div class="detail-meta">${esc(b.name)}</div><div class="detail-meta">기간 · ${esc(formatPeriod(c.startAt,c.endAt) || formatDateLabel(c.endAt))}</div><p class="detail-desc">${esc(c.description || '쿠폰 상세 정보입니다.')}</p><div class="coupon-countdown-box"><strong>⏰ 남은 시간</strong><span>${esc(countdownLabel(c.endAt,false) || '')}</span></div><button class="action-btn business coupon-use-open" data-coupon="${esc(c.id)}">쿠폰 사용하기</button><div class="coupon-detail-links"><button class="text-link biz-open" data-biz="${esc(b.id)}">업소 보기</button><a class="text-link" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank">지도 보기</a></div>`;
+}
+
+function renderCouponUse(id){
+  const c = getCoupon(id);
+  if(!c || !couponUseCard) return;
+  selectedCouponId = c.id;
+  const b = getBiz(c.businessId);
+  logBusinessActivity(c.businessId, 'coupon_use');
+  clearInterval(couponUseTimer);
+  let count = 10;
+  couponUseCard.innerHTML = `<div class="coupon-use-wrap"><div class="coupon-use-title">매장에서 이 화면을 보여주세요</div><div class="coupon-use-business">${esc(b.name)} · ${esc(c.title)}</div><div class="coupon-use-count" id="couponUseCount">10</div><div class="coupon-use-note">화면이 켜진 상태로 제시해 주세요.</div></div>`;
+  const countEl = document.getElementById('couponUseCount');
+  couponUseTimer = setInterval(()=>{ count -= 1; if(countEl) countEl.textContent = String(count); if(count <= 0){ clearInterval(couponUseTimer); } }, 1000);
+}
+
+function getYouTubeId(url) {
+  if (!url) return '';
+  const m = String(url).match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^&?/]+)/
+  );
+  return m ? m[1] : '';
+}
+
+function isVerticalVideo(url) {
+  const v = String(url || '').toLowerCase();
+  if (!v) return false;
+  if (v.includes('youtube.com/shorts/')) return true;
+  return false;
+}
+
+function getYouTubeThumb(url){
+  const id = getYouTubeId(url);
+  if(!id) return '';
+  return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+}
+
+function buildSlideVideoHTML(videoUrl, fallbackImage=''){
+  const yt = getYouTubeId(videoUrl);
+  const vertical = isVerticalVideo(videoUrl) ? 'vertical' : 'horizontal';
+
+  if(yt){
+    const thumb = getYouTubeThumb(videoUrl) || fallbackImage || '';
+
+    return `
+      <div class="hero-media ${vertical}" data-video-wrap="1" data-video-url="${videoUrl}">
+        <div class="hero-video-poster">
+          ${thumb ? `<img src="${thumb}" alt="video thumbnail">` : ''}
+          <button class="hero-video-play" type="button">▶</button>
+        </div>
+      </div>
+    `;
+  }
+
+  return '';
+}
+
+function renderHero(){
+  if(!heroTrack) return;
+
+  const total = Math.max((heroSlides || []).length, 1);
+
+  heroTrack.innerHTML = (heroSlides || []).map((s, idx) => {
+    const media = s.video_url
+  ? buildSlideVideoHTML(s.video_url, s.bg || '')
+  : getSlideMediaHTML(s);
+
+    return `
+      <article class="hero-slide" style="width:${100 / total}%" data-index="${idx}" data-biz="${esc(s.bizId || '')}" data-video="${esc(s.video_url || '')}">
+        ${media}
+        <div class="hero-slide-content">
+          <span class="hero-chip">${esc(s.type || 'BANNER')}</span>
+          <h2>${esc(s.title || '')}</h2>
+          <p>${esc(s.desc || '')}</p>
+          <a class="hero-cta hero-detail-open" href="#" data-biz="${esc(s.bizId || '')}" data-video="${esc(s.video_url || '')}">
+            ${esc(s.button || '상세 보기')}
+          </a>
+        </div>
+      </article>
+    `;
+  }).join('');
+
+  heroTrack.style.width = `${total * 100}%`;
+
+  if(heroDotsWrap){
+    heroDotsWrap.innerHTML = (heroSlides || []).map((_,i)=>`
+      <button class="dot ${i===slideIndex?'active':''}" data-slide="${i}" aria-label="slide ${i+1}"></button>
+    `).join('');
+  }
+}
+function setSlide(index, user=false){
+  const total = heroSlides.length || 1;
+  slideIndex = (index + total) % total;
+  const offset = (100 / total) * slideIndex;
+  if(heroTrack) heroTrack.style.transform = `translate3d(-${offset}%,0,0)`;
+  $$('.dot').forEach((d,i)=>d.classList.toggle('active', i===slideIndex));
+  if(user) restartAuto();
+}
+function restartAuto(){
+  clearInterval(autoTimer);
+  if((heroSlides.length || 0) <= 1) return;
+  autoTimer = setInterval(()=>setSlide(slideIndex+1), 3500);
+}
+function bindHeroSwipe(){
+  if(!heroViewport) return;
+  let sx=0, sy=0;
+  heroViewport.addEventListener('touchstart', e=>{ const t=e.touches[0]; sx=t.clientX; sy=t.clientY; clearInterval(autoTimer); }, {passive:true});
+  heroViewport.addEventListener('touchend', e=>{ const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy; if(Math.abs(dx)>28 && Math.abs(dx)>Math.abs(dy)) { setSlide(slideIndex + (dx<0?1:-1), true); } else { restartAuto(); } }, {passive:true});
+  heroDotsWrap?.addEventListener('click', e=>{ const btn=e.target.closest('.dot'); if(!btn) return; setSlide(Number(btn.dataset.slide), true); });
+  heroTrack?.addEventListener('click', e=>{
+	  // 🔥 이 블록 추가 (맨 위)
+  const playBtn = e.target.closest('.hero-video-play');
+  if(playBtn){
+    e.preventDefault();
+    e.stopPropagation();
+
+    const wrap = playBtn.closest('[data-video-wrap="1"]');
+    if(!wrap) return;
+
+    const videoUrl = wrap.dataset.videoUrl || '';
+    const yt = getYouTubeId(videoUrl);
+    const vertical = isVerticalVideo(videoUrl) ? 'vertical' : 'horizontal';
+
+    if(yt){
+      wrap.className = `hero-media ${vertical}`;
+      wrap.innerHTML = `
+        <iframe
+          src="https://www.youtube.com/embed/${yt}?autoplay=1&mute=1&playsinline=1&rel=0"
+          title="youtube video"
+          loading="lazy"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowfullscreen>
+        </iframe>
+      `;
+    }
+
+    return;
+  }
+
+    const cta = e.target.closest('.hero-detail-open');
+    if(cta){
+      e.preventDefault();
+      e.stopPropagation();
+      const bizId = cta.dataset.biz;
+      currentDetailVideoOverride = String(cta.dataset.video || '').trim();
+if(bizId){
+  renderDetail(bizId);
+  lastBasePage = currentPage;
+  showPage('business-detail');
+
+  if (currentDetailVideoOverride) {
+    setTimeout(() => openVideoModal(currentDetailVideoOverride), 250);
+  }
+}
+      return;
+    }
+
+    const slide=e.target.closest('.hero-slide');
+    if(!slide) return;
+    const bizId=slide.dataset.biz;
+    currentDetailVideoOverride = String(slide.dataset.video || '').trim();
+if(bizId){
+  renderDetail(bizId);
+  lastBasePage = currentPage;
+  showPage('business-detail');
+
+  if (currentDetailVideoOverride) {
+    setTimeout(() => openVideoModal(currentDetailVideoOverride), 250);
+  }
+}
+  });
+}
+
+function closeSideMenu(){ $('#sideMenu')?.classList.remove('open'); $('#sideOverlay')?.classList.remove('show'); }
+function openSideMenu(){ $('#sideMenu')?.classList.add('open'); $('#sideOverlay')?.classList.add('show'); }
+function renderBoardPage(type='notice', postId=null){
+  if(!boardTitle) return;
+  const rows = boardPostsByType(type);
+  const page = $('#page-board-detail .section-card');
+  if(postId){
+    const post = boardPosts.find(p=>String(p.id)===String(postId));
+    selectedBoardPost = post || null;
+    boardTitle.textContent = boardLabel(type);
+    const thumb = post?.image_url ? `<img class="board-detail-image" src="${esc(post.image_url)}" alt="${esc(post?.title || '게시판')}">` : '';
+    const contact = [post?.address, post?.phone].filter(Boolean).map(v=>`<div class="detail-meta">${esc(v)}</div>`).join('');
+    const phoneDigits = String(post?.phone || '').replace(/[^\d]/g,'');
+    const mapHref = post?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}` : '';
+    const linkedBiz = post?.business_id ? getBiz(post.business_id) : null;
+    const actionLinks = [
+      phoneDigits ? `<a class="action-btn call" href="tel:${phoneDigits}">전화하기</a>` : '',
+      mapHref ? `<a class="action-btn map" href="${mapHref}" target="_blank" rel="noopener">길찾기</a>` : '',
+      linkedBiz ? `<button class="action-btn business biz-open" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : ''
+    ].filter(Boolean).join('');
+    const linkedBizMeta = linkedBiz ? `<div class="detail-meta"><button class="text-link biz-open" data-biz="${esc(linkedBiz.id)}">연결 업소 · ${esc(linkedBiz.name)}</button></div>` : '';
+    page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(type))}</h3><div class="board-detail-block"><div class="board-detail-head"><span class="board-detail-emoji">${post?.image_url ? '' : boardThumbEmoji(type)}</span><div><h4>${esc(post?.title || '게시판')}</h4><p>${esc(post?.created_at || '')}</p></div></div>${thumb}${linkedBizMeta}${contact}<p class="board-detail-copy">${esc(post?.content || '')}</p>${actionLinks ? `<div class="action-buttons board-detail-actions">${actionLinks}</div>` : ''}<div class="board-detail-tools"><button class="text-link" id="boardBackToList">목록으로</button></div></div>`;
+    $('#boardBackToList')?.addEventListener('click', ()=>{ renderBoardPage(type); });
+    return;
+  }
+  selectedBoardType = type;
+  boardTitle.textContent = boardLabel(type);
+  page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(type))}</h3><div class="board-page-list">${rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`}</div>`;
+}
+function showBoard(board){ renderBoardPage(board); lastBasePage = currentPage;
+  showPage('board-detail'); }
+function openBoardPost(postId){
+  const post = boardPosts.find(p=>String(p.id)===String(postId));
+  const type = normalizeBoardType(post?.type || selectedBoardType || 'notice');
+  renderBoardPage(type, postId);
+  lastBasePage = currentPage;
+  showPage('board-detail');
+}
+function animatePageTransition(fromPage, toPage, direction='left') {
+  const fromEl = document.getElementById(`page-${fromPage}`);
+  const toEl = document.getElementById(`page-${toPage}`);
+  if (!fromEl || !toEl || fromEl===toEl) {
+    $$('.page').forEach(p=>p.classList.toggle('active', p.id===`page-${toPage}`));
+    return;
+  }
+  const outClass = direction === 'left' ? 'slide-out-left' : 'slide-out-right';
+  const inClass = direction === 'left' ? 'slide-in-right' : 'slide-in-left';
+  toEl.classList.add('active','page-animating',inClass);
+  fromEl.classList.add('page-animating',outClass);
+  requestAnimationFrame(()=>{
+    toEl.classList.add('slide-run');
+    fromEl.classList.add('slide-run');
+  });
+  const cleanup = () => {
+    fromEl.classList.remove('active','page-animating','slide-out-left','slide-out-right','slide-run');
+    toEl.classList.remove('page-animating','slide-in-left','slide-in-right','slide-run');
+  };
+  setTimeout(cleanup, 260);
+}
+
+function showPage(page, opts={}){
+  const prevPage = currentPage;
+  currentPage = page;
+  const order = getPageOrder();
+  const prevIdx = order.indexOf(prevPage);
+  const nextIdx = order.indexOf(page);
+  const direction = nextIdx >= 0 && prevIdx >= 0 && nextIdx > prevIdx ? 'left' : 'right';
+  if (prevPage !== page) animatePageTransition(prevPage, page, direction);
+  else $$('.page').forEach(p=>p.classList.toggle('active', p.id===`page-${page}`));
+  $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===page));
+  if (nextIdx >= 0) lastBasePage = page;
+  setRoute(page);
+  if(page==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
+  if(page !== 'business'){
+  businessQuickFilter = '';
+}
+  if(prevPage==='coupon-use' && page!=='coupon-use'){ clearInterval(couponUseTimer); }
+  if(page==='map'){
+    if(!mapReady) initGoogleMap();
+    if(map && window.google?.maps){
+      setTimeout(()=>{
+        google.maps.event.trigger(map,'resize');
+        map.setCenter(currentCenter || getRegionCenter(currentRegion));
+        map.setZoom(milesToZoom(mapRadius));
+        redrawMapMarkers();
+      }, 220);
+    }
+  }
+  closeSideMenu();
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+function initPageSwipe(){
+  let sx=0, sy=0, active=false, moved=false;
+  const shouldIgnoreTarget = (target) => !!target.closest('#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, .map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, #page-map, #googleMap, .gm-style, .gm-style *, #categoryRow, .category-row, .category-chip, #communityTabs, .community-tab, #couponTabs, .coupon-tab');
+  document.addEventListener('touchstart', e=>{
+    if(shouldIgnoreTarget(e.target)) return;
+    const t=e.touches[0];
+    sx=t.clientX; sy=t.clientY; active=true; moved=false;
+  }, {passive:true, capture:true});
+  document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-nav="business"]');
+  if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  businessQuickFilter = String(btn.dataset.filter || '').trim();
+  showPage('business');
+  renderBusinessList();
+});
+  document.addEventListener('touchmove', e=>{
+    if(!active) return;
+    const t=e.touches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
+    if(Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy)) moved=true;
+    if(moved && currentPage==='map') e.preventDefault();
+  }, {passive:false, capture:true});
+  document.addEventListener('touchend', e=>{
+    if(!active) return; active=false;
+    const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
+    if(Math.abs(dx) < 54 || Math.abs(dx) < Math.abs(dy)) return;
+    const basePage = getPageOrder().includes(currentPage) ? currentPage : lastBasePage;
+    const order=getPageOrder(); const idx=order.indexOf(basePage); if(idx===-1) return;
+    suppressCardClickUntil = Date.now() + 450;
+    if(dx<0 && idx<order.length-1) showPage(order[idx+1]);
+    if(dx>0 && idx>0) showPage(order[idx-1]);
+  }, {passive:true, capture:true});
+  document.getElementById('videoModalClose')?.addEventListener('click', closeVideoModal);
+document.getElementById('videoModalBackdrop')?.addEventListener('click', closeVideoModal);
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape') closeVideoModal();
+});
+}
+
+let mapInfoWindow = null;
+
+window.openBusinessFromMap = function(id){
+  renderDetail(id);
+  lastBasePage = currentPage;
+  showPage('business-detail');
+  return false;
+};
+
+window.openCouponFromMap = function(businessId){
+  const c = activeMapCoupons().find(v=>String(v.businessId)===String(businessId));
+  if(!c) return false;
+  renderCouponDetail(c.id);
+  lastBasePage = currentPage;
+  showPage('coupon-detail');
+  return false;
+};
+
+function openAdminLoginModal(){
+  closeSideMenu();
+  const modal = $('#adminLoginModal');
+  if(!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+  const email = $('#adminLoginEmail');
+  if(email) setTimeout(()=>email.focus(), 30);
+}
+function openAdminLoginModalFromQuery(){
+  const shouldOpen = sessionStorage.getItem('adminLogin') === '1';
+  if(shouldOpen){
+    sessionStorage.removeItem('adminLogin');
+    setTimeout(() => {
+      openAdminLoginModal();
+    }, 500);
+  }
+}
+
+function closeAdminLoginModal(){
+  const modal = $('#adminLoginModal');
+  if(!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+async function handleAdminLogin(){
+  const supabase = window.supabaseClient;
+
+  if (!supabase) {
+    alert('Supabase 연결이 준비되지 않았습니다.');
+    console.error('window.supabaseClient is undefined');
+    return;
+  }
+
+  const email = ($('#adminLoginEmail')?.value || '').trim().toLowerCase();
+  const password = ($('#adminLoginPassword')?.value || '').trim();
+
+  if(!email || !password){
+    alert('이메일과 비밀번호를 입력해 주세요.');
+    return;
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if(error){
+    alert('로그인 실패: ' + error.message);
+    return;
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('role, area')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    alert('관리자 정보 조회 실패: ' + profileError.message);
+    console.error(profileError);
+    return;
+  }
+
+  if(!profile || !['super_admin','regional_editor'].includes(profile.role)){
+    alert('관리자 권한이 없습니다.');
+    await supabase.auth.signOut();
+    return;
+  }
+
+  closeAdminLoginModal();
+  window.location.href = 'admin/index.html';
+}
+
+
+function ensureMarkerClusterer(cb){
+  if(window.markerClusterer?.MarkerClusterer){ markerClusterReady = true; cb && cb(); return; }
+  const existing = document.getElementById('markerclusterer-script');
+  if(existing){
+    existing.addEventListener('load', ()=>{ markerClusterReady = !!window.markerClusterer?.MarkerClusterer; cb && cb(); }, { once:true });
+    return;
+  }
+  const s = document.createElement('script');
+  s.id = 'markerclusterer-script';
+  s.src = 'https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js';
+  s.async = true;
+  s.onload = ()=>{ markerClusterReady = !!window.markerClusterer?.MarkerClusterer; cb && cb(); };
+  document.head.appendChild(s);
+}
+
+function getFilteredMapBusinesses(){
+  let list = businesses.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  if(mapMode==='coupon'){
+    const couponBizIds = new Set(activeMapCoupons().map(c=>String(c.businessId)));
+    list = list.filter(b=>couponBizIds.has(String(b.id)));
+  } else if(mapMode==='event'){
+    list = [];
+  } else if(mapCategory){
+    list = list.filter(b=>getMainCategoryLabel(b.category)===mapCategory);
+  }
+  if(mapSearchQuery){
+    list = list.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)]));
+  }
+  return list;
+}
+
+function createInfoWindowContent(b){
+  const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
+  const thumb = b.image || 'assets/kfocus-logo.jpeg';
+  const badges = [hasCoupon ? '<span class=\"map-iw-badge deal\">🎟 할인</span>' : '', b.video ? '<span class=\"map-iw-badge video\">🎥 영상</span>' : '', b.has_event ? '<span class=\"map-iw-badge event\">🎉 행사</span>' : ''].filter(Boolean).join('');
+  return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
+}
+
+
+function haversineMiles(lat1,lng1,lat2,lng2){ const toRad=v=>v*Math.PI/180; const R=3958.8; const dLat=toRad(lat2-lat1); const dLng=toRad(lng2-lng1); const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(a)); }
+
+function sortBusinessesByDistance(list){
+  if (!Array.isArray(list)) return [];
+  if (!currentCenter || !Number.isFinite(Number(currentCenter.lat)) || !Number.isFinite(Number(currentCenter.lng))) {
+    return list.slice();
+  }
+
+  return list.slice().sort((a, b) => {
+    const aHas = Number.isFinite(Number(a.lat)) && Number.isFinite(Number(a.lng));
+    const bHas = Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng));
+
+    if (!aHas && !bHas) return 0;
+    if (!aHas) return 1;
+    if (!bHas) return -1;
+
+    const da = haversineMiles(Number(currentCenter.lat), Number(currentCenter.lng), Number(a.lat), Number(a.lng));
+    const db = haversineMiles(Number(currentCenter.lat), Number(currentCenter.lng), Number(b.lat), Number(b.lng));
+
+    return da - db;
+  });
+}
+
+
+function getMapVerticalOffsetLat(lat, pixels = 190){
+  if(!map) return 0;
+  const zoom = map.getZoom() || 14;
+  const metersPerPixel = 156543.03392 * Math.cos((Number(lat) || 0) * Math.PI / 180) / Math.pow(2, zoom);
+  const offsetMeters = pixels * metersPerPixel;
+  return offsetMeters / 111320;
+}
+
+function panMapForVisibleInfo(lat, lng){
+  if(!map) return;
+  const adjusted = { lat: Number(lat) + getMapVerticalOffsetLat(lat), lng: Number(lng) };
+  map.panTo(adjusted);
+  currentCenter = adjusted;
+}
+
+function focusMapOnBusinesses(list){
+  if(!map || !window.google?.maps || !Array.isArray(list) || !list.length) return;
+  const valid = list.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  if(!valid.length) return;
+  if(valid.length === 1){
+    const b = valid[0];
+    const pos = { lat:Number(b.lat), lng:Number(b.lng) };
+    map.setZoom(Math.max(map.getZoom() || 12, 14));
+    panMapForVisibleInfo(pos.lat, pos.lng);
+    if(mapInfoWindow){
+      mapInfoWindow.setContent(createInfoWindowContent(b));
+      mapInfoWindow.setPosition(pos);
+      mapInfoWindow.open({ map, shouldFocus:false });
+    }
+    return;
+  }
+  const bounds = new google.maps.LatLngBounds();
+  valid.forEach(b=>bounds.extend({ lat:Number(b.lat), lng:Number(b.lng) }));
+  map.fitBounds(bounds, { top: 220, right: 48, bottom: 96, left: 48 });
+}
+
+
+function getMarkerIconForBusiness(b){
+  if(mapMode==='event' || b.has_event) return 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
+  if(mapMode==='coupon' || activeMapCoupons().some(c=>String(c.businessId)===String(b.id))) return 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png';
+  return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
+}
+
+function redrawMapMarkers(){
+  if(!map || !window.google?.maps) return;
+  if(markerCluster){ markerCluster.setMap(null); markerCluster = null; }
+  markers.forEach(m=>m.setMap(null));
+  markers = [];
+  const list = getFilteredMapBusinesses();
+  const focus = currentCenter || getRegionCenter(currentRegion);
+  const radiusMiles = String(mapRadius)==='all' ? null : Number(mapRadius || radiusByZoom(map?.getZoom?.() || 12));
+  const filtered = !radiusMiles ? list : list.filter(b=>{
+    const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
+    return miles <= radiusMiles;
+  });
+  const finalList = filtered.length ? filtered : (mapMode==='event' ? [] : list.slice(0,60));
+  finalList.forEach(b=>{
+    const lat = Number(b.lat); const lng = Number(b.lng);
+    const icon = getMarkerIconForBusiness(b);
+    const marker = new google.maps.Marker({ position:{lat, lng}, title:b.name, icon });
+    marker.addListener('click', ()=>{
+      panMapForVisibleInfo(lat, lng);
+      mapInfoWindow.setContent(createInfoWindowContent({...b, lat, lng}));
+      mapInfoWindow.open({ anchor: marker, map, shouldFocus:false });
+    });
+    markers.push(marker);
+  });
+  if(window.markerClusterer?.MarkerClusterer && markers.length > 12){
+    markerCluster = new window.markerClusterer.MarkerClusterer({ map, markers });
+  } else {
+    markers.forEach(m=>m.setMap(map));
+  }
+  if(mapSearchQuery && finalList.length){
+    focusMapOnBusinesses(finalList);
+  }
+  const sortedFinalList = sortBusinessesByDistance(finalList);
+  renderMapBottomList(sortedFinalList);
+  if(mapNotice){
+    if(mapMode==='event') mapNotice.textContent = ''; //등록된 행사 지도가 아직 없습니다.
+    else if(mapSearchQuery && finalList.length) mapNotice.textContent = `검색 결과 ${finalList.length}곳`;
+    else mapNotice.textContent = finalList.length ? '' : (mapSearchQuery ? '검색 결과가 없습니다.' : '이 반경에 표시할 업소가 없습니다.');
+    mapNotice.classList.toggle('hidden', !mapNotice.textContent);
+  }
+}
+
+function initGoogleMap(){
+  if(mapReady) return;
+  const key = getConfig().GOOGLE_MAPS_API_KEY;
+  if(!key){ mapNotice.textContent = 'config.js에 GOOGLE_MAPS_API_KEY를 넣으면 실제 Google 지도가 표시됩니다.'; mapNotice.classList.remove('hidden'); $('#googleMap').innerHTML = '<div class="map-fallback">지도 API 키가 없어 안내 화면만 표시합니다.</div>'; return; }
+  mapNotice.textContent = '지도를 불러오는 중입니다…';
+  mapNotice.classList.remove('hidden');
+  window.__kfocusInitMap = () => {
+    map = new google.maps.Map($('#googleMap'), { center:getRegionCenter(currentRegion), zoom:12, gestureHandling:'cooperative', streetViewControl:false, mapTypeControl:false, fullscreenControl:false });
+    ensureMarkerClusterer(()=>{ if(mapReady) redrawMapMarkers(); });
+    mapReady = true;
+    mapInfoWindow = new google.maps.InfoWindow();
+    currentCenter = getRegionCenter(currentRegion);
+    map.addListener('center_changed', ()=>{ const c = map.getCenter(); if(c) currentCenter = {lat:c.lat(), lng:c.lng()}; mapDirty = true; mapSearchAreaBtn?.classList.remove('hidden'); });
+    map.addListener('zoom_changed', ()=>{ mapRadius = radiusByZoom(map.getZoom() || 12); mapDirty = true; mapSearchAreaBtn?.classList.remove('hidden'); });
+    const applyCenter = () => {
+      if(TEST_FORCE_CENTER || !navigator.geolocation){
+        currentCenter = getRegionCenter(currentRegion);
+        map.setCenter(getRegionCenter(currentRegion));
+        map.setZoom(milesToZoom(mapRadius));
+        redrawMapMarkers();
+        mapNotice.classList.add('hidden');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition((pos)=>{
+        currentCenter = {lat:pos.coords.latitude, lng:pos.coords.longitude};
+        persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
+        map.setCenter(currentCenter);
+        map.setZoom(milesToZoom(mapRadius));
+        redrawMapMarkers();
+        mapNotice.classList.add('hidden');
+      }, ()=>{
+        currentCenter = getRegionCenter(currentRegion);
+        map.setCenter(getRegionCenter(currentRegion));
+        map.setZoom(milesToZoom(mapRadius));
+        redrawMapMarkers();
+        mapNotice.classList.add('hidden');
+      }, {enableHighAccuracy:true, timeout:6000, maximumAge:300000});
+    };
+    requestAnimationFrame(()=>{
+      setTimeout(()=>{
+        google.maps.event.trigger(map,'resize');
+        applyCenter();
+      }, 240);
+    });
+  };
+  if(!document.getElementById('gmap-script')){
+    const s=document.createElement('script'); s.id='gmap-script'; s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__kfocusInitMap`; s.async=true; document.head.appendChild(s);
+  } else if(window.google?.maps){ window.__kfocusInitMap(); }
+}
+
+function bindEvents(){
+  $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
+  $('#homeBrand')?.addEventListener('click', ()=>showPage('home'));
+  $$('.nav-item').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
+  $('#menuBtn')?.addEventListener('click', openSideMenu); $('#sideClose')?.addEventListener('click', closeSideMenu); $('#sideOverlay')?.addEventListener('click', closeSideMenu);
+  $('#sideRegionPicker')?.addEventListener('click', ()=>{ closeSideMenu(); openRegionPicker(); });
+  $('#adminLoginBackdrop')?.addEventListener('click', closeAdminLoginModal);
+  $('#adminLoginClose')?.addEventListener('click', closeAdminLoginModal);
+  $('#adminLoginSubmit')?.addEventListener('click', handleAdminLogin);
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSideMenu(); });
+  $$('.side-link[data-nav], .text-link[data-nav]').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
+  $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
+  communityTabs?.addEventListener('click', e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; renderHomeBoardSection(btn.dataset.board || 'notice'); });
+  homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
+  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
+  showPage('business-detail'); });
+  document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
+  categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
+  businessSearch?.addEventListener('input', renderBusinessList);
+  globalSearchInput?.addEventListener('input', ()=>{ clearTimeout(searchDebounce); searchDebounce = setTimeout(()=>renderSearchResults(globalSearchInput.value), 220); });
+  searchCloseBtn?.addEventListener('click', closeSearchOverlay);
+  searchClearBtn?.addEventListener('click', ()=>{ if(globalSearchInput){ globalSearchInput.value=''; renderSearchResults(''); globalSearchInput.focus(); } });
+  searchOverlay?.addEventListener('click', e=>{ if(e.target === searchOverlay) closeSearchOverlay(); });
+  recentSearches?.addEventListener('click', e=>{ const btn=e.target.closest('[data-recent-search]'); if(!btn || !globalSearchInput) return; globalSearchInput.value = btn.dataset.recentSearch || ''; renderSearchResults(globalSearchInput.value); globalSearchInput.focus(); });
+  searchResults?.addEventListener('click', e=>{
+    const bizBtn = e.target.closest('[data-search-type="business"]');
+    if(bizBtn){ const id = bizBtn.dataset.biz; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); renderDetail(id); lastBasePage = currentPage; showPage('business-detail'); return; }
+    const couponBtn = e.target.closest('[data-search-type="coupon"]');
+    if(couponBtn){ const id = couponBtn.dataset.coupon; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); renderCouponDetail(id); lastBasePage = currentPage; showPage('coupon-detail'); return; }
+    const boardBtn = e.target.closest('[data-search-type="board"]');
+    if(boardBtn){ const key = boardBtn.dataset.boardResult || 'notice'; boardTitle.textContent = boardBtn.dataset.boardTitle || '게시판'; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); lastBasePage = currentPage; showPage('board-detail'); return; }
+  });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSearchOverlay(); });
+  mapSearchInput?.addEventListener('input', ()=>{ mapSearchQuery = (mapSearchInput.value || '').trim(); if(mapReady) redrawMapMarkers(); });
+  mapSearchInput?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); mapSearchInput.blur(); if(mapReady) redrawMapMarkers(); } });
+  $('#couponTabs')?.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-tab'); if(!btn) return; couponViewTab = btn.dataset.couponTab || 'today'; updateCouponTabUI(); });
+  document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
+  document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-use-open'); if(!btn) return; e.preventDefault(); renderCouponUse(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-use'); });
+  document.addEventListener('click', e=>{ const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call'); const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction'); });
+  mapFilterRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-filter-chip'); if(!btn) return; mapMode = btn.dataset.mapFilter || 'business'; if(mapMode!=='business') mapCategory=''; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
+  mapCategoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-category-chip'); if(!btn) return; mapCategory = btn.dataset.mapCat || '전체'; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
+  mapSearchAreaBtn?.addEventListener('click', ()=>{ if(!mapReady) return; mapRadius = radiusByZoom(map.getZoom() || 12); redrawMapMarkers(); mapDirty = false; mapSearchAreaBtn.classList.add('hidden'); });
+  mapLocateBtn?.addEventListener('click', ()=>{ if(!mapReady || !navigator.geolocation) return; navigator.geolocation.getCurrentPosition((pos)=>{ currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude }; persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng)); map.setCenter(currentCenter); const zoom = Math.max(map.getZoom() || 12, 13); map.setZoom(zoom); mapRadius = radiusByZoom(zoom); redrawMapMarkers(); mapDirty = false; mapSearchAreaBtn?.classList.add('hidden'); }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 }); });
+  mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapForVisibleInfo(pos.lat, pos.lng); if(mapInfoWindow){ mapInfoWindow.setContent(createInfoWindowContent(biz)); mapInfoWindow.setPosition(pos); mapInfoWindow.open({ map, shouldFocus:false }); }
+  mapBottomPanel?.classList.add('collapsed'); });
+  mapBottomClose?.addEventListener('click', ()=> mapBottomPanel?.classList.add('collapsed'));
+  mapBottomPanel?.addEventListener('click', (e)=>{
+    if(e.target === mapBottomPanel || e.target.closest('.map-bottom-head strong')) mapBottomPanel.classList.toggle('collapsed');
+  });
+  window.addEventListener('hashchange', ()=>showPage(getRoute()));
+}
+
+function openVideoModal(videoUrl){
+  const modal = document.getElementById('videoModal');
+  const body = document.getElementById('videoModalBody');
+  if(!modal || !body || !videoUrl) return;
+
+  const yt = getYouTubeId(videoUrl);
+  const vertical = isVerticalVideo(videoUrl) ? 'vertical' : '';
+
+  if(yt){
+    body.className = `video-modal-body ${vertical}`;
+    body.innerHTML = `
+      <iframe
+        src="https://www.youtube.com/embed/${yt}?autoplay=1&mute=1&playsinline=1"
+        allow="autoplay; encrypted-media"
+        allowfullscreen>
+      </iframe>
+    `;
+  }
+
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeVideoModal(){
+  const modal = document.getElementById('videoModal');
+  const body = document.getElementById('videoModalBody');
+  if(!modal || !body) return;
+
+  body.innerHTML = '';
+  modal.classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+async function init(){
+  await detectInitialRegion();
+
+  // ⭐ 여기 추가 (이 위치가 핵심)
+const region = localStorage.getItem('region');
+if (region && window.OneSignalDeferred) {
+  OneSignalDeferred.push(async function (OneSignal) {
+    await OneSignal.User.addTag("region", region);
+  });
+}
+
+  await loadRealData();
+  updateTopRegionLabel();
+  renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initPageSwipe();
+  openAdminLoginModalFromQuery();
+  showPage(getRoute());
+  initRegionPicker();
+}
+init();
+
+
+function setMapPageMode(isMap) {
+  document.body.classList.toggle('map-page-open', !!isMap);
+  document.documentElement.classList.toggle('map-page-open', !!isMap);
+
+  setTimeout(() => {
+    window.dispatchEvent(new Event('resize'));
+    if (window.google?.maps?.event && window.map) {
+      window.google.maps.event.trigger(window.map, 'resize');
+    }
+  }, 200);
+}
+
+
+document.addEventListener('click', (e) => {
+  const nav = e.target.closest('[data-nav]');
+  if (!nav) return;
+  const page = nav.getAttribute('data-nav');
+  setMapPageMode(page === 'map');
+});
+function requestPush() {
+  window.OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.Notifications.requestPermission();
+
+    console.log('permission:', OneSignal.Notifications.permission);
+    console.log('optedIn:', OneSignal.User.PushSubscription.optedIn);
+  });
+}
+
+window.openBusinessMapCard = function(id){
+  const biz = (typeof getBiz === 'function' ? getBiz(id) : null) || (Array.isArray(businesses) ? businesses.find(v => String(v.id) === String(id)) : null);
+  if(!biz) return false;
+
+  currentDetailVideoOverride = '';
+  mapMode = 'business';
+  mapSearchQuery = '';
+  selectedBizId = biz.id;
+
+  if (biz.region) {
+    persistRegion(biz.region);
+  }
+
+  lastBasePage = currentPage;
+  if (typeof setMapPageMode === 'function') setMapPageMode(true);
+  showPage('map');
+
+  setTimeout(() => {
+    if (!mapReady && typeof initGoogleMap === 'function') initGoogleMap();
+
+    const lat = Number(biz.lat);
+    const lng = Number(biz.lng);
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      currentCenter = { lat, lng };
+
+      if (map && window.google?.maps) {
+        map.setZoom(Math.max(map.getZoom() || 12, 14));
+        panMapForVisibleInfo(lat, lng);
+
+        if (typeof redrawMapMarkers === 'function') {
+          redrawMapMarkers();
+        }
+
+        if (typeof mapInfoWindow !== 'undefined' && mapInfoWindow) {
+          mapInfoWindow.setContent(createInfoWindowContent({ ...biz, lat, lng }));
+          mapInfoWindow.setPosition({ lat, lng });
+          mapInfoWindow.open({ map, shouldFocus:false });
+        }
+      }
+    }
+
+    if (typeof renderMapBottomList === 'function') {
+      renderMapBottomList([biz]);
+    }
+    mapBottomPanel?.classList.remove('hidden');
+    mapBottomPanel?.classList.remove('collapsed');
+  }, 320);
+
+  return false;
+};
+
+
+// ===== REGION PICKER =====
+function openRegionPicker(){
+  const modal = document.getElementById('regionPickerModal');
+  if(!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeRegionPicker(){
+  const modal = document.getElementById('regionPickerModal');
+  if(!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+}
+
+function updateRegionPickerLabels(){
+  const r = localStorage.getItem('region') || 'dallas';
+  const label = r === 'colorado' ? 'Denver Metro' : 'Dallas–Fort Worth';
+  const side = document.getElementById('sideCurrentRegionLabel');
+  if(side) side.textContent = label;
+}
+
+function initRegionPicker(){
+  const saved = localStorage.getItem('region');
+
+  if(!saved){
+    setTimeout(()=>openRegionPicker(), 300);
+  }
+
+  updateRegionPickerLabels();
+
+  document.querySelectorAll('[data-region]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      localStorage.setItem('region', btn.dataset.region);
+      updateRegionPickerLabels();
+      closeRegionPicker();
+      location.reload();
+    });
+  });
+}

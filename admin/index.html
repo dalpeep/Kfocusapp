@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kfocus Admin+</title>
+  <link rel="stylesheet" href="assets/admin.css" />
+  <script src="../config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="assets/admin.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">K</div>
+        <div>
+          <div class="brand-title">Kfocus Admin</div>
+          <div class="brand-sub">Colorado</div>
+        </div>
+      </div>
+
+      <nav class="nav" id="adminNav">
+        <button class="nav-item active" data-section="business">업소 관리</button>
+        <button class="nav-item" data-section="coupon">쿠폰 관리</button>
+        <button class="nav-item" data-section="slide">슬라이드 관리</button>
+        <button class="nav-item" data-section="board">게시판 관리</button>
+		<button class="nav-item" data-section="banners">배너 관리</button>
+      </nav>
+
+      <div class="sidebar-note">
+        <b>실데이터 관리자</b><br/>
+        업소 / 쿠폰 / 슬라이드 / 게시판을 한 곳에서 관리합니다.
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">업소 관리자</h1>
+          <p class="muted" id="pageDesc">Colorado 업소를 조회하고 수정/추가할 수 있습니다.</p>
+        </div>
+        <div class="topbar-actions">
+          		 <div class="admin-home-links">
+             <button type="button" id="openDallasHome" class="btn ghost">Dallas 홈 보기</button>
+             <button type="button" id="openColoradoHome" class="btn ghost">Colorado 홈 보기</button>
+         </div>
+          <button class="btn ghost" type="button" onclick="window.adminLogout && window.adminLogout()">로그아웃</button>
+          <span id="statusPill" class="pill">연결 대기</span>
+          <button id="refreshBtn" class="btn ghost">새로고침</button>
+        </div>
+      </header>
+	  <section id="adminUserSection" class="admin-section">
+  <h3>관리자 계정 관리 (Super Admin)</h3>
+
+  <div class="admin-user-form">
+    <input id="adminEmailInput" placeholder="이메일 입력">
+
+    <select id="adminRoleSelect">
+      <option value="regional_editor">지역 관리자</option>
+      <option value="super_admin">슈퍼 관리자</option>
+      <option value="">권한 없음</option>
+    </select>
+
+    <select id="adminAreaSelect">
+      <option value="dallas">Dallas</option>
+      <option value="colorado">Denver</option>
+      <option value="all">전체</option>
+    </select>
+
+    <button id="saveAdminUserBtn">저장</button>
+  </div>
+</section>
+      <section id="section-business" class="admin-section active-section">
+        <section class="toolbar card">
+          <div class="toolbar-row">
+            <label class="field compact"><span>검색</span><input id="searchInput" type="text" placeholder="업소명, 카테고리, 지역" /></label>
+            <label class="field compact"><span>지역</span><select id="regionFilter"><option value="colorado">colorado</option><option value="all">all</option><option value="dallas">dallas</option></select></label>
+            <label class="field compact"><span>업종</span><select id="categoryFilter"><option value="all">전체</option></select></label>
+            <label class="field compact checkbox-line slim-check"><input id="activeOnly" type="checkbox" checked /><span>활성 업소만</span></label>
+            <label class="field compact"><span>빠른 보기</span><select id="businessQuickFilter"><option value="all">전체</option><option value="featured">추천 업소만</option><option value="event">이벤트 중 업소만</option><option value="slide">슬라이드 중 업소만</option><option value="coupon">쿠폰 있는 업소만</option></select></label>
+            <button id="newBtn" class="btn primary inline-btn" type="button">새 업소</button>
+          </div>
+        </section>
+
+        <section class="layout">
+          <div class="list-panel card">
+            <div class="panel-head"><h2>업소 목록</h2><span id="countText" class="muted">0개</span></div>
+            <div class="tiny muted admin-hub-note">각 업소에서 쿠폰 / 슬라이드 / 이벤트 관리 화면으로 바로 이동할 수 있습니다.</div>
+			
+       <!-- === KFOCUS ADMIN STATS UI === -->
+         
+		 <h2>업소 목록</h2>
+		 	 
+		 <!-- ⭐ KPI 먼저 -->
+         <div id="statsSummary" style="margin-bottom:12px;"></div>
+		 
+		 <!-- ⭐ 그 다음 필터 -->
+		 <div style="margin:8px 0; display:flex; gap:8px;">
+          <button class="stat-filter active" data-range="all">전체</button>
+          <button class="stat-filter" data-range="7">7일</button>
+          <button class="stat-filter" data-range="30">30일</button>
+		 </div>
+		  
+		 <!-- ⭐ TOP --> 
+         <div id="topStats" style="margin-bottom:15px;"></div>
+		 
+		 <!-- ⭐ 리스트 -->
+          <div id="businessList" class="business-list"></div>
+          </div>
+          <div class="form-panel card">
+            <div class="panel-head">
+              <h2 id="formTitle">업소 정보</h2>
+              <div class="head-actions">
+                <button id="geocodeBtn" class="btn ghost" type="button">주소→좌표</button>
+                <button id="bulkGeocodeBtn" class="btn ghost" type="button">좌표 일괄 생성</button>
+                <button id="openMapBtn" class="btn ghost" type="button">지도 검색</button>
+                <button id="deleteBtn" class="btn danger" type="button">삭제</button>
+                <button id="saveBtn" class="btn primary" type="button">저장</button>
+              </div>
+            </div>
+
+            <form id="businessForm" class="form-grid">
+              <input type="hidden" id="id" />
+              <label class="field"><span>업소명(한글)</span><input id="name_ko" type="text" /></label>
+              <label class="field"><span>업소명(영문)</span><input id="name_en" type="text" /></label>
+              <label class="field"><span>카테고리(한글)</span><input id="category_ko" type="text" list="categoryOptions" placeholder="기존 업종 선택 또는 새 업종 입력" /><datalist id="categoryOptions"></datalist></label>
+              <label class="field"><span>지역(area)</span><input id="area" type="text" placeholder="Aurora, Denver" /></label>
+              <label class="field"><span>region</span><select id="region"><option value="colorado">colorado</option><option value="dallas">dallas</option></select></label>
+              <label class="field"><span>전화번호</span><input id="phone" type="text" /></label>
+              <label class="field"><span>웹사이트 주소 (선택)</span><input id="website" type="url" placeholder="https://example.com" /></label>
+              <label class="field"><span>이메일 주소 (선택)</span><input id="email" type="email" placeholder="name@example.com" /></label>
+              <label class="field full"><span>주소</span><input id="address" type="text" /></label>
+              <label class="field full"><span>설명</span><textarea id="description" rows="4"></textarea></label>
+              <label class="field full"><span>대표 이미지 URL</span><input id="image_url" type="url" /></label>
+              <div class="field full upload-block">
+                <span>대표 이미지 업로드</span>
+                <div class="upload-row">
+                  <input id="imageFile" type="file" accept="image/*" />
+                  <button id="uploadImageBtn" class="btn ghost" type="button">이미지 업로드</button>
+                  <button id="clearImageBtn" class="btn danger" type="button">이미지 삭제</button>
+                </div>
+                <div id="uploadHint" class="tiny muted">업로드하면 image_url에 자동 반영됩니다.</div>
+              </div>
+
+              <div class="field full upload-block">
+                <span>갤러리 이미지 업로드</span>
+                <div class="upload-row">
+                  <input id="galleryFiles" type="file" accept="image/*" multiple />
+                  <button id="uploadGalleryBtn" class="btn ghost" type="button">갤러리 업로드</button>
+                </div>
+				<div class="field full upload-block">
+                <span>갤러리 이미지 URL 추가</span>
+
+                <textarea
+                id="galleryUrlInput"
+                rows="4"
+                placeholder="한 줄에 하나씩 입력
+                https://image1.jpg
+                https://image2.png"
+                ></textarea>
+
+               <div class="upload-row">
+               <button id="galleryUrlSaveBtn" class="btn ghost" type="button">URL 추가</button>
+               <button id="galleryUrlClearBtn" class="btn danger" type="button">지우기</button>
+               </div>
+
+               <div class="tiny muted">여러 장 입력 가능 (줄바꿈 또는 쉼표)</div>
+</div>
+                <div class="tiny muted">여러 장 선택 가능</div>
+              </div>
+              <div class="field full">
+                <span>갤러리 이미지 목록</span>
+                <div id="galleryList" class="gallery-admin-list"></div>
+              </div>
+              <label class="field full"><span>영상 URL</span><input id="video_url" type="url" /></label>
+              <label class="field"><span>위도(lat)</span><input id="lat" type="number" step="any" /></label>
+              <label class="field"><span>경도(lng)</span><input id="lng" type="number" step="any" /></label>
+              <label class="field checkbox-line"><input id="is_active" type="checkbox" checked /><span>활성 업소</span></label>
+              <label class="field checkbox-line"><input id="is_featured" type="checkbox" /><span>추천 업소</span></label>
+              <label class="field"><span>추천 순서</span><input id="featured_rank" type="number" /></label>
+              <label class="field checkbox-line"><input id="is_new" type="checkbox" /><span>신규 업소</span></label>
+              <label class="field"><span>신규 순서</span><input id="new_rank" type="number" /></label>
+              <label class="field checkbox-line"><input id="is_popular" type="checkbox" /><span>인기 업소</span></label>
+              <label class="field"><span>인기 순서</span><input id="popular_rank" type="number" /></label>
+              <label class="field checkbox-line"><input id="promo_enabled" type="checkbox" /><span>프로모션 사용</span></label>
+              <label class="field full"><span>프로모션 문구</span><input id="promo_text" type="text" /></label>
+              <label class="field full"><span>프로모션 이미지 URL</span><input id="promo_image_url" type="url" /></label>
+              <label class="field checkbox-line"><input id="home_fixed" type="checkbox" /><span>홈 고정</span></label>
+              <label class="field"><span>홈 고정 순서</span><input id="home_fixed_sort" type="number" /></label>
+            </form>
+
+            <div class="preview-wrap">
+              <div class="preview-head">미리보기</div>
+              <div class="preview-card">
+                <img id="previewImage" src="https://placehold.co/600x360?text=No+Image" alt="preview" />
+                <div class="preview-info">
+                  <div id="previewName" class="preview-name">업소명</div>
+                  <div id="previewCategory" class="preview-meta">카테고리</div>
+                  <div id="previewAddress" class="preview-meta">주소</div>
+                  <div id="previewWebsite" class="preview-meta">웹사이트 없음</div>
+                  <div id="previewEmail" class="preview-meta">이메일 없음</div>
+                  <div id="previewCoords" class="preview-meta">좌표 없음</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section id="section-coupon" class="admin-section">
+        <section class="toolbar card">
+          <div class="toolbar-row">
+            <label class="field compact"><span>검색</span><input id="couponSearchInput" type="text" placeholder="쿠폰명, 업소명" /></label>
+            <label class="field compact"><span>업소</span><select id="couponBusinessFilter"><option value="all">전체</option></select></label>
+            <button id="couponNewBtn" class="btn primary inline-btn" type="button">새 쿠폰</button>
+          </div>
+        </section>
+
+        <section class="layout">
+          <div class="list-panel card">
+            <div class="panel-head"><h2>쿠폰 목록</h2><span id="couponCountText" class="muted">0개</span></div>
+            <div id="couponList" class="business-list"></div>
+          </div>
+
+          <div class="form-panel card">
+            <div class="panel-head">
+              <h2 id="couponFormTitle">쿠폰 정보</h2>
+              <div class="head-actions">
+                <button id="couponDeleteBtn" class="btn danger" type="button">삭제</button>
+                <button id="couponSaveBtn" class="btn primary" type="button">저장</button>
+              </div>
+            </div>
+
+            <form id="couponForm" class="form-grid">
+              <input type="hidden" id="coupon_id" />
+              <label class="field full"><span>연결 업소</span><select id="coupon_business_id"></select></label>
+              <label class="field"><span>쿠폰 제목</span><input id="coupon_title" type="text" /></label>
+              <label class="field"><span>쿠폰 코드</span><input id="coupon_code" type="text" /></label>
+              <label class="field full"><span>설명</span><textarea id="coupon_description" rows="4"></textarea></label>
+              <label class="field full"><span>이미지 URL</span><input id="coupon_image_url" type="url" /></label>
+
+              <div class="field full upload-block">
+                <span>쿠폰 이미지 업로드</span>
+                <div class="upload-row">
+                  <input id="coupon_image_file" type="file" accept="image/*" />
+                  <button id="couponUploadImageBtn" class="btn ghost" type="button">이미지 업로드</button>
+                  <button id="couponClearImageBtn" class="btn danger" type="button">이미지 삭제</button>
+                </div>
+              </div>
+              <label class="field"><span>시작일시</span><input id="coupon_start_at" type="datetime-local" /></label>
+              <label class="field"><span>종료일시</span><input id="coupon_end_at" type="datetime-local" /></label>
+              <label class="field checkbox-line"><input id="coupon_is_active" type="checkbox" checked /><span>활성</span></label>
+              <label class="field checkbox-line"><input id="coupon_is_today" type="checkbox" /><span>오늘의 할인</span></label>
+              <label class="field"><span>정렬 순서</span><input id="coupon_sort_order" type="number" /></label>
+            </form>
+          </div>
+        </section>
+      </section>
+
+      <section id="section-slide" class="admin-section">
+        <section class="toolbar card">
+          <div class="toolbar-row">
+            <label class="field compact"><span>검색</span><input id="slideSearchInput" type="text" placeholder="업소명, 프로모션" /></label>
+            <button id="slideNewBtn" class="btn ghost inline-btn" type="button">새 슬라이드</button>
+            <button id="slideDeleteBtn" class="btn danger inline-btn" type="button">선택 슬라이드 삭제</button>
+          </div>
+        </section>
+
+        <section class="layout">
+          <div class="list-panel card">
+            <div class="panel-head"><h2>슬라이드 대상 업소</h2><span id="slideCountText" class="muted">0개</span></div>
+            <div id="slideList" class="business-list"></div>
+          </div>
+
+          <div class="form-panel card">
+            <div class="panel-head">
+              <h2 id="slideFormTitle">슬라이드 설정</h2>
+              <div class="head-actions">
+                <button id="slideSaveBtn" class="btn primary" type="button">저장</button>
+              </div>
+            </div>
+
+            <form id="slideForm" class="form-grid">
+              <input type="hidden" id="slide_business_id" />
+              <label class="field full"><span>선택 업소</span><select id="slide_business_select"></select></label>
+              <label class="field checkbox-line"><input id="slide_promo_enabled" type="checkbox" /><span>프로모션 사용</span></label>
+              <label class="field checkbox-line"><input id="slide_home_fixed" type="checkbox" /><span>홈 고정</span></label>
+              <label class="field"><span>홈 고정 순서</span><input id="slide_home_fixed_sort" type="number" /></label>
+              <label class="field full"><span>슬라이드 문구</span><input id="slide_promo_text" type="text" /></label>
+              <label class="field full"><span>슬라이드 이미지 URL</span><input id="slide_promo_image_url" type="url" /></label>
+			  <label class="field full">  <span>슬라이드 영상 URL</span>  <input id="slide_video_url" type="url" /></label>
+
+              <div class="field full upload-block">
+                <span>슬라이드 이미지 업로드</span>
+                <div class="upload-row">
+                  <input id="slide_image_file" type="file" accept="image/*" />
+                  <button id="slideUploadImageBtn" class="btn ghost" type="button">이미지 업로드</button>
+                  <button id="slideClearImageBtn" class="btn danger" type="button">이미지 삭제</button>
+                </div>
+              </div>
+              <label class="field"><span>노출 시작일시</span><input id="slide_start_at" type="datetime-local" /></label>
+              <label class="field"><span>노출 종료일시</span><input id="slide_end_at" type="datetime-local" /></label>
+            </form>
+          </div>
+        </section>
+      </section>
+
+<section id="section-banners" class="admin-section">
+  <section class="toolbar card">
+    <div class="toolbar-row">
+      <div class="panel-head" style="margin-bottom:0;">
+        <h2>배너 관리</h2>
+      </div>
+      <button id="bannerNewBtn" class="btn primary inline-btn" type="button">새 배너</button>
+    </div>
+  </section>
+
+  <section class="layout">
+    <div class="list-panel card">
+      <div class="panel-head">
+        <h2>배너 목록</h2>
+      </div>
+      <div id="bannerList" class="business-list"></div>
+    </div>
+
+    <div class="form-panel card">
+      <div class="panel-head">
+        <h2>배너 입력</h2>
+        <div class="head-actions">
+          <button id="bannerSaveBtn" class="btn primary" type="button">저장</button>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <input type="hidden" id="bnId" />
+
+        <label class="field full">
+          <span>제목</span>
+          <input id="bnTitle" type="text" />
+        </label>
+
+        <label class="field full">
+          <span>이미지 URL</span>
+          <input id="bnImage" type="url" />
+        </label>
+
+        <label class="field full">
+          <span>링크 URL</span>
+          <input id="bnLink" type="url" />
+        </label>
+
+        <label class="field">
+          <span>지역</span>
+          <input id="bnRegion" type="text" placeholder="dallas 또는 colorado" />
+        </label>
+
+        <label class="field">
+          <span>정렬 순서</span>
+          <input id="bnOrder" type="number" value="0" />
+        </label>
+
+        <label class="field full checkbox-line">
+          <input id="bnActive" type="checkbox" checked />
+          <span>활성</span>
+        </label>
+      </div>
+    </div>
+  </section>
+</section>
+
+      <section id="section-board" class="admin-section">
+        <section class="toolbar card">
+          <div class="toolbar-row">
+            <label class="field compact"><span>검색</span><input id="boardSearchInput" type="text" placeholder="제목, 내용" /></label>
+            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="notice">행사안내</option><option value="job">구인/구직</option><option value="rent">렌트</option><option value="sale">매매</option></select></label>
+            <button id="boardNewBtn" class="btn primary inline-btn" type="button">새 글</button>
+          </div>
+        </section>
+
+        <section class="layout">
+          <div class="list-panel card">
+            <div class="panel-head"><h2>게시판 글</h2><span id="boardCountText" class="muted">0개</span></div>
+            <div id="boardList" class="business-list"></div>
+          </div>
+
+          <div class="form-panel card">
+            <div class="panel-head">
+              <h2 id="boardFormTitle">게시글 정보</h2>
+              <div class="head-actions">
+                <button id="boardDeleteBtn" class="btn danger" type="button">삭제</button>
+                <button id="boardSaveBtn" class="btn primary" type="button">저장</button>
+              </div>
+            </div>
+
+            <form id="boardForm" class="form-grid">
+              <input type="hidden" id="board_id" />
+              <label class="field"><span>분류</span><select id="board_type"><option value="notice">행사안내</option><option value="job">구인/구직</option><option value="rent">렌트</option><option value="sale">매매</option></select></label>
+              <label class="field"><span>지역</span><select id="board_region"><option value="colorado">colorado</option><option value="dallas">dallas</option></select></label>
+              <label class="field full"><span>제목</span><input id="board_title" type="text" /></label>
+              <label class="field full"><span>내용</span><textarea id="board_content" rows="8"></textarea></label>
+              <label class="field"><span>전화번호</span><input id="board_phone" type="text" placeholder="720-555-1234" /></label>
+              <label class="field"><span>주소</span><input id="board_address" type="text" placeholder="1200 S Abilene St, Aurora, CO" /></label>
+              <input type="hidden" id="board_business_id" />
+              <label class="field full"><span>연결 업소 검색</span><input id="board_business_search" type="text" placeholder="업소명, 전화, 주소로 검색" /></label>
+              <label class="field full"><span>연결 업소 선택</span><select id="board_business_select"></select></label>
+
+              <label class="field full"><span>이미지 URL</span><input id="board_image_url" type="url" placeholder="https://..." /></label>
+              <div class="field full upload-block">
+                <span>게시판 이미지 업로드</span>
+                <div class="upload-row">
+                  <input id="board_image_file" type="file" accept="image/*" />
+                  <button id="boardUploadImageBtn" class="btn ghost" type="button">이미지 업로드</button>
+                  <button id="boardClearImageBtn" class="btn danger" type="button">이미지 삭제</button>
+                </div>
+                <div class="tiny muted">업로드하면 board_image_url에 자동 반영됩니다.</div>
+              </div>
+
+              <label class="field"><span>시작일시</span><input id="board_start_at" type="datetime-local" /></label>
+              <label class="field"><span>종료일시</span><input id="board_end_at" type="datetime-local" /></label>
+              <label class="field checkbox-line"><input id="board_is_active" type="checkbox" checked /><span>활성</span></label>
+            </form>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+  
+
+  <h3>관리자 계정 관리 (Super Admin)</h3>
+  <input id="adminEmailInput" placeholder="이메일 입력" style="width:100%;margin:8px 0;padding:8px;">
+  <select id="adminRoleSelect" style="width:100%;margin:8px 0;padding:8px;">
+    <option value="regional_editor">지역 관리자</option>
+    <option value="super_admin">슈퍼 관리자</option>
+    <option value="">권한 없음</option>
+  </select>
+  <select id="adminAreaSelect" style="width:100%;margin:8px 0;padding:8px;">
+    <option value="dallas">Dallas</option>
+    <option value="colorado">Denver</option>
+    <option value="all">전체</option>
+  </select>
+  <button id="saveAdminUserBtn" style="width:100%;padding:10px;margin-top:10px;">저장</button>
+</section>
+<h3>푸시 알림 발송</h3>
+
+<input id="pushTitle" placeholder="제목" style="width:100%; margin-bottom:10px;" />
+<textarea id="pushMessage" placeholder="내용" style="width:100%; height:80px;"></textarea>
+
+<select id="pushRegion">
+  <option value="all">전체</option>
+  <option value="dallas">Dallas</option>
+  <option value="colorado">Colorado</option>
+</select>
+
+<button id="sendPushBtn">푸시 보내기</button>
+</body>
+</html>

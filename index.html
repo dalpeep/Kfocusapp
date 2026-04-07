@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>K Colorado</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="config.js"></script>
+
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "38a44252-843f-4e20-bb6b-e4ae1f91510f"
+    });
+  });
+</script>
+
+</head>
+<body>
+  <div class="app-shell">
+    <header class="header sticky-header">
+      <button class="icon-btn" id="menuBtn" aria-label="메뉴">☰</button>
+      <button class="brand" id="homeBrand" aria-label="홈으로 이동">
+        <img src="assets/kfocus-logo.jpeg" class="brand-logo" alt="Kfocus logo" />
+        <span class="brand-text-wrap">
+          <span class="brand-sub solo" id="topRegionLabel">Focus App</span>
+        </span>
+      </button>
+      <button class="icon-btn" id="searchBtn" aria-label="검색">🔍</button>
+    </header>
+
+    <aside class="side-menu" id="sideMenu" aria-hidden="true">
+      <div class="side-head">
+        <strong>Kfocus Menu</strong>
+        <button class="side-close" id="sideClose">✕</button>
+      </div>
+      <button class="side-link" data-nav="home">홈</button>
+      <button class="side-link" data-nav="business">업소</button>
+      <button class="side-link" data-nav="coupon">할인</button>
+      <button class="side-link" data-nav="map">지도</button>
+      <button class="side-link" data-nav="saved">저장</button>
+      <button class="side-link board-link" data-board="notice">행사</button>
+      <button class="side-link board-link" data-board="job">구인/구직</button>
+      <button class="side-link board-link" data-board="rent">렌트</button>
+      <button class="side-link board-link" data-board="sale">매매</button>
+      <div class="side-region-box">현재 지역: <span id="sideCurrentRegionLabel">Dallas–Fort Worth</span></div>
+      <button class="side-link" id="sideRegionPicker" type="button">지역 선택</button>
+    </aside>
+    <div class="side-overlay" id="sideOverlay"></div>
+
+    <div class="search-overlay" id="searchOverlay" aria-hidden="true">
+      <div class="search-panel">
+        <div class="search-head">
+          <div class="search-input-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="search" id="globalSearchInput" class="search-input" placeholder="업소 / 쿠폰 / 게시판 검색" autocomplete="off" />
+            <button class="search-clear hidden" id="searchClearBtn" aria-label="검색어 지우기">✕</button>
+          </div>
+          <button class="search-close" id="searchCloseBtn" aria-label="검색 닫기">닫기</button>
+        </div>
+        <div class="search-body" id="searchBody">
+          <div class="recent-searches" id="recentSearches"></div>
+          <div class="search-results hidden" id="searchResults">
+            <section class="search-section hidden" id="searchBusinessSection">
+              <h4>업소</h4>
+              <div class="search-result-list" id="searchBusinessList"></div>
+            </section>
+            <section class="search-section hidden" id="searchCouponSection">
+              <h4>쿠폰</h4>
+              <div class="search-result-list" id="searchCouponList"></div>
+            </section>
+            <section class="search-section hidden" id="searchBoardSection">
+              <h4>게시판</h4>
+              <div class="search-result-list" id="searchBoardList"></div>
+            </section>
+            <p class="search-empty hidden" id="searchEmpty">검색 결과가 없습니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <main id="appMain" class="pages-wrap">
+      <section class="page active" id="page-home">
+        <section class="card hero-wrap home-hero-wrap">
+          <div class="hero-viewport" id="heroViewport">
+            <div class="hero-track" id="heroTrack"></div>
+          </div>
+          <div class="hero-dots" id="heroDots"></div>
+        </section>
+
+        <section class="card section-card featured-home-card">
+          <div class="section-head compact-head">
+            <h3 class="section-title">⭐ 추천 업소</h3>
+            <button class="text-link" data-nav="business" data-filter="featured">전체보기</button>
+          </div>
+          <div id="homeFeaturedList" class="featured-business-list"></div>
+        </section>
+        
+		<section class="card section-card">
+  <div class="section-head compact-head">
+    <h3 class="section-title">🆕 신규 업소</h3>
+    <button class="text-link" data-nav="business" data-filter="new">전체보기</button>
+  </div>
+  <div id="homeNewList" class="featured-business-list"></div>
+</section>
+
+<section class="card section-card">
+  <div class="section-head compact-head">
+    <h3 class="section-title">🔥 인기 업소</h3>
+    <button class="text-link" data-nav="business" data-filter="popular">전체보기</button>
+  </div>
+  <div id="homePopularList" class="featured-business-list"></div>
+</section>
+		
+        <section class="card section-card community-home-card">
+          <div class="community-tabs" id="communityTabs">
+            <button class="community-tab active" data-board="notice">행사안내</button>
+            <button class="community-tab" data-board="job">구인/구직</button>
+            <button class="community-tab" data-board="rent">렌트</button>
+            <button class="community-tab" data-board="sale">매매</button>
+          </div>
+          <div id="homeBoardList" class="home-board-list"></div>
+          <div class="community-more-row">
+            <button class="text-link board-more-btn" id="homeBoardMoreBtn" data-board="notice">더보기</button>
+          </div>
+        </section>
+
+        <section class="card section-card sponsor-banner-section">
+          <div class="section-head compact-head">
+            <h3 class="section-title">스폰서 배너</h3>
+          </div>
+          <div id="mainBanners"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-business">
+        <section class="card section-card">
+          <div class="search-row"><input type="search" id="businessSearch" placeholder="업소명, 카테고리, 지역 검색" /></div>
+          <div id="categoryRow" class="category-row"></div>
+          <div id="businessList" class="business-list"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-coupon">
+        <section class="card section-card coupon-page-card">
+          <div class="coupon-tabs" id="couponTabs">
+            <button class="coupon-tab active" data-coupon-tab="today">오늘 할인</button>
+            <button class="coupon-tab" data-coupon-tab="all">전체 할인</button>
+          </div>
+          <div id="couponTodayList" class="coupon-stack coupon-tab-panel"></div>
+          <div id="couponAllList" class="coupon-stack coupon-tab-panel hidden"></div>
+        </section>
+      </section>
+
+      <section class="page" id="page-map">
+        <section class="map-fullscreen-wrap card">
+          <div class="map-top-controls">
+            <div class="map-filter-row" id="mapFilterRow">
+              <button class="map-filter-chip" data-map-filter="event">행사</button>
+              <button class="map-filter-chip" data-map-filter="coupon">할인</button>
+              <button class="map-filter-chip active" data-map-filter="business">업소</button>
+              <button class="map-ghost-btn hidden map-inline-action" id="mapSearchAreaBtn">이 지역 보기</button>
+            </div>
+            <div class="map-search-row"><input type="search" id="mapSearchInput" class="map-search-input" placeholder="업소 검색 (식당, 교회, 병원, 코바)" /><button class="map-location-btn" id="mapLocateBtn" aria-label="내 위치">📍</button></div>
+            <div class="map-category-row hidden" id="mapCategoryRow"></div>
+          </div>
+          <div id="mapNotice" class="map-notice hidden"></div>
+          <div id="googleMap" class="google-map fullscreen-map"></div>
+          <div class="map-bottom-panel" id="mapBottomPanel">
+            <div class="map-bottom-head"><strong>주변 업소</strong><button class="map-bottom-close" id="mapBottomClose" type="button" aria-label="주변 업소 닫기">✕</button></div>
+            <div class="map-bottom-list" id="mapBottomList"></div>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="page-saved">
+        <section class="card section-card"><p class="empty">저장한 업소가 여기에 표시됩니다.</p></section>
+      </section>
+
+      <section class="page" id="page-board-detail">
+        <section class="card section-card">
+          <h3 id="boardTitle">게시판</h3>
+          <p class="board-detail-copy">게시판 상세 테스트 화면입니다.</p>
+          <div class="action-buttons">
+            <a class="action-btn call" href="tel:3037454592">📞 전화하기</a>
+            <a class="action-btn sms" href="sms:3037454592">💬 문자하기</a>
+            <a class="action-btn map" href="https://www.google.com/maps?q=2751%20S%20Parker%20Rd%2C%20Aurora%2C%20CO" target="_blank">📍 길찾기</a>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="page-business-detail">
+        <section class="card section-card detail-card" id="detailCard"></section>
+      </section>
+
+      <section class="page" id="page-coupon-detail">
+        <section class="card section-card detail-card coupon-detail-card" id="couponDetailCard"></section>
+      </section>
+
+      <section class="page" id="page-coupon-use">
+        <section class="card section-card coupon-use-card" id="couponUseCard"></section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-nav="home"><span>🏠</span><strong>홈</strong></button>
+      <button class="nav-item" data-nav="business"><span>🏢</span><strong>업소</strong></button>
+      <button class="nav-item" data-nav="coupon"><span>🎟️</span><strong>할인</strong></button>
+      <button class="nav-item" data-nav="map"><span>🗺️</span><strong>지도</strong></button>
+      <button class="nav-item" data-nav="saved"><span>💙</span><strong>저장</strong></button>
+    </nav>
+  </div>
+
+
+    <div class="admin-login-modal hidden" id="adminLoginModal" aria-hidden="true">
+      <div class="admin-login-backdrop" id="adminLoginBackdrop"></div>
+      <div class="admin-login-panel">
+        <div class="admin-login-head">
+          <strong>관리자 로그인</strong>
+          <button class="admin-login-close" id="adminLoginClose" type="button">✕</button>
+        </div>
+        <label class="admin-login-label" for="adminLoginEmail">이메일</label>
+        <input class="admin-login-input" id="adminLoginEmail" type="email" placeholder="이메일 입력" />
+        <label class="admin-login-label" for="adminLoginPassword">비밀번호</label>
+        <input class="admin-login-input" id="adminLoginPassword" type="password" placeholder="비밀번호" />
+        <button class="admin-login-submit" id="adminLoginSubmit" type="button">로그인</button>
+      </div>
+    </div>
+<!-- root index.html: put these BEFORE <script src="app.js"></script> -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  (function () {
+    const cfg = window.KFOCUS_CONFIG || {};
+    if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || !window.supabase?.createClient) {
+      console.warn('Supabase client init skipped');
+      return;
+    }
+    window.supabaseClient = window.supabase.createClient(
+      cfg.SUPABASE_URL,
+      cfg.SUPABASE_ANON_KEY
+    );
+  })();
+</script>
+  
+<script src="app.js"></script>
+<script type="module" src="main-banners.js"></script>
+
+<div id="videoModal" class="video-modal hidden">
+  <div class="video-modal-backdrop" id="videoModalBackdrop"></div>
+
+  <div class="video-modal-panel">
+    <button id="videoModalClose" class="video-modal-close">✕</button>
+    <div id="videoModalBody" class="video-modal-body"></div>
+  </div>
+</div>
+
+
+
+  <div id="regionPickerModal" class="admin-login-modal hidden" aria-hidden="true">
+    <div class="admin-login-backdrop"></div>
+    <div class="admin-login-panel">
+<div class="admin-login-head center">
+  <div class="region-title">
+    관심 지역을 선택해 주세요
+  </div>
+
+  <div class="region-desc">
+    현재 위치와 관계없이 원하는 지역 정보를<br>
+    볼 수 있습니다.
+  </div>
+
+  <div class="region-desc sub">
+    나중에 언제든 변경할 수 있습니다.
+  </div>
+</div>
+      <div class="region-picker-actions">
+        <button class="admin-login-submit" type="button" data-region="dallas">Dallas–Fort Worth</button>
+        <button class="admin-login-submit" type="button" data-region="colorado">Denver Metro</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+function requestPush() {
+  window.OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.Notifications.requestPermission();
+
+    console.log('permission:', OneSignal.Notifications.permission);
+    console.log('optedIn:', OneSignal.User.PushSubscription.optedIn);
+  });
+}
+</script>
+</body>
+
+</html> 
