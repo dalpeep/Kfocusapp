@@ -1741,12 +1741,12 @@ showSection('business'); // 기본 화면
 
 function showSection(name) {
   document.querySelectorAll('.admin-section').forEach(el => {
-    el.style.display = 'none';
+    el.classList.remove('active-section');
   });
 
   const target = document.getElementById('section-' + name);
   if (target) {
-    target.style.display = 'block';
+    target.classList.add('active-section');
   }
 }
 
