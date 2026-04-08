@@ -1794,25 +1794,26 @@ function isIos() {
   return /iPhone|iPad|iPod/.test(navigator.userAgent);
 }
 
-function isInStandaloneMode() {
+function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 }
 
-function showIosInstallBanner() {
-  if (isIos() && !isInStandaloneMode()) {
-    const dismissed = localStorage.getItem('iosBannerClosed');
-    if (!dismissed) {
-      document.getElementById('iosInstallBanner').style.display = 'block';
+function showIosGuide() {
+  if (isIos() && !isStandalone()) {
+    const shown = localStorage.getItem('iosGuideShown');
+    if (!shown) {
+      document.getElementById('iosGuide').style.display = 'block';
+
+      // 5초 후 자동 숨김
+      setTimeout(() => {
+        document.getElementById('iosGuide').style.display = 'none';
+      }, 5000);
+
+      localStorage.setItem('iosGuideShown', '1');
     }
   }
 }
 
-function closeIosBanner() {
-  document.getElementById('iosInstallBanner').style.display = 'none';
-  localStorage.setItem('iosBannerClosed', '1');
-}
-
-// 페이지 로드시 실행
 document.addEventListener('DOMContentLoaded', () => {
-  showIosInstallBanner();
+  showIosGuide();
 });
