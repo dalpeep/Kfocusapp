@@ -1737,6 +1737,18 @@ document.addEventListener('click', async (e)=>{
 
 document.addEventListener('DOMContentLoaded', init);
 
+showSection('business'); // 기본 화면
+
+function showSection(name) {
+  document.querySelectorAll('.admin-section').forEach(el => {
+    el.style.display = 'none';
+  });
+
+  const target = document.getElementById('section-' + name);
+  if (target) {
+    target.style.display = 'block';
+  }
+}
 
 
 // ===== minimal admin session loader =====
@@ -1859,4 +1871,51 @@ document.getElementById('sendPushBtn')?.addEventListener('click', async () => {
     console.error(err);
     alert('에러 발생');
   }
+});
+// ===== PUSH SEND UI =====
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.ADMIN_ROLE === 'regional_editor') {
+    const regionEl = document.getElementById('pushRegion');
+    if (regionEl) {
+      regionEl.value = window.ADMIN_AREA || 'dallas';
+      regionEl.disabled = true;
+    }
+  }
+
+  document.getElementById('sendPushBtn')?.addEventListener('click', async () => {
+    const title = document.getElementById('pushTitle')?.value?.trim() || '';
+    const message = document.getElementById('pushMessage')?.value?.trim() || '';
+    let region = document.getElementById('pushRegion')?.value || 'all';
+
+    if (!title || !message) {
+      alert('제목과 내용을 입력하세요.');
+      return;
+    }
+
+    if (window.ADMIN_ROLE === 'regional_editor') {
+      region = window.ADMIN_AREA || region;
+    }
+
+    try {
+      const res = await fetch('/.netlify/functions/sendPush', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, message, region })
+      });
+
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch (e) {}
+
+      if (!res.ok) {
+        alert('푸시 발송 실패: ' + (data.error || text || '알 수 없는 오류'));
+        return;
+      }
+
+      alert('푸시 발송 완료');
+    } catch (err) {
+      console.error(err);
+      alert('푸시 발송 중 오류가 발생했습니다.');
+    }
+  });
 });
