@@ -1789,3 +1789,30 @@ function initRegionPicker(){
     });
   });
 }
+
+function isIos() {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent);
+}
+
+function isInStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
+
+function showIosInstallBanner() {
+  if (isIos() && !isInStandaloneMode()) {
+    const dismissed = localStorage.getItem('iosBannerClosed');
+    if (!dismissed) {
+      document.getElementById('iosInstallBanner').style.display = 'block';
+    }
+  }
+}
+
+function closeIosBanner() {
+  document.getElementById('iosInstallBanner').style.display = 'none';
+  localStorage.setItem('iosBannerClosed', '1');
+}
+
+// 페이지 로드시 실행
+document.addEventListener('DOMContentLoaded', () => {
+  showIosInstallBanner();
+});

@@ -293,6 +293,21 @@ function requestPush() {
   });
 }
 </script>
+
+<div id="iosInstallBanner" style="display:none; position:fixed; bottom:20px; left:20px; right:20px; background:#111; color:#fff; padding:16px; border-radius:12px; z-index:9999;">
+  <div style="font-size:14px; margin-bottom:8px;">
+    📲 아이폰에서는 앱처럼 설치해야 알림을 받을 수 있습니다
+  </div>
+  <div style="font-size:13px; opacity:0.8;">
+    하단 공유 버튼 → "홈 화면에 추가"
+  </div>
+  <div style="margin-top:10px; text-align:right;">
+    <button onclick="closeIosBanner()" style="background:#fff; color:#000; border:none; padding:6px 10px; border-radius:6px;">
+      확인
+    </button>
+  </div>
+</div>
+
 </body>
 
 </html> 
