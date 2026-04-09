@@ -950,8 +950,16 @@ function renderHome(){
       ? nearby.map(nearbyBusinessItemHTML).join('')
       : '<div class="board-empty">주변 업소가 없습니다.</div>';
   }
+  bindBizOpenButtons();
 }
-
+function bindBizOpenButtons() {
+  document.querySelectorAll('.biz-open').forEach(el => {
+    el.onclick = () => {
+      const id = el.dataset.biz;
+      openBusinessDetail(id);
+    };
+  });
+}
 function renderCategories(){
   const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
   categoryRow.innerHTML = cats.map(c=>`<button class="category-chip ${c===businessQuickFilter?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
