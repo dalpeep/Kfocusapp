@@ -756,39 +756,12 @@ body.map-page-open #page-map .map-bottom-list {
 .region-desc.sub{
   margin-top:8px;
 }
-.detail-gallery-block{
-  margin-top: 20px;
-}
 
-.detail-gallery-list{
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.detail-gallery-img{
-  width: 100%;
-  border-radius: 14px;
-  display: block;
-}
 /* ===== 갤러리 스타일 ===== */
 .detail-gallery-block{
   margin-top: 20px;
 }
 
-.detail-gallery-list{
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.detail-gallery-img{
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: 16px;
-  object-fit: cover;
-}
 /* ===== 갤러리 슬라이드 ===== */
 .gallery-slider{
   display: flex;
