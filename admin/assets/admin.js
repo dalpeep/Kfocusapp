@@ -1055,7 +1055,7 @@ function renderGalleryList(row = null) {
   const listEl = qs('galleryList');
   if (!listEl) return;
 
-  const urls = parseImageUrls(row?.image_urls);
+  const urls = parseImageUrls(row?.gallery_urls);
   if (!urls.length) {
     listEl.innerHTML = '<div class="muted">등록된 갤러리 이미지가 없습니다.</div>';
     return;
@@ -1075,12 +1075,12 @@ function renderGalleryList(row = null) {
       const biz = businesses.find((b) => String(b.id) === String(selectedId));
       if (!biz) return;
 
-      const urls = parseImageUrls(biz.image_urls);
+      const urls = parseImageUrls(biz.gallery_urls);
       urls.splice(Number(btn.dataset.galleryIndex), 1);
 
       const { error } = await supabase
         .from('businesses')
-        .update({ image_urls: urls })
+        .update({ gallery_urls: urls })
         .eq('id', selectedId);
 
       if (error) return alert(`갤러리 삭제 실패: ${error.message}`);
@@ -1114,11 +1114,15 @@ async function uploadGalleryImages() {
     }
 
     const merged = [...oldUrls, ...newUrls];
+    console.log('selectedId =', selectedId);
+    console.log('merged =', merged);
 
     const { error } = await supabase
       .from('businesses')
       .update({ gallery_urls: merged })
       .eq('id', selectedId);
+
+    console.log('gallery update error =', error);
 
     if (error) return alert(`갤러리 저장 실패: ${error.message}`);
 
