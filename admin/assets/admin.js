@@ -1104,7 +1104,7 @@ async function uploadGalleryImages() {
   const biz = businesses.find((b) => String(b.id) === String(selectedId));
   if (!biz) return;
 
-  const oldUrls = parseImageUrls(biz.image_urls);
+  const oldUrls = parseImageUrls(biz.gallery_urls);
   const newUrls = [];
 
   try {
@@ -1117,7 +1117,7 @@ async function uploadGalleryImages() {
 
     const { error } = await supabase
       .from('businesses')
-      .update({ image_urls: merged })
+      .update({ gallery_urls: merged })
       .eq('id', selectedId);
 
     if (error) return alert(`갤러리 저장 실패: ${error.message}`);
