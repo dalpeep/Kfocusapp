@@ -756,3 +756,18 @@ body.map-page-open #page-map .map-bottom-list {
 .region-desc.sub{
   margin-top:8px;
 }
+.detail-gallery-block{
+  margin-top: 20px;
+}
+
+.detail-gallery-list{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-gallery-img{
+  width: 100%;
+  border-radius: 14px;
+  display: block;
+}

@@ -380,7 +380,7 @@ async function loadRealData(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Supabase ${res.status}`);
@@ -396,6 +396,7 @@ async function loadRealData(){
           address: row.address || '',
           phone: row.phone || '',
           image,
+		  gallery_urls: parseArr(row.gallery_urls),
           website: row.website || '',
           email: row.email || '',
           video_url: row.video_url || '',
@@ -949,7 +950,15 @@ function renderDetail(id){
   detailCard.innerHTML = `
   ${videoHtml}
   <div class="detail-top">
-    <img src="${esc(b.image)}" alt="${esc(b.name)}"><div class="detail-badges stack-badges">${badgeStackHTML(b,false)}</div></div><h2>${esc(b.name)}</h2><div class="detail-meta">${esc(b.category)} · ${esc(regionLabel)}</div><div class="detail-meta">${esc(b.address)}</div><p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p><div class="icon-actions"><a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a><a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a><a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>${safeWebsite?`<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>`:''}${safeEmail?`<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>`:''}</div>${couponHtml}`;
+    <img src="${esc(b.image)}" alt="${esc(b.name)}"><div class="detail-badges stack-badges">${badgeStackHTML(b,false)}</div></div><h2>${esc(b.name)}</h2><div class="detail-meta">${esc(b.category)} · ${esc(regionLabel)}</div><div class="detail-meta">${esc(b.address)}</div><p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p><div class="icon-actions"><a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a><a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a><a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>${safeWebsite?`<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>`:''}${safeEmail?`<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>`:''}</div>${galleryHtml}${couponHtml}`;
+  const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
+  ? `<div class="detail-gallery-block">
+       <h3 class="subsection-title">갤러리</h3>
+       <div class="detail-gallery-list">
+         ${b.gallery_urls.map(url => `<img src="${esc(url)}" alt="${esc(b.name)} gallery" class="detail-gallery-img">`).join('')}
+       </div>
+     </div>`
+  : '';
 }
 
 function renderCouponDetail(id){
