@@ -956,7 +956,11 @@ function bindBizOpenButtons() {
   document.querySelectorAll('.biz-open').forEach(el => {
     el.onclick = () => {
       const id = el.dataset.biz;
-      openBusinessDetail(id);
+      if (!id) return;
+
+      selectedBizId = id;
+      renderDetail(id);
+      showPage('detail');
     };
   });
 }
@@ -1894,3 +1898,8 @@ function showIosGuide() {
 document.addEventListener('DOMContentLoaded', () => {
   showIosGuide();
 });
+function renderBusinessList() {
+  if (typeof renderBusinesses === 'function') return renderBusinesses();
+  if (typeof renderBusinessCards === 'function') return renderBusinessCards();
+  if (typeof renderHome === 'function') return renderHome();
+}
