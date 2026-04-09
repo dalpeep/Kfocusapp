@@ -945,13 +945,9 @@ function renderDetail(id){
   const phoneDigits = (b.phone||'').replace(/[^\d]/g,'');
   const bizCoupons = activeCoupons(coupons).filter(c=>String(c.businessId)===String(b.id));
   logBusinessActivity(b.id, 'view');
-  const videoHtml = businessVideoHTML(b);
-  const couponHtml = bizCoupons.length ? `<div class="detail-coupon-block"><h3 class="subsection-title">사용 가능한 쿠폰</h3><div class="detail-coupon-list">${bizCoupons.map(c=>`<button class="detail-coupon-item coupon-open" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(formatDateLabel(c.endAt))}</span></button>`).join('')}</div></div>` : '';
-  detailCard.innerHTML = `
-  ${videoHtml}
-  <div class="detail-top">
-    <img src="${esc(b.image)}" alt="${esc(b.name)}"><div class="detail-badges stack-badges">${badgeStackHTML(b,false)}</div></div><h2>${esc(b.name)}</h2><div class="detail-meta">${esc(b.category)} · ${esc(regionLabel)}</div><div class="detail-meta">${esc(b.address)}</div><p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p><div class="icon-actions"><a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a><a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a><a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>${safeWebsite?`<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>`:''}${safeEmail?`<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>`:''}</div>${galleryHtml}${couponHtml}`;
-  const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
+const videoHtml = businessVideoHTML(b);
+
+const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
   ? `<div class="detail-gallery-block">
        <h3 class="subsection-title">갤러리</h3>
        <div class="detail-gallery-list">
@@ -959,6 +955,31 @@ function renderDetail(id){
        </div>
      </div>`
   : '';
+
+const couponHtml = bizCoupons.length
+  ? `<div class="detail-coupon-block"><h3 class="subsection-title">사용 가능한 쿠폰</h3><div class="detail-coupon-list">${bizCoupons.map(c=>`<button class="detail-coupon-item coupon-open" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(formatDateLabel(c.endAt))}</span></button>`).join('')}</div></div>`
+  : '';
+
+detailCard.innerHTML = `
+  ${videoHtml}
+  <div class="detail-top">
+    <img src="${esc(b.image)}" alt="${esc(b.name)}">
+    <div class="detail-badges stack-badges">${badgeStackHTML(b,false)}</div>
+  </div>
+  <h2>${esc(b.name)}</h2>
+  <div class="detail-meta">${esc(b.category)} · ${esc(regionLabel)}</div>
+  <div class="detail-meta">${esc(b.address)}</div>
+  <p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p>
+  <div class="icon-actions">
+    <a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a>
+    <a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a>
+    <a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>
+    ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
+    ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
+  </div>
+  ${galleryHtml}
+  ${couponHtml}
+`;
 }
 
 function renderCouponDetail(id){
