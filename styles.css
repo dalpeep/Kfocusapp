@@ -771,3 +771,42 @@ body.map-page-open #page-map .map-bottom-list {
   border-radius: 14px;
   display: block;
 }
+/* ===== 갤러리 스타일 ===== */
+.detail-gallery-block{
+  margin-top: 20px;
+}
+
+.detail-gallery-list{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.detail-gallery-img{
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+  object-fit: cover;
+}
+/* ===== 갤러리 슬라이드 ===== */
+.gallery-slider{
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gallery-slide{
+  flex: 0 0 85%;
+  scroll-snap-align: center;
+}
+
+.gallery-slide img{
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: 16px;
+  display: block;
+}
