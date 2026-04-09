@@ -854,7 +854,7 @@ function nearbyBusinessItemHTML(b){
   if(miles != null && Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
 
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
-  const thumb = b.image || b.image_url || 'assets/kfocus-logo.jpeg';
+  const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
@@ -862,6 +862,17 @@ function nearbyBusinessItemHTML(b){
       <div class="nearby-copy">
         <strong>${esc(bizName)}</strong>
         <span>${esc(meta.join(' · '))}</span>
+      </div>
+    </button>
+  `;
+}
+function homeBusinessItemHTML(b){
+  return `
+    <button class="business-item" data-biz="${esc(b.id)}">
+      <img src="${esc(b.image)}" alt="${esc(b.name)}">
+      <div class="business-copy">
+        <strong>${esc(b.name)}</strong>
+        <span>${esc(b.category)}</span>
       </div>
     </button>
   `;
@@ -890,7 +901,7 @@ function renderHome(){
 
   if(homeFeaturedList){
     homeFeaturedList.innerHTML = featured.length
-      ? featured.map(nearbyBusinessItemHTML).join('')
+      ? featured.map(homeBusinessItemHTML).join('')
       : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
   }
 
@@ -904,7 +915,7 @@ function renderHome(){
 
   if (homeNewList) {
     homeNewList.innerHTML = newList.length
-      ? newList.map(nearbyBusinessItemHTML).join('')
+      ? newList.map(homeBusinessItemHTML).join('')
       : `<div class="board-empty">등록된 신규 업소가 없습니다.</div>`;
   }
 
@@ -917,7 +928,7 @@ function renderHome(){
 
   if (homePopularList) {
     homePopularList.innerHTML = popularList.length
-      ? popularList.map(nearbyBusinessItemHTML).join('')
+      ? popularList.map(homeBusinessItemHTML).join('')
       : `<div class="board-empty">등록된 인기 업소가 없습니다.</div>`;
   }
 
