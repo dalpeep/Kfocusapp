@@ -379,16 +379,28 @@ function renderMapFilters(){
 async function loadRealData(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
+
   try {
     const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
+
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+
+    const res = await fetch(url,{
+      headers:{
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
     if(!res.ok) throw new Error(`Supabase ${res.status}`);
+
     const rows = await res.json();
-    if(Array.isArray(rows) && rows.length){
-      businesses = rows.map((row)=>{
+
+    if (Array.isArray(rows) && rows.length) {
+      const mapped = rows.map((row) => {
         const images = parseArr(row.image_urls);
         const image = row.image_url || images[0] || 'assets/kfocus-logo.jpeg';
+
         return {
           id: row.id,
           name: row.name_ko || row.name_en || row.name || '이름 없음',
@@ -396,7 +408,7 @@ async function loadRealData(){
           address: row.address || '',
           phone: row.phone || '',
           image,
-		  gallery_urls: parseArr(row.gallery_urls),
+          gallery_urls: parseArr(row.gallery_urls),
           website: row.website || '',
           email: row.email || '',
           video_url: row.video_url || '',
@@ -419,10 +431,27 @@ async function loadRealData(){
           created_at: row.created_at || '',
           region: row.region || 'colorado'
         };
-      }).filter(b=>normalizeRegionKey(b.region)===currentRegion);
+      }).filter(b => normalizeRegionKey(b.region) === currentRegion);
+
+      const seen = new Set();
+      businesses = mapped.filter((b) => {
+        const key = [
+          (b.name || '').trim().toLowerCase(),
+          (b.address || '').trim().toLowerCase(),
+          (b.phone || '').replace(/\D/g, '')
+        ].join('|');
+
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
       selectedBizId = businesses[0]?.id || selectedBizId;
     }
-  } catch(e){ console.warn('Using fallback data', e); }
+  } catch(e){
+    console.warn('Using fallback data', e);
+  }
+
   await loadCouponsFromSupabase();
   await loadBoardPostsFromSupabase();
   await loadSlidesFromSupabase();
@@ -848,73 +877,65 @@ function renderHomeBoardSection(type='notice'){
 }
 function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
+
   const featured = sortBusinessesByDistance(
-    businesses.filter(b=>b.featured)
+    businesses.filter(b => b.featured)
   )
     .slice()
-    .sort((a,b)=>(Number(a.featured_rank ?? 1000) - Number(b.featured_rank ?? 1000)) || String(b.created_at||'').localeCompare(String(a.created_at||'')))
+    .sort((a,b)=>
+      (Number(a.featured_rank ?? 1000) - Number(b.featured_rank ?? 1000)) ||
+      String(b.created_at || '').localeCompare(String(a.created_at || ''))
+    )
     .slice(0,5);
-  if(homeFeaturedList) homeFeaturedList.innerHTML = featured.length ? featured.map(nearbyBusinessItemHTML).join('') : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
-  
-  // ⭐ 추천 업소 바로 아래에 추가
 
-// 🆕 신규 업소
-const newList = businesses
-  .filter(b => b.is_new)
-  .sort((a, b) =>
-    Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
-    String(b.created_at || '').localeCompare(String(a.created_at || ''))
-  )
-  .slice(0, 5);
+  if(homeFeaturedList){
+    homeFeaturedList.innerHTML = featured.length
+      ? featured.map(nearbyBusinessItemHTML).join('')
+      : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
+  }
 
-if (homeNewList) {
-  homeNewList.innerHTML = newList.length
-    ? newList.map(nearbyBusinessItemHTML).join('')
-    : `<div class="board-empty">등록된 신규 업소가 없습니다.</div>`;
-}
+  const newList = businesses
+    .filter(b => b.is_new)
+    .sort((a, b) =>
+      Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
+      String(b.created_at || '').localeCompare(String(a.created_at || ''))
+    )
+    .slice(0, 5);
 
+  if (homeNewList) {
+    homeNewList.innerHTML = newList.length
+      ? newList.map(nearbyBusinessItemHTML).join('')
+      : `<div class="board-empty">등록된 신규 업소가 없습니다.</div>`;
+  }
 
-// 🔥 인기 업소
-const popularList = businesses
-  .filter(b => b.is_popular)
-  .sort((a, b) =>
-    Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
-  )
-  .slice(0, 5);
+  const popularList = businesses
+    .filter(b => b.is_popular)
+    .sort((a, b) =>
+      Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
+    )
+    .slice(0, 5);
 
-if (homePopularList) {
-  homePopularList.innerHTML = popularList.length
-    ? popularList.map(nearbyBusinessItemHTML).join('')
-    : `<div class="board-empty">등록된 인기 업소가 없습니다.</div>`;
-}
-  
-  const featuredIds = new Set(featured.map(b=>String(b.id)));
-  const nearby = businesses
-    .filter(b=>!featuredIds.has(String(b.id)) && b.lat != null && b.lng != null)
-    .slice()
-    .sort((a,b)=>haversineMiles(COLORADO_CENTER.lat, COLORADO_CENTER.lng, Number(a.lat), Number(a.lng)) - haversineMiles(COLORADO_CENTER.lat, COLORADO_CENTER.lng, Number(b.lat), Number(b.lng)))
-    .slice(0,6);
-  if(homeNearbyList) homeNearbyList.innerHTML = nearby.map(nearbyBusinessItemHTML).join('');
-}
-function renderBusinessList(){
-  const q = (businessSearch?.value || '').trim().toLowerCase();
-  const quick = businessQuickFilter || '';
+  if (homePopularList) {
+    homePopularList.innerHTML = popularList.length
+      ? popularList.map(nearbyBusinessItemHTML).join('')
+      : `<div class="board-empty">등록된 인기 업소가 없습니다.</div>`;
+  }
 
-  const filtered = businesses.filter(b => {
-    const mainCat = getMainCategoryLabel(b.category_ko || b.category || b.name_ko || '');
+  const featuredIds = new Set(featured.map(b => String(b.id)));
 
-    if (quick && mainCat !== quick) return false;
+  const nearby = sortBusinessesByDistance(
+    businesses.filter(b =>
+      !featuredIds.has(String(b.id)) &&
+      b.lat != null &&
+      b.lng != null
+    )
+  ).slice(0,6);
 
-    if (q && !`${b.name} ${b.category || ''} ${b.category_ko || ''} ${b.address || ''} ${mainCat}`.toLowerCase().includes(q)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  businessList.innerHTML = filtered.length
-    ? filtered.map(listCardHTML).join('')
-    : '<div class="board-empty">조건에 맞는 업소가 없습니다.</div>';
+  if(homeNearbyList){
+    homeNearbyList.innerHTML = nearby.length
+      ? nearby.map(nearbyBusinessItemHTML).join('')
+      : '<div class="board-empty">주변 업소가 없습니다.</div>';
+  }
 }
 
 function renderCategories(){
