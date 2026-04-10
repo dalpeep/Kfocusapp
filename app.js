@@ -829,10 +829,9 @@ function boardListItemHTML(post){
   return `<button class="board-row-btn" data-board-post="${esc(post.id)}"><span class="board-row-thumb">${thumb}</span><span class="board-row-copy"><strong>${esc(post.title)}</strong><span>${esc(summary || post.address || boardLabel(type))}</span></span></button>`;
 }
 function mapBottomItemHTML(b){
-  const miles = (b.lat != null && b.lng != null && currentCenter) ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
   const meta = [getMainCategoryLabel(b.category) || '업소'];
-  if(miles != null && Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
-  return `<button class="map-bottom-item" data-map-biz="${esc(b.id)}"><img class="map-bottom-thumb" src="${esc(b.image || 'assets/kfocus-icon.png')}" alt="${esc(b.name)}"><span class="map-bottom-copy"><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span></span></button>`;
+
+  return `<button class="map-bottom-item" data-map-biz="${esc(b.id)}"><img class="map-bottom-thumb" src="${esc(b.image || '/assets/kfocus-icon.png')}" alt="${esc(b.name)}"><span class="map-bottom-copy"><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span></span></button>`;
 }
 
 function renderMapBottomList(list){
