@@ -762,13 +762,17 @@ body.map-page-open #page-map .map-bottom-list {
   margin-top: 20px;
 }
 
-/* ===== 갤러리 슬라이드 ===== */
 .gallery-slider{
   display: flex;
   overflow-x: auto;
   gap: 12px;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+  padding-left: 16px;
+}
+
+.gallery-slider::-webkit-scrollbar{
+  display: none;
 }
 
 .gallery-slide{

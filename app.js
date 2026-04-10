@@ -985,9 +985,9 @@ const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
   ? `<div class="detail-gallery-block">
        <h3 class="subsection-title">갤러리</h3>
        <div class="gallery-slider">
-         ${b.gallery_urls.map(url => `
+         ${b.gallery_urls.map((url, idx) => `
            <div class="gallery-slide">
-             <img src="${esc(url)}" alt="${esc(b.name)} gallery">
+             <img src="${esc(url)}" alt="${esc(b.name)} gallery ${idx + 1}">
            </div>
          `).join('')}
        </div>
