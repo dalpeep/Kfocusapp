@@ -399,7 +399,7 @@ async function loadRealData(){
     if (Array.isArray(rows) && rows.length) {
 const mapped = rows.map((row) => {
   const images = parseArr(row.image_urls);
-  const image = row.image_url || images[0] || 'assets/kfocus-logo.jpeg';
+  const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
 
   return {
     id: row.id,
@@ -832,7 +832,7 @@ function mapBottomItemHTML(b){
   const miles = (b.lat != null && b.lng != null && currentCenter) ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
   const meta = [getMainCategoryLabel(b.category) || '업소'];
   if(miles != null && Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
-  return `<button class="map-bottom-item" data-map-biz="${esc(b.id)}"><img class="map-bottom-thumb" src="${esc(b.image || 'assets/kfocus-logo.jpeg')}" alt="${esc(b.name)}"><span class="map-bottom-copy"><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span></span></button>`;
+  return `<button class="map-bottom-item" data-map-biz="${esc(b.id)}"><img class="map-bottom-thumb" src="${esc(b.image || 'assets/kfocus-icon.png')}" alt="${esc(b.name)}"><span class="map-bottom-copy"><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span></span></button>`;
 }
 
 function renderMapBottomList(list){
@@ -1489,7 +1489,7 @@ function getFilteredMapBusinesses(){
 
 function createInfoWindowContent(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
-  const thumb = b.image || 'assets/kfocus-logo.jpeg';
+  const thumb = b.image || 'assets/kfocus-icon.png';
   const badges = [hasCoupon ? '<span class=\"map-iw-badge deal\">🎟 할인</span>' : '', b.video ? '<span class=\"map-iw-badge video\">🎥 영상</span>' : '', b.has_event ? '<span class=\"map-iw-badge event\">🎉 행사</span>' : ''].filter(Boolean).join('');
   return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
 }
