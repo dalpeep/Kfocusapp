@@ -963,7 +963,6 @@ function renderHome(){
       ? nearby.map(nearbyBusinessItemHTML).join('')
       : '<div class="board-empty">주변 업소가 없습니다.</div>';
   }
-  bindBizOpenButtons();
 }
 
 function renderCategories(){
@@ -1914,5 +1913,5 @@ document.addEventListener('click', (e) => {
 
   selectedBizId = id;
   renderDetail(id);
-  showPage('detail');
+  showPage('business-detail');
 });
