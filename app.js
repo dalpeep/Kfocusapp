@@ -829,9 +829,24 @@ function boardListItemHTML(post){
   return `<button class="board-row-btn" data-board-post="${esc(post.id)}"><span class="board-row-thumb">${thumb}</span><span class="board-row-copy"><strong>${esc(post.title)}</strong><span>${esc(summary || post.address || boardLabel(type))}</span></span></button>`;
 }
 function mapBottomItemHTML(b){
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const miles = (b.lat != null && b.lng != null && currentCenter)
+    ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng))
+    : null;
 
-  return `<button class="map-bottom-item" data-map-biz="${esc(b.id)}"><img class="map-bottom-thumb" src="${esc(b.image || '/assets/kfocus-icon.png')}" alt="${esc(b.name)}"><span class="map-bottom-copy"><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span></span></button>`;
+  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  if (miles != null && Number.isFinite(miles)) {
+    meta.push(`${miles.toFixed(1)}mi`);
+  }
+
+  return `
+    <button class="map-bottom-item" data-map-biz="${esc(b.id)}">
+      <img class="map-bottom-thumb" src="${esc(b.image || '/assets/kfocus-icon.png')}" alt="${esc(b.name)}">
+      <span class="map-bottom-copy">
+        <strong>${esc(b.name)}</strong>
+        <span>${esc(meta.join(' · '))}</span>
+      </span>
+    </button>
+  `;
 }
 
 function renderMapBottomList(list){
@@ -960,17 +975,39 @@ function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
 
-  if (!Array.isArray(businesses) || !businesses.length) {
+  let rows = Array.isArray(businesses) ? businesses.slice() : [];
+
+  if (selectedBusinessCategory && selectedBusinessCategory !== '전체') {
+    rows = rows.filter(b => (b.category || '').trim() === selectedBusinessCategory);
+  }
+
+  if (!rows.length) {
     listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
     return;
   }
 
-  listEl.innerHTML = businesses.map(b => homeBusinessItemHTML(b)).join('');
+  listEl.innerHTML = rows.map(nearbyBusinessItemHTML).join('');
 }
 
-function renderCategories(){
-  const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
-  categoryRow.innerHTML = cats.map(c=>`<button class="category-chip ${c===businessQuickFilter?'active':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+function renderCategories() {
+  const cats = ['전체','식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  if (!categoryRow) return;
+
+  categoryRow.innerHTML = cats.map(c => `
+    <button
+      class="category-chip ${selectedBusinessCategory === c ? 'active' : ''}"
+      data-cat="${esc(c)}"
+      type="button"
+    >${esc(c)}</button>
+  `).join('');
+
+  categoryRow.querySelectorAll('.category-chip').forEach(btn => {
+    btn.onclick = () => {
+      selectedBusinessCategory = btn.dataset.cat || '전체';
+      renderCategories();
+      renderBusinessList();
+    };
+  });
 }
 
 function renderCoupons(){
