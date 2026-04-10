@@ -1899,11 +1899,7 @@ function showIosGuide() {
 document.addEventListener('DOMContentLoaded', () => {
   showIosGuide();
 });
-function renderBusinessList() {
-  if (typeof renderBusinesses === 'function') return renderBusinesses();
-  if (typeof renderBusinessCards === 'function') return renderBusinessCards();
-  if (typeof renderHome === 'function') return renderHome();
-}
+
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.biz-open');
   if (!btn) return;
