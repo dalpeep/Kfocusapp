@@ -857,6 +857,20 @@ function nearbyBusinessItemHTML(b){
     </button>
   `;
 }
+function homeBusinessItemHTML(b){
+  const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
+  const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
+
+  return `
+    <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
+      <img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">
+      <div class="nearby-copy">
+        <strong>${esc(bizName)}</strong>
+        <span>${esc(getMainCategoryLabel(b.category) || '업소')}</span>
+      </div>
+    </button>
+  `;
+}
 function bindBizOpenButtons() {
   document.querySelectorAll('.biz-open').forEach((el) => {
     el.onclick = () => {
