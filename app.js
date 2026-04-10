@@ -844,13 +844,7 @@ function renderMapBottomList(list){
 }
 
 function nearbyBusinessItemHTML(b){
-  const base = currentCenter || getRegionCenter(currentRegion);
-  const miles = (b.lat != null && b.lng != null)
-    ? haversineMiles(Number(base.lat), Number(base.lng), Number(b.lat), Number(b.lng))
-    : null;
-
   const meta = [getMainCategoryLabel(b.category) || '업소'];
-  if(miles != null && Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
 
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
@@ -1052,7 +1046,7 @@ function renderCouponDetail(id){
   const b = getBiz(c.businessId);
   logBusinessActivity(c.businessId, 'coupon_view');
   const img = c.imageUrl || b.image;
-  couponDetailCard.innerHTML = `<div class="detail-top coupon-top"><img src="${esc(img)}" alt="${esc(c.title)}"></div><h2>${esc(c.title)}</h2><div class="detail-meta">${esc(b.name)}</div><div class="detail-meta">기간 · ${esc(formatPeriod(c.startAt,c.endAt) || formatDateLabel(c.endAt))}</div><p class="detail-desc">${esc(c.description || '쿠폰 상세 정보입니다.')}</p><div class="coupon-countdown-box"><strong>⏰ 남은 시간</strong><span>${esc(countdownLabel(c.endAt,false) || '')}</span></div><button class="action-btn business coupon-use-open" data-coupon="${esc(c.id)}">쿠폰 사용하기</button><div class="coupon-detail-links"><button class="text-link biz-open" data-biz="${esc(b.id)}">업소 보기</button><a class="text-link" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank">지도 보기</a></div>`;
+  couponDetailCard.innerHTML = `<div class="detail-top coupon-top"><img src="${esc(img)}" alt="${esc(c.title)}"></div><h2>${esc(c.title)}</h2><div class="detail-meta">${esc(b.name)}</div><div class="detail-meta">기간 · ${esc(formatPeriod(c.startAt,c.endAt) || formatDateLabel(c.endAt))}</div><p class="detail-desc">${esc(c.description || '쿠폰 상세 정보입니다.')}</p><div class="coupon-countdown-box"><strong>⏰ 남은 시간</strong><span>${esc(countdownLabel(c.endAt,false) || '')}</span></div><button class="action-btn business coupon-use-open" data-coupon="${esc(c.id)}">쿠폰 사용하기</button><div class="coupon-detail-links"><button class="text-link biz-open" data-biz="${esc(b.id)}">업소 보기</button><a class="text-link" href="https://www.google.com/maps/search/?api=1&query=${b.lat},${b.lng}" target="_blank">지도 보기</a></div>`;
 }
 
 function renderCouponUse(id){
