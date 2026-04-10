@@ -1900,14 +1900,3 @@ document.addEventListener('DOMContentLoaded', () => {
   showIosGuide();
 });
 
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.biz-open');
-  if (!btn) return;
-
-  const id = btn.dataset.biz;
-  if (!id) return;
-
-  selectedBizId = id;
-  renderDetail(id);
-  showPage('business-detail');
-});
