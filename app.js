@@ -879,6 +879,20 @@ function homeBusinessItemHTML(b){
     </button>
   `;
 }
+function bindBizOpenButtons() {
+  document.querySelectorAll('.biz-open').forEach((el) => {
+    el.onclick = () => {
+      const id = el.dataset.biz;
+      if (!id) return;
+
+      selectedBizId = id;
+      currentDetailVideoOverride = '';
+      lastBasePage = currentPage;
+      renderDetail(id);
+      showPage('business-detail');
+    };
+  });
+}
 function renderHomeBoardSection(type='notice'){
   selectedBoardType = type;
   if(communityTabs){
@@ -949,6 +963,7 @@ function renderHome(){
       ? nearby.map(nearbyBusinessItemHTML).join('')
       : '<div class="board-empty">주변 업소가 없습니다.</div>';
   }
+  bindBizOpenButtons();
 }
 
 function renderCategories(){
