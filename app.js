@@ -964,6 +964,17 @@ function renderHome(){
       : '<div class="board-empty">주변 업소가 없습니다.</div>';
   }
 }
+function renderBusinessList() {
+  const listEl = document.getElementById('businessList');
+  if (!listEl) return;
+
+  if (!Array.isArray(businesses) || !businesses.length) {
+    listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = businesses.map(b => homeBusinessItemHTML(b)).join('');
+}
 
 function renderCategories(){
   const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
