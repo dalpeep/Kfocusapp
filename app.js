@@ -1071,36 +1071,39 @@ detailCard.innerHTML = `
   <div class="detail-meta">${esc(b.address)}</div>
   <p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p>
   <div class="icon-actions">
-    ...
+    <a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a>
+    <a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a>
+    <a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>
+    ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◌</a>` : ''}
+    ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉</a>` : ''}
   </div>
   ${galleryHtml}
   ${couponHtml}
 `;
 
-// 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
 const slider = detailCard.querySelector('.gallery-slider');
 
 if (slider && prevBtn && nextBtn) {
-  const slides = slider.querySelectorAll('.gallery-slide');
-  let currentIndex = 0;
+  const getStep = () => {
+    const firstSlide = slider.querySelector('.gallery-slide');
+    if (!firstSlide) return 300;
 
-  const updateGallery = () => {
-    slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+    const slideWidth = firstSlide.getBoundingClientRect().width;
+    const sliderStyle = getComputedStyle(slider);
+    const gap = parseFloat(sliderStyle.columnGap || sliderStyle.gap || 12) || 12;
+    return slideWidth + gap;
   };
 
   prevBtn.addEventListener('click', () => {
-    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
-    updateGallery();
+    slider.scrollBy({ left: -getStep(), behavior: 'smooth' });
   });
 
   nextBtn.addEventListener('click', () => {
-    currentIndex = (currentIndex + 1) % slides.length;
-    updateGallery();
+    slider.scrollBy({ left: getStep(), behavior: 'smooth' });
   });
 }
-// 여기까지 추가
 
 function renderCouponDetail(id){
   const c = getCoupon(id);
