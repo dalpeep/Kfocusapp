@@ -1039,15 +1039,21 @@ const videoHtml = businessVideoHTML(b);
 
 const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
   ? `<div class="detail-gallery-block">
-       <h3 class="subsection-title">갤러리</h3>
-       <div class="gallery-slider">
-         ${b.gallery_urls.map((url, idx) => `
-           <div class="gallery-slide">
-             <img src="${esc(url)}" alt="${esc(b.name)} gallery ${idx + 1}">
-           </div>
-         `).join('')}
-       </div>
-     </div>`
+      <h3 class="subsection-title">갤러리</h3>
+      <div class="gallery-wrap">
+        <button class="gallery-arrow prev" type="button">‹</button>
+
+        <div class="gallery-slider">
+          ${b.gallery_urls.map((url, idx) => `
+            <div class="gallery-slide">
+              <img src="${esc(url)}" alt="${esc(b.name)} gallery ${idx + 1}">
+            </div>
+          `).join('')}
+        </div>
+
+        <button class="gallery-arrow next" type="button">›</button>
+      </div>
+    </div>`
   : '';
 
 const couponHtml = bizCoupons.length
@@ -1065,16 +1071,36 @@ detailCard.innerHTML = `
   <div class="detail-meta">${esc(b.address)}</div>
   <p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p>
   <div class="icon-actions">
-    <a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a>
-    <a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a>
-    <a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>
-    ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
-    ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
+    ...
   </div>
   ${galleryHtml}
   ${couponHtml}
 `;
+
+// 여기부터 추가
+const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
+const nextBtn = detailCard.querySelector('.gallery-arrow.next');
+const slider = detailCard.querySelector('.gallery-slider');
+
+if (slider && prevBtn && nextBtn) {
+  const slides = slider.querySelectorAll('.gallery-slide');
+  let currentIndex = 0;
+
+  const updateGallery = () => {
+    slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+  };
+
+  prevBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+    updateGallery();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex + 1) % slides.length;
+    updateGallery();
+  });
 }
+// 여기까지 추가
 
 function renderCouponDetail(id){
   const c = getCoupon(id);

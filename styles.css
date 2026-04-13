@@ -762,6 +762,10 @@ body.map-page-open #page-map .map-bottom-list {
   margin-top: 20px;
 }
 
+.gallery-wrap{
+  position: relative;
+}
+
 .gallery-slider{
   display: flex;
   overflow-x: auto;
@@ -769,6 +773,7 @@ body.map-page-open #page-map .map-bottom-list {
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   padding-left: 16px;
+  scroll-behavior: smooth;
 }
 
 .gallery-slider::-webkit-scrollbar{
@@ -786,4 +791,34 @@ body.map-page-open #page-map .map-bottom-list {
   object-fit: cover;
   border-radius: 16px;
   display: block;
+}
+
+.gallery-arrow{
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10;
+  display: none;
+}
+
+.gallery-arrow.prev{
+  left: 10px;
+}
+
+.gallery-arrow.next{
+  right: 10px;
+}
+
+@media (min-width: 992px){
+  .gallery-arrow{
+    display: block;
+  }
 }
