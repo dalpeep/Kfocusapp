@@ -801,11 +801,13 @@ body.map-page-open #page-map .map-bottom-list {
   height: 42px;
   border: none;
   border-radius: 50%;
-  background: rgba(0,0,0,.45);
+  background: rgba(0,0,0,.55);
   color: #fff;
   font-size: 28px;
+  line-height: 42px;
+  text-align: center;
   cursor: pointer;
-  z-index: 10;
+  z-index: 50;
   display: none;
 }
 
@@ -819,6 +821,6 @@ body.map-page-open #page-map .map-bottom-list {
 
 @media (min-width: 992px){
   .gallery-arrow{
-    display: block;
+    display: block !important;
   }
 }
