@@ -1000,7 +1000,7 @@ function renderBusinessList() {
 }
 
 function renderCategories() {
-  const cats = ['전체','식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
   if (!categoryRow) return;
 
   categoryRow.innerHTML = cats.map(c => `
