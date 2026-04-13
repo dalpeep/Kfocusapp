@@ -975,21 +975,11 @@ function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
 
-  const keyword = String(businessSearch?.value || '').trim().toLowerCase();
   let rows = Array.isArray(businesses) ? businesses.slice() : [];
 
-  if (businessQuickFilter && businessQuickFilter !== '전체') {
-    rows = rows.filter(b => getMainCategoryLabel(b.category) === businessQuickFilter);
+  if (selectedBusinessCategory && selectedBusinessCategory !== '전체') {
+    rows = rows.filter(b => (b.category || '').trim() === selectedBusinessCategory);
   }
-
-  if (keyword) {
-    rows = rows.filter(b => {
-      const hay = [b.name, b.category, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
-      return keyword.split(/\s+/).every(part => hay.includes(part));
-    });
-  }
-
-  rows = sortBusinessesByDistance(rows);
 
   if (!rows.length) {
     listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
@@ -1000,16 +990,24 @@ function renderBusinessList() {
 }
 
 function renderCategories() {
-  const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const cats = ['전체','식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
   if (!categoryRow) return;
 
   categoryRow.innerHTML = cats.map(c => `
     <button
-      class="category-chip ${businessQuickFilter === c || (!businessQuickFilter && c === '전체') ? 'active' : ''}"
+      class="category-chip ${selectedBusinessCategory === c ? 'active' : ''}"
       data-cat="${esc(c)}"
       type="button"
     >${esc(c)}</button>
   `).join('');
+
+  categoryRow.querySelectorAll('.category-chip').forEach(btn => {
+    btn.onclick = () => {
+      selectedBusinessCategory = btn.dataset.cat || '전체';
+      renderCategories();
+      renderBusinessList();
+    };
+  });
 }
 
 function renderCoupons(){
@@ -1351,16 +1349,21 @@ function showPage(page, opts={}){
 
 function initPageSwipe(){
   let sx=0, sy=0, active=false, moved=false;
-  const shouldIgnoreTarget = (target) => !!target.closest(
-  '#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, ' +
-  '.map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, ' +
-  '#page-map, #googleMap, .gm-style, .gm-style *, ' +
-  '#categoryRow, .category-row, .category-chip, ' +
-  '#communityTabs, .community-tab, #couponTabs, .coupon-tab, ' +
-  '.detail-gallery-block, .gallery-slider, .gallery-slide, .gallery-slide img'
-);
+  const isBaseSwipePage = () => getPageOrder().includes(currentPage);
+  const shouldIgnoreTarget = (target) => {
+    const el = target && target.nodeType === 1 ? target : target?.parentElement;
+    if(!el) return false;
+    return !!el.closest(
+      '#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, ' +
+      '.map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, ' +
+      '#page-map, #googleMap, .gm-style, .gm-style *, #categoryRow, .category-row, .category-chip, ' +
+      '#communityTabs, .community-tab, #couponTabs, .coupon-tab, ' +
+      '#page-business-detail, #detailCard, .detail-gallery-block, .gallery-slider, .gallery-slide, .gallery-slide img, ' +
+      '#page-coupon-detail, #couponDetailCard, #page-coupon-use, #couponUseCard, #page-board-detail, .board-detail-block'
+    );
+  };
   document.addEventListener('touchstart', e=>{
-    if(shouldIgnoreTarget(e.target)) return;
+    if(!isBaseSwipePage() || shouldIgnoreTarget(e.target)) return;
     const t=e.touches[0];
     sx=t.clientX; sy=t.clientY; active=true; moved=false;
   }, {passive:true, capture:true});
@@ -1376,16 +1379,17 @@ function initPageSwipe(){
   renderBusinessList();
 });
   document.addEventListener('touchmove', e=>{
-    if(!active) return;
+    if(!active || !isBaseSwipePage()) return;
     const t=e.touches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
     if(Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy)) moved=true;
     if(moved && currentPage==='map') e.preventDefault();
   }, {passive:false, capture:true});
   document.addEventListener('touchend', e=>{
-    if(!active) return; active=false;
+    if(!active || !isBaseSwipePage()) { active=false; return; }
+    active=false;
     const t=e.changedTouches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
     if(Math.abs(dx) < 54 || Math.abs(dx) < Math.abs(dy)) return;
-    const basePage = getPageOrder().includes(currentPage) ? currentPage : lastBasePage;
+    const basePage = currentPage;
     const order=getPageOrder(); const idx=order.indexOf(basePage); if(idx===-1) return;
     suppressCardClickUntil = Date.now() + 450;
     if(dx<0 && idx<order.length-1) showPage(order[idx+1]);
