@@ -975,11 +975,21 @@ function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
 
+  const keyword = String(businessSearch?.value || '').trim().toLowerCase();
   let rows = Array.isArray(businesses) ? businesses.slice() : [];
 
-  if (selectedBusinessCategory && selectedBusinessCategory !== '전체') {
-    rows = rows.filter(b => (b.category || '').trim() === selectedBusinessCategory);
+  if (businessQuickFilter && businessQuickFilter !== '전체') {
+    rows = rows.filter(b => getMainCategoryLabel(b.category) === businessQuickFilter);
   }
+
+  if (keyword) {
+    rows = rows.filter(b => {
+      const hay = [b.name, b.category, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
+      return keyword.split(/\s+/).every(part => hay.includes(part));
+    });
+  }
+
+  rows = sortBusinessesByDistance(rows);
 
   if (!rows.length) {
     listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
@@ -995,19 +1005,11 @@ function renderCategories() {
 
   categoryRow.innerHTML = cats.map(c => `
     <button
-      class="category-chip ${selectedBusinessCategory === c ? 'active' : ''}"
+      class="category-chip ${businessQuickFilter === c || (!businessQuickFilter && c === '전체') ? 'active' : ''}"
       data-cat="${esc(c)}"
       type="button"
     >${esc(c)}</button>
   `).join('');
-
-  categoryRow.querySelectorAll('.category-chip').forEach(btn => {
-    btn.onclick = () => {
-      selectedBusinessCategory = btn.dataset.cat || '전체';
-      renderCategories();
-      renderBusinessList();
-    };
-  });
 }
 
 function renderCoupons(){
