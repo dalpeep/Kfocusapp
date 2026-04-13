@@ -2030,9 +2030,17 @@ function initIosInstallBanner() {
     }, 1800);
   }
 
-  guideBtn?.addEventListener('click', () => {
-    alert('Safari 하단의 공유 버튼을 누른 뒤 "홈 화면에 추가"를 선택하세요.');
-  });
+guideBtn?.addEventListener('click', () => {
+  document.getElementById('iosInstallGuideOverlay')?.classList.remove('hidden');
+});
+
+document.getElementById('iosGuideCloseBtn')?.addEventListener('click', () => {
+  document.getElementById('iosInstallGuideOverlay')?.classList.add('hidden');
+});
+
+document.querySelector('#iosInstallGuideOverlay .ios-guide-dim')?.addEventListener('click', () => {
+  document.getElementById('iosInstallGuideOverlay')?.classList.add('hidden');
+});
 
   closeBtn?.addEventListener('click', () => {
     localStorage.setItem(
