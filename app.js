@@ -1351,7 +1351,7 @@ function showPage(page, opts={}){
 
 function initPageSwipe(){
   let sx=0, sy=0, active=false, moved=false;
-  const shouldIgnoreTarget = (target) => !!target.closest('#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, .map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, #page-map, #googleMap, .gm-style, .gm-style *, #categoryRow, .category-row, .category-chip, #communityTabs, .community-tab, #couponTabs, .coupon-tab');
+  const shouldIgnoreTarget = (target) => !!target.closest('#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, .map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, #page-map, #googleMap, .gm-style, .gm-style *, #categoryRow, .category-row, .category-chip, #communityTabs, .community-tab, #couponTabs, .coupon-tab, #page-business-detail, .detail-gallery-block, .gallery-slider, .gallery-slide, .gallery-slide img');
   document.addEventListener('touchstart', e=>{
     if(shouldIgnoreTarget(e.target)) return;
     const t=e.touches[0];
