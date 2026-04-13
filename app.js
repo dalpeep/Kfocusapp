@@ -1074,6 +1074,30 @@ detailCard.innerHTML = `
   ${galleryHtml}
   ${couponHtml}
 `;
+// 여기부터 추가
+const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
+const nextBtn = detailCard.querySelector('.gallery-arrow.next');
+const slider = detailCard.querySelector('.gallery-slider');
+
+if (slider && prevBtn && nextBtn) {
+  const slides = slider.querySelectorAll('.gallery-slide');
+  let currentIndex = 0;
+
+  const updateGallery = () => {
+    slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+  };
+
+  prevBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
+    updateGallery();
+  });
+
+  nextBtn.addEventListener('click', () => {
+    currentIndex = (currentIndex + 1) % slides.length;
+    updateGallery();
+  });
+}
+// 여기까지 추가
 }
 
 function renderCouponDetail(id){
