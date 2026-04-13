@@ -1086,22 +1086,46 @@ const nextBtn = detailCard.querySelector('.gallery-arrow.next');
 const slider = detailCard.querySelector('.gallery-slider');
 
 if (slider && prevBtn && nextBtn) {
-  const slides = slider.querySelectorAll('.gallery-slide');
+  const slides = Array.from(slider.querySelectorAll('.gallery-slide'));
   let currentIndex = 0;
 
-  const updateGallery = () => {
-    slider.style.transform = `translateX(-${currentIndex * 100}%)`;
+  const goToSlide = (index) => {
+    if (!slides.length) return;
+
+    currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+    slides[currentIndex].scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest'
+    });
   };
 
   prevBtn.addEventListener('click', () => {
-    currentIndex = (currentIndex - 1 + slides.length) % slides.length;
-    updateGallery();
+    goToSlide(currentIndex - 1);
   });
 
   nextBtn.addEventListener('click', () => {
-    currentIndex = (currentIndex + 1) % slides.length;
-    updateGallery();
+    goToSlide(currentIndex + 1);
   });
+
+  slider.addEventListener('scroll', () => {
+    if (!slides.length) return;
+
+    const sliderCenter = slider.scrollLeft + slider.clientWidth / 2;
+    let nearestIndex = 0;
+    let nearestDistance = Infinity;
+
+    slides.forEach((slide, idx) => {
+      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+      const dist = Math.abs(sliderCenter - slideCenter);
+      if (dist < nearestDistance) {
+        nearestDistance = dist;
+        nearestIndex = idx;
+      }
+    });
+
+    currentIndex = nearestIndex;
+  }, { passive: true });
 }
 // 여기까지 추가
 }
