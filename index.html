@@ -319,7 +319,19 @@ function requestPush() {
   100% { transform: translateX(-50%) translateY(0); }
 }
 </style>
-
+<div id="iosInstallBanner" class="ios-install-banner hidden">
+  <div class="ios-install-card">
+    <div class="ios-install-title">홈 화면에 추가하고 더 편하게 사용하세요</div>
+    <div class="ios-install-desc">
+      Safari 하단의 <strong>공유 버튼</strong>을 누른 뒤
+      <strong>홈 화면에 추가</strong>를 선택하세요.
+    </div>
+    <div class="ios-install-actions">
+      <button id="iosInstallGuideBtn" type="button">설치 방법</button>
+      <button id="iosInstallCloseBtn" type="button">닫기</button>
+    </div>
+  </div>
+</div>
 </body>
 
 </html> 

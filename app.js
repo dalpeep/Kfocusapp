@@ -1838,7 +1838,7 @@ if (region && window.OneSignalDeferred) {
   await loadRealData();
   updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initPageSwipe();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initPageSwipe();
   openAdminLoginModalFromQuery();
   showPage(getRoute());
   initRegionPicker();
@@ -1995,4 +1995,50 @@ function showIosGuide() {
 document.addEventListener('DOMContentLoaded', () => {
   showIosGuide();
 });
+function isIosDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
 
+function isSafariBrowser() {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios') && !ua.includes('edgios');
+}
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function shouldShowIosInstallBanner() {
+  if (!isIosDevice()) return false;
+  if (!isSafariBrowser()) return false;
+  if (isStandaloneMode()) return false;
+
+  const hiddenUntil = Number(localStorage.getItem('ios_install_banner_hidden_until') || 0);
+  return Date.now() > hiddenUntil;
+}
+
+function initIosInstallBanner() {
+  const banner = document.getElementById('iosInstallBanner');
+  const guideBtn = document.getElementById('iosInstallGuideBtn');
+  const closeBtn = document.getElementById('iosInstallCloseBtn');
+
+  if (!banner) return;
+
+  if (shouldShowIosInstallBanner()) {
+    setTimeout(() => {
+      banner.classList.remove('hidden');
+    }, 1800);
+  }
+
+  guideBtn?.addEventListener('click', () => {
+    alert('Safari 하단의 공유 버튼을 누른 뒤 "홈 화면에 추가"를 선택하세요.');
+  });
+
+  closeBtn?.addEventListener('click', () => {
+    localStorage.setItem(
+      'ios_install_banner_hidden_until',
+      String(Date.now() + 1000 * 60 * 60 * 24 * 3)
+    );
+    banner.classList.add('hidden');
+  });
+}

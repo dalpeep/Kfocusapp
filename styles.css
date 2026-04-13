@@ -824,3 +824,68 @@ body.map-page-open #page-map .map-bottom-list {
     display: block !important;
   }
 }
+.ios-install-banner{
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  z-index: 9999;
+}
+
+.ios-install-banner.hidden{
+  display: none;
+}
+
+.ios-install-card{
+  background: #111827;
+  color: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
+
+.ios-install-title{
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.ios-install-desc{
+  font-size: 14px;
+  line-height: 1.6;
+  opacity: .96;
+}
+
+.ios-install-actions{
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.ios-install-actions button{
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+#iosInstallGuideBtn{
+  background: #2563eb;
+  color: #fff;
+}
+
+#iosInstallCloseBtn{
+  background: rgba(255,255,255,.14);
+  color: #fff;
+}
+
+@media (min-width: 992px){
+  .ios-install-banner{
+    max-width: 420px;
+    left: auto;
+    right: 24px;
+  }
+}
