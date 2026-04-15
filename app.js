@@ -7,7 +7,7 @@ const FALLBACK_BUSINESSES = [
   { id:'ace', name:'Ace Mart', category:'마켓', address:'1111 S Federal Blvd, Denver, CO', phone:'303-555-9876', image:'https://images.unsplash.com/photo-1604719312566-8912e9c8a213?auto=format&fit=crop&w=1200&q=80', coupon:true, is_popular:true, popular_rank:3, desc:'쿠폰 노출 업소 예시입니다.', lat:39.695, lng:-105.027, created_at:'2026-03-06', region:'colorado' },
   { id:'wonder', name:'Wonder Bakery', category:'베이커리', address:'555 Bakery St, Aurora, CO', phone:'303-555-2222', image:'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80', coupon:true, desc:'오늘 쿠폰 시안용 업소입니다.', lat:39.68, lng:-104.84, created_at:'2026-03-05', region:'colorado' }
 ];
-let businesses = [...FALLBACK_BUSINESSES];
+let businesses = [...FALLBACK_BUSINESSES].filter(b => String(b.region || '').toLowerCase() === 'dallas');
 let coupons = [];
 let couponViewTab = 'today';
 let selectedCouponId = null;
@@ -20,7 +20,8 @@ const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
 const REGION_CENTER_MAP = { colorado: COLORADO_CENTER, dallas: DALLAS_CENTER, dfw: DALLAS_CENTER };
 const TEST_FORCE_CENTER = false;
-let currentRegion = getPreferredRegion();
+let currentRegion = 'dallas';
+localStorage.setItem('region', 'dallas');
 let suppressCardClickUntil = 0;
 let boardPosts = [];
 let slideRows = [];
@@ -102,25 +103,19 @@ function getAdminMode() {
 }
 
 function getAdminRegionOverride() {
-  const params = new URLSearchParams(window.location.search);
-  const region = params.get('region');
-  return region ? normalizeRegionKey(region) : '';
+  return 'dallas';
 }
 function getPreferredRegion() {
-  if(getAdminMode() && getAdminRegionOverride()){
-    return normalizeRegionKey(getAdminRegionOverride());
-  }
-  const saved = localStorage.getItem('region');
-  return normalizeRegionKey(saved || 'dallas');
+  return 'dallas';
 }
 
 function persistRegion(region){
-  currentRegion = normalizeRegionKey(region);
-  localStorage.setItem('region', currentRegion);
+  currentRegion = 'dallas';
+  localStorage.setItem('region', 'dallas');
 
   if (window.OneSignalDeferred) {
     OneSignalDeferred.push(async function (OneSignal) {
-      await OneSignal.User.addTag("region", currentRegion);
+      await OneSignal.User.addTag('region', 'dallas');
     });
   }
 
@@ -129,15 +124,10 @@ function persistRegion(region){
 }
 
 function getRegionCenter(region){
-  return REGION_CENTER_MAP[normalizeRegionKey(region)] || COLORADO_CENTER;
+  return DALLAS_CENTER;
 }
 function detectRegionFromCoords(lat, lng){
-  const latNum = Number(lat);
-  const lngNum = Number(lng);
-  if(!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return currentRegion || 'colorado';
-  if(latNum > 31 && latNum < 34.8 && lngNum > -98.8 && lngNum < -95.5) return 'dallas';
-  if(latNum > 38 && latNum < 40.6 && lngNum > -106.2 && lngNum < -103.2) return 'colorado';
-  return currentRegion || 'dallas';
+  return 'dallas';
 }
 function applyRegionDistanceCenter(region, force=false){
   currentRegion = normalizeRegionKey(region);
@@ -164,38 +154,31 @@ function applyRegionDistanceCenter(region, force=false){
 }
 
 function getRegionLabel(region){
-  const key = normalizeRegionKey(region);
-  if(key === 'dallas') return 'Dallas–Fort Worth';
-  if(key === 'colorado') return 'Denver Metro';
-  return region || '';
+  return 'Dallas–Fort Worth';
 }
 
 function updateTopRegionLabel(){
   const el = document.getElementById('topRegionLabel');
-  if(!el) return;
-  el.textContent = getRegionLabel(currentRegion) || 'Denver Metro';
+  if(el) {
+    el.textContent = 'Dallas–Fort Worth';
+    el.style.pointerEvents = 'none';
+    el.style.cursor = 'default';
+  }
+  const side = document.getElementById('sideCurrentRegionLabel');
+  if(side) side.style.display = 'none';
+  const pickerBtn = document.getElementById('sideRegionPicker');
+  if(pickerBtn) pickerBtn.style.display = 'none';
   if(document && document.title){
-    document.title = `K ${getRegionLabel(currentRegion) || 'Colorado'}`;
+    document.title = 'K Dallas–Fort Worth';
   }
 }
 
 
 async function detectInitialRegion(){
-  const adminRegion = getAdminRegionOverride();
-
-  if(getAdminMode() && adminRegion){
-    currentRegion = normalizeRegionKey(adminRegion);
-    currentCenter = getRegionCenter(currentRegion);
-    applyRegionDistanceCenter(currentRegion, true);
-    return currentRegion;
-  }
-
-  const saved = localStorage.getItem('region');
-  const selected = normalizeRegionKey(saved || 'dallas');
-
-  currentRegion = selected;
-  currentCenter = getRegionCenter(currentRegion);
-  applyRegionDistanceCenter(currentRegion, true);
+  currentRegion = 'dallas';
+  localStorage.setItem('region', 'dallas');
+  currentCenter = DALLAS_CENTER;
+  applyRegionDistanceCenter('dallas', true);
   return currentRegion;
 }
 
@@ -1744,7 +1727,6 @@ function bindEvents(){
   $('#homeBrand')?.addEventListener('click', ()=>showPage('home'));
   $$('.nav-item').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
   $('#menuBtn')?.addEventListener('click', openSideMenu); $('#sideClose')?.addEventListener('click', closeSideMenu); $('#sideOverlay')?.addEventListener('click', closeSideMenu);
-  $('#sideRegionPicker')?.addEventListener('click', ()=>{ closeSideMenu(); openRegionPicker(); });
   $('#adminLoginBackdrop')?.addEventListener('click', closeAdminLoginModal);
   $('#adminLoginClose')?.addEventListener('click', closeAdminLoginModal);
   $('#adminLoginSubmit')?.addEventListener('click', handleAdminLogin);
@@ -1828,10 +1810,10 @@ async function init(){
   await detectInitialRegion();
 
   // ⭐ 여기 추가 (이 위치가 핵심)
-const region = localStorage.getItem('region');
-if (region && window.OneSignalDeferred) {
+localStorage.setItem('region', 'dallas');
+if (window.OneSignalDeferred) {
   OneSignalDeferred.push(async function (OneSignal) {
-    await OneSignal.User.addTag("region", region);
+    await OneSignal.User.addTag('region', 'dallas');
   });
 }
 
@@ -1841,7 +1823,6 @@ if (region && window.OneSignalDeferred) {
   renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); initPageSwipe();
   openAdminLoginModalFromQuery();
   showPage(getRoute());
-  initRegionPicker();
 }
 init();
 
@@ -1929,44 +1910,30 @@ window.openBusinessMapCard = function(id){
 
 // ===== REGION PICKER =====
 function openRegionPicker(){
-  const modal = document.getElementById('regionPickerModal');
-  if(!modal) return;
-  modal.classList.remove('hidden');
-  modal.setAttribute('aria-hidden', 'false');
+  return;
 }
 
 function closeRegionPicker(){
-  const modal = document.getElementById('regionPickerModal');
-  if(!modal) return;
-  modal.classList.add('hidden');
-  modal.setAttribute('aria-hidden', 'true');
+  return;
 }
 
 function updateRegionPickerLabels(){
-  const r = localStorage.getItem('region') || 'dallas';
-  const label = r === 'colorado' ? 'Denver Metro' : 'Dallas–Fort Worth';
   const side = document.getElementById('sideCurrentRegionLabel');
-  if(side) side.textContent = label;
+  if(side) side.style.display = 'none';
+  const pickerBtn = document.getElementById('sideRegionPicker');
+  if(pickerBtn) pickerBtn.style.display = 'none';
 }
 
 function initRegionPicker(){
-  const saved = localStorage.getItem('region');
-
-  if(!saved){
-    setTimeout(()=>openRegionPicker(), 300);
-  }
-
-  updateRegionPickerLabels();
-
-  document.querySelectorAll('[data-region]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      localStorage.setItem('region', btn.dataset.region);
-      updateRegionPickerLabels();
-      closeRegionPicker();
-      location.reload();
-    });
-  });
+  const side = document.getElementById('sideCurrentRegionLabel');
+  if(side) side.style.display = 'none';
+  const pickerBtn = document.getElementById('sideRegionPicker');
+  if(pickerBtn) pickerBtn.style.display = 'none';
+  const modal = document.getElementById('regionPickerModal');
+  if(modal) modal.style.display = 'none';
+  localStorage.setItem('region', 'dallas');
 }
+
 
 function isIos() {
   return /iPhone|iPad|iPod/.test(navigator.userAgent);
