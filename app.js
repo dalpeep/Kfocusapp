@@ -2045,8 +2045,83 @@ document.querySelector('#iosInstallGuideOverlay .ios-guide-dim')?.addEventListen
   closeBtn?.addEventListener('click', () => {
     localStorage.setItem(
       'ios_install_banner_hidden_until',
-      String(Date.now() + 1000 * 60 * 60 * 24 * 3)
+      String(Date.now() + 1000 * 60 * 60 * 24 * 1)
     );
+    banner.classList.add('hidden');
+  });
+}
+let deferredInstallPrompt = null;
+
+function isAndroidDevice() {
+  return /android/i.test(navigator.userAgent);
+}
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function shouldShowAndroidInstallBanner() {
+  if (!isAndroidDevice()) return false;
+  if (isStandaloneMode()) return false;
+
+  const hiddenUntil = Number(localStorage.getItem('android_install_banner_hidden_until') || 0);
+  return Date.now() > hiddenUntil;
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  console.log('[PWA] beforeinstallprompt fired');
+  e.preventDefault();
+  deferredInstallPrompt = e;
+
+  if (shouldShowAndroidInstallBanner()) {
+    document.getElementById('androidInstallBanner')?.classList.remove('hidden');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] appinstalled fired');
+  deferredInstallPrompt = null;
+  document.getElementById('androidInstallBanner')?.classList.add('hidden');
+});
+
+function initAndroidInstallBanner() {
+  const banner = document.getElementById('androidInstallBanner');
+  const installBtn = document.getElementById('androidInstallBtn');
+  const closeBtn = document.getElementById('androidInstallCloseBtn');
+
+  if (!banner || !installBtn || !closeBtn) return;
+
+  if (isAndroidDevice() && !isStandaloneMode()) {
+    console.log('[PWA] Android detected, waiting for beforeinstallprompt');
+  }
+
+  closeBtn.addEventListener('click', () => {
+    localStorage.setItem(
+      'android_install_banner_hidden_until',
+      String(Date.now() + 1000 * 60 * 60 * 24 * 1)
+    );
+    banner.classList.add('hidden');
+  });
+
+  installBtn.addEventListener('click', async () => {
+    console.log('[PWA] install button clicked');
+
+    if (!deferredInstallPrompt) {
+      console.log('[PWA] deferredInstallPrompt is null');
+      alert('아직 설치 창을 띄울 수 없는 상태입니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
+    deferredInstallPrompt.prompt();
+
+    try {
+      const choice = await deferredInstallPrompt.userChoice;
+      console.log('[PWA] userChoice:', choice);
+    } catch (err) {
+      console.warn('[PWA] install prompt result unavailable:', err);
+    }
+
+    deferredInstallPrompt = null;
     banner.classList.add('hidden');
   });
 }
