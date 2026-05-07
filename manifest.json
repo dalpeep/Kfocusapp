@@ -1,12 +1,12 @@
 {
-  "name": "Kfocus",
-  "short_name": "Kfocus",
+  "name": "DalTownMap",
+  "short_name": "DalTownMap",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
-  "description": "Kfocus 지역 업소, 쿠폰, 지도, 게시판을 한 곳에서 보는 앱",
+  "description": "DalTownMap 지역 업소, 쿠폰, 지도, 게시판을 한 곳에서 보는 앱",
   "icons": [
     {
       "src": "/icons/icon-192.png",
