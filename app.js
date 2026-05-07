@@ -20,8 +20,16 @@ const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
 const REGION_CENTER_MAP = { colorado: COLORADO_CENTER, dallas: DALLAS_CENTER, dfw: DALLAS_CENTER };
 const TEST_FORCE_CENTER = false;
-let currentRegion = 'dallas';
-localStorage.setItem('region', 'dallas');
+
+function getForcedRegionByHost(){
+  const host = String(window.location.hostname || '').toLowerCase();
+  if(host.includes('kfocus.app')) return 'colorado';
+  if(host.includes('ktownad')) return 'dallas';
+  return '';
+}
+
+let currentRegion = getForcedRegionByHost() || 'dallas';
+localStorage.setItem('region', currentRegion);
 let suppressCardClickUntil = 0;
 let boardPosts = [];
 let slideRows = [];
@@ -108,6 +116,8 @@ function getAdminRegionOverride() {
   return region ? normalizeRegionKey(region) : '';
 }
 function getPreferredRegion() {
+  const forced = getForcedRegionByHost();
+  if(forced) return forced;
   if(getAdminMode() && getAdminRegionOverride()){
     return normalizeRegionKey(getAdminRegionOverride());
   }
@@ -116,7 +126,8 @@ function getPreferredRegion() {
 }
 
 function persistRegion(region){
-  currentRegion = normalizeRegionKey(region);
+  const forced = getForcedRegionByHost();
+  currentRegion = forced || normalizeRegionKey(region);
   localStorage.setItem('region', currentRegion);
 
   if (window.OneSignalDeferred) {
@@ -126,16 +137,19 @@ function persistRegion(region){
   }
 
   if(typeof updateTopRegionLabel === 'function') updateTopRegionLabel();
+  if(typeof updateRegionPickerLabels === 'function') updateRegionPickerLabels();
   return currentRegion;
 }
 
 function getRegionCenter(region){
-  return REGION_CENTER_MAP[normalizeRegionKey(region)] || COLORADO_CENTER;
+  return REGION_CENTER_MAP[normalizeRegionKey(region)] || DALLAS_CENTER;
 }
 function detectRegionFromCoords(lat, lng){
+  const forced = getForcedRegionByHost();
+  if(forced) return forced;
   const latNum = Number(lat);
   const lngNum = Number(lng);
-  if(!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return currentRegion || 'colorado';
+  if(!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return currentRegion || 'dallas';
   if(latNum > 31 && latNum < 34.8 && lngNum > -98.8 && lngNum < -95.5) return 'dallas';
   if(latNum > 38 && latNum < 40.6 && lngNum > -106.2 && lngNum < -103.2) return 'colorado';
   return currentRegion || 'dallas';
@@ -173,16 +187,37 @@ function getRegionLabel(region){
 
 function updateTopRegionLabel(){
   const el = document.getElementById('topRegionLabel');
-  if(!el) return;
-  el.textContent = getRegionLabel(currentRegion) || 'Denver Metro';
+  const label = getRegionLabel(currentRegion) || 'Dallas–Fort Worth';
+  if(el) el.textContent = label;
   if(document && document.title){
-    document.title = `K ${getRegionLabel(currentRegion) || 'Colorado'}`;
+    document.title = `K ${label}`;
   }
+}
+
+function hideRegionUi(){
+  ['sideRegionPicker','sideCurrentRegionLabel','regionPickerModal'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  document.querySelectorAll('[data-region]').forEach(el => {
+    const wrap = el.closest('.menu-item, .region-item, .region-picker-item, li, button, div');
+    if(wrap && wrap !== document.body) wrap.style.display = 'none';
+    else el.style.display = 'none';
+  });
 }
 
 
 async function detectInitialRegion(){
+  const forced = getForcedRegionByHost();
   const adminRegion = getAdminRegionOverride();
+
+  if(forced){
+    currentRegion = forced;
+    localStorage.setItem('region', currentRegion);
+    currentCenter = getRegionCenter(currentRegion);
+    applyRegionDistanceCenter(currentRegion, true);
+    return currentRegion;
+  }
 
   if(getAdminMode() && adminRegion){
     currentRegion = normalizeRegionKey(adminRegion);
@@ -382,7 +417,7 @@ async function loadRealData(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
 
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,order_url,delivery_url,reservation_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
@@ -414,9 +449,6 @@ const mapped = rows.map((row) => {
     email: row.email || '',
     video_url: row.video_url || '',
     youtube_url: row.youtube_url || '',
-    order_url: row.order_url || '',
-    delivery_url: row.delivery_url || '',
-    reservation_url: row.reservation_url || '',
     desc: row.description || '',
     lat: row.lat == null ? null : Number(row.lat),
     lng: row.lng == null ? null : Number(row.lng),
@@ -1064,8 +1096,6 @@ const couponHtml = bizCoupons.length
   ? `<div class="detail-coupon-block"><h3 class="subsection-title">사용 가능한 쿠폰</h3><div class="detail-coupon-list">${bizCoupons.map(c=>`<button class="detail-coupon-item coupon-open" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(formatDateLabel(c.endAt))}</span></button>`).join('')}</div></div>`
   : '';
 
-const actionLinksHtml = businessActionLinksHTML(b);
-
 detailCard.innerHTML = `
   ${videoHtml}
   <div class="detail-top">
@@ -1083,7 +1113,6 @@ detailCard.innerHTML = `
     ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
     ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
   </div>
-  ${actionLinksHtml}
   ${galleryHtml}
   ${couponHtml}
 `;
@@ -1834,21 +1863,22 @@ function closeVideoModal(){
 async function init(){
   await detectInitialRegion();
 
-  // ⭐ 여기 추가 (이 위치가 핵심)
-const region = localStorage.getItem('region');
-if (region && window.OneSignalDeferred) {
-  OneSignalDeferred.push(async function (OneSignal) {
-    await OneSignal.User.addTag("region", region);
-  });
-}
+  const region = currentRegion || getPreferredRegion();
+  localStorage.setItem('region', region);
+  if (region && window.OneSignalDeferred) {
+    OneSignalDeferred.push(async function (OneSignal) {
+      await OneSignal.User.addTag("region", region);
+    });
+  }
 
   await loadRealData();
   updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); initPageSwipe();h
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   showPage(getRoute());
   initRegionPicker();
+  hideRegionUi();
 }
 init();
 
@@ -1936,6 +1966,7 @@ window.openBusinessMapCard = function(id){
 
 // ===== REGION PICKER =====
 function openRegionPicker(){
+  if(getForcedRegionByHost()) return;
   const modal = document.getElementById('regionPickerModal');
   if(!modal) return;
   modal.classList.remove('hidden');
@@ -1950,13 +1981,20 @@ function closeRegionPicker(){
 }
 
 function updateRegionPickerLabels(){
-  const r = localStorage.getItem('region') || 'dallas';
+  const forced = getForcedRegionByHost();
+  const r = forced || localStorage.getItem('region') || 'dallas';
   const label = r === 'colorado' ? 'Denver Metro' : 'Dallas–Fort Worth';
   const side = document.getElementById('sideCurrentRegionLabel');
   if(side) side.textContent = label;
 }
 
 function initRegionPicker(){
+  if(getForcedRegionByHost()){
+    updateRegionPickerLabels();
+    hideRegionUi();
+    return;
+  }
+
   const saved = localStorage.getItem('region');
 
   if(!saved){
