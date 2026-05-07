@@ -2007,7 +2007,7 @@ function closeRegionPicker(){
 function updateRegionPickerLabels(){
   const forced = getForcedRegionByHost();
   const r = forced || localStorage.getItem('region') || 'dallas';
-  const label = r === 'colorado' ? 'Denver Metro' : 'Dallas–Fort Worth';
+  const label = r === 'colorado' ? 'Denver Metro' : 'Daltown Map';
   const side = document.getElementById('sideCurrentRegionLabel');
   if(side) side.textContent = label;
 }
