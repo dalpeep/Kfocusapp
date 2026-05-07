@@ -1441,6 +1441,9 @@ function animatePageTransition(fromPage, toPage, direction='left') {
 function showPage(page, opts={}){
   const prevPage = currentPage;
   currentPage = page;
+  if (typeof setMapPageMode === 'function') {
+  setMapPageMode(page === 'map');
+}
   const order = getPageOrder();
   const prevIdx = order.indexOf(prevPage);
   const nextIdx = order.indexOf(page);
@@ -1478,17 +1481,7 @@ function initPageSwipe(){
     const t=e.touches[0];
     sx=t.clientX; sy=t.clientY; active=true; moved=false;
   }, {passive:true, capture:true});
-  document.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-nav="business"]');
-  if (!btn) return;
 
-  e.preventDefault();
-  e.stopPropagation();
-
-  businessQuickFilter = String(btn.dataset.filter || '').trim();
-  showPage('business');
-  renderBusinessList();
-});
   document.addEventListener('touchmove', e=>{
     if(!active) return;
     const t=e.touches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
