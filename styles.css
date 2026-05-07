@@ -1037,3 +1037,26 @@ body.map-page-open #page-map .map-bottom-list {
     right: 24px;
   }
 }
+.sponsor-banner,
+.sponsor-banner img,
+.sponsor-banner-list,
+.sponsor-banner-card,
+.home-sponsor-banner,
+.home-sponsor-banner img {
+  display: block !important;
+  visibility: visible !important;
+}
+
+.sponsor-banner img,
+.home-sponsor-banner img {
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: cover;
+}
+
+.sponsor-banner,
+.home-sponsor-banner {
+  min-height: 120px;
+  overflow: visible !important;
+}
