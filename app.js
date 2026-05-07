@@ -24,7 +24,7 @@ const TEST_FORCE_CENTER = false;
 function getForcedRegionByHost(){
   const host = String(window.location.hostname || '').toLowerCase();
   if(host.includes('kfocus.app')) return 'colorado';
-  if(host.includes('ktownad')) return 'dallas';
+  if(host.includes('ktownad') || host.includes('daltownmap')) return 'dallas';
   return '';
 }
 
@@ -198,11 +198,6 @@ function hideRegionUi(){
   ['sideRegionPicker','sideCurrentRegionLabel','regionPickerModal'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.style.display = 'none';
-  });
-  document.querySelectorAll('[data-region]').forEach(el => {
-    const wrap = el.closest('.menu-item, .region-item, .region-picker-item, li, button, div');
-    if(wrap && wrap !== document.body) wrap.style.display = 'none';
-    else el.style.display = 'none';
   });
 }
 
@@ -417,7 +412,7 @@ async function loadRealData(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
 
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active';
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
@@ -449,6 +444,9 @@ const mapped = rows.map((row) => {
     email: row.email || '',
     video_url: row.video_url || '',
     youtube_url: row.youtube_url || '',
+    order_url: row.order_url || '',
+    delivery_url: row.delivery_url || '',
+    reservation_url: row.reservation_url || '',
     desc: row.description || '',
     lat: row.lat == null ? null : Number(row.lat),
     lng: row.lng == null ? null : Number(row.lng),
@@ -1061,6 +1059,31 @@ function updateCouponTabUI(){
   couponTodayList?.classList.toggle('hidden', couponViewTab!=='today');
   couponAllList?.classList.toggle('hidden', couponViewTab!=='all');
 }
+
+function businessOrderLinksHTML(b){
+  const links = [];
+  const orderUrl = normalizeUrl(b.order_url || '');
+  const deliveryUrl = normalizeUrl(b.delivery_url || '');
+  const reservationUrl = normalizeUrl(b.reservation_url || '');
+
+  if(orderUrl){
+    links.push(`<a class="business-action-link order" href="${esc(orderUrl)}" target="_blank" rel="noopener">온라인 주문</a>`);
+  }
+  if(deliveryUrl){
+    links.push(`<a class="business-action-link delivery" href="${esc(deliveryUrl)}" target="_blank" rel="noopener">배달 주문</a>`);
+  }
+  if(reservationUrl){
+    links.push(`<a class="business-action-link reservation" href="${esc(reservationUrl)}" target="_blank" rel="noopener">예약하기</a>`);
+  }
+
+  const isRestaurant = /식당|한식|분식|bbq|restaurant|food|cafe|카페|베이커리|bakery/i.test(String(b.category || ''));
+  if(!links.length && isRestaurant){
+    links.push(`<button class="business-action-link pending" type="button" disabled>온라인 주문 준비중</button>`);
+  }
+
+  return links.length ? `<div class="business-action-links">${links.join('')}</div>` : '';
+}
+
 function renderDetail(id){
   const b = businesses.find(v => String(v.id) === String(id)) || businesses[0];
   if(!b || !detailCard) return;
@@ -1113,6 +1136,7 @@ detailCard.innerHTML = `
     ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
     ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
   </div>
+  ${businessOrderLinksHTML(b)}
   ${galleryHtml}
   ${couponHtml}
 `;
@@ -1447,17 +1471,6 @@ function initPageSwipe(){
     const t=e.touches[0];
     sx=t.clientX; sy=t.clientY; active=true; moved=false;
   }, {passive:true, capture:true});
-  document.addEventListener('click', (e) => {
-  const btn = e.target.closest('[data-nav="business"]');
-  if (!btn) return;
-
-  e.preventDefault();
-  e.stopPropagation();
-
-  businessQuickFilter = String(btn.dataset.filter || '').trim();
-  showPage('business');
-  renderBusinessList();
-});
   document.addEventListener('touchmove', e=>{
     if(!active) return;
     const t=e.touches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
