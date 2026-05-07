@@ -20,7 +20,16 @@ const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
 const REGION_CENTER_MAP = { colorado: COLORADO_CENTER, dallas: DALLAS_CENTER, dfw: DALLAS_CENTER };
 const TEST_FORCE_CENTER = false;
-let currentRegion = getPreferredRegion();
+
+function getForcedRegionByHost(){
+  const host = String(window.location.hostname || '').toLowerCase();
+  if(host.includes('kfocus.app')) return 'colorado';
+  if(host.includes('ktownad')) return 'dallas';
+  return '';
+}
+
+let currentRegion = getForcedRegionByHost() || 'dallas';
+localStorage.setItem('region', currentRegion);
 let suppressCardClickUntil = 0;
 let boardPosts = [];
 let slideRows = [];
@@ -107,6 +116,8 @@ function getAdminRegionOverride() {
   return region ? normalizeRegionKey(region) : '';
 }
 function getPreferredRegion() {
+  const forced = getForcedRegionByHost();
+  if(forced) return forced;
   if(getAdminMode() && getAdminRegionOverride()){
     return normalizeRegionKey(getAdminRegionOverride());
   }
@@ -115,7 +126,8 @@ function getPreferredRegion() {
 }
 
 function persistRegion(region){
-  currentRegion = normalizeRegionKey(region);
+  const forced = getForcedRegionByHost();
+  currentRegion = forced || normalizeRegionKey(region);
   localStorage.setItem('region', currentRegion);
 
   if (window.OneSignalDeferred) {
@@ -125,16 +137,19 @@ function persistRegion(region){
   }
 
   if(typeof updateTopRegionLabel === 'function') updateTopRegionLabel();
+  if(typeof updateRegionPickerLabels === 'function') updateRegionPickerLabels();
   return currentRegion;
 }
 
 function getRegionCenter(region){
-  return REGION_CENTER_MAP[normalizeRegionKey(region)] || COLORADO_CENTER;
+  return REGION_CENTER_MAP[normalizeRegionKey(region)] || DALLAS_CENTER;
 }
 function detectRegionFromCoords(lat, lng){
+  const forced = getForcedRegionByHost();
+  if(forced) return forced;
   const latNum = Number(lat);
   const lngNum = Number(lng);
-  if(!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return currentRegion || 'colorado';
+  if(!Number.isFinite(latNum) || !Number.isFinite(lngNum)) return currentRegion || 'dallas';
   if(latNum > 31 && latNum < 34.8 && lngNum > -98.8 && lngNum < -95.5) return 'dallas';
   if(latNum > 38 && latNum < 40.6 && lngNum > -106.2 && lngNum < -103.2) return 'colorado';
   return currentRegion || 'dallas';
@@ -172,16 +187,37 @@ function getRegionLabel(region){
 
 function updateTopRegionLabel(){
   const el = document.getElementById('topRegionLabel');
-  if(!el) return;
-  el.textContent = getRegionLabel(currentRegion) || 'Denver Metro';
+  const label = getRegionLabel(currentRegion) || 'Dallas–Fort Worth';
+  if(el) el.textContent = label;
   if(document && document.title){
-    document.title = `K ${getRegionLabel(currentRegion) || 'Colorado'}`;
+    document.title = `K ${label}`;
   }
+}
+
+function hideRegionUi(){
+  ['sideRegionPicker','sideCurrentRegionLabel','regionPickerModal'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.style.display = 'none';
+  });
+  document.querySelectorAll('[data-region]').forEach(el => {
+    const wrap = el.closest('.menu-item, .region-item, .region-picker-item, li, button, div');
+    if(wrap && wrap !== document.body) wrap.style.display = 'none';
+    else el.style.display = 'none';
+  });
 }
 
 
 async function detectInitialRegion(){
+  const forced = getForcedRegionByHost();
   const adminRegion = getAdminRegionOverride();
+
+  if(forced){
+    currentRegion = forced;
+    localStorage.setItem('region', currentRegion);
+    currentCenter = getRegionCenter(currentRegion);
+    applyRegionDistanceCenter(currentRegion, true);
+    return currentRegion;
+  }
 
   if(getAdminMode() && adminRegion){
     currentRegion = normalizeRegionKey(adminRegion);
@@ -381,7 +417,7 @@ async function loadRealData(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
 
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,order_url,delivery_url,reservation_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,created_at,region,is_active';
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
@@ -413,9 +449,6 @@ const mapped = rows.map((row) => {
     email: row.email || '',
     video_url: row.video_url || '',
     youtube_url: row.youtube_url || '',
-    order_url: row.order_url || '',
-    delivery_url: row.delivery_url || '',
-    reservation_url: row.reservation_url || '',
     desc: row.description || '',
     lat: row.lat == null ? null : Number(row.lat),
     lng: row.lng == null ? null : Number(row.lng),
@@ -978,11 +1011,21 @@ function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
 
+  const keyword = String(businessSearch?.value || '').trim().toLowerCase();
   let rows = Array.isArray(businesses) ? businesses.slice() : [];
 
-  if (selectedBusinessCategory && selectedBusinessCategory !== '전체') {
-    rows = rows.filter(b => (b.category || '').trim() === selectedBusinessCategory);
+  if (businessQuickFilter && businessQuickFilter !== '전체') {
+    rows = rows.filter(b => getMainCategoryLabel(b.category) === businessQuickFilter);
   }
+
+  if (keyword) {
+    rows = rows.filter(b => {
+      const hay = [b.name, b.category, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
+      return keyword.split(/\s+/).every(part => hay.includes(part));
+    });
+  }
+
+  rows = sortBusinessesByDistance(rows);
 
   if (!rows.length) {
     listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
@@ -993,24 +1036,16 @@ function renderBusinessList() {
 }
 
 function renderCategories() {
-  const cats = ['전체','식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
   if (!categoryRow) return;
 
   categoryRow.innerHTML = cats.map(c => `
     <button
-      class="category-chip ${selectedBusinessCategory === c ? 'active' : ''}"
+      class="category-chip ${businessQuickFilter === c || (!businessQuickFilter && c === '전체') ? 'active' : ''}"
       data-cat="${esc(c)}"
       type="button"
     >${esc(c)}</button>
   `).join('');
-
-  categoryRow.querySelectorAll('.category-chip').forEach(btn => {
-    btn.onclick = () => {
-      selectedBusinessCategory = btn.dataset.cat || '전체';
-      renderCategories();
-      renderBusinessList();
-    };
-  });
 }
 
 function renderCoupons(){
@@ -1026,36 +1061,6 @@ function updateCouponTabUI(){
   couponTodayList?.classList.toggle('hidden', couponViewTab!=='today');
   couponAllList?.classList.toggle('hidden', couponViewTab!=='all');
 }
-
-function businessActionLinksHTML(b){
-  if(!b) return '';
-
-  const orderUrl = normalizeUrl(b.order_url || '');
-  const deliveryUrl = normalizeUrl(b.delivery_url || '');
-  const reservationUrl = normalizeUrl(b.reservation_url || '');
-  const isRestaurant = /식당|음식|레스토랑|카페|베이커리|bbq|restaurant|food|cafe|bakery|chicken|korean/i.test(String(b.category || ''));
-
-  const links = [];
-
-  if(orderUrl){
-    links.push(`<a class="action-btn business" href="${esc(orderUrl)}" target="_blank" rel="noopener">온라인 주문</a>`);
-  } else if(isRestaurant){
-    links.push(`<button class="action-btn business" type="button" disabled aria-disabled="true">온라인 주문 준비중</button>`);
-  }
-
-  if(deliveryUrl){
-    links.push(`<a class="action-btn map" href="${esc(deliveryUrl)}" target="_blank" rel="noopener">배달 주문</a>`);
-  }
-
-  if(reservationUrl){
-    links.push(`<a class="action-btn call" href="${esc(reservationUrl)}" target="_blank" rel="noopener">예약하기</a>`);
-  }
-
-  if(!links.length) return '';
-
-  return `<div class="business-action-links" style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px;">${links.join('')}</div>`;
-}
-
 function renderDetail(id){
   const b = businesses.find(v => String(v.id) === String(id)) || businesses[0];
   if(!b || !detailCard) return;
@@ -1070,15 +1075,21 @@ const videoHtml = businessVideoHTML(b);
 
 const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
   ? `<div class="detail-gallery-block">
-       <h3 class="subsection-title">갤러리</h3>
-       <div class="gallery-slider">
-         ${b.gallery_urls.map((url, idx) => `
-           <div class="gallery-slide">
-             <img src="${esc(url)}" alt="${esc(b.name)} gallery ${idx + 1}">
-           </div>
-         `).join('')}
-       </div>
-     </div>`
+      <h3 class="subsection-title">갤러리</h3>
+      <div class="gallery-wrap">
+        <button class="gallery-arrow prev" type="button">‹</button>
+
+        <div class="gallery-slider">
+          ${b.gallery_urls.map((url, idx) => `
+            <div class="gallery-slide">
+              <img src="${esc(url)}" alt="${esc(b.name)} gallery ${idx + 1}">
+            </div>
+          `).join('')}
+        </div>
+
+        <button class="gallery-arrow next" type="button">›</button>
+      </div>
+    </div>`
   : '';
 
 const couponHtml = bizCoupons.length
@@ -1102,10 +1113,57 @@ detailCard.innerHTML = `
     ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
     ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
   </div>
-  ${businessActionLinksHTML(b)}
   ${galleryHtml}
   ${couponHtml}
 `;
+// 여기부터 추가
+const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
+const nextBtn = detailCard.querySelector('.gallery-arrow.next');
+const slider = detailCard.querySelector('.gallery-slider');
+
+if (slider && prevBtn && nextBtn) {
+  const slides = Array.from(slider.querySelectorAll('.gallery-slide'));
+  let currentIndex = 0;
+
+  const goToSlide = (index) => {
+    if (!slides.length) return;
+
+    currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+    slides[currentIndex].scrollIntoView({
+      behavior: 'smooth',
+      inline: 'center',
+      block: 'nearest'
+    });
+  };
+
+  prevBtn.addEventListener('click', () => {
+    goToSlide(currentIndex - 1);
+  });
+
+  nextBtn.addEventListener('click', () => {
+    goToSlide(currentIndex + 1);
+  });
+
+  slider.addEventListener('scroll', () => {
+    if (!slides.length) return;
+
+    const sliderCenter = slider.scrollLeft + slider.clientWidth / 2;
+    let nearestIndex = 0;
+    let nearestDistance = Infinity;
+
+    slides.forEach((slide, idx) => {
+      const slideCenter = slide.offsetLeft + slide.offsetWidth / 2;
+      const dist = Math.abs(sliderCenter - slideCenter);
+      if (dist < nearestDistance) {
+        nearestDistance = dist;
+        nearestIndex = idx;
+      }
+    });
+
+    currentIndex = nearestIndex;
+  }, { passive: true });
+}
+// 여기까지 추가
 }
 
 function renderCouponDetail(id){
@@ -1383,7 +1441,7 @@ function showPage(page, opts={}){
 
 function initPageSwipe(){
   let sx=0, sy=0, active=false, moved=false;
-  const shouldIgnoreTarget = (target) => !!target.closest('#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, .map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, #page-map, #googleMap, .gm-style, .gm-style *, #categoryRow, .category-row, .category-chip, #communityTabs, .community-tab, #couponTabs, .coupon-tab');
+  const shouldIgnoreTarget = (target) => !!target.closest('#heroViewport, input, textarea, select, .bottom-nav, .side-menu, .side-overlay, .map-bottom-panel, .map-bottom-list, .map-bottom-item, .map-search-row, .map-top-controls, #page-map, #googleMap, .gm-style, .gm-style *, #categoryRow, .category-row, .category-chip, #communityTabs, .community-tab, #couponTabs, .coupon-tab, #page-business-detail, .detail-gallery-block, .gallery-slider, .gallery-slide, .gallery-slide img');
   document.addEventListener('touchstart', e=>{
     if(shouldIgnoreTarget(e.target)) return;
     const t=e.touches[0];
@@ -1805,21 +1863,22 @@ function closeVideoModal(){
 async function init(){
   await detectInitialRegion();
 
-  // ⭐ 여기 추가 (이 위치가 핵심)
-const region = localStorage.getItem('region');
-if (region && window.OneSignalDeferred) {
-  OneSignalDeferred.push(async function (OneSignal) {
-    await OneSignal.User.addTag("region", region);
-  });
-}
+  const region = currentRegion || getPreferredRegion();
+  localStorage.setItem('region', region);
+  if (region && window.OneSignalDeferred) {
+    OneSignalDeferred.push(async function (OneSignal) {
+      await OneSignal.User.addTag("region", region);
+    });
+  }
 
   await loadRealData();
   updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initPageSwipe();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   showPage(getRoute());
   initRegionPicker();
+  hideRegionUi();
 }
 init();
 
@@ -1907,6 +1966,7 @@ window.openBusinessMapCard = function(id){
 
 // ===== REGION PICKER =====
 function openRegionPicker(){
+  if(getForcedRegionByHost()) return;
   const modal = document.getElementById('regionPickerModal');
   if(!modal) return;
   modal.classList.remove('hidden');
@@ -1921,13 +1981,20 @@ function closeRegionPicker(){
 }
 
 function updateRegionPickerLabels(){
-  const r = localStorage.getItem('region') || 'dallas';
+  const forced = getForcedRegionByHost();
+  const r = forced || localStorage.getItem('region') || 'dallas';
   const label = r === 'colorado' ? 'Denver Metro' : 'Dallas–Fort Worth';
   const side = document.getElementById('sideCurrentRegionLabel');
   if(side) side.textContent = label;
 }
 
 function initRegionPicker(){
+  if(getForcedRegionByHost()){
+    updateRegionPickerLabels();
+    hideRegionUi();
+    return;
+  }
+
   const saved = localStorage.getItem('region');
 
   if(!saved){
@@ -1973,4 +2040,133 @@ function showIosGuide() {
 document.addEventListener('DOMContentLoaded', () => {
   showIosGuide();
 });
+function isIosDevice() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
 
+function isSafariBrowser() {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios') && !ua.includes('edgios');
+}
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function shouldShowIosInstallBanner() {
+  if (!isIosDevice()) return false;
+  if (!isSafariBrowser()) return false;
+  if (isStandaloneMode()) return false;
+
+  const hiddenUntil = Number(localStorage.getItem('ios_install_banner_hidden_until') || 0);
+  return Date.now() > hiddenUntil;
+}
+
+function initIosInstallBanner() {
+  const banner = document.getElementById('iosInstallBanner');
+  const guideBtn = document.getElementById('iosInstallGuideBtn');
+  const closeBtn = document.getElementById('iosInstallCloseBtn');
+
+  if (!banner) return;
+
+  if (shouldShowIosInstallBanner()) {
+    setTimeout(() => {
+      banner.classList.remove('hidden');
+    }, 1800);
+  }
+
+guideBtn?.addEventListener('click', () => {
+  document.getElementById('iosInstallGuideOverlay')?.classList.remove('hidden');
+});
+
+document.getElementById('iosGuideCloseBtn')?.addEventListener('click', () => {
+  document.getElementById('iosInstallGuideOverlay')?.classList.add('hidden');
+});
+
+document.querySelector('#iosInstallGuideOverlay .ios-guide-dim')?.addEventListener('click', () => {
+  document.getElementById('iosInstallGuideOverlay')?.classList.add('hidden');
+});
+
+  closeBtn?.addEventListener('click', () => {
+    localStorage.setItem(
+      'ios_install_banner_hidden_until',
+      String(Date.now() + 1000 * 60 * 60 * 24 * 1)
+    );
+    banner.classList.add('hidden');
+  });
+}
+let deferredInstallPrompt = null;
+
+function isAndroidDevice() {
+  return /android/i.test(navigator.userAgent);
+}
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function shouldShowAndroidInstallBanner() {
+  if (!isAndroidDevice()) return false;
+  if (isStandaloneMode()) return false;
+
+  const hiddenUntil = Number(localStorage.getItem('android_install_banner_hidden_until') || 0);
+  return Date.now() > hiddenUntil;
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  console.log('[PWA] beforeinstallprompt fired');
+  e.preventDefault();
+  deferredInstallPrompt = e;
+
+  if (shouldShowAndroidInstallBanner()) {
+    document.getElementById('androidInstallBanner')?.classList.remove('hidden');
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('[PWA] appinstalled fired');
+  deferredInstallPrompt = null;
+  document.getElementById('androidInstallBanner')?.classList.add('hidden');
+});
+
+function initAndroidInstallBanner() {
+  const banner = document.getElementById('androidInstallBanner');
+  const installBtn = document.getElementById('androidInstallBtn');
+  const closeBtn = document.getElementById('androidInstallCloseBtn');
+
+  if (!banner || !installBtn || !closeBtn) return;
+
+  if (isAndroidDevice() && !isStandaloneMode()) {
+    console.log('[PWA] Android detected, waiting for beforeinstallprompt');
+  }
+
+  closeBtn.addEventListener('click', () => {
+    localStorage.setItem(
+      'android_install_banner_hidden_until',
+      String(Date.now() + 1000 * 60 * 60 * 24 * 1)
+    );
+    banner.classList.add('hidden');
+  });
+
+  installBtn.addEventListener('click', async () => {
+    console.log('[PWA] install button clicked');
+
+    if (!deferredInstallPrompt) {
+      console.log('[PWA] deferredInstallPrompt is null');
+      alert('아직 설치 창을 띄울 수 없는 상태입니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
+    deferredInstallPrompt.prompt();
+
+    try {
+      const choice = await deferredInstallPrompt.userChoice;
+      console.log('[PWA] userChoice:', choice);
+    } catch (err) {
+      console.warn('[PWA] install prompt result unavailable:', err);
+    }
+
+    deferredInstallPrompt = null;
+    banner.classList.add('hidden');
+  });
+}
