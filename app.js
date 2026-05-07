@@ -190,7 +190,7 @@ function updateTopRegionLabel(){
   const label = getRegionLabel(currentRegion) || 'DaltownMap';
   if(el) el.textContent = label;
   if(document && document.title){
-    document.title = `K ${label}`;
+  document.title = 'DaltownMap | Dallas Korean Business Directory';
   }
 }
 
