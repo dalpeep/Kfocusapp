@@ -180,14 +180,14 @@ function applyRegionDistanceCenter(region, force=false){
 
 function getRegionLabel(region){
   const key = normalizeRegionKey(region);
-  if(key === 'dallas') return 'Dallas–Fort Worth';
+  if(key === 'dallas') return 'DaltownMap';
   if(key === 'colorado') return 'Denver Metro';
   return region || '';
 }
 
 function updateTopRegionLabel(){
   const el = document.getElementById('topRegionLabel');
-  const label = getRegionLabel(currentRegion) || 'Dallas–Fort Worth';
+  const label = getRegionLabel(currentRegion) || 'DaltownMap';
   if(el) el.textContent = label;
   if(document && document.title){
     document.title = `K ${label}`;
@@ -1996,7 +1996,7 @@ function openRegionPicker(){
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
 }
-
+F
 function closeRegionPicker(){
   const modal = document.getElementById('regionPickerModal');
   if(!modal) return;
@@ -2007,7 +2007,7 @@ function closeRegionPicker(){
 function updateRegionPickerLabels(){
   const forced = getForcedRegionByHost();
   const r = forced || localStorage.getItem('region') || 'dallas';
-  const label = r === 'colorado' ? 'Denver Metro' : 'Daltown Map';
+  const label = r === 'colorado' ? 'Denver Metro' : 'DaltownMap';
   const side = document.getElementById('sideCurrentRegionLabel');
   if(side) side.textContent = label;
 }
