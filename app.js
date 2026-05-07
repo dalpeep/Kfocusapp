@@ -1106,9 +1106,9 @@ const orderActionHtml = `
   <div class="detail-order-block">
     <h3 class="subsection-title">주문 · 예약</h3>
     <div class="detail-order-actions">
-      <button class="action-btn order-link-btn ${orderUrl ? '' : 'disabled'}" type="button" data-url="${esc(orderUrl)}" data-label="온라인 주문">${orderUrl ? '온라인 주문' : '온라인 주문 준비중'}</button>
-      <button class="action-btn order-link-btn ${deliveryUrl ? '' : 'disabled'}" type="button" data-url="${esc(deliveryUrl)}" data-label="배달 주문">${deliveryUrl ? '배달 주문' : '배달 주문 준비중'}</button>
-      <button class="action-btn order-link-btn ${reservationUrl ? '' : 'disabled'}" type="button" data-url="${esc(reservationUrl)}" data-label="예약하기">${reservationUrl ? '예약하기' : '예약 준비중'}</button>
+      <button class="action-btn order-link-btn ${orderUrl ? '' : 'disabled'}" type="button" data-url="${esc(orderUrl)}" data-label="온라인 주문">${orderUrl ? '온라인 주문' : '온라인 주문'}</button>
+      <button class="action-btn order-link-btn ${deliveryUrl ? '' : 'disabled'}" type="button" data-url="${esc(deliveryUrl)}" data-label="배달 주문">${deliveryUrl ? '배달 주문' : '배달 주문'}</button>
+      <button class="action-btn order-link-btn ${reservationUrl ? '' : 'disabled'}" type="button" data-url="${esc(reservationUrl)}" data-label="예약하기">${reservationUrl ? '예약하기' : '예약하기'}</button>
     </div>
     <div class="detail-order-note">업소별 주문·예약 링크는 순차적으로 연결됩니다.</div>
   </div>`;
