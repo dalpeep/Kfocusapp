@@ -24,7 +24,7 @@ const TEST_FORCE_CENTER = false;
 function getForcedRegionByHost(){
   const host = String(window.location.hostname || '').toLowerCase();
   if(host.includes('kfocus.app')) return 'colorado';
-  if(host.includes('ktownad') || host.includes('daltownmap')) return 'dallas';
+  if(host.includes('ktownad')) return 'dallas';
   return '';
 }
 
@@ -198,6 +198,11 @@ function hideRegionUi(){
   ['sideRegionPicker','sideCurrentRegionLabel','regionPickerModal'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.style.display = 'none';
+  });
+  document.querySelectorAll('[data-region]').forEach(el => {
+    const wrap = el.closest('.menu-item, .region-item, .region-picker-item, li, button, div');
+    if(wrap && wrap !== document.body) wrap.style.display = 'none';
+    else el.style.display = 'none';
   });
 }
 
@@ -442,11 +447,11 @@ const mapped = rows.map((row) => {
     gallery_urls: parseArr(row.gallery_urls),
     website: row.website || '',
     email: row.email || '',
-    video_url: row.video_url || '',
-    youtube_url: row.youtube_url || '',
     order_url: row.order_url || '',
     delivery_url: row.delivery_url || '',
     reservation_url: row.reservation_url || '',
+    video_url: row.video_url || '',
+    youtube_url: row.youtube_url || '',
     desc: row.description || '',
     lat: row.lat == null ? null : Number(row.lat),
     lng: row.lng == null ? null : Number(row.lng),
@@ -1059,31 +1064,6 @@ function updateCouponTabUI(){
   couponTodayList?.classList.toggle('hidden', couponViewTab!=='today');
   couponAllList?.classList.toggle('hidden', couponViewTab!=='all');
 }
-
-function businessOrderLinksHTML(b){
-  const links = [];
-  const orderUrl = normalizeUrl(b.order_url || '');
-  const deliveryUrl = normalizeUrl(b.delivery_url || '');
-  const reservationUrl = normalizeUrl(b.reservation_url || '');
-
-  if(orderUrl){
-    links.push(`<a class="business-action-link order" href="${esc(orderUrl)}" target="_blank" rel="noopener">온라인 주문</a>`);
-  }
-  if(deliveryUrl){
-    links.push(`<a class="business-action-link delivery" href="${esc(deliveryUrl)}" target="_blank" rel="noopener">배달 주문</a>`);
-  }
-  if(reservationUrl){
-    links.push(`<a class="business-action-link reservation" href="${esc(reservationUrl)}" target="_blank" rel="noopener">예약하기</a>`);
-  }
-
-  const isRestaurant = /식당|한식|분식|bbq|restaurant|food|cafe|카페|베이커리|bakery/i.test(String(b.category || ''));
-  if(!links.length && isRestaurant){
-    links.push(`<button class="business-action-link pending" type="button" disabled>온라인 주문 준비중</button>`);
-  }
-
-  return links.length ? `<div class="business-action-links">${links.join('')}</div>` : '';
-}
-
 function renderDetail(id){
   const b = businesses.find(v => String(v.id) === String(id)) || businesses[0];
   if(!b || !detailCard) return;
@@ -1119,6 +1099,20 @@ const couponHtml = bizCoupons.length
   ? `<div class="detail-coupon-block"><h3 class="subsection-title">사용 가능한 쿠폰</h3><div class="detail-coupon-list">${bizCoupons.map(c=>`<button class="detail-coupon-item coupon-open" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(formatDateLabel(c.endAt))}</span></button>`).join('')}</div></div>`
   : '';
 
+const orderUrl = normalizeUrl(b.order_url || '');
+const deliveryUrl = normalizeUrl(b.delivery_url || '');
+const reservationUrl = normalizeUrl(b.reservation_url || '');
+const orderActionHtml = `
+  <div class="detail-order-block">
+    <h3 class="subsection-title">주문 · 예약</h3>
+    <div class="detail-order-actions">
+      <button class="action-btn order-link-btn ${orderUrl ? '' : 'disabled'}" type="button" data-url="${esc(orderUrl)}" data-label="온라인 주문">${orderUrl ? '온라인 주문' : '온라인 주문 준비중'}</button>
+      <button class="action-btn order-link-btn ${deliveryUrl ? '' : 'disabled'}" type="button" data-url="${esc(deliveryUrl)}" data-label="배달 주문">${deliveryUrl ? '배달 주문' : '배달 주문 준비중'}</button>
+      <button class="action-btn order-link-btn ${reservationUrl ? '' : 'disabled'}" type="button" data-url="${esc(reservationUrl)}" data-label="예약하기">${reservationUrl ? '예약하기' : '예약 준비중'}</button>
+    </div>
+    <div class="detail-order-note">업소별 주문·예약 링크는 순차적으로 연결됩니다.</div>
+  </div>`;
+
 detailCard.innerHTML = `
   ${videoHtml}
   <div class="detail-top">
@@ -1136,10 +1130,23 @@ detailCard.innerHTML = `
     ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
     ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
   </div>
-  ${businessOrderLinksHTML(b)}
+  ${orderActionHtml}
   ${galleryHtml}
   ${couponHtml}
 `;
+
+detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const url = btn.dataset.url || '';
+    const label = btn.dataset.label || '연결';
+    if (url) {
+      window.open(url, '_blank', 'noopener');
+      return;
+    }
+    alert(`${label} 링크는 아직 준비중입니다.`);
+  });
+});
+
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
@@ -1471,6 +1478,17 @@ function initPageSwipe(){
     const t=e.touches[0];
     sx=t.clientX; sy=t.clientY; active=true; moved=false;
   }, {passive:true, capture:true});
+  document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-nav="business"]');
+  if (!btn) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  businessQuickFilter = String(btn.dataset.filter || '').trim();
+  showPage('business');
+  renderBusinessList();
+});
   document.addEventListener('touchmove', e=>{
     if(!active) return;
     const t=e.touches[0]; const dx=t.clientX-sx; const dy=t.clientY-sy;
