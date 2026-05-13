@@ -549,8 +549,12 @@ async function loadCouponsFromSupabase(){
   }
 }
 async function loadBannersFromSupabase(){
+  console.log('[BANNERS] load start', currentRegion);
+
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   mainBanners = [];
+
+  console.log('[BANNERS] config', !!SUPABASE_URL, !!SUPABASE_ANON_KEY);
 
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
 
@@ -567,8 +571,11 @@ async function loadBannersFromSupabase(){
 
     if(!res.ok) throw new Error(`Banners ${res.status}`);
 
-    const rows = await res.json();
-    mainBanners = Array.isArray(rows) ? rows : [];
+const rows = await res.json();
+
+console.log('[BANNERS] rows', rows);
+
+mainBanners = Array.isArray(rows) ? rows : [];
     return true;
   } catch(e) {
     console.warn('Banners load failed', e);
@@ -1080,16 +1087,23 @@ function renderCategories() {
   `).join('');
 }
 function renderMainBanners(){
+  console.log('[BANNERS] render start', mainBanners);
+
   const box = document.getElementById('mainBanners');
+
+  console.log('[BANNERS] box exists', !!box);
+
   if(!box) return;
 
   const rows = Array.isArray(mainBanners) ? mainBanners : [];
 
+  console.log('[BANNERS] rows for render', rows);
+
   if(!rows.length){
     box.innerHTML = '';
+    console.log('[BANNERS] no rows, clear box');
     return;
   }
-
   box.innerHTML = `
     <div class="main-banner-list">
       ${rows.map(b => `
