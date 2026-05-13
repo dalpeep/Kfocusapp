@@ -1138,3 +1138,19 @@ body.map-page-open #page-map .map-bottom-list {
   object-fit: cover;
   border-radius: 18px;
 }
+.board-topbar{
+  display:flex;
+  justify-content:flex-end;
+  margin-bottom:12px;
+}
+
+.board-write-btn{
+  border:0;
+  background:#2563eb;
+  color:#fff;
+  padding:10px 16px;
+  border-radius:12px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+}
