@@ -1090,29 +1090,29 @@ function renderMainBanners(){
   console.log('[BANNERS] render start', mainBanners);
 
   const box = document.getElementById('mainBanners');
-
   console.log('[BANNERS] box exists', !!box);
 
   if(!box) return;
 
   const rows = Array.isArray(mainBanners) ? mainBanners : [];
-
   console.log('[BANNERS] rows for render', rows);
 
   if(!rows.length){
     box.innerHTML = '';
-    console.log('[BANNERS] no rows, clear box');
     return;
   }
+
   box.innerHTML = `
     <div class="main-banner-list">
       ${rows.map(b => `
         <button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}">
-          <img src="${esc(b.image_url)}" alt="${esc(b.title || 'Sponsor banner')}">
+          <img src="${esc(b.image_url || '')}" alt="${esc(b.title || 'Sponsor banner')}">
         </button>
       `).join('')}
     </div>
   `;
+
+  console.log('[BANNERS] html inserted', box.innerHTML);
 
   box.querySelectorAll('.main-banner-card').forEach(btn => {
     btn.addEventListener('click', () => {
