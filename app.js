@@ -2079,7 +2079,7 @@ function openRegionPicker(){
   modal.classList.remove('hidden');
   modal.setAttribute('aria-hidden', 'false');
 }
-F
+
 function closeRegionPicker(){
   const modal = document.getElementById('regionPickerModal');
   if(!modal) return;
