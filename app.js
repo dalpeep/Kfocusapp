@@ -15,6 +15,7 @@ let couponUseTimer = null;
 let currentPage = 'home';
 let lastBasePage = 'home';
 let selectedBizId = businesses[0]?.id || null;
+let mainBanners = [];
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
@@ -493,6 +494,7 @@ businesses = mapped.filter((b) => {
   await loadCouponsFromSupabase();
   await loadBoardPostsFromSupabase();
   await loadSlidesFromSupabase();
+  await loadBannersFromSupabase();
   finalizeData();
 }
 
@@ -546,7 +548,34 @@ async function loadCouponsFromSupabase(){
     return false;
   }
 }
+async function loadBannersFromSupabase(){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  mainBanners = [];
 
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+
+  try {
+    const select = 'id,title,image_url,link_url,business_id,region,sort_order,is_active,created_at';
+    const url = `${SUPABASE_URL}/rest/v1/banners?select=${encodeURIComponent(select)}&or=(region.eq.${encodeURIComponent(currentRegion)},region.is.null)&is_active=eq.true&order=sort_order.asc.nullslast,created_at.desc.nullslast`;
+
+    const res = await fetch(url, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if(!res.ok) throw new Error(`Banners ${res.status}`);
+
+    const rows = await res.json();
+    mainBanners = Array.isArray(rows) ? rows : [];
+    return true;
+  } catch(e) {
+    console.warn('Banners load failed', e);
+    mainBanners = [];
+    return false;
+  }
+}
 function buildFallbackCoupons(){
   const couponBusinesses = businesses.filter(b=>b.coupon).slice(0,6);
   coupons = couponBusinesses.map((b,i)=>({
@@ -1050,7 +1079,47 @@ function renderCategories() {
     >${esc(c)}</button>
   `).join('');
 }
+function renderMainBanners(){
+  const box = document.getElementById('mainBanners');
+  if(!box) return;
 
+  const rows = Array.isArray(mainBanners) ? mainBanners : [];
+
+  if(!rows.length){
+    box.innerHTML = '';
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="main-banner-list">
+      ${rows.map(b => `
+        <button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}">
+          <img src="${esc(b.image_url)}" alt="${esc(b.title || 'Sponsor banner')}">
+        </button>
+      `).join('')}
+    </div>
+  `;
+
+  box.querySelectorAll('.main-banner-card').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.bannerId;
+      const banner = rows.find(x => String(x.id) === String(id));
+      if(!banner) return;
+
+      if(banner.business_id){
+        selectedBizId = banner.business_id;
+        currentDetailVideoOverride = '';
+        renderDetail(banner.business_id);
+        showPage('business-detail');
+        return;
+      }
+
+      if(banner.link_url){
+        window.open(normalizeUrl(banner.link_url), '_blank', 'noopener');
+      }
+    });
+  });
+}
 function renderCoupons(){
   if(!couponTodayList || !couponAllList) return;
   const today = todayCoupons();
@@ -1898,7 +1967,7 @@ async function init(){
   await loadRealData();
   updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
+  renderHome(); renderMainBanners(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   showPage(getRoute());
   initRegionPicker();
