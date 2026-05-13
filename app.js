@@ -16,6 +16,7 @@ let currentPage = 'home';
 let lastBasePage = 'home';
 let selectedBizId = businesses[0]?.id || null;
 let mainBanners = [];
+let currentUser = null;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
@@ -235,7 +236,30 @@ async function detectInitialRegion(){
   applyRegionDistanceCenter(currentRegion, true);
   return currentRegion;
 }
+async function refreshCurrentUser(){
+  if(!supabase?.auth) {
+    currentUser = null;
+    return null;
+  }
 
+  const { data, error } = await supabase.auth.getUser();
+
+  if(error || !data?.user){
+    currentUser = null;
+    return null;
+  }
+
+  currentUser = data.user;
+  return currentUser;
+}
+
+function requireLoginForBoard(){
+  if(currentUser) return true;
+
+  alert('게시글 작성은 로그인이 필요합니다.');
+  openUserLoginModal?.();
+  return false;
+}
 
 function normalizeSearchText(v=''){ return String(v||'').toLowerCase().replace(//g,' ').trim(); }
 function queryMatches(query, values){
@@ -1898,6 +1922,11 @@ function bindEvents(){
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
+  document.getElementById('boardWriteBtn')?.addEventListener('click', async () => {
+  await refreshCurrentUser();
+  if (!requireLoginForBoard()) return;
+  alert('글쓰기 기능 연결 예정');
+});
   document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
   categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
   businessSearch?.addEventListener('input', renderBusinessList);
@@ -1978,8 +2007,10 @@ async function init(){
     });
   }
 
-  await loadRealData();
-  updateTopRegionLabel();
+await loadRealData();
+await refreshCurrentUser();
+
+updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
   renderHome(); renderMainBanners(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
