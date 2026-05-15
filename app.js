@@ -237,6 +237,54 @@ async function detectInitialRegion(){
   return currentRegion;
 }
 async function refreshCurrentUser(){
+  if(!supabase?.auth){
+    currentUser = null;
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser();
+
+  if(error || !data?.user){
+    currentUser = null;
+    return null;
+  }
+
+  currentUser = data.user;
+  return currentUser;
+}
+
+function requireLoginForBoard(){
+  if(currentUser) return true;
+
+  alert('게시글 작성은 로그인이 필요합니다.');
+  openUserLoginModal();
+  return false;
+}
+
+async function loginWithEmail(email){
+  if(!email) return alert('이메일을 입력해 주세요.');
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: location.origin
+    }
+  });
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+
+  alert('로그인 링크를 이메일로 보냈습니다.');
+}
+
+async function logoutUser(){
+  await supabase.auth.signOut();
+  currentUser = null;
+  location.reload();
+}
+async function refreshCurrentUser(){
   if(!supabase?.auth) {
     currentUser = null;
     return null;
@@ -260,7 +308,13 @@ function requireLoginForBoard(){
   openUserLoginModal?.();
   return false;
 }
+function openUserLoginModal(){
+  document.getElementById('userLoginModal')?.classList.remove('hidden');
+}
 
+function closeUserLoginModal(){
+  document.getElementById('userLoginModal')?.classList.add('hidden');
+}
 function normalizeSearchText(v=''){ return String(v||'').toLowerCase().replace(//g,' ').trim(); }
 function queryMatches(query, values){
   const q = normalizeSearchText(query);
@@ -1933,6 +1987,12 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   showBoard(board);
   showPage('board-detail');
 });
+document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
+  const email = document.getElementById('userLoginEmail')?.value.trim();
+  await loginWithEmail(email);
+});
+
+document.getElementById('userLoginClose')?.addEventListener('click', closeUserLoginModal);
   document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
   categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
   businessSearch?.addEventListener('input', renderBusinessList);
@@ -2001,7 +2061,12 @@ function closeVideoModal(){
   modal.classList.add('hidden');
   document.body.style.overflow = '';
 }
+document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
+  const email = document.getElementById('userLoginEmail')?.value.trim();
+  await loginWithEmail(email);
+});
 
+document.getElementById('userLoginClose')?.addEventListener('click', closeUserLoginModal);
 async function init(){
   await detectInitialRegion();
 
