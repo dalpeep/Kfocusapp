@@ -17,6 +17,7 @@ let lastBasePage = 'home';
 let selectedBizId = businesses[0]?.id || null;
 let mainBanners = [];
 let currentUser = null;
+let authClient = null;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
@@ -268,25 +269,37 @@ function openUserLoginModal(){
   }
   modal.classList.remove('hidden');
 }
+function getAuthClient(){
+  if(authClient) return authClient;
 
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+
+  if(!window.supabase?.createClient){
+    console.error('[AUTH] Supabase JS library not loaded');
+    return null;
+  }
+
+  authClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY
+  );
+
+  return authClient;
+}
 function closeUserLoginModal(){
   document.getElementById('userLoginModal')?.classList.add('hidden');
 }
 async function loginWithEmail(email){
-  if(!email) {
-    alert('이메일을 입력해 주세요.');
+  if(!email) return alert('이메일을 입력해 주세요.');
+
+  const client = getAuthClient();
+
+  if(!client?.auth?.signInWithOtp){
+    alert('로그인 기능이 아직 준비되지 않았습니다.');
     return;
   }
 
-  const authClient = supabase?.auth;
-
-  if(!authClient || typeof authClient.signInWithOtp !== 'function'){
-    console.error('[AUTH] supabase.auth is not ready:', supabase);
-    alert('로그인 기능이 아직 준비되지 않았습니다. Supabase Auth 설정을 확인해 주세요.');
-    return;
-  }
-
-  const { error } = await authClient.signInWithOtp({
+  const { error } = await client.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: window.location.origin
@@ -307,12 +320,14 @@ async function logoutUser(){
   location.reload();
 }
 async function refreshCurrentUser(){
-  if(!supabase?.auth) {
+  const client = getAuthClient();
+
+  if(!client?.auth){
     currentUser = null;
     return null;
   }
 
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await client.auth.getUser();
 
   if(error || !data?.user){
     currentUser = null;
