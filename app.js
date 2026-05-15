@@ -2002,7 +2002,9 @@ document.getElementById('userLoginSubmit')?.addEventListener('click', async () =
   const email = document.getElementById('userLoginEmail')?.value.trim();
   await loginWithEmail(email);
 });
-
+document.getElementById('userLoginClose')?.addEventListener('click', () => {
+  closeUserLoginModal();
+});
 document.getElementById('userLoginClose')?.addEventListener('click', closeUserLoginModal);
   document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
   categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
