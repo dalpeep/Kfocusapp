@@ -2074,12 +2074,7 @@ function closeVideoModal(){
   modal.classList.add('hidden');
   document.body.style.overflow = '';
 }
-document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
-  const email = document.getElementById('userLoginEmail')?.value.trim();
-  await loginWithEmail(email);
-});
 
-document.getElementById('userLoginClose')?.addEventListener('click', closeUserLoginModal);
 async function init(){
   await detectInitialRegion();
 
