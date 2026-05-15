@@ -1928,7 +1928,7 @@ function bindEvents(){
   alert('글쓰기 기능 연결 예정');
 });
 document.querySelector('.community-more-btn')?.addEventListener('click', () => {
-  showPage('board');
+  showPage('board-detail');
 });
   document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
   categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
