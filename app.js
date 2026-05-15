@@ -283,7 +283,9 @@ function getAuthClient(){
     SUPABASE_URL,
     SUPABASE_ANON_KEY
   );
-
+console.log('window.supabase =', window.supabase);
+console.log('authClient =', authClient);
+console.log('authClient.auth =', authClient?.auth);
   return authClient;
 }
 function closeUserLoginModal(){
