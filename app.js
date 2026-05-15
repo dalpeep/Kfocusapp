@@ -260,7 +260,18 @@ function requireLoginForBoard(){
   openUserLoginModal();
   return false;
 }
+function openUserLoginModal(){
+  const modal = document.getElementById('userLoginModal');
+  if(!modal){
+    alert('로그인 창 HTML을 찾을 수 없습니다.');
+    return;
+  }
+  modal.classList.remove('hidden');
+}
 
+function closeUserLoginModal(){
+  document.getElementById('userLoginModal')?.classList.add('hidden');
+}
 async function loginWithEmail(email){
   if(!email) return alert('이메일을 입력해 주세요.');
 
