@@ -273,17 +273,23 @@ function closeUserLoginModal(){
   document.getElementById('userLoginModal')?.classList.add('hidden');
 }
 async function loginWithEmail(email){
-  if(!email) return alert('이메일을 입력해 주세요.');
-
-  if(!supabase?.auth?.signInWithOtp){
-    alert('Supabase Auth가 아직 준비되지 않았습니다.');
+  if(!email) {
+    alert('이메일을 입력해 주세요.');
     return;
   }
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const authClient = supabase?.auth;
+
+  if(!authClient || typeof authClient.signInWithOtp !== 'function'){
+    console.error('[AUTH] supabase.auth is not ready:', supabase);
+    alert('로그인 기능이 아직 준비되지 않았습니다. Supabase Auth 설정을 확인해 주세요.');
+    return;
+  }
+
+  const { error } = await authClient.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: location.origin
+      emailRedirectTo: window.location.origin
     }
   });
 
