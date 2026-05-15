@@ -275,6 +275,11 @@ function closeUserLoginModal(){
 async function loginWithEmail(email){
   if(!email) return alert('이메일을 입력해 주세요.');
 
+  if(!supabase?.auth?.signInWithOtp){
+    alert('Supabase Auth가 아직 준비되지 않았습니다.');
+    return;
+  }
+
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
