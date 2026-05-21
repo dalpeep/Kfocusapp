@@ -1263,3 +1263,49 @@ body.map-page-open #page-map .map-bottom-list {
   background:#e5e7eb;
   color:#111827;
 }
+.sponsor-banner-section{
+  display:block !important;
+  visibility:visible !important;
+  height:auto !important;
+  min-height:0 !important;
+  overflow:visible !important;
+}
+
+#mainBanners{
+  display:block !important;
+  visibility:visible !important;
+  height:auto !important;
+  min-height:120px !important;
+  margin-top:12px !important;
+  overflow:visible !important;
+}
+
+#mainBanners .main-banner-list{
+  display:flex !important;
+  width:100% !important;
+  gap:12px !important;
+  overflow-x:auto !important;
+  overflow-y:visible !important;
+}
+
+#mainBanners .main-banner-card{
+  display:block !important;
+  flex:0 0 100% !important;
+  width:100% !important;
+  min-height:100px !important;
+  border:0 !important;
+  padding:0 !important;
+  background:transparent !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
+#mainBanners .main-banner-card img{
+  display:block !important;
+  width:100% !important;
+  min-height:100px !important;
+  height:auto !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  border-radius:18px !important;
+}

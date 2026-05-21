@@ -677,7 +677,7 @@ async function loadBannersFromSupabase(){
 
   try {
     const select = 'id,title,image_url,link_url,business_id,region,sort_order,is_active,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/banners?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,created_at.desc.nullslast`;
+    const url = `${SUPABASE_URL}/rest/v1/banners?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.${encodeURIComponent(currentRegion)},region.is.null)&is_active=eq.true&order=sort_order.asc.nullslast,created_at.desc.nullslast`;
 
     const res = await fetch(url, {
       headers: {
