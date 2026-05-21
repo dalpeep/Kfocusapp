@@ -1266,18 +1266,25 @@ body.map-page-open #page-map .map-bottom-list {
 .sponsor-banner-section{
   display:block !important;
   visibility:visible !important;
+  opacity:1 !important;
   height:auto !important;
-  min-height:0 !important;
+  min-height:220px !important;
   overflow:visible !important;
+}
+
+.sponsor-banner-section .section-head{
+  display:flex !important;
 }
 
 #mainBanners{
   display:block !important;
   visibility:visible !important;
+  opacity:1 !important;
+  width:100% !important;
   height:auto !important;
-  min-height:120px !important;
-  margin-top:12px !important;
+  min-height:150px !important;
   overflow:visible !important;
+  margin-top:12px !important;
 }
 
 #mainBanners .main-banner-list{
@@ -1285,55 +1292,31 @@ body.map-page-open #page-map .map-bottom-list {
   width:100% !important;
   gap:12px !important;
   overflow-x:auto !important;
-  overflow-y:visible !important;
+  overflow-y:hidden !important;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
 }
 
 #mainBanners .main-banner-card{
   display:block !important;
   flex:0 0 100% !important;
   width:100% !important;
-  min-height:100px !important;
+  min-height:140px !important;
   border:0 !important;
   padding:0 !important;
+  margin:0 !important;
   background:transparent !important;
-  opacity:1 !important;
-  visibility:visible !important;
+  overflow:hidden !important;
+  border-radius:18px !important;
 }
 
 #mainBanners .main-banner-card img{
   display:block !important;
   width:100% !important;
-  min-height:100px !important;
   height:auto !important;
+  min-height:140px !important;
+  object-fit:cover !important;
   opacity:1 !important;
   visibility:visible !important;
   border-radius:18px !important;
-}
-.sponsor-banner-section,
-#mainBanners,
-#mainBanners .main-banner-list,
-#mainBanners .main-banner-card,
-#mainBanners img{
-  display:block !important;
-  visibility:visible !important;
-  opacity:1 !important;
-}
-
-.sponsor-banner-section{
-  height:auto !important;
-  min-height:200px !important;
-  overflow:visible !important;
-}
-
-#mainBanners{
-  height:auto !important;
-  min-height:150px !important;
-  overflow:visible !important;
-}
-
-#mainBanners .main-banner-card img{
-  width:100% !important;
-  height:auto !important;
-  min-height:120px !important;
-  object-fit:cover !important;
 }
