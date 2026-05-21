@@ -1309,3 +1309,31 @@ body.map-page-open #page-map .map-bottom-list {
   visibility:visible !important;
   border-radius:18px !important;
 }
+.sponsor-banner-section,
+#mainBanners,
+#mainBanners .main-banner-list,
+#mainBanners .main-banner-card,
+#mainBanners img{
+  display:block !important;
+  visibility:visible !important;
+  opacity:1 !important;
+}
+
+.sponsor-banner-section{
+  height:auto !important;
+  min-height:200px !important;
+  overflow:visible !important;
+}
+
+#mainBanners{
+  height:auto !important;
+  min-height:150px !important;
+  overflow:visible !important;
+}
+
+#mainBanners .main-banner-card img{
+  width:100% !important;
+  height:auto !important;
+  min-height:120px !important;
+  object-fit:cover !important;
+}
