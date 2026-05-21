@@ -1272,10 +1272,6 @@ body.map-page-open #page-map .map-bottom-list {
   overflow:visible !important;
 }
 
-.sponsor-banner-section .section-head{
-  display:flex !important;
-}
-
 #mainBanners{
   display:block !important;
   visibility:visible !important;
@@ -1293,30 +1289,19 @@ body.map-page-open #page-map .map-bottom-list {
   gap:12px !important;
   overflow-x:auto !important;
   overflow-y:hidden !important;
-  scroll-snap-type:x mandatory;
-  -webkit-overflow-scrolling:touch;
 }
 
 #mainBanners .main-banner-card{
   display:block !important;
   flex:0 0 100% !important;
   width:100% !important;
-  min-height:140px !important;
-  border:0 !important;
-  padding:0 !important;
-  margin:0 !important;
-  background:transparent !important;
-  overflow:hidden !important;
   border-radius:18px !important;
+  overflow:hidden !important;
 }
 
 #mainBanners .main-banner-card img{
   display:block !important;
   width:100% !important;
   height:auto !important;
-  min-height:140px !important;
-  object-fit:cover !important;
-  opacity:1 !important;
-  visibility:visible !important;
   border-radius:18px !important;
 }
