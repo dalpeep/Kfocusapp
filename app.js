@@ -760,7 +760,7 @@ return {
   slideDesc:
     s.description || s.promo_text || '',
 
-  button: '상세 보기',
+  button: '',
 
   bg:
     s.promo_image_url ||
