@@ -1118,6 +1118,12 @@ function renderHome(){
     homeFeaturedList.innerHTML = featured.length
       ? featured.map(homeBusinessItemHTML).join('')
       : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
+	  
+	  setTimeout(() => {
+  if (typeof renderMainBanners === 'function') {
+    renderMainBanners();
+   }
+  }, 0);
   }
 
   const newList = businesses
