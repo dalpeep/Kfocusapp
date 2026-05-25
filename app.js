@@ -1129,11 +1129,9 @@ function renderHome(){
       ? featured.map(homeBusinessItemHTML).join('')
       : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 	  
-	  setTimeout(() => {
   if (typeof renderMainBanners === 'function') {
-    renderMainBanners();
-   }
-  }, 0);
+  renderMainBanners();
+}
   }
 
   const newList = businesses
@@ -2177,7 +2175,7 @@ await refreshCurrentUser();
 
 updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe(); renderMainBanners();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   showPage(getRoute());
   initRegionPicker();
