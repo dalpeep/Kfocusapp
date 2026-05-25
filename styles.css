@@ -1316,8 +1316,9 @@ body.map-page-open #page-map .map-bottom-list {
 
 .slide-detail-image{
   width: 100%;
-  height: 220px;
-  object-fit: cover;
+  height: 260px;
+  object-fit: contain;
+  background:#f3f4f6;
   border-radius: 16px;
   display: block;
 }
