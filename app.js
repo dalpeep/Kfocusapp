@@ -2076,18 +2076,6 @@ document.getElementById('slideDetailBizBtn')
     showPage('business-detail');
 });
 
-document
-  .querySelector('.today-coupon-section .text-link')
-  ?.addEventListener('click', () => {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.getElementById('page-coupon')?.classList.add('active');
-
-    document.querySelectorAll('.nav-item').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.nav === 'coupon');
-    });
-
-    window.location.hash = 'coupon';
-  });
 document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
   selectedBoardType = board;
