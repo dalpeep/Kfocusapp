@@ -2158,7 +2158,32 @@ function closeVideoModal(){
   modal.classList.add('hidden');
   document.body.style.overflow = '';
 }
+function renderTodayCoupons(){
+  const box = document.getElementById('todayCouponList');
+  if(!box) return;
 
+  const rows = typeof todayCoupons === 'function'
+    ? todayCoupons().slice(0, 3)
+    : (coupons || []).slice(0, 3);
+
+  if(!rows.length){
+    box.innerHTML = '<div class="board-empty">오늘 쿠폰이 없습니다.</div>';
+    return;
+  }
+
+  box.innerHTML = rows.map(c => {
+    const b = getBiz(c.businessId || c.business_id) || {};
+    return `
+      <button class="today-coupon-card coupon-open" type="button" data-coupon="${esc(c.id)}">
+        <div class="today-coupon-thumb">🎟</div>
+        <div class="today-coupon-content">
+          <strong>${esc(c.title || '쿠폰')}</strong>
+          <p>${esc(b.name || c.description || '')}</p>
+        </div>
+      </button>
+    `;
+  }).join('');
+}
 async function init(){
   await detectInitialRegion();
 
