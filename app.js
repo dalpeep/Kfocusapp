@@ -1494,9 +1494,7 @@ function renderHero(){
           <span class="hero-chip">${esc(s.type || 'BANNER')}</span>
           <h2>${esc(s.title || '')}</h2>
           <p>${esc(s.desc || '')}</p>
-          <a class="hero-cta hero-detail-open" href="#" data-biz="${esc(s.bizId || '')}" data-video="${esc(s.video_url || '')}">
-            ${esc(s.button || '')}
-          </a>
+         
         </div>
       </article>
     `;
