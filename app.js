@@ -1129,8 +1129,8 @@ function renderHome(){
       ? featured.map(homeBusinessItemHTML).join('')
       : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 	  
-  if (typeof renderMainBanners === 'function') {
-  renderMainBanners();
+if (typeof renderTodayCoupons === 'function') {
+  renderTodayCoupons();
 }
   }
 
