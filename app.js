@@ -2015,16 +2015,7 @@ function bindEvents(){
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
-document.getElementById('boardWriteBtn')?.addEventListener('click', async () => {
-  await refreshCurrentUser();
 
-  if (!currentUser) {
-    openUserLoginModal();
-    return;
-  }
-
-  alert('로그인 확인됨. 글쓰기 기능은 다음 단계에서 연결됩니다.');
-});
 document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
   selectedBoardType = board;

@@ -1156,8 +1156,10 @@ body.map-page-open #page-map .map-bottom-list {
 }
 .community-action-row{
   display:flex;
-  justify-content:flex-end;
-  margin:10px 0 14px;
+  justify-content:flex-start;
+  align-items:center;
+  margin-top:14px;
+}
 }
 
 .board-write-btn{
