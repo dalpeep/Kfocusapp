@@ -749,17 +749,27 @@ function buildHeroSlides() {
   heroSlides = activeSlides.map((s) => {
     const b = bizMap.get(String(s.business_id)) || {};
 
-    return {
-      type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
-      title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
-      desc: b.category
-        ? `${b.category} · ${getRegionLabel(b.region || currentRegion)}`
-        : '홈 상단 슬라이드',
-      button: '상세 보기',
-      bg: s.promo_image_url || b.image_url || b.image || 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
-      bizId: String(b.id || s.business_id || ''),
-      video_url: s.video_url || ''
-    };
+return {
+  type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
+
+  title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
+
+  desc:
+    `${b.category} · ${getRegionLabel(b.region || currentRegion)}`,
+
+  slideDesc:
+    s.description || s.promo_text || '',
+
+  button: '상세 보기',
+
+  bg:
+    s.promo_image_url ||
+    b.image_url ||
+    b.image ||
+    '',
+
+  bizId: String(b.id || s.business_id || '')
+};
   }).filter((s) => !!(s.bg || s.video_url));
 
   if (!heroSlides.length) {
@@ -1573,6 +1583,15 @@ if(bizId){
     const bizId=slide.dataset.biz;
     currentDetailVideoOverride = String(slide.dataset.video || '').trim();
 if(bizId){
+
+  const slideData =
+    heroSlides.find(x => String(x.bizId) === String(bizId));
+
+  if(slideData){
+    openSlideDetailModal(slideData);
+    return;
+  }
+
   renderDetail(bizId);
   lastBasePage = currentPage;
   showPage('business-detail');
@@ -1583,7 +1602,29 @@ if(bizId){
 }
   });
 }
+let selectedSlideBizId = null;
 
+function openSlideDetailModal(slide){
+
+  selectedSlideBizId = slide.bizId || null;
+
+  document.getElementById('slideDetailTitle').textContent =
+    slide.title || '';
+
+  document.getElementById('slideDetailDesc').textContent =
+    slide.slideDesc || slide.desc || '';
+
+  document.getElementById('slideDetailImage').src =
+    slide.bg || '';
+
+  document.getElementById('slideDetailModal')
+    ?.classList.remove('hidden');
+}
+
+function closeSlideDetailModal(){
+  document.getElementById('slideDetailModal')
+    ?.classList.add('hidden');
+}
 function closeSideMenu(){ $('#sideMenu')?.classList.remove('open'); $('#sideOverlay')?.classList.remove('show'); }
 function openSideMenu(){ $('#sideMenu')?.classList.add('open'); $('#sideOverlay')?.classList.add('show'); }
 function renderBoardPage(type='notice', postId=null){
@@ -2021,6 +2062,23 @@ function bindEvents(){
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
+
+document.getElementById('slideDetailClose')
+  ?.addEventListener('click', closeSlideDetailModal);
+
+document.getElementById('slideDetailBizBtn')
+  ?.addEventListener('click', ()=>{
+
+    if(!selectedSlideBizId) return;
+
+    closeSlideDetailModal();
+
+    renderDetail(selectedSlideBizId);
+
+    lastBasePage = currentPage;
+
+    showPage('business-detail');
+});
 
 document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
