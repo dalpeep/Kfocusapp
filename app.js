@@ -760,7 +760,7 @@ return {
   slideDesc:
     s.description || s.promo_text || '',
 
-  button: '',
+  button: '상세 보기',
 
   bg:
     s.promo_image_url ||
@@ -778,7 +778,7 @@ return {
         type: 'BANNER',
         title: '추천 업소',
         desc: '홈 상단 배너 영역입니다.',
-        button: '상세 보기',
+        button: '',
         bg: 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
         bizId: '',
         video_url: ''
