@@ -1176,7 +1176,7 @@ if (typeof renderTodayCoupons === 'function') {
       ? nearby.map(nearbyBusinessItemHTML).join('')
       : '<div class="board-empty">주변 업소가 없습니다.</div>';
   }
-}
+
 function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
