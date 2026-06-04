@@ -25,8 +25,17 @@ const TEST_FORCE_CENTER = false;
 
 function getForcedRegionByHost(){
   const host = String(window.location.hostname || '').toLowerCase();
+
   if(host.includes('kfocus.app')) return 'colorado';
-  if(host.includes('ktownad')) return 'dallas';
+
+  if(
+    host.includes('ktownad') ||
+    host.includes('daltownmap.com') ||
+    host.includes('www.daltownmap.com')
+  ) {
+    return 'dallas';
+  }
+
   return '';
 }
 
