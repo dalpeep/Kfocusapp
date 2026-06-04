@@ -15,7 +15,6 @@ let couponUseTimer = null;
 let currentPage = 'home';
 let lastBasePage = 'home';
 let selectedBizId = businesses[0]?.id || null;
-let mainBanners = [];
 let currentUser = null;
 let authClient = null;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
@@ -1124,11 +1123,12 @@ function renderHome(){
     )
     .slice(0,5);
 
-  if(homeFeaturedList){
-    homeFeaturedList.innerHTML = featured.length
-      ? featured.map(homeBusinessItemHTML).join('')
-      : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
-	  
+if(homeFeaturedList){
+  homeFeaturedList.innerHTML = featured.length
+    ? featured.map(homeBusinessItemHTML).join('')
+    : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
+}
+
 if (typeof renderTodayCoupons === 'function') {
   renderTodayCoupons();
 }
