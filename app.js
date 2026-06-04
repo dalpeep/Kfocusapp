@@ -1141,7 +1141,6 @@ if(homeFeaturedList){
 if (typeof renderTodayCoupons === 'function') {
   renderTodayCoupons();
 }
-  }
 
   const newList = businesses
     .filter(b => b.is_new)
