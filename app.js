@@ -2092,7 +2092,9 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   showPage('board-detail');
 });
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
-  showBoard(selectedBoardType || 'notice');
+  const board = selectedBoardType || 'notice';
+  showBoard(board);
+  showPage('board-detail');
 });
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();
