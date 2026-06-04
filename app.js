@@ -2091,6 +2091,9 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   showBoard(board);
   showPage('board-detail');
 });
+document.querySelector('.community-full-btn')?.addEventListener('click', () => {
+  showBoard(selectedBoardType || 'notice');
+});
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();
   await loginWithEmail(email);
