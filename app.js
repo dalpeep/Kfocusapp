@@ -2189,18 +2189,34 @@ function renderTodayCoupons(){
     return;
   }
 
-  box.innerHTML = rows.map(c => {
-    const b = getBiz(c.businessId || c.business_id) || {};
-    return `
-      <button class="today-coupon-card coupon-open" type="button" data-coupon="${esc(c.id)}">
-        <div class="today-coupon-thumb">🎟</div>
-        <div class="today-coupon-content">
-          <strong>${esc(c.title || '쿠폰')}</strong>
-          <p>${esc(b.name || c.description || '')}</p>
-        </div>
-      </button>
-    `;
-  }).join('');
+box.innerHTML = rows.map(c => {
+  const b = getBiz(c.businessId || c.business_id) || {};
+
+  return `
+    <button class="today-deal-card coupon-open"
+            type="button"
+            data-coupon="${esc(c.id)}">
+
+      <div class="today-deal-badge">
+        TODAY DEAL
+      </div>
+
+      <div class="today-deal-content">
+        <strong>${esc(c.title || '오늘의 쿠폰')}</strong>
+        <span>${esc(b.name || c.description || '')}</span>
+      </div>
+
+      <div class="today-deal-icon">
+        <i data-lucide="ticket"></i>
+      </div>
+
+    </button>
+  `;
+}).join('');
+
+if(window.lucide){
+  lucide.createIcons();
+}
 }
 async function init(){
   await detectInitialRegion();
