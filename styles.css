@@ -1441,17 +1441,21 @@ body.map-page-open #page-map .map-bottom-list {
   display:flex;
   align-items:center;
   gap:8px;
-  line-height:1;
+  margin:0;
 }
 
-.section-title svg{
-  width:21px;
-  height:21px;
-  stroke-width:2.2;
-  flex-shrink:0;
-  transform:translateY(1px);
+.section-title-icon{
+  width:24px;
+  height:24px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 24px;
 }
-.section-title .lucide-message-square-text,
-.section-title .lucide-newspaper{
-  transform:translateY(2px);
+
+.section-title-icon svg{
+  width:20px;
+  height:20px;
+  display:block;
+  stroke-width:2.2;
 }
