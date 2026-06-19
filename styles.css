@@ -1451,3 +1451,7 @@ body.map-page-open #page-map .map-bottom-list {
   flex-shrink:0;
   transform:translateY(1px);
 }
+.section-title .lucide-message-square-text,
+.section-title .lucide-newspaper{
+  transform:translateY(2px);
+}
