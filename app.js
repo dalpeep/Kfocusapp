@@ -1085,13 +1085,17 @@ function nearbyBusinessItemHTML(b){
 function homeBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
+  const category = getMainCategoryLabel(b.category) || '업소';
 
   return `
-    <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
-      <img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">
-      <div class="nearby-copy">
+    <button class="home-biz-card biz-open" data-biz="${esc(b.id)}">
+      <div class="home-biz-photo">
+        <img src="${esc(thumb)}" alt="${esc(bizName)}">
+      </div>
+
+      <div class="home-biz-info">
         <strong>${esc(bizName)}</strong>
-        <span>${esc(getMainCategoryLabel(b.category) || '업소')}</span>
+        <span>${esc(category)}</span>
       </div>
     </button>
   `;
