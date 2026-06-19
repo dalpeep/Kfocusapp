@@ -1555,18 +1555,18 @@ body.map-page-open #page-map .map-bottom-list {
 .today-deal-icon{
   position:absolute;
   right:16px;
-  bottom:14px;
-  width:44px;
-  height:44px;
-  border-radius:16px;
-  background:#f97316;
-  color:#fff;
+  top:16px;
+  width:auto;
+  height:auto;
+  border-radius:0;
+  background:none;
+  color:#f97316;
   display:flex;
   align-items:center;
   justify-content:center;
 }
 
 .today-deal-icon svg{
-  width:24px;
-  height:24px;
+  width:28px;
+  height:28px;
 }
