@@ -1438,9 +1438,10 @@ body.map-page-open #page-map .map-bottom-list {
   line-height:1.4;
 }
 .section-title{
-  display:flex;
-  align-items:center;
-  gap:8px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    line-height:1;
 }
 
 .section-title svg{
