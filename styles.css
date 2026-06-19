@@ -1437,3 +1437,15 @@ body.map-page-open #page-map .map-bottom-list {
   font-size:13px;
   line-height:1.4;
 }
+.section-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.section-title svg{
+  width:22px;
+  height:22px;
+  stroke-width:2.3;
+  color:#2563eb;
+}
