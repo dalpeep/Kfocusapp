@@ -232,13 +232,34 @@
       </section>
     </main>
 
-    <nav class="bottom-nav">
-      <button class="nav-item active" data-nav="home"><span>🏠</span><strong>홈</strong></button>
-      <button class="nav-item" data-nav="business"><span>🏢</span><strong>업소</strong></button>
-      <button class="nav-item" data-nav="coupon"><span>🎟️</span><strong>할인</strong></button>
-      <button class="nav-item" data-nav="map"><span>🗺️</span><strong>지도</strong></button>
-      <button class="nav-item" data-nav="saved"><span>💙</span><strong>저장</strong></button>
-    </nav>
+<nav class="bottom-nav">
+
+<button class="nav-item active" data-nav="home">
+  <i data-lucide="house"></i>
+  <strong>홈</strong>
+</button>
+
+<button class="nav-item" data-nav="business">
+  <i data-lucide="store"></i>
+  <strong>업소</strong>
+</button>
+
+<button class="nav-item" data-nav="coupon">
+  <i data-lucide="ticket-percent"></i>
+  <strong>할인</strong>
+</button>
+
+<button class="nav-item" data-nav="map">
+  <i data-lucide="map-pinned"></i>
+  <strong>지도</strong>
+</button>
+
+<button class="nav-item" data-nav="saved">
+  <i data-lucide="heart"></i>
+  <strong>저장</strong>
+</button>
+
+</nav>
   </div>
 
 
@@ -423,5 +444,10 @@ function requestPush() {
 
 </div>
 </body>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  lucide.createIcons();
+</script>
 
 </html> 
