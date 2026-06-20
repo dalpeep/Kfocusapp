@@ -1034,9 +1034,28 @@ function couponCardHTML(c, mode='all'){
 
 function boardListItemHTML(post){
   const type = normalizeBoardType(post.type);
-  const summary = (post.content || '').replace(/\s+/g,' ').trim();
-  const thumb = post.image_url ? `<img class="board-row-thumb-img" src="${esc(post.image_url)}" alt="${esc(post.title)}">` : boardThumbEmoji(type);
-  return `<button class="board-row-btn" data-board-post="${esc(post.id)}"><span class="board-row-thumb">${thumb}</span><span class="board-row-copy"><strong>${esc(post.title)}</strong><span>${esc(summary || post.address || boardLabel(type))}</span></span></button>`;
+  const summary = (post.content || '').replace(/\s+/g, ' ').trim();
+  const thumb = post.image_url
+    ? `<img class="board-row-thumb-img" src="${esc(post.image_url)}" alt="${esc(post.title)}">`
+    : boardThumbEmoji(type);
+
+  const typeLabel =
+    type === 'notice' ? '행사안내' :
+    type === 'job' ? '구인/구직' :
+    type === 'rent' ? '렌트' :
+    type === 'sale' ? '매매' : '게시판';
+
+  return `
+    <button class="board-row-btn" data-board-post="${esc(post.id)}">
+      <span class="board-row-thumb">${thumb}</span>
+
+      <span class="board-row-copy">
+        <em class="board-row-badge">${esc(typeLabel)}</em>
+        <strong>${esc(post.title || '제목 없음')}</strong>
+        <span>${esc(summary || post.address || '')}</span>
+      </span>
+    </button>
+  `;
 }
 function mapBottomItemHTML(b){
   const miles = (b.lat != null && b.lng != null && currentCenter)
