@@ -1510,7 +1510,7 @@ body.map-page-open #page-map .map-bottom-list {
 }
 
 .home-biz-card{
-  flex:0 0 130px;
+  flex:0 0 210px;
   border:0;
   background:#fff;
   border-radius:18px;
@@ -1523,7 +1523,7 @@ body.map-page-open #page-map .map-bottom-list {
 
 .home-biz-photo{
   width:100%;
-  height:78px;
+  height:130px;
   background:#eef4ff;
   overflow:hidden;
 }
