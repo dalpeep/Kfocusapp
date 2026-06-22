@@ -134,7 +134,7 @@ function renderHomeBusinessTabs(){
       ||
       String(b.created_at || '').localeCompare(String(a.created_at || ''))
     )
-    .slice(0,5);
+    .slice(0,3);
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
