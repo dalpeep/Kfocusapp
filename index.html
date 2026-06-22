@@ -29,14 +29,16 @@
 <body>
   <div class="app-shell">
     <header class="header sticky-header">
-      <button class="icon-btn" id="menuBtn" aria-label="메뉴">☰</button>
+      <button class="icon-btn" id="menuBtn" aria-label="메뉴">
+    <i data-lucide="menu"></i>
+</button>
       <button class="brand" id="homeBrand" aria-label="홈으로 이동">
         <img src="assets/kfocus-icon.png" class="brand-logo" alt="Kfocus logo" />
         <span class="brand-text-wrap">
           <span class="brand-sub solo" id="topRegionLabel">DaltownMap</span>
         </span>
       </button>
-      <button class="icon-btn" id="searchBtn" aria-label="검색">🔍</button>
+      <button class="icon-btn" id="searchBtn" aria-label="검색"><i data-lucide="search"></i></button>
     </header>
 
     <aside class="side-menu" id="sideMenu" aria-hidden="true">
@@ -62,7 +64,7 @@
       <div class="search-panel">
         <div class="search-head">
           <div class="search-input-wrap">
-            <span class="search-icon">🔍</span>
+            <span class="search-icon"><i data-lucide="search"></i></span>
             <input type="search" id="globalSearchInput" class="search-input" placeholder="업소 / 쿠폰 / 게시판 검색" autocomplete="off" />
             <button class="search-clear hidden" id="searchClearBtn" aria-label="검색어 지우기">✕</button>
           </div>
