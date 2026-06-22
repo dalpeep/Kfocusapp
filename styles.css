@@ -1732,3 +1732,26 @@ body.map-page-open #page-map .map-bottom-list {
     background:#eff6ff;
     z-index:-1;
 }
+.home-business-tabs{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:0;
+  background:#6c8ebf;
+  border-radius:18px;
+  margin:0 0 14px;
+  overflow:hidden;
+}
+
+.home-business-tab{
+  border:0;
+  background:transparent;
+  color:#fff;
+  padding:13px 8px;
+  font-size:14px;
+  font-weight:800;
+}
+
+.home-business-tab.active{
+  background:#ef4444;
+  color:#fff;
+}

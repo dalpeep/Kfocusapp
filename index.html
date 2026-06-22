@@ -100,25 +100,12 @@
           </div>
           <div class="hero-dots" id="heroDots"></div>
         </section>
-
-        <section class="card section-card featured-home-card">
-          <div class="section-head compact-head">
-            <h3 class="section-title">
-            <i data-lucide="star"></i>
-            추천 업소
-            </h3>
-            <button class="text-link" data-nav="business" data-filter="featured">전체보기</button>
-          </div>
-          <div id="homeFeaturedList" class="featured-business-list featured-scroll"></div>
-        </section>
-      <section class="card section-card today-coupon-section">
-
-  <div class="section-head compact-head">
+		
+    <div class="section-head compact-head">
     <h3 class="section-title">
     <i data-lucide="ticket-percent"></i>
     오늘의 쿠폰
     </h3>
-
     <button
       class="text-link"
       type="button"
@@ -126,29 +113,27 @@
       전체보기
     </button>
   </div>
-
   <div id="todayCouponList" class="today-coupon-list"></div>
- </section>  
-		<section class="card section-card">
-  <div class="section-head compact-head">
-    <h3 class="section-title">
-    <i data-lucide="badge-plus"></i>
-    신규 업소
-    </h3>
-    <button class="text-link" data-nav="business" data-filter="new">전체보기</button>
-  </div>
-  <div id="homeNewList" class="featured-business-list"></div>
-</section>
+  </section>
 
-<section class="card section-card">
+<section class="card section-card home-business-tabs-card">
   <div class="section-head compact-head">
     <h3 class="section-title">
-    <i data-lucide="flame"></i>
-    인기 업소
+      <i data-lucide="store"></i>
+      업소 추천
     </h3>
-    <button class="text-link" data-nav="business" data-filter="popular">전체보기</button>
+    <button class="text-link" type="button" data-nav="business">
+      전체보기
+    </button>
   </div>
-  <div id="homePopularList" class="featured-business-list"></div>
+
+  <div class="home-business-tabs" id="homeBusinessTabs">
+    <button class="home-business-tab active" type="button" data-home-biz-tab="featured">추천</button>
+    <button class="home-business-tab" type="button" data-home-biz-tab="new">신규</button>
+    <button class="home-business-tab" type="button" data-home-biz-tab="popular">인기</button>
+  </div>
+
+  <div id="homeBusinessTabList" class="featured-business-list"></div>
 </section>
 
 <section class="card section-card community-home-card">

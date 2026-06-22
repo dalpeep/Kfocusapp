@@ -8,6 +8,7 @@ const FALLBACK_BUSINESSES = [
   { id:'wonder', name:'Wonder Bakery', category:'베이커리', address:'555 Bakery St, Aurora, CO', phone:'303-555-2222', image:'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80', coupon:true, desc:'오늘 쿠폰 시안용 업소입니다.', lat:39.68, lng:-104.84, created_at:'2026-03-05', region:'colorado' }
 ];
 let businesses = [...FALLBACK_BUSINESSES];
+let homeBusinessTab = 'featured';
 let coupons = [];
 let couponViewTab = 'today';
 let selectedCouponId = null;
@@ -106,6 +107,45 @@ const searchEmpty = $('#searchEmpty');
 const mapSearchInput = $('#mapSearchInput');
 
 function getConfig(){ return window.KFOCUS_CONFIG || {}; }
+
+function renderHomeBusinessTabs(){
+  const box = document.getElementById('homeBusinessTabList');
+  if(!box) return;
+
+  $$('.home-business-tab').forEach(btn=>{
+    btn.classList.toggle('active', btn.dataset.homeBizTab === homeBusinessTab);
+  });
+
+  let rows = [];
+
+  if(homeBusinessTab === 'featured'){
+    rows = businesses.filter(b => b.featured);
+  } else if(homeBusinessTab === 'new'){
+    rows = businesses.filter(b => b.is_new);
+  } else if(homeBusinessTab === 'popular'){
+    rows = businesses.filter(b => b.is_popular);
+  }
+
+  rows = sortBusinessesByDistance(rows)
+    .slice()
+    .sort((a,b)=>
+      Number(a.featured_rank ?? a.new_rank ?? a.popular_rank ?? 1000)
+      - Number(b.featured_rank ?? b.new_rank ?? b.popular_rank ?? 1000)
+      ||
+      String(b.created_at || '').localeCompare(String(a.created_at || ''))
+    )
+    .slice(0,5);
+
+  box.innerHTML = rows.length
+    ? rows.map(homeBusinessItemHTML).join('')
+    : '<div class="board-empty">등록된 업소가 없습니다.</div>';
+
+  bindBizOpenButtons();
+
+  if(window.lucide){
+    lucide.createIcons();
+  }
+}
 
 function normalizeRegionKey(v=''){
   const s = String(v||'').trim().toLowerCase();
@@ -2090,7 +2130,13 @@ function bindEvents(){
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
+document.addEventListener('click', e => {
+  const tab = e.target.closest('[data-home-biz-tab]');
+  if(!tab) return;
 
+  homeBusinessTab = tab.dataset.homeBizTab || 'featured';
+  renderHomeBusinessTabs();
+});
 document.getElementById('slideDetailClose')
   ?.addEventListener('click', closeSlideDetailModal);
 
