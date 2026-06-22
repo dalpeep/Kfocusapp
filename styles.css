@@ -1634,3 +1634,57 @@ body.map-page-open #page-map .map-bottom-list {
   font-weight:800;
   font-style:normal;
 }
+.hero-slide{
+  position:relative;
+  overflow:hidden;
+}
+
+.hero-slide::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(
+    90deg,
+    rgba(15,23,42,.62),
+    rgba(15,23,42,.18),
+    rgba(15,23,42,.05)
+  );
+  z-index:1;
+}
+
+.hero-slide-content{
+  position:absolute !important;
+  left:18px !important;
+  bottom:18px !important;
+  z-index:2 !important;
+  max-width:72% !important;
+  color:#fff !important;
+}
+
+.hero-chip{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.22);
+  color:#fff !important;
+  font-size:11px;
+  font-weight:800;
+  backdrop-filter:blur(6px);
+  margin-bottom:7px;
+}
+
+.hero-slide-content h2{
+  margin:0 !important;
+  font-size:24px !important;
+  line-height:1.12 !important;
+  font-weight:900 !important;
+  color:#fff !important;
+  text-shadow:0 3px 12px rgba(0,0,0,.35);
+}
+
+.hero-slide-content p{
+  margin:6px 0 0 !important;
+  font-size:13px !important;
+  color:rgba(255,255,255,.9) !important;
+}
