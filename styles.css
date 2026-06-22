@@ -1709,3 +1709,17 @@ body.map-page-open #page-map .map-bottom-list {
   bottom:16px !important;
   max-width:60% !important;
 }
+.bottom-nav .nav-item{
+  border-radius:16px;
+  padding:6px 10px;
+}
+
+.bottom-nav .nav-item.active{
+  background:#eff6ff;
+  color:#2563eb;
+}
+
+.bottom-nav .nav-item.active svg{
+  color:#2563eb;
+  stroke-width:2.6;
+}
