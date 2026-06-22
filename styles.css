@@ -1821,15 +1821,3 @@ body.map-page-open #page-map .map-bottom-list {
   width:15px;
   height:15px;
 }
-
-.home-biz-rating{
-  color:#ef4444;
-  font-size:14px;
-  font-weight:800;
-}
-
-.home-biz-rating small{
-  color:#64748b;
-  font-weight:600;
-  margin-left:4px;
-}
