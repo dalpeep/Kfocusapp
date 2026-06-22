@@ -1675,16 +1675,11 @@ body.map-page-open #page-map .map-bottom-list {
 }
 
 .hero-slide-content h2{
-  margin:0 !important;
-  font-size:24px !important;
-  line-height:1.12 !important;
-  font-weight:900 !important;
-  color:#fff !important;
-  text-shadow:0 3px 12px rgba(0,0,0,.35);
+  font-size:20px !important;
 }
 
-.hero-slide-content p{
-  margin:6px 0 0 !important;
-  font-size:13px !important;
-  color:rgba(255,255,255,.9) !important;
+.hero-slide-content{
+  left:16px !important;
+  bottom:16px !important;
+  max-width:60% !important;
 }
