@@ -1600,7 +1600,7 @@ body.map-page-open #page-map .map-bottom-list {
   padding:14px 54px 14px 14px;
   overflow:hidden;
   text-align:left;
-  background:linear-gradient(135deg,#fff3df,#ffffff);
+  background:linear-gradient(135deg,#ed563d,#ffffff);
   box-shadow:0 10px 26px rgba(15,23,42,.08);
   display:flex;
   align-items:center;
