@@ -1146,7 +1146,8 @@ function homeBusinessItemHTML(b){
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const category = getMainCategoryLabel(b.category) || '업소';
   const area = b.city || b.area || b.region_label || 'Dallas, TX';
-
+  const rating = b.rating || '4.8';
+  const reviews = b.review_count || b.reviews || '128';
 
   return `
     <button class="home-biz-row biz-open" data-biz="${esc(b.id)}">
