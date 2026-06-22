@@ -2267,28 +2267,34 @@ function renderTodayCoupons(){
 
 box.innerHTML = rows.map(c => {
   const b = getBiz(c.businessId || c.business_id) || {};
+  const img = c.image_url || c.image || b.image || b.image_url || '/assets/kfocus-icon.png';
 
   return `
     <button class="today-deal-card coupon-open"
             type="button"
             data-coupon="${esc(c.id)}">
 
-      <div class="today-deal-badge">
-        TODAY DEAL
+      <div class="today-deal-thumb">
+        <img src="${esc(img)}" alt="${esc(c.title || '오늘의 쿠폰')}">
       </div>
 
       <div class="today-deal-content">
+        <div class="today-deal-badge">TODAY DEAL</div>
         <strong>${esc(c.title || '오늘의 쿠폰')}</strong>
         <span>${esc(b.name || c.description || '')}</span>
       </div>
 
       <div class="today-deal-icon">
-        <i data-lucide="ticket"></i>
+        <i data-lucide="ticket-percent"></i>
       </div>
 
     </button>
   `;
 }).join('');
+
+if(window.lucide){
+  lucide.createIcons();
+}
 
 if(window.lucide){
   lucide.createIcons();
