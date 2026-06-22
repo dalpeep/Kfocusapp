@@ -1145,16 +1145,27 @@ function homeBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const category = getMainCategoryLabel(b.category) || '업소';
+  const area = b.city || b.area || b.region_label || 'Dallas, TX';
+  const rating = b.rating || '4.8';
+  const reviews = b.review_count || b.reviews || '128';
 
   return `
-    <button class="home-biz-card biz-open" data-biz="${esc(b.id)}">
-      <div class="home-biz-photo">
+    <button class="home-biz-row biz-open" data-biz="${esc(b.id)}">
+      <div class="home-biz-row-photo">
         <img src="${esc(thumb)}" alt="${esc(bizName)}">
       </div>
 
-      <div class="home-biz-info">
+      <div class="home-biz-row-info">
         <strong>${esc(bizName)}</strong>
-        <span>${esc(category)}</span>
+        <span class="home-biz-chip">${esc(category)}</span>
+        <span class="home-biz-meta">
+          <i data-lucide="map-pin"></i>
+          ${esc(area)}
+        </span>
+        <span class="home-biz-rating">
+          ★ ${esc(rating)}
+          <small>(${esc(reviews)})</small>
+        </span>
       </div>
     </button>
   `;
@@ -1220,7 +1231,9 @@ if (typeof renderHomeBusinessTabs === 'function') {
       ? newList.map(homeBusinessItemHTML).join('')
       : `<div class="board-empty">등록된 신규 업소가 없습니다.</div>`;
   }
-
+  if(window.lucide){
+  lucide.createIcons();
+  }
   const popularList = businesses
     .filter(b => b.is_popular)
     .sort((a, b) =>
