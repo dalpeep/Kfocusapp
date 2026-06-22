@@ -1710,16 +1710,25 @@ body.map-page-open #page-map .map-bottom-list {
   max-width:60% !important;
 }
 .bottom-nav .nav-item{
-  border-radius:16px;
-  padding:6px 10px;
+    position:relative;
+    border-radius:14px;
+    padding:8px 6px;
 }
 
 .bottom-nav .nav-item.active{
-  background:#eff6ff;
-  color:#2563eb;
+    background:transparent;
+    color:#2563eb;
 }
 
-.bottom-nav .nav-item.active svg{
-  color:#2563eb;
-  stroke-width:2.6;
+.bottom-nav .nav-item.active::before{
+    content:"";
+    position:absolute;
+    top:2px;
+    left:50%;
+    transform:translateX(-50%);
+    width:42px;
+    height:42px;
+    border-radius:14px;
+    background:#eff6ff;
+    z-index:-1;
 }
