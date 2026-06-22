@@ -1851,3 +1851,115 @@ body.map-page-open #page-map .map-bottom-list {
   width:15px;
   height:15px;
 }
+/* DalTownMap v2 brand color override */
+
+:root{
+  --dtm-primary:#2A60AB;
+  --dtm-primary-2:#5F77FA;
+  --dtm-accent:#F97316;
+  --dtm-coral:#F5625A;
+  --dtm-bg:#F6F9FF;
+  --dtm-text:#18335F;
+  --dtm-muted:#64748B;
+}
+
+/* 전체 배경 */
+body,
+.app-shell{
+  background:var(--dtm-bg);
+}
+
+/* 상단 헤더 */
+.header,
+.sticky-header{
+  background:linear-gradient(135deg,var(--dtm-primary),var(--dtm-primary-2)) !important;
+}
+
+/* 상단 메뉴/검색 버튼 */
+.icon-btn{
+  background:rgba(255,255,255,.16) !important;
+  color:#fff !important;
+}
+
+/* 제목/본문 기본 색 */
+.section-title,
+.home-biz-row-info strong,
+.today-deal-content strong,
+.board-row-copy strong{
+  color:#10224a;
+}
+
+/* 전체보기 링크 */
+.text-link{
+  color:var(--dtm-primary) !important;
+}
+
+/* 오늘의 쿠폰 */
+.today-deal-card{
+  background:linear-gradient(135deg,#fff3df,#ffffff) !important;
+}
+
+.today-deal-badge{
+  color:#c2410c !important;
+  background:#ffedd5 !important;
+}
+
+.today-deal-icon{
+  color:var(--dtm-accent) !important;
+}
+
+/* 업소 추천 탭 */
+.home-business-tabs{
+  background:#6f8fbd !important;
+}
+
+.home-business-tab.active{
+  background:var(--dtm-coral) !important;
+  color:#fff !important;
+}
+
+/* 게시판 탭 */
+.community-tabs{
+  background:#6f8fbd !important;
+}
+
+.community-tab.active{
+  background:var(--dtm-coral) !important;
+  color:#fff !important;
+}
+
+/* 카테고리/업소 칩 */
+.home-biz-chip,
+.board-row-badge{
+  background:#fff1e8 !important;
+  color:#c2410c !important;
+}
+
+/* 하단 네비 */
+.bottom-nav .nav-item{
+  color:#64748b;
+}
+
+.bottom-nav .nav-item.active{
+  color:var(--dtm-primary) !important;
+}
+
+.bottom-nav .nav-item.active svg{
+  color:var(--dtm-primary) !important;
+}
+
+/* 하단 네비 활성 배경 */
+.bottom-nav .nav-item.active::before{
+  background:#eef5ff !important;
+}
+
+/* 배너 점 */
+.hero-dots .dot.active,
+.dot.active{
+  background:var(--dtm-primary-2) !important;
+}
+
+.hero-dots .dot,
+.dot{
+  background:#d7e1f3;
+}
