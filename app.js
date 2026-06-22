@@ -1204,7 +1204,9 @@ if(homeFeaturedList){
 if (typeof renderTodayCoupons === 'function') {
   renderTodayCoupons();
 }
-
+if (typeof renderHomeBusinessTabs === 'function') {
+  renderHomeBusinessTabs();
+}
   const newList = businesses
     .filter(b => b.is_new)
     .sort((a, b) =>
