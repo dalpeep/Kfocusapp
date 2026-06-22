@@ -1896,7 +1896,7 @@ body,
 
 /* 오늘의 쿠폰 */
 .today-deal-card{
-  background:linear-gradient(135deg,#ed563d,#ffffff) !important;
+  background:linear-gradient(135deg,#bc3737,#ffffff) !important;
 }
 
 .today-deal-badge{
