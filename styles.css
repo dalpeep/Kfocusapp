@@ -1963,3 +1963,8 @@ body,
 .dot{
   background:#d7e1f3;
 }
+.section-card{
+  background:#fbfcff;
+  border:1px solid #d8e4ff;
+  box-shadow:0 10px 24px rgba(42,96,171,.06);
+}
