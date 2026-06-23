@@ -1066,10 +1066,31 @@ function todayCoupons(){
 }
 function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
 function couponCardHTML(c, mode='all'){
-  const b=getBiz(c.businessId);
-  const img = c.imageUrl || b.image;
-  const timeLabel = mode==='today' ? countdownLabel(c.endAt, true) : formatDateLabel(c.endAt);
-  return `<article class="coupon-card card-skin"><div class="coupon-thumb-wrap"><img class="coupon-thumb" src="${esc(img)}" alt="${esc(c.title)}"></div><div class="coupon-main"><div class="coupon-title"><h4>${esc(c.title)}</h4><span class="badge orange">DEAL</span></div><p class="coupon-business">${esc(b.name)}</p><div class="coupon-expire">${esc(timeLabel)}</div><button class="action-btn business coupon-open" data-coupon="${esc(c.id)}">쿠폰 보기</button></div></article>`;
+  const b = getBiz(c.businessId || c.business_id) || {};
+  const img = c.image_url || c.image || b.image || b.image_url || '/assets/kfocus-icon.png';
+  const title = c.title || '쿠폰';
+  const bizName = b.name || b.name_ko || b.name_en || '';
+  const expire = c.end_at || c.expires_at || c.expire_date || c.endDate || '';
+  const badge = c.discount_label || c.badge || c.type_label || 'DEAL';
+
+  return `
+    <article class="coupon-card coupon-card-v2 coupon-open" data-coupon="${esc(c.id)}">
+      <div class="coupon-v2-thumb">
+        <img src="${esc(img)}" alt="${esc(title)}">
+      </div>
+
+      <div class="coupon-v2-main">
+        <strong>${esc(title)}</strong>
+        <span class="coupon-v2-biz">${esc(bizName)}</span>
+        <span class="coupon-v2-exp">${expire ? 'Exp: ' + esc(formatDateLabel(expire)) : ''}</span>
+      </div>
+
+      <div class="coupon-v2-side">
+        <span class="coupon-v2-badge">${esc(badge)}</span>
+        <button class="coupon-v2-btn" type="button">쿠폰 보기</button>
+      </div>
+    </article>
+  `;
 }
 
 function boardListItemHTML(post){
