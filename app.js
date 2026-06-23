@@ -1562,15 +1562,35 @@ function renderCouponDetail(id){
           Dallas, TX
         </p>
 
-        <div class="coupon-time-box">
-  <div class="coupon-time-left">
+        <div style="
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:#fff7ed;
+  border:1px solid #fed7aa;
+  border-radius:16px;
+  padding:12px 14px;
+  margin:12px 0;
+">
+  <div style="
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-weight:800;
+    color:#7c2d12;
+  ">
     <i data-lucide="clock"></i>
     <strong>남은 시간</strong>
   </div>
 
-  <div class="coupon-time-right">
+  <b style="
+    font-size:18px;
+    font-weight:900;
+    color:#b45309;
+    white-space:nowrap;
+  ">
     ${esc(getRemainText(c))}
-  </div>
+  </b>
 </div>
 
         <div class="coupon-benefit-box">
