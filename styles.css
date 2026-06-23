@@ -1968,3 +1968,13 @@ body,
   border:1px solid #d8e4ff;
   box-shadow:0 10px 24px rgba(42,96,171,.06);
 }
+.hero-slide img,
+.hero-slide-bg{
+  object-fit:contain !important;
+  background-size:contain !important;
+  background-repeat:no-repeat !important;
+  background-position:center !important;
+}
+.hero-slide{
+  background:#f3f6fb !important;
+}
