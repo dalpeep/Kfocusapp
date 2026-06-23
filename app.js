@@ -1584,10 +1584,27 @@ function renderCouponDetail(id){
           </div>
         </div>
 
-        <button class="coupon-primary-use" type="button">
-          <i data-lucide="ticket"></i>
-          쿠폰 사용하기
-        </button>
+        <button
+  class="coupon-primary-use"
+  type="button"
+  style="
+    width:100%;
+    height:54px;
+    border:0;
+    border-radius:16px;
+    background:linear-gradient(135deg,#2a60ab,#5f77fa);
+    color:#fff;
+    font-size:18px;
+    font-weight:900;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    box-shadow:0 12px 24px rgba(42,96,171,.24);
+  ">
+  <i data-lucide="ticket"></i>
+  쿠폰 사용하기
+  </button>
       </section>
 
       <section class="coupon-map-card">
@@ -1612,12 +1629,36 @@ function renderCouponDetail(id){
         ` : ''}
 
         <div class="coupon-map-actions">
-          <button type="button" class="coupon-outline-btn" data-url="${esc(getDirectionsUrl(b))}">
+          <button
+  type="button"
+  class="coupon-outline-btn"
+  data-url="${esc(getDirectionsUrl(b))}"
+  style="
+    height:48px;
+    border:1px solid #bcd2ff;
+    border-radius:15px;
+    background:#fff;
+    color:#2a60ab;
+    font-size:16px;
+    font-weight:900;
+  ">
             <i data-lucide="navigation"></i>
             길찾기
           </button>
 
-          <button type="button" class="coupon-outline-btn" data-phone="${esc(phone)}">
+          <button
+  type="button"
+  class="coupon-outline-btn"
+  data-url="${esc(getDirectionsUrl(b))}"
+  style="
+    height:48px;
+    border:1px solid #bcd2ff;
+    border-radius:15px;
+    background:#fff;
+    color:#2a60ab;
+    font-size:16px;
+    font-weight:900;
+  ">
             <i data-lucide="phone"></i>
             전화하기
           </button>
