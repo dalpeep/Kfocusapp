@@ -1534,7 +1534,9 @@ function renderCouponDetail(id){
   const address = b.address || '주소 정보 없음';
   const phone = b.phone || b.phone_number || '';
 
-  const box = document.getElementById('couponUseCard');
+  const box =
+  document.getElementById('couponDetailCard') ||
+  document.getElementById('couponUseCard');
   if(!box) return;
 
   box.innerHTML = `
