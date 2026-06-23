@@ -1565,7 +1565,7 @@ function renderCouponDetail(id){
             <i data-lucide="clock"></i>
             <strong>남은 시간</strong>
           </div>
-          <b>${esc(getCouponRemainText ? getCouponRemainText(c) : '')}</b>
+          <b>${esc(getRemainText(c))}</b>
         </div>
 
         <div class="coupon-benefit-box">
@@ -1644,7 +1644,28 @@ function renderCouponUse(id){
   const countEl = document.getElementById('couponUseCount');
   couponUseTimer = setInterval(()=>{ count -= 1; if(countEl) countEl.textContent = String(count); if(count <= 0){ clearInterval(couponUseTimer); } }, 1000);
 }
+function getRemainText(c){
+  const end = c.endAt || c.end_at || c.expire_date || '';
 
+  if(!end) return '기간 확인';
+
+  const endDate = new Date(end);
+
+  if(isNaN(endDate.getTime())){
+    return '기간 확인';
+  }
+
+  const diff = endDate.getTime() - Date.now();
+
+  if(diff <= 0){
+    return '종료됨';
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+
+  return `${days}일 ${hours}시간`;
+}
 function getYouTubeId(url) {
   if (!url) return '';
   const m = String(url).match(
