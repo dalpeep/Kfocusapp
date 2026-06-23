@@ -1655,6 +1655,7 @@ function renderCouponDetail(id){
         <button
   class="coupon-primary-use"
   type="button"
+  onclick="renderCouponUse('${esc(c.id)}'); showPage('coupon-use');"
   style="
     width:100%;
     height:54px;
@@ -1701,41 +1702,59 @@ function renderCouponDetail(id){
           </p>
         ` : ''}
 
-        <div class="coupon-map-actions">
-          <button
-  type="button"
-  class="coupon-outline-btn"
-  data-url="${esc(getDirectionsUrl(b))}"
+        <div
+  class="coupon-map-actions"
   style="
-    height:48px;
-    border:1px solid #bcd2ff;
-    border-radius:15px;
-    background:#fff;
-    color:#2a60ab;
-    font-size:16px;
-    font-weight:900;
-  ">
-            <i data-lucide="navigation"></i>
-            길찾기
-          </button>
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:14px;
+  "
+>
+  <button
+    type="button"
+    class="coupon-outline-btn"
+    onclick="window.open('${esc(getDirectionsUrl(b))}', '_blank')"
+    style="
+      height:46px;
+      border:1px solid #bcd2ff;
+      border-radius:16px;
+      background:#fff;
+      color:#2a60ab;
+      font-size:15px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+    "
+  >
+    <i data-lucide="navigation"></i>
+    길찾기
+  </button>
 
-          <button
-  type="button"
-  class="coupon-outline-btn"
-  data-url="${esc(getDirectionsUrl(b))}"
-  style="
-    height:48px;
-    border:1px solid #bcd2ff;
-    border-radius:15px;
-    background:#fff;
-    color:#2a60ab;
-    font-size:16px;
-    font-weight:900;
-  ">
-            <i data-lucide="phone"></i>
-            전화하기
-          </button>
-        </div>
+  <button
+    type="button"
+    class="coupon-outline-btn"
+    onclick="window.location.href='tel:${esc(phone)}'"
+    style="
+      height:46px;
+      border:1px solid #bcd2ff;
+      border-radius:16px;
+      background:#fff;
+      color:#2a60ab;
+      font-size:15px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+    "
+  >
+    <i data-lucide="phone"></i>
+    전화하기
+  </button>
+</div>
       </section>
 
     </article>
