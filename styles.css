@@ -2473,3 +2473,64 @@ body,
   border-radius:24px !important;
   display:block !important;
 }
+#couponDetailCard button{
+  border:0 !important;
+  font-family:inherit !important;
+}
+
+#couponDetailCard .coupon-detail-biz{
+  background:transparent !important;
+  color:#2a60ab !important;
+  font-size:16px !important;
+  font-weight:800 !important;
+  padding:0 !important;
+  margin:0 0 12px !important;
+}
+
+#couponDetailCard .coupon-time-box{
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+  background:#fff7ed !important;
+  border:1px solid #fed7aa !important;
+  border-radius:16px !important;
+  padding:14px !important;
+  margin:14px 0 !important;
+}
+
+#couponDetailCard .coupon-benefit-box{
+  display:flex !important;
+  gap:14px !important;
+  background:#fff !important;
+  border:1px solid #e5edff !important;
+  border-radius:18px !important;
+  padding:14px !important;
+  margin:14px 0 !important;
+}
+
+#couponDetailCard .coupon-primary-use{
+  width:100% !important;
+  height:54px !important;
+  border-radius:16px !important;
+  background:linear-gradient(135deg,#2a60ab,#5f77fa) !important;
+  color:#fff !important;
+  font-size:18px !important;
+  font-weight:900 !important;
+}
+
+#couponDetailCard .coupon-map-actions{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:12px !important;
+  margin-top:16px !important;
+}
+
+#couponDetailCard .coupon-outline-btn{
+  height:48px !important;
+  border:1px solid #bcd2ff !important;
+  border-radius:15px !important;
+  background:#fff !important;
+  color:#2a60ab !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+}
