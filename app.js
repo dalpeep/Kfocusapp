@@ -1565,7 +1565,7 @@ function renderCouponDetail(id){
             <i data-lucide="clock"></i>
             <strong>남은 시간</strong>
           </div>
-          <b>${esc(getCouponRemainText ? getCouponRemainText(c) : '')}</b>
+          <b>${esc(c.remainText || '기간 확인')}</b>
         </div>
 
         <div class="coupon-benefit-box">
@@ -1631,7 +1631,21 @@ function renderCouponDetail(id){
     lucide.createIcons();
   }
 }
+function getRemainText(c){
+  const end = c.endAt || c.end_at || c.expire_date || '';
+  if(!end) return '기간 확인';
 
+  const endDate = new Date(end);
+  if(Number.isNaN(endDate.getTime())) return '기간 확인';
+
+  const diff = endDate.getTime() - Date.now();
+  if(diff <= 0) return '종료됨';
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+
+  return `${days}일 ${hours}시간`;
+}
 function renderCouponUse(id){
   const c = getCoupon(id);
   if(!c || !couponUseCard) return;
