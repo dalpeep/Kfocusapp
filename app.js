@@ -1518,12 +1518,118 @@ if (slider && prevBtn && nextBtn) {
 
 function renderCouponDetail(id){
   const c = getCoupon(id);
-  if(!c || !couponDetailCard) return;
-  selectedCouponId = c.id;
-  const b = getBiz(c.businessId);
-  logBusinessActivity(c.businessId, 'coupon_view');
-  const img = c.imageUrl || b.image;
-  couponDetailCard.innerHTML = `<div class="detail-top coupon-top"><img src="${esc(img)}" alt="${esc(c.title)}"></div><h2>${esc(c.title)}</h2><div class="detail-meta">${esc(b.name)}</div><div class="detail-meta">기간 · ${esc(formatPeriod(c.startAt,c.endAt) || formatDateLabel(c.endAt))}</div><p class="detail-desc">${esc(c.description || '쿠폰 상세 정보입니다.')}</p><div class="coupon-countdown-box"><strong>⏰ 남은 시간</strong><span>${esc(countdownLabel(c.endAt,false) || '')}</span></div><button class="action-btn business coupon-use-open" data-coupon="${esc(c.id)}">쿠폰 사용하기</button><div class="coupon-detail-links"><button class="text-link biz-open" data-biz="${esc(b.id)}">업소 보기</button><a class="text-link" href="https://www.google.com/maps/search/?api=1&query=${b.lat},${b.lng}" target="_blank">지도 보기</a></div>`;
+  if(!c) return;
+
+  const b = getBiz(c.businessId || c.business_id) || {};
+  const img = c.imageUrl || c.image_url || c.image || b.image || b.image_url || '/assets/kfocus-icon.png';
+
+  const title = c.title || '쿠폰';
+  const bizName = b.name || b.name_ko || b.name_en || '';
+  const desc = c.description || '';
+  const badge = c.discount_label || c.badge || 'DEAL';
+
+  const start = c.startAt || c.start_at || '';
+  const end = c.endAt || c.end_at || c.expire_date || '';
+
+  const address = b.address || '주소 정보 없음';
+  const phone = b.phone || b.phone_number || '';
+
+  const box = document.getElementById('couponUseCard');
+  if(!box) return;
+
+  box.innerHTML = `
+    <article class="coupon-detail-v2">
+
+      <div class="coupon-detail-hero">
+        <img src="${esc(img)}" alt="${esc(title)}">
+        <span class="coupon-detail-badge">${esc(badge)}</span>
+      </div>
+
+      <section class="coupon-detail-card">
+        <h2>${esc(title)}</h2>
+
+        <button class="coupon-detail-biz biz-open"
+                type="button"
+                data-biz="${esc(b.id || c.businessId || c.business_id || '')}">
+          ${esc(bizName)}
+          <i data-lucide="chevron-right"></i>
+        </button>
+
+        <p class="coupon-detail-location">
+          <i data-lucide="map-pin"></i>
+          Dallas, TX
+        </p>
+
+        <div class="coupon-time-box">
+          <div>
+            <i data-lucide="clock"></i>
+            <strong>남은 시간</strong>
+          </div>
+          <b>${esc(getCouponRemainText ? getCouponRemainText(c) : '')}</b>
+        </div>
+
+        <div class="coupon-benefit-box">
+          <div class="coupon-benefit-icon">
+            <i data-lucide="gift"></i>
+          </div>
+          <div>
+            <strong>혜택 안내</strong>
+            <p>${esc(desc || '쿠폰 혜택을 확인하세요.')}</p>
+            <ul>
+              <li>방문 고객 대상</li>
+              <li>행사 기간 내 사용 가능</li>
+            </ul>
+          </div>
+        </div>
+
+        <button class="coupon-primary-use" type="button">
+          <i data-lucide="ticket"></i>
+          쿠폰 사용하기
+        </button>
+      </section>
+
+      <section class="coupon-map-card">
+        <h3>매장 위치</h3>
+
+        <div class="coupon-map-preview">
+          <div class="map-pin-dot">
+            <i data-lucide="map-pin"></i>
+          </div>
+        </div>
+
+        <p class="coupon-address">
+          <i data-lucide="map-pin"></i>
+          ${esc(address)}
+        </p>
+
+        ${phone ? `
+          <p class="coupon-phone">
+            <i data-lucide="phone"></i>
+            ${esc(phone)}
+          </p>
+        ` : ''}
+
+        <div class="coupon-map-actions">
+          <button type="button" class="coupon-outline-btn" data-url="${esc(makeDirectionsUrl ? makeDirectionsUrl(b) : '')}">
+            <i data-lucide="navigation"></i>
+            길찾기
+          </button>
+
+          <button type="button" class="coupon-outline-btn" data-phone="${esc(phone)}">
+            <i data-lucide="phone"></i>
+            전화하기
+          </button>
+        </div>
+      </section>
+
+    </article>
+  `;
+
+  bindBizOpenButtons();
+
+  if(window.lucide){
+    lucide.createIcons();
+  }
 }
 
 function renderCouponUse(id){
