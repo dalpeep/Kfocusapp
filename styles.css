@@ -2570,3 +2570,10 @@ body,
   justify-content:center !important;
   gap:8px !important;
 }
+.coupon-primary-use{
+  background:red !important;
+}
+
+.coupon-outline-btn{
+  background:yellow !important;
+}
