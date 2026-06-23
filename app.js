@@ -1550,17 +1550,27 @@ function renderCouponDetail(id){
       <section class="coupon-detail-card">
         <h2>${esc(title)}</h2>
 
-        <button class="coupon-detail-biz biz-open"
-                type="button"
-                data-biz="${esc(b.id || c.businessId || c.business_id || '')}">
-          ${esc(bizName)}
-          <i data-lucide="chevron-right"></i>
-        </button>
+        <button
+  class="coupon-detail-biz biz-open"
+  type="button"
+  data-biz="${esc(b.id || c.businessId || c.business_id || '')}"
+  style="
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:0;
+    border-radius:999px;
+    background:#eef5ff;
+    color:#2a60ab;
+    padding:8px 12px;
+    font-size:14px;
+    font-weight:900;
+    margin:0 0 12px;
+  ">
+  ${esc(bizName)}
+  <i data-lucide="chevron-right"></i>
+</button>
 
-        <p class="coupon-detail-location">
-          <i data-lucide="map-pin"></i>
-          Dallas, TX
-        </p>
 
         <div style="
   display:flex;
