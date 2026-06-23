@@ -1567,7 +1567,7 @@ function renderCouponDetail(id){
             <i data-lucide="clock"></i>
             <strong>남은 시간</strong>
           </div>
-          <b>${esc(c.remainText || '기간 확인')}</b>
+          <b>${esc(getRemainText(c))}</b>
         </div>
 
         <div class="coupon-benefit-box">

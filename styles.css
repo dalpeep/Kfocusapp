@@ -2718,3 +2718,56 @@ body,
   justify-content:center !important;
   gap:6px !important;
 }
+
+/* ===== Coupon 추가 ===== */
+
+#couponDetailCard .coupon-time-box{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  background:#fff7ed !important;
+  border:1px solid #fed7aa !important;
+  border-radius:16px !important;
+  padding:12px 14px !important;
+  margin:12px 0 !important;
+}
+
+#couponDetailCard .coupon-benefit-box{
+  display:flex !important;
+  gap:12px !important;
+  background:#ffffff !important;
+  border:1px solid #e5edff !important;
+  border-radius:18px !important;
+  padding:14px !important;
+  margin:12px 0 !important;
+  box-shadow:0 6px 16px rgba(15,23,42,.04) !important;
+}
+
+#couponDetailCard .coupon-benefit-icon{
+  width:44px !important;
+  height:44px !important;
+  border-radius:14px !important;
+  background:#fff1e8 !important;
+  color:#f97316 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  flex-shrink:0 !important;
+}
+
+#couponDetailCard .coupon-benefit-box strong{
+  display:block !important;
+  font-size:16px !important;
+  color:#10224a !important;
+  margin-bottom:6px !important;
+}
+
+#couponDetailCard .coupon-benefit-box p{
+  margin:0 0 6px !important;
+}
+
+#couponDetailCard .coupon-benefit-box ul{
+  margin:0 !important;
+  padding-left:18px !important;
+}
+
