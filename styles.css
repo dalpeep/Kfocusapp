@@ -2794,3 +2794,20 @@ body,
   font-weight:900 !important;
   color:#b45309 !important;
 }
+
+/* ===== 지도 추가 ===== */
+
+#couponDetailCard .coupon-map-preview{
+  height:160px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+  background:#eef4ff !important;
+  margin:12px 0 !important;
+}
+
+#couponDetailCard .coupon-map-preview iframe{
+  width:100% !important;
+  height:100% !important;
+  border:0 !important;
+  display:block !important;
+}

@@ -1679,10 +1679,15 @@ function renderCouponDetail(id){
         <h3>매장 위치</h3>
 
         <div class="coupon-map-preview">
-          <div class="map-pin-dot">
-            <i data-lucide="map-pin"></i>
-          </div>
-        </div>
+  <iframe
+    src="https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed"
+    width="100%"
+    height="100%"
+    style="border:0;"
+    loading="lazy"
+    referrerpolicy="no-referrer-when-downgrade">
+  </iframe>
+</div>
 
         <p class="coupon-address">
           <i data-lucide="map-pin"></i>
