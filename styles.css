@@ -2534,3 +2534,39 @@ body,
   font-size:16px !important;
   font-weight:900 !important;
 }
+#couponDetailCard .coupon-primary-use,
+#couponDetailCard button.coupon-primary-use,
+#couponDetailCard button[class*="coupon-primary"]{
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  width:100% !important;
+  height:54px !important;
+  border:0 !important;
+  border-radius:16px !important;
+  background:linear-gradient(135deg,#2a60ab,#5f77fa) !important;
+  color:#fff !important;
+  font-size:18px !important;
+  font-weight:900 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+}
+
+#couponDetailCard .coupon-outline-btn,
+#couponDetailCard button.coupon-outline-btn,
+#couponDetailCard button[class*="coupon-outline"]{
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  height:48px !important;
+  border:1px solid #bcd2ff !important;
+  border-radius:15px !important;
+  background:#fff !important;
+  color:#2a60ab !important;
+  font-size:16px !important;
+  font-weight:900 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  gap:8px !important;
+}
