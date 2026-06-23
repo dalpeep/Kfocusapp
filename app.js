@@ -1610,7 +1610,7 @@ function renderCouponDetail(id){
         ` : ''}
 
         <div class="coupon-map-actions">
-          <button type="button" class="coupon-outline-btn" data-url="${esc(makeDirectionsUrl ? makeDirectionsUrl(b) : '')}">
+          <button type="button" class="coupon-outline-btn" data-url="${esc(getDirectionsUrl(b))}">
             <i data-lucide="navigation"></i>
             길찾기
           </button>
@@ -1645,6 +1645,14 @@ function getRemainText(c){
   const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
 
   return `${days}일 ${hours}시간`;
+}
+function getDirectionsUrl(b){
+  const address = b.address || '';
+  const name = b.name || b.name_ko || b.name_en || '';
+
+  const q = encodeURIComponent(address || name || 'Dallas, TX');
+
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
 function renderCouponUse(id){
   const c = getCoupon(id);
