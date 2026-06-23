@@ -687,7 +687,7 @@ async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
-    const select = 'id,business_id,title,description,coupon_code,image_url,start_at,end_at,is_active,is_today_coupon,sort_order,created_at';
+    const select = 'id,business_id,title,description,coupon_code,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at';
     const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
@@ -700,6 +700,7 @@ async function loadCouponsFromSupabase(){
       description: row.description || '',
       couponCode: row.coupon_code || '',
       imageUrl: row.image_url || '',
+	  discount_label: row.discount_label || '',
       startAt: row.start_at || '',
       endAt: row.end_at || '',
       isActive: row.is_active !== false,
