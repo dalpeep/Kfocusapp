@@ -2771,3 +2771,26 @@ body,
   padding-left:18px !important;
 }
 
+/* ===== Coupon 추가 ===== */
+#couponDetailCard .coupon-time-box{
+  display:flex !important;
+  justify-content:space-between !important;
+  align-items:center !important;
+  background:#fff7ed !important;
+  border:1px solid #fed7aa !important;
+  border-radius:16px !important;
+  padding:12px 14px !important;
+  margin:12px 0 !important;
+}
+
+#couponDetailCard .coupon-time-left{
+  display:flex !important;
+  align-items:center !important;
+  gap:8px !important;
+}
+
+#couponDetailCard .coupon-time-right{
+  font-size:18px !important;
+  font-weight:900 !important;
+  color:#b45309 !important;
+}

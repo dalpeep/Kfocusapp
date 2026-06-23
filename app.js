@@ -1563,12 +1563,15 @@ function renderCouponDetail(id){
         </p>
 
         <div class="coupon-time-box">
-          <div>
-            <i data-lucide="clock"></i>
-            <strong>남은 시간</strong>
-          </div>
-          <b>${esc(getRemainText(c))}</b>
-        </div>
+  <div class="coupon-time-left">
+    <i data-lucide="clock"></i>
+    <strong>남은 시간</strong>
+  </div>
+
+  <div class="coupon-time-right">
+    ${esc(getRemainText(c))}
+  </div>
+</div>
 
         <div class="coupon-benefit-box">
           <div class="coupon-benefit-icon">
