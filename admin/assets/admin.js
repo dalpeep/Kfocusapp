@@ -579,7 +579,7 @@ function fillBusinessOptions() {
    Coupons
 --------------------------- */
 function clearCouponForm() {
-  ['coupon_id', 'coupon_title', 'coupon_code', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order'].forEach((id) => setVal(id, ''));
+  ['coupon_id', 'coupon_title', 'coupon_code', 'coupon_discount_label', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order'].forEach((id) => setVal(id, ''));
   setVal('coupon_business_id', '');
   setChecked('coupon_is_active', true);
   setChecked('coupon_is_today', false);
@@ -592,6 +592,7 @@ function fillCouponForm(row) {
   setVal('coupon_business_id', row.business_id || '');
   setVal('coupon_title', row.title || '');
   setVal('coupon_code', row.coupon_code || '');
+  setVal('coupon_discount_label', row.discount_label || '');
   setVal('coupon_description', row.description || '');
   setVal('coupon_image_url', row.image_url || '');
   setVal('coupon_start_at', fmtLocal(row.start_at));
@@ -662,6 +663,7 @@ function collectCouponPayload() {
     business_id: val('coupon_business_id') || null,
     title: val('coupon_title').trim() || null,
     coupon_code: val('coupon_code').trim() || null,
+	discount_label: val('coupon_discount_label').trim() || null,
     description: val('coupon_description').trim() || null,
     image_url: val('coupon_image_url').trim() || null,
     start_at: fromLocal(val('coupon_start_at')),
