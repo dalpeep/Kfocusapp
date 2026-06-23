@@ -1603,19 +1603,54 @@ function renderCouponDetail(id){
   </b>
 </div>
 
-        <div class="coupon-benefit-box">
-          <div class="coupon-benefit-icon">
-            <i data-lucide="gift"></i>
-          </div>
-          <div>
-            <strong>혜택 안내</strong>
-            <p>${esc(desc || '쿠폰 혜택을 확인하세요.')}</p>
-            <ul>
-              <li>방문 고객 대상</li>
-              <li>행사 기간 내 사용 가능</li>
-            </ul>
-          </div>
-        </div>
+        <div
+  style="
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    background:#fff;
+    border:1px solid #e5edff;
+    border-radius:18px;
+    padding:14px;
+    margin:12px 0;
+  "
+>
+  <div
+    style="
+      width:42px;
+      height:42px;
+      border-radius:12px;
+      background:#fff1e8;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      color:#f97316;
+      flex-shrink:0;
+    "
+  >
+    <i data-lucide="gift"></i>
+  </div>
+
+  <div>
+    <strong
+      style="
+        display:block;
+        margin-bottom:6px;
+        color:#10224a;
+        font-size:16px;
+      "
+    >
+      혜택 안내
+    </strong>
+
+    <p>${esc(desc || '쿠폰 혜택을 확인하세요.')}</p>
+
+    <ul>
+      <li>방문 고객 대상</li>
+      <li>행사 기간 내 사용 가능</li>
+    </ul>
+  </div>
+</div>
 
         <button
   class="coupon-primary-use"
