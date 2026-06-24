@@ -24,7 +24,13 @@ let selectedSlideBusinessId = null;
 
 const BUSINESS_FIELDS = [
   'id', 'name_ko', 'name_en', 'category_ko', 'area', 'region', 'phone',
-  'website', 'email', 'address', 'description', 'image_url', 'video_url',
+  'website', 'email', 'address', 'description', 
+  'hours',
+  'parking',
+  'reservation',
+  'languages',
+  'insurance',
+  'image_url', 'video_url',
   'lat', 'lng', 'featured_rank', 'new_rank', 'popular_rank',
   'promo_text', 'promo_image_url', 'home_fixed_sort'
 ];
@@ -132,9 +138,16 @@ function clearBusinessForm() {
 function fillBusinessForm(row) {
   BUSINESS_FIELDS.forEach((id) => setVal(id, row?.[id] ?? ''));
   BUSINESS_CHECKS.forEach((id) => setChecked(id, !!row?.[id]));
-  if (qs('imageFile')) qs('imageFile').value = '';
+
+  if (qs('#imageFile')) qs('#imageFile').value = '';
+
   selectedId = row?.id ?? null;
-  safeText('formTitle', row?.id ? `업소 수정 #${row.id}` : '업소 정보');
+
+  safeText(
+    'formTitle',
+    row?.id ? `업소 수정 #${row.id}` : '업소 정보'
+  );
+
   updatePreview();
   renderGalleryList(row);
 }
@@ -327,10 +340,28 @@ function renderBusinessList(items) {
 function collectBusinessPayload() {
   const p = {};
   [
-    'name_ko', 'name_en', 'category_ko', 'area', 'region', 'phone',
-    'website', 'email', 'address', 'description', 'image_url', 'video_url',
-    'promo_text', 'promo_image_url'
-  ].forEach((id) => {
+ 'name_ko',
+ 'name_en',
+ 'category_ko',
+ 'area',
+ 'region',
+ 'phone',
+ 'website',
+ 'email',
+ 'address',
+ 'description',
+
+ 'hours',
+ 'parking',
+ 'reservation',
+ 'languages',
+ 'insurance',
+
+ 'image_url',
+ 'video_url',
+ 'promo_text',
+ 'promo_image_url'
+].forEach((id) => {
     p[id] = val(id).trim() ? val(id).trim() : null;
   });
   ['lat', 'lng'].forEach((id) => {
