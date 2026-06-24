@@ -2968,3 +2968,14 @@ body,
 .biz-hours-list span{
   color:#555;
 }
+.biz-info-list p{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin:12px 0;
+  line-height:1.5;
+}
+
+.biz-info-list p span{
+  color:#334155;
+}
