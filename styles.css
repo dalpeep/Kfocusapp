@@ -3034,3 +3034,107 @@ body,
   text-decoration:none;
   background:#fff;
 }
+
+/* Business Detail v2-1 */
+/* Business Detail Final Override */
+
+#detailCard{
+  background:transparent !important;
+  border:0 !important;
+  box-shadow:none !important;
+  padding:14px !important;
+  padding-bottom:100px !important;
+}
+
+#detailCard .biz-detail-v2{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:14px !important;
+}
+
+#detailCard .biz-detail-card,
+#detailCard .biz-promo-card,
+#detailCard .biz-map-card{
+  background:#fff !important;
+  border:1px solid #dbe7ff !important;
+  border-radius:24px !important;
+  padding:16px !important;
+  box-shadow:0 8px 22px rgba(15,23,42,.07) !important;
+}
+
+#detailCard .biz-detail-hero img{
+  width:100% !important;
+  aspect-ratio:16/9 !important;
+  object-fit:cover !important;
+  border-radius:24px !important;
+  display:block !important;
+}
+
+#detailCard .biz-action-row{
+  display:flex !important;
+  gap:8px !important;
+  margin-top:14px !important;
+  overflow-x:auto !important;
+}
+
+#detailCard .biz-action-row a,
+#detailCard .biz-action-row button{
+  border:0 !important;
+  border-radius:999px !important;
+  background:#eef5ff !important;
+  color:#2a60ab !important;
+  padding:9px 12px !important;
+  font-size:13px !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  white-space:nowrap !important;
+}
+
+#detailCard .biz-promo-card{
+  display:flex !important;
+  gap:14px !important;
+  align-items:center !important;
+}
+
+#detailCard .biz-promo-card button{
+  border:0 !important;
+  border-radius:999px !important;
+  background:linear-gradient(135deg,#2a60ab,#5f77fa) !important;
+  color:#fff !important;
+  padding:9px 16px !important;
+  font-weight:900 !important;
+}
+
+#detailCard .biz-map-preview{
+  height:170px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+  background:#eef4ff !important;
+}
+
+#detailCard .biz-map-preview iframe{
+  width:100% !important;
+  height:100% !important;
+  border:0 !important;
+}
+
+#detailCard .biz-bottom-actions{
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  margin-top:14px !important;
+}
+
+#detailCard .biz-bottom-actions a{
+  height:48px !important;
+  border:1px solid #bcd2ff !important;
+  border-radius:16px !important;
+  color:#2a60ab !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  background:#fff !important;
+}
+
