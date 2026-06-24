@@ -1433,25 +1433,84 @@ const orderActionHtml = `
   </div>`;
 
 detailCard.innerHTML = `
-  ${videoHtml}
-  <div class="detail-top">
-    <img src="${esc(b.image)}" alt="${esc(b.name)}">
-    <div class="detail-badges stack-badges">${badgeStackHTML(b,false)}</div>
-  </div>
-  <h2>${esc(b.name)}</h2>
-  <div class="detail-meta">${esc(b.category)} · ${esc(regionLabel)}</div>
-  <div class="detail-meta">${esc(b.address)}</div>
-  <p class="detail-desc">${esc(b.desc || '업소 상세 정보가 여기에 표시됩니다.')}</p>
-  <div class="icon-actions">
-    <a class="icon-action call" href="tel:${phoneDigits}" aria-label="전화">☎</a>
-    <a class="icon-action sms" href="sms:${phoneDigits}" aria-label="문자">✉</a>
-    <a class="icon-action map" href="https://www.google.com/maps?q=${encodeURIComponent(b.address)}" target="_blank" aria-label="길찾기">⌖</a>
-    ${safeWebsite ? `<a class="icon-action web" href="${esc(safeWebsite)}" target="_blank" rel="noopener" aria-label="웹사이트">◎</a>` : ''}
-    ${safeEmail ? `<a class="icon-action email" href="mailto:${encodeURIComponent(safeEmail)}?subject=${encodeURIComponent(b.name + ' 문의')}&body=${encodeURIComponent('안녕하세요. Kfocus를 통해 문의드립니다.')}" target="_blank" aria-label="이메일">✉︎</a>` : ''}
-  </div>
-  ${orderActionHtml}
-  ${galleryHtml}
-  ${couponHtml}
+  <article class="biz-detail-v2">
+
+    <div class="biz-detail-hero">
+      <img src="${esc(img)}" alt="${esc(bizName)}">
+
+      <div class="biz-detail-badges">
+        ${b.is_new ? '<span class="badge-new">NEW</span>' : ''}
+        ${b.is_featured ? '<span class="badge-featured">추천</span>' : ''}
+        ${b.is_popular ? '<span class="badge-popular">인기</span>' : ''}
+      </div>
+    </div>
+
+    <section class="biz-detail-card">
+      <h2>${esc(bizName)}</h2>
+      <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
+
+      <div class="biz-detail-rating">
+        <span>★★★★★</span>
+        <b>4.8</b>
+      </div>
+
+      <div class="biz-action-row">
+        <a href="tel:${esc(phone)}">전화</a>
+        <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
+        <a href="${esc(website || '#')}" target="_blank">웹사이트</a>
+        <button type="button">예약</button>
+        <button type="button">공유</button>
+      </div>
+    </section>
+
+    <section class="biz-promo-card">
+      <div class="promo-icon">🎁</div>
+      <div>
+        <strong>진행중인 혜택</strong>
+        <p>무료 MASTER S4 추첨 증정</p>
+        <button type="button" onclick="openCouponFromMap('${esc(b.id)}')">
+          쿠폰 보기
+        </button>
+      </div>
+    </section>
+
+    <section class="biz-detail-card">
+      <h3>매장 소개</h3>
+      <p class="biz-description">
+        ${esc(b.description || '업소 소개가 준비 중입니다.')}
+      </p>
+    </section>
+
+    <section class="biz-detail-card">
+      <h3>영업 정보</h3>
+      <div class="biz-info-list">
+        <p>🕒 영업시간 <span>${esc(b.hours || '정보 없음')}</span></p>
+        <p>🚗 주차 <span>${esc(b.parking || '정보 없음')}</span></p>
+        <p>📅 예약 <span>${esc(b.reservation || '가능')}</span></p>
+        <p>🌎 언어 <span>한국어, 영어</span></p>
+      </div>
+    </section>
+
+    <section class="biz-map-card">
+      <h3>매장 위치</h3>
+
+      <div class="biz-map-preview">
+        <iframe
+          src="https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed"
+          loading="lazy">
+        </iframe>
+      </div>
+
+      <p class="biz-address">📍 ${esc(address)}</p>
+      <p class="biz-phone">📞 ${esc(phone)}</p>
+
+      <div class="biz-bottom-actions">
+        <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
+        <a href="tel:${esc(phone)}">전화하기</a>
+      </div>
+    </section>
+
+  </article>
 `;
 
 detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
