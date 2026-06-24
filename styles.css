@@ -2804,3 +2804,17 @@ body,
 
     box-shadow:0 4px 10px rgba(229,57,53,.25) !important;
 }
+#couponDetailCard{
+  padding-bottom:90px !important;
+}
+
+#couponDetailCard .coupon-detail-hero{
+  position:relative !important;
+}
+
+#couponDetailCard .coupon-detail-badge{
+  position:absolute !important;
+  right:14px !important;
+  top:14px !important;
+  margin:0 !important;
+}
