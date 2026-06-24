@@ -1496,7 +1496,21 @@ detailCard.innerHTML = `
     <section class="biz-detail-card">
       <h3>영업 정보</h3>
       <div class="biz-info-list">
-        <p>🕒 영업시간 <span>${esc(b.hours || '정보 없음')}</span></p>
+      <p>
+      🕒 영업시간
+      <span style="white-space:pre-line">
+      ${
+      esc(b.hours || '정보 없음')
+        .replace(/Monday/g,'\nMonday')
+        .replace(/Tuesday/g,'\nTuesday')
+        .replace(/Wednesday/g,'\nWednesday')
+        .replace(/Thursday/g,'\nThursday')
+        .replace(/Friday/g,'\nFriday')
+        .replace(/Saturday/g,'\nSaturday')
+        .replace(/Sunday/g,'\nSunday')
+      }
+        </span>
+        </p>
         <p>🚗 주차 <span>${esc(b.parking || '정보 없음')}</span></p>
         <p>📅 예약 <span>${esc(b.reservation || '가능')}</span></p>
         <p>🌎 언어 <span>한국어, 영어</span></p>
