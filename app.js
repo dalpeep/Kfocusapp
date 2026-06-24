@@ -1542,9 +1542,27 @@ function renderCouponDetail(id){
   box.innerHTML = `
     <article class="coupon-detail-v2">
 
-      <div class="coupon-detail-hero">
+      <div class="coupon-detail-hero" style="position:relative;">
   <img src="${esc(img)}" alt="${esc(title)}">
-  <span class="coupon-detail-badge">${esc(badge)}</span>
+  <span
+    class="coupon-detail-badge"
+    style="
+      position:absolute;
+      right:14px;
+      top:14px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      background:#e53935;
+      color:#fff;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      box-shadow:0 4px 10px rgba(229,57,53,.25);
+    ">
+    ${esc(badge)}
+  </span>
 </div>
 
       <section class="coupon-detail-card">
