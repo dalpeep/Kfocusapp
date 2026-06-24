@@ -2815,6 +2815,7 @@ body,
 .coupon-detail-badge{
     display:inline-flex;
     align-items:center;
+    justify-content:center;
 
     background:#e53935;
     color:#fff;
@@ -2824,4 +2825,6 @@ body,
 
     font-size:12px;
     font-weight:800;
+
+    box-shadow:0 4px 10px rgba(229,57,53,.25);
 }
