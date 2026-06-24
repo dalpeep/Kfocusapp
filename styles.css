@@ -3068,8 +3068,8 @@ body,
 }
 
 .biz-gallery-thumb{
-  width:140px !important;
-  height:104px !important;
+  width:160px !important;
+  height:124px !important;
   border:0;
   padding:0;
   border-radius:8px; /* ← 라운드값 */
