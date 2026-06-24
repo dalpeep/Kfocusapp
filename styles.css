@@ -2808,8 +2808,21 @@ body,
   padding-bottom:90px !important;
 }
 
-#couponDetailCard .coupon-detail-hero{
-  position:relative !important;
+.coupon-detail-hero{
+    position:relative;
+}
+
+.coupon-detail-badge{
+    position:absolute;
+    top:14px;
+    right:14px;
+
+    background:#e53935;
+    color:#fff;
+
+    padding:6px 12px;
+    border-radius:999px;
+    font-weight:900;
 }
 
 #couponDetailCard .coupon-detail-badge{
