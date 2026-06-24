@@ -583,9 +583,7 @@ async function loadRealData(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
 
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,
-	hours,parking,reservation,languages,insurance,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,
-	promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active';
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,hours,parking,reservation,languages,insurance,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active';
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
@@ -621,6 +619,11 @@ const mapped = rows.map((row) => {
     video_url: row.video_url || '',
     youtube_url: row.youtube_url || '',
     desc: row.description || '',
+	hours: row.hours || '',
+    parking: row.parking || '',
+    reservation: row.reservation || '',
+    languages: row.languages || '',
+    insurance: row.insurance || '',
     lat: row.lat == null ? null : Number(row.lat),
     lng: row.lng == null ? null : Number(row.lng),
     featured: !!row.is_featured,
@@ -1482,7 +1485,7 @@ detailCard.innerHTML = `
         </button>
       </div>
     </section>
-     console.log('DETAIL DATA', b);
+
     <section class="biz-detail-card">
       <h3>매장 소개</h3>
       <p class="biz-description">
