@@ -3061,18 +3061,18 @@ body,
 
 .biz-gallery-strip{
   display:flex;
-  gap:10px;
+  gap:12px !important;
   overflow-x:auto;
-  padding:2px 2px 4px;
-  margin-top:-4px;
+  padding:4px 2px 8px !important;
+  margin-top:10px !important;
 }
 
 .biz-gallery-thumb{
-  width:92px;
-  height:68px;
+  width:120px !important;
+  height:84px !important;
   border:0;
   padding:0;
-  border-radius:16px;
+  border-radius:18px;
   overflow:hidden;
   background:#eef4ff;
   flex:0 0 auto;
@@ -3084,3 +3084,4 @@ body,
   object-fit:cover;
   display:block;
 }
+
