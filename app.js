@@ -618,7 +618,7 @@ const mapped = rows.map((row) => {
     reservation_url: row.reservation_url || '',
     video_url: row.video_url || '',
     youtube_url: row.youtube_url || '',
-    desc: row.description || '',
+    description: row.description || '',
 	hours: row.hours || '',
     parking: row.parking || '',
     reservation: row.reservation || '',
