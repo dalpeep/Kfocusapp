@@ -1431,6 +1431,13 @@ const orderActionHtml = `
     </div>
     <div class="detail-order-note">업소별 주문·예약 링크는 순차적으로 연결됩니다.</div>
   </div>`;
+  
+  const img = b.image || b.image_url || '/assets/kfocus-icon.png';
+const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
+const category = getMainCategoryLabel(b.category) || b.category || '업소';
+const address = b.address || '';
+const phone = b.phone || b.phone_number || '';
+const website = b.website || b.url || '';
 
 detailCard.innerHTML = `
   <article class="biz-detail-v2">
