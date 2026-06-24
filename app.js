@@ -626,8 +626,10 @@ const mapped = rows.map((row) => {
     insurance: row.insurance || '',
     lat: row.lat == null ? null : Number(row.lat),
     lng: row.lng == null ? null : Number(row.lng),
+    featured: !!row.is_featured,
     is_featured: !!row.is_featured,
-    featured_rank: row.featured_rank == null ? 1000 : Number(row.featured_rank),
+    is_new: !!row.is_new,
+    is_popular: !!row.is_popular,
 
     is_new: !!row.is_new,
     new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
