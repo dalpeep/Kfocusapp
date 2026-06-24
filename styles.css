@@ -3017,3 +3017,44 @@ body,
   margin-left:auto;
   text-align:right;
 }
+.biz-detail-hero{
+  position:relative;
+}
+/* 배지 묶음 */
+.biz-detail-badges{
+  position:absolute;
+  top:12px;
+  right:12px;
+
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  z-index:5;
+}
+/* NEW */
+.badge-new{
+  background:#22c55e;
+  color:#fff;
+  padding:5px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+}
+/* 추천 */
+.badge-featured{
+  background:#3b82f6;
+  color:#fff;
+  padding:5px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+}
+/* 인기 */
+.badge-popular{
+  background:#f97316;
+  color:#fff;
+  padding:5px 12px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+}
