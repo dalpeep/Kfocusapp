@@ -303,3 +303,7 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
   border:none;
   cursor:pointer;
 }
+#hours{
+  min-height:140px;
+  resize:vertical;
+}
