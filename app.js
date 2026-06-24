@@ -1456,6 +1456,10 @@ const address = b.address || '';
 const phone = b.phone || b.phone_number || '';
 const website = b.website || b.url || '';
 
+const activeCoupon = coupons.find(c =>
+  String(c.businessId || c.business_id) === String(b.id)
+);
+
 detailCard.innerHTML = `
   <article class="biz-detail-v2">
 
@@ -1487,16 +1491,18 @@ detailCard.innerHTML = `
       </div>
     </section>
 
+    ${activeCoupon ? `
     <section class="biz-promo-card">
-      <div class="promo-icon">🎁</div>
-      <div>
-        <strong>진행중인 혜택</strong>
-        <p>무료 MASTER S4 추첨 증정</p>
-        <button type="button" onclick="openCouponFromMap('${esc(b.id)}')">
-          쿠폰 보기
-        </button>
-      </div>
+    <div class="promo-icon">🎁</div>
+    <div>
+    <strong>진행중인 혜택</strong>
+    <p>${esc(activeCoupon.title || activeCoupon.description || '쿠폰 혜택이 있습니다.')}</p>
+    <button type="button" onclick="renderCouponDetail('${esc(activeCoupon.id)}'); showPage('coupon-detail');">
+      쿠폰 보기
+    </button>
+    </div>
     </section>
+` : ''}
 
     <section class="biz-detail-card">
       <h3>매장 소개</h3>
