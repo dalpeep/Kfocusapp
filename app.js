@@ -1314,7 +1314,19 @@ function renderBusinessList() {
 
   listEl.innerHTML = rows.map(nearbyBusinessItemHTML).join('');
 }
+function formatBusinessHours(hours){
+  if(!hours) return '<div>정보 없음</div>';
 
+  return esc(hours)
+    .replace(/Monday\s*/g,'<div><b>Mon</b><span>')
+    .replace(/Tuesday\s*/g,'</span></div><div><b>Tue</b><span>')
+    .replace(/Wednesday\s*/g,'</span></div><div><b>Wed</b><span>')
+    .replace(/Thursday\s*/g,'</span></div><div><b>Thu</b><span>')
+    .replace(/Friday\s*/g,'</span></div><div><b>Fri</b><span>')
+    .replace(/Saturday\s*/g,'</span></div><div><b>Sat</b><span>')
+    .replace(/Sunday\s*/g,'</span></div><div><b>Sun</b><span>')
+    + '</span></div>';
+}
 function renderCategories() {
   const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
   if (!categoryRow) return;
@@ -1496,24 +1508,16 @@ detailCard.innerHTML = `
     <section class="biz-detail-card">
       <h3>영업 정보</h3>
       <div class="biz-info-list">
-      <p>
-      🕒 영업시간
-      <span style="white-space:pre-line">
-      ${
-      esc(b.hours || '정보 없음')
-        .replace(/Monday/g,'\nMonday')
-        .replace(/Tuesday/g,'\nTuesday')
-        .replace(/Wednesday/g,'\nWednesday')
-        .replace(/Thursday/g,'\nThursday')
-        .replace(/Friday/g,'\nFriday')
-        .replace(/Saturday/g,'\nSaturday')
-        .replace(/Sunday/g,'\nSunday')
-      }
-        </span>
-        </p>
+      <div class="biz-hours-block">
+      <div class="biz-info-label">🕒 영업시간</div>
+      <div class="biz-hours-list">
+           ${formatBusinessHours(b.hours)}
+      </div>
+        </div>
         <p>🚗 주차 <span>${esc(b.parking || '정보 없음')}</span></p>
         <p>📅 예약 <span>${esc(b.reservation || '가능')}</span></p>
         <p>🌎 언어 <span>한국어, 영어</span></p>
+		<p>ℹ️ 기타 <span>${esc(b.insurance || '정보 없음')}</span></p>
       </div>
     </section>
 

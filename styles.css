@@ -2940,3 +2940,31 @@ body,
   background:#fff !important;
 }
 
+/* Business Hours */
+.biz-hours-list{
+  background:#f8fbff;
+  border:1px solid #e6eeff;
+  border-radius:14px;
+  padding:10px 14px;
+}
+
+.biz-hours-list div{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid #eef3ff;
+}
+
+.biz-hours-list div:last-child{
+  border-bottom:none;
+}
+
+.biz-hours-list b{
+  color:#234;
+  font-weight:700;
+}
+
+.biz-hours-list span{
+  color:#555;
+}
