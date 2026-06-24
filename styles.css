@@ -3061,15 +3061,15 @@ body,
 
 .biz-gallery-strip{
   display:flex;
-  gap:12px !important;
+  gap:10px !important;
   overflow-x:auto;
   padding:4px 2px 8px !important;
   margin-top:10px !important;
 }
 
 .biz-gallery-thumb{
-  width:120px !important;
-  height:84px !important;
+  width:140px !important;
+  height:104px !important;
   border:0;
   padding:0;
   border-radius:18px;
