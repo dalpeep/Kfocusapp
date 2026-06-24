@@ -2979,3 +2979,22 @@ body,
 .biz-info-list p span{
   color:#334155;
 }
+.biz-info-label,
+.biz-info-list p{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.biz-info-label svg,
+.biz-info-list p svg{
+  width:18px;
+  height:18px;
+  color:#2a60ab;
+  flex-shrink:0;
+}
+
+.biz-info-list p span{
+  margin-left:auto;
+  text-align:right;
+}

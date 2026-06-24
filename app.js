@@ -1509,15 +1509,34 @@ detailCard.innerHTML = `
       <h3>영업 정보</h3>
       <div class="biz-info-list">
       <div class="biz-hours-block">
-      <div class="biz-info-label">🕒 영업시간</div>
+      <div class="biz-info-label">
+      <i data-lucide="clock"></i>
+      영업시간
+      </div>
       <div class="biz-hours-list">
            ${formatBusinessHours(b.hours)}
       </div>
         </div>
-        <p>🚗 주차 <span>${esc(b.parking || '정보 없음')}</span></p>
-        <p>📅 예약 <span>${esc(b.reservation || '가능')}</span></p>
-        <p>🌎 언어 <span>한국어, 영어</span></p>
-		<p>ℹ️ 기타 <span>${esc(b.insurance || '정보 없음')}</span></p>
+        <p>
+        <i data-lucide="car"></i>
+        주차
+        <span>${esc(b.parking || '정보 없음')}</span>
+        </p>
+        <p>
+        <i data-lucide="calendar-check"></i>
+       예약
+        <span>${esc(b.reservation || '가능')}</span>
+        </p>
+        <p>
+        <i data-lucide="globe"></i>
+        언어
+        <span>${esc(b.languages || '한국어, 영어')}</span>
+        </p>
+		<p>
+        <i data-lucide="info"></i>
+       기타
+        <span>${esc(b.insurance || '정보 없음')}</span>
+        </p>
       </div>
     </section>
 
