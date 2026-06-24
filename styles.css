@@ -2788,19 +2788,19 @@ body,
   display:block !important;
 }
 /* ===== 배지 추가 ===== */
-.coupon-detail-badge{
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
+#couponDetailCard .coupon-detail-badge{
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
 
-    background:#e53935;
-    color:#fff;
+    background:#e53935 !important;
+    color:#fff !important;
 
-    padding:6px 12px;
-    border-radius:999px;
+    padding:6px 12px !important;
+    border-radius:999px !important;
 
-    font-size:12px;
-    font-weight:800;
+    font-size:12px !important;
+    font-weight:800 !important;
 
-    box-shadow:0 4px 10px rgba(229,57,53,.25);
+    box-shadow:0 4px 10px rgba(229,57,53,.25) !important;
 }
