@@ -3058,3 +3058,29 @@ body,
   font-size:12px;
   font-weight:800;
 }
+
+.biz-gallery-strip{
+  display:flex;
+  gap:10px;
+  overflow-x:auto;
+  padding:2px 2px 4px;
+  margin-top:-4px;
+}
+
+.biz-gallery-thumb{
+  width:92px;
+  height:68px;
+  border:0;
+  padding:0;
+  border-radius:16px;
+  overflow:hidden;
+  background:#eef4ff;
+  flex:0 0 auto;
+}
+
+.biz-gallery-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}

@@ -1481,6 +1481,16 @@ detailCard.innerHTML = `
         ${b.is_popular ? '<span class="badge-popular">인기</span>' : ''}
       </div>
     </div>
+	
+	${(b.gallery_urls || b.galleryImages || []).length ? `
+  <div class="biz-gallery-strip">
+    ${(b.gallery_urls || b.galleryImages || []).map(url => `
+      <button type="button" class="biz-gallery-thumb">
+        <img src="${esc(url)}" alt="${esc(bizName)} 갤러리">
+      </button>
+    `).join('')}
+  </div>
+` : ''}
 
     <section class="biz-detail-card">
       <h2>${esc(bizName)}</h2>
