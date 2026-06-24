@@ -2106,18 +2106,6 @@ body,
   display:block;
 }
 
-.coupon-detail-badge{
-  position:absolute;
-  right:14px;
-  top:14px;
-  padding:8px 12px;
-  border-radius:14px;
-  background:#f97316;
-  color:#fff;
-  font-size:13px;
-  font-weight:900;
-}
-
 .coupon-detail-card,
 .coupon-map-card{
   background:#fff;
@@ -2617,18 +2605,6 @@ body,
   line-height:1.22 !important;
   margin:6px 0 8px !important;
   color:#10224a !important;
-}
-
-#couponDetailCard .coupon-detail-badge{
-  display:inline-flex !important;
-  width:max-content !important;
-  background:#fff1e8 !important;
-  color:#c2410c !important;
-  border-radius:999px !important;
-  padding:5px 10px !important;
-  font-size:13px !important;
-  font-weight:800 !important;
-  margin-bottom:4px !important;
 }
 
 #couponDetailCard .coupon-detail-biz{
