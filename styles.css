@@ -3072,7 +3072,7 @@ body,
   height:144px !important;
   border:0;
   padding:0;
-  border-radius:8px; /* ← 라운드값 */
+  border-radius:2px; /* ← 라운드값 */
   overflow:hidden;
   background:#eef4ff;
   flex:0 0 auto;
