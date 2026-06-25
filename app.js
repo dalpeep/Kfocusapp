@@ -1490,8 +1490,7 @@ ${b.video_url || b.youtube_url ? `
 <button type="button"
         class="biz-gallery-thumb video-thumb"
         onclick="openBusinessVideo('${esc(b.video_url || b.youtube_url)}')">
-    <div class="video-overlay">
-        ▶
+
     </div>
 </button>
 ` : ''}
