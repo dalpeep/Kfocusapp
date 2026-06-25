@@ -607,6 +607,8 @@ const mapped = rows.map((row) => {
     id: row.id,
     name: row.name_ko || row.name_en || row.name || '이름 없음',
     category: row.category_ko || row.category || '기타',
+	area: row.area || '',
+    region: row.region || 'dallas',
     address: row.address || '',
     phone: row.phone || '',
     image,
