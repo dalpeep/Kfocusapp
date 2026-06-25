@@ -3020,43 +3020,29 @@ body,
 .biz-detail-hero{
   position:relative;
 }
-/* 배지 묶음 */
-.biz-detail-badges{
-  position:absolute;
-  top:12px;
-  right:12px;
 
+.biz-detail-badges span{
   display:flex;
-  flex-direction:column;
-  gap:6px;
-  z-index:5;
-}
-/* NEW */
-.badge-new{
-  background:#22c55e;
-  color:#fff;
-  padding:5px 12px;
+  align-items:center;
+  justify-content:center;
+  width:60px;
+  height:28px;
+  padding:0;
+  box-sizing:border-box;
   border-radius:999px;
   font-size:12px;
   font-weight:800;
+  line-height:1;
+  text-align:center;
 }
-/* 추천 */
-.badge-featured{
-  background:#3b82f6;
-  color:#fff;
-  padding:5px 12px;
-  border-radius:999px;
-  font-size:12px;
-  font-weight:800;
-}
-/* 인기 */
-.badge-popular{
-  background:#f97316;
-  color:#fff;
-  padding:5px 12px;
-  border-radius:999px;
-  font-size:12px;
-  font-weight:800;
+/* 배지 묶음 */
+.badge-new{ background:#22c55e; color:#fff; }
+.badge-featured{ background:#3b82f6; color:#fff; }
+.badge-popular{ background:#f97316; color:#fff; }
+.badge-video{ background:#ff3b30; color:#fff; letter-spacing:.4px; }
+
+.biz-detail-badges .badge-video{
+  width:76px;
 }
 
 .biz-gallery-strip{
@@ -3092,7 +3078,7 @@ body,
     border-radius:999px;
     font-size:12px;
     font-weight:800;
-
+    letter-spacing:.4px;
 }
 .video-thumb{
     position:relative;
