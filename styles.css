@@ -3183,3 +3183,26 @@ body,
 .biz-detail-badges .badge-video{
   width:76px !important;
 }
+
+.video-overlay{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(0,0,0,.18);
+    transition:.25s;
+}
+
+.video-overlay::before{
+    content:'▶';
+    width:54px;
+    height:54px;
+    border-radius:50%;
+    background:rgba(255,255,255,.95);
+    color:#ff2d55;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+}
