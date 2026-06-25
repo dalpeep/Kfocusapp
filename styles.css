@@ -3085,17 +3085,7 @@ body,
     background:#111;
 }
 
-.video-overlay{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:34px;
-    color:#fff;
-    background:rgba(0,0,0,.35);
-    border-radius:12px;
-}
+
 .video-modal.hidden{
   display:none !important;
 }
@@ -3184,15 +3174,7 @@ body,
   width:76px !important;
 }
 
-.video-overlay{
-    position:absolute;
-    inset:0;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    background:rgba(0,0,0,.18);
-    transition:.25s;
-}
+
 
 .video-overlay::before{
     content:'▶';
