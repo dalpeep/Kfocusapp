@@ -356,6 +356,7 @@ function collectBusinessPayload() {
  'parking',
  'reservation',
  'languages',
+ 'google_maps_url',
  'insurance',
 
  'image_url',
