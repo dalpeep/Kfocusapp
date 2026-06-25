@@ -11,7 +11,7 @@ exports.handler = async (event) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': process.env.'AIzaSyBiz6WMbK_E4RqVjyFTP85hfuuDlfepblE',
+        'X-Goog-Api-Key': process.env.GOOGLE_MAPS_API_KEY,
         'X-Goog-FieldMask': 'places.id,places.displayName,places.rating,places.userRatingCount,places.googleMapsUri'
       },
       body: JSON.stringify({
@@ -36,6 +36,14 @@ exports.handler = async (event) => {
       })
     };
   } catch (e) {
-    return { statusCode: 500, body: JSON.stringify({ error: e.message }) };
+    console.error(e);
+
+    return {
+        statusCode: 500,
+        body: JSON.stringify({
+            error: e.message,
+            stack: e.stack
+        })
+    };
   }
 };
