@@ -430,6 +430,30 @@ async function deleteBusiness() {
   await loadBusinesses();
   alert('업소 삭제 완료');
 }
+async function fetchGoogleRating(){
+  const name = val('name_en') || val('name_ko');
+  const address = val('address');
+  const google_maps_url = val('google_maps_url');
+
+  if(!name && !address){
+    return alert('업소명 또는 주소가 필요합니다.');
+  }
+
+  const res = await fetch('/.netlify/functions/google-place-rating', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ name, address, google_maps_url })
+  });
+
+  const data = await res.json();
+  if(!res.ok) return alert(`Google 평점 조회 실패: ${data.error}`);
+
+  setVal('google_maps_url', data.google_maps_url || google_maps_url);
+  setVal('rating', data.rating || '');
+  setVal('review_count', data.review_count || 0);
+
+  alert(`Google 평점 확인: ${data.rating || '없음'} / 리뷰 ${data.review_count || 0}개`);
+}
 async function geocodeAddress() {
   const address = val('address').trim();
   if (!address) return alert('주소를 먼저 입력하세요.');
@@ -1231,14 +1255,14 @@ function bindEvents() {
   });
 
   on('searchInput', 'input', () => renderBusinessList(filterBusinesses()));
-on('regionFilter','change', async () => {
+  on('regionFilter','change', async () => {
   renderBusinessList(filterBusinesses());
   renderCouponList(filterCoupons());
   renderBoardList(filterBoards());
   fillBusinessOptions();
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
-
+  on('fetchGoogleRatingBtn', 'click', fetchGoogleRating);
   // ⭐ 추가 (핵심)
   const region = document.getElementById('regionFilter')?.value || 'all';
   const statsMap = await fetchBusinessStats(region);
