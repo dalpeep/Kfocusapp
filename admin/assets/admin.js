@@ -439,7 +439,7 @@ async function fetchGoogleRating(){
     return alert('업소명 또는 주소가 필요합니다.');
   }
 
-  const res = await fetch('/.netlify/functions/google-place-rating', {
+  const res = await fetch('/.netlify/functions/google-place-rating.js/', {
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
     body: JSON.stringify({ name, address, google_maps_url })
