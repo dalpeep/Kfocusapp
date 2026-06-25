@@ -1508,18 +1508,19 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
     <div class="biz-detail-rating">
      ${b.rating ? `
-    <a class="biz-rating-link"
-       href="${esc(b.google_review_url || b.google_maps_url || '#')}"
-       target="_blank">
-        <span class="rating-star">⭐</span>
-        <b>${b.rating}</b>
-        <span>(${b.review_count || 0})</span>
-    </a>
+     <a class="biz-rating-link"
+     href="${esc(b.google_review_url || b.google_maps_url || '#')}"
+     target="_blank">
+    <span class="rating-star">⭐</span>
+    <b>${esc(b.rating)}</b>
+    <span>(${esc(b.review_count || 0)})</span>
+    <small>Google 리뷰</small>
+  </a>
 ` : `
-    <div class="biz-rating-empty">
-        <span>⭐</span>
-        <span>Google 리뷰 준비중</span>
-    </div>
+  <div class="biz-rating-empty">
+    <span class="rating-star">⭐</span>
+    <span>Google 리뷰 준비중</span>
+  </div>
 `}
 </div>
 
