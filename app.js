@@ -1506,19 +1506,18 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
       <h2>${esc(bizName)}</h2>
       <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
 
-    <div class="biz-detail-rating">
-     ${b.rating ? `
-     <a class="biz-rating-link"
+<div class="biz-detail-rating">
+${b.rating ? `
+  <a class="biz-rating-link"
      href="${esc(b.google_review_url || b.google_maps_url || '#')}"
      target="_blank">
     <span class="rating-star">⭐</span>
     <b>${esc(b.rating)}</b>
     <span>(${esc(b.review_count || 0)})</span>
-    <small>Google 리뷰</small>
   </a>
 ` : `
   <div class="biz-rating-empty">
-    <span class="rating-star">⭐</span>
+    <span>⭐</span>
     <span>Google 리뷰 준비중</span>
   </div>
 `}
