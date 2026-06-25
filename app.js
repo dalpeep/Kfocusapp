@@ -583,7 +583,7 @@ async function loadRealData(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
 
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,hours,parking,reservation,languages,insurance,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active',rating,review_count,google_maps_url,google_review_url
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,hours,parking,reservation,languages,insurance,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active,rating,review_count,google_maps_url,google_review_url';
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
