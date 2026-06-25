@@ -632,16 +632,7 @@ const mapped = rows.map((row) => {
     is_featured: !!row.is_featured,
     is_new: !!row.is_new,
     is_popular: !!row.is_popular,
-
-    is_new: !!row.is_new,
     new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
-
-    is_popular: !!row.is_popular,
-    popular_rank: row.popular_rank == null ? 1000 : Number(row.popular_rank),
-    featured_rank: row.featured_rank == null ? 1000 : Number(row.featured_rank),
-    is_new: !!row.is_new,
-    new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
-    is_popular: !!row.is_popular,
     popular_rank: row.popular_rank == null ? 1000 : Number(row.popular_rank),
 	rating: row.rating,
     review_count: row.review_count,
@@ -691,7 +682,7 @@ async function loadSlidesFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&or=(region.eq.${encodeURIComponent(currentRegion)},region.is.null)&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Slides ${res.status}`);
     const rows = await res.json();
