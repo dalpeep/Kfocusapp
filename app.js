@@ -1479,17 +1479,30 @@ detailCard.innerHTML = `
         ${b.is_new ? '<span class="badge-new">NEW</span>' : ''}
         ${b.is_featured ? '<span class="badge-featured">추천</span>' : ''}
         ${b.is_popular ? '<span class="badge-popular">인기</span>' : ''}
+		${b.video_url || b.youtube_url ? '<span class="badge-video">▶ VIDEO</span>' : ''}
       </div>
     </div>
 	
-	${(b.gallery_urls || b.galleryImages || []).length ? `
-  <div class="biz-gallery-strip">
-    ${(b.gallery_urls || b.galleryImages || []).map(url => `
-      <button type="button" class="biz-gallery-thumb">
-        <img src="${esc(url)}" alt="${esc(bizName)} 갤러리">
-      </button>
-    `).join('')}
-  </div>
+${((b.video_url || b.youtube_url) || (b.gallery_urls || b.galleryImages || []).length) ? `
+<div class="biz-gallery-strip">
+
+${b.video_url || b.youtube_url ? `
+<button type="button"
+        class="biz-gallery-thumb video-thumb"
+        onclick="openBusinessVideo('${esc(b.video_url || b.youtube_url)}')">
+    <div class="video-overlay">
+        ▶
+    </div>
+</button>
+` : ''}
+
+${(b.gallery_urls || b.galleryImages || []).map(url => `
+<button type="button" class="biz-gallery-thumb">
+    <img src="${esc(url)}" alt="${esc(bizName)} 갤러리">
+</button>
+`).join('')}
+
+</div>
 ` : ''}
 
     <section class="biz-detail-card">
