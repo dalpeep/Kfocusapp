@@ -3022,6 +3022,44 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('androidInstallBanner')?.classList.add('hidden');
 });
 
+function toYouTubeEmbedUrl(url){
+  if(!url) return '';
+
+  const s = String(url).trim();
+
+  const shortMatch = s.match(/youtu\.be\/([^?&]+)/);
+  if(shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}?autoplay=1`;
+
+  const watchMatch = s.match(/[?&]v=([^?&]+)/);
+  if(watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}?autoplay=1`;
+
+  const embedMatch = s.match(/youtube\.com\/embed\/([^?&]+)/);
+  if(embedMatch) return `${s}${s.includes('?') ? '&' : '?'}autoplay=1`;
+
+  return '';
+}
+
+function openBusinessVideo(url){
+  const modal = document.getElementById('businessVideoModal');
+  const frame = document.getElementById('businessVideoFrame');
+  if(!modal || !frame || !url) return;
+
+  const youtubeUrl = toYouTubeEmbedUrl(url);
+
+  frame.innerHTML = youtubeUrl
+    ? `<iframe src="${youtubeUrl}" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
+    : `<video src="${esc(url)}" controls autoplay playsinline></video>`;
+
+  modal.classList.remove('hidden');
+}
+
+function closeBusinessVideo(){
+  const modal = document.getElementById('businessVideoModal');
+  const frame = document.getElementById('businessVideoFrame');
+  if(frame) frame.innerHTML = '';
+  if(modal) modal.classList.add('hidden');
+}
+
 function initAndroidInstallBanner() {
   const banner = document.getElementById('androidInstallBanner');
   const installBtn = document.getElementById('androidInstallBtn');
