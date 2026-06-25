@@ -645,6 +645,7 @@ const mapped = rows.map((row) => {
 // 👇 여기 추가!!!
 const seen = new Set();
 businesses = mapped.filter((b) => {
+	if (String(b.region || '').toLowerCase() !== String(currentRegion).toLowerCase()) return false;
   const nameKey = (b.name || '').trim().toLowerCase();
   const addrKey = (b.address || '')
     .trim()
@@ -660,7 +661,7 @@ businesses = mapped.filter((b) => {
   seen.add(key);
   return true;
 });
-
+console.log('LOADED BUSINESSES', currentRegion, businesses.length, businesses.map(b => [b.name, b.region]));
       selectedBizId = businesses[0]?.id || selectedBizId;
     }
   } catch(e){
