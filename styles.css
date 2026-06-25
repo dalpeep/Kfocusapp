@@ -3195,4 +3195,24 @@ body,
     font-size:26px;
     font-weight:700;
 }
+
+.biz-rating-link{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    color:#1f2937;
+    text-decoration:none;
+}
+
+.biz-rating-link b{
+    color:#111827;
+    font-size:18px;
+}
+
+.biz-rating-empty{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    color:#888;
+    font-size:14px;
 }

@@ -583,7 +583,7 @@ async function loadRealData(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
 
   try {
-    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,hours,parking,reservation,languages,insurance,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active';
+    const select = 'id,name_ko,name_en,name,category_ko,category,address,phone,website,email,image_url,image_urls,gallery_urls,description,hours,parking,reservation,languages,insurance,video_url,youtube_url,lat,lng,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,promo_enabled,home_fixed,home_fixed_sort,promo_image_url,promo_text,order_url,delivery_url,reservation_url,created_at,region,is_active';rating,review_count,google_maps_url,google_review_url
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
@@ -641,6 +641,10 @@ const mapped = rows.map((row) => {
     new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
     is_popular: !!row.is_popular,
     popular_rank: row.popular_rank == null ? 1000 : Number(row.popular_rank),
+	rating: row.rating,
+    review_count: row.review_count,
+    google_maps_url: row.google_maps_url,
+    google_review_url: row.google_review_url,
   };
 });
 
@@ -1508,10 +1512,22 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
       <h2>${esc(bizName)}</h2>
       <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
 
-      <div class="biz-detail-rating">
-        <span>★★★★★</span>
-        <b>4.8</b>
-      </div>
+    <div class="biz-detail-rating">
+     ${b.rating ? `
+    <a class="biz-rating-link"
+       href="${esc(b.google_review_url || b.google_maps_url || '#')}"
+       target="_blank">
+        <span class="rating-star">⭐</span>
+        <b>${b.rating}</b>
+        <span>(${b.review_count || 0})</span>
+    </a>
+` : `
+    <div class="biz-rating-empty">
+        <span>⭐</span>
+        <span>Google 리뷰 준비중</span>
+    </div>
+`}
+</div>
 
       <div class="biz-action-row">
         <a href="tel:${esc(phone)}">전화</a>
