@@ -18,8 +18,20 @@ exports.handler = async (event) => {
         textQuery: query
       })
     });
-
+    console.log("Google Status:", res.status);
     const json = await res.json();
+
+    console.log(JSON.stringify(json, null, 2));
+	
+	if (!res.ok) {
+    return {
+    statusCode: res.status,
+    body: JSON.stringify({
+      error: json.error?.message || `Google API error ${res.status}`,
+      details: json
+    })
+  };
+}
     const place = json.places?.[0];
 
     if (!place) {
@@ -45,5 +57,5 @@ exports.handler = async (event) => {
             stack: e.stack
         })
     };
-  }
+}
 };
