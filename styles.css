@@ -3349,3 +3349,13 @@ body,
     font-size:11px;
     color:#9aa5b5;
 }
+.side-menu{
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  max-height:100vh;
+  padding-bottom:24px;
+}
+.side-version{
+  margin-top:24px;
+  padding-bottom:24px;
+}
