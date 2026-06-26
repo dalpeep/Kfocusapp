@@ -3222,3 +3222,44 @@ body,
     letter-spacing:1px;
     margin-right:4px;
 }
+.biz-rating-link{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  text-decoration:none;
+  color:#08275c;
+}
+
+.google-stars{
+  display:flex;
+  align-items:center;
+  gap:1px;
+}
+
+.google-star{
+  width:16px;
+  height:16px;
+  stroke-width:2.4;
+}
+
+.google-star.filled{
+  color:#fbbc04;
+  fill:#fbbc04;
+  stroke:#fbbc04;
+}
+
+.google-star.empty{
+  color:#d5dbe7;
+  fill:none;
+  stroke:#d5dbe7;
+}
+
+.rating-score{
+  font-weight:800;
+  color:#08275c;
+}
+
+.rating-count{
+  font-size:14px;
+  color:#5f6f89;
+}

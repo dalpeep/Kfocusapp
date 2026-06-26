@@ -1508,20 +1508,13 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
 <div class="biz-detail-rating">
 ${b.rating ? `
-  <a class="biz_rating-link"
+   <a class="biz-rating-link"
    href="${esc(b.google_review_url || b.google_maps_url || '#')}"
    target="_blank">
-
-    <span class="rating-stars">
-        ${'★'.repeat(Math.floor(Number(b.rating || 0)))}
-        ${'☆'.repeat(5 - Math.floor(Number(b.rating || 0)))}
-    </span>
-
-    <b>${Number(b.rating).toFixed(1)}</b>
-
-    <span>(${esc(b.review_count || 0)})</span>
-
-</a>
+   ${renderLucideStars(b.rating)}
+  <span class="rating-score">${Number(b.rating).toFixed(1)}</span>
+  <span class="rating-count">(${esc(b.review_count || 0)})</span>
+  </a>
 ` : `
   <div class="biz-rating-empty">
     <span>⭐</span>
@@ -1946,8 +1939,24 @@ function renderCouponDetail(id){
 
   if(window.lucide){
     lucide.createIcons();
+  detailCard.innerHTML = `...`;
+  if (window.lucide) lucide.createIcons();
   }
 }
+
+function renderLucideStars(rating){
+  const score = Number(rating || 0);
+  let html = '<span class="google-stars">';
+
+  for(let i = 1; i <= 5; i++){
+    const cls = score >= i ? 'filled' : 'empty';
+    html += `<i data-lucide="star" class="google-star ${cls}"></i>`;
+  }
+
+  html += '</span>';
+  return html;
+}
+
 function getRemainText(c){
   const end = c.endAt || c.end_at || c.expire_date || '';
   if(!end) return '기간 확인';
