@@ -3197,32 +3197,6 @@ body,
 }
 
 .biz-rating-link{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    color:#1f2937;
-    text-decoration:none;
-}
-
-.biz-rating-link b{
-    color:#111827;
-    font-size:18px;
-}
-
-.biz-rating-empty{
-    display:flex;
-    align-items:center;
-    gap:6px;
-    color:#888;
-    font-size:14px;
-}
-.rating-stars{
-    color:#FFC107;
-    font-size:18px;
-    letter-spacing:1px;
-    margin-right:4px;
-}
-.biz-rating-link{
   display:flex;
   align-items:center;
   gap:6px;
@@ -3252,14 +3226,4 @@ body,
   color:#d5dbe7;
   fill:none;
   stroke:#d5dbe7;
-}
-
-.rating-score{
-  font-weight:800;
-  color:#08275c;
-}
-
-.rating-count{
-  font-size:14px;
-  color:#5f6f89;
 }
