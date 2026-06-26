@@ -28,6 +28,7 @@ const BUSINESS_FIELDS = [
   'hours',
   'parking',
   'reservation',
+  'reservation_url',
   'languages',
   'google_maps_url',
   'google_maps_url',
@@ -131,7 +132,7 @@ function updatePreview() {
 function clearBusinessForm() {
   BUSINESS_FIELDS.forEach((id) => setVal(id, ''));
   BUSINESS_CHECKS.forEach((id) => setChecked(id, id === 'is_active'));
-  setVal('region', 'colorado');
+  setVal('region', 'dallas');
   if (qs('imageFile')) qs('imageFile').value = '';
   selectedId = null;
   safeText('formTitle', '새 업소 등록');
