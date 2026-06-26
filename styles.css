@@ -3250,3 +3250,27 @@ body,
   fill:none;
   stroke:#d5dbe7;
 }
+.google-stars{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+}
+
+.google-star{
+  display:inline-block;
+  vertical-align:middle;
+}
+
+.google-star.filled polygon{
+  fill:#fbbc04;
+  stroke:#fbbc04;
+}
+
+.google-star.empty polygon{
+  fill:none;
+  stroke:#d5dbe7;
+}
+
+.google-star polygon{
+  stroke-width:2;
+}
