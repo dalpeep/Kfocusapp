@@ -1951,18 +1951,17 @@ function renderCouponDetail(id){
   }
 }
 
-function renderStars(rating){
-    rating = Number(rating || 0);
+function renderLucideStars(rating){
+  const score = Number(rating || 0);
+  let html = '<span class="google-stars">';
 
-    const full = Math.floor(rating);
-    const half = rating - full >= 0.5;
-    const empty = 5 - full - (half ? 1 : 0);
+  for(let i = 1; i <= 5; i++){
+    const cls = score >= i ? 'filled' : 'empty';
+    html += `<i data-lucide="star" class="google-star ${cls}"></i>`;
+  }
 
-    return (
-        '<span class="star full">' + '★'.repeat(full) + '</span>' +
-        (half ? '<span class="star half">★</span>' : '') +
-        '<span class="star empty">' + '★'.repeat(empty) + '</span>'
-    );
+  html += '</span>';
+  return html;
 }
 
 function getRemainText(c){
