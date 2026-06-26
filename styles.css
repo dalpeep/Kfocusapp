@@ -3216,3 +3216,9 @@ body,
     color:#888;
     font-size:14px;
 }
+.rating-stars{
+    color:#FFC107;
+    font-size:18px;
+    letter-spacing:1px;
+    margin-right:4px;
+}

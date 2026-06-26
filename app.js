@@ -1508,13 +1508,20 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
 <div class="biz-detail-rating">
 ${b.rating ? `
-  <a class="biz-rating-link"
-     href="${esc(b.google_review_url || b.google_maps_url || '#')}"
-     target="_blank">
-    <span class="rating-star">⭐</span>
-    <b>${esc(b.rating)}</b>
+  <a class="biz_rating-link"
+   href="${esc(b.google_review_url || b.google_maps_url || '#')}"
+   target="_blank">
+
+    <span class="rating-stars">
+        ${'★'.repeat(Math.floor(Number(b.rating || 0)))}
+        ${'☆'.repeat(5 - Math.floor(Number(b.rating || 0)))}
+    </span>
+
+    <b>${Number(b.rating).toFixed(1)}</b>
+
     <span>(${esc(b.review_count || 0)})</span>
-  </a>
+
+</a>
 ` : `
   <div class="biz-rating-empty">
     <span>⭐</span>
