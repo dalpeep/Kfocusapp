@@ -1583,7 +1583,11 @@ ${b.rating ? `
         <a href="tel:${esc(phone)}">전화</a>
         <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
         <a href="${esc(website || '#')}" target="_blank">웹사이트</a>
-        <button type="button">예약</button>
+        <button
+        type="button"
+        onclick="openReservation('${b.id}')">
+        예약
+        </button>
         <button type="button" onclick="shareBusiness('${b.id}')">
         공유
        </button>
@@ -1727,6 +1731,24 @@ if (slider && prevBtn && nextBtn) {
   }, { passive: true });
 }
 // 여기까지 추가
+}
+
+function openReservation(id) {
+    const b = businesses.find(x => String(x.id) === String(id));
+    if (!b) return;
+
+    if (b.reservation_url && b.reservation_url.trim()) {
+        window.open(b.reservation_url, '_blank');
+        return;
+    }
+
+    if (b.phone) {
+        const phone = String(b.phone).replace(/[^\d+]/g, '');
+        location.href = 'tel:' + phone;
+        return;
+    }
+
+    alert('예약 정보가 없습니다.');
 }
 
 function renderCouponDetail(id){
