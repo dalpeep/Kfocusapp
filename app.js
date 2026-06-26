@@ -1508,11 +1508,11 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
 <div class="biz-detail-rating">
 ${b.rating ? `
-   <a class="biz_rating-link"
+   <a class="biz-rating-link"
    href="${esc(b.google_review_url || b.google_maps_url || '#')}"
    target="_blank">
 
-    ${renderStars(b.rating)}
+    ${renderLucideStars(b.rating)}
 
     <span class="rating-score">
         ${Number(b.rating).toFixed(1)}
@@ -1522,7 +1522,7 @@ ${b.rating ? `
         (${b.review_count || 0})
     </span>
 
-</a>
+    </a>
 ` : `
   <div class="biz-rating-empty">
     <span>⭐</span>
