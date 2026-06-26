@@ -3298,3 +3298,16 @@ body,
 .legal-card ul{
   padding-left:20px;
 }
+.side-divider{
+    margin:18px 0;
+    border:none;
+    border-top:1px solid #e5e7eb;
+}
+
+.side-section-title{
+    padding:8px 18px;
+    font-size:13px;
+    font-weight:700;
+    color:#6b7280;
+    text-transform:uppercase;
+}

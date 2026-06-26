@@ -55,27 +55,32 @@
       <button class="side-link board-link" data-board="job">구인/구직</button>
       <button class="side-link board-link" data-board="rent">렌트</button>
       <button class="side-link board-link" data-board="sale">매매</button>
-	  <button type="button" onclick="showPage('about'); closeMenu();">
-  ℹ️ DalTownMap 소개
+	  <hr class="side-divider">
+
+<div class="side-section-title">
+    정보
+</div>
+
+<button class="side-link" onclick="showPage('about');closeMenu();">
+    ℹ️ DalTownMap 소개
 </button>
 
-<button type="button" onclick="showPage('privacy'); closeMenu();">
-  🔒 개인정보처리방침
+<button class="side-link" onclick="showPage('privacy');closeMenu();">
+    🔒 개인정보처리방침
 </button>
 
-<button type="button" onclick="showPage('terms'); closeMenu();">
-  📄 이용약관
+<button class="side-link" onclick="showPage('terms');closeMenu();">
+    📄 이용약관
 </button>
 
-<button type="button" onclick="showPage('disclaimer'); closeMenu();">
-  ⚖️ 면책조항
+<button class="side-link" onclick="showPage('disclaimer');closeMenu();">
+    ⚖️ 면책조항
 </button>
 
-<button type="button" onclick="showPage('contact'); closeMenu();">
-  📧 문의하기
+<button class="side-link" onclick="showPage('contact');closeMenu();">
+    📧 문의하기
 </button>
-      <div class="side-region-box">현재 지역: <span id="sideCurrentRegionLabel">DaltownMap</span></div>
-      <button class="side-link" id="sideRegionPicker" type="button">지역 선택</button>
+      
     </aside>
     <div class="side-overlay" id="sideOverlay"></div>
 
