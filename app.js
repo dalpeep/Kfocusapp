@@ -2860,6 +2860,81 @@ if(window.lucide){
 }
 
 }
+
+async function submitBusinessRequest(){
+
+const {error}=await supabase
+.from("business_requests")
+.insert({
+
+business_name:qs("#reqBusinessName").value,
+
+owner_name:qs("#reqOwnerName").value,
+
+phone:qs("#reqPhone").value,
+
+email:qs("#reqEmail").value,
+
+category:qs("#reqCategory").value,
+
+address:qs("#reqAddress").value,
+
+website:qs("#reqWebsite").value,
+
+message:qs("#reqMessage").value
+
+});
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+alert("신청이 접수되었습니다.");
+
+showPage("home");
+
+}
+
+async function submitAdRequest(){
+
+const {error}=await supabase
+
+.from("advertising_requests")
+
+.insert({
+
+company_name:qs("#adCompany").value,
+
+contact_name:qs("#adName").value,
+
+phone:qs("#adPhone").value,
+
+email:qs("#adEmail").value,
+
+ad_type:qs("#adType").value,
+
+message:qs("#adMessage").value
+
+});
+
+if(error){
+
+alert(error.message);
+
+return;
+
+}
+
+alert("문의가 접수되었습니다.");
+
+showPage("home");
+
+}
+
 async function init(){
   await detectInitialRegion();
 
