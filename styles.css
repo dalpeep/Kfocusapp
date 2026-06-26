@@ -3325,3 +3325,27 @@ body,
     letter-spacing:.08em;
     text-transform:uppercase;
 }
+.side-version{
+    padding:20px;
+    text-align:center;
+    color:#8b96a9;
+    font-size:12px;
+    line-height:1.6;
+}
+
+.side-version-title{
+    font-size:15px;
+    font-weight:700;
+    color:#244b8f;
+    margin-bottom:6px;
+}
+
+.side-version-text{
+    font-size:12px;
+}
+
+.side-version-copy{
+    margin-top:4px;
+    font-size:11px;
+    color:#9aa5b5;
+}
