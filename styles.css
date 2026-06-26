@@ -3196,7 +3196,7 @@ body,
     font-weight:700;
 }
 
-.biz_rating-link{
+.biz-rating-link{
   display:flex;
   align-items:center;
   gap:6px;
@@ -3226,4 +3226,14 @@ body,
   color:#d5dbe7;
   fill:none;
   stroke:#d5dbe7;
+}
+
+.rating-score{
+  font-weight:800;
+  color:#08275c;
+}
+
+.rating-count{
+  font-size:14px;
+  color:#5f6f89;
 }
