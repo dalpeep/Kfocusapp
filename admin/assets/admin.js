@@ -359,6 +359,7 @@ function collectBusinessPayload() {
  'hours',
  'parking',
  'reservation',
+ 'reservation_url',
  'languages',
  'google_maps_url',
  'rating',
