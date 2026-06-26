@@ -2771,9 +2771,6 @@ if(window.lucide){
   lucide.createIcons();
 }
 
-if(window.lucide){
-  lucide.createIcons();
-}
 }
 async function init(){
   await detectInitialRegion();

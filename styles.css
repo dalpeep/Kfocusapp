@@ -3196,7 +3196,7 @@ body,
     font-weight:700;
 }
 
-.biz-rating-link{
+.biz_rating-link{
   display:flex;
   align-items:center;
   gap:6px;
