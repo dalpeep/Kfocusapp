@@ -3225,3 +3225,28 @@ body,
     color:#777;
     font-size:14px;
 }
+
+.google-stars{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+}
+
+.google-star{
+  width:16px;
+  height:16px;
+  display:inline-block;
+  stroke-width:2.5;
+}
+
+.google-star.filled{
+  color:#fbbc04;
+  fill:#fbbc04;
+  stroke:#fbbc04;
+}
+
+.google-star.empty{
+  color:#d5dbe7;
+  fill:none;
+  stroke:#d5dbe7;
+}
