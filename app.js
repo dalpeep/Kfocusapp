@@ -1939,8 +1939,7 @@ function renderCouponDetail(id){
 
   if(window.lucide){
     lucide.createIcons();
-  detailCard.innerHTML = `...`;
-  if (window.lucide) lucide.createIcons();
+
   }
 }
 
