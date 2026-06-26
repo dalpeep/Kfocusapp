@@ -2901,25 +2901,16 @@ showPage("home");
 
 async function submitAdRequest(){
 
-const {error}=await supabase
-
-.from("advertising_requests")
-
-.insert({
-
-company_name:qs("#adCompany").value,
-
-contact_name:qs("#adName").value,
-
-phone:qs("#adPhone").value,
-
-email:qs("#adEmail").value,
-
-ad_type:qs("#adType").value,
-
-message:qs("#adMessage").value
-
-});
+const { error } = await authClient
+  .from("advertising_requests")
+  .insert({
+    company_name: qs("#adCompany").value,
+    contact_name: qs("#adName").value,
+    phone: qs("#adPhone").value,
+    email: qs("#adEmail").value,
+    ad_type: qs("#adType").value,
+    message: qs("#adMessage").value
+  });
 
 if(error){
 
