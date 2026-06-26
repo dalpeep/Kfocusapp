@@ -3196,44 +3196,32 @@ body,
     font-weight:700;
 }
 
-.biz-rating-link{
-  display:flex;
-  align-items:center;
-  gap:6px;
-  text-decoration:none;
-  color:#08275c;
+.biz_rating-link{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    text-decoration:none;
 }
 
-.google-stars{
-  display:flex;
-  align-items:center;
-  gap:1px;
+.star.full{
+    color:#FFC107;
 }
 
-.google-star{
-  width:16px;
-  height:16px;
-  stroke-width:2.4;
+.star.empty{
+    color:#D9D9D9;
 }
 
-.google-star.filled{
-  color:#fbbc04;
-  fill:#fbbc04;
-  stroke:#fbbc04;
-}
-
-.google-star.empty{
-  color:#d5dbe7;
-  fill:none;
-  stroke:#d5dbe7;
+.star.half{
+    color:#FFC107;
+    opacity:.55;
 }
 
 .rating-score{
-  font-weight:800;
-  color:#08275c;
+    font-weight:700;
+    color:#222;
 }
 
 .rating-count{
-  font-size:14px;
-  color:#5f6f89;
+    color:#777;
+    font-size:14px;
 }
