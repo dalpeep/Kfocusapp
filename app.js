@@ -285,6 +285,54 @@ async function detectInitialRegion(){
   applyRegionDistanceCenter(currentRegion, true);
   return currentRegion;
 }
+
+async function shareBusiness(id) {
+
+    const b = businesses.find(x => String(x.id) === String(id));
+    if (!b) return;
+
+    // 공유될 주소
+    const url = `${location.origin}/#business-detail?id=${id}`;
+
+    const title = b.name_ko || b.name_en || "DalTownMap";
+
+    const rating = b.rating
+        ? `⭐ ${Number(b.rating).toFixed(1)} (${b.review_count || 0})`
+        : "";
+
+    const address = b.address || "";
+
+    const text = [
+        title,
+        rating,
+        address,
+        "",
+        "DalTownMap에서 확인하기"
+    ].filter(Boolean).join("\n");
+
+    if (navigator.share) {
+        try{
+            await navigator.share({
+                title,
+                text,
+                url
+            });
+            return;
+        }catch(e){
+            return;
+        }
+    }
+
+    const shareText = `${text}\n${url}`;
+
+    try{
+        await navigator.clipboard.writeText(shareText);
+        alert("업소 정보가 복사되었습니다.");
+    }catch{
+        prompt("아래 내용을 복사하세요.", shareText);
+    }
+}
+
 async function refreshCurrentUser(){
   if(!supabase?.auth){
     currentUser = null;
@@ -1536,7 +1584,9 @@ ${b.rating ? `
         <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
         <a href="${esc(website || '#')}" target="_blank">웹사이트</a>
         <button type="button">예약</button>
-        <button type="button">공유</button>
+        <button type="button" onclick="shareBusiness('${b.id}')">
+        공유
+       </button>
       </div>
     </section>
 
