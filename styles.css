@@ -3274,3 +3274,27 @@ body,
 .google-star polygon{
   stroke-width:2;
 }
+.legal-card{
+  padding:22px;
+  line-height:1.7;
+}
+
+.legal-card h2{
+  margin-top:0;
+  color:#10224a;
+}
+
+.legal-card h3{
+  margin-top:22px;
+  color:#2a60ab;
+}
+
+.legal-card p,
+.legal-card li{
+  color:#334155;
+  font-size:15px;
+}
+
+.legal-card ul{
+  padding-left:20px;
+}
