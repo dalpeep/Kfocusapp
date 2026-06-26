@@ -43,44 +43,75 @@
 
     <aside class="side-menu" id="sideMenu" aria-hidden="true">
       <div class="side-head">
-        <strong>DaltownMap Menu</strong>
+        <strong>DalTownMap
+Dallas Korean Business Directory</strong>
         <button class="side-close" id="sideClose">✕</button>
       </div>
-      <button class="side-link" data-nav="home">홈</button>
-      <button class="side-link" data-nav="business">업소</button>
-      <button class="side-link" data-nav="coupon">할인</button>
-      <button class="side-link" data-nav="map">지도</button>
-      <button class="side-link" data-nav="saved">저장</button>
-      <button class="side-link board-link" data-board="notice">행사</button>
-      <button class="side-link board-link" data-board="job">구인/구직</button>
-      <button class="side-link board-link" data-board="rent">렌트</button>
-      <button class="side-link board-link" data-board="sale">매매</button>
-	  <hr class="side-divider">
+<hr class="side-divider">
 
-<div class="side-section-title">
-    정보
+<div class="side-group-title">
+커뮤니티
 </div>
 
-<button class="side-link" onclick="showPage('about');closeMenu();">
-    ℹ️ DalTownMap 소개
+<button class="side-link board-link" data-board="notice">행사</button>
+
+<button class="side-link board-link" data-board="job">구인/구직</button>
+
+<button class="side-link board-link" data-board="rent">렌트</button>
+
+<button class="side-link board-link" data-board="sale">매매</button>
+
+<hr class="side-divider">
+
+<div class="side-group-title">
+비즈니스
+</div>
+
+<button class="side-link"
+onclick="showPage('business-register');closeMenu();">
+업소 등록
 </button>
 
-<button class="side-link" onclick="showPage('privacy');closeMenu();">
-    🔒 개인정보처리방침
+<button class="side-link"
+onclick="showPage('advertise');closeMenu();">
+광고 문의
 </button>
 
-<button class="side-link" onclick="showPage('terms');closeMenu();">
-    📄 이용약관
+<hr class="side-divider">
+
+<div class="side-group-title">
+정보
+</div>
+
+<button class="side-link"
+onclick="showPage('about');closeMenu();">
+ℹ️ DalTownMap 소개
 </button>
 
-<button class="side-link" onclick="showPage('disclaimer');closeMenu();">
-    ⚖️ 면책조항
+<button class="side-link"
+onclick="showPage('privacy');closeMenu();">
+🔒 개인정보처리방침
 </button>
 
-<button class="side-link" onclick="showPage('contact');closeMenu();">
-    📧 문의하기
+<button class="side-link"
+onclick="showPage('terms');closeMenu();">
+📄 이용약관
 </button>
-      
+
+<button class="side-link"
+onclick="showPage('disclaimer');closeMenu();">
+⚖️ 면책조항
+</button>
+
+<button class="side-link"
+onclick="showPage('contact');closeMenu();">
+📧 문의하기
+</button>
+
+<button class="side-link"
+onclick="showPage('version');closeMenu();">
+📱 앱 버전
+</button>    
     </aside>
     <div class="side-overlay" id="sideOverlay"></div>
 
@@ -115,6 +146,27 @@
       </div>
     </div>
 
+<section class="page" id="page-version">
+
+<div class="card section-card legal-card">
+
+<h2>DalTownMap</h2>
+
+<p>
+Version 1.0.0
+</p>
+
+<p>
+© 2026 DalTownMap
+</p>
+
+<p>
+All Rights Reserved.
+</p>
+
+</div>
+
+</section>
 
     <main id="appMain" class="pages-wrap">
       <section class="page active" id="page-home">

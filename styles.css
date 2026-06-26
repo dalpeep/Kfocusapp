@@ -3311,3 +3311,17 @@ body,
     color:#6b7280;
     text-transform:uppercase;
 }
+.side-divider{
+    border:none;
+    border-top:1px solid #e8edf7;
+    margin:14px 0;
+}
+
+.side-group-title{
+    padding:8px 20px;
+    font-size:12px;
+    font-weight:700;
+    color:#8b96a9;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+}
