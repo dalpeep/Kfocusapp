@@ -2917,7 +2917,7 @@ async function submitAdRequest(){
       message: document.querySelector("#adMessage").value
     });
 
-  if(error){
+  if (error) {
     alert(error.message);
     return;
   }
