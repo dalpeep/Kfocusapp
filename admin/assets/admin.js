@@ -114,24 +114,6 @@ async function uploadFileToStorage(file, folder = 'uploads') {
   return data?.publicUrl || null;
 }
 
-async function loadBusinessRequests(){
-  const { data, error } = await supabase
-    .from('business_requests')
-    .select('*')
-    .order('created_at', { ascending:false });
-
-  if(error) return alert(error.message);
-
-  qs('#businessRequestsList').innerHTML = (data || []).map(r => `
-    <div class="admin-card">
-      <b>${r.business_name || ''}</b>
-      <p>${r.phone || ''}</p>
-      <p>${r.address || ''}</p>
-      <p>${r.message || ''}</p>
-    </div>
-  `).join('');
-}
-
 async function loadAdRequests(){
   const { data, error } = await supabase
     .from('advertising_requests')
