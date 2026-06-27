@@ -2901,6 +2901,8 @@ showPage("home");
 
 async function submitAdRequest(){
 
+const client = authClient || window.supabaseClient || supabaseClient;
+
 const { error } = await authClient
   .from("advertising_requests")
   .insert({
