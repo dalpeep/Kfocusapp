@@ -132,6 +132,50 @@ async function loadBusinessRequests(){
   `).join('');
 }
 
+async function loadAdRequests(){
+  const { data, error } = await supabase
+    .from('advertising_requests')
+    .select('*')
+    .order('created_at', { ascending:false });
+
+  if(error) return alert(error.message);
+
+  document.querySelector('#requestsList').innerHTML = (data || []).map(r => `
+    <div class="admin-card">
+      <h3>${r.company_name || '회사명 없음'}</h3>
+      <p><b>담당자:</b> ${r.contact_name || ''}</p>
+      <p><b>전화:</b> ${r.phone || ''}</p>
+      <p><b>이메일:</b> ${r.email || ''}</p>
+      <p><b>광고 종류:</b> ${r.ad_type || ''}</p>
+      <p><b>문의 내용:</b><br>${r.message || ''}</p>
+      <p><b>상태:</b> ${r.status || 'pending'}</p>
+    </div>
+  `).join('');
+}
+
+async function loadBusinessRequests(){
+  const { data, error } = await supabase
+    .from('business_requests')
+    .select('*')
+    .order('created_at', { ascending:false });
+
+  if(error) return alert(error.message);
+
+  document.querySelector('#requestsList').innerHTML = (data || []).map(r => `
+    <div class="admin-card">
+      <h3>${r.business_name || '업소명 없음'}</h3>
+      <p><b>담당자:</b> ${r.owner_name || ''}</p>
+      <p><b>전화:</b> ${r.phone || ''}</p>
+      <p><b>이메일:</b> ${r.email || ''}</p>
+      <p><b>업종:</b> ${r.category || ''}</p>
+      <p><b>주소:</b> ${r.address || ''}</p>
+      <p><b>웹사이트:</b> ${r.website || ''}</p>
+      <p><b>내용:</b><br>${r.message || ''}</p>
+      <p><b>상태:</b> ${r.status || 'pending'}</p>
+    </div>
+  `).join('');
+}
+
 /* ---------------------------
    Business
 --------------------------- */
