@@ -72,6 +72,18 @@
           <button id="refreshBtn" class="btn ghost">새로고침</button>
         </div>
       </header>
+	  
+	  <section id="section-requests" class="admin-section hidden">
+  <h2>신청 관리</h2>
+
+  <div class="admin-tabs">
+    <button type="button" onclick="loadAdRequests()">광고 문의</button>
+    <button type="button" onclick="loadBusinessRequests()">업소 등록 신청</button>
+  </div>
+
+  <div id="requestsList"></div>
+</section>
+
 	  <section id="section-adminUsers" class="admin-section">
   <h3>관리자 계정 관리 (Super Admin)</h3>
 
