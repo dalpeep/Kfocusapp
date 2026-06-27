@@ -2900,32 +2900,30 @@ showPage("home");
 }
 
 async function submitAdRequest(){
+  const client = getAuthClient();
+  if (!client) {
+    alert('Supabase 연결이 준비되지 않았습니다.');
+    return;
+  }
 
-const client = authClient || window.supabaseClient || supabaseClient;
+  const { error } = await client
+    .from("advertising_requests")
+    .insert({
+      company_name: document.querySelector("#adCompany").value,
+      contact_name: document.querySelector("#adName").value,
+      phone: document.querySelector("#adPhone").value,
+      email: document.querySelector("#adEmail").value,
+      ad_type: document.querySelector("#adType").value,
+      message: document.querySelector("#adMessage").value
+    });
 
-const { error } = await authClient
-  .from("advertising_requests")
-  .insert({
-    company_name: qs("#adCompany").value,
-    contact_name: qs("#adName").value,
-    phone: qs("#adPhone").value,
-    email: qs("#adEmail").value,
-    ad_type: qs("#adType").value,
-    message: qs("#adMessage").value
-  });
+  if(error){
+    alert(error.message);
+    return;
+  }
 
-if(error){
-
-alert(error.message);
-
-return;
-
-}
-
-alert("문의가 접수되었습니다.");
-
-showPage("home");
-
+  alert("문의가 접수되었습니다.");
+  showPage("home");
 }
 
 async function init(){
