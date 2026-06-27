@@ -2862,41 +2862,32 @@ if(window.lucide){
 }
 
 async function submitBusinessRequest(){
+  const client = getAuthClient();
+  if (!client) {
+    alert('Supabase 연결이 준비되지 않았습니다.');
+    return;
+  }
 
-const {error}=await supabase
-.from("business_requests")
-.insert({
+  const { error } = await client
+    .from("business_requests")
+    .insert({
+      business_name: document.querySelector("#reqBusinessName").value,
+      owner_name: document.querySelector("#reqOwnerName").value,
+      phone: document.querySelector("#reqPhone").value,
+      email: document.querySelector("#reqEmail").value,
+      category: document.querySelector("#reqCategory").value,
+      address: document.querySelector("#reqAddress").value,
+      website: document.querySelector("#reqWebsite").value,
+      message: document.querySelector("#reqMessage").value
+    });
 
-business_name:qs("#reqBusinessName").value,
+  if (error) {
+    alert(error.message);
+    return;
+  }
 
-owner_name:qs("#reqOwnerName").value,
-
-phone:qs("#reqPhone").value,
-
-email:qs("#reqEmail").value,
-
-category:qs("#reqCategory").value,
-
-address:qs("#reqAddress").value,
-
-website:qs("#reqWebsite").value,
-
-message:qs("#reqMessage").value
-
-});
-
-if(error){
-
-alert(error.message);
-
-return;
-
-}
-
-alert("신청이 접수되었습니다.");
-
-showPage("home");
-
+  alert("업소 등록 신청이 접수되었습니다.");
+  showPage("home");
 }
 
 async function submitAdRequest(){
