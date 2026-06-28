@@ -161,7 +161,7 @@ async function loadBusinessRequests(page = 1){
             <td>${esc(r.status || 'pending')}</td>
             <td>${fmtLocal(r.created_at)}</td>
             <td>
-              <button type="button" onclick="viewBusinessRequest('${r.id}')">보기</button>
+              <button onclick="openBusinessRequestModal('${r.id}')">보기</button>
               <button type="button" onclick="approveBusinessRequest('${r.id}')">승인</button>
             </td>
           </tr>
@@ -220,7 +220,7 @@ async function loadAdRequests(page = 1){
             <td>${esc(r.status || 'pending')}</td>
             <td>${fmtLocal(r.created_at)}</td>
             <td>
-              <button type="button" onclick="viewAdRequest('${r.id}')">보기</button>
+              <button onclick="openAdRequestModal('${r.id}')">보기</button>
             </td>
           </tr>
         `).join('')}
@@ -364,6 +364,144 @@ ${r.message || ''}`
 window.viewBusinessRequest = viewBusinessRequest;
 window.viewAdRequest = viewAdRequest;
 window.approveBusinessRequest = approveBusinessRequest;
+
+let currentRequestRow = null;
+
+async function openBusinessRequestModal(id){
+  const { data:r, error } = await supabase
+    .from('business_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if(error) return alert(error.message);
+
+  currentRequestRow = r;
+
+  setVal('requestType', 'business');
+  setVal('requestId', r.id);
+  setVal('requestName', r.business_name || '');
+  setVal('requestContact', r.owner_name || '');
+  setVal('requestPhone', r.phone || '');
+  setVal('requestEmail', r.email || '');
+  setVal('requestCategory', r.category || '');
+  setVal('requestExtra', r.address || '');
+  setVal('requestMessage', r.message || '');
+  setVal('requestStatus', r.status || 'pending');
+
+  document.getElementById('requestModalTitle').textContent = '업소 등록 신청';
+  document.getElementById('requestModal').classList.remove('hidden');
+}
+
+async function openAdRequestModal(id){
+  const { data:r, error } = await supabase
+    .from('advertising_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if(error) return alert(error.message);
+
+  currentRequestRow = r;
+
+  setVal('requestType', 'ad');
+  setVal('requestId', r.id);
+  setVal('requestName', r.company_name || '');
+  setVal('requestContact', r.contact_name || '');
+  setVal('requestPhone', r.phone || '');
+  setVal('requestEmail', r.email || '');
+  setVal('requestCategory', r.ad_type || '');
+  setVal('requestExtra', '');
+  setVal('requestMessage', r.message || '');
+  setVal('requestStatus', r.status || 'pending');
+
+  document.getElementById('requestModalTitle').textContent = '광고 문의';
+  document.getElementById('requestModal').classList.remove('hidden');
+}
+
+function closeRequestModal(){
+  document.getElementById('requestModal').classList.add('hidden');
+}
+
+async function saveRequestEdit(){
+  const type = val('requestType');
+  const id = val('requestId');
+
+  const table = type === 'business' ? 'business_requests' : 'advertising_requests';
+
+  const payload = type === 'business'
+    ? {
+        business_name: val('requestName'),
+        owner_name: val('requestContact'),
+        phone: val('requestPhone'),
+        email: val('requestEmail'),
+        category: val('requestCategory'),
+        address: val('requestExtra'),
+        message: val('requestMessage'),
+        status: val('requestStatus')
+      }
+    : {
+        company_name: val('requestName'),
+        contact_name: val('requestContact'),
+        phone: val('requestPhone'),
+        email: val('requestEmail'),
+        ad_type: val('requestCategory'),
+        message: val('requestMessage'),
+        status: val('requestStatus')
+      };
+
+  const { error } = await supabase.from(table).update(payload).eq('id', id);
+  if(error) return alert(error.message);
+
+  alert('수정되었습니다.');
+  closeRequestModal();
+
+  type === 'business' ? loadBusinessRequests() : loadAdRequests();
+}
+
+async function approveCurrentRequest(){
+  const type = val('requestType');
+  const id = val('requestId');
+
+  if(type === 'business'){
+    await approveBusinessRequest(id);
+    closeRequestModal();
+  }else{
+    const { error } = await supabase
+      .from('advertising_requests')
+      .update({ status:'completed' })
+      .eq('id', id);
+
+    if(error) return alert(error.message);
+
+    alert('광고 문의가 처리 완료되었습니다.');
+    closeRequestModal();
+    loadAdRequests();
+  }
+}
+
+async function deleteCurrentRequest(){
+  if(!confirm('정말 삭제할까요?')) return;
+
+  const type = val('requestType');
+  const id = val('requestId');
+  const table = type === 'business' ? 'business_requests' : 'advertising_requests';
+
+  const { error } = await supabase.from(table).delete().eq('id', id);
+  if(error) return alert(error.message);
+
+  alert('삭제되었습니다.');
+  closeRequestModal();
+
+  type === 'business' ? loadBusinessRequests() : loadAdRequests();
+}
+
+window.openBusinessRequestModal = openBusinessRequestModal;
+window.openAdRequestModal = openAdRequestModal;
+window.closeRequestModal = closeRequestModal;
+window.saveRequestEdit = saveRequestEdit;
+window.approveCurrentRequest = approveCurrentRequest;
+window.deleteCurrentRequest = deleteCurrentRequest;
 /* ---------------------------
    Business
 --------------------------- */
