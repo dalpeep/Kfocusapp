@@ -145,17 +145,59 @@ async function loadBusinessRequests(){
 
   document.querySelector('#requestsList').innerHTML = (data || []).map(r => `
     <div class="admin-card">
-      <h3>${r.business_name || '업소명 없음'}</h3>
-      <p><b>담당자:</b> ${r.owner_name || ''}</p>
-      <p><b>전화:</b> ${r.phone || ''}</p>
-      <p><b>이메일:</b> ${r.email || ''}</p>
-      <p><b>업종:</b> ${r.category || ''}</p>
-      <p><b>주소:</b> ${r.address || ''}</p>
-      <p><b>웹사이트:</b> ${r.website || ''}</p>
-      <p><b>내용:</b><br>${r.message || ''}</p>
-      <p><b>상태:</b> ${r.status || 'pending'}</p>
+      <h3>${esc(r.business_name || '업소명 없음')}</h3>
+      <p><b>담당자:</b> ${esc(r.owner_name || '')}</p>
+      <p><b>전화:</b> ${esc(r.phone || '')}</p>
+      <p><b>이메일:</b> ${esc(r.email || '')}</p>
+      <p><b>업종:</b> ${esc(r.category || '')}</p>
+      <p><b>주소:</b> ${esc(r.address || '')}</p>
+      <p><b>웹사이트:</b> ${esc(r.website || '')}</p>
+      <p><b>내용:</b><br>${esc(r.message || '')}</p>
+      <p><b>상태:</b> ${esc(r.status || 'pending')}</p>
+
+      <button type="button" onclick="approveBusinessRequest('${r.id}')">
+        업소로 등록
+      </button>
     </div>
   `).join('');
+}
+
+async function approveBusinessRequest(id){
+  const { data: req, error: reqError } = await supabase
+    .from('business_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if(reqError) return alert(reqError.message);
+  if(!req) return alert('신청 정보를 찾을 수 없습니다.');
+
+  const { error: insertError } = await supabase
+    .from('businesses')
+    .insert({
+      name_ko: req.business_name,
+      name_en: req.business_name,
+      phone: req.phone,
+      email: req.email,
+      category_ko: req.category,
+      address: req.address,
+      website: req.website,
+      description: req.message,
+      region: 'dallas',
+      is_active: true,
+      is_new: true
+    });
+
+  if(insertError) return alert(insertError.message);
+
+  await supabase
+    .from('business_requests')
+    .update({ status:'approved' })
+    .eq('id', id);
+
+  alert('업소로 등록되었습니다.');
+  loadBusinessRequests();
+  loadBusinesses();
 }
 
 /* ---------------------------
