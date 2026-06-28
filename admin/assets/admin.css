@@ -353,3 +353,55 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
     color:#fff;
 
 }
+.request-tools{
+  display:flex;
+  gap:8px;
+  margin:14px 0;
+}
+
+.request-tools input{
+  width:300px;
+  padding:10px 12px;
+  border:1px solid #d5deef;
+  border-radius:10px;
+}
+
+.request-table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+  border-radius:14px;
+  overflow:hidden;
+}
+
+.request-table th,
+.request-table td{
+  padding:12px;
+  border-bottom:1px solid #e5eaf3;
+  text-align:left;
+  font-size:14px;
+}
+
+.request-table th{
+  background:#f4f7ff;
+  font-weight:800;
+}
+
+.pager{
+  margin-top:16px;
+  display:flex;
+  gap:6px;
+}
+
+.pager button{
+  padding:7px 11px;
+  border:none;
+  border-radius:8px;
+  background:#eef3ff;
+  cursor:pointer;
+}
+
+.pager button.active{
+  background:#315df4;
+  color:#fff;
+}

@@ -114,55 +114,139 @@ async function uploadFileToStorage(file, folder = 'uploads') {
   return data?.publicUrl || null;
 }
 
-async function loadAdRequests(){
-  const { data, error } = await supabase
-    .from('advertising_requests')
-    .select('*')
-    .order('created_at', { ascending:false });
+const REQUEST_PAGE_SIZE = 20;
 
-  if(error) return alert(error.message);
+async function loadBusinessRequests(page = 1){
+  const keyword = (document.querySelector('#businessRequestSearch')?.value || '').trim();
+  const from = (page - 1) * REQUEST_PAGE_SIZE;
+  const to = from + REQUEST_PAGE_SIZE - 1;
 
-    document.querySelector('#adRequestsList').innerHTML = (data || []).map(r => `
-    <div class="admin-card">
-      <h3>${r.company_name || '회사명 없음'}</h3>
-      <p><b>담당자:</b> ${r.contact_name || ''}</p>
-      <p><b>전화:</b> ${r.phone || ''}</p>
-      <p><b>이메일:</b> ${r.email || ''}</p>
-      <p><b>광고 종류:</b> ${r.ad_type || ''}</p>
-      <p><b>문의 내용:</b><br>${r.message || ''}</p>
-      <p><b>상태:</b> ${r.status || 'pending'}</p>
-    </div>
-  `).join('');
+  let query = supabase
+    .from('business_requests')
+    .select('*', { count:'exact' })
+    .order('created_at', { ascending:false })
+    .range(from, to);
+
+  if (keyword) {
+    query = query.or(
+      `business_name.ilike.%${keyword}%,owner_name.ilike.%${keyword}%,phone.ilike.%${keyword}%,email.ilike.%${keyword}%`
+    );
+  }
+
+  const { data, error, count } = await query;
+  if (error) return alert(error.message);
+
+  const box = document.querySelector('#businessRequestsList');
+
+  box.innerHTML = data?.length ? `
+    <table class="request-table">
+      <thead>
+        <tr>
+          <th>업소명</th>
+          <th>담당자</th>
+          <th>전화</th>
+          <th>이메일</th>
+          <th>상태</th>
+          <th>신청일</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td>${esc(r.business_name || '')}</td>
+            <td>${esc(r.owner_name || '')}</td>
+            <td>${esc(r.phone || '')}</td>
+            <td>${esc(r.email || '')}</td>
+            <td>${esc(r.status || 'pending')}</td>
+            <td>${fmtLocal(r.created_at)}</td>
+            <td>
+              <button type="button" onclick="viewBusinessRequest('${r.id}')">보기</button>
+              <button type="button" onclick="approveBusinessRequest('${r.id}')">승인</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '<p>등록된 업소 신청이 없습니다.</p>';
+
+  renderPager('#businessRequestsPager', page, count || 0, 'loadBusinessRequests');
 }
 
-async function loadBusinessRequests(){
-  const { data, error } = await supabase
-    .from('business_requests')
-    .select('*')
-    .order('created_at', { ascending:false });
-	
-	console.log('BUSINESS REQUESTS ERROR', error);
-    console.log('BUSINESS REQUESTS DATA', data);
+async function loadAdRequests(page = 1){
+  const keyword = (document.querySelector('#adRequestSearch')?.value || '').trim();
+  const from = (page - 1) * REQUEST_PAGE_SIZE;
+  const to = from + REQUEST_PAGE_SIZE - 1;
 
-  if(error) return alert(error.message);
+  let query = supabase
+    .from('advertising_requests')
+    .select('*', { count:'exact' })
+    .order('created_at', { ascending:false })
+    .range(from, to);
 
-  document.querySelector('#businessRequestsList').innerHTML = (data || []).map(r => `
-    <div class="admin-card">
-      <h3>${esc(r.business_name || '업소명 없음')}</h3>
-      <p><b>담당자:</b> ${esc(r.owner_name || '')}</p>
-      <p><b>전화:</b> ${esc(r.phone || '')}</p>
-      <p><b>이메일:</b> ${esc(r.email || '')}</p>
-      <p><b>업종:</b> ${esc(r.category || '')}</p>
-      <p><b>주소:</b> ${esc(r.address || '')}</p>
-      <p><b>웹사이트:</b> ${esc(r.website || '')}</p>
-      <p><b>내용:</b><br>${esc(r.message || '')}</p>
-      <p><b>상태:</b> ${esc(r.status || 'pending')}</p>
+  if (keyword) {
+    query = query.or(
+      `company_name.ilike.%${keyword}%,contact_name.ilike.%${keyword}%,phone.ilike.%${keyword}%,email.ilike.%${keyword}%`
+    );
+  }
 
-      <button type="button" onclick="approveBusinessRequest('${r.id}')">
-        업소로 등록
-      </button>
-    </div>
-  `).join('');
+  const { data, error, count } = await query;
+  if (error) return alert(error.message);
+
+  const box = document.querySelector('#adRequestsList');
+
+  box.innerHTML = data?.length ? `
+    <table class="request-table">
+      <thead>
+        <tr>
+          <th>회사명</th>
+          <th>담당자</th>
+          <th>전화</th>
+          <th>이메일</th>
+          <th>광고종류</th>
+          <th>상태</th>
+          <th>문의일</th>
+          <th>관리</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td>${esc(r.company_name || '')}</td>
+            <td>${esc(r.contact_name || '')}</td>
+            <td>${esc(r.phone || '')}</td>
+            <td>${esc(r.email || '')}</td>
+            <td>${esc(r.ad_type || '')}</td>
+            <td>${esc(r.status || 'pending')}</td>
+            <td>${fmtLocal(r.created_at)}</td>
+            <td>
+              <button type="button" onclick="viewAdRequest('${r.id}')">보기</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  ` : '<p>등록된 광고 문의가 없습니다.</p>';
+
+  renderPager('#adRequestsPager', page, count || 0, 'loadAdRequests');
+}
+
+function renderPager(target, page, total, fnName){
+  const totalPages = Math.ceil(total / REQUEST_PAGE_SIZE);
+  const box = document.querySelector(target);
+  if (!box) return;
+
+  if (totalPages <= 1) {
+    box.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<button type="button" class="${i === page ? 'active' : ''}" onclick="${fnName}(${i})">${i}</button>`;
+  }
+
+  box.innerHTML = html;
 }
 
 
