@@ -207,6 +207,29 @@ window.loadAdRequests = loadAdRequests;
 window.loadBusinessRequests = loadBusinessRequests;
 window.approveBusinessRequest = approveBusinessRequest;
 
+function showRequestTab(type){
+
+    document.getElementById('businessRequestsArea').style.display =
+        type==='business' ? 'block':'none';
+
+    document.getElementById('adRequestsArea').style.display =
+        type==='ad' ? 'block':'none';
+
+    document.querySelectorAll('.request-tabs .tab')
+        .forEach(btn=>btn.classList.remove('active'));
+
+    if(type==='business'){
+        document.querySelectorAll('.request-tabs .tab')[0]
+            .classList.add('active');
+
+        loadBusinessRequests();
+    }else{
+        document.querySelectorAll('.request-tabs .tab')[1]
+            .classList.add('active');
+
+        loadAdRequests();
+    }
+}
 /* ---------------------------
    Business
 --------------------------- */

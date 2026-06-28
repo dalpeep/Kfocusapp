@@ -324,3 +324,32 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .admin-card h3{
   margin:0 0 10px;
 }
+.request-tabs{
+    display:flex;
+    gap:12px;
+    margin-bottom:20px;
+}
+
+.request-tabs .tab{
+
+    padding:10px 20px;
+
+    border:none;
+
+    border-radius:10px;
+
+    background:#eef3ff;
+
+    cursor:pointer;
+
+    font-weight:700;
+
+}
+
+.request-tabs .active{
+
+    background:#355CF6;
+
+    color:#fff;
+
+}
