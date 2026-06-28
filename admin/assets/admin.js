@@ -200,6 +200,10 @@ async function approveBusinessRequest(id){
   loadBusinesses();
 }
 
+window.loadAdRequests = loadAdRequests;
+window.loadBusinessRequests = loadBusinessRequests;
+window.approveBusinessRequest = approveBusinessRequest;
+
 /* ---------------------------
    Business
 --------------------------- */
