@@ -36,13 +36,10 @@
         <button class="nav-item" data-section="slide">슬라이드 관리</button>
         <button class="nav-item" data-section="board">게시판 관리</button>
 		<button class="nav-item" data-section="banners">배너 관리</button>
-        <button class="admin-nav-btn" data-section="businessRequests">
-         업소 등록 신청
-        </button>
+        <button class="admin-nav-btn" data-section="businessRequests" onclick="loadBusinessRequests()">
+        <button class="admin-nav-item" data-section="businessRequests" onclick="loadBusinessRequests()">업소 등록 신청</button>
 
-        <button class="nav-item" data-section="adRequests">
-        광고 문의
-        </button>
+        <button class="admin-nav-item" data-section="adRequests" onclick="loadAdRequests()">광고 문의</button>
 		<button class="nav-item" data-section="requests">
         신청 관리
         </button>
@@ -408,15 +405,15 @@
         </section>
       </section>
 
-<section id="section-businessRequests" class="admin-section hidden">
+   <section id="section-businessRequests" class="admin-section hidden">
   <h2>업소 등록 신청</h2>
   <div id="businessRequestsList"></div>
-</section>
+  </section>
 
-<section id="section-adRequests" class="admin-section hidden">
+  <section id="section-adRequests" class="admin-section hidden">
   <h2>광고 문의</h2>
   <div id="adRequestsList"></div>
-</section>
+  </section>
 
 <section id="section-banners" class="admin-section">
   <section class="toolbar card">
