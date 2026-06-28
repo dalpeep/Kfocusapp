@@ -140,6 +140,9 @@ async function loadBusinessRequests(){
     .from('business_requests')
     .select('*')
     .order('created_at', { ascending:false });
+	
+	console.log('BUSINESS REQUESTS ERROR', error);
+    console.log('BUSINESS REQUESTS DATA', data);
 
   if(error) return alert(error.message);
 
