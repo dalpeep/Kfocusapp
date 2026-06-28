@@ -419,52 +419,15 @@
         </section>
       </section>
 
-<section class="page" id="page-business-register">
-  <div class="request-card">
-    <h2>업소 등록 신청</h2>
-    <p>DalTownMap에 업소 등록을 신청해 보세요.</p>
+   <section id="section-businessRequests" class="admin-section hidden">
+  <h2>업소 등록 신청</h2>
+  <div id="businessRequestsList"></div>
+  </section>
 
-    <div class="form-grid">
-      <input id="reqBusinessName" placeholder="업소명">
-      <input id="reqOwnerName" placeholder="담당자">
-      <input id="reqPhone" placeholder="전화번호">
-      <input id="reqEmail" placeholder="이메일">
-      <input id="reqCategory" placeholder="업종">
-      <input id="reqAddress" placeholder="주소">
-    </div>
-
-    <input id="reqWebsite" placeholder="웹사이트 (선택사항)">
-
-    <textarea id="reqMessage" class="large-textarea" placeholder="추가 사항을 입력해 주세요"></textarea>
-
-    <button class="primary-submit" onclick="submitBusinessRequest()">업소 등록 신청</button>
-  </div>
-</section>
-
-<section class="page" id="page-advertise">
-  <div class="request-card">
-    <h2>광고 문의</h2>
-    <p>배너 광고 / 추천 업소 / 오늘의 쿠폰</p>
-
-    <div class="form-grid">
-      <input id="adCompany" placeholder="회사명">
-      <input id="adName" placeholder="담당자">
-      <input id="adPhone" placeholder="전화번호">
-      <input id="adEmail" placeholder="이메일">
-    </div>
-
-    <select id="adType">
-      <option>메인 배너</option>
-      <option>추천 업소</option>
-      <option>오늘의 쿠폰</option>
-      <option>이벤트</option>
-    </select>
-
-    <textarea id="adMessage" class="large-textarea" placeholder="문의 내용을 입력해 주세요"></textarea>
-
-    <button class="primary-submit" onclick="submitAdRequest()">광고 문의하기</button>
-  </div>
-</section>
+  <section id="section-adRequests" class="admin-section hidden">
+  <h2>광고 문의</h2>
+  <div id="adRequestsList"></div>
+  </section>
 
 <section id="section-banners" class="admin-section">
   <section class="toolbar card">
