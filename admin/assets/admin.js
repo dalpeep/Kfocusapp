@@ -164,25 +164,7 @@ async function loadBusinessRequests(){
     </div>
   `).join('');
 }
-function showRequestTab(type){
-  const businessArea = document.getElementById('businessRequestsArea');
-  const adArea = document.getElementById('adRequestsArea');
 
-  if (businessArea) businessArea.style.display = type === 'business' ? 'block' : 'none';
-  if (adArea) adArea.style.display = type === 'ad' ? 'block' : 'none';
-
-  document.querySelectorAll('.request-tabs .tab').forEach(btn => {
-    btn.classList.remove('active');
-  });
-
-  if (type === 'business') {
-    document.querySelector('.request-tabs .tab:nth-child(1)')?.classList.add('active');
-    loadBusinessRequests();
-  } else {
-    document.querySelector('.request-tabs .tab:nth-child(2)')?.classList.add('active');
-    loadAdRequests();
-  }
-}
 
 window.showRequestTab = showRequestTab;
 async function approveBusinessRequest(id){
