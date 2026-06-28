@@ -316,6 +316,54 @@ function showRequestTab(type){
         loadAdRequests();
     }
 }
+
+async function viewBusinessRequest(id){
+  const { data:r, error } = await supabase
+    .from('business_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if(error) return alert(error.message);
+
+  alert(
+`업소명: ${r.business_name || ''}
+담당자: ${r.owner_name || ''}
+전화: ${r.phone || ''}
+이메일: ${r.email || ''}
+업종: ${r.category || ''}
+주소: ${r.address || ''}
+웹사이트: ${r.website || ''}
+
+내용:
+${r.message || ''}`
+  );
+}
+
+async function viewAdRequest(id){
+  const { data:r, error } = await supabase
+    .from('advertising_requests')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if(error) return alert(error.message);
+
+  alert(
+`회사명: ${r.company_name || ''}
+담당자: ${r.contact_name || ''}
+전화: ${r.phone || ''}
+이메일: ${r.email || ''}
+광고종류: ${r.ad_type || ''}
+
+내용:
+${r.message || ''}`
+  );
+}
+
+window.viewBusinessRequest = viewBusinessRequest;
+window.viewAdRequest = viewAdRequest;
+window.approveBusinessRequest = approveBusinessRequest;
 /* ---------------------------
    Business
 --------------------------- */
