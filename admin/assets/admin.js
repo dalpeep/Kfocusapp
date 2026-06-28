@@ -122,7 +122,7 @@ async function loadAdRequests(){
 
   if(error) return alert(error.message);
 
-  document.querySelector('#requestsList').innerHTML = (data || []).map(r => `
+    document.querySelector('#adRequestsList').innerHTML = (data || []).map(r => `
     <div class="admin-card">
       <h3>${r.company_name || '회사명 없음'}</h3>
       <p><b>담당자:</b> ${r.contact_name || ''}</p>
@@ -143,7 +143,7 @@ async function loadBusinessRequests(){
 
   if(error) return alert(error.message);
 
-  document.querySelector('#requestsList').innerHTML = (data || []).map(r => `
+  document.querySelector('#businessRequestsList').innerHTML = (data || []).map(r => `
     <div class="admin-card">
       <h3>${esc(r.business_name || '업소명 없음')}</h3>
       <p><b>담당자:</b> ${esc(r.owner_name || '')}</p>
