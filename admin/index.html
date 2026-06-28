@@ -64,29 +64,36 @@
         </div>
       </header>
 	  
-      <section id="section-requests" class="admin-section hidden">
+<section id="section-requests" class="admin-section hidden">
+  <h2>신청 관리</h2>
 
-      <div class="request-tabs">
-        <button class="tab active"
-                onclick="showRequestTab('business')">
-            업소 등록 신청
-        </button>
+  <div class="request-tabs">
+    <button class="tab active" type="button" onclick="showRequestTab('business')">
+      업소 등록 신청
+    </button>
+    <button class="tab" type="button" onclick="showRequestTab('ad')">
+      광고 문의
+    </button>
+  </div>
 
-        <button class="tab"
-                onclick="showRequestTab('ad')">
-            광고 문의
-        </button>
-      </div>
+  <div id="businessRequestsArea">
+    <div class="request-tools">
+      <input id="businessRequestSearch" placeholder="업소명, 담당자, 전화 검색">
+      <button type="button" onclick="loadBusinessRequests(1)">검색</button>
+    </div>
+    <div id="businessRequestsList"></div>
+    <div id="businessRequestsPager" class="pager"></div>
+  </div>
 
-      <div id="businessRequestsArea">
-        <div id="businessRequestsList"></div>
-      </div>
-
-      <div id="adRequestsArea" style="display:none">
-        <div id="adRequestsList"></div>
-      </div>
-
-      </section>
+  <div id="adRequestsArea" style="display:none">
+    <div class="request-tools">
+      <input id="adRequestSearch" placeholder="회사명, 담당자, 전화 검색">
+      <button type="button" onclick="loadAdRequests(1)">검색</button>
+    </div>
+    <div id="adRequestsList"></div>
+    <div id="adRequestsPager" class="pager"></div>
+  </div>
+</section>
 
 	  <section id="section-adminUsers" class="admin-section">
   <h3>관리자 계정 관리 (Super Admin)</h3>
