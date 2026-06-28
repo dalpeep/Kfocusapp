@@ -491,7 +491,52 @@
     </div>
   </section>
 </section>
+<div id="requestModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="requestModalTitle">신청 상세</h2>
+      <button type="button" onclick="closeRequestModal()">×</button>
+    </div>
 
+    <input type="hidden" id="requestType">
+    <input type="hidden" id="requestId">
+
+    <label>이름/회사명</label>
+    <input id="requestName">
+
+    <label>담당자</label>
+    <input id="requestContact">
+
+    <label>전화</label>
+    <input id="requestPhone">
+
+    <label>이메일</label>
+    <input id="requestEmail">
+
+    <label>분류</label>
+    <input id="requestCategory">
+
+    <label>주소/웹사이트</label>
+    <input id="requestExtra">
+
+    <label>내용</label>
+    <textarea id="requestMessage"></textarea>
+
+    <label>상태</label>
+    <select id="requestStatus">
+      <option value="pending">pending</option>
+      <option value="approved">approved</option>
+      <option value="completed">completed</option>
+      <option value="rejected">rejected</option>
+    </select>
+
+    <div class="modal-actions">
+      <button onclick="saveRequestEdit()">수정 저장</button>
+      <button onclick="approveCurrentRequest()">승인</button>
+      <button onclick="deleteCurrentRequest()" class="danger">삭제</button>
+    </div>
+  </div>
+</div>
       <section id="section-board" class="admin-section">
         <section class="toolbar card">
           <div class="toolbar-row">
