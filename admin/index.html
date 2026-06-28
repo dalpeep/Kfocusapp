@@ -36,10 +36,12 @@
         <button class="nav-item" data-section="slide">슬라이드 관리</button>
         <button class="nav-item" data-section="board">게시판 관리</button>
 		<button class="nav-item" data-section="banners">배너 관리</button>
-        <button class="admin-nav-btn" data-section="businessRequests" onclick="loadBusinessRequests()">
-        <button class="admin-nav-item" data-section="businessRequests" onclick="loadBusinessRequests()">업소 등록 신청</button>
-
-        <button class="admin-nav-item" data-section="adRequests" onclick="loadAdRequests()">광고 문의</button>
+        <button class="nav-item" data-section="businessRequests" onclick="loadBusinessRequests()">
+        업소 등록 신청
+        </button>
+        <button class="nav-item" data-section="adRequests" onclick="loadAdRequests()">
+        광고 문의
+        </button>
 		<button class="nav-item" data-section="requests">
         신청 관리
         </button>
@@ -70,16 +72,15 @@
         </div>
       </header>
 	  
-	  <section id="section-requests" class="admin-section hidden">
-  <h2>신청 관리</h2>
+     <section id="section-businessRequests" class="admin-section hidden">
+     <h2>업소 등록 신청</h2>
+     <div id="businessRequestsList"></div>
+     </section>
 
-  <div class="admin-tabs">
-    <button type="button" onclick="loadAdRequests()">광고 문의</button>
-    <button type="button" onclick="loadBusinessRequests()">업소 등록 신청</button>
-  </div>
-
-  <div id="requestsList"></div>
-</section>
+     <section id="section-adRequests" class="admin-section hidden">
+     <h2>광고 문의</h2>
+     <div id="adRequestsList"></div>
+     </section>
 
 	  <section id="section-adminUsers" class="admin-section">
   <h3>관리자 계정 관리 (Super Admin)</h3>
