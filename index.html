@@ -299,95 +299,51 @@ onclick="showPage('contact');closeMenu();">
         <section class="card section-card coupon-use-card" id="couponUseCard"></section>
       </section>
 	  
-	  <section class="page" id="page-business-register">
+<section class="page" id="page-business-register">
+  <div class="request-card">
+    <h2>업소 등록</h2>
+    <p>DalTownMap에 업소를 등록해 보세요.</p>
 
-<div class="card section-card">
+    <div class="form-grid">
+      <input id="reqBusinessName" placeholder="업소명">
+      <input id="reqOwnerName" placeholder="담당자">
+      <input id="reqPhone" placeholder="전화번호">
+      <input id="reqEmail" placeholder="이메일">
+      <input id="reqCategory" placeholder="업종">
+      <input id="reqAddress" placeholder="주소">
+    </div>
 
-<h2>업소 등록</h2>
+    <input id="reqWebsite" placeholder="웹사이트 (선택사항)">
 
-<p>
-DalTownMap에 업소를 등록해 보세요.
-</p>
+    <textarea id="reqMessage" class="large-textarea" placeholder="추가 사항을 입력해 주세요"></textarea>
 
-<input id="reqBusinessName" placeholder="업소명">
-
-<input id="reqOwnerName" placeholder="담당자">
-
-<input id="reqPhone" placeholder="전화번호">
-
-<input id="reqEmail" placeholder="이메일">
-
-<input id="reqCategory" placeholder="업종">
-
-<input id="reqAddress" placeholder="주소">
-
-<input id="reqWebsite" placeholder="웹사이트">
-
-<textarea id="reqMessage"
-placeholder="추가 내용"></textarea>
-
-<button onclick="submitBusinessRequest()">
-
-업소 등록 신청
-
-</button>
-
-</div>
-
+    <button class="primary-submit" onclick="submitBusinessRequest()">업소 등록 신청</button>
+  </div>
 </section>
 
 <section class="page" id="page-advertise">
+  <div class="request-card">
+    <h2>광고 문의</h2>
+    <p>배너 광고 / 추천 업소 / 오늘의 쿠폰</p>
 
-<div class="card section-card">
+    <div class="form-grid">
+      <input id="adCompany" placeholder="회사명">
+      <input id="adName" placeholder="담당자">
+      <input id="adPhone" placeholder="전화번호">
+      <input id="adEmail" placeholder="이메일">
+    </div>
 
-<h2>광고 문의</h2>
+    <select id="adType">
+      <option>메인 배너</option>
+      <option>추천 업소</option>
+      <option>오늘의 쿠폰</option>
+      <option>이벤트</option>
+    </select>
 
-<p>
+    <textarea id="adMessage" class="large-textarea" placeholder="문의 내용을 입력해 주세요"></textarea>
 
-배너 광고 / 추천 업소 / 오늘의 쿠폰
-
-</p>
-
-<input id="adCompany"
-
-placeholder="회사명">
-
-<input id="adName"
-
-placeholder="담당자">
-
-<input id="adPhone"
-
-placeholder="전화번호">
-
-<input id="adEmail"
-
-placeholder="이메일">
-
-<select id="adType">
-
-<option>메인 배너</option>
-
-<option>추천 업소</option>
-
-<option>오늘의 쿠폰</option>
-
-<option>이벤트</option>
-
-</select>
-
-<textarea id="adMessage"
-
-placeholder="문의 내용"></textarea>
-
-<button onclick="submitAdRequest()">
-
-광고 문의하기
-
-</button>
-
-</div>
-
+    <button class="primary-submit" onclick="submitAdRequest()">광고 문의하기</button>
+  </div>
 </section>
 	  
 	  <section class="page" id="page-about">
