@@ -3567,3 +3567,27 @@ body,
   margin:0 !important;
   padding:0 !important;
 }
+/* 영업정보 카드 여백 조정 */
+.biz-info-list{
+    row-gap:8px !important;
+}
+
+.biz-hours-block{
+    margin-top:4px !important;
+    margin-bottom:6px !important;
+    padding:0 !important;
+}
+
+.biz-hours-label{
+    margin-bottom:4px !important;
+    padding-bottom:0 !important;
+}
+
+.biz-hours-table{
+    margin-top:2px !important;
+    margin-bottom:6px !important;
+}
+
+.biz-detail-card h3{
+    margin-bottom:12px !important;
+}
