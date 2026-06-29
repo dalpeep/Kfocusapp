@@ -37,7 +37,7 @@ const BUSINESS_FIELDS = [
   'insurance',
   'image_url', 'video_url',
   'lat', 'lng', 'featured_rank', 'new_rank', 'popular_rank',
-  'promo_text', 'promo_image_url', 'home_fixed_sort'
+  'promo_text', 'promo_image_url', 'home_fixed_sort',
   'paid_product',
   'paid_weight',
   'paid_start_at',
@@ -234,6 +234,129 @@ async function loadAdRequests(page = 1){
 
   renderPager('#adRequestsPager', page, count || 0, 'loadAdRequests');
 }
+
+function todayKey(){
+  return new Date().toISOString().slice(0,10);
+}
+
+function adSeededRandom(seed){
+  let h = 2166136261;
+  for(let i = 0; i < seed.length; i++){
+    h ^= seed.charCodeAt(i);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+  }
+  return Math.abs(h >>> 0);
+}
+
+function isPaidBusinessActive(b){
+  if(!b.paid_active) return false;
+
+  const today = todayKey();
+
+  if(b.paid_start_at && b.paid_start_at > today) return false;
+  if(b.paid_end_at && b.paid_end_at < today) return false;
+
+  return true;
+}
+
+function rotationScore(b, section){
+  const weight = Number(b.paid_weight || 1);
+  return adSeededRandom(`${todayKey()}-${section}-${b.id}`) / weight;
+}
+
+function pickRotation(list, section, limit = 6){
+  return list
+    .filter(isPaidBusinessActive)
+    .filter(b => b.rotation_enabled !== false)
+    .sort((a,b) => rotationScore(a, section) - rotationScore(b, section))
+    .slice(0, limit);
+}
+
+async function loadAdsOps(){
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active')
+    .order('paid_active', { ascending:false });
+
+  if(error) return alert(error.message);
+
+  const paid = (data || []).filter(isPaidBusinessActive);
+
+  document.querySelector('#adsOpsSummary').innerHTML = `
+    <div class="admin-card">
+      <h3>광고 운영 요약</h3>
+      <p><b>현재 유료 활성 업소:</b> ${paid.length}개</p>
+      <p><b>월 목표:</b> 100개 × $100 = $10,000</p>
+      <p><b>추천/신규/인기:</b> 각 6개, 총 18개 자동 노출</p>
+    </div>
+  `;
+
+  document.querySelector('#adsOpsList').innerHTML = `
+    <h3>유료 업소 목록</h3>
+    <table class="request-table">
+      <thead>
+        <tr>
+          <th>업소명</th>
+          <th>지역</th>
+          <th>상품</th>
+          <th>가중치</th>
+          <th>시작일</th>
+          <th>종료일</th>
+          <th>로테이션</th>
+          <th>상태</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(data || []).filter(b => b.paid_active).map(b => `
+          <tr>
+            <td>${esc(b.name_ko || b.name_en || '')}</td>
+            <td>${esc(b.area || '')}</td>
+            <td>${esc(b.paid_product || 'basic')}</td>
+            <td>${esc(b.paid_weight || 1)}</td>
+            <td>${esc(b.paid_start_at || '')}</td>
+            <td>${esc(b.paid_end_at || '')}</td>
+            <td>${b.rotation_enabled === false ? 'OFF' : 'ON'}</td>
+            <td>${isPaidBusinessActive(b) ? '활성' : '비활성/기간외'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  document.querySelector('#rotationPreview').innerHTML = '';
+}
+
+async function previewRotation(){
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*')
+    .eq('is_active', true);
+
+  if(error) return alert(error.message);
+
+  const featured = pickRotation(data || [], 'featured', 6);
+  const newest = pickRotation(data || [], 'new', 6);
+  const popular = pickRotation(data || [], 'popular', 6);
+
+  const renderList = (title, rows) => `
+    <div class="admin-card">
+      <h3>${title}</h3>
+      ${rows.length ? rows.map((b,i) => `
+        <p>${i + 1}. ${esc(b.name_ko || b.name_en || '')} / ${esc(b.paid_product || 'basic')} / weight ${esc(b.paid_weight || 1)}</p>
+      `).join('') : '<p>노출 대상이 없습니다.</p>'}
+    </div>
+  `;
+
+  document.querySelector('#rotationPreview').innerHTML = `
+    <h3>오늘 로테이션 미리보기 (${todayKey()})</h3>
+    ${renderList('추천', featured)}
+    ${renderList('신규', newest)}
+    ${renderList('인기', popular)}
+  `;
+}
+
+window.loadAdsOps = loadAdsOps;
+window.previewRotation = previewRotation;
 
 function renderPager(target, page, total, fnName){
   const totalPages = Math.ceil(total / REQUEST_PAGE_SIZE);
