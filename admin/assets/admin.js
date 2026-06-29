@@ -886,9 +886,7 @@ function collectBusinessPayload() {
   const raw = val(id);
   p[id] = raw === '' ? null : Number(raw);
 });
-.forEach((id) => {
-    p[id] = val(id).trim() ? val(id).trim() : null;
-  });
+
   ['lat', 'lng'].forEach((id) => {
     const raw = val(id);
     p[id] = raw === '' ? null : Number(raw);
