@@ -3544,3 +3544,26 @@ body,
     margin-left:10px !important;
     line-height:34px !important;
 }
+.biz-detail-card .biz-hours-table{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:0 !important;
+}
+
+.biz-detail-card .biz-hours-table .hours-row{
+  height:30px !important;
+  min-height:30px !important;
+  max-height:30px !important;
+  padding:0 !important;
+  margin:0 !important;
+  display:grid !important;
+  grid-template-columns:72px auto !important;
+  align-items:center !important;
+}
+
+.biz-detail-card .biz-hours-table .hours-row span,
+.biz-detail-card .biz-hours-table .hours-row strong{
+  line-height:30px !important;
+  margin:0 !important;
+  padding:0 !important;
+}
