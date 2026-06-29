@@ -1,3 +1,15 @@
+/* =========================================================
+   DalTownMap Admin Stylesheet
+   정리 기준:
+   01 Base / Sidebar / Topbar
+   02 Cards / Layout / Forms / Buttons
+   03 Business List / Preview / Uploads
+   04 Stats / Dashboard / Hub
+   05 Request Management / Tables / Pager / Modal
+   06 Admin Users / Gallery / Board Thumbnails
+   07 Responsive
+   ========================================================= */
+
 
 :root{--bg:#f4f7fb;--card:#ffffff;--line:#d9e2ef;--text:#0f172a;--muted:#64748b;--blue:#2563eb;--blue2:#60a5fa;--danger:#dc2626;}
 *{box-sizing:border-box}
@@ -22,14 +34,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .head-actions{display:flex;gap:8px;flex-wrap:wrap}.preview-wrap{margin-top:18px;border-top:1px dashed var(--line);padding-top:16px}.preview-head{font-size:12px;color:#475569;font-weight:700;margin-bottom:10px}.preview-card{display:grid;grid-template-columns:140px 1fr;gap:12px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}.preview-card img{width:100%;height:140px;object-fit:cover;background:#e2e8f0}.preview-info{padding:12px}.preview-name{font-weight:700;font-size:17px;margin-bottom:6px}.preview-meta{font-size:13px;color:var(--muted);line-height:1.5}
 #category_ko[list]{background-image:none;}
 @media (max-width:980px){.app-shell{grid-template-columns:1fr}.sidebar{display:none}.layout{grid-template-columns:1fr}.business-list{max-height:none}.topbar{flex-direction:column}.form-grid{grid-template-columns:1fr}.inline-btn{margin-left:0}}
-.admin-section {
-  display: none;
-}
 
-.admin-section.active-section {
-  display: block;
-}
-
+/* =========================================================
+   06 Gallery Upload Admin
+   ========================================================= */
 .gallery-admin-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -52,6 +60,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
   margin-bottom: 8px;
 }
 /* 게시판 목록 썸네일 */
+
+/* =========================================================
+   06 Board Thumbnails
+   ========================================================= */
 .board-thumb-image {
   width: 72px;
   height: 72px;
@@ -70,7 +82,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
   background: #f3f4f6;
   flex: 0 0 72px;
 }
-/* ===== TOP stats cards ===== */
+
+/* =========================================================
+   04 Dashboard: Top Stats
+   ========================================================= */
 #topStats{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr)); /* ⭐ 핵심 */
@@ -149,7 +164,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
   width:100%;
   box-sizing:border-box;
 }
-/* ===== KPI summary cards ===== */
+
+/* =========================================================
+   04 Dashboard: KPI Summary
+   ========================================================= */
 #statsSummary{
   display:grid;
   grid-template-columns:repeat(4, minmax(0, 1fr));
@@ -204,53 +222,45 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 @media (max-width: 520px){
   #statsSummary{
     grid-template-columns:1fr;
+    gap:8px;
+    margin:6px 0 10px;
   }
- 
- #statsSummary{
-  display:grid;
-  grid-template-columns:repeat(4, minmax(0, 1fr));
-  gap:8px;
-  margin:6px 0 10px;
+
+  #statsSummary .summary-card{
+    border-radius:10px;
+    padding:8px 10px;
+    box-shadow:0 1px 4px rgba(0,0,0,0.04);
+  }
+
+  #statsSummary .summary-label{
+    font-size:11px;
+    margin-bottom:4px;
+    white-space:nowrap;
+  }
+
+  #statsSummary .summary-value{
+    font-size:16px;
+    letter-spacing:-0.5px;
+  }
+
+  .admin-home-links{
+    display:flex !important;
+    gap:8px;
+    margin:8px 0 12px;
+    flex-wrap:wrap;
+  }
+
+  .admin-home-links .btn{
+    display:inline-flex !important;
+    align-items:center;
+    justify-content:center;
+    white-space:nowrap;
+  }
 }
 
-#statsSummary .summary-card{
-  background:#fff;
-  border:1px solid #dbe3f0;
-  border-radius:10px;
-  padding:8px 10px;
-  box-shadow:0 1px 4px rgba(0,0,0,0.04);
-}
-
-#statsSummary .summary-label{
-  font-size:11px;
-  font-weight:700;
-  color:#64748b;
-  margin-bottom:4px;
-  white-space:nowrap;
-}
-
-#statsSummary .summary-value{
-  font-size:16px;
-  font-weight:900;
-  line-height:1;
-  letter-spacing:-0.5px; /*추가*/
-}
-
-..admin-home-links{
-  display:flex !important;
-  gap:8px;
-  margin:8px 0 12px;
-  flex-wrap:wrap;
-}
-
-.admin-home-links .btn{
-  display:inline-flex !important;
-  align-items:center;
-  justify-content:center;
-  white-space:nowrap;
-}
-
-}
+/* =========================================================
+   04 Admin Hub / Business Shortcuts
+   ========================================================= */
 .admin-hub-note{margin:-4px 0 12px}
 .biz-item.business-hub{grid-template-columns:64px 1fr;align-items:start}
 .biz-main{min-width:0}
@@ -262,6 +272,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .biz-action-btn:hover{border-color:var(--blue);color:var(--blue)}
 .biz-action-btn.primary-link{background:#eef4ff;border-color:#c7d2fe;color:#1e40af}
 
+
+/* =========================================================
+   06 Admin User Management
+   ========================================================= */
 #adminUserSection{
   margin-top:24px;
   padding:20px;
@@ -324,6 +338,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .admin-card h3{
   margin:0 0 10px;
 }
+
+/* =========================================================
+   05 Request Management
+   ========================================================= */
 .request-tabs{
     display:flex;
     gap:12px;
@@ -405,6 +423,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
   background:#315df4;
   color:#fff;
 }
+
+/* =========================================================
+   05 Modal
+   ========================================================= */
 .modal{
   position:fixed;
   inset:0;
@@ -452,4 +474,24 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .danger{
   background:#fee2e2;
   color:#b91c1c;
+}
+
+
+/* =========================================================
+   02 Form Enhancements: Description / Hours / Upload
+   ========================================================= */
+#description,
+#description_images,
+#hours{
+  min-height:140px;
+  resize:vertical;
+}
+
+#descriptionImagesFile,
+#descriptionImageFile{
+  margin-top:8px;
+}
+
+.field.full button{
+  margin-top:10px;
 }
