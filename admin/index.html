@@ -75,7 +75,9 @@
       광고 문의
     </button>
   </div>
-
+    <button class="nav-item" data-section="adsOps" onclick="loadAdsOps()">
+      광고 운영
+    </button>
   <div id="businessRequestsArea">
     <div class="request-tools">
       <input id="businessRequestSearch" placeholder="업소명, 담당자, 전화 검색">
@@ -428,7 +430,18 @@
   <h2>광고 문의</h2>
   <div id="adRequestsList"></div>
   </section>
+  <section id="section-adsOps" class="admin-section hidden">
+  <h2>광고 운영</h2>
 
+  <div class="admin-tabs">
+    <button type="button" onclick="loadAdsOps()">유료 업소 현황</button>
+    <button type="button" onclick="previewRotation()">오늘 로테이션 미리보기</button>
+  </div>
+
+  <div id="adsOpsSummary"></div>
+  <div id="adsOpsList"></div>
+  <div id="rotationPreview"></div>
+  </section>
 <section id="section-banners" class="admin-section">
   <section class="toolbar card">
     <div class="toolbar-row">
