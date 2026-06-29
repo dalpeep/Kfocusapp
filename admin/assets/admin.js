@@ -252,7 +252,8 @@ function renderPager(target, page, total, fnName){
 
 window.showRequestTab = showRequestTab;
 async function approveBusinessRequest(id){
-  const { data: req, error: reqError } = await supabase
+
+  const { data:req, error:reqError } = await supabase
     .from('business_requests')
     .select('*')
     .eq('id', id)
@@ -261,32 +262,26 @@ async function approveBusinessRequest(id){
   if(reqError) return alert(reqError.message);
   if(!req) return alert('신청 정보를 찾을 수 없습니다.');
 
-  const { error: insertError } = await supabase
-    .from('businesses')
-    .insert({
-      name_ko: req.business_name,
-      name_en: req.business_name,
-      phone: req.phone,
-      email: req.email,
-      category_ko: req.category,
-      address: req.address,
-      website: req.website,
-      description: req.message,
-      region: 'dallas',
-      is_active: true,
-      is_new: true
-    });
+  // 업소관리 화면으로 이동
+  switchSection('business');
 
-  if(insertError) return alert(insertError.message);
+  // 기존 입력폼 초기화
+  clearBusinessForm();
 
-  await supabase
-    .from('business_requests')
-    .update({ status:'approved' })
-    .eq('id', id);
+  // 신청내용 자동 입력
+  setVal('name_ko', req.business_name || '');
+  setVal('name_en', req.business_name || '');
+  setVal('phone', req.phone || '');
+  setVal('email', req.email || '');
+  setVal('category_ko', req.category || '');
+  setVal('address', req.address || '');
+  setVal('website', req.website || '');
+  setVal('description', req.message || '');
 
-  alert('업소로 등록되었습니다.');
-  loadBusinessRequests();
-  loadBusinesses();
+  // 기본값
+  setVal('region', 'dallas');
+
+  alert('업소관리로 불러왔습니다.\n이미지, Area, 영업시간 등을 입력한 후 저장하세요.');
 }
 
 window.loadAdRequests = loadAdRequests;
