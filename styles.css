@@ -1,3 +1,13 @@
+/* =========================================================
+   DalTownMap App Stylesheet
+   정리 기준:
+   01 Base / Header / Side Menu
+   02 Page Layout / Home / Lists / Detail
+   03 Coupons / Boards / Map / Search
+   04 Legal / Request Forms / Business Detail Enhancements
+   05 Mobile Responsive Rules
+   ========================================================= */
+
 :root{--bg:#eef3fb;--card:#fff;--line:#d7e2f4;--text:#18335f;--muted:#6a7893;--blue:#2f80ed;--headerBlue1:#2b68df;--headerBlue2:#64b4ff}
 *{box-sizing:border-box}html,body{margin:0;padding:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:var(--text)}body{display:flex;justify-content:center}.app-shell{width:100%;max-width:430px;min-height:100vh;padding:10px 10px 96px}
 .sticky-header{position:sticky;top:0;z-index:60;background:linear-gradient(90deg,var(--headerBlue1),var(--headerBlue2));border-radius:0 0 22px 22px;padding:8px 12px 10px;margin:0 -10px 10px;box-shadow:0 6px 18px rgba(40,95,200,.18)}.header{display:grid;grid-template-columns:50px minmax(0,1fr) 50px;align-items:center;gap:8px}
@@ -3359,6 +3369,10 @@ body,
   margin-top:24px;
   padding-bottom:24px;
 }
+
+/* =========================================================
+   04 Request Pages: Advertise / Business Register
+   ========================================================= */
 .request-card{
   margin:24px 18px 90px;
   padding:24px 18px;
@@ -3434,11 +3448,10 @@ body,
     min-height:170px;
   }
 }
-.biz-description{
-  white-space:pre-line;
-  line-height:1.7;
-}
 
+/* =========================================================
+   04 Business Detail: Description / Gallery / Hours
+   ========================================================= */
 .biz-description-image{
   width:100%;
   border-radius:18px;
