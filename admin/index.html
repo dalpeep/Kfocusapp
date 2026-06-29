@@ -75,9 +75,7 @@
       광고 문의
     </button>
   </div>
-    <button class="nav-item" data-section="adsOps" onclick="loadAdsOps()">
-      광고 운영
-    </button>
+
   <div id="businessRequestsArea">
     <div class="request-tools">
       <input id="businessRequestSearch" placeholder="업소명, 담당자, 전화 검색">
@@ -430,7 +428,7 @@
   <h2>광고 문의</h2>
   <div id="adRequestsList"></div>
   </section>
-  <section id="section-adsOps" class="admin-section hidden">
+<section id="section-adsOps" class="admin-section hidden">
   <h2>광고 운영</h2>
 
   <div class="admin-tabs">
@@ -441,7 +439,7 @@
   <div id="adsOpsSummary"></div>
   <div id="adsOpsList"></div>
   <div id="rotationPreview"></div>
-  </section>
+</section>
 <section id="section-banners" class="admin-section">
   <section class="toolbar card">
     <div class="toolbar-row">
@@ -550,6 +548,47 @@
     </div>
   </div>
 </div>
+
+<div class="form-section">
+  <h3>광고 운영</h3>
+
+  <label class="field">
+    <span>유료 광고</span>
+    <input id="paid_active" type="checkbox">
+  </label>
+
+  <label class="field">
+    <span>광고 상품</span>
+    <select id="paid_product">
+      <option value="none">없음</option>
+      <option value="basic">Basic $100</option>
+      <option value="premium">Premium</option>
+      <option value="slider">Slider</option>
+      <option value="banner">Banner</option>
+    </select>
+  </label>
+
+  <label class="field">
+    <span>노출 가중치</span>
+    <input id="paid_weight" type="number" min="1" max="5" value="1">
+  </label>
+
+  <label class="field">
+    <span>광고 시작일</span>
+    <input id="paid_start_at" type="date">
+  </label>
+
+  <label class="field">
+    <span>광고 종료일</span>
+    <input id="paid_end_at" type="date">
+  </label>
+
+  <label class="field">
+    <span>자동 로테이션</span>
+    <input id="rotation_enabled" type="checkbox" checked>
+  </label>
+</div>
+
       <section id="section-board" class="admin-section">
         <section class="toolbar card">
           <div class="toolbar-row">
@@ -633,42 +672,6 @@
     </div>
   </div>
 </section>
-
-<label class="field">
-  <span>유료 광고</span>
-  <input id="paid_active" type="checkbox">
-</label>
-
-<label class="field">
-  <span>광고 상품</span>
-  <select id="paid_product">
-    <option value="none">없음</option>
-    <option value="basic">Basic $100</option>
-    <option value="premium">Premium</option>
-    <option value="slider">Slider</option>
-    <option value="banner">Banner</option>
-  </select>
-</label>
-
-<label class="field">
-  <span>노출 가중치</span>
-  <input id="paid_weight" type="number" min="1" max="5" value="1">
-</label>
-
-<label class="field">
-  <span>광고 시작일</span>
-  <input id="paid_start_at" type="date">
-</label>
-
-<label class="field">
-  <span>광고 종료일</span>
-  <input id="paid_end_at" type="date">
-</label>
-
-<label class="field">
-  <span>자동 로테이션</span>
-  <input id="rotation_enabled" type="checkbox" checked>
-</label>
 
     </main>
   </div>
