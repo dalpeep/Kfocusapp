@@ -17,6 +17,13 @@
   box-shadow:0 4px 16px rgba(15,23,42,.05);
   max-width:900px;
 }
+
+.ad-settings-section{
+  border-top:1px solid #dfe6f2;
+  margin-top:12px;
+  padding-top:18px;
+}
+.ad-settings-section h3{margin:0 0 12px;}
 </style>
 </head>
 <body>
@@ -37,6 +44,7 @@
         <button class="nav-item" data-section="board">게시판 관리</button>
 		<button class="nav-item" data-section="banners">배너 관리</button>
 		<button class="nav-item" data-section="requests">신청 관리</button>
+		<button class="nav-item" data-section="adsOps" onclick="loadAdsOps()">광고 운영</button>
 		<button class="nav-item" type="button" data-section="push">푸시 발송</button>
         <button class="nav-item" type="button" data-section="adminUsers">관리자 관리</button>
       </nav>
@@ -289,6 +297,46 @@
               <label class="field full"><span>프로모션 이미지 URL</span><input id="promo_image_url" type="url" /></label>
               <label class="field checkbox-line"><input id="home_fixed" type="checkbox" /><span>홈 고정</span></label>
               <label class="field"><span>홈 고정 순서</span><input id="home_fixed_sort" type="number" /></label>
+              <div class="field full form-section ad-settings-section">
+                <h3>광고 운영</h3>
+              
+                <label class="field">
+                  <span>유료 광고</span>
+                  <input id="paid_active" type="checkbox">
+                </label>
+              
+                <label class="field">
+                  <span>광고 상품</span>
+                  <select id="paid_product">
+                    <option value="none">없음</option>
+                    <option value="basic">Basic $100</option>
+                    <option value="premium">Premium</option>
+                    <option value="slider">Slider</option>
+                    <option value="banner">Banner</option>
+                  </select>
+                </label>
+              
+                <label class="field">
+                  <span>노출 가중치</span>
+                  <input id="paid_weight" type="number" min="1" max="5" value="1">
+                </label>
+              
+                <label class="field">
+                  <span>광고 시작일</span>
+                  <input id="paid_start_at" type="date">
+                </label>
+              
+                <label class="field">
+                  <span>광고 종료일</span>
+                  <input id="paid_end_at" type="date">
+                </label>
+              
+                <label class="field">
+                  <span>자동 로테이션</span>
+                  <input id="rotation_enabled" type="checkbox" checked>
+                </label>
+              </div>
+
             </form>
 
             <div class="preview-wrap">
@@ -419,15 +467,6 @@
         </section>
       </section>
 
-   <section id="section-businessRequests" class="admin-section hidden">
-  <h2>업소 등록 신청</h2>
-  <div id="businessRequestsList"></div>
-  </section>
-
-  <section id="section-adRequests" class="admin-section hidden">
-  <h2>광고 문의</h2>
-  <div id="adRequestsList"></div>
-  </section>
 <section id="section-adsOps" class="admin-section hidden">
   <h2>광고 운영</h2>
 
@@ -547,46 +586,6 @@
       <button onclick="deleteCurrentRequest()" class="danger">삭제</button>
     </div>
   </div>
-</div>
-
-<div class="form-section">
-  <h3>광고 운영</h3>
-
-  <label class="field">
-    <span>유료 광고</span>
-    <input id="paid_active" type="checkbox">
-  </label>
-
-  <label class="field">
-    <span>광고 상품</span>
-    <select id="paid_product">
-      <option value="none">없음</option>
-      <option value="basic">Basic $100</option>
-      <option value="premium">Premium</option>
-      <option value="slider">Slider</option>
-      <option value="banner">Banner</option>
-    </select>
-  </label>
-
-  <label class="field">
-    <span>노출 가중치</span>
-    <input id="paid_weight" type="number" min="1" max="5" value="1">
-  </label>
-
-  <label class="field">
-    <span>광고 시작일</span>
-    <input id="paid_start_at" type="date">
-  </label>
-
-  <label class="field">
-    <span>광고 종료일</span>
-    <input id="paid_end_at" type="date">
-  </label>
-
-  <label class="field">
-    <span>자동 로테이션</span>
-    <input id="rotation_enabled" type="checkbox" checked>
-  </label>
 </div>
 
       <section id="section-board" class="admin-section">
