@@ -3523,23 +3523,24 @@ body,
 }
 /* Business hours compact layout */
 .biz-hours-table .hours-row{
-  display:grid !important;
-  grid-template-columns:70px 1fr !important;
-  gap:1px !important;
-  align-items:center !important;
-  padding:1px 0 !important;
-  border-bottom:1px solid #edf2f7;
+    display:flex !important;
+    align-items:center !important;
+
+    height:34px !important;
+    min-height:34px !important;
+
+    padding:0 !important;
+    margin:0 !important;
+
+    border-bottom:1px solid #ececec;
 }
 
 .biz-hours-table .hours-row span{
-  width:auto !important;
-  flex:none !important;
-  color:#64748b;
-  font-weight:700;
+    width:62px !important;
+    margin:0 !important;
 }
 
 .biz-hours-table .hours-row strong{
-  text-align:left !important;
-  color:#0b2a5b;
-  font-weight:600;
+    margin-left:10px !important;
+    line-height:34px !important;
 }
