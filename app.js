@@ -1632,17 +1632,16 @@ ${getDescriptionImages(b).length ? `
   </p>
 </section>
 
-    <section class="biz-detail-card">
+      <section class="biz-detail-card">
       <h3>영업 정보</h3>
       <div class="biz-info-list">
       <div class="biz-hours-block">
       <div class="biz-info-label">
       <i data-lucide="clock"></i>
       영업시간
+      </div> 
+      ${renderBusinessHours(b)}
       </div>
-<div class="biz-hours-block">
-  ${esc(b.hours || '정보 없음').replace(/\n/g, '<br>')}
-</div>
         </div>
         <p>
         <i data-lucide="car"></i>
@@ -1736,6 +1735,34 @@ const hoursHtml = `
     <strong>${b.sunday || '휴무'}</strong>
 </div>
 `;
+function renderBusinessHours(b){
+  const days = [
+    ['월요일', b.monday],
+    ['화요일', b.tuesday],
+    ['수요일', b.wednesday],
+    ['목요일', b.thursday],
+    ['금요일', b.friday],
+    ['토요일', b.saturday],
+    ['일요일', b.sunday],
+  ];
+
+  const hasDayHours = days.some(([_, v]) => v && String(v).trim());
+
+  if (!hasDayHours) {
+    return `<div class="biz-hours-block">${esc(b.hours || '정보 없음')}</div>`;
+  }
+
+  return `
+    <div class="biz-hours-table">
+      ${days.map(([label, value]) => `
+        <div class="hours-row">
+          <span>${label}</span>
+          <strong>${esc(value || '휴무')}</strong>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
