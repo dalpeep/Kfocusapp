@@ -3508,3 +3508,16 @@ body,
     text-align:left;
     line-height:1.4;
 }
+.hours-row strong{
+  font-weight:600;
+  color:#0b2a5b;
+  text-align:left;
+  line-height:1.4;
+  word-break:keep-all;
+}
+@media (max-width:480px){
+  .hours-row{
+    grid-template-columns:58px auto;
+    gap:10px;
+  }
+}
