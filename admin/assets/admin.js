@@ -906,20 +906,22 @@ function collectBusinessPayload() {
     p[id] = val(id).trim() ? val(id).trim() : null;
   });
 
-  [
-    'lat',
-    'lng',
-    'rating',
-    'review_count',
-    'paid_weight',
-    'featured_rank',
-    'new_rank',
-    'popular_rank',
-    'home_fixed_sort'
-  ].forEach((id) => {
-    const raw = val(id);
-    p[id] = raw === '' ? null : Number(raw);
-  });
+[
+  'lat',
+  'lng',
+  'rating',
+  'review_count',
+  'paid_weight',
+  'featured_rank',
+  'new_rank',
+  'popular_rank'
+].forEach((id) => {
+  const raw = val(id);
+  p[id] = raw === '' ? null : Number(raw);
+});
+
+const homeFixedSortRaw = val('home_fixed_sort');
+p.home_fixed_sort = homeFixedSortRaw === '' ? 1000 : Number(homeFixedSortRaw);
 
   p.is_active = checked('is_active');
   p.is_featured = checked('is_featured');
