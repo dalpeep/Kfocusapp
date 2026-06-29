@@ -1736,35 +1736,30 @@ const hoursHtml = `
 </div>
 `;
 function renderBusinessHours(b){
-  const labels = {
-    mon:'월요일',
-    tue:'화요일',
-    wed:'수요일',
-    thu:'목요일',
-    fri:'금요일',
-    sat:'토요일',
-    sun:'일요일'
-  };
+  const rows = [
+    ['월요일', b.monday || b.business_hours?.mon?.text],
+    ['화요일', b.tuesday || b.business_hours?.tue?.text],
+    ['수요일', b.wednesday || b.business_hours?.wed?.text],
+    ['목요일', b.thursday || b.business_hours?.thu?.text],
+    ['금요일', b.friday || b.business_hours?.fri?.text],
+    ['토요일', b.saturday || b.business_hours?.sat?.text],
+    ['일요일', b.sunday || b.business_hours?.sun?.text],
+  ];
 
-  const hours = b.business_hours || {};
+  const hasHours = rows.some(([_, v]) => v && String(v).trim());
 
-  if (!hours || Object.keys(hours).length === 0) {
+  if(!hasHours){
     return `<div class="biz-hours-block">${esc(b.hours || '정보 없음')}</div>`;
   }
 
   return `
     <div class="biz-hours-table">
-      ${Object.entries(labels).map(([day, label]) => {
-        const h = hours[day] || {};
-        const text = h.text || '휴무';
-
-        return `
-          <div class="hours-row">
-            <span>${label}</span>
-            <strong>${esc(text)}</strong>
-          </div>
-        `;
-      }).join('')}
+      ${rows.map(([label, value]) => `
+        <div class="hours-row">
+          <span>${label}</span>
+          <strong>${esc(value || '휴무')}</strong>
+        </div>
+      `).join('')}
     </div>
   `;
 }
