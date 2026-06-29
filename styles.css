@@ -3480,45 +3480,31 @@ body,
   white-space:pre-line;
   line-height:1.7;
 }
+.biz-hours-table{
+    margin-top:8px;
+}
+
 .hours-row{
-    display:flex;
-    justify-content:space-between;
+    display:grid;
+    grid-template-columns:68px auto;
+    gap:12px;
     align-items:center;
     padding:8px 0;
-    border-bottom:1px solid #ececec;
+    border-bottom:1px solid #edf2f7;
+}
+
+.hours-row:last-child{
+    border-bottom:none;
 }
 
 .hours-row span{
-    width:90px;
-    color:#666;
+    font-weight:700;
+    color:#64748b;
+}
+
+.hours-row strong{
     font-weight:600;
-}
-
-.hours-row strong{
-    color:#222;
-    font-weight:500;
-}
-.biz-hours-table{
-  margin-top:8px;
-}
-
-.hours-row{
-  display:flex;
-  justify-content:space-between;
-  gap:16px;
-  padding:7px 0;
-  border-bottom:1px solid #edf2f7;
-}
-
-.hours-row span{
-  color:#64748b;
-  font-weight:700;
-  flex:0 0 70px;
-}
-
-.hours-row strong{
-  color:#0b2a5b;
-  font-weight:600;
-  text-align:right;
-  line-height:1.45;
+    color:#0b2a5b;
+    text-align:left;
+    line-height:1.4;
 }
