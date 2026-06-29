@@ -3591,3 +3591,6 @@ body,
 .biz-detail-card h3{
     margin-bottom:12px !important;
 }
+.biz-detail-card{
+    padding:18px 20px !important;
+}
