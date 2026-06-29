@@ -44,7 +44,7 @@ const BUSINESS_FIELDS = [
   'paid_end_at',
 ];
 const BUSINESS_CHECKS = [
-  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed' 'paid_active', 'rotation_enabled',
+  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled',
 ];
 
 function on(id, evt, fn) {
