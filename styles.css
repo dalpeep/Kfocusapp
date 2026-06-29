@@ -3525,7 +3525,7 @@ body,
 .biz-hours-table .hours-row{
   display:grid !important;
   grid-template-columns:70px 1fr !important;
-  gap:10px !important;
+  gap:1px !important;
   align-items:center !important;
   padding:8px 0 !important;
   border-bottom:1px solid #edf2f7;
