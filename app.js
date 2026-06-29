@@ -2815,6 +2815,55 @@ function closeVideoModal(){
   modal.classList.add('hidden');
   document.body.style.overflow = '';
 }
+
+function sortPaidRotation(list, section){
+  const today = new Date().toISOString().slice(0,10);
+
+  return list
+    .filter(b => b.paid_active)
+    .sort((a,b) => {
+      const aKey = hashKey(`${today}-${section}-${a.id}`);
+      const bKey = hashKey(`${today}-${section}-${b.id}`);
+      return aKey - bKey;
+    });
+}
+
+function seededRandom(seed){
+  let h = 2166136261;
+  for(let i = 0; i < seed.length; i++){
+    h ^= seed.charCodeAt(i);
+    h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+  }
+  return Math.abs(h >>> 0);
+}
+
+function isPaidActive(b){
+  if(!b.paid_active) return false;
+
+  const today = new Date().toISOString().slice(0,10);
+
+  if(b.paid_start_at && b.paid_start_at > today) return false;
+  if(b.paid_end_at && b.paid_end_at < today) return false;
+
+  return true;
+}
+
+function paidRotationScore(b, section){
+  const today = new Date().toISOString().slice(0,10);
+  const weight = Number(b.paid_weight || 1);
+  const seed = `${today}-${section}-${b.id}`;
+  return seededRandom(seed) / weight;
+}
+
+function getAutoPaidBusinesses(section, limit = 6){
+  return businesses
+    .filter(b => b.is_active !== false)
+    .filter(b => isPaidActive(b))
+    .filter(b => b.rotation_enabled !== false)
+    .sort((a,b) => paidRotationScore(a, section) - paidRotationScore(b, section))
+    .slice(0, limit);
+}
+
 function renderTodayCoupons(){
   const box = document.getElementById('todayCouponList');
   if(!box) return;
