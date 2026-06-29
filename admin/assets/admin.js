@@ -1774,7 +1774,21 @@ function renderGalleryList(row = null) {
     });
   });
 }
+function fillBusinessHours(hours){
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
 
+  days.forEach((day) => {
+    const h = hours?.[day] || {};
+
+    setVal(`${day}_open1`, h.open1 || '');
+    setVal(`${day}_close1`, h.close1 || '');
+    setVal(`${day}_open2`, h.open2 || '');
+    setVal(`${day}_close2`, h.close2 || '');
+
+    const closedEl = document.getElementById(`${day}_closed`);
+    if (closedEl) closedEl.checked = !!h.closed;
+  });
+}
 async function uploadGalleryImages() {
   if (!selectedId) return alert('먼저 업소를 선택하세요.');
 
