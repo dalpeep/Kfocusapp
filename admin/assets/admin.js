@@ -1154,21 +1154,15 @@ async function uploadBoardImage() {
   }
 }
 function collectBusinessHours(){
-  const days = ['mon','tue','wed','thu','fri','sat','sun'];
-
-  const result = {};
-
-  days.forEach(day => {
-    result[day] = {
-      closed: checked(`${day}_closed`),
-      open1: val(`${day}_open1`),
-      close1: val(`${day}_close1`),
-      open2: val(`${day}_open2`),
-      close2: val(`${day}_close2`)
-    };
-  });
-
-  return result;
+  return {
+    mon: { text: val('monday') },
+    tue: { text: val('tuesday') },
+    wed: { text: val('wednesday') },
+    thu: { text: val('thursday') },
+    fri: { text: val('friday') },
+    sat: { text: val('saturday') },
+    sun: { text: val('sunday') }
+  };
 }
 function clearBoardImage() {
   setVal('board_image_url', '');
@@ -1775,19 +1769,13 @@ function renderGalleryList(row = null) {
   });
 }
 function fillBusinessHours(hours){
-  const days = ['mon','tue','wed','thu','fri','sat','sun'];
-
-  days.forEach((day) => {
-    const h = hours?.[day] || {};
-
-    setVal(`${day}_open1`, h.open1 || '');
-    setVal(`${day}_close1`, h.close1 || '');
-    setVal(`${day}_open2`, h.open2 || '');
-    setVal(`${day}_close2`, h.close2 || '');
-
-    const closedEl = document.getElementById(`${day}_closed`);
-    if (closedEl) closedEl.checked = !!h.closed;
-  });
+  setVal('monday', hours?.mon?.text || '');
+  setVal('tuesday', hours?.tue?.text || '');
+  setVal('wednesday', hours?.wed?.text || '');
+  setVal('thursday', hours?.thu?.text || '');
+  setVal('friday', hours?.fri?.text || '');
+  setVal('saturday', hours?.sat?.text || '');
+  setVal('sunday', hours?.sun?.text || '');
 }
 async function uploadGalleryImages() {
   if (!selectedId) return alert('먼저 업소를 선택하세요.');
