@@ -38,9 +38,13 @@ const BUSINESS_FIELDS = [
   'image_url', 'video_url',
   'lat', 'lng', 'featured_rank', 'new_rank', 'popular_rank',
   'promo_text', 'promo_image_url', 'home_fixed_sort'
+  'paid_product',
+  'paid_weight',
+  'paid_start_at',
+  'paid_end_at',
 ];
 const BUSINESS_CHECKS = [
-  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed'
+  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed' 'paid_active', 'rotation_enabled',
 ];
 
 function on(id, evt, fn) {
@@ -754,7 +758,12 @@ function collectBusinessPayload() {
  'video_url',
  'promo_text',
  'promo_image_url'
-].forEach((id) => {
+]
+['lat', 'lng', 'paid_weight'].forEach((id) => {
+  const raw = val(id);
+  p[id] = raw === '' ? null : Number(raw);
+});
+.forEach((id) => {
     p[id] = val(id).trim() ? val(id).trim() : null;
   });
   ['lat', 'lng'].forEach((id) => {
