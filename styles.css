@@ -3467,3 +3467,21 @@ body,
   white-space:pre-line;
   line-height:1.7;
 }
+.hours-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:8px 0;
+    border-bottom:1px solid #ececec;
+}
+
+.hours-row span{
+    width:90px;
+    color:#666;
+    font-weight:600;
+}
+
+.hours-row strong{
+    color:#222;
+    font-weight:500;
+}

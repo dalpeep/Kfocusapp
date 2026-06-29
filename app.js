@@ -1700,7 +1700,42 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     alert(`${label} 링크는 아직 준비중입니다.`);
   });
 });
+const hoursHtml = `
+<div class="hours-row">
+    <span>월요일</span>
+    <strong>${b.monday || '휴무'}</strong>
+</div>
 
+<div class="hours-row">
+    <span>화요일</span>
+    <strong>${b.tuesday || '휴무'}</strong>
+</div>
+
+<div class="hours-row">
+    <span>수요일</span>
+    <strong>${b.wednesday || '휴무'}</strong>
+</div>
+
+<div class="hours-row">
+    <span>목요일</span>
+    <strong>${b.thursday || '휴무'}</strong>
+</div>
+
+<div class="hours-row">
+    <span>금요일</span>
+    <strong>${b.friday || '휴무'}</strong>
+</div>
+
+<div class="hours-row">
+    <span>토요일</span>
+    <strong>${b.saturday || '휴무'}</strong>
+</div>
+
+<div class="hours-row">
+    <span>일요일</span>
+    <strong>${b.sunday || '휴무'}</strong>
+</div>
+`;
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
