@@ -852,42 +852,51 @@ function renderBusinessList(items) {
     });
   });
 }
+
 function collectBusinessPayload() {
   const p = {};
+
   [
- 'name_ko',
- 'name_en',
- 'category_ko',
- 'area',
- 'region',
- 'phone',
- 'website',
- 'email',
- 'address',
- 'description',
+    'name_ko',
+    'name_en',
+    'category_ko',
+    'area',
+    'region',
+    'phone',
+    'website',
+    'email',
+    'address',
+    'description',
+    'hours',
+    'parking',
+    'reservation',
+    'reservation_url',
+    'languages',
+    'google_maps_url',
+    'google_maps_url',
+    'insurance',
+    'image_url',
+    'video_url',
+    'promo_text',
+    'promo_image_url',
+    'paid_product',
+    'paid_start_at',
+    'paid_end_at'
+  ].forEach((id) => {
+    p[id] = val(id).trim() ? val(id).trim() : null;
+  });
 
- 'hours',
- 'parking',
- 'reservation',
- 'reservation_url',
- 'languages',
- 'google_maps_url',
- 'rating',
- 'review_count',
- 'google_maps_url',
- 'insurance',
-
- 'image_url',
- 'video_url',
- 'promo_text',
- 'promo_image_url'
-]
-['lat', 'lng', 'paid_weight'].forEach((id) => {
-  const raw = val(id);
-  p[id] = raw === '' ? null : Number(raw);
-});
-
-  ['lat', 'lng'].forEach((id) => {
+  [
+    'lat',
+    'lng',
+    'rating',
+    'review_count',
+    'paid_weight',
+    'featured_rank',
+    'new_rank',
+    'popular_rank',
+    'home_fixed_sort'
+  ].forEach((id) => {
     const raw = val(id);
     p[id] = raw === '' ? null : Number(raw);
   });
@@ -899,12 +908,8 @@ function collectBusinessPayload() {
   p.promo_enabled = checked('promo_enabled');
   p.home_fixed = checked('home_fixed');
 
-  ['featured_rank', 'new_rank', 'popular_rank', 'home_fixed_sort'].forEach((id) => {
-    const raw = val(id);
-    let n = raw === '' ? 1000 : Number(raw);
-    if (Number.isNaN(n)) n = 1000;
-    p[id] = n;
-  });
+  p.paid_active = checked('paid_active');
+  p.rotation_enabled = checked('rotation_enabled');
 
   return p;
 }
