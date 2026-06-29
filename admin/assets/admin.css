@@ -495,3 +495,26 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .field.full button{
   margin-top:10px;
 }
+.hours-editor{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.hours-editor-head,
+.hours-editor-row{
+  display:grid;
+  grid-template-columns:80px repeat(4, 1fr) 60px;
+  gap:8px;
+  align-items:center;
+}
+
+.hours-editor-head{
+  font-size:12px;
+  font-weight:800;
+  color:#64748b;
+}
+
+.hours-editor-row input{
+  min-height:38px;
+}

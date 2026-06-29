@@ -692,6 +692,7 @@ function fillBusinessForm(row) {
 
   updatePreview();
   renderGalleryList(row);
+  fillBusinessHours(row?.business_hours);
 }
 function businessCategoryOptions() {
   const cats = Array.from(new Set(
@@ -948,7 +949,7 @@ p.home_fixed_sort = homeFixedSortRaw === '' ? 1000 : Number(homeFixedSortRaw);
   alert('소개 이미지 목록 형식이 잘못되었습니다.');
   p.description_images = [];
 }
-
+p.business_hours = collectBusinessHours();
   return p;
 }
 async function loadBusinesses() {
@@ -1151,7 +1152,23 @@ async function uploadBoardImage() {
     alert(`게시판 이미지 업로드 실패: ${e.message}`);
   }
 }
+function collectBusinessHours(){
+  const days = ['mon','tue','wed','thu','fri','sat','sun'];
 
+  const result = {};
+
+  days.forEach(day => {
+    result[day] = {
+      closed: checked(`${day}_closed`),
+      open1: val(`${day}_open1`),
+      close1: val(`${day}_close1`),
+      open2: val(`${day}_open2`),
+      close2: val(`${day}_close2`)
+    };
+  });
+
+  return result;
+}
 function clearBoardImage() {
   setVal('board_image_url', '');
   setVal('board_business_id', '');
