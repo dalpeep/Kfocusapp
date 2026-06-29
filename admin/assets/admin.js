@@ -43,6 +43,13 @@ const BUSINESS_FIELDS = [
   'paid_start_at',
   'paid_end_at',
   'description_image_url',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
 
 ];
 const BUSINESS_CHECKS = [
