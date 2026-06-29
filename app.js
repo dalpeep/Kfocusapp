@@ -1514,6 +1514,15 @@ const website = b.website || b.url || '';
 const activeCoupon = coupons.find(c =>
   String(c.businessId || c.business_id) === String(b.id)
 );
+function getDescriptionImages(b){
+  if (Array.isArray(b.description_images)) return b.description_images;
+
+  try {
+    return b.description_images ? JSON.parse(b.description_images) : [];
+  } catch(e) {
+    return [];
+  }
+}
 
 detailCard.innerHTML = `
   <article class="biz-detail-v2">
@@ -1607,12 +1616,21 @@ ${b.rating ? `
     </section>
 ` : ''}
 
-    <section class="biz-detail-card">
-      <h3>매장 소개</h3>
-      <p class="biz-description">
-        ${esc(b.description || '업소 소개가 준비 중입니다.')}
-      </p>
-    </section>
+<section class="biz-detail-card">
+  <h3>매장 소개</h3>
+
+${getDescriptionImages(b).length ? `
+  <div class="biz-description-gallery">
+    ${getDescriptionImages(b).map(url => `
+      <img src="${esc(url)}" alt="업소 소개 이미지">
+    `).join('')}
+  </div>
+` : ''}
+
+  <p class="biz-description">
+    ${esc(b.description || '업소 소개가 준비 중입니다.')}
+  </p>
+</section>
 
     <section class="biz-detail-card">
       <h3>영업 정보</h3>

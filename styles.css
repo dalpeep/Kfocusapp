@@ -3434,3 +3434,32 @@ body,
     min-height:170px;
   }
 }
+.biz-description{
+  white-space:pre-line;
+  line-height:1.7;
+}
+
+.biz-description-image{
+  width:100%;
+  border-radius:18px;
+  margin:14px 0 18px;
+  display:block;
+}
+.biz-description{
+  white-space:pre-line;
+  line-height:1.8;
+}
+
+.biz-description-gallery{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:12px;
+  margin:16px 0;
+}
+
+.biz-description-gallery img{
+  width:100%;
+  display:block;
+  border-radius:18px;
+  object-fit:cover;
+}
