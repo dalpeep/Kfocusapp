@@ -1640,9 +1640,9 @@ ${getDescriptionImages(b).length ? `
       <i data-lucide="clock"></i>
       영업시간
       </div>
-      <div class="biz-hours-list">
-           ${formatBusinessHours(b.hours)}
-      </div>
+<div class="biz-hours-block">
+  ${esc(b.hours || '정보 없음').replace(/\n/g, '<br>')}
+</div>
         </div>
         <p>
         <i data-lucide="car"></i>
