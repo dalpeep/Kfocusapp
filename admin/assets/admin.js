@@ -42,6 +42,8 @@ const BUSINESS_FIELDS = [
   'paid_weight',
   'paid_start_at',
   'paid_end_at',
+  'description_image_url',
+  'description_images',
 ];
 const BUSINESS_CHECKS = [
   'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled',
@@ -325,7 +327,25 @@ async function loadAdsOps(){
 
   document.querySelector('#rotationPreview').innerHTML = '';
 }
+async function uploadDescriptionImage(){
+  const file = document.getElementById('descriptionImageFile')?.files?.[0];
+  if(!file) return alert('이미지를 선택하세요.');
 
+  const { bucket, path } = makeUploadPath(file, 'business-description');
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, { upsert:false });
+
+  if(error) return alert(error.message);
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+
+  setVal('description_image_url', data.publicUrl);
+  alert('소개 이미지가 업로드되었습니다.');
+}
+
+window.uploadDescriptionImage = uploadDescriptionImage;
 async function previewRotation(){
   const { data, error } = await supabase
     .from('businesses')
@@ -910,6 +930,15 @@ function collectBusinessPayload() {
 
   p.paid_active = checked('paid_active');
   p.rotation_enabled = checked('rotation_enabled');
+  
+  try {
+  p.description_images = val('description_images')
+    ? JSON.parse(val('description_images'))
+    : [];
+} catch (e) {
+  alert('소개 이미지 목록 형식이 잘못되었습니다.');
+  p.description_images = [];
+}
 
   return p;
 }
@@ -947,6 +976,45 @@ async function saveBusiness() {
   if (res.data) fillBusinessForm(res.data);
   alert('업소 저장 완료');
 }
+async function uploadDescriptionImages(){
+  const files = Array.from(document.getElementById('descriptionImagesFile')?.files || []);
+  if(!files.length) return alert('이미지를 선택하세요.');
+
+  const urls = [];
+
+  for(const file of files){
+    const { bucket, path } = makeUploadPath(file, 'business-description');
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(path, file, { upsert:false });
+
+    if(error){
+      alert(error.message);
+      continue;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    urls.push(data.publicUrl);
+  }
+
+  const current = val('description_images');
+
+  let old = [];
+  try {
+    old = current ? JSON.parse(current) : [];
+  } catch(e) {
+    old = [];
+  }
+
+  const merged = [...old, ...urls];
+
+  setVal('description_images', JSON.stringify(merged, null, 2));
+
+  alert('소개 이미지가 업로드되었습니다.');
+}
+
+window.uploadDescriptionImages = uploadDescriptionImages;
 async function deleteBusiness() {
   if (!selectedId) return;
   if (!confirm('이 업소를 삭제할까요?')) return;
