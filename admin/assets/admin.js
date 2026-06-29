@@ -676,6 +676,7 @@ function clearBusinessForm() {
   $$('.business-row').forEach((el) => el.classList.remove('active'));
   updatePreview();
   renderGalleryList(null);
+  fillBusinessHours({});
 }
 function fillBusinessForm(row) {
   BUSINESS_FIELDS.forEach((id) => setVal(id, row?.[id] ?? ''));
