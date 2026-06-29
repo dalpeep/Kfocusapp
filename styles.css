@@ -3527,7 +3527,7 @@ body,
   grid-template-columns:70px 1fr !important;
   gap:1px !important;
   align-items:center !important;
-  padding:8px 0 !important;
+  padding:1px 0 !important;
   border-bottom:1px solid #edf2f7;
 }
 
