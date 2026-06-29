@@ -43,7 +43,7 @@ const BUSINESS_FIELDS = [
   'paid_start_at',
   'paid_end_at',
   'description_image_url',
-  'description_images',
+
 ];
 const BUSINESS_CHECKS = [
   'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled',
