@@ -184,20 +184,41 @@
               <label class="field"><span>웹사이트 주소 (선택)</span><input id="website" type="url" placeholder="https://example.com" /></label>
               <label class="field"><span>이메일 주소 (선택)</span><input id="email" type="email" placeholder="name@example.com" /></label>
               <label class="field full"><span>주소</span><input id="address" type="text" /></label>
-              <label class="field full"><span>설명</span><textarea id="description" rows="4"></textarea></label>
+              <label class="field full">
+<label class="field full">
+  <span>업소 소개</span>
+  <textarea
+    id="description"
+    rows="8"
+    placeholder="줄바꿈으로 문단을 나눌 수 있습니다."></textarea>
+</label>
+
+<label class="field full">
+  <span>업소 소개 이미지 여러 장 업로드</span>
+  <input id="descriptionImagesFile" type="file" accept="image/*" multiple>
+  <button type="button" onclick="uploadDescriptionImages()">소개 이미지 업로드</button>
+</label>
+
+<label class="field full">
+  <span>업소 소개 이미지 목록</span>
+  <textarea
+    id="description_images"
+    rows="5"
+    placeholder='["이미지URL1","이미지URL2"]'></textarea>
+</label>
 			  <label class="field">
               <label class="field full">
               <span>영업시간</span>
               <textarea
              id="hours"
              rows="7"
-             placeholder="월요일 10:00~18:00
-                          화요일 10:00~18:00
-                          수요일 휴무
-                          목요일 10:00~18:00
-                          금요일 10:00~18:00
-                          토요일 10:00~18:00
-                          일요일 12:00~17:00">
+             placeholder="월요일 10:00AM~06:00PM
+                          화요일 10:00AM~06:00PM
+                          수요일 10:00AM~06:00PM
+                          목요일 10:00AM~06:00PM
+                          금요일 10:00AM~06:00PM
+                          토요일 10:00AM~06:00PM
+                          일요일 10:00AM~06:00PM">
 						  </textarea>
               </label>
 
