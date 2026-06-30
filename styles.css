@@ -3756,3 +3756,74 @@ body,
   font-size:13px;
   color:#344767;
 }
+.home-biz-map-card{
+  width:100%;
+  display:grid;
+  grid-template-columns:82px 1fr;
+  gap:11px;
+  align-items:center;
+  min-height:78px;
+  padding:7px 10px !important;
+  border:0;
+  border-radius:16px;
+  background:#fff;
+  text-align:left;
+  box-shadow:0 6px 18px rgba(15,23,42,.05);
+  cursor:pointer;
+}
+
+.home-biz-map-img{
+  width:82px;
+  height:58px;
+  object-fit:cover;
+  border-radius:11px;
+  background:#eef2f7;
+}
+
+.home-biz-map-info{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:3px;
+}
+
+.home-biz-map-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+
+.home-biz-map-name{
+  font-size:17px;
+  font-weight:900;
+  color:#061b46;
+  line-height:1.15;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.home-biz-map-rating{
+  flex:none;
+  font-size:12px;
+  font-weight:800;
+  color:#f59e0b;
+}
+
+.home-biz-map-cat{
+  display:inline-flex;
+  padding:1px 7px;
+  border-radius:999px;
+  background:#fff1e9;
+  color:#d94b16;
+  font-size:11px;
+  font-weight:800;
+}
+
+.home-biz-map-location{
+  font-size:12px;
+  color:#344767;
+  line-height:1.2;
+}
