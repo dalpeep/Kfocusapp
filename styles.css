@@ -3705,10 +3705,10 @@ body,
 .home-biz-map-card{
   width:100%;
   display:grid;
-  grid-template-columns:82px 1fr;
+  grid-template-columns:82px 1fr auto;
   gap:12px;
   align-items:center;
-  min-height:74px;
+  min-height:72px;
   padding:7px 10px !important;
   border:0;
   border-radius:16px;
@@ -3723,35 +3723,36 @@ body,
   height:58px;
   object-fit:cover;
   border-radius:11px;
-  background:#eef2f7;
 }
 
-.home-biz-map-info{
+.home-biz-map-main{
   min-width:0;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  gap:3px;
 }
 
 .home-biz-map-name{
   font-size:17px;
   font-weight:900;
   color:#061b46;
-  line-height:1.15;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 
-.home-biz-map-meta{
+.home-biz-map-location{
+  margin-top:5px;
+  font-size:12px;
+  color:#344767;
+}
+
+.home-biz-map-side{
   display:flex;
-  align-items:center;
-  gap:8px;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:5px;
+  white-space:nowrap;
 }
 
 .home-biz-map-cat{
-  display:inline-flex;
   padding:1px 7px;
   border-radius:999px;
   background:#fff1e9;
@@ -3764,10 +3765,4 @@ body,
   color:#f59e0b;
   font-size:12px;
   font-weight:800;
-}
-
-.home-biz-map-location{
-  font-size:12px;
-  color:#344767;
-  line-height:1.2;
 }
