@@ -1287,26 +1287,17 @@ function nearbyBusinessItemHTML(b){
   `;
 }
 function homeBusinessItemHTML(b){
-  const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
-  const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
-  const category = getMainCategoryLabel(b.category) || '업소';
-  const area = b.city || b.area || b.region_label || 'Dallas, TX';
-
+  const img = b.image || b.image_url || '/assets/kfocus-icon.png';
 
   return `
-    <button class="home-biz-row biz-open" data-biz="${esc(b.id)}">
-      <div class="home-biz-row-photo">
-        <img src="${esc(thumb)}" alt="${esc(bizName)}">
-      </div>
-
-      <div class="home-biz-row-info">
-        <strong>${esc(bizName)}</strong>
-        <span class="home-biz-chip">${esc(category)}</span>
-        <span class="home-biz-meta">
-          <i data-lucide="map-pin"></i>
-          ${esc(area)}
-        </span>
-
+    <button class="home-biz-map-card biz-open-btn" type="button" data-id="${esc(b.id)}">
+      <img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">
+      <div class="home-biz-map-info">
+        <div class="home-biz-map-name">${esc(b.name || '이름 없음')}</div>
+        <div class="home-biz-map-meta">
+          <span class="home-biz-map-cat">${esc(b.category || '업소')}</span>
+        </div>
+        <div class="home-biz-map-location">📍 ${esc(b.area || 'Dallas, TX')}</div>
       </div>
     </button>
   `;
