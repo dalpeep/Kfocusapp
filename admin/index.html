@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kfocus Admin+</title>
+  <title>Daltownmap Admin+</title>
   <link rel="stylesheet" href="assets/admin.css" />
   <script src="../config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -128,7 +128,7 @@
         <section class="toolbar card">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="searchInput" type="text" placeholder="업소명, 카테고리, 지역" /></label>
-            <label class="field compact"><span>지역</span><select id="regionFilter"><option value="colorado">colorado</option><option value="all">all</option><option value="dallas">dallas</option></select></label>
+            <label class="field compact"><span>지역</span><select id="regionFilter"><option value="Dallas">dallas</option><option value="all">all</option><option value="dallas">dallas</option></select></label>
             <label class="field compact"><span>업종</span><select id="categoryFilter"><option value="all">전체</option></select></label>
             <label class="field compact checkbox-line slim-check"><input id="activeOnly" type="checkbox" checked /><span>활성 업소만</span></label>
             <label class="field compact"><span>빠른 보기</span><select id="businessQuickFilter"><option value="all">전체</option><option value="featured">추천 업소만</option><option value="event">이벤트 중 업소만</option><option value="slide">슬라이드 중 업소만</option><option value="coupon">쿠폰 있는 업소만</option></select></label>
@@ -208,42 +208,78 @@
 </label>
 			  <label class="field">
               <label class="field full">
-<h3>영업시간</h3>
+<div class="field full">
+  <span>영업시간</span>
 
-<label class="field">
-<span>월요일</span>
-<input id="monday" placeholder="09:00 ~ 18:00">
-</label>
+  <div class="hours-editor">
+    <div class="hours-editor-head">
+      <b>요일</b><b>1차 영업</b><b>2차 영업</b><b>휴무</b>
+    </div>
 
-<label class="field">
-<span>화요일</span>
-<input id="tuesday">
-</label>
+    <div class="hours-editor-row">
+      <span>월요일</span>
+      <input id="mon_open1" placeholder="11:00 AM">
+      <input id="mon_close1" placeholder="2:30 PM">
+      <input id="mon_open2" placeholder="4:00 PM">
+      <input id="mon_close2" placeholder="10:00 PM">
+      <input id="mon_closed" type="checkbox">
+    </div>
 
-<label class="field">
-<span>수요일</span>
-<input id="wednesday">
-</label>
+    <div class="hours-editor-row">
+      <span>화요일</span>
+      <input id="tue_open1" placeholder="11:00 AM">
+      <input id="tue_close1" placeholder="2:30 PM">
+      <input id="tue_open2" placeholder="4:00 PM">
+      <input id="tue_close2" placeholder="10:00 PM">
+      <input id="tue_closed" type="checkbox">
+    </div>
 
-<label class="field">
-<span>목요일</span>
-<input id="thursday">
-</label>
+    <div class="hours-editor-row">
+      <span>수요일</span>
+      <input id="wed_open1" placeholder="11:00 AM">
+      <input id="wed_close1" placeholder="2:30 PM">
+      <input id="wed_open2" placeholder="4:00 PM">
+      <input id="wed_close2" placeholder="10:00 PM">
+      <input id="wed_closed" type="checkbox">
+    </div>
 
-<label class="field">
-<span>금요일</span>
-<input id="friday">
-</label>
+    <div class="hours-editor-row">
+      <span>목요일</span>
+      <input id="thu_open1" placeholder="11:00 AM">
+      <input id="thu_close1" placeholder="2:30 PM">
+      <input id="thu_open2" placeholder="4:00 PM">
+      <input id="thu_close2" placeholder="10:00 PM">
+      <input id="thu_closed" type="checkbox">
+    </div>
 
-<label class="field">
-<span>토요일</span>
-<input id="saturday">
-</label>
+    <div class="hours-editor-row">
+      <span>금요일</span>
+      <input id="fri_open1" placeholder="11:00 AM">
+      <input id="fri_close1" placeholder="2:30 PM">
+      <input id="fri_open2" placeholder="4:00 PM">
+      <input id="fri_close2" placeholder="10:00 PM">
+      <input id="fri_closed" type="checkbox">
+    </div>
 
-<label class="field">
-<span>일요일</span>
-<input id="sunday">
-</label>
+    <div class="hours-editor-row">
+      <span>토요일</span>
+      <input id="sat_open1" placeholder="11:00 AM">
+      <input id="sat_close1" placeholder="2:30 PM">
+      <input id="sat_open2" placeholder="4:00 PM">
+      <input id="sat_close2" placeholder="10:00 PM">
+      <input id="sat_closed" type="checkbox">
+    </div>
+
+    <div class="hours-editor-row">
+      <span>일요일</span>
+      <input id="sun_open1" placeholder="11:00 AM">
+      <input id="sun_close1" placeholder="2:30 PM">
+      <input id="sun_open2" placeholder="4:00 PM">
+      <input id="sun_close2" placeholder="10:00 PM">
+      <input id="sun_closed" type="checkbox">
+    </div>
+  </div>
+</div>
 
               <label class="field">
               <span>주차</span>
