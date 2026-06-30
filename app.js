@@ -134,7 +134,7 @@ function renderHomeBusinessTabs(){
       ||
       String(b.created_at || '').localeCompare(String(a.created_at || ''))
     )
-    .slice(0,3);
+    .slice(0,6);
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
@@ -3011,8 +3011,8 @@ function renderTodayCoupons(){
   if(!box) return;
 
   const rows = typeof todayCoupons === 'function'
-    ? todayCoupons().slice(0, 6)
-    : (coupons || []).slice(0, 6);
+    ? todayCoupons().slice(0, 3)
+    : (coupons || []).slice(0, 3);
 
   if(!rows.length){
     box.innerHTML = '<div class="board-empty">오늘 쿠폰이 없습니다.</div>';
