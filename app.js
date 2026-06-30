@@ -1695,39 +1695,38 @@ ${getDescriptionImages(b).length ? `
   </p>
 </section>
 
-      <section class="biz-detail-card">
-      <h3>영업 정보</h3>
-      <div class="biz-info-list">
-      <div class="biz-hours-block">
-      <div class="biz-info-label">
-      <i data-lucide="clock"></i>
-      영업시간
-      </div> 
-      ${renderBusinessHours(b)}
+<section class="biz-detail-card biz-info-card">
+  <h3>영업 정보</h3>
+
+  <div class="biz-info-rows">
+    <div class="biz-info-row hours-main">
+      <div class="biz-info-title">영업시간</div>
+      <div class="biz-info-value">
+        ${renderBusinessHours(b)}
       </div>
-        </div>
-        <p>
-        <i data-lucide="car"></i>
-        주차
-        <span>${esc(b.parking || '정보 없음')}</span>
-        </p>
-        <p>
-        <i data-lucide="calendar-check"></i>
-       예약
-        <span>${esc(b.reservation || '가능')}</span>
-        </p>
-        <p>
-        <i data-lucide="globe"></i>
-        언어
-        <span>${esc(b.languages || '한국어, 영어')}</span>
-        </p>
-		<p>
-        <i data-lucide="info"></i>
-       기타
-        <span>${esc(b.insurance || '정보 없음')}</span>
-        </p>
-      </div>
-    </section>
+    </div>
+
+    <div class="biz-info-row">
+      <div class="biz-info-title">주차</div>
+      <div class="biz-info-value">${esc(b.parking || '정보 없음')}</div>
+    </div>
+
+    <div class="biz-info-row">
+      <div class="biz-info-title">예약</div>
+      <div class="biz-info-value">${esc(b.reservation || '가능')}</div>
+    </div>
+
+    <div class="biz-info-row">
+      <div class="biz-info-title">언어</div>
+      <div class="biz-info-value">${esc(b.languages || '한국어, 영어')}</div>
+    </div>
+
+    <div class="biz-info-row">
+      <div class="biz-info-title">기타</div>
+      <div class="biz-info-value">${esc(b.insurance || '정보 없음')}</div>
+    </div>
+  </div>
+</section>
 
     <section class="biz-map-card">
       <h3>매장 위치</h3>
