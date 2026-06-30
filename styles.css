@@ -3705,64 +3705,10 @@ body,
 .home-biz-map-card{
   width:100%;
   display:grid;
-  grid-template-columns:86px 1fr;
+  grid-template-columns:82px 1fr;
   gap:12px;
   align-items:center;
-  min-height:84px;
-  padding:8px 10px;
-  border:0;
-  border-radius:18px;
-  background:#fff;
-  text-align:left;
-  box-shadow:0 8px 22px rgba(15,23,42,.05);
-  cursor:pointer;
-}
-
-.home-biz-map-img{
-  width:86px;
-  height:66px;
-  object-fit:cover;
-  border-radius:13px;
-  background:#eef2f7;
-}
-
-.home-biz-map-info{
-  min-width:0;
-}
-
-.home-biz-map-name{
-  font-size:18px;
-  font-weight:900;
-  color:#061b46;
-  line-height:1.18;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.home-biz-map-cat{
-  display:inline-flex;
-  margin-top:4px;
-  padding:2px 7px;
-  border-radius:999px;
-  background:#fff1e9;
-  color:#d94b16;
-  font-size:12px;
-  font-weight:800;
-}
-
-.home-biz-map-location{
-  margin-top:4px;
-  font-size:13px;
-  color:#344767;
-}
-.home-biz-map-card{
-  width:100%;
-  display:grid;
-  grid-template-columns:82px 1fr;
-  gap:11px;
-  align-items:center;
-  min-height:78px;
+  min-height:74px;
   padding:7px 10px !important;
   border:0;
   border-radius:16px;
@@ -3788,13 +3734,6 @@ body,
   gap:3px;
 }
 
-.home-biz-map-top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:8px;
-}
-
 .home-biz-map-name{
   font-size:17px;
   font-weight:900;
@@ -3805,11 +3744,10 @@ body,
   text-overflow:ellipsis;
 }
 
-.home-biz-map-rating{
-  flex:none;
-  font-size:12px;
-  font-weight:800;
-  color:#f59e0b;
+.home-biz-map-meta{
+  display:flex;
+  align-items:center;
+  gap:8px;
 }
 
 .home-biz-map-cat{
@@ -3819,6 +3757,12 @@ body,
   background:#fff1e9;
   color:#d94b16;
   font-size:11px;
+  font-weight:800;
+}
+
+.home-biz-map-rating{
+  color:#f59e0b;
+  font-size:12px;
   font-weight:800;
 }
 

@@ -1295,18 +1295,14 @@ function homeBusinessItemHTML(b){
       <img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">
 
       <div class="home-biz-map-info">
-        <div class="home-biz-map-top">
-          <div class="home-biz-map-name">${esc(b.name || '이름 없음')}</div>
-          ${rating ? `<div class="home-biz-map-rating">★ ${esc(rating)}</div>` : ''}
-        </div>
+        <div class="home-biz-map-name">${esc(b.name || '이름 없음')}</div>
 
-        <div class="home-biz-map-mid">
+        <div class="home-biz-map-meta">
           <span class="home-biz-map-cat">${esc(b.category || '업소')}</span>
+          ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)}</span>` : ''}
         </div>
 
-        <div class="home-biz-map-location">
-          📍 ${esc(b.area || 'Dallas, TX')}
-        </div>
+        <div class="home-biz-map-location">📍 ${esc(b.area || 'Dallas, TX')}</div>
       </div>
     </button>
   `;
