@@ -3668,3 +3668,37 @@ body,
   margin:0 !important;
   padding:0 !important;
 }
+/* ===== 메인 업소 추천 카드 Compact ===== */
+
+.home-business-card,
+.business-card{
+    min-height:88px !important;
+    padding:10px !important;
+    border-radius:18px;
+}
+
+.home-business-card img,
+.business-card img{
+    width:96px !important;
+    height:70px !important;
+    border-radius:12px;
+    object-fit:cover;
+}
+
+.home-business-card h3,
+.business-card h3{
+    font-size:20px;
+    margin-bottom:4px !important;
+}
+
+.home-business-card .category,
+.business-card .category{
+    font-size:13px;
+    padding:2px 8px;
+    margin-bottom:4px;
+}
+
+.home-business-card .location,
+.business-card .location{
+    font-size:13px;
+}
