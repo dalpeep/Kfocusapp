@@ -97,7 +97,7 @@ function switchSection(section) {
 }
 function setPageMeta() {
   const titleMap = {
-    business: ['업소 관리자', 'Colorado / Dallas 업소를 조회하고 수정/추가할 수 있습니다.'],
+    business: ['업소 관리자', 'Dallas와 지역 업소를 조회하고 수정/추가할 수 있습니다.'],
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
     board: ['게시판 관리자', '행사안내 / 구인구직 / 렌트 / 매매 글을 관리합니다.'],
@@ -1405,7 +1405,7 @@ async function loadBoards() {
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
-  setVal('board_region', currentRegionScope() === 'all' ? 'colorado' : currentRegionScope());
+  setVal('board_region', currentRegionScope() === 'all' ? 'dallas' : currentRegionScope());
   setVal('board_title', '');
   setVal('board_content', '');
   setVal('board_phone', '');
@@ -1425,7 +1425,7 @@ function clearBoardForm() {
 function fillBoardForm(row) {
   setVal('board_id', row.id || '');
   setVal('board_type', row.type || 'notice');
-  setVal('board_region', row.region || 'colorado');
+  setVal('board_region', row.region || 'dallas');
   setVal('board_title', row.title || '');
   setVal('board_content', row.content || '');
   setVal('board_phone', row.phone || '');
@@ -1568,7 +1568,7 @@ function renderSlideBusinessOptions() {
   const el = qs('slide_business_select');
   if (!el) return;
   const region = currentRegionScope();
-  const rows = businesses.filter((b) => region === 'all' || (b.region || 'colorado') === region);
+  const rows = businesses.filter((b) => region === 'all' || (b.region || 'dallas') === region);
   el.innerHTML = '<option value="">업소 선택</option>' +
     rows.map((b) => `<option value="${esc(b.id)}">${esc(b.name_ko || b.name_en || b.id)}</option>`).join('');
 }
