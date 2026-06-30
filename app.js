@@ -3011,8 +3011,8 @@ function renderTodayCoupons(){
   if(!box) return;
 
   const rows = typeof todayCoupons === 'function'
-    ? todayCoupons().slice(0, 3)
-    : (coupons || []).slice(0, 3);
+    ? todayCoupons().slice(0, 6)
+    : (coupons || []).slice(0, 6);
 
   if(!rows.length){
     box.innerHTML = '<div class="board-empty">오늘 쿠폰이 없습니다.</div>';
