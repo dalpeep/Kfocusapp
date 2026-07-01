@@ -453,7 +453,20 @@
                 <button id="couponSaveBtn" class="btn primary" type="button">저장</button>
               </div>
             </div>
+<section class="panel-card coupon-redemption-card">
+  <div class="panel-head">
+    <h2>쿠폰 사용 내역</h2>
+    <button type="button" class="btn ghost" onclick="loadCouponRedemptions()">새로고침</button>
+  </div>
 
+  <div class="toolbar">
+    <input id="couponRedemptionSearch" placeholder="업소명, 쿠폰명 검색">
+    <button type="button" onclick="loadCouponRedemptions()">검색</button>
+  </div>
+
+  <div id="couponRedemptionSummary" class="tiny-note"></div>
+  <div id="couponRedemptionList" class="business-list"></div>
+</section>
             <form id="couponForm" class="form-grid">
               <input type="hidden" id="coupon_id" />
               <label class="field full"><span>연결 업소</span><select id="coupon_business_id"></select></label>
