@@ -24,7 +24,9 @@ let selectedSlideBusinessId = null;
 
 const BUSINESS_FIELDS = [
   'id', 'name_ko', 'name_en', 'category_ko', 'area', 'region', 'phone',
-  'website', 'email', 'address', 'description', 
+  'website', 'email', 'address', 'description',
+  'coupon_notify_emails',
+  'coupon_notify_phones',  
   'hours',
   'parking',
   'reservation',
@@ -1251,7 +1253,7 @@ function fillBusinessOptions() {
    Coupons
 --------------------------- */
 function clearCouponForm() {
-  ['coupon_id', 'coupon_title', 'coupon_code', 'coupon_discount_label', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order'].forEach((id) => setVal(id, ''));
+  ['coupon_id', 'coupon_title', 'coupon_code', 'coupon_notify_emails', 'coupon_notify_phones', 'coupon_discount_label', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order'].forEach((id) => setVal(id, ''));
   setVal('coupon_business_id', '');
   setChecked('coupon_is_active', true);
   setChecked('coupon_is_today', false);
@@ -1264,6 +1266,8 @@ function fillCouponForm(row) {
   setVal('coupon_business_id', row.business_id || '');
   setVal('coupon_title', row.title || '');
   setVal('coupon_code', row.coupon_code || '');
+  setVal('coupon_notify_emails', row.notify_emails || '');
+  setVal('coupon_notify_phones', row.notify_phones || '');
   setVal('coupon_discount_label', row.discount_label || '');
   setVal('coupon_description', row.description || '');
   setVal('coupon_image_url', row.image_url || '');
@@ -1343,6 +1347,9 @@ function collectCouponPayload() {
     is_active: checked('coupon_is_active'),
     is_today_coupon: checked('coupon_is_today'),
     sort_order: Number(val('coupon_sort_order') || 1000)
+	
+	notify_emails: val('coupon_notify_emails').trim() || null,
+    notify_phones: val('coupon_notify_phones').trim() || null,
   };
 }
 async function saveCoupon() {
