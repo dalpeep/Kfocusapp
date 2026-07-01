@@ -988,7 +988,11 @@ function routeFor(page){
 function setRoute(page){ history.replaceState(null,'', routeFor(page)); }
 function getRoute(){ return location.hash.replace('#','') || 'home'; }
 function getPageOrder(){ return ['home','business','coupon','map','saved']; }
-function getBiz(id){ return businesses.find(b=>String(b.id)===String(id)) || businesses[0]; }
+function getBiz(id){
+    if (!id) return null;
+
+    return businesses.find(b => String(b.id) === String(id)) || null;
+}
 
 function isVerticalVideo(url){
   const v = String(url || '').toLowerCase().trim();
@@ -2190,13 +2194,17 @@ async function useCouponNow(coupon){
         return;
     }
 
-    const business = getBiz(coupon.business_id) || {};
+    const business = getBiz(coupon.business_id);
+	
+	console.log('coupon', coupon);
+    console.log('coupon.business_id', coupon.business_id);
+    console.log('business', business);
 
     const payload = {
         coupon_id: coupon.id,
-        business_id: coupon.business_id,
+        business_id: coupon.business_id || business?.id || null,
         coupon_title: coupon.title || '',
-        business_name: business.name || business.name_ko || '',
+        business_name: business?.name || business?.name_ko || '',
         notify_emails:
             business.coupon_notify_emails ||
             coupon.notify_emails ||
