@@ -2513,7 +2513,7 @@ function showSection(name) {
   if (target) {
     target.classList.add('active-section');
 	
-	if(name === 'coupons'){
+	if(name === 'couponRedemptions'){
   loadCouponRedemptions();
 }
   }
