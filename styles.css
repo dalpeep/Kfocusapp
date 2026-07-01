@@ -3792,3 +3792,10 @@ body,
   justify-content:center;
   font-weight:900;
 }
+.coupon-use-title{
+  margin-bottom:18px;
+}
+
+.coupon-use-business{
+  margin-bottom:30px;
+}
