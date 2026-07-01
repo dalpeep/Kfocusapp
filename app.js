@@ -132,8 +132,8 @@ function todayKey(){
   return new Date().toISOString().slice(0, 10);
 }
 
-function isPaidBusinessActive(b){
-  if(!b.paid_active) return false;
+function isBusinessVisibleByPaidDate(b){
+  if(!b.paid_active) return true;
 
   const today = todayKey();
 
@@ -153,11 +153,11 @@ function renderHomeBusinessTabs(){
   let rows = [];
 
 if(homeBusinessTab === 'featured'){
-  rows = businesses.filter(b => b.featured && isPaidBusinessActive(b));
+  rows = businesses.filter(b => b.is_featured && isBusinessVisibleByPaidDate(b));
 } else if(homeBusinessTab === 'new'){
-  rows = businesses.filter(b => b.is_new && isPaidBusinessActive(b));
+  rows = businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b));
 } else if(homeBusinessTab === 'popular'){
-  rows = businesses.filter(b => b.is_popular && isPaidBusinessActive(b));
+  rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
 }
 
   rows = sortBusinessesByDistance(rows)
