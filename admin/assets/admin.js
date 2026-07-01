@@ -1346,7 +1346,7 @@ function collectCouponPayload() {
     end_at: fromLocal(val('coupon_end_at')),
     is_active: checked('coupon_is_active'),
     is_today_coupon: checked('coupon_is_today'),
-    sort_order: Number(val('coupon_sort_order') || 1000)
+    sort_order: Number(val('coupon_sort_order') || 1000),
 	
 	notify_emails: val('coupon_notify_emails').trim() || null,
     notify_phones: val('coupon_notify_phones').trim() || null,
