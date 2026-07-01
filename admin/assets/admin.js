@@ -1378,7 +1378,66 @@ async function deleteCoupon() {
   await loadCoupons();
   alert('쿠폰 삭제 완료');
 }
+let couponRedemptions = [];
 
+async function loadCouponRedemptions(){
+  if(!supabase) return;
+
+  const box = qs('#couponRedemptionList');
+  const summary = qs('#couponRedemptionSummary');
+  if(!box) return;
+
+  box.innerHTML = '불러오는 중...';
+
+  const { data, error } = await supabase
+    .from('coupon_redemptions')
+    .select('*')
+    .order('created_at', { ascending:false })
+    .limit(300);
+
+  if(error){
+    box.innerHTML = `조회 실패: ${error.message}`;
+    return;
+  }
+
+  couponRedemptions = data || [];
+
+  const q = val('couponRedemptionSearch').trim().toLowerCase();
+
+  const rows = couponRedemptions.filter(r => {
+    const hay = [
+      r.business_name,
+      r.coupon_title,
+      r.notify_emails,
+      r.notify_phones
+    ].join(' ').toLowerCase();
+
+    return !q || hay.includes(q);
+  });
+
+  if(summary){
+    summary.textContent = `총 ${rows.length}건 사용`;
+  }
+
+  if(!rows.length){
+    box.innerHTML = '<div class="board-empty">쿠폰 사용 내역이 없습니다.</div>';
+    return;
+  }
+
+  box.innerHTML = rows.map(r => `
+    <div class="business-row">
+      <div class="biz-main">
+        <div class="biz-title">${esc(r.business_name || '-')}</div>
+        <div class="biz-meta">${esc(r.coupon_title || '-')}</div>
+        <div class="biz-meta">${new Date(r.created_at).toLocaleString()}</div>
+        <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
+        <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+window.loadCouponRedemptions = loadCouponRedemptions;
 /* ---------------------------
    Boards
 --------------------------- */
@@ -1386,7 +1445,10 @@ function boardLabel(t) {
   return ({ notice: '행사안내', job: '구인/구직', rent: '렌트', sale: '매매' })[t] || '행사안내';
 }
 async function loadBoards() {
-  if (!supabase) return;
+  if(!supabase){
+  box.innerHTML = 'Supabase 연결 없음';
+  return;
+}
   const selects = [
     'id,title,content,type,region,image_url,address,phone,business_id,start_at,end_at,is_active,created_at',
     'id,title,content,type,region,image_url,address,phone,start_at,end_at,is_active,created_at',
@@ -2440,6 +2502,10 @@ function showSection(name) {
   const target = document.getElementById('section-' + name);
   if (target) {
     target.classList.add('active-section');
+	
+	if(name === 'coupons'){
+  loadCouponRedemptions();
+}
   }
 }
 
