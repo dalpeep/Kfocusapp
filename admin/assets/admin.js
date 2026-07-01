@@ -1381,19 +1381,29 @@ async function deleteCoupon() {
 let couponRedemptions = [];
 
 async function loadCouponRedemptions(){
-  if(!supabase) return;
+  const box = document.getElementById('couponRedemptionList');
+  const summary = document.getElementById('couponRedemptionSummary');
 
-  const box = qs('#couponRedemptionList');
-  const summary = qs('#couponRedemptionSummary');
-  if(!box) return;
+  if(!box){
+    console.log('couponRedemptionList 없음');
+    return;
+  }
 
   box.innerHTML = '불러오는 중...';
+
+  if(!supabase){
+    box.innerHTML = 'Supabase 연결 없음';
+    return;
+  }
 
   const { data, error } = await supabase
     .from('coupon_redemptions')
     .select('*')
     .order('created_at', { ascending:false })
     .limit(300);
+
+  console.log('coupon redemption data', data);
+  console.log('coupon redemption error', error);
 
   if(error){
     box.innerHTML = `조회 실패: ${error.message}`;
@@ -1402,9 +1412,9 @@ async function loadCouponRedemptions(){
 
   couponRedemptions = data || [];
 
-  const q = val('couponRedemptionSearch').trim().toLowerCase();
+  const q = (document.getElementById('couponRedemptionSearch')?.value || '').trim().toLowerCase();
 
-  const rows = couponRedemptions.filter(r => {
+  const rows = couponRedemptions.filter(r=>{
     const hay = [
       r.business_name,
       r.coupon_title,
@@ -1424,12 +1434,12 @@ async function loadCouponRedemptions(){
     return;
   }
 
-  box.innerHTML = rows.map(r => `
+  box.innerHTML = rows.map(r=>`
     <div class="business-row">
       <div class="biz-main">
         <div class="biz-title">${esc(r.business_name || '-')}</div>
-        <div class="biz-meta">${esc(r.coupon_title || '-')}</div>
-        <div class="biz-meta">${new Date(r.created_at).toLocaleString()}</div>
+        <div class="biz-meta">쿠폰: ${esc(r.coupon_title || '-')}</div>
+        <div class="biz-meta">사용일: ${new Date(r.created_at).toLocaleString()}</div>
         <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
         <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
       </div>
