@@ -128,20 +128,6 @@ function homeBusinessItemHTML(b){
     </button>
   `;
 }
-function todayKey(){
-  return new Date().toISOString().slice(0, 10);
-}
-
-function isBusinessVisibleByPaidDate(b){
-  if(!b.paid_active) return true;
-
-  const today = todayKey();
-
-  if(b.paid_start_at && b.paid_start_at > today) return false;
-  if(b.paid_end_at && b.paid_end_at < today) return false;
-
-  return true;
-}
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
   if(!box) return;
@@ -152,13 +138,13 @@ function renderHomeBusinessTabs(){
 
   let rows = [];
 
-if(homeBusinessTab === 'featured'){
-  rows = businesses.filter(b => b.is_featured && isBusinessVisibleByPaidDate(b));
-} else if(homeBusinessTab === 'new'){
-  rows = businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b));
-} else if(homeBusinessTab === 'popular'){
-  rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
-}
+  if(homeBusinessTab === 'featured'){
+    rows = businesses.filter(b => b.featured);
+  } else if(homeBusinessTab === 'new'){
+    rows = businesses.filter(b => b.is_new);
+  } else if(homeBusinessTab === 'popular'){
+    rows = businesses.filter(b => b.is_popular);
+  }
 
   rows = sortBusinessesByDistance(rows)
     .slice()
@@ -844,7 +830,7 @@ async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
-    const select = 'id,business_id,title,description,coupon_code,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at';
+    const select = 'id,business_id,title,description,coupon_code,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones';
     const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
@@ -863,7 +849,9 @@ async function loadCouponsFromSupabase(){
       isActive: row.is_active !== false,
       isToday: !!row.is_today_coupon,
       sortOrder: row.sort_order == null ? 1000 : Number(row.sort_order),
-      createdAt: row.created_at || ''
+      createdAt: row.created_at || '',
+      notify_emails: row.notify_emails || '',
+      notify_phones: row.notify_phones || ''
     }));
     return true;
   } catch (e) {
@@ -1357,7 +1345,7 @@ function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
 
   const featured = sortBusinessesByDistance(
-    businesses.filter(b => b.featured && isBusinessVisibleByPaidDate(b))
+    businesses.filter(b => b.featured)
   )
     .slice()
     .sort((a,b)=>
@@ -1379,7 +1367,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
   const newList = businesses
-    .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
+    .filter(b => b.is_new)
     .sort((a, b) =>
       Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
       String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -1395,7 +1383,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   lucide.createIcons();
   }
   const popularList = businesses
-    .filter(b => b.is_popular && isBusinessVisibleByPaidDate(b))
+    .filter(b => b.is_popular)
     .sort((a, b) =>
       Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
     )
@@ -2229,13 +2217,15 @@ async function useCouponNow(coupon){
       coupon.business_name ||
       '',
     notify_emails:
-      business?.coupon_notify_emails ||
       coupon.notify_emails ||
+      coupon.coupon_notify_emails ||
+      business?.coupon_notify_emails ||
       business?.email ||
       '',
     notify_phones:
-      business?.coupon_notify_phones ||
       coupon.notify_phones ||
+      coupon.coupon_notify_phones ||
+      business?.coupon_notify_phones ||
       business?.phone ||
       '',
     used_by: 'customer'
@@ -2257,11 +2247,21 @@ async function useCouponNow(coupon){
     })
     .eq('id', coupon.id);
 
-  await fetch('/.netlify/functions/coupon-used-notify', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify(payload)
-  }).catch(()=>{});
+  try {
+    const notifyRes = await fetch('/.netlify/functions/coupon-used-notify', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const notifyText = await notifyRes.text();
+    if(!notifyRes.ok){
+      console.warn('coupon email notify failed', notifyRes.status, notifyText);
+    } else {
+      console.log('coupon email notify result', notifyText);
+    }
+  } catch(e){
+    console.warn('coupon email notify error', e);
+  }
 
   alert('쿠폰 사용이 확인되었습니다.');
   showPage('home');
