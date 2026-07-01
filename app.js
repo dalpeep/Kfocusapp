@@ -2178,72 +2178,67 @@ async function confirmCouponUse(id){
 
 }
 window.confirmCouponUse = confirmCouponUse;
-async function useCouponNow(coupon){
-  if(!coupon) return;
 
-  const business = getBiz(coupon.business_id) || {};
-
-  const payload = {
-    coupon_id: coupon.id,
-    business_id: coupon.business_id || null,
-    coupon_title: coupon.title || '',
-    business_name: business.name || business.name_ko || '',
-    notify_emails: business.coupon_notify_emails || coupon.notify_emails || business.email || '',
-    notify_phones: business.coupon_notify_phones || coupon.notify_phones || business.phone || '',
-    used_by: 'customer'
-  };
-
-  const { error } = await supabase
-    .from('coupon_redemptions')
-    .insert(payload);
-
-  if(error){
-    alert('쿠폰 사용 기록 저장 실패: ' + error.message);
-    return;
-  }
-
-  await supabase
-    .from('coupons')
-    .update({
-      used_count: Number(coupon.used_count || 0) + 1
-    })
-    .eq('id', coupon.id);
-
-  await fetch('/.netlify/functions/coupon-used-notify', {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify(payload)
-  }).catch(() => {});
-
-  alert('쿠폰 사용이 확인되었습니다.');
-
-  showPage('home');
-}
 async function useCouponNow(coupon){
 
     if(!coupon) return;
 
-    // 사용 로그 저장
-    await db.from('coupon_redemptions').insert({
+    const client = getAuthClient();
+
+    if(!client){
+        alert('Supabase 연결 오류');
+        return;
+    }
+
+    const business = getBiz(coupon.business_id) || {};
+
+    const payload = {
         coupon_id: coupon.id,
         business_id: coupon.business_id,
-        coupon_title: coupon.title,
-        notify_emails: coupon.notify_emails,
-        notify_phones: coupon.notify_phones
-    });
+        coupon_title: coupon.title || '',
+        business_name: business.name || business.name_ko || '',
+        notify_emails:
+            business.coupon_notify_emails ||
+            coupon.notify_emails ||
+            business.email ||
+            '',
+        notify_phones:
+            business.coupon_notify_phones ||
+            coupon.notify_phones ||
+            business.phone ||
+            '',
+        used_by: 'customer'
+    };
 
-    // 사용 횟수 증가
-    await db
+    const { error } = await client
+        .from('coupon_redemptions')
+        .insert(payload);
+
+    if(error){
+        alert('쿠폰 사용 저장 실패 : ' + error.message);
+        return;
+    }
+
+    await client
         .from('coupons')
         .update({
-            used_count: (coupon.used_count || 0) + 1
+            used_count: Number(coupon.used_count || 0) + 1
         })
         .eq('id', coupon.id);
 
+    await fetch('/.netlify/functions/coupon-used-notify', {
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json'
+        },
+        body: JSON.stringify(payload)
+    }).catch(()=>{});
+
     alert('쿠폰 사용이 확인되었습니다.');
 
-    renderDetail(coupon.business_id);
+    showPage('home');
 }
+	
 function renderLucideStars(rating){
   const score = Number(rating || 0);
   let html = '<span class="google-stars">';
