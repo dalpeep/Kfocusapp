@@ -33,7 +33,7 @@
       <nav class="nav" id="adminNav">
         <button class="nav-item active" data-section="business">업소 관리</button>
         <button class="nav-item" data-section="coupon">쿠폰 관리</button>
-		<button class="nav-item" data-section="couponRedemptions">쿠폰 사용 내역</button>
+        <button class="nav-item" data-section="couponRedemptions">쿠폰 사용 내역</button>
         <button class="nav-item" data-section="slide">슬라이드 관리</button>
         <button class="nav-item" data-section="board">게시판 관리</button>
 		<button class="nav-item" data-section="banners">배너 관리</button>
@@ -66,19 +66,19 @@
         </div>
       </header>
 	  
-      <section id="section-requests" class="admin-section hidden">
-      <h2>신청 관리</h2>
+<section id="section-requests" class="admin-section hidden">
+  <h2>신청 관리</h2>
 
-      <div class="request-tabs">
-      <button class="tab active" type="button" onclick="showRequestTab('business')">
+  <div class="request-tabs">
+    <button class="tab active" type="button" onclick="showRequestTab('business')">
       업소 등록 신청
-      </button>
-      <button class="tab" type="button" onclick="showRequestTab('ad')">
+    </button>
+    <button class="tab" type="button" onclick="showRequestTab('ad')">
       광고 문의
-      </button>
-      </div>
+    </button>
+  </div>
 
-    <div id="businessRequestsArea">
+  <div id="businessRequestsArea">
     <div class="request-tools">
       <input id="businessRequestSearch" placeholder="업소명, 담당자, 전화 검색">
       <button type="button" onclick="loadBusinessRequests(1)">검색</button>
@@ -122,7 +122,7 @@
         <section class="toolbar card">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="searchInput" type="text" placeholder="업소명, 카테고리, 지역" /></label>
-            <label class="field compact"><span>지역</span><select id="regionFilter"><option value="Dallas">dallas</option><option value="all">all</option><option value="dallas">dallas</option></select></label>
+            <label class="field compact"><span>지역</span><select id="regionFilter"><option value="dallas" selected>dallas</option><option value="all">all</option><option value="colorado">colorado</option></select></label>
             <label class="field compact"><span>업종</span><select id="categoryFilter"><option value="all">전체</option></select></label>
             <label class="field compact checkbox-line slim-check"><input id="activeOnly" type="checkbox" checked /><span>활성 업소만</span></label>
             <label class="field compact"><span>빠른 보기</span><select id="businessQuickFilter"><option value="all">전체</option><option value="featured">추천 업소만</option><option value="event">이벤트 중 업소만</option><option value="slide">슬라이드 중 업소만</option><option value="coupon">쿠폰 있는 업소만</option></select></label>
@@ -431,6 +431,15 @@
         </section>
       </section>
 
+      <section id="section-coupon" class="admin-section">
+        <section class="toolbar card">
+          <div class="toolbar-row">
+            <label class="field compact"><span>검색</span><input id="couponSearchInput" type="text" placeholder="쿠폰명, 업소명" /></label>
+            <label class="field compact"><span>업소</span><select id="couponBusinessFilter"><option value="all">전체</option></select></label>
+            <button id="couponNewBtn" class="btn primary inline-btn" type="button">새 쿠폰</button>
+          </div>
+        </section>
+
         <section class="layout">
           <div class="list-panel card">
             <div class="panel-head"><h2>쿠폰 목록</h2><span id="couponCountText" class="muted">0개</span></div>
@@ -445,34 +454,27 @@
                 <button id="couponSaveBtn" class="btn primary" type="button">저장</button>
               </div>
             </div>
-         
+
             <form id="couponForm" class="form-grid">
-            <input type="hidden" id="coupon_id" />
-
-  <label class="field full">
-    <span>연결 업소</span>
-    <select id="coupon_business_id"></select>
-  </label>
-
-  <label class="field">
-    <span>쿠폰 제목</span>
-    <input id="coupon_title" type="text" />
-  </label>
-
-  <label class="field">
-    <span>쿠폰 코드</span>
-    <input id="coupon_code" type="text" />
-  </label>
-
-  <label class="field full">
+              <input type="hidden" id="coupon_id" />
+              <label class="field full"><span>연결 업소</span><select id="coupon_business_id"></select></label>
+              <label class="field"><span>쿠폰 제목</span><input id="coupon_title" type="text" /></label>
+              <label class="field"><span>쿠폰 코드</span><input id="coupon_code" type="text" /></label>
+			  <label class="field full">
     <span>쿠폰 사용 알림 이메일</span>
-    <textarea id="coupon_notify_emails" rows="3" placeholder="owner@email.com&#10;manager@email.com"></textarea>
-  </label>
+    <textarea
+        id="coupon_notify_emails"
+        rows="3"
+        placeholder="owner@email.com&#10;manager@email.com"></textarea>
+</label>
 
-  <label class="field full">
+<label class="field full">
     <span>쿠폰 사용 알림 전화번호</span>
-    <textarea id="coupon_notify_phones" rows="3" placeholder="214-111-1111&#10;469-222-2222"></textarea>
-  </label>
+    <textarea
+        id="coupon_notify_phones"
+        rows="3"
+        placeholder="214-111-1111&#10;469-222-2222"></textarea>
+</label>
 			  <label class="field">
               <span>할인 라벨</span>
               <input
@@ -481,10 +483,10 @@
                   placeholder="예: 무료증정, 40% 할인, 1+1" />
               </label>
 
-    <label class="field full">
+<label class="field full">
   <span>설명</span>
   <textarea id="coupon_description" rows="4"></textarea>
-  </label>
+</label>
               <label class="field full"><span>설명</span><textarea id="coupon_description" rows="4"></textarea></label>
               <label class="field full"><span>이미지 URL</span><input id="coupon_image_url" type="url" /></label>
 
@@ -504,6 +506,29 @@
             </form>
           </div>
         </section>
+      </section>
+
+
+      <section id="section-couponRedemptions" class="admin-section">
+        <section class="toolbar card">
+          <div class="toolbar-row">
+            <label class="field compact">
+              <span>검색</span>
+              <input id="couponRedemptionSearch" type="text" placeholder="업소명, 쿠폰명 검색" />
+            </label>
+            <button type="button" class="btn ghost" onclick="loadCouponRedemptions()">검색</button>
+            <button type="button" class="btn primary" onclick="loadCouponRedemptions()">새로고침</button>
+          </div>
+        </section>
+
+        <section class="card" style="padding:16px;">
+          <div class="panel-head">
+            <h2>쿠폰 사용 내역</h2>
+            <span id="couponRedemptionSummary" class="muted">0건</span>
+          </div>
+          <div id="couponRedemptionList" class="business-list"></div>
+        </section>
+      </section>
 
       <section id="section-slide" class="admin-section">
         <section class="toolbar card">
@@ -553,20 +578,6 @@
         </section>
       </section>
 
-		  <section id="section-couponRedemptions" class="admin-section">
-  <h2>쿠폰 사용 내역</h2>
-
-  <div class="toolbar card">
-    <input id="couponRedemptionSearch" placeholder="업소명, 쿠폰명 검색">
-    <button type="button" onclick="loadCouponRedemptions()">검색</button>
-    <button type="button" onclick="loadCouponRedemptions()">새로고침</button>
-  </div>
-
-  <div id="couponRedemptionSummary" class="tiny-note"></div>
-  <div id="couponRedemptionList" class="business-list"></div>
-  </section>
-      </section>
-	  
 <section id="section-adsOps" class="admin-section hidden">
   <h2>광고 운영</h2>
 
