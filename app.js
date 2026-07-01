@@ -128,6 +128,20 @@ function homeBusinessItemHTML(b){
     </button>
   `;
 }
+function todayKey(){
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isBusinessVisibleByPaidDate(b){
+  if(!b.paid_active) return true;
+
+  const today = todayKey();
+
+  if(b.paid_start_at && b.paid_start_at > today) return false;
+  if(b.paid_end_at && b.paid_end_at < today) return false;
+
+  return true;
+}
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
   if(!box) return;
@@ -139,11 +153,11 @@ function renderHomeBusinessTabs(){
   let rows = [];
 
   if(homeBusinessTab === 'featured'){
-    rows = businesses.filter(b => b.featured);
+    rows = businesses.filter(b => b.is_featured && isBusinessVisibleByPaidDate(b));
   } else if(homeBusinessTab === 'new'){
-    rows = businesses.filter(b => b.is_new);
+    rows = businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b));
   } else if(homeBusinessTab === 'popular'){
-    rows = businesses.filter(b => b.is_popular);
+    rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
   }
 
   rows = sortBusinessesByDistance(rows)
