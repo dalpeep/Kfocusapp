@@ -3766,3 +3766,29 @@ body,
   font-size:12px;
   font-weight:800;
 }
+.coupon-confirm-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:14px 22px;
+  border:0;
+  border-radius:999px;
+  background:#2563eb;
+  color:#fff;
+  font-size:17px;
+  font-weight:900;
+  box-shadow:0 8px 20px rgba(37,99,235,.22);
+}
+
+.coupon-confirm-icon{
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  background:#fff;
+  color:#2563eb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+}

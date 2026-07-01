@@ -2224,7 +2224,7 @@ async function useCouponNow(coupon){
     if(!coupon) return;
 
     // 사용 로그 저장
-    await supabase.from('coupon_redemptions').insert({
+    await db.from('coupon_redemptions').insert({
         coupon_id: coupon.id,
         business_id: coupon.business_id,
         coupon_title: coupon.title,
@@ -2233,7 +2233,7 @@ async function useCouponNow(coupon){
     });
 
     // 사용 횟수 증가
-    await supabase
+    await db
         .from('coupons')
         .update({
             used_count: (coupon.used_count || 0) + 1
@@ -2309,13 +2309,12 @@ function renderCouponUse(id){
         ${esc(c.title)}
     </div>
 
-    <button
-        class="coupon-confirm-btn"
-        onclick="confirmCouponUse('${c.id}')">
-
-        ✅ 쿠폰 사용 확인
-
-    </button>
+<button
+  class="coupon-confirm-btn"
+  onclick="confirmCouponUse('${c.id}')">
+  <span class="coupon-confirm-icon">✓</span>
+  쿠폰 사용 확인
+</button>
 
 </div>
 `;
