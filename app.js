@@ -2184,67 +2184,73 @@ async function confirmCouponUse(id){
 window.confirmCouponUse = confirmCouponUse;
 
 async function useCouponNow(coupon){
+  if(!coupon) return;
 
-    if(!coupon) return;
+  const client = getAuthClient();
+  if(!client){
+    alert('Supabase 연결 오류');
+    return;
+  }
 
-    const client = getAuthClient();
+  const businessId =
+    coupon.business_id ||
+    coupon.businessId ||
+    coupon.biz_id ||
+    coupon.bizId ||
+    null;
 
-    if(!client){
-        alert('Supabase 연결 오류');
-        return;
-    }
+  const business = getBiz(businessId);
 
-    const business = getBiz(coupon.business_id);
-	
-	console.log('coupon', coupon);
-    console.log('coupon.business_id', coupon.business_id);
-    console.log('business', business);
+  console.log('coupon', coupon);
+  console.log('businessId', businessId);
+  console.log('business', business);
 
-    const payload = {
-        coupon_id: coupon.id,
-        business_id: coupon.business_id || business?.id || null,
-        coupon_title: coupon.title || '',
-        business_name: business?.name || business?.name_ko || '',
-        notify_emails:
-            business.coupon_notify_emails ||
-            coupon.notify_emails ||
-            business.email ||
-            '',
-        notify_phones:
-            business.coupon_notify_phones ||
-            coupon.notify_phones ||
-            business.phone ||
-            '',
-        used_by: 'customer'
-    };
+  const payload = {
+    coupon_id: coupon.id,
+    business_id: businessId,
+    coupon_title: coupon.title || '',
+    business_name:
+      business?.name_ko ||
+      business?.name ||
+      coupon.business_name ||
+      '',
+    notify_emails:
+      business?.coupon_notify_emails ||
+      coupon.notify_emails ||
+      business?.email ||
+      '',
+    notify_phones:
+      business?.coupon_notify_phones ||
+      coupon.notify_phones ||
+      business?.phone ||
+      '',
+    used_by: 'customer'
+  };
 
-    const { error } = await client
-        .from('coupon_redemptions')
-        .insert(payload);
+  const { error } = await client
+    .from('coupon_redemptions')
+    .insert(payload);
 
-    if(error){
-        alert('쿠폰 사용 저장 실패 : ' + error.message);
-        return;
-    }
+  if(error){
+    alert('쿠폰 사용 저장 실패 : ' + error.message);
+    return;
+  }
 
-    await client
-        .from('coupons')
-        .update({
-            used_count: Number(coupon.used_count || 0) + 1
-        })
-        .eq('id', coupon.id);
+  await client
+    .from('coupons')
+    .update({
+      used_count: Number(coupon.used_count || 0) + 1
+    })
+    .eq('id', coupon.id);
 
-    await fetch('/.netlify/functions/coupon-used-notify', {
-        method:'POST',
-        headers:{
-            'Content-Type':'application/json'
-        },
-        body: JSON.stringify(payload)
-    }).catch(()=>{});
+  await fetch('/.netlify/functions/coupon-used-notify', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(()=>{});
 
-    alert('쿠폰 사용이 확인되었습니다.');
-
-    showPage('home');
+  alert('쿠폰 사용이 확인되었습니다.');
+  showPage('home');
 }
 	
 function renderLucideStars(rating){
