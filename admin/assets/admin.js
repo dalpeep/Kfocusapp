@@ -96,14 +96,23 @@ function switchSection(section) {
     sec.classList.toggle('active-section', sec.id === `section-${section}`);
   });
   setPageMeta();
+
+  if (section === 'couponRedemptions' && typeof loadCouponRedemptions === 'function') {
+    loadCouponRedemptions();
+  }
 }
 function setPageMeta() {
   const titleMap = {
     business: ['업소 관리자', 'Dallas와 지역 업소를 조회하고 수정/추가할 수 있습니다.'],
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
+    couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
     board: ['게시판 관리자', '행사안내 / 구인구직 / 렌트 / 매매 글을 관리합니다.'],
-	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.']
+	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
+    requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
+    adsOps: ['광고 운영', '유료 업소와 자동 로테이션을 관리합니다.'],
+    push: ['푸시 발송', '공지와 알림 메시지를 발송합니다.'],
+    adminUsers: ['관리자 관리', '관리자 계정과 권한을 관리합니다.']
   };
   const [t, d] = titleMap[currentSection] || titleMap.business;
   safeText('pageTitle', t);
@@ -2502,21 +2511,9 @@ document.addEventListener('click', async (e)=>{
 
 document.addEventListener('DOMContentLoaded', init);
 
-showSection('business'); // 기본 화면
 
 function showSection(name) {
-  document.querySelectorAll('.admin-section').forEach(el => {
-    el.classList.remove('active-section');
-  });
-
-  const target = document.getElementById('section-' + name);
-  if (target) {
-    target.classList.add('active-section');
-	
-	if(name === 'couponRedemptions'){
-  loadCouponRedemptions();
-}
-  }
+  switchSection(name);
 }
 
 
