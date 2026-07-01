@@ -1357,7 +1357,7 @@ function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
 
   const featured = sortBusinessesByDistance(
-    businesses.filter(b => b.featured && isPaidBusinessActive(b))
+    businesses.filter(b => b.featured && isBusinessVisibleByPaidDate(b))
   )
     .slice()
     .sort((a,b)=>
@@ -1379,7 +1379,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
   const newList = businesses
-    .filter(b => b.is_new && isPaidBusinessActive(b))
+    .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
     .sort((a, b) =>
       Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
       String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -1395,7 +1395,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   lucide.createIcons();
   }
   const popularList = businesses
-    .filter(b => b.is_popular && isPaidBusinessActive(b))
+    .filter(b => b.is_popular && isBusinessVisibleByPaidDate(b))
     .sort((a, b) =>
       Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
     )
