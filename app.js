@@ -128,6 +128,20 @@ function homeBusinessItemHTML(b){
     </button>
   `;
 }
+function todayKey(){
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isPaidBusinessActive(b){
+  if(!b.paid_active) return false;
+
+  const today = todayKey();
+
+  if(b.paid_start_at && b.paid_start_at > today) return false;
+  if(b.paid_end_at && b.paid_end_at < today) return false;
+
+  return true;
+}
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
   if(!box) return;
@@ -138,13 +152,13 @@ function renderHomeBusinessTabs(){
 
   let rows = [];
 
-  if(homeBusinessTab === 'featured'){
-    rows = businesses.filter(b => b.featured);
-  } else if(homeBusinessTab === 'new'){
-    rows = businesses.filter(b => b.is_new);
-  } else if(homeBusinessTab === 'popular'){
-    rows = businesses.filter(b => b.is_popular);
-  }
+if(homeBusinessTab === 'featured'){
+  rows = businesses.filter(b => b.featured && isPaidBusinessActive(b));
+} else if(homeBusinessTab === 'new'){
+  rows = businesses.filter(b => b.is_new && isPaidBusinessActive(b));
+} else if(homeBusinessTab === 'popular'){
+  rows = businesses.filter(b => b.is_popular && isPaidBusinessActive(b));
+}
 
   rows = sortBusinessesByDistance(rows)
     .slice()
@@ -1343,7 +1357,7 @@ function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
 
   const featured = sortBusinessesByDistance(
-    businesses.filter(b => b.featured)
+    businesses.filter(b => b.featured && isPaidBusinessActive(b))
   )
     .slice()
     .sort((a,b)=>
@@ -1365,7 +1379,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
   const newList = businesses
-    .filter(b => b.is_new)
+    .filter(b => b.is_new && isPaidBusinessActive(b))
     .sort((a, b) =>
       Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
       String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -1381,7 +1395,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   lucide.createIcons();
   }
   const popularList = businesses
-    .filter(b => b.is_popular)
+    .filter(b => b.is_popular && isPaidBusinessActive(b))
     .sort((a, b) =>
       Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
     )
