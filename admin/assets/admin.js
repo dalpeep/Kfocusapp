@@ -1295,10 +1295,28 @@ function filterCoupons() {
 
   return coupons.filter((c) => {
     const biz = businesses.find((b) => String(b.id) === String(c.business_id));
-    if (region !== 'all' && (biz?.region || 'colorado') !== region) return false;
-    if (bizId !== 'all' && String(c.business_id) !== String(bizId)) return false;
+
+    if (bizId !== 'all' && String(c.business_id) !== String(bizId)) {
+      return false;
+    }
+
+    if (region !== 'all') {
+      const bizRegion = String(biz?.region || 'dallas').toLowerCase();
+      if (bizRegion !== region) return false;
+    }
+
     if (!q) return true;
-    const hay = [c.title, c.description, c.coupon_code, biz?.name_ko, biz?.name_en].join(' ').toLowerCase();
+
+    const hay = [
+      c.title,
+      c.description,
+      c.coupon_code,
+      c.discount_label,
+      biz?.name_ko,
+      biz?.name_en,
+      biz?.name
+    ].join(' ').toLowerCase();
+
     return hay.includes(q);
   });
 }
