@@ -704,6 +704,9 @@ async function loadRealData(){
   'new_rank',
   'is_popular',
   'popular_rank',
+  'paid_active',
+  'paid_start_at',
+  'paid_end_at',
   'promo_enabled',
   'home_fixed',
   'home_fixed_sort',
@@ -736,21 +739,7 @@ async function loadRealData(){
 
     if (Array.isArray(rows) && rows.length) {
 		
-  //유료 광고 블러오기 코드
-let paidAdsByBusinessId = new Map();
 
-try {
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
-
-  const paidRes = await fetch(
-    `${SUPABASE_URL}/rest/v1/business_paid_ads?select=business_id,paid_active,paid_start_at,paid_end_at&region=eq.${encodeURIComponent(currentRegion)}`,
-    {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-      }
-    }
-  );
   console.log('paidRows', paidRows);
   console.log('paidMap', paidAdsByBusinessId);
   const paidRows = await paidRes.json();
