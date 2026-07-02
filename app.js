@@ -751,7 +751,8 @@ try {
       }
     }
   );
-
+  console.log('paidRows', paidRows);
+  console.log('paidMap', paidAdsByBusinessId);
   const paidRows = await paidRes.json();
 
   if (Array.isArray(paidRows)) {
