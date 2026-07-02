@@ -791,7 +791,6 @@ async function loadRealData(){
     friday: row.friday,
     saturday: row.saturday,
     sunday: row.sunday,
-    business_hours: row.business_hours,
   };
 });
 
