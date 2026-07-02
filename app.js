@@ -738,17 +738,8 @@ async function loadRealData(){
     const rows = await res.json();
 
     if (Array.isArray(rows) && rows.length) {
-		
-
-  if (Array.isArray(paidRows)) {
-    paidAdsByBusinessId = new Map(
-      paidRows.map(row => [String(row.business_id), row])
-    );
-  }
-} catch (e) {
-  console.warn('paid ads load failed', e);
-}
-
+	
+  
   const mapped = rows.map((row) => {
 	  
   const images = parseArr(row.image_urls);
@@ -774,6 +765,9 @@ async function loadRealData(){
     description: row.description || '',
 	description_images: row.description_images,
 	hours: row.hours || '',
+	paid_active: !!row.paid_active,
+    paid_start_at: row.paid_start_at || '',
+    paid_end_at: row.paid_end_at || '',
     parking: row.parking || '',
     reservation: row.reservation || '',
     languages: row.languages || '',
