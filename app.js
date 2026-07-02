@@ -671,64 +671,18 @@ async function loadRealData(){
 
   try {
     const select = [
-  'id',
-  'name_ko',
-  'name_en',
-  'name',
-  'category_ko',
-  'category',
-  'address',
-  'phone',
-  'website',
-  'email',
-  'image_url',
-  'image_urls',
-  'gallery_urls',
-  'description',
-  'description_images',
-  'hours',
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-  'business_hours',
-  'parking',
-  'reservation',
-  'languages',
-  'insurance',
-  'video_url',
-  'youtube_url',
-  'lat',
-  'lng',
-  'is_featured',
-  'featured_rank',
-  'is_new',
-  'new_rank',
-  'is_popular',
-  'popular_rank',
-  'paid_product',
-  'paid_active',
-  'paid_start_at',
-  'paid_end_at',
-  'promo_enabled',
-  'home_fixed',
-  'home_fixed_sort',
-  'promo_image_url',
-  'promo_text',
-  'order_url',
-  'delivery_url',
-  'reservation_url',
-  'created_at',
-  'region',
-  'is_active',
-  'rating',
-  'review_count',
-  'google_maps_url',
-  'google_review_url'
-].join(',');
+      'id','name_ko','name_en','name','category_ko','category','area',
+      'address','phone','website','email','image_url','image_urls','gallery_urls',
+      'description','description_images','hours','monday','tuesday','wednesday',
+      'thursday','friday','saturday','sunday','business_hours',
+      'parking','reservation','languages','insurance','video_url','youtube_url',
+      'lat','lng','is_featured','featured_rank','is_new','new_rank',
+      'is_popular','popular_rank',
+      'paid_product','paid_active','paid_start_at','paid_end_at',
+      'promo_enabled','home_fixed','home_fixed_sort','promo_image_url','promo_text',
+      'order_url','delivery_url','reservation_url','created_at','region','is_active',
+      'rating','review_count','google_maps_url','google_review_url'
+    ].join(',');
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
 
@@ -743,88 +697,81 @@ async function loadRealData(){
 
     const rows = await res.json();
 
-    if (Array.isArray(rows) && rows.length) {
-	
-  
-  const mapped = rows.map((row) => {
+    if(Array.isArray(rows) && rows.length){
+      const mapped = rows.map((row) => {
+        const images = parseArr(row.image_urls);
+        const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
 
-	  
-  const images = parseArr(row.image_urls);
-  const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
+        return {
+          id: row.id,
+          name: row.name_ko || row.name_en || row.name || '이름 없음',
+          category: row.category_ko || row.category || '기타',
+          area: row.area || '',
+          region: row.region || 'dallas',
+          address: row.address || '',
+          phone: row.phone || '',
+          image,
+          gallery_urls: parseArr(row.gallery_urls),
+          website: row.website || '',
+          email: row.email || '',
+          order_url: row.order_url || '',
+          delivery_url: row.delivery_url || '',
+          reservation_url: row.reservation_url || '',
+          video_url: row.video_url || '',
+          youtube_url: row.youtube_url || '',
+          description: row.description || '',
+          description_images: row.description_images,
+          hours: row.hours || '',
+          business_hours: row.business_hours,
 
-  return {
-    id: row.id,
-    name: row.name_ko || row.name_en || row.name || '이름 없음',
-    category: row.category_ko || row.category || '기타',
-	area: row.area || '',
-    region: row.region || 'dallas',
-	
-    paid_product: row.paid_product || 'none',
-	paid_active: !!row.paid_active,
-    paid_start_at: row.paid_start_at || '',
-    paid_end_at: row.paid_end_at || '',
-	
-    address: row.address || '',
-    phone: row.phone || '',
-    image,
-    gallery_urls: parseArr(row.gallery_urls),
-    website: row.website || '',
-    email: row.email || '',
-    order_url: row.order_url || '',
-    delivery_url: row.delivery_url || '',
-    reservation_url: row.reservation_url || '',
-    video_url: row.video_url || '',
-    youtube_url: row.youtube_url || '',
-    description: row.description || '',
-	description_images: row.description_images,
-	hours: row.hours || '',
+          paid_product: row.paid_product || 'none',
+          paid_active: !!row.paid_active,
+          paid_start_at: row.paid_start_at || '',
+          paid_end_at: row.paid_end_at || '',
 
-    parking: row.parking || '',
-    reservation: row.reservation || '',
-    languages: row.languages || '',
-    insurance: row.insurance || '',
-    lat: row.lat == null ? null : Number(row.lat),
-    lng: row.lng == null ? null : Number(row.lng),
-    featured: !!row.is_featured,
-    is_featured: !!row.is_featured,
-    is_new: !!row.is_new,
-    is_popular: !!row.is_popular,
-    new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
-    popular_rank: row.popular_rank == null ? 1000 : Number(row.popular_rank),
-	rating: row.rating,
-    review_count: row.review_count,
-    google_maps_url: row.google_maps_url,
-    google_review_url: row.google_review_url,
-    monday: row.monday,
-    tuesday: row.tuesday,
-    wednesday: row.wednesday,
-    thursday: row.thursday,
-    friday: row.friday,
-    saturday: row.saturday,
-    sunday: row.sunday,
-  };
-});
+          parking: row.parking || '',
+          reservation: row.reservation || '',
+          languages: row.languages || '',
+          insurance: row.insurance || '',
+          lat: row.lat == null ? null : Number(row.lat),
+          lng: row.lng == null ? null : Number(row.lng),
+          featured: !!row.is_featured,
+          is_featured: !!row.is_featured,
+          is_new: !!row.is_new,
+          is_popular: !!row.is_popular,
+          featured_rank: row.featured_rank == null ? 1000 : Number(row.featured_rank),
+          new_rank: row.new_rank == null ? 1000 : Number(row.new_rank),
+          popular_rank: row.popular_rank == null ? 1000 : Number(row.popular_rank),
+          rating: row.rating,
+          review_count: row.review_count,
+          google_maps_url: row.google_maps_url,
+          google_review_url: row.google_review_url,
+          monday: row.monday,
+          tuesday: row.tuesday,
+          wednesday: row.wednesday,
+          thursday: row.thursday,
+          friday: row.friday,
+          saturday: row.saturday,
+          sunday: row.sunday
+        };
+      });
 
-// 👇 여기 추가!!!
-const seen = new Set();
-businesses = mapped.filter((b) => {
-	if (String(b.region || '').toLowerCase() !== String(currentRegion).toLowerCase()) return false;
-  const nameKey = (b.name || '').trim().toLowerCase();
-  const addrKey = (b.address || '')
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .replace(/suite|ste\.?|unit|#\s*/g, '');
-  const latKey = b.lat == null ? '' : Number(b.lat).toFixed(4);
-  const lngKey = b.lng == null ? '' : Number(b.lng).toFixed(4);
+      const seen = new Set();
+      businesses = mapped.filter((b) => {
+        if(String(b.region || '').toLowerCase() !== String(currentRegion).toLowerCase()) return false;
+        const key = [
+          (b.name || '').trim().toLowerCase(),
+          (b.address || '').trim().toLowerCase(),
+          b.lat == null ? '' : Number(b.lat).toFixed(4),
+          b.lng == null ? '' : Number(b.lng).toFixed(4)
+        ].join('|');
 
-  const key = [nameKey, addrKey, latKey, lngKey].join('|');
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
 
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-});
-console.log('LOADED BUSINESSES', currentRegion, businesses.length, businesses.map(b => [b.name, b.region]));
+      console.log('LOADED BUSINESSES', currentRegion, businesses.length, businesses.map(b => [b.name, b.paid_product, b.paid_active, b.paid_end_at]));
       selectedBizId = businesses[0]?.id || selectedBizId;
     }
   } catch(e){
