@@ -758,6 +758,12 @@ async function loadRealData(){
     category: row.category_ko || row.category || '기타',
 	area: row.area || '',
     region: row.region || 'dallas',
+	
+    paid_product: row.paid_product || 'none',
+	paid_active: !!row.paid_active,
+    paid_start_at: row.paid_start_at || '',
+    paid_end_at: row.paid_end_at || '',
+	
     address: row.address || '',
     phone: row.phone || '',
     image,
@@ -772,10 +778,7 @@ async function loadRealData(){
     description: row.description || '',
 	description_images: row.description_images,
 	hours: row.hours || '',
-	paid_product: row.paid_product || 'none',
-	paid_active: !!row.paid_active,
-    paid_start_at: row.paid_start_at || '',
-    paid_end_at: row.paid_end_at || '',
+
     parking: row.parking || '',
     reservation: row.reservation || '',
     languages: row.languages || '',
