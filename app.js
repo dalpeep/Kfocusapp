@@ -735,7 +735,37 @@ async function loadRealData(){
     const rows = await res.json();
 
     if (Array.isArray(rows) && rows.length) {
-const mapped = rows.map((row) => {
+		
+  //유료 광고 블러오기 코드
+let paidAdsByBusinessId = new Map();
+
+try {
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+
+  const paidRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/business_paid_ads?select=business_id,paid_active,paid_start_at,paid_end_at&region=eq.${encodeURIComponent(currentRegion)}`,
+    {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    }
+  );
+
+  const paidRows = await paidRes.json();
+
+  if (Array.isArray(paidRows)) {
+    paidAdsByBusinessId = new Map(
+      paidRows.map(row => [String(row.business_id), row])
+    );
+  }
+} catch (e) {
+  console.warn('paid ads load failed', e);
+}
+
+  const mapped = rows.map((row) => {
+  const paid = paidAdsByBusinessId.get(String(row.id)) || {};
+	  
   const images = parseArr(row.image_urls);
   const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
 
@@ -759,6 +789,9 @@ const mapped = rows.map((row) => {
     description: row.description || '',
 	description_images: row.description_images,
 	hours: row.hours || '',
+	paid_active: !!paid.paid_active,
+    paid_start_at: paid.paid_start_at || '',
+    paid_end_at: paid.paid_end_at || '',
     parking: row.parking || '',
     reservation: row.reservation || '',
     languages: row.languages || '',
@@ -785,7 +818,6 @@ const mapped = rows.map((row) => {
     business_hours: row.business_hours,
   };
 });
-
 
 // 👇 여기 추가!!!
 const seen = new Set();
