@@ -133,9 +133,15 @@ function todayKey(){
 }
 
 function isBusinessVisibleByPaidDate(b){
-  if(!b.paid_active) return true;
+  const hasPaidAd =
+    b.paid_active === true ||
+    (b.paid_product && b.paid_product !== 'none') ||
+    b.paid_start_at ||
+    b.paid_end_at;
 
-  const today = todayKey();
+  if(!hasPaidAd) return true;
+
+  const today = new Date().toISOString().slice(0, 10);
 
   if(b.paid_start_at && b.paid_start_at > today) return false;
   if(b.paid_end_at && b.paid_end_at < today) return false;
@@ -704,6 +710,7 @@ async function loadRealData(){
   'new_rank',
   'is_popular',
   'popular_rank',
+  'paid_product',
   'paid_active',
   'paid_start_at',
   'paid_end_at',
@@ -741,6 +748,7 @@ async function loadRealData(){
 	
   
   const mapped = rows.map((row) => {
+  paid_product: row.paid_product || 'none',
 	  
   const images = parseArr(row.image_urls);
   const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
