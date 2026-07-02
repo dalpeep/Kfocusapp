@@ -131,7 +131,6 @@ function homeBusinessItemHTML(b){
 function todayKey(){
   return new Date().toISOString().slice(0, 10);
 }
-
 function isBusinessVisibleByPaidDate(b){
   const hasPaidAd =
     b.paid_active === true ||
