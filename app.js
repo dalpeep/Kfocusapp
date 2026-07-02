@@ -740,10 +740,6 @@ async function loadRealData(){
     if (Array.isArray(rows) && rows.length) {
 		
 
-  console.log('paidRows', paidRows);
-  console.log('paidMap', paidAdsByBusinessId);
-  const paidRows = await paidRes.json();
-
   if (Array.isArray(paidRows)) {
     paidAdsByBusinessId = new Map(
       paidRows.map(row => [String(row.business_id), row])
@@ -754,7 +750,6 @@ async function loadRealData(){
 }
 
   const mapped = rows.map((row) => {
-  const paid = paidAdsByBusinessId.get(String(row.id)) || {};
 	  
   const images = parseArr(row.image_urls);
   const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
