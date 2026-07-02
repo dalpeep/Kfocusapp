@@ -748,7 +748,7 @@ async function loadRealData(){
 	
   
   const mapped = rows.map((row) => {
-  paid_product: row.paid_product || 'none',
+
 	  
   const images = parseArr(row.image_urls);
   const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
@@ -773,6 +773,7 @@ async function loadRealData(){
     description: row.description || '',
 	description_images: row.description_images,
 	hours: row.hours || '',
+	paid_product: row.paid_product || 'none',
 	paid_active: !!row.paid_active,
     paid_start_at: row.paid_start_at || '',
     paid_end_at: row.paid_end_at || '',
