@@ -128,6 +128,26 @@ function homeBusinessItemHTML(b){
     </button>
   `;
 }
+function todayKey(){
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isBusinessVisibleByPaidDate(b){
+  const hasPaidAd =
+    b.paid_active === true ||
+    (b.paid_product && b.paid_product !== 'none') ||
+    b.paid_start_at ||
+    b.paid_end_at;
+
+  if(!hasPaidAd) return true;
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  if(b.paid_start_at && b.paid_start_at > today) return false;
+  if(b.paid_end_at && b.paid_end_at < today) return false;
+
+  return true;
+}
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
   if(!box) return;
@@ -139,11 +159,11 @@ function renderHomeBusinessTabs(){
   let rows = [];
 
   if(homeBusinessTab === 'featured'){
-    rows = businesses.filter(b => b.featured);
+    rows = businesses.filter(b => b.is_featured && isBusinessVisibleByPaidDate(b));
   } else if(homeBusinessTab === 'new'){
-    rows = businesses.filter(b => b.is_new);
+    rows = businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b));
   } else if(homeBusinessTab === 'popular'){
-    rows = businesses.filter(b => b.is_popular);
+    rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
   }
 
   rows = sortBusinessesByDistance(rows)
@@ -690,6 +710,10 @@ async function loadRealData(){
   'new_rank',
   'is_popular',
   'popular_rank',
+  'paid_product',
+  'paid_active',
+  'paid_start_at',
+  'paid_end_at',
   'promo_enabled',
   'home_fixed',
   'home_fixed_sort',
@@ -721,7 +745,11 @@ async function loadRealData(){
     const rows = await res.json();
 
     if (Array.isArray(rows) && rows.length) {
-const mapped = rows.map((row) => {
+	
+  
+  const mapped = rows.map((row) => {
+
+	  
   const images = parseArr(row.image_urls);
   const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
 
@@ -745,6 +773,10 @@ const mapped = rows.map((row) => {
     description: row.description || '',
 	description_images: row.description_images,
 	hours: row.hours || '',
+	paid_product: row.paid_product || 'none',
+	paid_active: !!row.paid_active,
+    paid_start_at: row.paid_start_at || '',
+    paid_end_at: row.paid_end_at || '',
     parking: row.parking || '',
     reservation: row.reservation || '',
     languages: row.languages || '',
@@ -768,10 +800,8 @@ const mapped = rows.map((row) => {
     friday: row.friday,
     saturday: row.saturday,
     sunday: row.sunday,
-    business_hours: row.business_hours,
   };
 });
-
 
 // 👇 여기 추가!!!
 const seen = new Set();
@@ -1345,7 +1375,7 @@ function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
 
   const featured = sortBusinessesByDistance(
-    businesses.filter(b => b.featured)
+    businesses.filter(b => b.featured && isBusinessVisibleByPaidDate(b))
   )
     .slice()
     .sort((a,b)=>
@@ -1367,7 +1397,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
   const newList = businesses
-    .filter(b => b.is_new)
+    .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
     .sort((a, b) =>
       Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
       String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -1383,7 +1413,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
   lucide.createIcons();
   }
   const popularList = businesses
-    .filter(b => b.is_popular)
+    .filter(b => b.is_popular && isBusinessVisibleByPaidDate(b))
     .sort((a, b) =>
       Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
     )
