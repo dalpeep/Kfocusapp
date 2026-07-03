@@ -1000,20 +1000,26 @@ async function saveBusiness() {
   if (res.data) fillBusinessForm(res.data);
   alert('업소 저장 완료');
 }
+
 async function uploadDescriptionImages(){
+  if (!selectedId) return alert('먼저 업소를 선택하세요.');
+
   const files = Array.from(document.getElementById('descriptionImagesFile')?.files || []);
-  if(!files.length) return alert('이미지를 선택하세요.');
+  if (!files.length) return alert('이미지를 선택하세요.');
+
+  const biz = businesses.find(b => String(b.id) === String(selectedId));
+  if (!biz) return alert('선택된 업소를 찾을 수 없습니다.');
 
   const urls = [];
 
-  for(const file of files){
-    const { bucket, path } = makeUploadPath(file, 'business-description');
+  for (const file of files) {
+    const { bucket, path } = makeUploadPath(file, `business-description/${selectedId}`);
 
     const { error } = await supabase.storage
       .from(bucket)
-      .upload(path, file, { upsert:false });
+      .upload(path, file, { upsert: false });
 
-    if(error){
+    if (error) {
       alert(error.message);
       continue;
     }
@@ -1023,19 +1029,21 @@ async function uploadDescriptionImages(){
   }
 
   const current = val('description_images');
-
   let old = [];
-  try {
-    old = current ? JSON.parse(current) : [];
-  } catch(e) {
-    old = [];
-  }
+  try { old = current ? JSON.parse(current) : []; } catch(e) { old = []; }
 
   const merged = [...old, ...urls];
-
   setVal('description_images', JSON.stringify(merged, null, 2));
 
-  alert('소개 이미지가 업로드되었습니다.');
+  const { error } = await supabase
+    .from('businesses')
+    .update({ description_images: merged })
+    .eq('id', selectedId);
+
+  if (error) return alert(`이미지 저장 실패: ${error.message}`);
+
+  await loadBusinesses();
+  alert('소개 이미지가 업로드/저장되었습니다.');
 }
 
 window.uploadDescriptionImages = uploadDescriptionImages;
