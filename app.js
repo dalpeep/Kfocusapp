@@ -1776,9 +1776,10 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     alert(`${label} 링크는 아직 준비중입니다.`);
   });
 });
+
 const hoursHtml = renderBusinessHours(b);
 
-function renderBusinessHours(b)
+function renderBusinessHours(b) {
   if (b.hours) {
     return `<div class="hours-row"><span>영업시간</span><strong>${esc(b.hours)}</strong></div>`;
   }
