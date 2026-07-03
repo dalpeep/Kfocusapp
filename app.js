@@ -1776,12 +1776,6 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     alert(`${label} 링크는 아직 준비중입니다.`);
   });
 });
-const hoursHtml = `
-<div class="hours-row">
-    <span>월요일</span>
-    <strong>${b.monday || '휴무'}</strong>
-</div>
-
 const hoursHtml = renderBusinessHours(b);
 
 function renderBusinessHours(b) {
