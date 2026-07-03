@@ -1778,7 +1778,7 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
 });
 const hoursHtml = renderBusinessHours(b);
 
-function renderBusinessHours(b) {
+function renderBusinessHours(b)
   if (b.hours) {
     return `<div class="hours-row"><span>영업시간</span><strong>${esc(b.hours)}</strong></div>`;
   }
