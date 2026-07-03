@@ -1418,18 +1418,47 @@ function renderBusinessList() {
 
   listEl.innerHTML = rows.map(nearbyBusinessItemHTML).join('');
 }
-function formatBusinessHours(hours){
-  if(!hours) return '<div>정보 없음</div>';
+function formatBusinessHours(b) {
+  if (b.hours) return b.hours;
 
-  return esc(hours)
-    .replace(/Monday\s*/g,'<div><b>Mon</b><span>')
-    .replace(/Tuesday\s*/g,'</span></div><div><b>Tue</b><span>')
-    .replace(/Wednesday\s*/g,'</span></div><div><b>Wed</b><span>')
-    .replace(/Thursday\s*/g,'</span></div><div><b>Thu</b><span>')
-    .replace(/Friday\s*/g,'</span></div><div><b>Fri</b><span>')
-    .replace(/Saturday\s*/g,'</span></div><div><b>Sat</b><span>')
-    .replace(/Sunday\s*/g,'</span></div><div><b>Sun</b><span>')
-    + '</span></div>';
+  const bh = b.business_hours;
+  if (!bh || typeof bh !== 'object') return '정보 없음';
+
+  const days = [
+    ['mon', '월'],
+    ['tue', '화'],
+    ['wed', '수'],
+    ['thu', '목'],
+    ['fri', '금'],
+    ['sat', '토'],
+    ['sun', '일']
+  ];
+
+  const lines = days.map(([key, label]) => {
+    const item = bh[key];
+    if (!item) return '';
+
+    if (item.closed) return `${label}: 휴무`;
+
+    if (item.text) return `${label}: ${item.text}`;
+
+    const open1 = item.open1 || item.start1 || item.open || '';
+    const close1 = item.close1 || item.end1 || item.close || '';
+    const open2 = item.open2 || item.start2 || '';
+    const close2 = item.close2 || item.end2 || '';
+
+    if (open1 && close1 && open2 && close2) {
+      return `${label}: ${open1} - ${close1}, ${open2} - ${close2}`;
+    }
+
+    if (open1 && close1) {
+      return `${label}: ${open1} - ${close1}`;
+    }
+
+    return '';
+  }).filter(Boolean);
+
+  return lines.length ? lines.join('\n') : '정보 없음';
 }
 function renderCategories() {
   const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
@@ -1753,51 +1782,46 @@ const hoursHtml = `
     <strong>${b.monday || '휴무'}</strong>
 </div>
 
-<div class="hours-row">
-    <span>화요일</span>
-    <strong>${b.tuesday || '휴무'}</strong>
-</div>
+const hoursHtml = renderBusinessHours(b);
 
-<div class="hours-row">
-    <span>수요일</span>
-    <strong>${b.wednesday || '휴무'}</strong>
-</div>
+function renderBusinessHours(b) {
+  if (b.hours) {
+    return `<div class="hours-row"><span>영업시간</span><strong>${esc(b.hours)}</strong></div>`;
+  }
 
-<div class="hours-row">
-    <span>목요일</span>
-    <strong>${b.thursday || '휴무'}</strong>
-</div>
+  const bh = b.business_hours;
+  if (!bh || typeof bh !== 'object') {
+    return `<div class="hours-row"><span>영업시간</span><strong>정보 없음</strong></div>`;
+  }
 
-<div class="hours-row">
-    <span>금요일</span>
-    <strong>${b.friday || '휴무'}</strong>
-</div>
-
-<div class="hours-row">
-    <span>토요일</span>
-    <strong>${b.saturday || '휴무'}</strong>
-</div>
-
-<div class="hours-row">
-    <span>일요일</span>
-    <strong>${b.sunday || '휴무'}</strong>
-</div>
-`;
-function renderBusinessHours(b){
-  const rows = [
-    ['월요일', b.monday || b.business_hours?.mon?.text],
-    ['화요일', b.tuesday || b.business_hours?.tue?.text],
-    ['수요일', b.wednesday || b.business_hours?.wed?.text],
-    ['목요일', b.thursday || b.business_hours?.thu?.text],
-    ['금요일', b.friday || b.business_hours?.fri?.text],
-    ['토요일', b.saturday || b.business_hours?.sat?.text],
-    ['일요일', b.sunday || b.business_hours?.sun?.text],
+  const days = [
+    ['mon', '월요일'],
+    ['tue', '화요일'],
+    ['wed', '수요일'],
+    ['thu', '목요일'],
+    ['fri', '금요일'],
+    ['sat', '토요일'],
+    ['sun', '일요일']
   ];
+
+  return days.map(([key, label]) => {
+    const item = bh[key] || {};
+    const text = item.text || item.value || '';
+    const closed = item.closed === true;
+
+    return `
+      <div class="hours-row">
+        <span>${label}</span>
+        <strong>${esc(closed ? '휴무' : (text || '정보 없음'))}</strong>
+      </div>
+    `;
+  }).join('');
+}
 
   const hasHours = rows.some(([_, v]) => v && String(v).trim());
 
   if(!hasHours){
-    return `<div class="biz-hours-block">${esc(b.hours || '정보 없음')}</div>`;
+    return `<div class="biz-hours-block">${esc(formatBusinessHours(b))}</div>`;
   }
 
   return `
