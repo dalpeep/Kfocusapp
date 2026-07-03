@@ -1813,23 +1813,7 @@ function renderBusinessHours(b) {
   }).join('');
 }
 
-  const hasHours = rows.some(([_, v]) => v && String(v).trim());
 
-  if(!hasHours){
-    return `<div class="biz-hours-block">${esc(formatBusinessHours(b))}</div>`;
-  }
-
-  return `
-    <div class="biz-hours-table">
-      ${rows.map(([label, value]) => `
-        <div class="hours-row">
-          <span>${label}</span>
-          <strong>${esc(value || '휴무')}</strong>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
