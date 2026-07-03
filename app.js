@@ -1793,28 +1793,29 @@ function renderBusinessHours(b) {
       ['sun', '일요일']
     ];
 
-    return days.map(([key, label]) => {
-      const h = bh[key] || {};
-      let text = '정보 없음';
+return days.map(([key, label]) => {
+  const h = bh[key] || {};
 
-      if (h.closed) text = '휴무';
-      else if (h.text) text = h.text;
-      else if (h.open1 && h.close1 && h.open2 && h.close2) {
-        text = `${h.open1} - ${h.close1} / ${h.open2} - ${h.close2}`;
-      } else if (h.open1 && h.close1) {
-        text = `${h.open1} - ${h.close1}`;
-      }
+  let text = '정보 없음';
 
-      return `<div class="hours-row"><span>${label}</span><strong>${esc(text)}</strong></div>`;
-    }).join('');
+  if (h.closed === true || h.closed === 'true') {
+    text = '휴무';
+  } else if (h.open1 && h.close1 && h.open2 && h.close2) {
+    text = `${h.open1} - ${h.close1} / ${h.open2} - ${h.close2}`;
+  } else if (h.open1 && h.close1) {
+    text = `${h.open1} - ${h.close1}`;
+  } else if (h.text) {
+    text = h.text;
   }
 
-  if (b.hours) {
-    return `<div class="hours-row"><span>영업시간</span><strong>${esc(b.hours)}</strong></div>`;
-  }
+  return `
+    <div class="hours-row">
+      <span>${label}</span>
+      <strong>${esc(text)}</strong>
+    </div>
+  `;
+}).join('');
 
-  return `<div class="hours-row"><span>영업시간</span><strong>정보 없음</strong></div>`;
-}
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
