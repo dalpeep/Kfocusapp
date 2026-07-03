@@ -1164,15 +1164,67 @@ async function uploadBoardImage() {
     alert(`게시판 이미지 업로드 실패: ${e.message}`);
   }
 }
-function collectBusinessHours(){
+function collectBusinessHours() {
   return {
-    mon: { text: val('monday') },
-    tue: { text: val('tuesday') },
-    wed: { text: val('wednesday') },
-    thu: { text: val('thursday') },
-    fri: { text: val('friday') },
-    sat: { text: val('saturday') },
-    sun: { text: val('sunday') }
+    mon: {
+      open1: val('mon_open1'),
+      close1: val('mon_close1'),
+      open2: val('mon_open2'),
+      close2: val('mon_close2'),
+      closed: checked('mon_closed')
+    },
+    tue: {
+      open1: val('tue_open1'),
+      close1: val('tue_close1'),
+      open2: val('tue_open2'),
+      close2: val('tue_close2'),
+      closed: checked('tue_closed')
+    },
+    wed: {
+      open1: val('wed_open1'),
+      close1: val('wed_close1'),
+      open2: val('wed_open2'),
+      close2: val('wed_close2'),
+      closed: checked('wed_closed')
+    },
+    thu: {
+      open1: val('thu_open1'),
+      close1: val('thu_close1'),
+      open2: val('thu_open2'),
+      close2: val('thu_close2'),
+      closed: checked('thu_closed')
+    },
+    fri: {
+      open1: val('fri_open1'),
+      close1: val('fri_close1'),
+      open2: val('fri_open2'),
+      close2: val('fri_close2'),
+      closed: checked('fri_closed')
+    },
+    sat: {
+      open1: val('sat_open1'),
+      close1: val('sat_close1'),
+      open2: val('sat_open2'),
+      close2: val('sat_close2'),
+      closed: checked('sat_closed')
+    },
+    sun: {
+      open1: val('sun_open1'),
+      close1: val('sun_close1'),
+      open2: val('sun_open2'),
+      close2: val('sun_close2'),
+      closed: checked('sun_closed')
+    }
+  };
+}
+
+function collectDayHours(day) {
+  return {
+    open1: val(`${day}_open1`),
+    close1: val(`${day}_close1`),
+    open2: val(`${day}_open2`),
+    close2: val(`${day}_close2`),
+    closed: checked(`${day}_closed`)
   };
 }
 function clearBoardImage() {
@@ -1874,14 +1926,50 @@ function renderGalleryList(row = null) {
     });
   });
 }
-function fillBusinessHours(hours){
-  setVal('monday', hours?.mon?.text || '');
-  setVal('tuesday', hours?.tue?.text || '');
-  setVal('wednesday', hours?.wed?.text || '');
-  setVal('thursday', hours?.thu?.text || '');
-  setVal('friday', hours?.fri?.text || '');
-  setVal('saturday', hours?.sat?.text || '');
-  setVal('sunday', hours?.sun?.text || '');
+function fillBusinessHours(hours) {
+  const h = hours || {};
+
+  setVal('mon_open1', h.mon?.open1 || '');
+  setVal('mon_close1', h.mon?.close1 || '');
+  setVal('mon_open2', h.mon?.open2 || '');
+  setVal('mon_close2', h.mon?.close2 || '');
+  setChecked('mon_closed', !!h.mon?.closed);
+
+  setVal('tue_open1', h.tue?.open1 || '');
+  setVal('tue_close1', h.tue?.close1 || '');
+  setVal('tue_open2', h.tue?.open2 || '');
+  setVal('tue_close2', h.tue?.close2 || '');
+  setChecked('tue_closed', !!h.tue?.closed);
+
+  setVal('wed_open1', h.wed?.open1 || '');
+  setVal('wed_close1', h.wed?.close1 || '');
+  setVal('wed_open2', h.wed?.open2 || '');
+  setVal('wed_close2', h.wed?.close2 || '');
+  setChecked('wed_closed', !!h.wed?.closed);
+
+  setVal('thu_open1', h.thu?.open1 || '');
+  setVal('thu_close1', h.thu?.close1 || '');
+  setVal('thu_open2', h.thu?.open2 || '');
+  setVal('thu_close2', h.thu?.close2 || '');
+  setChecked('thu_closed', !!h.thu?.closed);
+
+  setVal('fri_open1', h.fri?.open1 || '');
+  setVal('fri_close1', h.fri?.close1 || '');
+  setVal('fri_open2', h.fri?.open2 || '');
+  setVal('fri_close2', h.fri?.close2 || '');
+  setChecked('fri_closed', !!h.fri?.closed);
+
+  setVal('sat_open1', h.sat?.open1 || '');
+  setVal('sat_close1', h.sat?.close1 || '');
+  setVal('sat_open2', h.sat?.open2 || '');
+  setVal('sat_close2', h.sat?.close2 || '');
+  setChecked('sat_closed', !!h.sat?.closed);
+
+  setVal('sun_open1', h.sun?.open1 || '');
+  setVal('sun_close1', h.sun?.close1 || '');
+  setVal('sun_open2', h.sun?.open2 || '');
+  setVal('sun_close2', h.sun?.close2 || '');
+  setChecked('sun_closed', !!h.sun?.closed);
 }
 async function uploadGalleryImages() {
   if (!selectedId) return alert('먼저 업소를 선택하세요.');
