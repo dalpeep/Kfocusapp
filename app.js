@@ -1813,17 +1813,6 @@ function renderBusinessHours(b) {
   }).join('');
 }
 
-function buildBusinessHoursPayload() {
-  return {
-    mon: { text: val('business_mon') },
-    tue: { text: val('business_tue') },
-    wed: { text: val('business_wed') },
-    thu: { text: val('business_thu') },
-    fri: { text: val('business_fri') },
-    sat: { text: val('business_sat') },
-    sun: { text: val('business_sun') }
-  };
-}
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
