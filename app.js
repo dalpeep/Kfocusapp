@@ -1780,39 +1780,41 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
 const hoursHtml = renderBusinessHours(b);
 
 function renderBusinessHours(b) {
+  const bh = b.business_hours;
+
+  if (bh && typeof bh === 'object') {
+    const days = [
+      ['mon', '월요일'],
+      ['tue', '화요일'],
+      ['wed', '수요일'],
+      ['thu', '목요일'],
+      ['fri', '금요일'],
+      ['sat', '토요일'],
+      ['sun', '일요일']
+    ];
+
+    return days.map(([key, label]) => {
+      const h = bh[key] || {};
+      let text = '정보 없음';
+
+      if (h.closed) text = '휴무';
+      else if (h.text) text = h.text;
+      else if (h.open1 && h.close1 && h.open2 && h.close2) {
+        text = `${h.open1} - ${h.close1} / ${h.open2} - ${h.close2}`;
+      } else if (h.open1 && h.close1) {
+        text = `${h.open1} - ${h.close1}`;
+      }
+
+      return `<div class="hours-row"><span>${label}</span><strong>${esc(text)}</strong></div>`;
+    }).join('');
+  }
+
   if (b.hours) {
     return `<div class="hours-row"><span>영업시간</span><strong>${esc(b.hours)}</strong></div>`;
   }
 
-  const bh = b.business_hours;
-  if (!bh || typeof bh !== 'object') {
-    return `<div class="hours-row"><span>영업시간</span><strong>정보 없음</strong></div>`;
-  }
-
-  const days = [
-    ['mon', '월요일'],
-    ['tue', '화요일'],
-    ['wed', '수요일'],
-    ['thu', '목요일'],
-    ['fri', '금요일'],
-    ['sat', '토요일'],
-    ['sun', '일요일']
-  ];
-
-  return days.map(([key, label]) => {
-    const item = bh[key] || {};
-    const text = item.text || item.value || '';
-    const closed = item.closed === true;
-
-    return `
-      <div class="hours-row">
-        <span>${label}</span>
-        <strong>${esc(closed ? '휴무' : (text || '정보 없음'))}</strong>
-      </div>
-    `;
-  }).join('');
+  return `<div class="hours-row"><span>영업시간</span><strong>정보 없음</strong></div>`;
 }
-
 // 여기부터 추가
 const prevBtn = detailCard.querySelector('.gallery-arrow.prev');
 const nextBtn = detailCard.querySelector('.gallery-arrow.next');
