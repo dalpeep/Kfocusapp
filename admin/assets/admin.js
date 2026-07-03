@@ -962,6 +962,7 @@ p.home_fixed_sort = homeFixedSortRaw === '' ? 1000 : Number(homeFixedSortRaw);
   p.description_images = [];
 }
 p.business_hours = collectBusinessHours();
+
   return p;
 }
 async function loadBusinesses() {
@@ -983,6 +984,8 @@ async function loadBusinesses() {
 }
 async function saveBusiness() {
   const payload = collectBusinessPayload();
+  
+  console.log(payload.business_hours);
   if (!payload.name_ko && !payload.name_en) return alert('업소명을 입력하세요.');
   if (!payload.category_ko) return alert('카테고리를 입력해 주세요.');
 
