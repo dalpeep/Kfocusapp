@@ -952,19 +952,18 @@ p.home_fixed_sort = homeFixedSortRaw === '' ? 1000 : Number(homeFixedSortRaw);
 
   p.paid_active = checked('paid_active');
   p.rotation_enabled = checked('rotation_enabled');
+  p.business_hours = collectBusinessHours();
   
-  try {
-  p.description_images = val('description_images')
-    ? JSON.parse(val('description_images'))
-    : [];
-} catch (e) {
-  alert('소개 이미지 목록 형식이 잘못되었습니다.');
-  p.description_images = [];
+try {
+    p.description_images = val('description_images')
+        ? JSON.parse(val('description_images'))
+        : [];
+} catch(e){
+    p.description_images = [];
 }
-p.business_hours = collectBusinessHours();
-
   return p;
 }
+
 async function loadBusinesses() {
   if (!supabase) return;
   setStatus('업소 불러오는 중');
