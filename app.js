@@ -677,7 +677,7 @@ async function loadRealData(){
       'thursday','friday','saturday','sunday','business_hours',
       'parking','reservation','languages','insurance','video_url','youtube_url',
       'lat','lng','is_featured','featured_rank','is_new','new_rank',
-      'is_popular','popular_rank',
+      'is_popular','popular_rank','reservation_enabled',
       'paid_product','paid_active','paid_start_at','paid_end_at',
       'promo_enabled','home_fixed','home_fixed_sort','promo_image_url','promo_text',
       'order_url','delivery_url','reservation_url','created_at','region','is_active',
@@ -717,6 +717,7 @@ async function loadRealData(){
           order_url: row.order_url || '',
           delivery_url: row.delivery_url || '',
           reservation_url: row.reservation_url || '',
+		  reservation_enabled: !!row.reservation_enabled,
           video_url: row.video_url || '',
           youtube_url: row.youtube_url || '',
           description: row.description || '',
@@ -1670,11 +1671,13 @@ ${b.rating ? `
         <a href="tel:${esc(phone)}">전화</a>
         <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
         <a href="${esc(website || '#')}" target="_blank">웹사이트</a>
+        ${b.reservation_enabled && (b.reservation_url || b.phone) ? `
         <button
-        type="button"
-        onclick="openReservation('${b.id}')">
-        예약
+           type="button"
+           onclick="openReservation('${b.id}')">
+           예약
         </button>
+         ` : ''}
         <button type="button" onclick="shareBusiness('${b.id}')">
         공유
        </button>
