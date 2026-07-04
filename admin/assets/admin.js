@@ -55,7 +55,7 @@ const BUSINESS_FIELDS = [
 
 ];
 const BUSINESS_CHECKS = [
-  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled',
+  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled', 'reservation_enabled',
 ];
 
 function on(id, evt, fn) {
