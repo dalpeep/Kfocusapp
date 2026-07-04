@@ -1695,7 +1695,7 @@ ${b.rating ? `
 ` : ''}
 
 <section class="biz-detail-card">
-  <h3>매장 소개</h3>
+  <h3>소개</h3>
 
 ${getDescriptionImages(b).length ? `
   <div class="biz-description-gallery">
@@ -1711,7 +1711,7 @@ ${getDescriptionImages(b).length ? `
 </section>
 
 <section class="biz-detail-card biz-info-card">
-  <h3>영업 정보</h3>
+  <h3>정보</h3>
 
   <div class="biz-info-rows">
     <div class="biz-info-row hours-main">
@@ -1744,7 +1744,7 @@ ${getDescriptionImages(b).length ? `
 </section>
 
     <section class="biz-map-card">
-      <h3>매장 위치</h3>
+      <h3>위치 안내</h3>
 
       <div class="biz-map-preview">
         <iframe
