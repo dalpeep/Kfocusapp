@@ -55,7 +55,7 @@ const BUSINESS_FIELDS = [
 
 ];
 const BUSINESS_CHECKS = [
-  'is_active', 'is_featured', 'is_new', 'is_popular', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled', 'reservation_enabled',
+  'is_active', 'is_featured', 'is_new', 'is_popular', 'reservation_enabled', 'promo_enabled', 'home_fixed', 'paid_active', 'rotation_enabled', 
 ];
 
 function on(id, evt, fn) {
@@ -1001,6 +1001,7 @@ async function saveBusiness() {
   await loadBusinesses();
   if (res.data) fillBusinessForm(res.data);
   alert('업소 저장 완료');
+  console.log('save reservation_enabled', payload.reservation_enabled);
 }
 
 async function uploadDescriptionImages(){
