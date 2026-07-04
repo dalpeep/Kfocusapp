@@ -1042,8 +1042,15 @@ async function uploadDescriptionImages(){
 
   if (error) return alert(`이미지 저장 실패: ${error.message}`);
 
-  await loadBusinesses();
-  alert('소개 이미지가 업로드/저장되었습니다.');
+await loadBusinesses();
+
+const updated = businesses.find(b => String(b.id) === String(selectedId));
+if (updated) {
+  fillBusinessForm(updated);
+  renderGalleryList(updated);
+}
+
+alert('소개 이미지가 업로드/저장되었습니다.');
 }
 
 window.uploadDescriptionImages = uploadDescriptionImages;
