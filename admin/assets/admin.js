@@ -31,7 +31,6 @@ const BUSINESS_FIELDS = [
   'parking',
   'reservation',
   'reservation_url',
-  'reservation_enabled',
   'languages',
   'google_maps_url',
   'google_maps_url',
