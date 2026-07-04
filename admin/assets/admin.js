@@ -692,7 +692,9 @@ function clearBusinessForm() {
 function fillBusinessForm(row) {
   BUSINESS_FIELDS.forEach((id) => setVal(id, row?.[id] ?? ''));
   BUSINESS_CHECKS.forEach((id) => setChecked(id, !!row?.[id]));
-
+  
+  setVal('description_images', JSON.stringify(row.description_images || [], null, 2));
+  
   if (qs('#imageFile')) qs('#imageFile').value = '';
 
   selectedId = row?.id ?? null;
