@@ -955,6 +955,7 @@ p.home_fixed_sort = homeFixedSortRaw === '' ? 1000 : Number(homeFixedSortRaw);
   p.paid_active = checked('paid_active');
   p.rotation_enabled = checked('rotation_enabled');
   p.business_hours = collectBusinessHours();
+  p.reservation_enabled = checked('reservation_enabled');
   
 try {
     p.description_images = val('description_images')
