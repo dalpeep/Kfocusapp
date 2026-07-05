@@ -3257,16 +3257,21 @@ function setMapPageMode(isMap) {
 
 
 document.addEventListener('click', (e) => {
-const page = nav.getAttribute('data-nav');
+  const nav = e.target.closest('[data-nav]');
+  if (!nav) return;
 
-if (page === 'business') {
-  setTimeout(() => {
-    const btn = [...document.querySelectorAll('button')]
-      .find(b => b.textContent.trim() === '식당');
+  const page = nav.getAttribute('data-nav');
 
-    if (btn) btn.click();
-  }, 100);
-}
+  setMapPageMode(page === 'map');
+
+  if (page === 'business') {
+    setTimeout(() => {
+      const btn = [...document.querySelectorAll('button')]
+        .find(b => b.textContent.trim() === '식당');
+
+      if (btn) btn.click();
+    }, 300);
+  }
 });
 
 function requestPush() {
