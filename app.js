@@ -3260,16 +3260,12 @@ document.addEventListener('click', (e) => {
 const page = nav.getAttribute('data-nav');
 
 if (page === 'business') {
-  selectedCategory = '식당';
-
-  const categoryEl = document.getElementById('categoryFilter');
-  if (categoryEl) categoryEl.value = '식당';
-
   setTimeout(() => {
-    if (typeof renderBusinessList === 'function') renderBusinessList();
-    if (typeof renderBusinesses === 'function') renderBusinesses();
-    if (typeof applyBusinessFilters === 'function') applyBusinessFilters();
-  }, 0);
+    const btn = [...document.querySelectorAll('button')]
+      .find(b => b.textContent.trim() === '식당');
+
+    if (btn) btn.click();
+  }, 100);
 }
 });
 
