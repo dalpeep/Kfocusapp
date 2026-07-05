@@ -3261,11 +3261,18 @@ const page = nav.getAttribute('data-nav');
 
 if (page === 'business') {
   selectedCategory = '식당';
-  renderBusinessList?.();
-}
 
-setMapPageMode(page === 'map');
+  const categoryEl = document.getElementById('categoryFilter');
+  if (categoryEl) categoryEl.value = '식당';
+
+  setTimeout(() => {
+    if (typeof renderBusinessList === 'function') renderBusinessList();
+    if (typeof renderBusinesses === 'function') renderBusinesses();
+    if (typeof applyBusinessFilters === 'function') applyBusinessFilters();
+  }, 0);
+}
 });
+
 function requestPush() {
   window.OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.Notifications.requestPermission();
