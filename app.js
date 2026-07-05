@@ -3262,7 +3262,7 @@ document.addEventListener('click', (e) => {
   const page = nav.getAttribute('data-nav');
 
   if (page === 'business') {
-  mapCategory  = '식당';   // 실제 카테고리 변수명이 다르면 그 이름으로 교체
+  selectedCategory = '식당';   // 실제 카테고리 변수명이 다르면 그 이름으로 교체
   
   renderBusinessList?.();
 }
