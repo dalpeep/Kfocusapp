@@ -3257,13 +3257,10 @@ function setMapPageMode(isMap) {
 
 
 document.addEventListener('click', (e) => {
-  const nav = e.target.closest('[data-nav]');
-  if (!nav) return;
-  const page = nav.getAttribute('data-nav');
+const page = nav.getAttribute('data-nav');
 
-  if (page === 'business') {
-  selectedCategory = '식당';   // 실제 카테고리 변수명이 다르면 그 이름으로 교체
-  
+if (page === 'business') {
+  selectedCategory = '식당';
   renderBusinessList?.();
 }
 
