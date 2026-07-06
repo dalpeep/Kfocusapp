@@ -1729,10 +1729,12 @@ ${getDescriptionImages(b).length ? `
       <div class="biz-info-value">${esc(b.parking || '정보 없음')}</div>
     </div>
 
+    ${b.reservation && String(b.reservation).trim() ? `
     <div class="biz-info-row">
-      <div class="biz-info-title">예약</div>
-      <div class="biz-info-value">${esc(b.reservation || '가능')}</div>
+    <div class="biz-info-title">예약</div>
+    <div class="biz-info-value">${esc(b.reservation)}</div>
     </div>
+     ` : ''}
 
     <div class="biz-info-row">
       <div class="biz-info-title">언어</div>
