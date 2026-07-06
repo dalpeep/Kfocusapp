@@ -82,9 +82,10 @@ exports.handler = async (event) => {
         <p><b>사용시간</b><br>${esc(usedAt)}</p>
         
       </div>
-      <p style="font-size:12px;color:#64748b;margin-top:14px">
-        이 메일은 DalTownMap 쿠폰 사용 확인 버튼을 통해 자동 발송되었습니다.
-      </p>
+<p style="font-size:12px;color:#64748b;margin-top:14px">
+본 메일은 DalTownMap 시스템에서 자동으로 발송된 안내 메일입니다.<br>
+본 메일 주소는 발신 전용으로, 회신 메일은 확인하거나 답변드리지 않습니다.
+</p>
     </div>
   `;
 
