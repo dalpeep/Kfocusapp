@@ -3470,12 +3470,13 @@ body,
   margin:16px 0;
 }
 
-.biz-description-gallery img{
-  width:100%;
-  display:block;
-  border-radius:18px;
-  object-fit:cover;
+.biz-description-gallery img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain;
 }
+
 .biz-hours-block{
   white-space:pre-line;
   line-height:1.7;
