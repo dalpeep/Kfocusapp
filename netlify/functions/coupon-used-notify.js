@@ -59,7 +59,7 @@ exports.handler = async (event) => {
   const usedAt = new Date().toLocaleString('ko-KR', {
   timeZone: 'America/Chicago'
   });
-  const phone = payload.notify_phones || '';
+  
 
   const subject = `🔔 [DalTownMap] ${businessName} 쿠폰 사용 알림`;
   const text = [
@@ -68,7 +68,7 @@ exports.handler = async (event) => {
     `업소명: ${businessName}`,
     `쿠폰명: ${couponTitle}`,
     `사용시간: ${usedAt}`,
-    phone ? `알림 전화: ${phone}` : '',
+    
     '',
     '이 메일은 DalTownMap 쿠폰 사용 확인 버튼을 통해 자동 발송되었습니다.'
   ].filter(Boolean).join('\n');
@@ -80,7 +80,7 @@ exports.handler = async (event) => {
         <p><b>업소명</b><br>${esc(businessName)}</p>
         <p><b>쿠폰명</b><br>${esc(couponTitle)}</p>
         <p><b>사용시간</b><br>${esc(usedAt)}</p>
-        ${phone ? `<p><b>알림 전화</b><br>${esc(phone)}</p>` : ''}
+        
       </div>
       <p style="font-size:12px;color:#64748b;margin-top:14px">
         이 메일은 DalTownMap 쿠폰 사용 확인 버튼을 통해 자동 발송되었습니다.
