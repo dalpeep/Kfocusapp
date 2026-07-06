@@ -56,7 +56,9 @@ exports.handler = async (event) => {
   const replyTo = process.env.RESEND_REPLY_TO || undefined;
   const businessName = payload.business_name || '업소';
   const couponTitle = payload.coupon_title || '쿠폰';
-  const usedAt = new Date().toLocaleString('ko-KR', { timeZone: process.env.TZ || 'America/Chicago' });
+  const usedAt = new Date().toLocaleString('ko-KR', {
+  timeZone: 'America/Chicago'
+  });
   const phone = payload.notify_phones || '';
 
   const subject = `🔔 [DalTownMap] ${businessName} 쿠폰 사용 알림`;
