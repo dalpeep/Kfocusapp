@@ -822,6 +822,7 @@ async function loadCouponsFromSupabase(){
       title: row.title || '쿠폰',
       description: row.description || '',
       couponCode: row.coupon_code || '',
+	  use_link_url
       imageUrl: row.image_url || '',
 	  discount_label: row.discount_label || '',
       startAt: row.start_at || '',
@@ -2237,23 +2238,35 @@ async function useCouponNow(coupon){
     })
     .eq('id', coupon.id);
 
-  try {
+try {
     const notifyRes = await fetch('/.netlify/functions/coupon-used-notify', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
     });
+
     const notifyText = await notifyRes.text();
     if(!notifyRes.ok){
-      console.warn('coupon email notify failed', notifyRes.status, notifyText);
+        console.warn('coupon email notify failed', notifyRes.status, notifyText);
     } else {
-      console.log('coupon email notify result', notifyText);
+        console.log('coupon email notify result', notifyText);
     }
-  } catch(e){
+} catch(e){
     console.warn('coupon email notify error', e);
-  }
+}
 
-  alert('쿠폰 사용이 확인되었습니다.');
+// ▼ 여기 추가
+if (coupon.use_link_url && coupon.use_link_url.trim()) {
+    window.open(coupon.use_link_url, '_blank');
+}
+
+alert('쿠폰 사용이 확인되었습니다.');
+
+const useLink = String(coupon.use_link_url || '').trim();
+
+if (useLink) {
+  window.open(useLink, '_blank');
+} else {
   showPage('home');
 }
 	
