@@ -1760,6 +1760,7 @@ function clearSlideForm() {
   setVal('slide_promo_text', '');
   setVal('slide_promo_image_url', '');
   setVal('slide_video_url', '');
+  setVal('slide_link_url', '');
   setVal('slide_start_at', '');
   setVal('slide_end_at', '');
   selectedSlideBusinessId = null;
@@ -1777,7 +1778,7 @@ function fillSlideForm(rowOrBusiness) {
   setVal('slide_promo_text', slide?.promo_text || '');
   setVal('slide_promo_image_url', slide?.promo_image_url || '');
   setVal('slide_video_url', slide?.video_url || '');
-  setVal('slide_link_url', row.link_url || '');
+  setVal('slide_link_url', slide?.link_url || '');
   setVal('slide_start_at', fmtLocal(slide?.promo_start_at));
   setVal('slide_end_at', fmtLocal(slide?.promo_end_at));
   selectedSlideBusinessId = businessId || null;
