@@ -793,7 +793,7 @@ async function loadSlidesFromSupabase(){
   slideRows = [];
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
-    const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at';
+    const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
     const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Slides ${res.status}`);
@@ -924,25 +924,25 @@ function buildHeroSlides() {
     const b = bizMap.get(String(s.business_id)) || {};
 
 return {
-  type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
+    type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
 
-  title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
+    title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
 
-  desc:
-    `${b.category} · ${getRegionLabel(b.region || currentRegion)}`,
+    desc: `${b.category} · ${getRegionLabel(b.region || currentRegion)}`,
 
-  slideDesc:
-    s.description || s.promo_text || '',
+    slideDesc: s.description || s.promo_text || '',
 
-  button: '',
+    button: '',
 
-  bg:
-    s.promo_image_url ||
-    b.image_url ||
-    b.image ||
-    '',
+    bg:
+        s.promo_image_url ||
+        b.image_url ||
+        b.image ||
+        '',
 
-  bizId: String(b.id || s.business_id || '')
+    link_url: s.link_url || '',
+
+    bizId: String(b.id || s.business_id || '')
 };
   }).filter((s) => !!(s.bg || s.video_url));
 
@@ -2484,9 +2484,16 @@ if(bizId){
     heroSlides.find(x => String(x.bizId) === String(bizId));
 
 if (slideData) {
-  if (slideData.link_url === '#business-request') {
+  const link = String(slideData.link_url || '').trim();
+
+  if (link === '#business-request') {
     closeSlideDetailModal?.();
     showPage('business-request');
+    return;
+  }
+
+  if (link) {
+    window.open(link, '_blank');
     return;
   }
 
