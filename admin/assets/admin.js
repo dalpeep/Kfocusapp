@@ -1777,6 +1777,7 @@ function fillSlideForm(rowOrBusiness) {
   setVal('slide_promo_text', slide?.promo_text || '');
   setVal('slide_promo_image_url', slide?.promo_image_url || '');
   setVal('slide_video_url', slide?.video_url || '');
+  setVal('slide_link_url', row.link_url || '');
   setVal('slide_start_at', fmtLocal(slide?.promo_start_at));
   setVal('slide_end_at', fmtLocal(slide?.promo_end_at));
   selectedSlideBusinessId = businessId || null;
@@ -1861,7 +1862,7 @@ const payload = {
 
   // ⭐ 이거 추가
   video_url: val('slide_video_url').trim() || null,
-
+  link_url: val('slide_link_url') || null,
   promo_start_at: fromLocal(val('slide_start_at')),
   promo_end_at: fromLocal(val('slide_end_at')),
   updated_at: new Date().toISOString()
