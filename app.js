@@ -2483,10 +2483,16 @@ if(bizId){
   const slideData =
     heroSlides.find(x => String(x.bizId) === String(bizId));
 
-  if(slideData){
-    openSlideDetailModal(slideData);
+if (slideData) {
+  if (slideData.link_url === '#business-request') {
+    closeSlideDetailModal?.();
+    showPage('business-request');
     return;
   }
+
+  openSlideDetailModal(slideData);
+  return;
+}
 
   renderDetail(bizId);
   lastBasePage = currentPage;
