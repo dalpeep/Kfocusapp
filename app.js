@@ -2255,11 +2255,6 @@ try {
     console.warn('coupon email notify error', e);
 }
 
-// ▼ 여기 추가
-if (coupon.use_link_url && coupon.use_link_url.trim()) {
-    window.open(coupon.use_link_url, '_blank');
-}
-
 alert('쿠폰 사용이 확인되었습니다.');
 
 const useLink = String(coupon.use_link_url || '').trim();
