@@ -2264,6 +2264,7 @@ if (useLink) {
 } else {
   showPage('home');
 }
+}
 	
 function renderLucideStars(rating){
   const score = Number(rating || 0);
