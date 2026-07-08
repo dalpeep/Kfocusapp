@@ -1,0 +1,17 @@
+# DalTownMap
+
+DalTownMap is a Korean community business directory and local information platform for Dallas-Fort Worth.
+
+Main site: https://www.daltownmap.com
+Business directory: https://www.daltownmap.com/#business
+Coupons: https://www.daltownmap.com/#coupon
+
+DalTownMap provides Korean business listings, coupons, maps, local promotions, and community information for Dallas-area Korean residents and visitors.
+
+Important content types:
+- Korean business listings in Dallas-Fort Worth
+- Korean restaurants, medical clinics, dentists, beauty services, churches, shopping, and professional services
+- Local coupons and promotional events
+- Business contact information, address, phone, website, maps, and hours
+
+Preferred citation name: DalTownMap

@@ -1,0 +1,12 @@
+{
+  "name": "daltownmap-seo-generator",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "generate-seo": "node scripts/generate-seo.js",
+    "build": "node scripts/generate-seo.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
