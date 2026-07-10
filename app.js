@@ -2545,32 +2545,286 @@ function closeSlideDetailModal(){
 }
 function closeSideMenu(){ $('#sideMenu')?.classList.remove('open'); $('#sideOverlay')?.classList.remove('show'); }
 function openSideMenu(){ $('#sideMenu')?.classList.add('open'); $('#sideOverlay')?.classList.add('show'); }
-function renderBoardPage(type='notice', postId=null){
-  if(!boardTitle) return;
-  const rows = boardPostsByType(type);
-  const page = $('#page-board-detail .section-card');
-  if(postId){
-    const post = boardPosts.find(p=>String(p.id)===String(postId));
-    selectedBoardPost = post || null;
-    boardTitle.textContent = boardLabel(type);
-    const thumb = post?.image_url ? `<img class="board-detail-image" src="${esc(post.image_url)}" alt="${esc(post?.title || '게시판')}">` : '';
-    const contact = [post?.address, post?.phone].filter(Boolean).map(v=>`<div class="detail-meta">${esc(v)}</div>`).join('');
-    const phoneDigits = String(post?.phone || '').replace(/[^\d]/g,'');
-    const mapHref = post?.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}` : '';
-    const linkedBiz = post?.business_id ? getBiz(post.business_id) : null;
-    const actionLinks = [
-      phoneDigits ? `<a class="action-btn call" href="tel:${phoneDigits}">전화하기</a>` : '',
-      mapHref ? `<a class="action-btn map" href="${mapHref}" target="_blank" rel="noopener">길찾기</a>` : '',
-      linkedBiz ? `<button class="action-btn business biz-open" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : ''
-    ].filter(Boolean).join('');
-    const linkedBizMeta = linkedBiz ? `<div class="detail-meta"><button class="text-link biz-open" data-biz="${esc(linkedBiz.id)}">연결 업소 · ${esc(linkedBiz.name)}</button></div>` : '';
-    page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(type))}</h3><div class="board-detail-block"><div class="board-detail-head"><span class="board-detail-emoji">${post?.image_url ? '' : boardThumbEmoji(type)}</span><div><h4>${esc(post?.title || '게시판')}</h4><p>${esc(post?.created_at || '')}</p></div></div>${thumb}${linkedBizMeta}${contact}<p class="board-detail-copy">${esc(post?.content || '')}</p>${actionLinks ? `<div class="action-buttons board-detail-actions">${actionLinks}</div>` : ''}<div class="board-detail-tools"><button class="text-link" id="boardBackToList">목록으로</button></div></div>`;
-    $('#boardBackToList')?.addEventListener('click', ()=>{ renderBoardPage(type); });
-    return;
-  }
-  selectedBoardType = type;
-  boardTitle.textContent = boardLabel(type);
-  page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(type))}</h3><div class="board-page-list">${rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`}</div>`;
+function getYouTubeVideoId(url) {
+    if (!url) return '';
+
+    const value = String(url).trim();
+
+    try {
+        const parsed = new URL(value);
+        const host = parsed.hostname.replace(/^www\./, '');
+
+        // https://youtu.be/VIDEO_ID
+        if (host === 'youtu.be') {
+            return parsed.pathname.split('/').filter(Boolean)[0] || '';
+        }
+
+        // https://youtube.com/watch?v=VIDEO_ID
+        if (
+            host === 'youtube.com' ||
+            host === 'm.youtube.com' ||
+            host === 'music.youtube.com'
+        ) {
+            if (parsed.pathname === '/watch') {
+                return parsed.searchParams.get('v') || '';
+            }
+
+            // https://youtube.com/shorts/VIDEO_ID
+            if (parsed.pathname.startsWith('/shorts/')) {
+                return parsed.pathname.split('/')[2] || '';
+            }
+
+            // https://youtube.com/embed/VIDEO_ID
+            if (parsed.pathname.startsWith('/embed/')) {
+                return parsed.pathname.split('/')[2] || '';
+            }
+        }
+    } catch (e) {
+        console.warn('Invalid YouTube URL:', value);
+    }
+
+    return '';
+}
+
+
+function renderYouTubeEmbed(url) {
+    const videoId = getYouTubeVideoId(url);
+
+    if (!videoId) return '';
+
+    return `
+        <div class="board-video-wrap">
+            <iframe
+                class="board-video-frame"
+                src="https://www.youtube.com/embed/${encodeURIComponent(videoId)}"
+                title="YouTube video player"
+                loading="lazy"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen>
+            </iframe>
+        </div>
+    `;
+}
+function renderBoardPage(type = 'notice', postId = null) {
+    if (!boardTitle) return;
+
+    const normalizedType = normalizeBoardType(type);
+    const rows = boardPostsByType(normalizedType);
+    const page = $('#page-board-detail .section-card');
+
+    if (!page) return;
+
+    // 게시글 상세 보기
+    if (postId) {
+        const post = boardPosts.find(
+            (p) => String(p.id) === String(postId)
+        );
+
+        if (!post) {
+            page.innerHTML = `
+                <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
+                <div class="board-empty">
+                    게시글을 찾을 수 없습니다.
+                </div>
+            `;
+            return;
+        }
+
+        selectedBoardPost = post;
+        boardTitle.textContent = boardLabel(normalizedType);
+
+        const imageHtml = post.image_url
+            ? `
+                <img
+                    class="board-detail-image"
+                    src="${esc(post.image_url)}"
+                    alt="${esc(post.title || '게시글 이미지')}"
+                    loading="lazy"
+                />
+            `
+            : '';
+
+        const videoHtml = post.video_url
+            ? renderYouTubeEmbed(post.video_url)
+            : '';
+
+        const contactHtml = [
+            post.address,
+            post.phone
+        ]
+            .filter(Boolean)
+            .map((value) => `<div class="detail-meta">${esc(value)}</div>`)
+            .join('');
+
+        const phoneDigits = String(post.phone || '').replace(/[^\d+]/g, '');
+
+        const mapHref = post.address
+            ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}`
+            : '';
+
+        const linkedBiz = post.business_id
+            ? getBiz(post.business_id)
+            : null;
+
+        const actionLinks = [
+            phoneDigits
+                ? `
+                    <a
+                        class="action-btn call"
+                        href="tel:${esc(phoneDigits)}"
+                    >
+                        전화하기
+                    </a>
+                `
+                : '',
+
+            mapHref
+                ? `
+                    <a
+                        class="action-btn map"
+                        href="${esc(mapHref)}"
+                        target="_blank"
+                        rel="noopener"
+                    >
+                        길찾기
+                    </a>
+                `
+                : '',
+
+            linkedBiz
+                ? `
+                    <button
+                        class="action-btn business biz-open"
+                        type="button"
+                        data-biz="${esc(linkedBiz.id)}"
+                    >
+                        업소 보기
+                    </button>
+                `
+                : ''
+        ]
+            .filter(Boolean)
+            .join('');
+
+        const linkedBizMeta = linkedBiz
+            ? `
+                <div class="detail-meta">
+                    <button
+                        class="text-link biz-open"
+                        type="button"
+                        data-biz="${esc(linkedBiz.id)}"
+                    >
+                        연결 업소 · ${esc(
+                            linkedBiz.name ||
+                            linkedBiz.name_ko ||
+                            linkedBiz.name_en ||
+                            ''
+                        )}
+                    </button>
+                </div>
+            `
+            : '';
+
+        const title = esc(post.title || boardLabel(normalizedType));
+        const content = esc(post.content || '').replace(/\n/g, '<br>');
+
+        page.innerHTML = `
+            <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
+
+            <article class="board-detail-block">
+                <div class="board-detail-head">
+                    <span class="board-detail-emoji">
+                        ${post.image_url ? '' : boardThumbEmoji(normalizedType)}
+                    </span>
+
+                    <div class="board-detail-heading">
+                        <h4 class="board-detail-title">${title}</h4>
+                        ${linkedBizMeta}
+                    </div>
+                </div>
+
+                ${imageHtml}
+
+                ${videoHtml}
+
+                ${
+                    content
+                        ? `
+                            <div class="board-detail-content">
+                                ${content}
+                            </div>
+                        `
+                        : ''
+                }
+
+                ${
+                    contactHtml
+                        ? `
+                            <div class="board-detail-contact">
+                                ${contactHtml}
+                            </div>
+                        `
+                        : ''
+                }
+
+                ${
+                    actionLinks
+                        ? `
+                            <div class="board-detail-actions">
+                                ${actionLinks}
+                            </div>
+                        `
+                        : ''
+                }
+            </article>
+        `;
+
+        page
+            .querySelectorAll('.biz-open')
+            .forEach((button) => {
+                button.addEventListener('click', () => {
+                    const bizId = button.dataset.biz;
+
+                    if (!bizId) return;
+
+                    renderDetail(bizId);
+                    lastBasePage = currentPage;
+                    showPage('business-detail');
+                });
+            });
+
+        return;
+    }
+
+    // 게시글 목록 보기
+    selectedBoardPost = null;
+    selectedBoardType = normalizedType;
+    boardTitle.textContent = boardLabel(normalizedType);
+
+    page.innerHTML = `
+        <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
+
+        <div class="board-page-list">
+            ${
+                rows.length
+                    ? rows.map(boardListItemHTML).join('')
+                    : `
+                        <div class="board-empty">
+                            등록된 ${esc(boardLabel(normalizedType))} 글이 없습니다.
+                        </div>
+                    `
+            }
+        </div>
+    `;
+
+    page
+        .querySelectorAll('[data-post-id]')
+        .forEach((button) => {
+            button.addEventListener('click', () => {
+                openBoardPost(button.dataset.postId);
+            });
+        });
 }
 function showBoard(board){ renderBoardPage(board); lastBasePage = currentPage;
   showPage('board-detail'); }
@@ -2804,7 +3058,41 @@ function createInfoWindowContent(b){
   return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
 }
 
+function youtubeEmbed(url) {
 
+    if (!url) return '';
+
+    let videoId = '';
+
+    // https://www.youtube.com/watch?v=xxxx
+    if (url.includes('watch?v=')) {
+        videoId = url.split('watch?v=')[1].split('&')[0];
+    }
+
+    // https://youtu.be/xxxx
+    else if (url.includes('youtu.be/')) {
+        videoId = url.split('youtu.be/')[1].split('?')[0];
+    }
+
+    if (!videoId) return '';
+
+    return `
+        <div class="board-video">
+            <iframe
+                width="100%"
+                height="420"
+                src="https://www.youtube.com/embed/${videoId}"
+                title="YouTube video"
+                frameborder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen>
+            </iframe>
+        </div>
+    `;
+}
+const videoHtml = post.video_url
+    ? renderYouTubeEmbed(post.video_url)
+    : '';
 function haversineMiles(lat1,lng1,lat2,lng2){ const toRad=v=>v*Math.PI/180; const R=3958.8; const dLat=toRad(lat2-lat1); const dLng=toRad(lng2-lng1); const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(a)); }
 
 function sortBusinessesByDistance(list){
