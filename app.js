@@ -3090,9 +3090,7 @@ function youtubeEmbed(url) {
         </div>
     `;
 }
-const videoHtml = post.video_url
-    ? renderYouTubeEmbed(post.video_url)
-    : '';
+
 function haversineMiles(lat1,lng1,lat2,lng2){ const toRad=v=>v*Math.PI/180; const R=3958.8; const dLat=toRad(lat2-lat1); const dLng=toRad(lng2-lng1); const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2; return 2*R*Math.asin(Math.sqrt(a)); }
 
 function sortBusinessesByDistance(list){
