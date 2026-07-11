@@ -1561,9 +1561,9 @@ async function loadBoards() {
   return;
 }
   const selects = [
-    'id,title,content,type,region,image_url,address,phone,business_id,start_at,end_at,is_active,created_at',
-    'id,title,content,type,region,image_url,address,phone,start_at,end_at,is_active,created_at',
-    'id,title,content,type,region,image_url,start_at,end_at,is_active,created_at'
+    'id,title,content,type,region,image_url,video_url,address,phone,business_id,start_at,end_at,is_active,created_at',
+    'id,title,content,type,region,image_url,video_url,address,phone,start_at,end_at,is_active,created_at',
+    'id,title,content,type,region,image_url,video_url,start_at,end_at,is_active,created_at'
   ];
   let loaded = null;
   for (const select of selects) {
