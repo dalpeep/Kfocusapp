@@ -1682,19 +1682,29 @@ async function saveBoard() {
     return alert(`게시판 이미지 업로드 실패: ${e.message}`);
   }
 
-  const linkedBusinessId = val('board_business_select') || val('board_business_id') || null;
-  const payloadBase = {
-    type: val('board_type') || 'notice',
-    region: val('board_region') || 'colorado',
+const linkedBusinessId =
+    val('board_business_select') ||
+    val('board_business_id') ||
+    null;
+
+const boardType = val('board_type');
+
+if (!boardType || boardType === 'all') {
+    return alert('게시판 종류를 선택하세요.');
+}
+
+const payloadBase = {
+    type: boardType,
+    region: val('board_region') || currentRegionScope(),
     title: val('board_title').trim(),
     content: val('board_content').trim(),
     image_url: imageUrl,
-	video_url: val('board_video_url').trim() || null,
+    video_url: val('board_video_url').trim() || null,
     start_at: fromLocal(val('board_start_at')),
     end_at: fromLocal(val('board_end_at')),
     is_active: checked('board_is_active'),
     business_id: linkedBusinessId || null
-  };
+};
   if (!payloadBase.title) return alert('제목을 입력하세요.');
 
   const payloads = [
