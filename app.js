@@ -532,8 +532,8 @@ async function loadBoardPostsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const tryTables = ['posts','board_posts'];
   const selects = [
-    'id,business_id,title,content,type,region,image_url,address,phone,start_at,end_at,created_at',
-    'id,business_id,title,content,type,region,image_url,start_at,end_at,created_at',
+    'id,business_id,title,content,type,region,image_url,video_url,address,phone,start_at,end_at,created_at',
+    'id,business_id,title,content,type,region,image_url,video_url,start_at,end_at,created_at',
     'id,business_id,title,content,type,region,created_at'
   ];
   for(const table of tryTables){
@@ -551,6 +551,7 @@ async function loadBoardPostsFromSupabase(){
             content: row.content || '',
             region: row.region || 'colorado',
             image_url: row.image_url || '',
+			video_url: row.video_url || '',
             address: row.address || '',
             phone: row.phone || '',
             business_id: row.business_id || '',
