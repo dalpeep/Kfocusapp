@@ -1591,6 +1591,7 @@ function clearBoardForm() {
   setVal('board_phone', '');
   setVal('board_address', '');
   setVal('board_image_url', '');
+  setVal('board_video_url', '');
   setVal('board_business_id', '');
   setVal('board_business_search', '');
   renderBoardBusinessOptions();
@@ -1614,6 +1615,7 @@ function fillBoardForm(row) {
   setVal('board_business_search', '');
   renderBoardBusinessOptions();
   setVal('board_image_url', row.image_url || '');
+  setVal('board_video_url', row.video_url || '');
   setVal('board_start_at', fmtLocal(row.start_at));
   setVal('board_end_at', fmtLocal(row.end_at));
   setChecked('board_is_active', row.is_active !== false);
@@ -1687,6 +1689,7 @@ async function saveBoard() {
     title: val('board_title').trim(),
     content: val('board_content').trim(),
     image_url: imageUrl,
+	video_url: val('board_video_url').trim() || null,
     start_at: fromLocal(val('board_start_at')),
     end_at: fromLocal(val('board_end_at')),
     is_active: checked('board_is_active'),
