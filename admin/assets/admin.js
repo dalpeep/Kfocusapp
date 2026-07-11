@@ -14,6 +14,49 @@ let boards = [];
 let slides = [];
 let banners = [];
 let boardTable = 'posts';
+function getConfig() {
+    return window.APP_CONFIG || window.KFOCUS_CONFIG || {};
+}
+
+function getAppCity() {
+    const cfg = getConfig();
+
+    return String(
+        cfg.APP_CITY ||
+        cfg.app_city ||
+        'dallas'
+    ).trim().toLowerCase();
+}
+
+function getAppRegion() {
+    const cfg = getConfig();
+
+    return String(
+        cfg.APP_REGION ||
+        cfg.app_region ||
+        getAppCity()
+    ).trim().toLowerCase();
+}
+
+function getAppCityLabel() {
+    const cfg = getConfig();
+
+    return String(
+        cfg.APP_CITY_LABEL ||
+        cfg.app_city_label ||
+        getAppCity()
+    ).trim();
+}
+
+function isSingleCityMode() {
+    const cfg = getConfig();
+
+    const value =
+        cfg.APP_SINGLE_CITY ??
+        cfg.app_single_city;
+
+    return value === true || value === 'true';
+}
 let businessStatsMap = {};
 
 let currentSection = 'business';
@@ -1868,7 +1911,7 @@ async function saveSlide() {
   
 const payload = {
   business_id: businessId,
-  region: biz?.region || currentRegionScope() || 'colorado',
+  region: getAppRegion(),
   promo_enabled: checked('slide_promo_enabled'),
   home_fixed: checked('slide_home_fixed'),
   home_fixed_sort: Number(val('slide_home_fixed_sort') || 1000),
