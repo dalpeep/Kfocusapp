@@ -57,6 +57,10 @@ function isSingleCityMode() {
 
     return value === true || value === 'true';
 }
+window.getAppCity = getAppCity;
+window.getAppRegion = getAppRegion;
+window.getAppCityLabel = getAppCityLabel;
+window.isSingleCityMode = isSingleCityMode;
 let businessStatsMap = {};
 
 let currentSection = 'business';
