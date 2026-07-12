@@ -950,7 +950,6 @@ function collectBusinessPayload() {
     'name_en',
     'category_ko',
     'area',
-    'region',
     'phone',
     'website',
     'email',
@@ -1003,7 +1002,7 @@ p.home_fixed_sort = homeFixedSortRaw === '' ? 1000 : Number(homeFixedSortRaw);
   p.rotation_enabled = checked('rotation_enabled');
   p.business_hours = collectBusinessHours();
   p.reservation_enabled = checked('reservation_enabled');
-  
+  p.region = getAppRegion();
 try {
     p.description_images = val('description_images')
         ? JSON.parse(val('description_images'))
