@@ -2638,7 +2638,7 @@ async function saveBanner() {
     image_url: val('bnImage').trim(),
     link_url: val('bnLink').trim(),
     business_id: val('bnBusinessId').trim() || null,
-    region: val('bnRegion').trim() || null,
+    region: getAppRegion(),
     sort_order: Number(val('bnOrder') || 0),
     is_active: checked('bnActive')
   };
