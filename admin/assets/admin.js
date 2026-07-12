@@ -1016,7 +1016,12 @@ try {
 async function loadBusinesses() {
   if (!supabase) return;
   setStatus('업소 불러오는 중');
-  const { data, error } = await supabase.from('businesses').select('*').order('id', { ascending: false }).limit(2000);
+  const { data, error } = await supabase
+    .from('businesses')
+    .select('*')
+    .eq('region', getAppRegion())
+    .order('id', { ascending: false })
+    .limit(2000);
   if (error) {
     setStatus('업소 조회 실패');
     alert(`업소 조회 실패: ${error.message}`);
@@ -1613,7 +1618,11 @@ async function loadBoards() {
   ];
   let loaded = null;
   for (const select of selects) {
-    const res = await supabase.from('posts').select(select).order('created_at', { ascending: false });
+    const res = await supabase
+    .from('posts')
+    .select(select)
+    .eq('region', getAppRegion())
+    .order('created_at', { ascending: false });
     if (!res.error) {
       loaded = res.data || [];
       break;
