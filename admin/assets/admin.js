@@ -1631,7 +1631,7 @@ async function loadBoards() {
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
-  setVal('board_region', currentRegionScope() === 'all' ? 'dallas' : currentRegionScope());
+  setVal('board_region', getAppRegion());
   setVal('board_title', '');
   setVal('board_content', '');
   setVal('board_phone', '');
@@ -1741,7 +1741,7 @@ if (!boardType || boardType === 'all') {
 
 const payloadBase = {
     type: boardType,
-    region: val('board_region') || currentRegionScope(),
+    region: getAppRegion(),
     title: val('board_title').trim(),
     content: val('board_content').trim(),
     image_url: imageUrl,
