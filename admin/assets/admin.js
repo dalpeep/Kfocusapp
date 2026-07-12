@@ -1801,7 +1801,12 @@ function slideByBusinessId(id) {
 }
 async function loadSlides() {
   if (!supabase) return;
-  const { data, error } = await supabase.from('slides').select('*').order('home_fixed_sort', { ascending: true }).order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('slides')
+    .select('*')
+    .eq('region', getAppRegion())
+    .order('home_fixed_sort', { ascending: true })
+    .order('created_at', { ascending: false });
   if (error) {
     console.warn(error);
     slides = [];
@@ -2574,9 +2579,10 @@ async function loadBanners() {
   const listEl = qs('bannerList');
   if (!listEl) return;
 
-  const { data, error } = await supabase
+const { data, error } = await supabase
     .from('banners')
     .select('*')
+    .eq('region', getAppRegion())
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false });
 
