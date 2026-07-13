@@ -57,6 +57,88 @@ function isSingleCityMode() {
 
     return value === true || value === 'true';
 }
+function applyAdminRegionUI() {
+    const role = window.ADMIN_ROLE || '';
+    const areaRaw = window.ADMIN_AREA || '';
+    const area = areaRaw === 'denver' ? 'colorado' : areaRaw;
+
+    const dallasHomeBtn =
+        document.getElementById('openDallasHome');
+
+    const coloradoHomeBtn =
+        document.getElementById('openColoradoHome');
+
+    if (dallasHomeBtn) dallasHomeBtn.style.display = 'none';
+    if (coloradoHomeBtn) coloradoHomeBtn.style.display = 'none';
+
+    if (role === 'super_admin') {
+        if (dallasHomeBtn) dallasHomeBtn.style.display = '';
+        if (coloradoHomeBtn) coloradoHomeBtn.style.display = '';
+    } else if (area === 'dallas') {
+        if (dallasHomeBtn) dallasHomeBtn.style.display = '';
+    } else if (area === 'colorado') {
+        if (coloradoHomeBtn) coloradoHomeBtn.style.display = '';
+    }
+
+    const pageDesc = document.getElementById('pageDesc');
+
+    if (pageDesc) {
+        if (role === 'super_admin') {
+            pageDesc.textContent =
+                'Dallas와 Denver 지역 업소를 조회하고 수정/추가할 수 있습니다.';
+        } else {
+            const cityLabel =
+                area === 'dallas' ? 'Dallas' : 'Denver';
+
+            pageDesc.textContent =
+                `${cityLabel} 지역 업소를 조회하고 수정/추가할 수 있습니다.`;
+        }
+    }
+	    // 지역 관리자는 관리자 계정 관리 메뉴와 화면 숨김
+    if (role !== 'super_admin') {
+        const adminUsersNav = document.querySelector(
+            '[data-section="adminUsers"]'
+        );
+
+        const adminUsersSection = document.getElementById(
+            'section-adminUsers'
+        );
+
+        if (adminUsersNav) {
+            adminUsersNav.style.display = 'none';
+        }
+
+        if (adminUsersSection) {
+            adminUsersSection.style.display = 'none';
+        }
+    }
+
+    // 지역 관리자는 자기 지역만 보이도록 select 고정
+    if (role !== 'super_admin') {
+        const regionSelectIds = [
+            'regionFilter',
+            'region',
+            'board_region'
+        ];
+
+        regionSelectIds.forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            const label =
+                area === 'dallas' ? 'Dallas' : 'Denver';
+
+            if (el.tagName === 'SELECT') {
+                el.innerHTML = `
+                    <option value="${area}">${label}</option>
+                `;
+            }
+
+            el.value = area;
+            el.disabled = true;
+        });
+    }
+}
 window.getAppCity = getAppCity;
 window.getAppRegion = getAppRegion;
 window.getAppCityLabel = getAppCityLabel;
@@ -2757,6 +2839,7 @@ async function loadAdminSession() {
   window.ADMIN_AREA = profile.area || '';
   console.log('ADMIN_ROLE:', window.ADMIN_ROLE);
   console.log('ADMIN_AREA:', window.ADMIN_AREA);
+  applyAdminRegionUI();
   return profile;
 }
 
