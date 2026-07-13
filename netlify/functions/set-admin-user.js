@@ -45,9 +45,10 @@ exports.handler = async function handler(event) {
     }
 
     const allowedRoles = [
-      'super_admin',
-      'regional_admin',
-      'admin'
+    'super_admin',
+    'regional_editor',
+    'regional_admin',
+    'admin'
     ];
 
     if (!allowedRoles.includes(role)) {
