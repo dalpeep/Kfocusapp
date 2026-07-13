@@ -2761,44 +2761,75 @@ async function loadAdminSession() {
 }
 
 // ===== ADMIN USER MANAGER (SUPER ADMIN ONLY) =====
-function initAdminUserManager(){
-  if(window.ADMIN_ROLE !== 'super_admin') return;
+function initAdminUserManager() {
+    if (window.ADMIN_ROLE !== 'super_admin') return;
 
-  const btn = document.getElementById('saveAdminUserBtn');
-  if(!btn) return;
+    const btn = document.getElementById('saveAdminUserBtn');
+    if (!btn) return;
 
-  btn.addEventListener('click', async ()=>{
-    const email = document.getElementById('adminEmailInput').value;
-    const role = document.getElementById('adminRoleSelect').value;
-    const area = document.getElementById('adminAreaSelect').value;
+    btn.addEventListener('click', async () => {
+        const email = document
+            .getElementById('adminEmailInput')
+            .value
+            .trim()
+            .toLowerCase();
 
-    if(!email){
-      alert('이메일을 입력하세요');
-      return;
-    }
+        const role = document
+            .getElementById('adminRoleSelect')
+            .value;
 
-    const { data: userData } = await supabase.auth.admin.listUsers();
-    const user = userData?.users?.find(u => u.email === email);
+        const area = document
+            .getElementById('adminAreaSelect')
+            .value;
 
-    if(!user){
-      alert('사용자를 찾을 수 없습니다.');
-      return;
-    }
+        if (!email) {
+            alert('이메일을 입력하세요.');
+            return;
+        }
 
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        user_id: user.id,
-        role: role,
-        area: area
-      });
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = '저장 중...';
 
-    if(error){
-      alert('저장 실패: ' + error.message);
-    }else{
-      alert('저장 완료');
-    }
-  });
+        try {
+            const response = await fetch(
+                '/.netlify/functions/set-admin-user',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email,
+                        role,
+                        area
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.error ||
+                    '관리자 권한 저장에 실패했습니다.'
+                );
+            }
+
+            alert(
+                `관리자 권한 저장 완료\n\n` +
+                `이메일: ${result.user.email}\n` +
+                `권한: ${result.profile.role}\n` +
+                `지역: ${result.profile.area}`
+            );
+        } catch (error) {
+            console.error('set-admin-user error:', error);
+            alert(`저장 실패: ${error.message}`);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
+    });
 }
 window.adminLogout = async function () {
   try {
