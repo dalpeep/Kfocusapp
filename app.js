@@ -40,7 +40,7 @@ function getForcedRegionByHost(){
   return '';
 }
 
-let currentRegion = getForcedRegionByHost() || 'dallas';
+let currentRegion = getAppRegion();
 localStorage.setItem('region', currentRegion);
 let suppressCardClickUntil = 0;
 let boardPosts = [];
@@ -107,7 +107,49 @@ const searchEmpty = $('#searchEmpty');
 const mapSearchInput = $('#mapSearchInput');
 
 function getConfig(){ return window.KFOCUS_CONFIG || {}; }
+function getAppCity() {
+  const cfg = getConfig();
 
+  return String(
+    cfg.APP_CITY ||
+    cfg.app_city ||
+    'dallas'
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function getAppRegion() {
+  const cfg = getConfig();
+
+  return String(
+    cfg.APP_REGION ||
+    cfg.app_region ||
+    getAppCity()
+  )
+    .trim()
+    .toLowerCase();
+}
+
+function getAppCityLabel() {
+  const cfg = getConfig();
+
+  return String(
+    cfg.APP_CITY_LABEL ||
+    cfg.app_city_label ||
+    getAppCity()
+  ).trim();
+}
+
+function isSingleCityMode() {
+  const cfg = getConfig();
+
+  const value =
+    cfg.APP_SINGLE_CITY ??
+    cfg.app_single_city;
+
+  return value === true || value === 'true';
+}
 function homeBusinessItemHTML(b){
   const img = b.image || b.image_url || '/assets/kfocus-icon.png';
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
@@ -760,7 +802,7 @@ async function loadRealData(){
 
       const seen = new Set();
       businesses = mapped.filter((b) => {
-        if(String(b.region || '').toLowerCase() !== String(currentRegion).toLowerCase()) return false;
+      if ((b.region || '').toLowerCase() !== getAppRegion()) return false;
         const key = [
           (b.name || '').trim().toLowerCase(),
           (b.address || '').trim().toLowerCase(),
@@ -773,7 +815,17 @@ async function loadRealData(){
         return true;
       });
 
-      console.log('LOADED BUSINESSES', currentRegion, businesses.length, businesses.map(b => [b.name, b.paid_product, b.paid_active, b.paid_end_at]));
+      console.log(
+  'LOADED BUSINESSES',
+  getAppRegion(),
+  businesses.length,
+  businesses.map((b) => [
+    b.name,
+    b.paid_product,
+    b.paid_active,
+    b.paid_end_at
+  ])
+);
       selectedBizId = businesses[0]?.id || selectedBizId;
     }
   } catch(e){
@@ -795,7 +847,7 @@ async function loadSlidesFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Slides ${res.status}`);
     const rows = await res.json();
