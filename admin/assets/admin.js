@@ -929,6 +929,7 @@ function openLinkedAdmin(section, businessId) {
       renderBoardBusinessOptions();
       setVal('board_business_select', businessId);
       setVal('board_business_search', '');
+	  setVal('board_image_link_url', '');
       setVal('board_title', `${row.name_ko || row.name_en || ''} 이벤트`);
       safeText('boardFormTitle', `${row.name_ko || row.name_en || '업소'} 새 글`);
     }
@@ -1694,9 +1695,9 @@ async function loadBoards() {
   return;
 }
   const selects = [
-    'id,title,content,type,region,image_url,video_url,address,phone,business_id,start_at,end_at,is_active,created_at',
-    'id,title,content,type,region,image_url,video_url,address,phone,start_at,end_at,is_active,created_at',
-    'id,title,content,type,region,image_url,video_url,start_at,end_at,is_active,created_at'
+    'id,title,content,type,region,image_url,image_link_url,video_url,address,phone,business_id,start_at,end_at,is_active,created_at',
+    'id,title,content,type,region,image_url,image_link_url,video_url,address,phone,start_at,end_at,is_active,created_at',
+    'id,title,content,type,region,image_url,image_link_url,video_url,start_at,end_at,is_active,created_at'
   ];
   let loaded = null;
   for (const select of selects) {
@@ -1728,6 +1729,7 @@ function clearBoardForm() {
   setVal('board_phone', '');
   setVal('board_address', '');
   setVal('board_image_url', '');
+  setVal('board_image_link_url', '');
   setVal('board_video_url', '');
   setVal('board_business_id', '');
   setVal('board_business_search', '');
@@ -1752,6 +1754,7 @@ function fillBoardForm(row) {
   setVal('board_business_search', '');
   renderBoardBusinessOptions();
   setVal('board_image_url', row.image_url || '');
+  setVal('board_image_link_url', row.image_link_url || '');
   setVal('board_video_url', row.video_url || '');
   setVal('board_start_at', fmtLocal(row.start_at));
   setVal('board_end_at', fmtLocal(row.end_at));
@@ -1836,6 +1839,7 @@ const payloadBase = {
     title: val('board_title').trim(),
     content: val('board_content').trim(),
     image_url: imageUrl,
+	image_link_url: val('board_image_link_url').trim() || null,
     video_url: val('board_video_url').trim() || null,
     start_at: fromLocal(val('board_start_at')),
     end_at: fromLocal(val('board_end_at')),
