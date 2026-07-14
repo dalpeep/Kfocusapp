@@ -1857,13 +1857,35 @@ console.log('BOARD SAVE PAYLOAD', payloadBase);
   ];
 
   let res = null;
-  for (const rawPayload of payloads) {
-    const payload = Object.fromEntries(Object.entries(rawPayload).filter(([,v]) => v !== undefined));
+for (const rawPayload of payloads) {
+    const payload = Object.fromEntries(
+        Object.entries(rawPayload).filter(([, v]) => v !== undefined)
+    );
+
+    console.log('BOARD TABLE:', boardTable);
+    console.log('BOARD ID:', selectedBoardId);
+    console.log('BOARD PAYLOAD:', payload);
+
     res = selectedBoardId
-      ? await supabase.from(boardTable).update(payload).eq('id', selectedBoardId).select().single()
-      : await supabase.from(boardTable).insert({ ...payload, created_at: new Date().toISOString() }).select().single();
+        ? await supabase
+            .from(boardTable)
+            .update(payload)
+            .eq('id', selectedBoardId)
+            .select()
+            .single()
+        : await supabase
+            .from(boardTable)
+            .insert({
+                ...payload,
+                created_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+
+    console.log('BOARD SAVE RESULT:', res);
+
     if (!res.error) break;
-  }
+}
 
   if (res?.error) return alert(`게시글 저장 실패: ${res.error.message}`);
   await loadBoards();
