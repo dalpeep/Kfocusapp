@@ -69,6 +69,9 @@ exports.handler = async () => {
 
     GOOGLE_MAPS_API_KEY:
       process.env.GOOGLE_MAPS_API_KEY || '',
+	
+	ONESIGNAL_APP_ID:
+    process.env.ONESIGNAL_APP_ID || '',
 
     /*
      * 도시별 자동 설정
