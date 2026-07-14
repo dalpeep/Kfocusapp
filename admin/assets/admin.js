@@ -1881,6 +1881,8 @@ for (const rawPayload of payloads) {
             })
             .select()
             .single();
+    console.log('BOARD SAVE RESULT:', res);
+    console.log('SAVED IMAGE LINK:', res?.data?.image_link_url);
 
     console.log('BOARD SAVE RESULT:', res);
 
