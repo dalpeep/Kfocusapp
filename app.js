@@ -55,7 +55,7 @@ let mapSearchQuery = '';
 let searchDebounce = null;
 const RECENT_SEARCH_KEY = 'kfocus_recent_searches';
 const FALLBACK_BOARD_POSTS = [
-  { id:'notice-1', type:'notice', title:'덴버 한인회 행사 안내', content:'콜로라도 지역 행사와 공지 예시입니다.' },
+  { id:'notice-1', type:'notice', title:'행사 안내', content:'지역 행사와 공지 예시입니다.' },
   { id:'job-1', type:'job', title:'구인구직 안내', content:'지역 업소 채용 정보 예시입니다.' },
   { id:'rent-1', type:'rent', title:'렌트 정보 모음', content:'하우징/렌트 관련 예시 글입니다.' },
   { id:'sale-1', type:'sale', title:'중고/매매 게시판', content:'생활 매매 정보 예시 글입니다.' }
@@ -593,6 +593,7 @@ async function loadBoardPostsFromSupabase(){
             content: row.content || '',
             region: row.region || 'colorado',
             image_url: row.image_url || '',
+			image_link_url: row.image_link_url,
 			video_url: row.video_url || '',
             address: row.address || '',
             phone: row.phone || '',
@@ -2687,16 +2688,34 @@ function renderBoardPage(type = 'notice', postId = null) {
         selectedBoardPost = post;
         boardTitle.textContent = boardLabel(normalizedType);
 
-        const imageHtml = post.image_url
-            ? `
-                <img
-                    class="board-detail-image"
-                    src="${esc(post.image_url)}"
-                    alt="${esc(post.title || '게시글 이미지')}"
-                    loading="lazy"
-                />
-            `
-            : '';
+const imageUrl = String(post.image_url || '').trim();
+const imageLinkUrl = String(post.image_link_url || '').trim();
+
+const imageTag = imageUrl
+    ? `
+        <img
+            class="board-detail-image"
+            src="${esc(imageUrl)}"
+            alt="${esc(post.title || '게시글 이미지')}"
+            loading="lazy"
+        />
+      `
+    : '';
+
+const imageHtml =
+    imageTag && imageLinkUrl
+        ? `
+            <a
+                class="board-detail-image-link"
+                href="${esc(imageLinkUrl)}"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="연결 페이지 열기"
+            >
+                ${imageTag}
+            </a>
+          `
+        : imageTag;
 
         const videoHtml = post.video_url
             ? renderYouTubeEmbed(post.video_url)

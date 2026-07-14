@@ -16,16 +16,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-<script>
-window.OneSignalDeferred = window.OneSignalDeferred || [];
+  <script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
 
-OneSignalDeferred.push(async function (OneSignal) {
-
+ OneSignalDeferred.push(async function (OneSignal) {
     const appId =
-        window.KFOCUS_CONFIG?.ONESIGNAL_APP_ID || '';
+        window.APP_CONFIG?.ONESIGNAL_APP_ID || '';
 
     if (!appId) {
-        console.warn('OneSignal App ID가 없습니다.');
+        console.warn('OneSignal App ID가 설정되지 않았습니다.');
         return;
     }
 
@@ -34,12 +33,12 @@ OneSignalDeferred.push(async function (OneSignal) {
     });
 
     console.log(
-        'OneSignal Initialized:',
-        window.KFOCUS_CONFIG?.APP_CITY,
+        '[OneSignal initialized]',
+        window.APP_CONFIG?.APP_CITY,
         appId
     );
-
-});
+ });
+</script>
 </script>
 </script>
 
