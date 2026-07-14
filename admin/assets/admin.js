@@ -1846,6 +1846,7 @@ const payloadBase = {
     is_active: checked('board_is_active'),
     business_id: linkedBusinessId || null
 };
+console.log('BOARD SAVE PAYLOAD', payloadBase);
   if (!payloadBase.title) return alert('제목을 입력하세요.');
 
   const payloads = [
