@@ -593,7 +593,7 @@ async function loadBoardPostsFromSupabase(){
             content: row.content || '',
             region: row.region || 'colorado',
             image_url: row.image_url || '',
-			image_link_url: row.image_link_url,
+			image_link_url: row.image_link_url || '',
 			video_url: row.video_url || '',
             address: row.address || '',
             phone: row.phone || '',
