@@ -15,15 +15,35 @@ exports.handler = async () => {
    *   Supabase 테이블의 region 컬럼에 실제 저장되는 값
    */
   const CITY_CONFIG = {
-    dallas: {
-      city: 'dallas',
-      region: 'dallas',
-      cityLabel: 'Dallas',
-      appName: 'Dallas KTownMap',
-      brandName: 'KTownMap',
-      siteUrl: 'https://www.daltownmap.com',
-      singleCity: true
-    },
+dallas: {
+  city: 'dallas',
+  region: 'dallas',
+  cityLabel: 'Dallas',
+
+  appName: 'DalTownMap',
+
+  brandNameKo: '달타운맵',
+  brandNameEn: 'DalTownMap',
+
+  siteUrl: 'https://daltownmap.com',
+
+  seoTitle:
+    '달타운맵 | 달라스 한인 업소록·쿠폰·행사·커뮤니티',
+
+  seoDescription:
+    '달타운맵은 달라스·DFW 한인 업소 정보, 할인 쿠폰, 행사, 구인구직, 렌트·매매 및 지역 커뮤니티 소식을 제공하는 플랫폼입니다.',
+
+  seoKeywords:
+    '달타운맵, DalTownMap, 달라스 한인 업소, 달라스 쿠폰, 달라스 행사, Dallas Korean, DFW Korean',
+
+  seoImage:
+    'https://daltownmap.com/icons/icon-512.png',
+
+  locale: 'ko_KR',
+  language: 'ko',
+
+  singleCity: true
+},
 
     denver: {
       city: 'denver',
