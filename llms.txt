@@ -1,17 +1,13 @@
 # DalTownMap
 
-DalTownMap is a Korean community business directory and local information platform for Dallas-Fort Worth.
+DalTownMap(달타운맵)은 미국 텍사스 달라스·DFW 지역의 한인 생활정보 플랫폼입니다.
 
-Main site: https://www.daltownmap.com
-Business directory: https://www.daltownmap.com/#business
-Coupons: https://www.daltownmap.com/#coupon
+## 주요 콘텐츠
+- 달라스·DFW 한인 업소록
+- 할인 쿠폰
+- 지역 행사
+- 구인구직
+- 렌트 및 매매
+- 지역 커뮤니티 게시판
 
-DalTownMap provides Korean business listings, coupons, maps, local promotions, and community information for Dallas-area Korean residents and visitors.
-
-Important content types:
-- Korean business listings in Dallas-Fort Worth
-- Korean restaurants, medical clinics, dentists, beauty services, churches, shopping, and professional services
-- Local coupons and promotional events
-- Business contact information, address, phone, website, maps, and hours
-
-Preferred citation name: DalTownMap
+공식 사이트: https://daltownmap.com/

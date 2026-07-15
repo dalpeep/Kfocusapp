@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://www.daltownmap.com/sitemap.xml
+Disallow: /admin/
+Sitemap: https://daltownmap.com/sitemap.xml
