@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
   <link rel="stylesheet" href="assets/admin.css?v=2" />
-  <script src="../config.js"></script>
+  <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=2"></script>
+  <script type="module" src="assets/admin.js?v=5"></script>
 <style>
 .admin-card{
   background:#fff;
@@ -53,7 +53,9 @@
       <header class="topbar">
         <div>
           <h1 id="pageTitle">업소 관리자</h1>
-          <p class="muted" id="pageDesc">Colorado 업소를 조회하고 수정/추가할 수 있습니다.</p>
+          <p class="muted" id="pageDesc">
+          지역 업소를 조회하고 수정/추가할 수 있습니다.
+          </p>
         </div>
         <div class="topbar-actions">
           		 <div class="admin-home-links">
@@ -197,6 +199,7 @@
   <span>업소 소개 이미지 목록</span>
   <textarea id="description_images" placeholder='["이미지URL1", "이미지URL2"]'></textarea>
 </label>
+
 			  <label class="field">
               <label class="field full">
 <div class="field full">
@@ -714,7 +717,7 @@
         <section class="toolbar card">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="boardSearchInput" type="text" placeholder="제목, 내용" /></label>
-            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="notice">행사안내</option><option value="job">구인/구직</option><option value="rent">렌트</option><option value="sale">매매</option></select></label>
+            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="event">행사안내</option><option value="news">뉴스·칼럼</option><option value="job">구인구직</option><option value="realestate">부동산</option></select></label>
             <button id="boardNewBtn" class="btn primary inline-btn" type="button">새 글</button>
           </div>
         </section>
@@ -736,7 +739,8 @@
 
             <form id="boardForm" class="form-grid">
               <input type="hidden" id="board_id" />
-              <label class="field"><span>분류</span><select id="board_type"><option value="notice">행사안내</option><option value="job">구인/구직</option><option value="rent">렌트</option><option value="sale">매매</option></select></label>
+              <label class="field"><span>분류</span><select id="board_type"><option value="event">행사안내</option><option value="news">뉴스·칼럼</option><option value="job">구인구직</option><option value="realestate">부동산</option></select></label>
+              <label class="field"><span>세부 분류</span><select id="board_subtype"></select></label>
               <label class="field"><span>지역</span><select id="board_region"><option value="colorado">colorado</option><option value="dallas">dallas</option></select></label>
               <label class="field full"><span>제목</span><input id="board_title" type="text" /></label>
               <label class="field full"><span>내용</span><textarea id="board_content" rows="8"></textarea></label>
@@ -747,6 +751,22 @@
               <label class="field full"><span>연결 업소 선택</span><select id="board_business_select"></select></label>
 
               <label class="field full"><span>이미지 URL</span><input id="board_image_url" type="url" placeholder="https://..." /></label>
+			  <label class="field full">
+              <span>이미지 클릭 링크</span>
+              <input
+              id="board_image_link_url"
+              type="url"
+              placeholder="https://..."
+              />
+              </label>
+			  <label class="field full">
+              <span>YouTube 영상</span>
+              <input
+               id="board_video_url"
+               type="url"
+               placeholder="https://www.youtube.com/watch?v=..."
+               />
+              </label>
               <div class="field full upload-block">
                 <span>게시판 이미지 업로드</span>
                 <div class="upload-row">
@@ -759,6 +779,31 @@
 
               <label class="field"><span>시작일시</span><input id="board_start_at" type="datetime-local" /></label>
               <label class="field"><span>종료일시</span><input id="board_end_at" type="datetime-local" /></label>
+              <div id="boardTypeExtraFields" class="field full board-extra-wrap">
+                <div class="board-extra-fields" data-board-fields="event">
+                  <label class="field"><span>행사 장소명</span><input id="board_venue_name" type="text" placeholder="예: Carrollton Convention Center" /></label>
+                </div>
+                <div class="board-extra-fields" data-board-fields="news">
+                  <label class="field"><span>작성자</span><input id="board_author_name" type="text" placeholder="달타운맵 편집부" /></label>
+                  <label class="field"><span>출처명</span><input id="board_source_name" type="text" placeholder="선택" /></label>
+                  <label class="field full"><span>원문 링크</span><input id="board_source_url" type="url" placeholder="https://..." /></label>
+                </div>
+                <div class="board-extra-fields" data-board-fields="job">
+                  <label class="field"><span>회사명</span><input id="board_company_name" type="text" /></label>
+                  <label class="field"><span>모집 분야</span><input id="board_job_title" type="text" /></label>
+                  <label class="field"><span>급여</span><input id="board_salary" type="text" placeholder="$20/hr 또는 협의" /></label>
+                  <label class="field"><span>근무 형태</span><select id="board_employment_type"><option value="">선택</option><option value="full_time">정규직</option><option value="part_time">파트타임</option><option value="contract">계약직</option><option value="temporary">단기</option></select></label>
+                </div>
+                <div class="board-extra-fields" data-board-fields="realestate">
+                  <label class="field"><span>가격</span><input id="board_price" type="text" placeholder="$2,100/month 또는 $450,000" /></label>
+                  <label class="field"><span>침실</span><input id="board_bedrooms" type="number" min="0" step="1" /></label>
+                  <label class="field"><span>욕실</span><input id="board_bathrooms" type="number" min="0" step="0.5" /></label>
+                  <label class="field"><span>면적(sqft)</span><input id="board_sqft" type="number" min="0" step="1" /></label>
+                </div>
+              </div>
+              <label class="field full"><span>추가 이미지 URL</span><textarea id="board_gallery_urls" rows="4" placeholder="한 줄에 이미지 URL 하나씩 입력"></textarea></label>
+              <label class="field"><span>버튼 문구</span><input id="board_cta_label" type="text" placeholder="자세히 보기" /></label>
+              <label class="field"><span>버튼 링크</span><input id="board_cta_url" type="url" placeholder="https://..." /></label>
               <label class="field checkbox-line"><input id="board_is_active" type="checkbox" checked /><span>활성</span></label>
             </form>
           </div>
