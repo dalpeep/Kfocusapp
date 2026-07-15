@@ -78,45 +78,63 @@ dallas: {
     CITY_CONFIG.dallas;
 
   const cfg = {
-    /*
-     * 기존 서비스 설정
-     */
-    SUPABASE_URL:
-      process.env.SUPABASE_URL || '',
+  SUPABASE_URL:
+    process.env.SUPABASE_URL || '',
 
-    SUPABASE_ANON_KEY:
-      process.env.SUPABASE_ANON_KEY || '',
+  SUPABASE_ANON_KEY:
+    process.env.SUPABASE_ANON_KEY || '',
 
-    GOOGLE_MAPS_API_KEY:
-      process.env.GOOGLE_MAPS_API_KEY || '',
-	
-	ONESIGNAL_APP_ID:
+  GOOGLE_MAPS_API_KEY:
+    process.env.GOOGLE_MAPS_API_KEY || '',
+
+  ONESIGNAL_APP_ID:
     process.env.ONESIGNAL_APP_ID || '',
 
-    /*
-     * 도시별 자동 설정
-     */
-    APP_CITY:
-      cityConfig.city,
+  APP_CITY:
+    cityConfig.city,
 
-    APP_REGION:
-      cityConfig.region,
+  APP_REGION:
+    cityConfig.region,
 
-    APP_CITY_LABEL:
-      cityConfig.cityLabel,
+  APP_CITY_LABEL:
+    cityConfig.cityLabel,
 
-    APP_NAME:
-      cityConfig.appName,
+  APP_NAME:
+    cityConfig.appName,
 
-    APP_BRAND:
-      cityConfig.brandName,
+  APP_SINGLE_CITY:
+    cityConfig.singleCity,
 
-    APP_SITE_URL:
-      cityConfig.siteUrl,
+  BRAND_NAME_KO:
+    cityConfig.brandNameKo,
 
-    APP_SINGLE_CITY:
-      cityConfig.singleCity
-  };
+  BRAND_NAME_EN:
+    cityConfig.brandNameEn,
+
+  APP_BRAND:
+    `${cityConfig.brandNameKo} (${cityConfig.brandNameEn})`,
+
+  APP_SITE_URL:
+    cityConfig.siteUrl,
+
+  SEO_TITLE:
+    cityConfig.seoTitle,
+
+  SEO_DESCRIPTION:
+    cityConfig.seoDescription,
+
+  SEO_KEYWORDS:
+    cityConfig.seoKeywords,
+
+  SEO_IMAGE:
+    cityConfig.seoImage,
+
+  SEO_LOCALE:
+    cityConfig.locale,
+
+  SEO_LANGUAGE:
+    cityConfig.language
+};
 
   return {
     statusCode: 200,
