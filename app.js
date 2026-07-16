@@ -55,10 +55,10 @@ let mapSearchQuery = '';
 let searchDebounce = null;
 const RECENT_SEARCH_KEY = 'kfocus_recent_searches';
 const FALLBACK_BOARD_POSTS = [
-  { id:'event-1', type:'event', title:'행사 안내', content:'지역 행사와 공지 예시입니다.' },
-  { id:'news-1', type:'news', title:'뉴스·칼럼', content:'달라스 지역 뉴스와 생활 칼럼입니다.' },
+  { id:'notice-1', type:'notice', title:'행사 안내', content:'지역 행사와 공지 예시입니다.' },
   { id:'job-1', type:'job', title:'구인구직 안내', content:'지역 업소 채용 정보 예시입니다.' },
-  { id:'realestate-1', type:'realestate', subtype:'rent', title:'부동산 정보', content:'렌트와 매매 정보를 확인하세요.' }
+  { id:'rent-1', type:'rent', title:'렌트 정보 모음', content:'하우징/렌트 관련 예시 글입니다.' },
+  { id:'sale-1', type:'sale', title:'중고/매매 게시판', content:'생활 매매 정보 예시 글입니다.' }
 ];
 
 const $ = (sel) => document.querySelector(sel);
@@ -153,13 +153,15 @@ function isSingleCityMode() {
 function homeBusinessItemHTML(b){
   const img = b.image || b.image_url || '/assets/kfocus-icon.png';
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
+  const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
+  const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
 
   return `
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
       <img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">
 
       <div class="home-biz-map-main">
-        <div class="home-biz-map-name">${esc(b.name || '이름 없음')}</div>
+        <div class="home-biz-map-name">${esc(b.name || '이름 없음')} ${premiumBadge} ${videoBadge}</div>
         <div class="home-biz-map-location">📍 ${esc(b.area || 'Dallas, TX')}</div>
       </div>
 
@@ -539,23 +541,111 @@ function queryMatches(query, values){
   return q.split(/\s+/).every(part=>hay.includes(part));
 }
 
-function normalizeBoardType(v=''){
+function normalizeBoardType(v = '') {
   const s = normalizeSearchText(v);
-  if(['notice','event','events','행사','공지','공지/행사'].includes(s)) return 'event';
-  if(['news','column','뉴스','칼럼','뉴스·칼럼'].includes(s)) return 'news';
-  if(['job','jobs','구인','구직','구인구직','구인/구직'].includes(s)) return 'job';
-  if(['rent','rental','sale','market','realestate','property','렌트','임대','하우징','매매','부동산'].includes(s)) return 'realestate';
+
+  if (
+    [
+      'notice',
+      'event',
+      'events',
+      '행사',
+      '공지',
+      '공지/행사',
+      '행사안내'
+    ].includes(s)
+  ) {
+    return 'event';
+  }
+
+  if (
+    [
+      'news',
+      'column',
+      'news-column',
+      '뉴스',
+      '칼럼',
+      '뉴스·칼럼',
+      '뉴스/칼럼'
+    ].includes(s)
+  ) {
+    return 'news';
+  }
+
+  if (
+    [
+      'job',
+      'jobs',
+      '구인',
+      '구직',
+      '구인구직',
+      '구인/구직'
+    ].includes(s)
+  ) {
+    return 'job';
+  }
+
+  if (
+    [
+      'realestate',
+      'property',
+      'rent',
+      'rental',
+      'sale',
+      '렌트',
+      '임대',
+      '매매',
+      '부동산',
+      '하우징'
+    ].includes(s)
+  ) {
+    return 'realestate';
+  }
+
   return 'event';
 }
-function boardLabel(type){
-  return ({ event:'행사안내', news:'뉴스·칼럼', job:'구인구직', realestate:'부동산' })[normalizeBoardType(type)] || '행사안내';
+
+function boardLabel(type) {
+  return {
+    event: '행사안내',
+    news: '뉴스·칼럼',
+    job: '구인구직',
+    realestate: '부동산'
+  }[normalizeBoardType(type)] || '행사안내';
 }
-function boardThumbEmoji(type){
-  return ({ event:'🎉', news:'📰', job:'💼', realestate:'🏠' })[normalizeBoardType(type)] || '📝';
+
+function boardThumbEmoji(type) {
+  return {
+    event: '🎉',
+    news: '📰',
+    job: '💼',
+    realestate: '🏠'
+  }[normalizeBoardType(type)] || '📝';
+}
+function parseBoardGallery(value){
+  if(Array.isArray(value)) return value.filter(Boolean);
+  if(typeof value === 'string' && value.trim()){
+    try { const parsed = JSON.parse(value); if(Array.isArray(parsed)) return parsed.filter(Boolean); } catch(e){}
+    return value.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+  }
+  return [];
+}
+function boardImages(post){
+  return [...new Set([post.image_url, ...parseBoardGallery(post.gallery_urls)].filter(Boolean))];
+}
+function autoLinkText(value=''){
+  const escaped = esc(value).replace(/\n/g,'<br>');
+  return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a class="board-inline-link" href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+}
+function isPremiumBusiness(b){
+  if(!b || !b.paid_active || b.paid_product !== 'premium') return false;
+  const today = new Date().toISOString().slice(0,10);
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10) > today) return false;
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10) < today) return false;
+  return true;
 }
 function boardPostsByType(type){
-  const normalized = normalizeBoardType(type);
-  return boardPosts.filter(p=>normalizeBoardType(p.type)===normalized && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
+  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
 }
 function getRecentSearches(){ try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function saveRecentSearch(query){
@@ -575,30 +665,42 @@ async function loadBoardPostsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const tryTables = ['posts','board_posts'];
   const selects = [
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,address,phone,start_at,end_at,created_at,author_name,source_name,source_url,cta_label,cta_url,price,bedrooms,bathrooms,sqft,company_name,job_title,salary,employment_type,venue_name',
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,video_url,address,phone,start_at,end_at,created_at',
-    'id,business_id,title,content,type,region,image_url,image_link_url,video_url,created_at'
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,created_at',
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,created_at',
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,created_at'
   ];
   for(const table of tryTables){
     for(const select of selects){
       try {
-        const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&is_active=eq.true&order=created_at.desc.nullslast&limit=100`;
+        const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&order=created_at.desc.nullslast&limit=50`;
         const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
         if(!res.ok) continue;
         const rows = await res.json();
         if(Array.isArray(rows)){
-          boardPosts = rows.map((row,idx)=>({
-            ...row,
-            id:row.id||`${table}-${idx+1}`,
-            type:normalizeBoardType(row.type),
-            subtype:row.subtype||(row.type==='rent'?'rent':row.type==='sale'?'sale':''),
-            title:row.title||'게시판', content:row.content||'', region:row.region||'dallas', image_url:row.image_url||'', image_link_url:row.image_link_url||'',
-            gallery_urls:parseArr(row.gallery_urls), video_url:row.video_url||'', address:row.address||'', phone:row.phone||'', business_id:row.business_id||'',
-            start_at:row.start_at||'', end_at:row.end_at||'', created_at:row.created_at||''
+          boardPosts = rows.map((row, idx)=>({
+            id: row.id || `${table}-${idx+1}`,
+            type: normalizeBoardType(row.type),
+            title: row.title || '게시판',
+            content: row.content || '',
+            region: row.region || 'colorado',
+            image_url: row.image_url || '',
+			image_link_url: row.image_link_url || '',
+            gallery_urls: row.gallery_urls || [],
+            external_url: row.external_url || '',
+            link_label: row.link_label || '',
+            author_name: row.author_name || '',
+            subtype: row.subtype || '',
+			video_url: row.video_url || '',
+            address: row.address || '',
+            phone: row.phone || '',
+            business_id: row.business_id || '',
+            start_at: row.start_at || '',
+            end_at: row.end_at || '',
+            created_at: row.created_at || ''
           }));
           return true;
         }
-      } catch(e){ console.warn('board load skipped',e); }
+      } catch(e){}
     }
   }
   return false;
@@ -719,7 +821,7 @@ async function loadRealData(){
       'paid_product','paid_active','paid_start_at','paid_end_at',
       'promo_enabled','home_fixed','home_fixed_sort','promo_image_url','promo_text',
       'order_url','delivery_url','reservation_url','created_at','region','is_active',
-      'rating','review_count','google_maps_url','google_review_url'
+      'rating','review_count','google_maps_url','google_review_url','list_visible'
     ].join(',');
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
@@ -797,6 +899,7 @@ async function loadRealData(){
 
       const seen = new Set();
       businesses = mapped.filter((b) => {
+      if (b.list_visible === false) return false;
       if ((b.region || '').toLowerCase() !== getAppRegion()) return false;
         const key = [
           (b.name || '').trim().toLowerCase(),
@@ -1272,12 +1375,60 @@ function couponCardHTML(c, mode='all'){
   `;
 }
 
-function boardListItemHTML(post){
-  const type=normalizeBoardType(post.type);
-  const summary=(post.content||'').replace(/\s+/g,' ').trim();
-  const thumb=post.image_url?`<img class="board-row-thumb-img" src="${esc(post.image_url)}" alt="${esc(post.title)}">`:boardThumbEmoji(type);
-  const meta=type==='job'?(post.company_name||post.salary||''):type==='realestate'?(post.price||post.address||''):type==='news'?(post.author_name||post.source_name||''):(post.venue_name||formatPeriod(post.start_at,post.end_at));
-  return `<button class="board-row-btn" data-board-post="${esc(post.id)}"><span class="board-row-thumb">${thumb}</span><span class="board-row-copy"><em class="board-row-badge">${esc(boardLabel(type))}</em><strong>${esc(post.title||'제목 없음')}</strong><span>${esc(meta||summary||post.address||'')}</span></span></button>`;
+function boardListItemHTML(post) {
+  const type = normalizeBoardType(post.type);
+  const summary = String(post.content || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 75);
+
+  const thumb = post.image_url
+    ? `
+      <img
+        class="board-row-thumb-img"
+        src="${esc(post.image_url)}"
+        alt="${esc(post.title || '게시글')}"
+      >
+    `
+    : boardThumbEmoji(type);
+
+  const hasVideo = Boolean(
+    String(post.video_url || '').trim()
+  );
+
+  return `
+    <button
+      type="button"
+      class="board-row-btn"
+      data-board-post="${esc(post.id)}"
+    >
+      <span class="board-row-thumb">
+        ${thumb}
+      </span>
+
+      <span class="board-row-copy">
+        <span class="board-row-topline">
+          <em class="board-row-badge">
+            ${esc(boardLabel(type))}
+          </em>
+
+          ${
+            hasVideo
+              ? '<em class="board-video-badge">▶ 영상</em>'
+              : ''
+          }
+        </span>
+
+        <strong>
+          ${esc(post.title || '제목 없음')}
+        </strong>
+
+        <span>
+          ${esc(summary)}
+        </span>
+      </span>
+    </button>
+  `;
 }
 function mapBottomItemHTML(b){
   const miles = (b.lat != null && b.lng != null && currentCenter)
@@ -1441,7 +1592,7 @@ function renderBusinessList() {
     });
   }
 
-  rows = sortBusinessesByDistance(rows);
+  rows = sortBusinessesByDistance(rows).sort((a,b)=> Number(isPremiumBusiness(b))-Number(isPremiumBusiness(a)) || Number(b.is_featured)-Number(a.is_featured));
 
   if (!rows.length) {
     listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
@@ -2636,40 +2787,73 @@ function renderYouTubeEmbed(url) {
         </div>
     `;
 }
-function boardGalleryImages(post){
-  return [...new Set([post.image_url,...parseArr(post.gallery_urls)].filter(Boolean))];
-}
-function renderBoardGallery(post){
-  const images=boardGalleryImages(post); if(!images.length) return '';
-  return `<div class="board-gallery" data-board-gallery><div class="board-gallery-track">${images.map((url,i)=>`<div class="board-gallery-slide">${i===0&&post.image_link_url?`<a href="${esc(post.image_link_url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(url)}" alt="${esc(post.title||'게시글 이미지')} ${i+1}"></a>`:`<img src="${esc(url)}" alt="${esc(post.title||'게시글 이미지')} ${i+1}">`}</div>`).join('')}</div>${images.length>1?`<button class="board-gallery-arrow prev" type="button">‹</button><button class="board-gallery-arrow next" type="button">›</button><div class="board-gallery-dots">${images.map((_,i)=>`<button class="board-gallery-dot ${i===0?'active':''}" data-index="${i}" type="button"></button>`).join('')}</div>`:''}</div>`;
+function renderBoardPage(type = 'notice', postId = null) {
+  if (!boardTitle) return;
+  const normalizedType = normalizeBoardType(type);
+  const rows = boardPostsByType(normalizedType);
+  const page = $('#page-board-detail .section-card');
+  if (!page) return;
+
+  if (postId) {
+    const post = boardPosts.find(p => String(p.id) === String(postId));
+    if (!post) {
+      page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3><div class="board-empty">게시글을 찾을 수 없습니다.</div>`;
+      return;
+    }
+    selectedBoardPost = post;
+    boardTitle.textContent = boardLabel(normalizedType);
+    const images = boardImages(post);
+    const slides = images.map((url,index)=>`<div class="board-gallery-slide"><img src="${esc(url)}" alt="${esc(post.title || '게시글 이미지')} ${index+1}" loading="${index===0?'eager':'lazy'}"></div>`).join('');
+    const gallery = images.length ? `<div class="board-gallery" data-board-gallery><div class="board-gallery-track">${slides}</div>${images.length>1?'<button class="board-gallery-arrow prev" type="button">‹</button><button class="board-gallery-arrow next" type="button">›</button><div class="board-gallery-dots">'+images.map((_,i)=>`<button type="button" data-gallery-dot="${i}" class="${i===0?'active':''}"></button>`).join('')+'</div>':''}</div>` : '';
+    const videoHtml = post.video_url ? renderYouTubeEmbed(post.video_url) : '';
+    const linkedBiz = post.business_id ? getBiz(post.business_id) : null;
+    const phoneDigits = String(post.phone || '').replace(/[^\d+]/g,'');
+    const mapHref = post.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}` : '';
+    const externalUrl = normalizeUrl(post.external_url || post.image_link_url || '');
+    const actions = [
+      phoneDigits ? `<a class="action-btn call" href="tel:${esc(phoneDigits)}">전화하기</a>` : '',
+      mapHref ? `<a class="action-btn map" href="${esc(mapHref)}" target="_blank" rel="noopener">길찾기</a>` : '',
+      externalUrl ? `<a class="action-btn web" href="${esc(externalUrl)}" target="_blank" rel="noopener noreferrer">${esc(post.link_label || '링크 열기')}</a>` : '',
+      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : ''
+    ].filter(Boolean).join('');
+    page.innerHTML = `
+      <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
+      <article class="board-detail-v3">
+        <div class="board-detail-v3-head">
+          <div class="board-detail-v3-badges"><span>${esc(boardLabel(normalizedType))}</span>${post.video_url?'<span class="video">▶ 영상</span>':''}</div>
+          <h1>${esc(post.title || boardLabel(normalizedType))}</h1>
+          <div class="board-detail-v3-meta">${[post.author_name,post.created_at?String(post.created_at).slice(0,10):'',post.address].filter(Boolean).map(esc).join(' · ')}</div>
+        </div>
+        ${gallery}
+        ${videoHtml}
+        <div class="board-detail-v3-content">${autoLinkText(post.content || '')}</div>
+        ${actions?`<div class="board-detail-actions">${actions}</div>`:''}
+      </article>`;
+    initBoardGallery(page);
+    page.querySelectorAll('.biz-open').forEach(button=>button.addEventListener('click',()=>{const bizId=button.dataset.biz;if(!bizId)return;renderDetail(bizId);lastBasePage=currentPage;showPage('business-detail');}));
+    return;
+  }
+
+  selectedBoardPost = null;
+  selectedBoardType = normalizedType;
+  boardTitle.textContent = boardLabel(normalizedType);
+  page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3><div class="board-page-grid">${rows.length?rows.map(boardListItemHTML).join(''):`<div class="board-empty">등록된 ${esc(boardLabel(normalizedType))} 글이 없습니다.</div>`}</div>`;
+  page.querySelectorAll('[data-post-id]').forEach(button=>button.addEventListener('click',()=>openBoardPost(button.dataset.postId)));
 }
 function initBoardGallery(root=document){
-  root.querySelectorAll('[data-board-gallery]').forEach(g=>{const track=g.querySelector('.board-gallery-track');const slides=[...g.querySelectorAll('.board-gallery-slide')];if(!track||slides.length<2)return;let index=0,startX=0;const go=n=>{index=(n+slides.length)%slides.length;track.style.transform=`translateX(-${index*100}%)`;g.querySelectorAll('.board-gallery-dot').forEach((d,i)=>d.classList.toggle('active',i===index));};g.querySelector('.prev')?.addEventListener('click',()=>go(index-1));g.querySelector('.next')?.addEventListener('click',()=>go(index+1));g.querySelectorAll('.board-gallery-dot').forEach(d=>d.addEventListener('click',()=>go(Number(d.dataset.index||0))));g.addEventListener('touchstart',e=>startX=e.touches[0]?.clientX||0,{passive:true});g.addEventListener('touchend',e=>{const dx=(e.changedTouches[0]?.clientX||0)-startX;if(Math.abs(dx)>45)go(dx<0?index+1:index-1);},{passive:true});});
-}
-function renderBoardTypeHighlight(post,type){
-  if(type==='event') return `<div class="board-highlight">${post.venue_name?`<strong>${esc(post.venue_name)}</strong>`:''}<div class="board-spec-row">${post.start_at?`<span>시작 ${esc(formatDateLabel(post.start_at).replace('까지',''))}</span>`:''}${post.end_at?`<span>종료 ${esc(formatDateLabel(post.end_at))}</span>`:''}${post.address?`<span>${esc(post.address)}</span>`:''}</div></div>`;
-  if(type==='news') return `<div class="board-article-meta">${post.author_name?`<span>${esc(post.author_name)}</span>`:''}${post.created_at?`<span>${esc(formatDateLabel(post.created_at).replace('까지',''))}</span>`:''}${post.source_name?`<span>${esc(post.source_name)}</span>`:''}</div>`;
-  if(type==='job') return `<div class="board-highlight">${post.company_name?`<strong>${esc(post.company_name)}</strong>`:''}${post.job_title?`<div class="board-big-value">${esc(post.job_title)}</div>`:''}<div class="board-spec-row">${post.salary?`<span>급여 ${esc(post.salary)}</span>`:''}${post.employment_type?`<span>${esc(({full_time:'정규직',part_time:'파트타임',contract:'계약직',temporary:'단기'})[post.employment_type]||post.employment_type)}</span>`:''}${post.address?`<span>${esc(post.address)}</span>`:''}</div></div>`;
-  if(type==='realestate') return `<div class="board-highlight">${post.price?`<div class="board-big-value">${esc(post.price)}</div>`:''}<div class="board-spec-row">${post.subtype?`<span>${esc(({rent:'렌트',sale:'매매',roommate:'룸메이트',commercial_lease:'상가 임대',business_sale:'비즈니스 매매'})[post.subtype]||post.subtype)}</span>`:''}${post.bedrooms!=null?`<span>침실 ${esc(post.bedrooms)}</span>`:''}${post.bathrooms!=null?`<span>욕실 ${esc(post.bathrooms)}</span>`:''}${post.sqft!=null?`<span>${esc(post.sqft)} sqft</span>`:''}</div></div>`;
-  return '';
-}
-async function shareBoardPost(post){const data={title:post.title||'DalTownMap',text:String(post.content||'').slice(0,120),url:location.href};if(navigator.share){try{await navigator.share(data);return;}catch(_){}}try{await navigator.clipboard.writeText(location.href);alert('링크가 복사되었습니다.');}catch(_){prompt('아래 링크를 복사하세요.',location.href);}}
-function renderBoardPage(type = 'event', postId = null) {
-  if(!boardTitle) return;
-  const normalizedType=normalizeBoardType(type); const rows=boardPostsByType(normalizedType); const page=$('#page-board-detail .section-card'); if(!page)return;
-  if(postId){
-    const post=boardPosts.find(p=>String(p.id)===String(postId));
-    if(!post){page.innerHTML=`<h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3><div class="board-empty">게시글을 찾을 수 없습니다.</div>`;return;}
-    selectedBoardPost=post; boardTitle.textContent=boardLabel(normalizedType);
-    const linkedBiz=post.business_id?getBiz(post.business_id):null; const phoneDigits=String(post.phone||'').replace(/[^\d+]/g,''); const mapHref=post.address?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(post.address)}`:'';
-    const actions=[phoneDigits?`<a class="action-btn call" href="tel:${esc(phoneDigits)}">전화하기</a>`:'',mapHref?`<a class="action-btn map" href="${esc(mapHref)}" target="_blank" rel="noopener">길찾기</a>`:'',post.cta_url?`<a class="action-btn board-cta" href="${esc(post.cta_url)}" target="_blank" rel="noopener noreferrer">${esc(post.cta_label||'자세히 보기')}</a>`:'',linkedBiz?`<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>`:'',`<button class="action-btn board-share" type="button" data-board-share>공유하기</button>`].filter(Boolean).join('');
-    const source=post.source_url?`<div class="board-source">출처: <a href="${esc(post.source_url)}" target="_blank" rel="noopener noreferrer">${esc(post.source_name||'원문 보기')}</a></div>`:'';
-    page.innerHTML=`<h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3><article class="board-detail-v2"><div class="board-v2-badges"><span>${esc(boardLabel(normalizedType))}</span>${post.subtype?`<span>${esc(post.subtype)}</span>`:''}</div><h1 class="board-v2-title">${esc(post.title||boardLabel(normalizedType))}</h1>${renderBoardTypeHighlight(post,normalizedType)}${renderBoardGallery(post)}${post.video_url?renderYouTubeEmbed(post.video_url):''}<div class="board-v2-content">${esc(post.content||'').replace(/\n/g,'<br>')}</div>${source}<div class="board-detail-actions">${actions}</div></article>`;
-    initBoardGallery(page); page.querySelector('[data-board-share]')?.addEventListener('click',()=>shareBoardPost(post)); page.querySelectorAll('.biz-open').forEach(button=>button.addEventListener('click',()=>{const bizId=button.dataset.biz;if(!bizId)return;renderDetail(bizId);lastBasePage=currentPage;showPage('business-detail');})); return;
-  }
-  selectedBoardPost=null; selectedBoardType=normalizedType; boardTitle.textContent=boardLabel(normalizedType);
-  page.innerHTML=`<h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3><div class="board-page-list">${rows.length?rows.map(boardListItemHTML).join(''):`<div class="board-empty">등록된 ${esc(boardLabel(normalizedType))} 글이 없습니다.</div>`}</div>`;
-  page.querySelectorAll('[data-board-post]').forEach(button=>button.addEventListener('click',()=>openBoardPost(button.dataset.boardPost)));
+  root.querySelectorAll('[data-board-gallery]').forEach(gallery=>{
+    const track=gallery.querySelector('.board-gallery-track');
+    const slides=[...gallery.querySelectorAll('.board-gallery-slide')];
+    if(!track || slides.length<2) return;
+    let index=0,startX=0;
+    const dots=[...gallery.querySelectorAll('[data-gallery-dot]')];
+    const go=n=>{index=(n+slides.length)%slides.length;track.style.transform=`translateX(-${index*100}%)`;dots.forEach((d,i)=>d.classList.toggle('active',i===index));};
+    gallery.querySelector('.prev')?.addEventListener('click',()=>go(index-1));
+    gallery.querySelector('.next')?.addEventListener('click',()=>go(index+1));
+    dots.forEach(d=>d.addEventListener('click',()=>go(Number(d.dataset.galleryDot||0))));
+    gallery.addEventListener('touchstart',e=>{startX=e.touches[0]?.clientX||0},{passive:true});
+    gallery.addEventListener('touchend',e=>{const dx=(e.changedTouches[0]?.clientX||0)-startX;if(Math.abs(dx)>45)go(dx<0?index+1:index-1)},{passive:true});
+  });
 }
 function showBoard(board){ renderBoardPage(board); lastBasePage = currentPage;
   showPage('board-detail'); }
@@ -3735,11 +3919,3 @@ function initAndroidInstallBanner() {
     banner.classList.add('hidden');
   });
 }
-
-// Board V2: 기존 HTML 탭을 새 구성으로 자동 교체
-function upgradeBoardCommunityTabs(){
-  const tabs=document.querySelectorAll('#communityTabs [data-board]');
-  const config=[['event','행사안내'],['news','뉴스·칼럼'],['job','구인구직'],['realestate','부동산']];
-  tabs.forEach((btn,i)=>{if(config[i]){btn.dataset.board=config[i][0];btn.textContent=config[i][1];}});
-}
-document.addEventListener('DOMContentLoaded',upgradeBoardCommunityTabs);
