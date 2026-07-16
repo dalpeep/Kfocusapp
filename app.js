@@ -705,6 +705,26 @@ async function loadBoardPostsFromSupabase(){
   }
   return false;
 }
+function parseBoardGalleryUrls(value){
+  if(Array.isArray(value)) return value.map(v=>String(v||'').trim()).filter(Boolean);
+  const raw=String(value||'').trim(); if(!raw) return [];
+  try{const p=JSON.parse(raw);if(Array.isArray(p)) return p.map(v=>String(v||'').trim()).filter(Boolean);}catch(_){ }
+  return raw.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+}
+function boardPostImages(post){return [...new Set([String(post.image_url||'').trim(),...parseBoardGalleryUrls(post.gallery_urls)].filter(Boolean))];}
+function renderBoardImageSlider(post){
+  const images=boardPostImages(post); if(!images.length) return '';
+  if(images.length===1){const img=`<img class="board-detail-image" src="${esc(images[0])}" alt="${esc(post.title||'게시글 이미지')}" loading="lazy">`;return post.image_link_url?`<a class="board-detail-image-link" href="${esc(post.image_link_url)}" target="_blank" rel="noopener noreferrer">${img}</a>`:img;}
+  return `<section class="board-post-gallery" data-board-gallery><div class="board-post-gallery-viewport"><div class="board-post-gallery-track">${images.map((url,i)=>`<div class="board-post-gallery-slide">${i===0&&post.image_link_url?`<a href="${esc(post.image_link_url)}" target="_blank" rel="noopener noreferrer"><img src="${esc(url)}" alt="${esc(post.title||'게시글 이미지')} ${i+1}"></a>`:`<img src="${esc(url)}" alt="${esc(post.title||'게시글 이미지')} ${i+1}">`}</div>`).join('')}</div><button class="board-post-gallery-arrow prev" type="button">‹</button><button class="board-post-gallery-arrow next" type="button">›</button><div class="board-post-gallery-dots">${images.map((_,i)=>`<button type="button" class="board-post-gallery-dot ${i===0?'active':''}" data-gallery-dot="${i}"></button>`).join('')}</div><div class="board-post-gallery-count"><span data-gallery-current>1</span> / ${images.length}</div></div></section>`;
+}
+function initBoardImageSlider(root=document){
+  root.querySelectorAll('[data-board-gallery]').forEach(g=>{if(g.dataset.ready==='true')return;g.dataset.ready='true';const t=g.querySelector('.board-post-gallery-track'),s=[...g.querySelectorAll('.board-post-gallery-slide')],d=[...g.querySelectorAll('[data-gallery-dot]')],c=g.querySelector('[data-gallery-current]');if(!t||s.length<2)return;let i=0,x=0;const go=n=>{i=(n+s.length)%s.length;t.style.transform=`translateX(-${i*100}%)`;d.forEach((e,k)=>e.classList.toggle('active',k===i));if(c)c.textContent=String(i+1);};g.querySelector('.prev')?.addEventListener('click',()=>go(i-1));g.querySelector('.next')?.addEventListener('click',()=>go(i+1));d.forEach(e=>e.addEventListener('click',()=>go(Number(e.dataset.galleryDot||0))));g.addEventListener('touchstart',e=>{x=e.touches[0]?.clientX||0},{passive:true});g.addEventListener('touchend',e=>{const dx=(e.changedTouches[0]?.clientX||0)-x;if(Math.abs(dx)>45)go(dx<0?i+1:i-1)},{passive:true});});
+}
+/* loadBoardPostsFromSupabase() select에 gallery_urls 추가 */
+/* rows.map()에 gallery_urls: parseBoardGalleryUrls(row.gallery_urls), 추가 */
+/* renderBoardPage()의 ${imageHtml}를 ${renderBoardImageSlider(post)}로 교체 */
+/* page.innerHTML 직후 initBoardImageSlider(page); 호출 */
+
 function businessSearchResults(query){
   const q = normalizeSearchText(query);
   if(!q) return [];
