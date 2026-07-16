@@ -776,6 +776,27 @@
                 </div>
                 <div class="tiny muted">업로드하면 board_image_url에 자동 반영됩니다.</div>
               </div>
+<!-- 기존 게시판 이미지 업로드 블록 바로 아래에 추가 -->
+<div class="field full upload-block board-gallery-upload-block">
+  <span>추가 이미지 여러 장 업로드</span>
+  <div class="upload-row">
+    <input id="board_gallery_files" type="file" accept="image/*" multiple />
+    <button id="boardUploadGalleryBtn" class="btn ghost" type="button">추가 이미지 업로드</button>
+    <button id="boardClearGalleryBtn" class="btn danger" type="button">전체 지우기</button>
+  </div>
+  <div class="tiny muted">PC는 Ctrl/Shift, 모바일은 사진 선택 화면에서 여러 장을 선택하세요.</div>
+</div>
+
+<label class="field full">
+  <span>추가 이미지 URL</span>
+  <textarea id="board_gallery_urls" rows="5" placeholder="업로드하면 자동으로 입력됩니다.
+직접 입력할 때는 한 줄에 이미지 URL 하나씩 입력하세요."></textarea>
+</label>
+
+<div class="field full">
+  <span>추가 이미지 미리보기</span>
+  <div id="boardGalleryPreview" class="board-gallery-admin-list"></div>
+</div>
 
               <label class="field"><span>시작일시</span><input id="board_start_at" type="datetime-local" /></label>
               <label class="field"><span>종료일시</span><input id="board_end_at" type="datetime-local" /></label>
