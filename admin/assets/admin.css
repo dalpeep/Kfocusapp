@@ -520,3 +520,5 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 }
 /* Add to admin/assets/admin.css */
 .board-extra-wrap{padding:14px;border:1px dashed #cbd8ee;border-radius:14px;background:#f8fbff}.board-extra-fields{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.board-extra-fields .field.full{grid-column:1/-1}@media(max-width:760px){.board-extra-fields{grid-template-columns:1fr}}
+
+.premium-badge{background:#f59e0b!important;color:#fff!important}.video-badge{background:#7c3aed!important;color:#fff!important}.hidden-badge{background:#64748b!important;color:#fff!important}
