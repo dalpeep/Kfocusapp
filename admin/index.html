@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=2" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=5"></script>
+  <script type="module" src="assets/admin.js?v=6"></script>
 <style>
 .admin-card{
   background:#fff;
@@ -365,6 +365,13 @@
               <label class="field"><span>위도(lat)</span><input id="lat" type="number" step="any" /></label>
               <label class="field"><span>경도(lng)</span><input id="lng" type="number" step="any" /></label>
               <label class="field checkbox-line"><input id="is_active" type="checkbox" checked /><span>활성 업소</span></label>
+              <label class="field checkbox-line">
+                <input id="list_visible" type="checkbox" checked />
+                <span>업소 목록에 표시</span>
+              </label>
+              <div class="tiny muted full">
+                체크를 해제하면 업소를 삭제하지 않고 하단 업소 목록에서만 숨깁니다.
+              </div>
               <label class="field checkbox-line"><input id="is_featured" type="checkbox" /><span>추천 업소</span></label>
               <label class="field"><span>추천 순서</span><input id="featured_rank" type="number" /></label>
               <label class="field checkbox-line"><input id="is_new" type="checkbox" /><span>신규 업소</span></label>
@@ -822,9 +829,8 @@
                   <label class="field"><span>면적(sqft)</span><input id="board_sqft" type="number" min="0" step="1" /></label>
                 </div>
               </div>
-              <label class="field full"><span>추가 이미지 URL</span><textarea id="board_gallery_urls" rows="4" placeholder="한 줄에 이미지 URL 하나씩 입력"></textarea></label>
-              <label class="field"><span>버튼 문구</span><input id="board_cta_label" type="text" placeholder="자세히 보기" /></label>
-              <label class="field"><span>버튼 링크</span><input id="board_cta_url" type="url" placeholder="https://..." /></label>
+              <label class="field"><span>버튼 문구</span><input id="board_link_label" type="text" placeholder="자세히 보기" /></label>
+              <label class="field"><span>버튼 링크</span><input id="board_external_url" type="url" placeholder="https://..." /></label>
               <label class="field checkbox-line"><input id="board_is_active" type="checkbox" checked /><span>활성</span></label>
             </form>
           </div>
