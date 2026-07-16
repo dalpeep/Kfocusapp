@@ -1316,6 +1316,49 @@ async function uploadImage() {
     if (btn) { btn.disabled = false; btn.textContent = '이미지 업로드'; }
   }
 }
+function parseBoardGalleryUrls(value){
+  if(Array.isArray(value)) return value.map(v=>String(v||'').trim()).filter(Boolean);
+  const raw=String(value||'').trim();
+  if(!raw) return [];
+  try{const p=JSON.parse(raw);if(Array.isArray(p)) return p.map(v=>String(v||'').trim()).filter(Boolean);}catch(_){ }
+  return raw.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+}
+function getBoardGalleryUrlsFromForm(){return parseBoardGalleryUrls(val('board_gallery_urls'));}
+function setBoardGalleryUrlsToForm(urls){const clean=[...new Set(parseBoardGalleryUrls(urls))];setVal('board_gallery_urls',clean.join('\n'));renderBoardGalleryPreview(clean);}
+function renderBoardGalleryPreview(urls=null){
+  const wrap=qs('boardGalleryPreview'); if(!wrap) return;
+  const rows=urls===null?getBoardGalleryUrlsFromForm():parseBoardGalleryUrls(urls);
+  if(!rows.length){wrap.innerHTML='<div class="tiny muted">추가 이미지가 없습니다.</div>';return;}
+  wrap.innerHTML=rows.map((url,index)=>`<div class="board-gallery-admin-item"><img src="${esc(url)}" alt="추가 이미지 ${index+1}"><div class="board-gallery-admin-copy"><strong>이미지 ${index+1}</strong><span>${esc(url)}</span></div><button type="button" class="btn danger board-gallery-remove" data-gallery-index="${index}">삭제</button></div>`).join('');
+}
+async function uploadBoardGalleryImages(){
+  const files=Array.from(qs('board_gallery_files')?.files||[]); if(!files.length) return alert('추가할 이미지를 여러 장 선택해 주세요.');
+  const btn=qs('boardUploadGalleryBtn'); const old=btn?.textContent||'추가 이미지 업로드'; if(btn){btn.disabled=true;btn.textContent=`업로드 중 0/${files.length}`;}
+  const existing=getBoardGalleryUrlsFromForm(), uploaded=[], failed=[];
+  try{
+    for(let i=0;i<files.length;i++){
+      if(btn) btn.textContent=`업로드 중 ${i+1}/${files.length}`;
+      try{const url=await uploadFileToStorage(files[i],'boards/gallery'); if(url) uploaded.push(url); else failed.push(files[i].name);}catch(e){failed.push(files[i].name);}
+    }
+    setBoardGalleryUrlsToForm([...new Set([...existing,...uploaded])]);
+    if(qs('board_gallery_files')) qs('board_gallery_files').value='';
+    alert(failed.length?`업로드 ${uploaded.length}장 / 실패 ${failed.length}장\n${failed.join('\n')}`:`${uploaded.length}장 업로드 완료. 게시글 저장 버튼을 눌러 주세요.`);
+  }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function clearBoardGalleryImages(){if(!confirm('추가 이미지 목록을 모두 지울까요?')) return;setBoardGalleryUrlsToForm([]);if(qs('board_gallery_files')) qs('board_gallery_files').value='';}
+function removeBoardGalleryImage(index){const urls=getBoardGalleryUrlsFromForm();if(index<0||index>=urls.length)return;urls.splice(index,1);setBoardGalleryUrlsToForm(urls);}
+function bindBoardGalleryEvents(){
+  on('boardUploadGalleryBtn','click',uploadBoardGalleryImages);
+  on('boardClearGalleryBtn','click',clearBoardGalleryImages);
+  qs('board_gallery_urls')?.addEventListener('input',()=>renderBoardGalleryPreview());
+  qs('boardGalleryPreview')?.addEventListener('click',e=>{const b=e.target.closest('[data-gallery-index]');if(b)removeBoardGalleryImage(Number(b.dataset.galleryIndex));});
+}
+/* saveBoard() payloadBase에 gallery_urls: getBoardGalleryUrlsFromForm(), 추가 */
+/* clearBoardForm()에 setVal('board_gallery_urls',''); renderBoardGalleryPreview([]); 추가 */
+/* fillBoardForm(row)에 setBoardGalleryUrlsToForm(row.gallery_urls||[]); 추가 */
+/* loadBoards() 매핑에 gallery_urls: parseBoardGalleryUrls(row.gallery_urls), 추가 */
+/* 기존 bindEvents() 마지막에 bindBoardGalleryEvents(); 1회 호출 */
+
 async function uploadBoardImage() {
   const file = qs('board_image_file')?.files?.[0];
   if (!file) return alert('게시판 이미지를 선택하세요.');
