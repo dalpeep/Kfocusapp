@@ -1,28 +1,123 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>DaltownMap</title>
-  <link rel="apple-touch-icon" href="/assets/kfocus-icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Kfocus">
-  <link rel="apple-touch-icon" href="/icons/icon-192.png">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta charset="UTF-8">
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+>
+
+<title>달타운맵 | 달라스 한인 업소록·쿠폰·행사·커뮤니티</title>
+
+<meta
+  name="description"
+  content="달타운맵은 달라스·DFW 한인 업소 정보, 할인 쿠폰, 행사, 구인구직, 렌트·매매 및 지역 커뮤니티 소식을 제공하는 플랫폼입니다."
+>
+
+<meta
+  name="robots"
+  content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1"
+>
+
+<link rel="canonical" href="https://daltownmap.com/">
+<link rel="alternate" hreflang="ko" href="https://daltownmap.com/">
+<link rel="alternate" hreflang="x-default" href="https://daltownmap.com/">
+
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ko_KR">
+<meta property="og:site_name" content="달타운맵">
+<meta
+  property="og:title"
+  content="달타운맵 | 달라스 한인 업소록·쿠폰·커뮤니티"
+>
+<meta
+  property="og:description"
+  content="달라스·DFW 한인 업소, 쿠폰, 행사, 구인구직과 지역 커뮤니티 정보를 한곳에서 확인하세요."
+>
+<meta property="og:url" content="https://daltownmap.com/">
+<meta property="og:image" content="https://daltownmap.com/icons/icon-512.png">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta
+  name="twitter:title"
+  content="달타운맵 | 달라스 한인 업소록·쿠폰·커뮤니티"
+>
+<meta
+  name="twitter:description"
+  content="달라스·DFW 한인 업소, 쿠폰, 행사와 지역 커뮤니티 정보를 한곳에서 확인하세요."
+>
+<meta name="twitter:image" content="https://daltownmap.com/icons/icon-512.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "https://daltownmap.com/#website",
+      "url": "https://daltownmap.com/",
+      "name": "달타운맵",
+      "alternateName": [
+        "DalTownMap",
+        "Dallas Town Map"
+      ],
+      "inLanguage": [
+        "ko",
+        "en"
+      ],
+      "publisher": {
+        "@id": "https://daltownmap.com/#organization"
+      }
+    },
+    {
+      "@type": "Organization",
+      "@id": "https://daltownmap.com/#organization",
+      "name": "달타운맵",
+      "alternateName": "DalTownMap",
+      "url": "https://daltownmap.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://daltownmap.com/icons/icon-512.png",
+        "width": 512,
+        "height": 512
+      },
+      "description": "달라스·DFW 한인 업소록, 쿠폰, 행사 및 지역 커뮤니티 플랫폼"
+    }
+  ]
+}
+</script>
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
   <link rel="stylesheet" href="styles.css" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+  <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
+
+ OneSignalDeferred.push(async function (OneSignal) {
+    const appId =
+        window.APP_CONFIG?.ONESIGNAL_APP_ID || '';
+
+    if (!appId) {
+        console.warn('OneSignal App ID가 설정되지 않았습니다.');
+        return;
+    }
+
     await OneSignal.init({
-      appId: "38a44252-843f-4e20-bb6b-e4ae1f91510f"
+        appId: appId
     });
-  });
+
+    console.log(
+        '[OneSignal initialized]',
+        window.APP_CONFIG?.APP_CITY,
+        appId
+    );
+ });
+</script>
+</script>
 </script>
 
 </head>
@@ -219,12 +314,39 @@ onclick="showPage('contact');closeMenu();">
   </div>
 
   
-  <div class="community-tabs" id="communityTabs">
-    <button class="community-tab active" data-board="notice">행사안내</button>
-    <button class="community-tab" data-board="job">구인/구직</button>
-    <button class="community-tab" data-board="rent">렌트</button>
-    <button class="community-tab" data-board="sale">매매</button>
-  </div>
+<div id="communityTabs" class="community-tabs">
+  <button
+    type="button"
+    class="community-tab active"
+    data-board="event"
+  >
+    행사안내
+  </button>
+
+  <button
+    type="button"
+    class="community-tab"
+    data-board="news"
+  >
+    뉴스·칼럼
+  </button>
+
+  <button
+    type="button"
+    class="community-tab"
+    data-board="job"
+  >
+    구인구직
+  </button>
+
+  <button
+    type="button"
+    class="community-tab"
+    data-board="realestate"
+  >
+    부동산
+  </button>
+</div>
 
   <div id="homeBoardList" class="home-board-list"></div>
 
@@ -471,7 +593,8 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app.js"></script>
+<script src="app.js?v=7"></script>
+<script src="main-banners.js?v=2"></script>
 <script type="module" src="main-banners.js"></script>
 
 <div id="videoModal" class="video-modal hidden">
