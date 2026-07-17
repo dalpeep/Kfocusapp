@@ -2723,6 +2723,37 @@ if (slideData) {
 }
 let selectedSlideBizId = null;
 
+const shareBtn = document.getElementById('slideDetailShareBtn');
+
+if (shareBtn) {
+  shareBtn.onclick = async () => {
+    const title = slide.title || 'DalTownMap';
+    const text = slide.slideDesc || slide.desc || '';
+    const url = slide.link_url || window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        [title, text, url].filter(Boolean).join('\n')
+      );
+      alert('공유 내용이 복사되었습니다.');
+    } catch {
+      prompt(
+        '아래 내용을 복사하세요.',
+        [title, text, url].filter(Boolean).join('\n')
+      );
+    }
+  };
+}
+
 function openSlideDetailModal(slide){
 
   selectedSlideBizId = slide.bizId || null;
