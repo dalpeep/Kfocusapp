@@ -522,10 +522,3 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .board-extra-wrap{padding:14px;border:1px dashed #cbd8ee;border-radius:14px;background:#f8fbff}.board-extra-fields{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.board-extra-fields .field.full{grid-column:1/-1}@media(max-width:760px){.board-extra-fields{grid-template-columns:1fr}}
 
 .premium-badge{background:#f59e0b!important;color:#fff!important}.video-badge{background:#7c3aed!important;color:#fff!important}.hidden-badge{background:#64748b!important;color:#fff!important}
-
-/* DalTownMap V6 Alpha Patch 01 */
-.board-gallery-admin-item{display:grid;grid-template-columns:72px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #e5e7eb}
-.board-gallery-admin-item img{width:72px;height:54px;object-fit:cover;border-radius:8px;background:#f3f4f6}
-.board-gallery-admin-copy{min-width:0;display:flex;flex-direction:column;gap:4px}
-.board-gallery-admin-copy span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#64748b}
-@media(max-width:640px){.board-gallery-admin-item{grid-template-columns:56px 1fr}.board-gallery-admin-item img{width:56px;height:44px}.board-gallery-remove{grid-column:2;justify-self:start}}

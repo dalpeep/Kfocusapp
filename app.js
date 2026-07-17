@@ -106,13 +106,7 @@ const searchBoardList = $('#searchBoardList');
 const searchEmpty = $('#searchEmpty');
 const mapSearchInput = $('#mapSearchInput');
 
-function getConfig(){ return window.APP_CONFIG || window.KFOCUS_CONFIG || {}; }
-function normalizeRegion(value = '') {
-  const region = String(value || '').trim().toLowerCase();
-  if (region === 'denver') return 'colorado';
-  if (region === 'dfw') return 'dallas';
-  return region || 'dallas';
-}
+function getConfig(){ return window.KFOCUS_CONFIG || {}; }
 function getAppCity() {
   const cfg = getConfig();
 
@@ -128,11 +122,13 @@ function getAppCity() {
 function getAppRegion() {
   const cfg = getConfig();
 
-  return normalizeRegion(
+  return String(
     cfg.APP_REGION ||
     cfg.app_region ||
     getAppCity()
-  );
+  )
+    .trim()
+    .toLowerCase();
 }
 
 function getAppCityLabel() {
@@ -154,15 +150,6 @@ function isSingleCityMode() {
 
   return value === true || value === 'true';
 }
-
-window.DAL_TOWN_MAP = Object.assign(window.DAL_TOWN_MAP || {}, {
-  version: window.DAL_TOWN_MAP_VERSION || '6.0.0-alpha.1',
-  getConfig,
-  getAppCity,
-  getAppRegion,
-  normalizeRegion
-});
-
 function homeBusinessItemHTML(b){
   const img = b.image || b.image_url || '/assets/kfocus-icon.png';
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
