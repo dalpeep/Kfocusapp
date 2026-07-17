@@ -1,6 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-const cfg = window.KFOCUS_CONFIG || {};
+const cfg = window.APP_CONFIG || window.KFOCUS_CONFIG || {};
 const qs = (id) => document.getElementById(id);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 const esc = (s = '') =>
@@ -18,6 +18,13 @@ function getConfig() {
     return window.APP_CONFIG || window.KFOCUS_CONFIG || {};
 }
 
+function normalizeRegion(value = '') {
+    const region = String(value || '').trim().toLowerCase();
+    if (region === 'denver') return 'colorado';
+    if (region === 'dfw') return 'dallas';
+    return region || 'dallas';
+}
+
 function getAppCity() {
     const cfg = getConfig();
 
@@ -31,11 +38,11 @@ function getAppCity() {
 function getAppRegion() {
     const cfg = getConfig();
 
-    return String(
+    return normalizeRegion(
         cfg.APP_REGION ||
         cfg.app_region ||
         getAppCity()
-    ).trim().toLowerCase();
+    );
 }
 
 function getAppCityLabel() {
@@ -139,6 +146,10 @@ function applyAdminRegionUI() {
         });
     }
 }
+window.DAL_TOWN_MAP_ADMIN = Object.assign(window.DAL_TOWN_MAP_ADMIN || {}, {
+  version: '6.0.0-alpha.1',
+  normalizeRegion
+});
 window.getAppCity = getAppCity;
 window.getAppRegion = getAppRegion;
 window.getAppCityLabel = getAppCityLabel;
@@ -161,7 +172,6 @@ const BUSINESS_FIELDS = [
   'reservation',
   'reservation_url',
   'languages',
-  'google_maps_url',
   'google_maps_url',
   'rating',
   'review_count',
@@ -935,7 +945,7 @@ function openLinkedAdmin(section, businessId) {
       setVal('board_business_select', businessId);
       setVal('board_business_search', '');
 	  setVal('board_image_link_url', '');
-  setVal('board_gallery_urls', '');
+  setBoardGalleryUrlsToForm([]);
   setVal('board_external_url', '');
   setVal('board_link_label', '');
   setVal('board_author_name', '');
@@ -1761,10 +1771,10 @@ function boardLabel(t) {
   }[t] || '행사안내';
 }
 async function loadBoards() {
-  if(!supabase){
-  box.innerHTML = 'Supabase 연결 없음';
-  return;
-}
+  if (!supabase) {
+    safeText('boardCountText', 'Supabase 연결 없음');
+    return;
+  }
   const selects = [
     'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,created_at',
     'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,created_at',
@@ -1832,7 +1842,7 @@ function fillBoardForm(row) {
   renderBoardBusinessOptions();
   setVal('board_image_url', row.image_url || '');
   setVal('board_image_link_url', row.image_link_url || '');
-  setVal('board_gallery_urls', Array.isArray(row.gallery_urls) ? row.gallery_urls.join('\n') : (row.gallery_urls || ''));
+  setBoardGalleryUrlsToForm(row.gallery_urls || []);
   setVal('board_external_url', row.external_url || '');
   setVal('board_link_label', row.link_label || '');
   setVal('board_author_name', row.author_name || '');
@@ -1909,7 +1919,7 @@ const linkedBusinessId =
     null;
 
 const boardType = normalizeAdminBoardType(val('board_type'));
-const galleryUrls = String(val('board_gallery_urls') || '').split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+const galleryUrls = getBoardGalleryUrlsFromForm();
 
 if (!boardType || boardType === 'all') {
     return alert('게시판 종류를 선택하세요.');
@@ -1978,7 +1988,10 @@ for (const rawPayload of payloads) {
 
   if (res?.error) return alert(`게시글 저장 실패: ${res.error.message}`);
   await loadBoards();
-  if (res.data) fillBoardForm(res.data);
+  if (res.data) {
+    selectedBoardId = res.data.id || selectedBoardId;
+    fillBoardForm(res.data);
+  }
   alert('게시글 저장 완료');
 }
 async function deleteBoard() {

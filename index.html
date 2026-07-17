@@ -89,37 +89,25 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="styles.css" />
+  <meta name="daltownmap-version" content="6.0.0-alpha.1">
+  <link rel="stylesheet" href="styles.css?v=6.0.0-alpha.1" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   <script>
-  <script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-
- OneSignalDeferred.push(async function (OneSignal) {
-    const appId =
-        window.APP_CONFIG?.ONESIGNAL_APP_ID || '';
-
-    if (!appId) {
-        console.warn('OneSignal App ID가 설정되지 않았습니다.');
+    window.DAL_TOWN_MAP_VERSION = '6.0.0-alpha.1';
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async function (OneSignal) {
+      const config = window.APP_CONFIG || window.KFOCUS_CONFIG || {};
+      const appId = config.ONESIGNAL_APP_ID || '';
+      if (!appId) {
+        console.warn('[DalTownMap] OneSignal App ID가 설정되지 않았습니다.');
         return;
-    }
-
-    await OneSignal.init({
-        appId: appId
+      }
+      await OneSignal.init({ appId });
+      console.info('[DalTownMap] OneSignal initialized', config.APP_CITY || config.APP_REGION || 'unknown');
     });
-
-    console.log(
-        '[OneSignal initialized]',
-        window.APP_CONFIG?.APP_CITY,
-        appId
-    );
- });
-</script>
-</script>
-</script>
-
+  </script>
 </head>
 <body>
   <div class="app-shell">
@@ -577,25 +565,21 @@ onclick="showPage('contact');closeMenu();">
         <button class="admin-login-submit" id="adminLoginSubmit" type="button">로그인</button>
       </div>
     </div>
-<!-- root index.html: put these BEFORE <script src="app.js"></script> -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   (function () {
-    const cfg = window.KFOCUS_CONFIG || {};
-    if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY || !window.supabase?.createClient) {
-      console.warn('Supabase client init skipped');
+    const config = window.APP_CONFIG || window.KFOCUS_CONFIG || {};
+    if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY || !window.supabase?.createClient) {
+      console.warn('[DalTownMap] Supabase client init skipped');
       return;
     }
     window.supabaseClient = window.supabase.createClient(
-      cfg.SUPABASE_URL,
-      cfg.SUPABASE_ANON_KEY
+      config.SUPABASE_URL,
+      config.SUPABASE_ANON_KEY
     );
   })();
 </script>
-  
-<script src="app.js?v=7"></script>
-<script src="main-banners.js?v=2"></script>
-<script type="module" src="main-banners.js"></script>
+<script src="app.js?v=6.0.0-alpha.1"></script>
+<script src="main-banners.js?v=6.0.0-alpha.1"></script>
 
 <div id="videoModal" class="video-modal hidden">
   <div class="video-modal-backdrop" id="videoModalBackdrop"></div>
