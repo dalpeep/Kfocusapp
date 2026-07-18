@@ -2057,19 +2057,34 @@ function renderBusinessHours(b) {
 
     return days.map(([key, label]) => {
       const h = bh[key] || {};
-let text = '정보 없음';
+let timeHtml = '<span class="hours-time-line">정보 없음</span>';
 
 if (h.closed === true || h.closed === 'true') {
-  text = '휴무';
+  timeHtml = '<span class="hours-time-line">휴무</span>';
+
 } else if (h.open1 && h.close1 && h.open2 && h.close2) {
-  text = `${h.open1} - ${h.close1} / ${h.open2} - ${h.close2}`;
+  timeHtml = `
+    <span class="hours-time-line">${esc(h.open1)} - ${esc(h.close1)}</span>
+    <span class="hours-time-line">${esc(h.open2)} - ${esc(h.close2)}</span>
+  `;
+
 } else if (h.open1 && h.close1) {
-  text = `${h.open1} - ${h.close1}`;
+  timeHtml = `
+    <span class="hours-time-line">${esc(h.open1)} - ${esc(h.close1)}</span>
+  `;
+
 } else if (h.text) {
-  text = h.text;
+  timeHtml = `
+    <span class="hours-time-line">${esc(h.text)}</span>
+  `;
 }
 
-      return `<div class="hours-row"><span>${label}</span><strong>${esc(text)}</strong></div>`;
+return `
+  <div class="hours-row">
+    <span class="hours-day">${label}</span>
+    <strong class="hours-times">${timeHtml}</strong>
+  </div>
+`;
     }).join('');
   }
 
