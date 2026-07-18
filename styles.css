@@ -4038,3 +4038,82 @@ body,
     }
 
 }
+/* ==========================================
+   Business Hours Mobile Overlap Fix
+   ========================================== */
+
+.biz-info-row.hours-main{
+  align-items:start !important;
+}
+
+.biz-info-row.hours-main .biz-info-title{
+  padding-top:8px !important;
+}
+
+/* 영업시간 전체 영역 */
+.biz-info-row.hours-main .biz-info-value{
+  min-width:0 !important;
+  width:100% !important;
+}
+
+/* 요일별 목록 */
+.biz-detail-card .biz-hours-table{
+  display:flex !important;
+  flex-direction:column !important;
+  width:100% !important;
+  gap:0 !important;
+  margin:0 !important;
+}
+
+/* 각 요일 행: 고정 높이 제거 */
+.biz-detail-card .biz-hours-table .hours-row{
+  display:grid !important;
+  grid-template-columns:60px minmax(0,1fr) !important;
+  column-gap:10px !important;
+  align-items:start !important;
+
+  height:auto !important;
+  min-height:38px !important;
+  max-height:none !important;
+
+  padding:8px 0 !important;
+  margin:0 !important;
+
+  border-bottom:1px solid #edf2f7 !important;
+}
+
+/* 요일 */
+.biz-detail-card .biz-hours-table .hours-row span{
+  width:auto !important;
+  margin:0 !important;
+  padding:0 !important;
+
+  line-height:1.5 !important;
+  white-space:nowrap !important;
+}
+
+/* 시간 */
+.biz-detail-card .biz-hours-table .hours-row strong{
+  display:block !important;
+  min-width:0 !important;
+
+  margin:0 !important;
+  padding:0 !important;
+
+  line-height:1.55 !important;
+  white-space:normal !important;
+  overflow-wrap:break-word !important;
+  word-break:keep-all !important;
+}
+
+/* 슬래시 또는 쉼표 뒤 줄바꿈이 자연스럽게 되도록 */
+@media (max-width:480px){
+  .biz-info-row{
+    grid-template-columns:72px minmax(0,1fr) !important;
+    gap:12px !important;
+  }
+
+  .biz-detail-card .biz-hours-table .hours-row{
+    grid-template-columns:58px minmax(0,1fr) !important;
+  }
+}
