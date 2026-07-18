@@ -3954,3 +3954,87 @@ body,
   color: #ffffff !important;
   border: none;
 }
+/* ==========================================
+   Board Detail Action Buttons
+   ========================================== */
+
+.board-detail-actions{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+    margin-top:24px;
+}
+
+.board-detail-actions .action-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    width:100%;
+    height:54px;
+
+    padding:0 16px;
+    box-sizing:border-box;
+
+    border:none;
+    border-radius:14px;
+
+    text-decoration:none;
+
+    font-size:16px;
+    font-weight:700;
+    line-height:1;
+
+    transition:.18s ease;
+
+    cursor:pointer;
+}
+
+.board-detail-actions .action-btn:hover{
+    transform:translateY(-1px);
+    opacity:.95;
+}
+
+/* 전화 */
+.board-detail-actions .call{
+    background:#e53935;
+    color:#fff;
+}
+
+/* 길찾기 */
+.board-detail-actions .map{
+    background:#43a047;
+    color:#fff;
+}
+
+/* 외부링크(업소등록 등) */
+.board-detail-actions .web{
+    background:#7c4dff;
+    color:#fff;
+}
+
+/* 업소보기 */
+.board-detail-actions .business{
+    background:#f7931e;
+    color:#fff;
+}
+
+/* 공유 */
+.board-detail-actions .share{
+    background:#2f67b7;
+    color:#fff;
+}
+
+/* 모바일 */
+@media(max-width:480px){
+
+    .board-detail-actions{
+        gap:10px;
+    }
+
+    .board-detail-actions .action-btn{
+        height:52px;
+        font-size:15px;
+    }
+
+}
