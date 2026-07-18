@@ -415,7 +415,62 @@ async function shareBusiness(id) {
         prompt("아래 내용을 복사하세요.", shareText);
     }
 }
+async function shareBoardPost(postId) {
+  const post = boardPosts.find(
+    p => String(p.id) === String(postId)
+  );
 
+  if (!post) {
+    alert("게시글 정보를 찾을 수 없습니다.");
+    return;
+  }
+
+  const title = post.title || "DalTownMap 게시글";
+
+  const contentText = String(
+    post.content || post.description || ""
+  )
+    .replace(/<[^>]*>/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+
+  const url =
+    `${location.origin}${location.pathname}` +
+    `#board-detail?type=${encodeURIComponent(post.type || "event")}` +
+    `&id=${encodeURIComponent(post.id)}`;
+
+  const text = [
+    title,
+    contentText,
+    "",
+    "DalTownMap에서 확인하기"
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title,
+        text,
+        url
+      });
+      return;
+    } catch (e) {
+      if (e?.name === "AbortError") return;
+    }
+  }
+
+  const shareText = `${text}\n${url}`;
+
+  try {
+    await navigator.clipboard.writeText(shareText);
+    alert("게시글 주소가 복사되었습니다.");
+  } catch (e) {
+    prompt("아래 내용을 복사하세요.", shareText);
+  }
+}
 async function refreshCurrentUser(){
   if(!supabase?.auth){
     currentUser = null;
@@ -2723,6 +2778,37 @@ if (slideData) {
 }
 let selectedSlideBizId = null;
 
+const shareBtn = document.getElementById('slideDetailShareBtn');
+
+if (shareBtn) {
+  shareBtn.onclick = async () => {
+    const title = slide.title || 'DalTownMap';
+    const text = slide.slideDesc || slide.desc || '';
+    const url = slide.link_url || window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(
+        [title, text, url].filter(Boolean).join('\n')
+      );
+      alert('공유 내용이 복사되었습니다.');
+    } catch {
+      prompt(
+        '아래 내용을 복사하세요.',
+        [title, text, url].filter(Boolean).join('\n')
+      );
+    }
+  };
+}
+
 function openSlideDetailModal(slide){
 
   selectedSlideBizId = slide.bizId || null;
@@ -2834,7 +2920,12 @@ function renderBoardPage(type = 'notice', postId = null) {
       phoneDigits ? `<a class="action-btn call" href="tel:${esc(phoneDigits)}">전화하기</a>` : '',
       mapHref ? `<a class="action-btn map" href="${esc(mapHref)}" target="_blank" rel="noopener">길찾기</a>` : '',
       externalUrl ? `<a class="action-btn web" href="${esc(externalUrl)}" target="_blank" rel="noopener noreferrer">${esc(post.link_label || '링크 열기')}</a>` : '',
-      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : ''
+      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : '',
+	      `<button class="action-btn share"
+             type="button"
+             onclick="shareBoardPost('${esc(post.id)}')">
+          공유
+          </button>`
     ].filter(Boolean).join('');
     page.innerHTML = `
       <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
