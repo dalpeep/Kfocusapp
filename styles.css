@@ -3914,3 +3914,8 @@ body,
   font-weight: 800;
   cursor: pointer;
 }
+.action-btn.share {
+  background: #2a60ab;
+  color: #fff;
+  border: 0;
+}
