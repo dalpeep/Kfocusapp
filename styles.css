@@ -4109,3 +4109,74 @@ body,
 .biz-info-row.hours-main .biz-hours-table .hours-row:last-child {
   border-bottom: none !important;
 }
+/* ==========================================
+   Business Hours - Actual Structure Fix
+   ========================================== */
+
+.biz-info-row.hours-main {
+  align-items: start !important;
+}
+
+.biz-info-row.hours-main .biz-info-value {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* 실제 HTML에는 biz-hours-table 부모가 없으므로 hours-row 직접 지정 */
+.biz-info-row.hours-main .biz-info-value > .hours-row {
+  display: grid !important;
+  grid-template-columns: 58px minmax(0, 1fr) !important;
+  column-gap: 12px !important;
+  align-items: start !important;
+
+  width: 100% !important;
+  height: auto !important;
+  min-height: 38px !important;
+  max-height: none !important;
+
+  margin: 0 !important;
+  padding: 7px 0 !important;
+
+  overflow: visible !important;
+  border-bottom: 1px solid #edf2f7 !important;
+}
+
+.biz-info-row.hours-main .hours-day {
+  display: block !important;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+
+  line-height: 24px !important;
+  white-space: nowrap !important;
+}
+
+.biz-info-row.hours-main .hours-times {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  line-height: normal !important;
+  overflow: visible !important;
+}
+
+.biz-info-row.hours-main .hours-time-line {
+  display: block !important;
+  width: 100% !important;
+
+  margin: 0 !important;
+  padding: 0 !important;
+
+  line-height: 24px !important;
+  white-space: nowrap !important;
+}
+
+.biz-info-row.hours-main .hours-row:last-child {
+  border-bottom: none !important;
+}
