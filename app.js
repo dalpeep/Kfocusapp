@@ -3367,8 +3367,31 @@ function initGoogleMap(){
     mapReady = true;
     mapInfoWindow = new google.maps.InfoWindow();
     currentCenter = getRegionCenter(currentRegion);
-    map.addListener('center_changed', ()=>{ const c = map.getCenter(); if(c) currentCenter = {lat:c.lat(), lng:c.lng()}; mapDirty = true; mapSearchAreaBtn?.classList.remove('hidden'); });
-    map.addListener('zoom_changed', ()=>{ mapRadius = radiusByZoom(map.getZoom() || 12); mapDirty = true; mapSearchAreaBtn?.classList.remove('hidden'); });
+function activateMapSearchAreaButton() {
+  if (!mapSearchAreaBtn) return;
+
+  mapDirty = true;
+  mapSearchAreaBtn.classList.remove('hidden');
+  mapSearchAreaBtn.disabled = false;
+  mapSearchAreaBtn.textContent = '현재 위치 표시 중';
+}
+
+map.addListener('dragend', () => {
+  const c = map.getCenter();
+
+  if (c) {
+    currentCenter = {
+      lat: c.lat(),
+      lng: c.lng()
+    };
+  }
+
+  activateMapSearchAreaButton();
+});
+
+map.addListener('zoom_changed', () => {
+  activateMapSearchAreaButton();
+});
     const applyCenter = () => {
       if(TEST_FORCE_CENTER || !navigator.geolocation){
         currentCenter = getRegionCenter(currentRegion);
@@ -3489,7 +3512,28 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   document.addEventListener('click', e=>{ const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call'); const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction'); });
   mapFilterRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-filter-chip'); if(!btn) return; mapMode = btn.dataset.mapFilter || 'business'; if(mapMode!=='business') mapCategory=''; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
   mapCategoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-category-chip'); if(!btn) return; mapCategory = btn.dataset.mapCat || '전체'; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
-  mapSearchAreaBtn?.addEventListener('click', ()=>{ if(!mapReady) return; mapRadius = radiusByZoom(map.getZoom() || 12); redrawMapMarkers(); mapDirty = false; mapSearchAreaBtn.classList.add('hidden'); });
+  mapSearchAreaBtn?.addEventListener('click', () => {
+  if (!mapReady) return;
+
+  const center = map.getCenter();
+
+  if (center) {
+    currentCenter = {
+      lat: center.lat(),
+      lng: center.lng()
+    };
+  }
+
+  mapRadius = radiusByZoom(map.getZoom() || 12);
+
+  redrawMapMarkers();
+
+  mapDirty = false;
+
+  mapSearchAreaBtn.classList.remove('hidden');
+  mapSearchAreaBtn.disabled = true;
+  mapSearchAreaBtn.textContent = '현재 지역 표시 중';
+});
   mapLocateBtn?.addEventListener('click', ()=>{ if(!mapReady || !navigator.geolocation) return; navigator.geolocation.getCurrentPosition((pos)=>{ currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude }; persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng)); map.setCenter(currentCenter); const zoom = Math.max(map.getZoom() || 12, 13); map.setZoom(zoom); mapRadius = radiusByZoom(zoom); redrawMapMarkers(); mapDirty = false; mapSearchAreaBtn?.classList.add('hidden'); }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 }); });
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapForVisibleInfo(pos.lat, pos.lng); if(mapInfoWindow){ mapInfoWindow.setContent(createInfoWindowContent(biz)); mapInfoWindow.setPosition(pos); mapInfoWindow.open({ map, shouldFocus:false }); }
   mapBottomPanel?.classList.add('collapsed'); });
