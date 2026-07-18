@@ -3919,3 +3919,38 @@ body,
   color: #fff;
   border: 0;
 }
+/* 게시판 상세 하단 버튼 */
+.board-detail-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+
+.board-detail-actions .action-btn {
+  flex: 1 1 140px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  border-radius: 14px;
+  box-sizing: border-box;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* 외부 링크·업소 등록 버튼 */
+.board-detail-actions .action-btn.web {
+  background: #f15b5d;
+  color: #ffffff !important;
+  border: none;
+}
+
+/* 공유 버튼 */
+.board-detail-actions .action-btn.share {
+  background: #2f67b7;
+  color: #ffffff !important;
+  border: none;
+}
