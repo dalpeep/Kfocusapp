@@ -2920,7 +2920,7 @@ function renderBoardPage(type = 'notice', postId = null) {
       phoneDigits ? `<a class="action-btn call" href="tel:${esc(phoneDigits)}">전화하기</a>` : '',
       mapHref ? `<a class="action-btn map" href="${esc(mapHref)}" target="_blank" rel="noopener">길찾기</a>` : '',
       externalUrl ? `<a class="action-btn web" href="${esc(externalUrl)}" target="_blank" rel="noopener noreferrer">${esc(post.link_label || '링크 열기')}</a>` : '',
-      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : ''
+      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : '',
 	      `<button class="action-btn share"
              type="button"
              onclick="shareBoardPost('${esc(post.id)}')">
