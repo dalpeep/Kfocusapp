@@ -415,7 +415,52 @@ async function shareBusiness(id) {
         prompt("아래 내용을 복사하세요.", shareText);
     }
 }
+async function shareBoardPost(postId) {
+  const post = boardPosts.find(
+    p => String(p.id) === String(postId)
+  );
 
+  if (!post) return;
+
+  const type = normalizeBoardType(post.type || 'event');
+  const title = post.title || 'DalTownMap 게시글';
+
+  const url =
+    `${location.origin}${location.pathname}` +
+    `#board-detail?type=${encodeURIComponent(type)}` +
+    `&id=${encodeURIComponent(post.id)}`;
+
+  const text = [
+    title,
+    post.content
+      ? String(post.content).replace(/\s+/g, ' ').slice(0, 120)
+      : '',
+    '',
+    'DalTownMap에서 확인하기'
+  ].filter(Boolean).join('\n');
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title,
+        text,
+        url
+      });
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+    }
+  }
+
+  const shareText = `${text}\n${url}`;
+
+  try {
+    await navigator.clipboard.writeText(shareText);
+    alert('게시글 주소가 복사되었습니다.');
+  } catch {
+    prompt('아래 내용을 복사하세요.', shareText);
+  }
+}
 async function refreshCurrentUser(){
   if(!supabase?.auth){
     currentUser = null;
@@ -2865,7 +2910,12 @@ function renderBoardPage(type = 'notice', postId = null) {
       phoneDigits ? `<a class="action-btn call" href="tel:${esc(phoneDigits)}">전화하기</a>` : '',
       mapHref ? `<a class="action-btn map" href="${esc(mapHref)}" target="_blank" rel="noopener">길찾기</a>` : '',
       externalUrl ? `<a class="action-btn web" href="${esc(externalUrl)}" target="_blank" rel="noopener noreferrer">${esc(post.link_label || '링크 열기')}</a>` : '',
-      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : ''
+      linkedBiz ? `<button class="action-btn business biz-open" type="button" data-biz="${esc(linkedBiz.id)}">업소 보기</button>` : '',
+	  `<button class="action-btn share" 
+       type="button"
+       onclick="shareBoardPost('${esc(post.id)}')">
+      공유
+     </button>`
     ].filter(Boolean).join('');
     page.innerHTML = `
       <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
