@@ -18,6 +18,7 @@ let lastBasePage = 'home';
 let selectedBizId = businesses[0]?.id || null;
 let currentUser = null;
 let authClient = null;
+let currentLocationMarker = null;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
@@ -3383,6 +3384,30 @@ function initGoogleMap(){
     mapReady = true;
     mapInfoWindow = new google.maps.InfoWindow();
     currentCenter = getRegionCenter(currentRegion);
+function showCurrentLocationMarker(position) {
+  if (!map || !window.google?.maps) return;
+
+  if (currentLocationMarker) {
+    currentLocationMarker.setPosition(position);
+    currentLocationMarker.setMap(map);
+    return;
+  }
+
+  currentLocationMarker = new google.maps.Marker({
+    position,
+    map,
+    title: '현재 위치',
+    zIndex: 9999,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 9,
+      fillColor: '#4285F4',
+      fillOpacity: 1,
+      strokeColor: '#FFFFFF',
+      strokeWeight: 3
+    }
+  });
+}
 function activateMapSearchAreaButton() {
   if (!mapSearchAreaBtn) return;
 
@@ -3408,37 +3433,78 @@ map.addListener('dragend', () => {
 map.addListener('zoom_changed', () => {
   activateMapSearchAreaButton();
 });
-    const applyCenter = () => {
-      if(TEST_FORCE_CENTER || !navigator.geolocation){
-        currentCenter = getRegionCenter(currentRegion);
-        map.setCenter(getRegionCenter(currentRegion));
-        map.setZoom(milesToZoom(mapRadius));
-        redrawMapMarkers();
-        mapNotice.classList.add('hidden');
-        return;
+const applyCenter = () => {
+  if (TEST_FORCE_CENTER || !navigator.geolocation) {
+    currentCenter = getRegionCenter(currentRegion);
+
+    map.setCenter(currentCenter);
+    map.setZoom(12);
+
+    redrawMapMarkers();
+    mapNotice?.classList.add('hidden');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      currentCenter = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+
+      persistRegion(
+        detectRegionFromCoords(
+          currentCenter.lat,
+          currentCenter.lng
+        )
+      );
+
+      /* 현재 위치로 실제 이동 */
+      map.panTo(currentCenter);
+
+      /* 주변 지역이 보이도록 일정한 줌 적용 */
+      map.setZoom(14);
+
+      /* 현재 위치 파란 점 표시 */
+      showCurrentLocationMarker(currentCenter);
+
+      /* 현재 위치 주변 업소 다시 계산 */
+      mapRadius = radiusByZoom(14);
+      redrawMapMarkers();
+
+      mapDirty = false;
+      mapNotice?.classList.add('hidden');
+
+      if (mapSearchAreaBtn) {
+        mapSearchAreaBtn.classList.remove('hidden');
+        mapSearchAreaBtn.disabled = true;
+        mapSearchAreaBtn.textContent = '현재 위치 표시 중';
       }
-      navigator.geolocation.getCurrentPosition((pos)=>{
-        currentCenter = {lat:pos.coords.latitude, lng:pos.coords.longitude};
-        persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
-        map.setCenter(currentCenter);
-        map.setZoom(milesToZoom(mapRadius));
-        redrawMapMarkers();
-        mapNotice.classList.add('hidden');
-      }, ()=>{
-        currentCenter = getRegionCenter(currentRegion);
-        map.setCenter(getRegionCenter(currentRegion));
-        map.setZoom(milesToZoom(mapRadius));
-        redrawMapMarkers();
-        mapNotice.classList.add('hidden');
-      }, {enableHighAccuracy:true, timeout:6000, maximumAge:300000});
-    };
-    requestAnimationFrame(()=>{
-      setTimeout(()=>{
-        google.maps.event.trigger(map,'resize');
-        applyCenter();
-      }, 240);
-    });
-  };
+    },
+    (error) => {
+      console.warn('현재 위치를 가져오지 못했습니다.', error);
+
+      currentCenter = getRegionCenter(currentRegion);
+
+      map.setCenter(currentCenter);
+      map.setZoom(12);
+
+      redrawMapMarkers();
+      mapNotice?.classList.add('hidden');
+
+      if (mapSearchAreaBtn) {
+        mapSearchAreaBtn.classList.remove('hidden');
+        mapSearchAreaBtn.disabled = false;
+        mapSearchAreaBtn.textContent = '이 지역 보기';
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
+};
   if(!document.getElementById('gmap-script')){
     const s=document.createElement('script'); s.id='gmap-script'; s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__kfocusInitMap`; s.async=true; document.head.appendChild(s);
   } else if(window.google?.maps){ window.__kfocusInitMap(); }
