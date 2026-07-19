@@ -3504,7 +3504,7 @@ const applyCenter = () => {
       maximumAge: 60000
     }
   );
-};
+
   if(!document.getElementById('gmap-script')){
     const s=document.createElement('script'); s.id='gmap-script'; s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__kfocusInitMap`; s.async=true; document.head.appendChild(s);
   } else if(window.google?.maps){ window.__kfocusInitMap(); }
