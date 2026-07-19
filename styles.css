@@ -4264,3 +4264,34 @@ body,
     pointer-events:none !important;
 
 }
+/* 현재 위치 상태 문구 */
+#mapSearchAreaBtn.is-current-location {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  position: absolute !important;
+  top: 14px !important;
+  right: 66px !important;
+  z-index: 10020 !important;
+
+  width: auto !important;
+  min-width: 132px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #2457a7 !important;
+  border: 1px solid #d7e2f5 !important;
+  border-radius: 20px !important;
+
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+
+  box-shadow: 0 3px 10px rgba(24, 67, 130, 0.16) !important;
+  pointer-events: none !important;
+}

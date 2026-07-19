@@ -3466,29 +3466,93 @@ function showCurrentLocationMarker(position) {
     optimized: false
   });
 }
-function activateMapSearchAreaButton() {
-    if (!mapSearchAreaBtn) return;
+let mapLocationStatusBadge = null;
 
+function ensureMapLocationStatusBadge() {
+  if (mapLocationStatusBadge) return mapLocationStatusBadge;
+  if (!map) return null;
+
+  const mapDiv = map.getDiv();
+  const host = mapDiv.parentElement || mapDiv;
+
+  host.classList.add('map-ui-host');
+
+  mapLocationStatusBadge = document.createElement('div');
+  mapLocationStatusBadge.id = 'mapLocationStatusBadge';
+  mapLocationStatusBadge.setAttribute('aria-live', 'polite');
+  mapLocationStatusBadge.innerHTML = `
+    <span class="map-status-dot"></span>
+    <span>현재 위치 표시 중</span>
+  `;
+
+  host.appendChild(mapLocationStatusBadge);
+
+  return mapLocationStatusBadge;
+}
+
+function setMapUiState(state) {
+  const badge = ensureMapLocationStatusBadge();
+
+  if (state === 'current') {
+    mapDirty = false;
+
+    if (badge) {
+      badge.style.setProperty('display', 'flex', 'important');
+    }
+
+    if (mapSearchAreaBtn) {
+      mapSearchAreaBtn.classList.add('hidden');
+      mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
+      mapSearchAreaBtn.disabled = false;
+    }
+
+    return;
+  }
+
+  if (state === 'dirty') {
     mapDirty = true;
 
-    mapSearchAreaBtn.classList.remove(
-        'hidden',
-        'is-current-location'
-    );
+    if (badge) {
+      badge.style.setProperty('display', 'none', 'important');
+    }
 
-    mapSearchAreaBtn.removeAttribute('hidden');
+    if (mapSearchAreaBtn) {
+      mapSearchAreaBtn.classList.remove('hidden');
+      mapSearchAreaBtn.removeAttribute('hidden');
+      mapSearchAreaBtn.disabled = false;
+      mapSearchAreaBtn.textContent = '이 지역 보기';
 
-    mapSearchAreaBtn.disabled = false;
+      mapSearchAreaBtn.style.setProperty('display', 'flex', 'important');
+      mapSearchAreaBtn.style.visibility = 'visible';
+      mapSearchAreaBtn.style.opacity = '1';
+      mapSearchAreaBtn.style.pointerEvents = 'auto';
+    }
 
-    mapSearchAreaBtn.textContent = '이 지역 보기';
+    return;
+  }
 
-    mapSearchAreaBtn.style.display = 'flex';
-    mapSearchAreaBtn.style.visibility = 'visible';
-    mapSearchAreaBtn.style.opacity = '1';
-    mapSearchAreaBtn.style.pointerEvents = 'auto';
+  /* 특정 지역 검색 완료 후 */
+  if (state === 'area') {
+    mapDirty = false;
+
+    if (badge) {
+      badge.style.setProperty('display', 'none', 'important');
+    }
+
+    if (mapSearchAreaBtn) {
+      mapSearchAreaBtn.classList.add('hidden');
+      mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
+    }
+  }
+}
+
+function activateMapSearchAreaButton() {
+  setMapUiState('dirty');
 }
 
 map.addListener('dragend', () => {
+  if (suppressMapUiChange) return;
+
   const c = map.getCenter();
 
   if (c) {
@@ -3502,30 +3566,30 @@ map.addListener('dragend', () => {
 });
 
 map.addListener('zoom_changed', () => {
+  if (suppressMapUiChange) return;
+
   activateMapSearchAreaButton();
 });
+
 const applyCenter = () => {
-if (mapSearchAreaBtn) {
+  if (TEST_FORCE_CENTER || !navigator.geolocation) {
+    currentCenter = getRegionCenter(currentRegion);
 
-    mapSearchAreaBtn.classList.remove(
-        'hidden'
-    );
+    suppressMapUiChange = true;
 
-    mapSearchAreaBtn.classList.add(
-        'is-current-location'
-    );
+    map.setCenter(currentCenter);
+    map.setZoom(12);
 
-    mapSearchAreaBtn.removeAttribute('hidden');
+    redrawMapMarkers();
+    mapNotice?.classList.add('hidden');
 
-    mapSearchAreaBtn.disabled = false;
+    google.maps.event.addListenerOnce(map, 'idle', () => {
+      suppressMapUiChange = false;
+      setMapUiState('area');
+    });
 
-    mapSearchAreaBtn.textContent = '현재 위치 표시 중';
-
-    mapSearchAreaBtn.style.display = 'flex';
-    mapSearchAreaBtn.style.visibility = 'visible';
-    mapSearchAreaBtn.style.opacity = '1';
-    mapSearchAreaBtn.style.pointerEvents = 'none';
-}
+    return;
+  }
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {
@@ -3541,40 +3605,34 @@ if (mapSearchAreaBtn) {
         )
       );
 
-      /* 현재 위치로 실제 이동 */
+      suppressMapUiChange = true;
+
       map.panTo(currentCenter);
+      map.setZoom(11);
 
-      /* 주변 지역이 보이도록 일정한 줌 적용 */
-      map.setZoom(14);
-
-      /* 현재 위치 파란 점 표시 */
       showCurrentLocationMarker(currentCenter);
 
-      /* 현재 위치 주변 업소 다시 계산 */
       mapRadius = radiusByZoom(11);
       redrawMapMarkers();
 
-      mapDirty = false;
       mapNotice?.classList.add('hidden');
 
-if (mapSearchAreaBtn) {
-  mapSearchAreaBtn.classList.remove('hidden');
-  mapSearchAreaBtn.removeAttribute('hidden');
-  mapSearchAreaBtn.classList.add('is-current-location');
+      google.maps.event.addListenerOnce(map, 'idle', () => {
+        suppressMapUiChange = false;
 
-  mapSearchAreaBtn.disabled = false;
-  mapSearchAreaBtn.textContent = '현재 위치 표시 중';
-
-  mapSearchAreaBtn.style.display = 'flex';
-  mapSearchAreaBtn.style.visibility = 'visible';
-  mapSearchAreaBtn.style.opacity = '1';
-  mapSearchAreaBtn.style.pointerEvents = 'none';
-}
+        /* 현재 위치 문구 표시 */
+        setMapUiState('current');
+      });
     },
     (error) => {
-      console.warn('현재 위치를 가져오지 못했습니다.', error);
+      console.warn(
+        '현재 위치를 가져오지 못했습니다.',
+        error
+      );
 
       currentCenter = getRegionCenter(currentRegion);
+
+      suppressMapUiChange = true;
 
       map.setCenter(currentCenter);
       map.setZoom(12);
@@ -3582,11 +3640,10 @@ if (mapSearchAreaBtn) {
       redrawMapMarkers();
       mapNotice?.classList.add('hidden');
 
-      if (mapSearchAreaBtn) {
-        mapSearchAreaBtn.classList.remove('hidden');
-        mapSearchAreaBtn.disabled = false;
-        mapSearchAreaBtn.textContent = '이 지역 보기';
-      }
+      google.maps.event.addListenerOnce(map, 'idle', () => {
+        suppressMapUiChange = false;
+        setMapUiState('area');
+      });
     },
     {
       enableHighAccuracy: true,
