@@ -4180,3 +4180,118 @@ body,
 .biz-info-row.hours-main .hours-row:last-child {
   border-bottom: none !important;
 }
+/* 지도 이 지역 보기 버튼 — 항상 표시 */
+#mapSearchAreaBtn {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 315px !important;
+  transform: translateX(-50%) !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  min-width: 150px !important;
+  height: 44px !important;
+  padding: 0 18px !important;
+
+  background: #ffffff !important;
+  color: #174c97 !important;
+  border: 1px solid #d9e4f5 !important;
+  border-radius: 22px !important;
+
+  font-size: 14px !important;
+  font-weight: 700 !important;
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18) !important;
+  z-index: 10050 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* hidden 클래스가 남아 있어도 지도 버튼만 표시 */
+#mapSearchAreaBtn.hidden {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+#mapSearchAreaBtn {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#mapSearchAreaBtn.hidden {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#mapSearchAreaBtn:disabled {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+/* 현재 위치 상태 표시 */
+#mapSearchAreaBtn:disabled {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  background: #ffffff !important;
+  color: #2457a7 !important;
+  border: 1px solid #d5e1f4 !important;
+
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
+/* hidden 규칙보다 우선 적용 */
+#mapSearchAreaBtn.hidden:disabled {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+#mapSearchAreaBtn.is-current-location{
+
+    display:flex !important;
+
+    visibility:visible !important;
+
+    opacity:1 !important;
+
+    pointer-events:none !important;
+
+}
+/* 현재 위치 상태 문구 */
+#mapSearchAreaBtn.is-current-location {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  position: absolute !important;
+  top: 14px !important;
+  right: 66px !important;
+  z-index: 10020 !important;
+
+  width: auto !important;
+  min-width: 132px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+
+  background: rgba(255, 255, 255, 0.96) !important;
+  color: #2457a7 !important;
+  border: 1px solid #d7e2f5 !important;
+  border-radius: 20px !important;
+
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+
+  box-shadow: 0 3px 10px rgba(24, 67, 130, 0.16) !important;
+  pointer-events: none !important;
+}
