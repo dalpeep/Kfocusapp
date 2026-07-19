@@ -3387,8 +3387,72 @@ function initGoogleMap(){
 function showCurrentLocationMarker(position) {
   if (!map || !window.google?.maps) return;
 
+  /*
+    DalTownMap 현재 위치 브랜드 핀
+    - 바깥 핀: 브랜드 블루
+    - 중앙 원: 흰색
+    - 중앙 포인트: 브랜드 레드
+  */
+  const brandPinSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg"
+         width="48"
+         height="56"
+         viewBox="0 0 48 56">
+      <defs>
+        <filter id="shadow"
+                x="-40%"
+                y="-30%"
+                width="180%"
+                height="190%">
+          <feDropShadow
+            dx="0"
+            dy="3"
+            stdDeviation="2.5"
+            flood-color="#000000"
+            flood-opacity="0.28"/>
+        </filter>
+      </defs>
+
+      <path
+        filter="url(#shadow)"
+        fill="#3568D4"
+        d="M24 2C13.5 2 5 10.5 5 21
+           C5 35.5 24 54 24 54
+           C24 54 43 35.5 43 21
+           C43 10.5 34.5 2 24 2Z"/>
+
+      <circle
+        cx="24"
+        cy="21"
+        r="11.5"
+        fill="#FFFFFF"/>
+
+      <circle
+        cx="24"
+        cy="21"
+        r="6.5"
+        fill="#FF4F5E"/>
+
+      <circle
+        cx="24"
+        cy="21"
+        r="2.3"
+        fill="#FFFFFF"/>
+    </svg>
+  `;
+
+  const icon = {
+    url:
+      'data:image/svg+xml;charset=UTF-8,' +
+      encodeURIComponent(brandPinSvg),
+
+    scaledSize: new google.maps.Size(42, 49),
+    anchor: new google.maps.Point(21, 49)
+  };
+
   if (currentLocationMarker) {
     currentLocationMarker.setPosition(position);
+    currentLocationMarker.setIcon(icon);
     currentLocationMarker.setMap(map);
     return;
   }
@@ -3397,15 +3461,9 @@ function showCurrentLocationMarker(position) {
     position,
     map,
     title: '현재 위치',
-    zIndex: 9999,
-    icon: {
-      path: google.maps.SymbolPath.CIRCLE,
-      scale: 9,
-      fillColor: '#4285F4',
-      fillOpacity: 1,
-      strokeColor: '#FFFFFF',
-      strokeWeight: 3
-    }
+    icon,
+    zIndex: 99999,
+    optimized: false
   });
 }
 function activateMapSearchAreaButton() {
@@ -3434,16 +3492,12 @@ map.addListener('zoom_changed', () => {
   activateMapSearchAreaButton();
 });
 const applyCenter = () => {
-  if (TEST_FORCE_CENTER || !navigator.geolocation) {
-    currentCenter = getRegionCenter(currentRegion);
-
-    map.setCenter(currentCenter);
-    map.setZoom(12);
-
-    redrawMapMarkers();
-    mapNotice?.classList.add('hidden');
-    return;
-  }
+if (mapSearchAreaBtn) {
+  mapSearchAreaBtn.classList.remove('hidden');
+  mapSearchAreaBtn.removeAttribute('hidden');
+  mapSearchAreaBtn.disabled = true;
+  mapSearchAreaBtn.textContent = '현재 위치 표시 중';
+}
 
   navigator.geolocation.getCurrentPosition(
     (pos) => {

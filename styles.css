@@ -4233,3 +4233,23 @@ body,
   visibility: visible !important;
   opacity: 1 !important;
 }
+/* 현재 위치 상태 표시 */
+#mapSearchAreaBtn:disabled {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  background: #ffffff !important;
+  color: #2457a7 !important;
+  border: 1px solid #d5e1f4 !important;
+
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
+/* hidden 규칙보다 우선 적용 */
+#mapSearchAreaBtn.hidden:disabled {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
