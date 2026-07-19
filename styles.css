@@ -4216,3 +4216,20 @@ body,
   opacity: 1 !important;
   visibility: visible !important;
 }
+#mapSearchAreaBtn {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#mapSearchAreaBtn.hidden {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#mapSearchAreaBtn:disabled {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}

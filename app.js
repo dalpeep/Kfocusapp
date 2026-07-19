@@ -3469,7 +3469,7 @@ const applyCenter = () => {
       showCurrentLocationMarker(currentCenter);
 
       /* 현재 위치 주변 업소 다시 계산 */
-      mapRadius = radiusByZoom(14);
+      mapRadius = radiusByZoom(11);
       redrawMapMarkers();
 
       mapDirty = false;
@@ -3477,7 +3477,7 @@ const applyCenter = () => {
 
       if (mapSearchAreaBtn) {
         mapSearchAreaBtn.classList.remove('hidden');
-        mapSearchAreaBtn.disabled = true;
+        mapSearchAreaBtn.disabled = false;
         mapSearchAreaBtn.textContent = '현재 위치 표시 중';
       }
     },
