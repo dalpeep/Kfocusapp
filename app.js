@@ -3469,25 +3469,71 @@ function showCurrentLocationMarker(position) {
 let mapLocationStatusBadge = null;
 
 function ensureMapLocationStatusBadge() {
-  if (mapLocationStatusBadge) return mapLocationStatusBadge;
+  let badge = document.getElementById('mapLocationStatusBadge');
+
+  if (badge) {
+    mapLocationStatusBadge = badge;
+    return badge;
+  }
+
   if (!map) return null;
 
   const mapDiv = map.getDiv();
-  const host = mapDiv.parentElement || mapDiv;
 
-  host.classList.add('map-ui-host');
+  /* 지도 요소를 배지의 위치 기준으로 사용 */
+  mapDiv.style.position = 'relative';
 
-  mapLocationStatusBadge = document.createElement('div');
-  mapLocationStatusBadge.id = 'mapLocationStatusBadge';
-  mapLocationStatusBadge.setAttribute('aria-live', 'polite');
-  mapLocationStatusBadge.innerHTML = `
-    <span class="map-status-dot"></span>
+  badge = document.createElement('div');
+  badge.id = 'mapLocationStatusBadge';
+
+  badge.innerHTML = `
+    <span
+      style="
+        width:9px;
+        height:9px;
+        display:inline-block;
+        flex:0 0 9px;
+        border-radius:50%;
+        background:#ff4f5e;
+        border:2px solid #ffffff;
+        box-shadow:0 0 0 2px #3568d4;
+      ">
+    </span>
     <span>현재 위치 표시 중</span>
   `;
 
-  host.appendChild(mapLocationStatusBadge);
+  /* 기존 CSS와 관계없이 강제 적용 */
+  Object.assign(badge.style, {
+    position: 'absolute',
+    top: '14px',
+    right: '66px',
+    zIndex: '999999',
+    display: 'none',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    minWidth: '138px',
+    height: '40px',
+    padding: '0 14px',
+    boxSizing: 'border-box',
+    background: 'rgba(255,255,255,0.98)',
+    color: '#2457a7',
+    border: '1px solid #d6e2f4',
+    borderRadius: '21px',
+    boxShadow: '0 3px 12px rgba(27,70,139,0.22)',
+    fontSize: '13px',
+    fontWeight: '700',
+    lineHeight: '1',
+    whiteSpace: 'nowrap',
+    pointerEvents: 'none',
+    visibility: 'visible',
+    opacity: '1'
+  });
 
-  return mapLocationStatusBadge;
+  mapDiv.appendChild(badge);
+
+  mapLocationStatusBadge = badge;
+  return badge;
 }
 
 function setMapUiState(state) {
@@ -3498,12 +3544,17 @@ function setMapUiState(state) {
 
     if (badge) {
       badge.style.setProperty('display', 'flex', 'important');
+      badge.style.setProperty('visibility', 'visible', 'important');
+      badge.style.setProperty('opacity', '1', 'important');
     }
 
     if (mapSearchAreaBtn) {
       mapSearchAreaBtn.classList.add('hidden');
-      mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
-      mapSearchAreaBtn.disabled = false;
+      mapSearchAreaBtn.style.setProperty(
+        'display',
+        'none',
+        'important'
+      );
     }
 
     return;
@@ -3513,7 +3564,11 @@ function setMapUiState(state) {
     mapDirty = true;
 
     if (badge) {
-      badge.style.setProperty('display', 'none', 'important');
+      badge.style.setProperty(
+        'display',
+        'none',
+        'important'
+      );
     }
 
     if (mapSearchAreaBtn) {
@@ -3522,27 +3577,48 @@ function setMapUiState(state) {
       mapSearchAreaBtn.disabled = false;
       mapSearchAreaBtn.textContent = '이 지역 보기';
 
-      mapSearchAreaBtn.style.setProperty('display', 'flex', 'important');
-      mapSearchAreaBtn.style.visibility = 'visible';
-      mapSearchAreaBtn.style.opacity = '1';
-      mapSearchAreaBtn.style.pointerEvents = 'auto';
+      mapSearchAreaBtn.style.setProperty(
+        'display',
+        'flex',
+        'important'
+      );
+      mapSearchAreaBtn.style.setProperty(
+        'visibility',
+        'visible',
+        'important'
+      );
+      mapSearchAreaBtn.style.setProperty(
+        'opacity',
+        '1',
+        'important'
+      );
+      mapSearchAreaBtn.style.setProperty(
+        'pointer-events',
+        'auto',
+        'important'
+      );
     }
 
     return;
   }
 
-  /* 특정 지역 검색 완료 후 */
-  if (state === 'area') {
-    mapDirty = false;
+  mapDirty = false;
 
-    if (badge) {
-      badge.style.setProperty('display', 'none', 'important');
-    }
+  if (badge) {
+    badge.style.setProperty(
+      'display',
+      'none',
+      'important'
+    );
+  }
 
-    if (mapSearchAreaBtn) {
-      mapSearchAreaBtn.classList.add('hidden');
-      mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
-    }
+  if (mapSearchAreaBtn) {
+    mapSearchAreaBtn.classList.add('hidden');
+    mapSearchAreaBtn.style.setProperty(
+      'display',
+      'none',
+      'important'
+    );
   }
 }
 
@@ -3583,10 +3659,23 @@ const applyCenter = () => {
     redrawMapMarkers();
     mapNotice?.classList.add('hidden');
 
-    google.maps.event.addListenerOnce(map, 'idle', () => {
-      suppressMapUiChange = false;
-      setMapUiState('area');
-    });
+/*
+  idle 이벤트를 기다리기 전에 먼저 표시한다.
+  일부 환경에서는 이미 idle 상태여서
+  addListenerOnce 콜백이 늦거나 실행되지 않을 수 있다.
+*/
+setMapUiState('current');
+
+google.maps.event.addListenerOnce(map, 'idle', () => {
+  suppressMapUiChange = false;
+  setMapUiState('current');
+});
+
+/* 지도 내부 UI가 다시 그려진 뒤 한 번 더 보장 */
+setTimeout(() => {
+  suppressMapUiChange = false;
+  setMapUiState('current');
+}, 500);
 
     return;
   }
