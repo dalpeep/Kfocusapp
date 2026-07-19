@@ -4253,3 +4253,14 @@ body,
   visibility: visible !important;
   opacity: 1 !important;
 }
+#mapSearchAreaBtn.is-current-location{
+
+    display:flex !important;
+
+    visibility:visible !important;
+
+    opacity:1 !important;
+
+    pointer-events:none !important;
+
+}

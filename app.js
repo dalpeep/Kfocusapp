@@ -3467,12 +3467,25 @@ function showCurrentLocationMarker(position) {
   });
 }
 function activateMapSearchAreaButton() {
-  if (!mapSearchAreaBtn) return;
+    if (!mapSearchAreaBtn) return;
 
-  mapDirty = true;
-  setMapAreaButtonState('active');
-  mapSearchAreaBtn.disabled = false;
-  mapSearchAreaBtn.textContent = '현재 위치 표시 중';
+    mapDirty = true;
+
+    mapSearchAreaBtn.classList.remove(
+        'hidden',
+        'is-current-location'
+    );
+
+    mapSearchAreaBtn.removeAttribute('hidden');
+
+    mapSearchAreaBtn.disabled = false;
+
+    mapSearchAreaBtn.textContent = '이 지역 보기';
+
+    mapSearchAreaBtn.style.display = 'flex';
+    mapSearchAreaBtn.style.visibility = 'visible';
+    mapSearchAreaBtn.style.opacity = '1';
+    mapSearchAreaBtn.style.pointerEvents = 'auto';
 }
 
 map.addListener('dragend', () => {
@@ -3493,10 +3506,25 @@ map.addListener('zoom_changed', () => {
 });
 const applyCenter = () => {
 if (mapSearchAreaBtn) {
-  mapSearchAreaBtn.classList.remove('hidden');
-  mapSearchAreaBtn.removeAttribute('hidden');
-  mapSearchAreaBtn.disabled = true;
-  mapSearchAreaBtn.textContent = '현재 위치 표시 중';
+
+    mapSearchAreaBtn.classList.remove(
+        'hidden'
+    );
+
+    mapSearchAreaBtn.classList.add(
+        'is-current-location'
+    );
+
+    mapSearchAreaBtn.removeAttribute('hidden');
+
+    mapSearchAreaBtn.disabled = false;
+
+    mapSearchAreaBtn.textContent = '현재 위치 표시 중';
+
+    mapSearchAreaBtn.style.display = 'flex';
+    mapSearchAreaBtn.style.visibility = 'visible';
+    mapSearchAreaBtn.style.opacity = '1';
+    mapSearchAreaBtn.style.pointerEvents = 'none';
 }
 
   navigator.geolocation.getCurrentPosition(
@@ -3529,11 +3557,19 @@ if (mapSearchAreaBtn) {
       mapDirty = false;
       mapNotice?.classList.add('hidden');
 
-      if (mapSearchAreaBtn) {
-        mapSearchAreaBtn.classList.remove('hidden');
-        mapSearchAreaBtn.disabled = false;
-        mapSearchAreaBtn.textContent = '현재 위치 표시 중';
-      }
+if (mapSearchAreaBtn) {
+  mapSearchAreaBtn.classList.remove('hidden');
+  mapSearchAreaBtn.removeAttribute('hidden');
+  mapSearchAreaBtn.classList.add('is-current-location');
+
+  mapSearchAreaBtn.disabled = false;
+  mapSearchAreaBtn.textContent = '현재 위치 표시 중';
+
+  mapSearchAreaBtn.style.display = 'flex';
+  mapSearchAreaBtn.style.visibility = 'visible';
+  mapSearchAreaBtn.style.opacity = '1';
+  mapSearchAreaBtn.style.pointerEvents = 'none';
+}
     },
     (error) => {
       console.warn('현재 위치를 가져오지 못했습니다.', error);
