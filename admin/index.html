@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=2" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=6"></script>
+  <script type="module" src="assets/admin.js?v=7"></script>
 <style>
 .admin-card{
   background:#fff;
@@ -721,6 +721,41 @@
 </div>
 
       <section id="section-board" class="admin-section">
+        <section class="card ai-guide-panel">
+          <div class="panel-head">
+            <div>
+              <h2>AI 달라스 가이드 작성</h2>
+              <p class="muted">주제를 입력하면 가이드 글을 생성하여 아래 게시글 양식에 채웁니다.</p>
+            </div>
+            <span class="pill">관리자 검토 권장</span>
+          </div>
+          <div class="form-grid ai-guide-grid">
+            <label class="field full"><span>작성 주제</span><input id="aiGuideTopic" type="text" placeholder="예: 텍사스 운전면허 신규 발급 방법" /></label>
+            <label class="field"><span>가이드 분야</span>
+              <select id="aiGuideCategory">
+                <option value="driving">운전·차량</option>
+                <option value="health">병원·보험</option>
+                <option value="education">학교·교육</option>
+                <option value="business">세금·비즈니스</option>
+                <option value="housing">주거·생활</option>
+                <option value="immigration">비자·여권</option>
+              </select>
+            </label>
+            <label class="field"><span>게시 분류</span>
+              <select id="aiGuideBoardType" disabled>
+                <option value="life">라이프 (달라스 가이드에 표시)</option>
+              </select>
+            </label>
+            <label class="field full"><span>참고할 공식 출처 URL (선택)</span><textarea id="aiGuideSources" rows="3" placeholder="한 줄에 하나씩 입력하세요. AI가 출처를 임의로 만들지 않도록 공식 링크를 넣는 것이 좋습니다."></textarea></label>
+            <label class="field full"><span>추가 지시사항 (선택)</span><textarea id="aiGuideInstructions" rows="3" placeholder="예: 달라스 한인 독자를 대상으로 쉽게 작성, 1,200자 내외"></textarea></label>
+            <div class="field full ai-guide-actions">
+              <button id="aiGuideDraftBtn" class="btn ghost" type="button">AI 초안 만들기</button>
+              <button id="aiGuidePublishBtn" class="btn primary" type="button">AI 작성 후 바로 게시</button>
+              <span id="aiGuideStatus" class="tiny muted">OPENAI_API_KEY가 Netlify 환경변수에 필요합니다.</span>
+            </div>
+          </div>
+        </section>
+
         <section class="toolbar card">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="boardSearchInput" type="text" placeholder="제목, 내용" /></label>

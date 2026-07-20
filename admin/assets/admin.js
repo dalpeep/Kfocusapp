@@ -1981,6 +1981,94 @@ async function deleteBoard() {
 }
 
 /* ---------------------------
+   AI Dallas Guide
+--------------------------- */
+const AI_GUIDE_CATEGORY_NAMES = {
+  driving: '운전면허 차량등록 자동차 운전·차량',
+  health: '병원 보험 건강 병원·보험',
+  education: '학교 교육 학군 학교·교육',
+  business: '세금 창업 비즈니스 세금·비즈니스',
+  housing: '주택 유틸리티 전기 인터넷 주거·생활',
+  immigration: '비자 여권 이민 비자·여권'
+};
+
+function setAiGuideBusy(busy, message='') {
+  const draftBtn = qs('aiGuideDraftBtn');
+  const publishBtn = qs('aiGuidePublishBtn');
+  if (draftBtn) draftBtn.disabled = busy;
+  if (publishBtn) publishBtn.disabled = busy;
+  safeText('aiGuideStatus', message || (busy ? 'AI가 글을 작성하고 있습니다...' : '준비됨'));
+}
+
+async function generateAiGuide({ publish = false } = {}) {
+  const topic = val('aiGuideTopic').trim();
+  const category = val('aiGuideCategory') || 'driving';
+  const boardType = val('aiGuideBoardType') || 'life';
+  const sources = String(val('aiGuideSources') || '')
+    .split(/\r?\n|,/)
+    .map(v => v.trim())
+    .filter(Boolean);
+  const instructions = val('aiGuideInstructions').trim();
+
+  if (!topic) return alert('AI가 작성할 주제를 입력하세요.');
+  if (publish && !confirm(`AI가 작성한 글을 바로 게시할까요?\n\n주제: ${topic}\n\n게시 전 검토가 필요한 정보일 수 있습니다.`)) return;
+
+  const originalDraftText = qs('aiGuideDraftBtn')?.textContent || 'AI 초안 만들기';
+  const originalPublishText = qs('aiGuidePublishBtn')?.textContent || 'AI 작성 후 바로 게시';
+  setAiGuideBusy(true, 'AI가 글을 작성하고 있습니다. 잠시 기다려 주세요...');
+  if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = '작성 중...';
+  if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = '작성 중...';
+
+  try {
+    const response = await fetch('/.netlify/functions/generate-guide', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, category, sources, instructions })
+    });
+    const text = await response.text();
+    let result = {};
+    try { result = JSON.parse(text); } catch (_) {}
+    if (!response.ok) throw new Error(result.error || text || 'AI 글 생성에 실패했습니다.');
+
+    const article = result.article || {};
+    clearBoardForm();
+    setVal('board_type', 'life');
+    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
+    const subtypeEl = qs('board_subtype');
+    if (subtypeEl && !Array.from(subtypeEl.options || []).some(opt => opt.value === guideSubtype)) {
+      subtypeEl.add(new Option(guideSubtype, guideSubtype));
+    }
+    setVal('board_subtype', guideSubtype);
+    setVal('board_region', getAppRegion());
+    setVal('board_title', article.title || topic);
+    const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
+    setVal('board_content', `${article.summary ? article.summary + '\n\n' : ''}${article.content || ''}${sourceBlock}`.trim());
+    setVal('board_author_name', article.author_name || '달타운맵 편집부');
+    setVal('board_external_url', article.source_url || sources[0] || '');
+    setVal('board_link_label', article.link_label || (sources.length ? '공식 정보 확인' : ''));
+    setChecked('board_is_active', publish);
+
+    if (publish) {
+      safeText('aiGuideStatus', 'AI 글 작성 완료. 게시판에 저장 중...');
+      await saveBoard();
+      safeText('aiGuideStatus', 'AI 가이드가 게시되었습니다.');
+    } else {
+      safeText('aiGuideStatus', '초안이 아래 게시글 양식에 입력되었습니다. 검토 후 저장하세요.');
+      alert('AI 초안이 생성되었습니다.\n\n아래 제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
+    }
+  } catch (error) {
+    console.error('generateAiGuide error:', error);
+    safeText('aiGuideStatus', `오류: ${error.message}`);
+    alert(`AI 가이드 생성 실패: ${error.message}`);
+  } finally {
+    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = originalDraftText;
+    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = originalPublishText;
+    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').disabled = false;
+    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').disabled = false;
+  }
+}
+
+/* ---------------------------
    Slides
 --------------------------- */
 function slideByBusinessId(id) {
@@ -2420,6 +2508,8 @@ on('refreshBtn','click', async () => {
   on('boardNewBtn', 'click', clearBoardForm);
   on('boardSaveBtn', 'click', saveBoard);
   on('boardDeleteBtn', 'click', deleteBoard);
+  on('aiGuideDraftBtn', 'click', () => generateAiGuide({ publish: false }));
+  on('aiGuidePublishBtn', 'click', () => generateAiGuide({ publish: true }));
   
   on('boardUploadImageBtn', 'click', uploadBoardImage);
   on('boardClearImageBtn', 'click', clearBoardImage);
