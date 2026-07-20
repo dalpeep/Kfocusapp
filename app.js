@@ -48,7 +48,7 @@ let boardPosts = [];
 let slideRows = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
-let selectedBoardType = 'event';
+let selectedBoardType = 'notice';
 let selectedBoardPost = null;
 let adminSession = false;
 const ADMIN_EMAIL = 'admin@kfocusapp.com';
@@ -627,84 +627,18 @@ function queryMatches(query, values){
 
 function normalizeBoardType(v = '') {
   const s = normalizeSearchText(v);
-
-  if (
-    [
-      'notice',
-      'event',
-      'events',
-      '행사',
-      '공지',
-      '공지/행사',
-      '행사안내'
-    ].includes(s)
-  ) {
-    return 'event';
-  }
-
-  if (
-    [
-      'news',
-      'column',
-      'news-column',
-      '뉴스',
-      '칼럼',
-      '뉴스·칼럼',
-      '뉴스/칼럼'
-    ].includes(s)
-  ) {
-    return 'news';
-  }
-
-  if (
-    [
-      'job',
-      'jobs',
-      '구인',
-      '구직',
-      '구인구직',
-      '구인/구직'
-    ].includes(s)
-  ) {
-    return 'job';
-  }
-
-  if (
-    [
-      'realestate',
-      'property',
-      'rent',
-      'rental',
-      'sale',
-      '렌트',
-      '임대',
-      '매매',
-      '부동산',
-      '하우징'
-    ].includes(s)
-  ) {
-    return 'realestate';
-  }
-
-  return 'event';
+  if (['notice','event','events','local','community','지역소식','행사','공지','공지/행사','행사안내'].includes(s)) return 'notice';
+  if (['life','lifestyle','news','column','news-column','라이프','뉴스','칼럼','뉴스·칼럼','뉴스/칼럼'].includes(s)) return 'life';
+  if (['business','biz','job','jobs','realestate','property','rent','rental','sale','비즈니스','구인','구직','구인구직','구인/구직','렌트','임대','매매','부동산','하우징','업체홍보','창업'].includes(s)) return 'business';
+  return 'notice';
 }
 
 function boardLabel(type) {
-  return {
-    event: '행사안내',
-    news: '뉴스·칼럼',
-    job: '구인구직',
-    realestate: '부동산'
-  }[normalizeBoardType(type)] || '행사안내';
+  return { notice: '지역소식', life: '라이프', business: '비즈니스' }[normalizeBoardType(type)] || '지역소식';
 }
 
 function boardThumbEmoji(type) {
-  return {
-    event: '🎉',
-    news: '📰',
-    job: '💼',
-    realestate: '🏠'
-  }[normalizeBoardType(type)] || '📝';
+  return { notice: '📢', life: '📰', business: '💼' }[normalizeBoardType(type)] || '📝';
 }
 function parseBoardGallery(value){
   if(Array.isArray(value)) return value.filter(Boolean);
@@ -1225,7 +1159,7 @@ function routeFor(page){
 }
 function setRoute(page){ history.replaceState(null,'', routeFor(page)); }
 function getRoute(){ return location.hash.replace('#','') || 'home'; }
-function getPageOrder(){ return ['home','business','coupon','map','saved']; }
+function getPageOrder(){ return ['home','business','coupon','map','guide']; }
 function getBiz(id){
     if (!id) return null;
 
@@ -1607,6 +1541,20 @@ function renderHomeBoardSection(type='notice'){
   if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
   if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
 }
+function renderGuidePosts(topic='') {
+  const list = document.getElementById('guidePostList');
+  if (!list) return;
+  const q = normalizeSearchText(topic);
+  const rows = boardPosts.filter(p => {
+    const isLife = normalizeBoardType(p.type) === 'life';
+    const visible = adminSession || !p.region || normalizeRegionKey(p.region) === currentRegion;
+    const text = normalizeSearchText([p.title, p.content, p.subtype].filter(Boolean).join(' '));
+    const keywords = q.split(/\s+/).filter(Boolean);
+    return isLife && visible && (!keywords.length || keywords.some(word => text.includes(word)));
+  }).slice(0, 12);
+  list.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : '<div class="board-empty">등록된 생활정보 글이 없습니다.</div>';
+}
+
 function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
 
@@ -3057,6 +3005,7 @@ function showPage(page, opts={}){
   $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===page));
   if (nextIdx >= 0) lastBasePage = page;
   setRoute(page);
+  if(page==='guide') renderGuidePosts();
   if(page==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
   if(page !== 'business'){
   businessQuickFilter = '';
@@ -3795,6 +3744,7 @@ requestAnimationFrame(() => {
 } else if (window.google?.maps) {
   window.__kfocusInitMap();
 }
+}
 
 function bindEvents(){
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
@@ -4130,6 +4080,13 @@ function setMapPageMode(isMap) {
   }, 200);
 }
 
+
+document.addEventListener('click', (e) => {
+  const guideCard = e.target.closest('[data-guide-topic]');
+  if (!guideCard) return;
+  document.querySelectorAll('.guide-card').forEach(card => card.classList.toggle('active', card === guideCard));
+  renderGuidePosts(guideCard.dataset.guideTopic || '');
+});
 
 document.addEventListener('click', (e) => {
   const nav = e.target.closest('[data-nav]');

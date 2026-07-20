@@ -236,7 +236,7 @@ function setPageMeta() {
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
-    board: ['게시판 관리자', '행사안내 / 뉴스·칼럼 / 구인구직 / 부동산 글을 관리합니다.'],
+    board: ['커뮤니티 관리자', '지역소식 / 라이프 / 비즈니스 글을 관리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
     requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
     adsOps: ['광고 운영', '유료 업소와 자동 로테이션을 관리합니다.'],
@@ -1741,24 +1741,13 @@ window.loadCouponRedemptions = loadCouponRedemptions;
 --------------------------- */
 function normalizeAdminBoardType(t='') {
   const v = String(t || '').toLowerCase();
-  if (['notice','event'].includes(v)) return 'notice';
-  if (v === 'news') return 'news';
-  if (v === 'job') return 'job';
-  if (['rent','sale','realestate'].includes(v)) return 'realestate';
+  if (['notice','event','local'].includes(v)) return 'notice';
+  if (['life','news','column'].includes(v)) return 'life';
+  if (['business','job','rent','sale','realestate','property'].includes(v)) return 'business';
   return 'notice';
 }
 function boardLabel(t) {
-  return {
-    event: '행사안내',
-    news: '뉴스·칼럼',
-    job: '구인구직',
-    realestate: '부동산',
-
-    // 기존 데이터 호환
-    notice: '행사안내',
-    rent: '부동산',
-    sale: '부동산'
-  }[t] || '행사안내';
+  return { notice: '지역소식', life: '라이프', business: '비즈니스', event: '지역소식', news: '라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '지역소식';
 }
 async function loadBoards() {
   if(!supabase){
