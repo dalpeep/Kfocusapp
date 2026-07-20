@@ -2367,6 +2367,7 @@ function bindEvents() {
   });
 
   on('searchInput', 'input', () => renderBusinessList(filterBusinesses()));
+  on('fetchGoogleRatingBtn', 'click', fetchGoogleRating);
   on('regionFilter','change', async () => {
   renderBusinessList(filterBusinesses());
   renderCouponList(filterCoupons());
@@ -2374,7 +2375,7 @@ function bindEvents() {
   fillBusinessOptions();
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
-  on('fetchGoogleRatingBtn', 'click', fetchGoogleRating);
+
   // ⭐ 추가 (핵심)
   const region = document.getElementById('regionFilter')?.value || 'all';
   const statsMap = await fetchBusinessStats(region);
