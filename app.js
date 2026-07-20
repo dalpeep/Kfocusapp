@@ -416,6 +416,34 @@ async function shareBusiness(id) {
         prompt("아래 내용을 복사하세요.", shareText);
     }
 }
+async function fetchGooglePlaceRating(placeId) {
+
+    if (!placeId) return null;
+
+    if (!window.google?.maps) {
+        console.warn("Google Maps가 아직 로드되지 않았습니다.");
+        return null;
+    }
+
+    const { Place } = await google.maps.importLibrary("places");
+
+    const place = new Place({
+        id: String(placeId)
+    });
+
+    await place.fetchFields({
+        fields: [
+            "displayName",
+            "rating",
+            "userRatingCount"
+        ]
+    });
+
+    return {
+        rating: place.rating ?? null,
+        reviewCount: place.userRatingCount ?? 0
+    };
+}
 async function shareBoardPost(postId) {
   const post = boardPosts.find(
     p => String(p.id) === String(postId)
@@ -1941,6 +1969,7 @@ ${b.rating ? `
        </button>
       </div>
     </section>
+
 
     ${activeCoupon ? `
     <section class="biz-promo-card">
@@ -3748,9 +3777,23 @@ requestAnimationFrame(() => {
   }, 240);
 });
 };
-  if(!document.getElementById('gmap-script')){
-    const s=document.createElement('script'); s.id='gmap-script'; s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__kfocusInitMap`; s.async=true; document.head.appendChild(s);
-  } else if(window.google?.maps){ window.__kfocusInitMap(); }
+  if (!document.getElementById('gmap-script')) {
+  const s = document.createElement('script');
+
+  s.id = 'gmap-script';
+
+  s.src =
+    `https://maps.googleapis.com/maps/api/js` +
+    `?key=${encodeURIComponent(key)}` +
+    `&callback=__kfocusInitMap` +
+    `&libraries=places` +
+    `&loading=async`;
+
+  s.async = true;
+  document.head.appendChild(s);
+
+} else if (window.google?.maps) {
+  window.__kfocusInitMap();
 }
 
 function bindEvents(){
