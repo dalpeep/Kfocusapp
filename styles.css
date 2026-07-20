@@ -4295,3 +4295,20 @@ body,
   box-shadow: 0 3px 10px rgba(24, 67, 130, 0.16) !important;
   pointer-events: none !important;
 }
+/* DalTownMap community + guide update */
+.community-tabs{grid-template-columns:repeat(3,1fr)!important}
+.guide-page-card{padding:18px 16px 24px}
+.guide-page-head{display:flex;align-items:center;gap:13px;margin-bottom:18px}
+.guide-page-head h2{margin:0 0 4px;font-size:23px;color:#1f3354}
+.guide-page-head p{margin:0;color:#71809a;font-size:13px;line-height:1.5}
+.guide-page-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:16px;background:#fff1e8;color:#d65f28;flex:0 0 auto}
+.guide-page-icon svg{width:24px;height:24px}
+.guide-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.guide-card{border:1px solid #e2e9f3;background:#fff;border-radius:17px;padding:15px 12px;text-align:left;display:flex;flex-direction:column;gap:5px;box-shadow:0 5px 16px rgba(31,51,84,.05);font-size:23px}
+.guide-card strong{font-size:15px;color:#243b60}
+.guide-card span{font-size:11px;color:#7b879d;line-height:1.4}
+.guide-card.active{border-color:#ee8454;background:#fff8f3;box-shadow:0 7px 18px rgba(238,132,84,.14)}
+.guide-latest{margin-top:22px}
+.guide-latest .section-head{padding:0 2px 8px}
+.guide-latest .section-head h3{margin:0;font-size:17px;color:#263e64}
+@media(min-width:760px){.guide-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

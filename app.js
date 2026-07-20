@@ -19,6 +19,7 @@ let selectedBizId = businesses[0]?.id || null;
 let currentUser = null;
 let authClient = null;
 let currentLocationMarker = null;
+let suppressMapUiChange = false;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
@@ -48,7 +49,7 @@ let boardPosts = [];
 let slideRows = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
-let selectedBoardType = 'event';
+let selectedBoardType = 'notice';
 let selectedBoardPost = null;
 let adminSession = false;
 const ADMIN_EMAIL = 'admin@kfocusapp.com';
@@ -627,84 +628,18 @@ function queryMatches(query, values){
 
 function normalizeBoardType(v = '') {
   const s = normalizeSearchText(v);
-
-  if (
-    [
-      'notice',
-      'event',
-      'events',
-      '행사',
-      '공지',
-      '공지/행사',
-      '행사안내'
-    ].includes(s)
-  ) {
-    return 'event';
-  }
-
-  if (
-    [
-      'news',
-      'column',
-      'news-column',
-      '뉴스',
-      '칼럼',
-      '뉴스·칼럼',
-      '뉴스/칼럼'
-    ].includes(s)
-  ) {
-    return 'news';
-  }
-
-  if (
-    [
-      'job',
-      'jobs',
-      '구인',
-      '구직',
-      '구인구직',
-      '구인/구직'
-    ].includes(s)
-  ) {
-    return 'job';
-  }
-
-  if (
-    [
-      'realestate',
-      'property',
-      'rent',
-      'rental',
-      'sale',
-      '렌트',
-      '임대',
-      '매매',
-      '부동산',
-      '하우징'
-    ].includes(s)
-  ) {
-    return 'realestate';
-  }
-
-  return 'event';
+  if (['notice','event','events','local','community','지역소식','행사','공지','공지/행사','행사안내'].includes(s)) return 'notice';
+  if (['life','lifestyle','news','column','news-column','라이프','뉴스','칼럼','뉴스·칼럼','뉴스/칼럼'].includes(s)) return 'life';
+  if (['business','biz','job','jobs','realestate','property','rent','rental','sale','비즈니스','구인','구직','구인구직','구인/구직','렌트','임대','매매','부동산','하우징','업체홍보','창업'].includes(s)) return 'business';
+  return 'notice';
 }
 
 function boardLabel(type) {
-  return {
-    event: '행사안내',
-    news: '뉴스·칼럼',
-    job: '구인구직',
-    realestate: '부동산'
-  }[normalizeBoardType(type)] || '행사안내';
+  return { notice: '지역소식', life: '라이프', business: '비즈니스' }[normalizeBoardType(type)] || '지역소식';
 }
 
 function boardThumbEmoji(type) {
-  return {
-    event: '🎉',
-    news: '📰',
-    job: '💼',
-    realestate: '🏠'
-  }[normalizeBoardType(type)] || '📝';
+  return { notice: '📢', life: '📰', business: '💼' }[normalizeBoardType(type)] || '📝';
 }
 function parseBoardGallery(value){
   if(Array.isArray(value)) return value.filter(Boolean);
@@ -1225,7 +1160,7 @@ function routeFor(page){
 }
 function setRoute(page){ history.replaceState(null,'', routeFor(page)); }
 function getRoute(){ return location.hash.replace('#','') || 'home'; }
-function getPageOrder(){ return ['home','business','coupon','map','saved']; }
+function getPageOrder(){ return ['home','business','coupon','map','guide']; }
 function getBiz(id){
     if (!id) return null;
 
@@ -1607,6 +1542,20 @@ function renderHomeBoardSection(type='notice'){
   if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
   if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
 }
+function renderGuidePosts(topic='') {
+  const list = document.getElementById('guidePostList');
+  if (!list) return;
+  const q = normalizeSearchText(topic);
+  const rows = boardPosts.filter(p => {
+    const isLife = normalizeBoardType(p.type) === 'life';
+    const visible = adminSession || !p.region || normalizeRegionKey(p.region) === currentRegion;
+    const text = normalizeSearchText([p.title, p.content, p.subtype].filter(Boolean).join(' '));
+    const keywords = q.split(/\s+/).filter(Boolean);
+    return isLife && visible && (!keywords.length || keywords.some(word => text.includes(word)));
+  }).slice(0, 12);
+  list.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : '<div class="board-empty">등록된 생활정보 글이 없습니다.</div>';
+}
+
 function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
 
@@ -3057,6 +3006,7 @@ function showPage(page, opts={}){
   $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===page));
   if (nextIdx >= 0) lastBasePage = page;
   setRoute(page);
+  if(page==='guide') renderGuidePosts();
   if(page==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
   if(page !== 'business'){
   businessQuickFilter = '';
@@ -3355,7 +3305,14 @@ function redrawMapMarkers(){
     const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
     return miles <= radiusMiles;
   });
-  const finalList = filtered.length ? filtered : (mapMode==='event' ? [] : list.slice(0,60));
+
+  // 지도에는 선택한 분류의 전체 업소 핀을 표시한다.
+  // 반경은 하단의 “주변 업소” 목록을 정렬·제한하는 용도로만 사용한다.
+  const finalList = list.filter(b =>
+    Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
+  );
+  const nearbyList = filtered.length ? filtered : (mapMode==='event' ? [] : finalList.slice(0,60));
+
   finalList.forEach(b=>{
     const lat = Number(b.lat); const lng = Number(b.lng);
     const icon = getMarkerIconForBusiness(b);
@@ -3375,7 +3332,7 @@ function redrawMapMarkers(){
   if(mapSearchQuery && finalList.length){
     focusMapOnBusinesses(finalList);
   }
-  const sortedFinalList = sortBusinessesByDistance(finalList);
+  const sortedFinalList = sortBusinessesByDistance(nearbyList);
   renderMapBottomList(sortedFinalList);
   if(mapNotice){
     if(mapMode==='event') mapNotice.textContent = ''; //등록된 행사 지도가 아직 없습니다.
@@ -3507,9 +3464,9 @@ function ensureMapLocationStatusBadge() {
 
   if (!map) return null;
 
-  const mapDiv = map.getDiv();
-
-  /* 지도 요소를 배지의 위치 기준으로 사용 */
+  // Google Maps 내부 DOM은 지도가 다시 그려질 때 교체될 수 있으므로
+  // 배지는 지도 DOM 안이 아니라 지도 페이지 위에 오버레이한다.
+  const mapDiv = document.getElementById('page-map') || map.getDiv();
   mapDiv.style.position = 'relative';
 
   badge = document.createElement('div');
@@ -3534,8 +3491,8 @@ function ensureMapLocationStatusBadge() {
   /* 기존 CSS와 관계없이 강제 적용 */
   Object.assign(badge.style, {
     position: 'absolute',
-    top: '14px',
-    right: '66px',
+    top: '82px',
+    right: '18px',
     zIndex: '999999',
     display: 'none',
     alignItems: 'center',
@@ -3795,6 +3752,7 @@ requestAnimationFrame(() => {
 } else if (window.google?.maps) {
   window.__kfocusInitMap();
 }
+}
 
 function bindEvents(){
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
@@ -3900,7 +3858,28 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   // 클릭 후에도 절대 숨기지 않음
   setMapAreaButtonState('location');
 });
-  mapLocateBtn?.addEventListener('click', ()=>{ if(!mapReady || !navigator.geolocation) return; navigator.geolocation.getCurrentPosition((pos)=>{ currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude }; persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng)); map.setCenter(currentCenter); const zoom = Math.max(map.getZoom() || 12, 13); map.setZoom(zoom); mapRadius = radiusByZoom(zoom); redrawMapMarkers(); mapDirty = false; mapSearchAreaBtn?.classList.add('hidden'); }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 }); });
+  mapLocateBtn?.addEventListener('click', ()=>{
+    if(!mapReady || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((pos)=>{
+      currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
+      suppressMapUiChange = true;
+      map.setCenter(currentCenter);
+      const zoom = Math.max(map.getZoom() || 12, 13);
+      map.setZoom(zoom);
+      mapRadius = radiusByZoom(zoom);
+      showCurrentLocationMarker(currentCenter);
+      redrawMapMarkers();
+      google.maps.event.addListenerOnce(map, 'idle', ()=>{
+        suppressMapUiChange = false;
+        setMapUiState('current');
+      });
+      setTimeout(()=>{
+        suppressMapUiChange = false;
+        setMapUiState('current');
+      }, 500);
+    }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 });
+  });
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapForVisibleInfo(pos.lat, pos.lng); if(mapInfoWindow){ mapInfoWindow.setContent(createInfoWindowContent(biz)); mapInfoWindow.setPosition(pos); mapInfoWindow.open({ map, shouldFocus:false }); }
   mapBottomPanel?.classList.add('collapsed'); });
   mapBottomClose?.addEventListener('click', ()=> mapBottomPanel?.classList.add('collapsed'));
@@ -4130,6 +4109,13 @@ function setMapPageMode(isMap) {
   }, 200);
 }
 
+
+document.addEventListener('click', (e) => {
+  const guideCard = e.target.closest('[data-guide-topic]');
+  if (!guideCard) return;
+  document.querySelectorAll('.guide-card').forEach(card => card.classList.toggle('active', card === guideCard));
+  renderGuidePosts(guideCard.dataset.guideTopic || '');
+});
 
 document.addEventListener('click', (e) => {
   const nav = e.target.closest('[data-nav]');

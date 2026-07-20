@@ -236,7 +236,7 @@ function setPageMeta() {
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
-    board: ['게시판 관리자', '행사안내 / 뉴스·칼럼 / 구인구직 / 부동산 글을 관리합니다.'],
+    board: ['커뮤니티 관리자', '지역소식 / 라이프 / 비즈니스 글을 관리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
     requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
     adsOps: ['광고 운영', '유료 업소와 자동 로테이션을 관리합니다.'],
@@ -1741,24 +1741,73 @@ window.loadCouponRedemptions = loadCouponRedemptions;
 --------------------------- */
 function normalizeAdminBoardType(t='') {
   const v = String(t || '').toLowerCase();
-  if (['notice','event'].includes(v)) return 'notice';
-  if (v === 'news') return 'news';
-  if (v === 'job') return 'job';
-  if (['rent','sale','realestate'].includes(v)) return 'realestate';
+  if (['notice','event','local'].includes(v)) return 'notice';
+  if (['life','news','column'].includes(v)) return 'life';
+  if (['business','job','rent','sale','realestate','property'].includes(v)) return 'business';
   return 'notice';
 }
 function boardLabel(t) {
-  return {
-    event: '행사안내',
-    news: '뉴스·칼럼',
-    job: '구인구직',
-    realestate: '부동산',
+  return { notice: '지역소식', life: '라이프', business: '비즈니스', event: '지역소식', news: '라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '지역소식';
+}
 
-    // 기존 데이터 호환
-    notice: '행사안내',
-    rent: '부동산',
-    sale: '부동산'
-  }[t] || '행사안내';
+const ADMIN_BOARD_SUBTYPES = {
+  notice: [
+    ['event', '행사'],
+    ['notice', '공지'],
+    ['community', '커뮤니티 소식'],
+    ['urgent', '긴급알림']
+  ],
+  life: [
+    ['news', '뉴스'],
+    ['column', '칼럼'],
+    ['restaurant', '맛집'],
+    ['travel', '여행'],
+    ['health', '건강'],
+    ['education', '교육'],
+    ['interview', '인터뷰'],
+    ['recommend', '추천'],
+    ['운전·차량', '가이드 · 운전·차량'],
+    ['병원·보험', '가이드 · 병원·보험'],
+    ['학교·교육', '가이드 · 학교·교육'],
+    ['세금·비즈니스', '가이드 · 세금·비즈니스'],
+    ['주거·생활', '가이드 · 주거·생활'],
+    ['비자·여권', '가이드 · 비자·여권']
+  ],
+  business: [
+    ['job', '구인구직'],
+    ['realestate', '부동산'],
+    ['startup', '창업'],
+    ['promotion', '업체홍보'],
+    ['commercial', '상가'],
+    ['sale_event', '세일·이벤트']
+  ]
+};
+
+function boardSubtypeLabel(value='') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  for (const options of Object.values(ADMIN_BOARD_SUBTYPES)) {
+    const found = options.find(([v]) => v === raw);
+    if (found) return found[1];
+  }
+  return raw;
+}
+
+function updateBoardSubtypeOptions(selectedValue='') {
+  const select = qs('board_subtype');
+  if (!select) return;
+  const type = normalizeAdminBoardType(val('board_type') || 'notice');
+  const options = ADMIN_BOARD_SUBTYPES[type] || [];
+  const current = String(selectedValue || select.value || '').trim();
+
+  select.innerHTML = '<option value="">세부 분류 선택</option>' + options
+    .map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`)
+    .join('');
+
+  if (current && !options.some(([value]) => value === current)) {
+    select.add(new Option(boardSubtypeLabel(current), current));
+  }
+  select.value = current;
 }
 async function loadBoards() {
   if(!supabase){
@@ -1794,7 +1843,7 @@ async function loadBoards() {
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
-  setVal('board_subtype', '');
+  updateBoardSubtypeOptions('');
   setVal('board_region', getAppRegion());
   setVal('board_title', '');
   setVal('board_content', '');
@@ -1821,7 +1870,7 @@ function clearBoardForm() {
 function fillBoardForm(row) {
   setVal('board_id', row.id || '');
   setVal('board_type', normalizeAdminBoardType(row.type || 'notice'));
-  setVal('board_subtype', row.subtype || (row.type === 'rent' ? 'rent' : row.type === 'sale' ? 'sale' : ''));
+  updateBoardSubtypeOptions(row.subtype || (row.type === 'rent' ? 'rent' : row.type === 'sale' ? 'sale' : ''));
   setVal('board_region', row.region || 'dallas');
   setVal('board_title', row.title || '');
   setVal('board_content', row.content || '');
@@ -1875,7 +1924,7 @@ function renderBoardList(items) {
         ${thumb}
         <div>
           <div class="biz-title">${esc(row.title || '게시글')}</div>
-          <div class="biz-meta">${esc(boardLabel(row.type))} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
+          <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
           <div class="biz-meta">${linkedBiz ? '연결 업소: ' + esc(linkedBiz.name_ko || linkedBiz.name_en || linkedBiz.id) : esc(period)}</div>
           <div class="biz-meta">${esc(row.address || row.phone || (row.content || '').slice(0, 80))}</div>
         </div>
@@ -1989,6 +2038,91 @@ async function deleteBoard() {
   clearBoardForm();
   await loadBoards();
   alert('게시글 삭제 완료');
+}
+
+/* ---------------------------
+   AI Dallas Guide
+--------------------------- */
+const AI_GUIDE_CATEGORY_NAMES = {
+  driving: '운전면허 차량등록 자동차 운전·차량',
+  health: '병원 보험 건강 병원·보험',
+  education: '학교 교육 학군 학교·교육',
+  business: '세금 창업 비즈니스 세금·비즈니스',
+  housing: '주택 유틸리티 전기 인터넷 주거·생활',
+  immigration: '비자 여권 이민 비자·여권'
+};
+
+function setAiGuideBusy(busy, message='') {
+  const draftBtn = qs('aiGuideDraftBtn');
+  const publishBtn = qs('aiGuidePublishBtn');
+  if (draftBtn) draftBtn.disabled = busy;
+  if (publishBtn) publishBtn.disabled = busy;
+  safeText('aiGuideStatus', message || (busy ? 'AI가 글을 작성하고 있습니다...' : '준비됨'));
+}
+
+async function generateAiGuide({ publish = false } = {}) {
+  const topic = val('aiGuideTopic').trim();
+  const category = val('aiGuideCategory') || 'driving';
+  const boardType = val('aiGuideBoardType') || 'life';
+  const sources = String(val('aiGuideSources') || '')
+    .split(/\r?\n|,/)
+    .map(v => v.trim())
+    .filter(Boolean);
+  const instructions = val('aiGuideInstructions').trim();
+
+  if (!topic) return alert('AI가 작성할 주제를 입력하세요.');
+  if (publish && !confirm(`AI가 작성한 글을 바로 게시할까요?\n\n주제: ${topic}\n\n게시 전 검토가 필요한 정보일 수 있습니다.`)) return;
+
+  const originalDraftText = qs('aiGuideDraftBtn')?.textContent || 'AI 초안 만들기';
+  const originalPublishText = qs('aiGuidePublishBtn')?.textContent || 'AI 작성 후 바로 게시';
+  setAiGuideBusy(true, 'AI가 글을 작성하고 있습니다. 잠시 기다려 주세요...');
+  if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = '작성 중...';
+  if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = '작성 중...';
+
+  try {
+    const response = await fetch('/.netlify/functions/generate-guide', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, category, sources, instructions })
+    });
+    const text = await response.text();
+    let result = {};
+    try { result = JSON.parse(text); } catch (_) {}
+    if (!response.ok) throw new Error(result.error || text || 'AI 글 생성에 실패했습니다.');
+
+    const article = result.article || {};
+    clearBoardForm();
+    setVal('board_type', 'life');
+    updateBoardSubtypeOptions('');
+    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
+    updateBoardSubtypeOptions(guideSubtype);
+    setVal('board_region', getAppRegion());
+    setVal('board_title', article.title || topic);
+    const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
+    setVal('board_content', `${article.summary ? article.summary + '\n\n' : ''}${article.content || ''}${sourceBlock}`.trim());
+    setVal('board_author_name', article.author_name || '달타운맵 편집부');
+    setVal('board_external_url', article.source_url || sources[0] || '');
+    setVal('board_link_label', article.link_label || (sources.length ? '공식 정보 확인' : ''));
+    setChecked('board_is_active', publish);
+
+    if (publish) {
+      safeText('aiGuideStatus', 'AI 글 작성 완료. 게시판에 저장 중...');
+      await saveBoard();
+      safeText('aiGuideStatus', 'AI 가이드가 게시되었습니다.');
+    } else {
+      safeText('aiGuideStatus', '초안이 아래 게시글 양식에 입력되었습니다. 검토 후 저장하세요.');
+      alert('AI 초안이 생성되었습니다.\n\n아래 제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
+    }
+  } catch (error) {
+    console.error('generateAiGuide error:', error);
+    safeText('aiGuideStatus', `오류: ${error.message}`);
+    alert(`AI 가이드 생성 실패: ${error.message}`);
+  } finally {
+    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = originalDraftText;
+    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = originalPublishText;
+    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').disabled = false;
+    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').disabled = false;
+  }
 }
 
 /* ---------------------------
@@ -2428,9 +2562,12 @@ on('refreshBtn','click', async () => {
 
   on('boardSearchInput', 'input', () => renderBoardList(filterBoards()));
   on('boardTypeFilter', 'change', () => renderBoardList(filterBoards()));
+  on('board_type', 'change', () => updateBoardSubtypeOptions(''));
   on('boardNewBtn', 'click', clearBoardForm);
   on('boardSaveBtn', 'click', saveBoard);
   on('boardDeleteBtn', 'click', deleteBoard);
+  on('aiGuideDraftBtn', 'click', () => generateAiGuide({ publish: false }));
+  on('aiGuidePublishBtn', 'click', () => generateAiGuide({ publish: true }));
   
   on('boardUploadImageBtn', 'click', uploadBoardImage);
   on('boardClearImageBtn', 'click', clearBoardImage);

@@ -148,13 +148,13 @@ Dallas Korean Business Directory</strong>
 커뮤니티
 </div>
 
-<button class="side-link board-link" data-board="notice">행사</button>
+<button class="side-link board-link" data-board="notice">지역소식</button>
 
-<button class="side-link board-link" data-board="job">구인/구직</button>
+<button class="side-link board-link" data-board="life">라이프</button>
 
-<button class="side-link board-link" data-board="rent">렌트</button>
+<button class="side-link board-link" data-board="business">비즈니스</button>
 
-<button class="side-link board-link" data-board="sale">매매</button>
+<button class="side-link" data-nav="guide">달라스 가이드</button>
 
 <hr class="side-divider">
 
@@ -243,7 +243,7 @@ onclick="showPage('contact');closeMenu();">
               <div class="search-result-list" id="searchCouponList"></div>
             </section>
             <section class="search-section hidden" id="searchBoardSection">
-              <h4>게시판</h4>
+              <h4>커뮤니티</h4>
               <div class="search-result-list" id="searchBoardList"></div>
             </section>
             <p class="search-empty hidden" id="searchEmpty">검색 결과가 없습니다.</p>
@@ -303,7 +303,7 @@ onclick="showPage('contact');closeMenu();">
   <span class="section-title-icon">
     <i data-lucide="newspaper"></i>
    </span>
-   <span>게시판</span>
+   <span>커뮤니티</span>
 </h3>
     <button
   class="text-link community-full-btn"
@@ -315,37 +315,9 @@ onclick="showPage('contact');closeMenu();">
 
   
 <div id="communityTabs" class="community-tabs">
-  <button
-    type="button"
-    class="community-tab active"
-    data-board="event"
-  >
-    행사안내
-  </button>
-
-  <button
-    type="button"
-    class="community-tab"
-    data-board="news"
-  >
-    뉴스·칼럼
-  </button>
-
-  <button
-    type="button"
-    class="community-tab"
-    data-board="job"
-  >
-    구인구직
-  </button>
-
-  <button
-    type="button"
-    class="community-tab"
-    data-board="realestate"
-  >
-    부동산
-  </button>
+  <button type="button" class="community-tab active" data-board="notice">지역소식</button>
+  <button type="button" class="community-tab" data-board="life">라이프</button>
+  <button type="button" class="community-tab" data-board="business">비즈니스</button>
 </div>
 
   <div id="homeBoardList" class="home-board-list"></div>
@@ -393,8 +365,25 @@ onclick="showPage('contact');closeMenu();">
         </section>
       </section>
 
-      <section class="page" id="page-saved">
-        <section class="card section-card"><p class="empty">저장한 업소가 여기에 표시됩니다.</p></section>
+      <section class="page" id="page-guide">
+        <section class="card section-card guide-page-card">
+          <div class="guide-page-head">
+            <span class="guide-page-icon"><i data-lucide="book-open"></i></span>
+            <div><h2>달라스 가이드</h2><p>달라스 생활에 필요한 정보를 주제별로 확인하세요.</p></div>
+          </div>
+          <div class="guide-grid">
+            <button class="guide-card" type="button" data-guide-topic="운전면허 차량등록 자동차">🚗<strong>운전·차량</strong><span>면허, 차량등록, 교통 정보</span></button>
+            <button class="guide-card" type="button" data-guide-topic="병원 보험 건강">🏥<strong>병원·보험</strong><span>병원 이용과 보험 안내</span></button>
+            <button class="guide-card" type="button" data-guide-topic="학교 교육 학군">🏫<strong>학교·교육</strong><span>학군, 학교, 교육 정보</span></button>
+            <button class="guide-card" type="button" data-guide-topic="세금 창업 비즈니스">💰<strong>세금·비즈니스</strong><span>세금, 창업, 사업 절차</span></button>
+            <button class="guide-card" type="button" data-guide-topic="주택 유틸리티 전기 인터넷">🏠<strong>주거·생활</strong><span>주택과 생활서비스 안내</span></button>
+            <button class="guide-card" type="button" data-guide-topic="비자 여권 이민">📄<strong>비자·여권</strong><span>여권과 이민 관련 정보</span></button>
+          </div>
+          <div class="guide-latest">
+            <div class="section-head compact-head"><h3>생활정보 글</h3></div>
+            <div id="guidePostList" class="home-board-list"></div>
+          </div>
+        </section>
       </section>
 
       <section class="page" id="page-board-detail">
@@ -546,9 +535,9 @@ onclick="showPage('contact');closeMenu();">
   <strong>지도</strong>
 </button>
 
-<button class="nav-item" data-nav="saved">
-  <i data-lucide="heart"></i>
-  <strong>저장</strong>
+<button class="nav-item" data-nav="guide">
+  <i data-lucide="book-open"></i>
+  <strong>가이드</strong>
 </button>
 
 </nav>
