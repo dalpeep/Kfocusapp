@@ -19,6 +19,7 @@ let selectedBizId = businesses[0]?.id || null;
 let currentUser = null;
 let authClient = null;
 let currentLocationMarker = null;
+let suppressMapUiChange = false;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
@@ -3304,7 +3305,14 @@ function redrawMapMarkers(){
     const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
     return miles <= radiusMiles;
   });
-  const finalList = filtered.length ? filtered : (mapMode==='event' ? [] : list.slice(0,60));
+
+  // 지도에는 선택한 분류의 전체 업소 핀을 표시한다.
+  // 반경은 하단의 “주변 업소” 목록을 정렬·제한하는 용도로만 사용한다.
+  const finalList = list.filter(b =>
+    Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
+  );
+  const nearbyList = filtered.length ? filtered : (mapMode==='event' ? [] : finalList.slice(0,60));
+
   finalList.forEach(b=>{
     const lat = Number(b.lat); const lng = Number(b.lng);
     const icon = getMarkerIconForBusiness(b);
@@ -3324,7 +3332,7 @@ function redrawMapMarkers(){
   if(mapSearchQuery && finalList.length){
     focusMapOnBusinesses(finalList);
   }
-  const sortedFinalList = sortBusinessesByDistance(finalList);
+  const sortedFinalList = sortBusinessesByDistance(nearbyList);
   renderMapBottomList(sortedFinalList);
   if(mapNotice){
     if(mapMode==='event') mapNotice.textContent = ''; //등록된 행사 지도가 아직 없습니다.
@@ -3456,9 +3464,9 @@ function ensureMapLocationStatusBadge() {
 
   if (!map) return null;
 
-  const mapDiv = map.getDiv();
-
-  /* 지도 요소를 배지의 위치 기준으로 사용 */
+  // Google Maps 내부 DOM은 지도가 다시 그려질 때 교체될 수 있으므로
+  // 배지는 지도 DOM 안이 아니라 지도 페이지 위에 오버레이한다.
+  const mapDiv = document.getElementById('page-map') || map.getDiv();
   mapDiv.style.position = 'relative';
 
   badge = document.createElement('div');
@@ -3483,8 +3491,8 @@ function ensureMapLocationStatusBadge() {
   /* 기존 CSS와 관계없이 강제 적용 */
   Object.assign(badge.style, {
     position: 'absolute',
-    top: '14px',
-    right: '66px',
+    top: '82px',
+    right: '18px',
     zIndex: '999999',
     display: 'none',
     alignItems: 'center',
@@ -3850,7 +3858,28 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   // 클릭 후에도 절대 숨기지 않음
   setMapAreaButtonState('location');
 });
-  mapLocateBtn?.addEventListener('click', ()=>{ if(!mapReady || !navigator.geolocation) return; navigator.geolocation.getCurrentPosition((pos)=>{ currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude }; persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng)); map.setCenter(currentCenter); const zoom = Math.max(map.getZoom() || 12, 13); map.setZoom(zoom); mapRadius = radiusByZoom(zoom); redrawMapMarkers(); mapDirty = false; mapSearchAreaBtn?.classList.add('hidden'); }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 }); });
+  mapLocateBtn?.addEventListener('click', ()=>{
+    if(!mapReady || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((pos)=>{
+      currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
+      suppressMapUiChange = true;
+      map.setCenter(currentCenter);
+      const zoom = Math.max(map.getZoom() || 12, 13);
+      map.setZoom(zoom);
+      mapRadius = radiusByZoom(zoom);
+      showCurrentLocationMarker(currentCenter);
+      redrawMapMarkers();
+      google.maps.event.addListenerOnce(map, 'idle', ()=>{
+        suppressMapUiChange = false;
+        setMapUiState('current');
+      });
+      setTimeout(()=>{
+        suppressMapUiChange = false;
+        setMapUiState('current');
+      }, 500);
+    }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 });
+  });
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapForVisibleInfo(pos.lat, pos.lng); if(mapInfoWindow){ mapInfoWindow.setContent(createInfoWindowContent(biz)); mapInfoWindow.setPosition(pos); mapInfoWindow.open({ map, shouldFocus:false }); }
   mapBottomPanel?.classList.add('collapsed'); });
   mapBottomClose?.addEventListener('click', ()=> mapBottomPanel?.classList.add('collapsed'));
