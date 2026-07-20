@@ -1787,10 +1787,7 @@ async function loadBoards() {
     return;
   }
   boardTable = 'posts';
-  boards = (loaded || []).map((row) => ({
-    ...row,
-    gallery_urls: parseBoardGalleryUrls(row.gallery_urls)
-  }));
+  boards = loaded || [];
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
@@ -1806,7 +1803,6 @@ function clearBoardForm() {
   setVal('board_image_url', '');
   setVal('board_image_link_url', '');
   setVal('board_gallery_urls', '');
-  renderBoardGalleryPreview([]);
   setVal('board_external_url', '');
   setVal('board_link_label', '');
   setVal('board_author_name', '');
@@ -1818,7 +1814,6 @@ function clearBoardForm() {
   setVal('board_end_at', '');
   setChecked('board_is_active', true);
   if (qs('board_image_file')) qs('board_image_file').value = '';
-  if (qs('board_gallery_files')) qs('board_gallery_files').value = '';
   selectedBoardId = null;
   safeText('boardFormTitle', '새 글');
   $$('.board-row').forEach((el) => el.classList.remove('active'));
@@ -1837,7 +1832,7 @@ function fillBoardForm(row) {
   renderBoardBusinessOptions();
   setVal('board_image_url', row.image_url || '');
   setVal('board_image_link_url', row.image_link_url || '');
-  setBoardGalleryUrlsToForm(row.gallery_urls || []);
+  setVal('board_gallery_urls', Array.isArray(row.gallery_urls) ? row.gallery_urls.join('\n') : (row.gallery_urls || ''));
   setVal('board_external_url', row.external_url || '');
   setVal('board_link_label', row.link_label || '');
   setVal('board_author_name', row.author_name || '');
@@ -1846,7 +1841,6 @@ function fillBoardForm(row) {
   setVal('board_end_at', fmtLocal(row.end_at));
   setChecked('board_is_active', row.is_active !== false);
   if (qs('board_image_file')) qs('board_image_file').value = '';
-  if (qs('board_gallery_files')) qs('board_gallery_files').value = '';
   selectedBoardId = row.id;
   safeText('boardFormTitle', `글 수정 #${row.id}`);
 }
@@ -1900,11 +1894,6 @@ function renderBoardList(items) {
   });
 }
 async function saveBoard() {
-  const boardId =
-    selectedBoardId ||
-    val('board_id') ||
-    null;
-
   const file = qs('board_image_file')?.files?.[0];
   let imageUrl = val('board_image_url').trim() || null;
 
@@ -1920,7 +1909,7 @@ const linkedBusinessId =
     null;
 
 const boardType = normalizeAdminBoardType(val('board_type'));
-const galleryUrls = getBoardGalleryUrlsFromForm();
+const galleryUrls = String(val('board_gallery_urls') || '').split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
 
 if (!boardType || boardType === 'all') {
     return alert('게시판 종류를 선택하세요.');
@@ -1961,14 +1950,14 @@ for (const rawPayload of payloads) {
     );
 
     console.log('BOARD TABLE:', boardTable);
-    console.log('BOARD ID:', boardId);
+    console.log('BOARD ID:', selectedBoardId);
     console.log('BOARD PAYLOAD:', payload);
 
-    res = boardId
+    res = selectedBoardId
         ? await supabase
             .from(boardTable)
             .update(payload)
-            .eq('id', boardId)
+            .eq('id', selectedBoardId)
             .select()
             .single()
         : await supabase
@@ -1992,15 +1981,6 @@ for (const rawPayload of payloads) {
   if (res.data) fillBoardForm(res.data);
   alert('게시글 저장 완료');
 }
-
-window.getBoardAdminDebug = function () {
-  return {
-    selectedBoardId,
-    hiddenBoardId: val('board_id') || null,
-    galleryUrls: getBoardGalleryUrlsFromForm()
-  };
-};
-
 async function deleteBoard() {
   if (!selectedBoardId) return;
   if (!confirm('이 게시글을 삭제할까요?')) return;
@@ -2387,6 +2367,7 @@ function bindEvents() {
   });
 
   on('searchInput', 'input', () => renderBusinessList(filterBusinesses()));
+  on('fetchGoogleRatingBtn', 'click', fetchGoogleRating);
   on('regionFilter','change', async () => {
   renderBusinessList(filterBusinesses());
   renderCouponList(filterCoupons());
@@ -2394,7 +2375,7 @@ function bindEvents() {
   fillBusinessOptions();
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
-  on('fetchGoogleRatingBtn', 'click', fetchGoogleRating);
+
   // ⭐ 추가 (핵심)
   const region = document.getElementById('regionFilter')?.value || 'all';
   const statsMap = await fetchBusinessStats(region);
@@ -2466,8 +2447,6 @@ on('refreshBtn','click', async () => {
     const row = businesses.find((b) => String(b.id) === String(val('slide_business_select')));
     if (row) fillSlideForm(row);
   });
-
-  bindBoardGalleryEvents();
 }
 
 
@@ -3064,6 +3043,36 @@ window.adminLogout = async function () {
   sessionStorage.setItem('adminLogin', '1');
   window.location.href = '/';
 };
+document.getElementById('sendPushBtn')?.addEventListener('click', async () => {
+  const title = document.getElementById('pushTitle').value;
+  const message = document.getElementById('pushMessage').value;
+  const region = document.getElementById('pushRegion').value;
+
+  if (!title || !message) {
+    alert('제목과 내용을 입력하세요');
+    return;
+  }
+
+  try {
+    const res = await fetch('/.netlify/functions/sendPush', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, message, region })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      alert('푸시 발송 완료');
+    } else {
+      alert('실패: ' + data.error);
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert('에러 발생');
+  }
+});
 // ===== PUSH SEND UI =====
 document.addEventListener('DOMContentLoaded', () => {
   if (window.ADMIN_ROLE === 'regional_editor') {
