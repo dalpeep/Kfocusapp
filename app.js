@@ -3373,67 +3373,35 @@ function initGoogleMap(){
 function showCurrentLocationMarker(position) {
   if (!map || !window.google?.maps) return;
 
-  /*
-    DalTownMap 현재 위치 브랜드 핀
-    - 바깥 핀: 브랜드 블루
-    - 중앙 원: 흰색
-    - 중앙 포인트: 브랜드 레드
-  */
-  const brandPinSvg = `
-    <svg xmlns="http://www.w3.org/2000/svg"
-         width="48"
-         height="56"
-         viewBox="0 0 48 56">
+  // 현재 위치 문구를 별도의 고정 배지가 아니라 마커 자체에 포함한다.
+  // 따라서 지도를 이동하거나 확대/축소해도 핀과 말풍선이 함께 움직인다.
+  const locationBubbleSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="170" height="104" viewBox="0 0 170 104">
       <defs>
-        <filter id="shadow"
-                x="-40%"
-                y="-30%"
-                width="180%"
-                height="190%">
-          <feDropShadow
-            dx="0"
-            dy="3"
-            stdDeviation="2.5"
-            flood-color="#000000"
-            flood-opacity="0.28"/>
+        <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+          <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#163b75" flood-opacity="0.25"/>
         </filter>
       </defs>
 
-      <path
-        filter="url(#shadow)"
-        fill="#3568D4"
-        d="M24 2C13.5 2 5 10.5 5 21
-           C5 35.5 24 54 24 54
-           C24 54 43 35.5 43 21
-           C43 10.5 34.5 2 24 2Z"/>
+      <g filter="url(#shadow)">
+        <rect x="8" y="4" width="154" height="38" rx="19" fill="#ffffff" stroke="#d6e2f4"/>
+        <path d="M79 41 L85 50 L91 41 Z" fill="#ffffff" stroke="#d6e2f4" stroke-linejoin="round"/>
+      </g>
+      <circle cx="27" cy="23" r="5" fill="#ff4f5e" stroke="#3568d4" stroke-width="3"/>
+      <text x="40" y="28" font-family="Arial, 'Noto Sans KR', sans-serif" font-size="14" font-weight="700" fill="#2457a7">현재 위치 표시 중</text>
 
-      <circle
-        cx="24"
-        cy="21"
-        r="11.5"
-        fill="#FFFFFF"/>
-
-      <circle
-        cx="24"
-        cy="21"
-        r="6.5"
-        fill="#FF4F5E"/>
-
-      <circle
-        cx="24"
-        cy="21"
-        r="2.3"
-        fill="#FFFFFF"/>
-    </svg>
-  `;
+      <g transform="translate(61 48)" filter="url(#shadow)">
+        <path fill="#3568D4" d="M24 2C13.5 2 5 10.5 5 21C5 35.5 24 54 24 54C24 54 43 35.5 43 21C43 10.5 34.5 2 24 2Z"/>
+        <circle cx="24" cy="21" r="11.5" fill="#ffffff"/>
+        <circle cx="24" cy="21" r="6.5" fill="#ff4f5e"/>
+        <circle cx="24" cy="21" r="2.3" fill="#ffffff"/>
+      </g>
+    </svg>`;
 
   const icon = {
-    url:
-      'data:image/svg+xml;charset=UTF-8,' +
-      encodeURIComponent(brandPinSvg),
-
-    scaledSize: new google.maps.Size(42, 49),
-    anchor: new google.maps.Point(21, 49)
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(locationBubbleSvg),
+    scaledSize: new google.maps.Size(170, 104),
+    anchor: new google.maps.Point(85, 102)
   };
 
   if (currentLocationMarker) {
@@ -3452,159 +3420,27 @@ function showCurrentLocationMarker(position) {
     optimized: false
   });
 }
-let mapLocationStatusBadge = null;
-
-function ensureMapLocationStatusBadge() {
-  let badge = document.getElementById('mapLocationStatusBadge');
-
-  if (badge) {
-    mapLocationStatusBadge = badge;
-    return badge;
-  }
-
-  if (!map) return null;
-
-  // Google Maps 내부 DOM은 지도가 다시 그려질 때 교체될 수 있으므로
-  // 배지는 지도 DOM 안이 아니라 지도 페이지 위에 오버레이한다.
-  const mapDiv = document.getElementById('page-map') || map.getDiv();
-  mapDiv.style.position = 'relative';
-
-  badge = document.createElement('div');
-  badge.id = 'mapLocationStatusBadge';
-
-  badge.innerHTML = `
-    <span
-      style="
-        width:9px;
-        height:9px;
-        display:inline-block;
-        flex:0 0 9px;
-        border-radius:50%;
-        background:#ff4f5e;
-        border:2px solid #ffffff;
-        box-shadow:0 0 0 2px #3568d4;
-      ">
-    </span>
-    <span>현재 위치 표시 중</span>
-  `;
-
-  /* 기존 CSS와 관계없이 강제 적용 */
-  Object.assign(badge.style, {
-    position: 'absolute',
-    top: '82px',
-    right: '18px',
-    zIndex: '999999',
-    display: 'none',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    minWidth: '138px',
-    height: '40px',
-    padding: '0 14px',
-    boxSizing: 'border-box',
-    background: 'rgba(255,255,255,0.98)',
-    color: '#2457a7',
-    border: '1px solid #d6e2f4',
-    borderRadius: '21px',
-    boxShadow: '0 3px 12px rgba(27,70,139,0.22)',
-    fontSize: '13px',
-    fontWeight: '700',
-    lineHeight: '1',
-    whiteSpace: 'nowrap',
-    pointerEvents: 'none',
-    visibility: 'visible',
-    opacity: '1'
-  });
-
-  mapDiv.appendChild(badge);
-
-  mapLocationStatusBadge = badge;
-  return badge;
-}
 
 function setMapUiState(state) {
-  const badge = ensureMapLocationStatusBadge();
-
-  if (state === 'current') {
-    mapDirty = false;
-
-    if (badge) {
-      badge.style.setProperty('display', 'flex', 'important');
-      badge.style.setProperty('visibility', 'visible', 'important');
-      badge.style.setProperty('opacity', '1', 'important');
-    }
-
-    if (mapSearchAreaBtn) {
-      mapSearchAreaBtn.classList.add('hidden');
-      mapSearchAreaBtn.style.setProperty(
-        'display',
-        'none',
-        'important'
-      );
-    }
-
-    return;
-  }
-
   if (state === 'dirty') {
     mapDirty = true;
-
-    if (badge) {
-      badge.style.setProperty(
-        'display',
-        'none',
-        'important'
-      );
-    }
-
     if (mapSearchAreaBtn) {
       mapSearchAreaBtn.classList.remove('hidden');
       mapSearchAreaBtn.removeAttribute('hidden');
       mapSearchAreaBtn.disabled = false;
       mapSearchAreaBtn.textContent = '이 지역 보기';
-
-      mapSearchAreaBtn.style.setProperty(
-        'display',
-        'flex',
-        'important'
-      );
-      mapSearchAreaBtn.style.setProperty(
-        'visibility',
-        'visible',
-        'important'
-      );
-      mapSearchAreaBtn.style.setProperty(
-        'opacity',
-        '1',
-        'important'
-      );
-      mapSearchAreaBtn.style.setProperty(
-        'pointer-events',
-        'auto',
-        'important'
-      );
+      mapSearchAreaBtn.style.setProperty('display', 'flex', 'important');
+      mapSearchAreaBtn.style.setProperty('visibility', 'visible', 'important');
+      mapSearchAreaBtn.style.setProperty('opacity', '1', 'important');
+      mapSearchAreaBtn.style.setProperty('pointer-events', 'auto', 'important');
     }
-
     return;
   }
 
   mapDirty = false;
-
-  if (badge) {
-    badge.style.setProperty(
-      'display',
-      'none',
-      'important'
-    );
-  }
-
   if (mapSearchAreaBtn) {
     mapSearchAreaBtn.classList.add('hidden');
-    mapSearchAreaBtn.style.setProperty(
-      'display',
-      'none',
-      'important'
-    );
+    mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
   }
 }
 
