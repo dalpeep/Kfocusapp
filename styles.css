@@ -4401,3 +4401,8 @@ body,
   text-align:center;
   justify-content:center;
 }
+
+/* Business Story Premium public connection */
+#communityTabs.community-tabs{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}
+.board-detail-v3-badges .sponsored{background:#fff3cd;color:#7a5300;border:1px solid #f2d675;}
+.business-ai-pick-link{margin-top:10px;border:0;background:transparent;padding:0;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;}
