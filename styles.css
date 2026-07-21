@@ -4406,3 +4406,15 @@ body,
 #communityTabs.community-tabs{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}
 .board-detail-v3-badges .sponsored{background:#fff3cd;color:#7a5300;border:1px solid #f2d675;}
 .business-ai-pick-link{margin-top:10px;border:0;background:transparent;padding:0;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;}
+
+/* 추천 테마: DalPick/AI Pick과 시각적으로 구분되는 업종 공통 카드 */
+#detailCard .business-theme-pick{
+  border-style:solid;
+}
+#detailCard .business-theme-pick .business-ai-pick-label::before{
+  content:'THEME';
+  margin-right:6px;
+  font-size:10px;
+  letter-spacing:.08em;
+  opacity:.72;
+}

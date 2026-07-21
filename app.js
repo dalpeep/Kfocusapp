@@ -1048,10 +1048,20 @@ function syncBusinessStoriesToBoardPosts(){
       created_at:d.created_at||d.start_at||''
     };
   });
-  boardPosts=[...stories,...existing];
+  const articles=activeDalpicks().filter(d=>{
+    const c=String(d.category||'').toLowerCase();
+    return c!=='business_story' && (c!=='themed'||d.show_in_dalpick===true);
+  }).map(d=>({
+    id:`${String(d.category||'').toLowerCase()==='themed'?'dalpick-theme':'dalpick-article'}-${d.id}`,
+    source_id:d.id,source_type:'dalpick',type:'dalpick_article',subtype:String(d.category||''),
+    title:d.title||'DalPick',content:d.content||d.summary||'',summary:d.summary||'',
+    region:d.region||getAppRegion(),image_url:d.image_url||'',gallery_urls:[],business_id:d.business_id||'',
+    author_name:'DalTownMap',created_at:d.created_at||d.start_at||''
+  }));
+  boardPosts=[...stories,...articles,...existing];
 }
 function dalpickBadge(c){return ({new_business:'NEW',coupon:'COUPON',recommended:'추천',ai_pick:'AI PICK',seasonal:'SEASON',event:'EVENT',promotion:'PROMO',business_story:'업소탐방'})[c]||'DALPICK';}
-function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;let rows=activeDalpicks().slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(String(d.category||'').toLowerCase()==='business_story'){openBoardPost(`dalpick-story-${d.id}`);}else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content){alert(`${d.title}\n\n${d.content}`);}}));if(window.lucide)window.lucide.createIcons();}
+function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;/* 테마 추천은 DalPick 홈 목록과 분리하고 업소 상세 상단에서만 노출 */let rows=activeDalpicks().filter(d=>String(d.category||'').toLowerCase()!=='themed'||d.show_in_dalpick===true).slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(String(d.category||'').toLowerCase()==='business_story'){openBoardPost(`dalpick-story-${d.id}`);}else if(String(d.category||'').toLowerCase()==='themed'){openBoardPost(`dalpick-theme-${d.id}`);}else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content){openBoardPost(`dalpick-article-${d.id}`);}}));if(window.lucide)window.lucide.createIcons();}
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
@@ -1927,11 +1937,22 @@ function getBusinessAiPick(businessId, businessCategory='') {
     .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || Number(b.priority || 0) - Number(a.priority || 0))[0];
 
   const mainCategory = getMainCategoryLabel(businessCategory) || '서비스';
+  const rawCategory = String(businessCategory || '').trim().toLowerCase();
+  const categoryAliases = new Set([
+    mainCategory,
+    rawCategory,
+    rawCategory.replace(/[_-]/g, ' '),
+    String(mainCategory || '').trim().toLowerCase()
+  ]);
   const themedPick = (dalpicks || [])
     .filter(row => {
       if (String(row.category || '').toLowerCase() !== 'themed' || !isVisible(row)) return false;
       const targets = Array.isArray(row.target_categories) ? row.target_categories : [];
-      return targets.includes('전체') || targets.includes('all') || targets.includes(mainCategory);
+      return targets.some(target => {
+        const value = String(target || '').trim();
+        const normalized = value.toLowerCase();
+        return value === '전체' || normalized === 'all' || categoryAliases.has(value) || categoryAliases.has(normalized);
+      });
     })
     .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || Number(b.priority || 0) - Number(a.priority || 0) || new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
 
@@ -1953,7 +1974,7 @@ function renderBusinessAiPick(pick) {
   const body = String(pick.summary || pick.content || '').trim();
   const shortBody = body.length > 180 ? `${body.slice(0, 180).trim()}…` : body;
   return `
-    <section class="business-ai-pick" aria-label="AI 추천">
+    <section class="business-ai-pick ${pick.eyebrow === '추천 테마' ? 'business-theme-pick' : ''}" aria-label="${pick.eyebrow === '추천 테마' ? '추천 테마' : 'AI 추천'}">
       ${pick.image ? `<img class="business-ai-pick-image" src="${esc(pick.image)}" alt="${esc(pick.title)}">` : ''}
       <div class="business-ai-pick-copy">
         <span class="business-ai-pick-label"><span class="business-ai-pick-dot"></span>${esc(pick.eyebrow)}</span>
