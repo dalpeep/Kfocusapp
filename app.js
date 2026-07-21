@@ -1691,6 +1691,40 @@ if (typeof renderHomeBusinessTabs === 'function') {
 }
 
 
+
+// Global recommendation-theme helpers.
+// These must stay outside renderDetail(), because the business-list page uses them too.
+function normalizeThemeTarget(value){
+  const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
+  if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
+  if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
+  if(['law','legal','법률','변호'].some(v=>s.includes(v))) return 'law';
+  if(['church','교회','종교'].some(v=>s.includes(v))) return 'church';
+  if(['real_estate','realestate','부동산','주택'].some(v=>s.includes(v))) return 'real_estate';
+  if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
+  if(['all','전체','전체_업종'].includes(s)) return 'all';
+  return s;
+}
+function normalThemeTarget(value){ return normalizeThemeTarget(value); }
+function parseThemeTargets(value){
+  if(Array.isArray(value)) return value;
+  if(typeof value==='string'){
+    const text=value.trim();
+    if(!text) return [];
+    if(text.startsWith('{')&&text.endsWith('}')){
+      return text.slice(1,-1).split(',').map(v=>v.replace(/^"|"$/g,'').trim()).filter(Boolean);
+    }
+    try{ const parsed=JSON.parse(text); if(Array.isArray(parsed)) return parsed; }catch(e){}
+    return text.split(',').map(v=>v.trim()).filter(Boolean);
+  }
+  return [];
+}
+function themeReadingMinutes(content){
+  return Math.max(1,Math.ceil(String(content||'').replace(/\s+/g,' ').trim().length/500));
+}
+
 function getBusinessPageTheme(){
   const selected = businessQuickFilter || '';
   const selectedTarget = normalizeThemeTarget(selected);
