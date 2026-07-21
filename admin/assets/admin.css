@@ -548,3 +548,5 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .target-category-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px;margin:10px 0}
 .target-category-grid label{display:flex;align-items:center;gap:7px;padding:9px 10px;border:1px solid #dbe4f2;border-radius:9px;background:#fff;cursor:pointer}
 .target-category-grid input{width:16px;height:16px}
+
+.dalpick-ai-actions{margin-top:14px;padding-top:12px;border-top:1px solid #dbe5f6;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.dalpick-ai-action-buttons{display:flex;gap:8px;flex-wrap:wrap}.dalpick-ai-actions .checkbox-line{margin:0}

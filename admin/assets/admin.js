@@ -1829,7 +1829,7 @@ function syncDalpickTargetCategoryChecks(changed){const all=qs('dalpick_target_a
 async function loadDalpicks(){if(!supabase)return;const {data,error}=await supabase.from('dalpick').select('*').eq('region',getAppRegion()).order('is_featured',{ascending:false}).order('priority',{ascending:false}).order('created_at',{ascending:false});if(error){console.warn('DalPick load:',error.message);safeText('dalpickCountText','테이블 필요');return;}dalpicks=data||[];renderDalpickBusinessOptions();renderDalpickList(filterDalpicks());}
 function filterDalpicks(){const q=val('dalpickSearchInput').trim().toLowerCase(),cat=val('dalpickCategoryFilter')||'all';return dalpicks.filter(d=>{if(cat!=='all'&&d.category!==cat)return false;if(!q)return true;const b=businesses.find(x=>String(x.id)===String(d.business_id));return [d.title,d.summary,d.content,b?.name_ko,b?.name_en].join(' ').toLowerCase().includes(q);});}
 function renderDalpickList(items){safeText('dalpickCountText',`${items.length}개`);const el=qs('dalpickList');if(!el)return;el.innerHTML=items.map(d=>{const b=businesses.find(x=>String(x.id)===String(d.business_id));return `<button type="button" class="biz-item dalpick-row ${String(d.id)===String(selectedDalpickId)?'active':''}" data-id="${esc(d.id)}">${d.image_url?`<img class="biz-thumb" src="${esc(d.image_url)}" alt="">`:'<div class="biz-thumb board-thumb-fallback">✨</div>'}<div><div class="biz-title">${esc(d.title||'제목 없음')}</div><div class="biz-meta">${esc(dalpickLabel(d.category))}${d.is_featured?' · 대표':''}${d.is_active===false?' · 비활성':''}</div><div class="biz-meta">${esc(b?.name_ko||b?.name_en||d.summary||'')}</div></div></button>`}).join('')||'<div class="muted">등록된 DalPick이 없습니다.</div>';el.querySelectorAll('.dalpick-row').forEach(btn=>btn.addEventListener('click',()=>{const row=dalpicks.find(d=>String(d.id)===String(btn.dataset.id));if(row){fillDalpickForm(row);renderDalpickList(filterDalpicks());}}));}
-function clearDalpickForm(){selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_is_active',true);setDalpickTargetCategories(['전체']);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();renderDalpickList(filterDalpicks());}
+function clearDalpickForm(){selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_auto_image',true);setChecked('dalpick_is_active',true);setDalpickTargetCategories(['전체']);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();renderDalpickList(filterDalpicks());}
 function fillDalpickForm(d){selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'local_info');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_show_in_dalpick',!!d.show_in_dalpick);setChecked('dalpick_is_active',d.is_active!==false);setDalpickTargetCategories(Array.isArray(d.target_categories)&&d.target_categories.length?d.target_categories:['전체']);safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);updateDalpickTypeUI();}
 async function saveDalpick(){const category=val('dalpick_category');const isActive=checked('dalpick_is_active');const targets=category==='themed'?getDalpickTargetCategories():[];const payload={region:getAppRegion(),category,title:val('dalpick_title').trim(),summary:val('dalpick_summary').trim()||null,content:val('dalpick_content').trim()||null,business_id:val('dalpick_business_id')||null,image_url:val('dalpick_image_url').trim()||null,start_at:fromLocal(val('dalpick_start_at')),end_at:fromLocal(val('dalpick_end_at')),priority:Number(val('dalpick_priority')||0),is_featured:checked('dalpick_is_featured'),show_in_dalpick:category==='themed'&&checked('dalpick_show_in_dalpick'),is_active:isActive,status:isActive?'published':'draft',target_categories:targets};if(!payload.title)return alert('제목을 입력하세요.');if(DALPICK_BUSINESS_REQUIRED.has(payload.category)&&!payload.business_id)return alert('이 콘텐츠 유형은 연결 업소를 선택해야 합니다.');if(payload.category==='themed'&&!targets.length)return alert('테마 추천이 노출될 업종을 하나 이상 선택하세요.');const q=selectedDalpickId?supabase.from('dalpick').update(payload).eq('id',selectedDalpickId):supabase.from('dalpick').insert(payload);const {error}=await q;if(error){const hint=String(error.message||'').includes('target_categories')||String(error.message||'').includes('show_in_dalpick')?'\n먼저 포함된 supabase-themed-target-categories.sql을 Supabase SQL Editor에서 실행해 주세요.':'';return alert(`DalPick 저장 실패: ${error.message}${hint}`);}await loadDalpicks();clearDalpickForm();alert('DalPick을 저장했습니다.');}
 async function deleteDalpick(){if(!selectedDalpickId)return alert('삭제할 DalPick을 선택하세요.');if(!confirm('이 DalPick을 삭제할까요?'))return;const {error}=await supabase.from('dalpick').delete().eq('id',selectedDalpickId);if(error)return alert(`삭제 실패: ${error.message}`);await loadDalpicks();clearDalpickForm();}
@@ -1843,6 +1843,30 @@ function updateDalpickTypeUI(){
   const storyFields=qs('businessStoryFields'); if(storyFields) storyFields.hidden=category!=='business_story';
   const targetFields=qs('dalpickTargetCategoryFields'); if(targetFields) targetFields.hidden=category!=='themed'; const showInDalpickField=qs('dalpickShowInDalpickField'); if(showInDalpickField) showInDalpickField.hidden=category!=='themed';
   if(businessSelect) businessSelect.required=required;
+}
+
+async function generateDalpickImage(){
+  const title=val('dalpick_title').trim()||val('dalpick_topic').trim();
+  const summary=val('dalpick_summary').trim();
+  if(!title) return alert('먼저 기사 제목이나 주제를 입력하세요.');
+  const btn=qs('dalpickImageBtn'); const old=btn?.textContent||'AI 대표 이미지 생성';
+  if(btn){btn.disabled=true;btn.textContent='이미지 생성 중...';}
+  safeText('dalpickAiStatus','AI가 대표 이미지를 만들고 있습니다...');
+  try{
+    const response=await fetch('/.netlify/functions/generate-dalpick-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,summary,category:val('dalpick_category')||'themed'})});
+    const json=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(json.error||'이미지 생성에 실패했습니다.');
+    const binary=atob(json.b64_json||'');
+    const bytes=new Uint8Array(binary.length); for(let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+    const file=new File([bytes],`dalpick-${Date.now()}.png`,{type:'image/png'});
+    const path=`uploads/dalpicks/${Date.now()}-${Math.random().toString(36).slice(2,8)}.png`;
+    const {error}=await supabase.storage.from('public-images').upload(path,file,{upsert:false,contentType:'image/png'});
+    if(error) throw error;
+    const {data}=supabase.storage.from('public-images').getPublicUrl(path);
+    setVal('dalpick_image_url',data?.publicUrl||'');
+    safeText('dalpickAiStatus','대표 이미지 생성 및 업로드 완료');
+  }catch(error){console.error('DalPick image:',error);safeText('dalpickAiStatus',`이미지 오류: ${error.message}`);alert(error.message);}
+  finally{if(btn){btn.disabled=false;btn.textContent=old;}}
 }
 
 async function generateDalpickDraft(){
@@ -1886,6 +1910,7 @@ async function generateDalpickDraft(){
       if(image) setVal('dalpick_image_url',image);
     }
     safeText('dalpickAiStatus',`초안 작성 완료${article.image_search_keywords?` · 이미지 검색어: ${article.image_search_keywords}`:''}`);
+    if(checked('dalpick_auto_image')) await generateDalpickImage();
   }catch(error){
     console.error('DalPick AI:',error);
     safeText('dalpickAiStatus',`오류: ${error.message}`);
@@ -2655,6 +2680,8 @@ on('refreshBtn','click', async () => {
   on('dalpick_category','change',updateDalpickTypeUI);
   document.querySelectorAll('input[name="dalpick_target_category"]').forEach(el=>el.addEventListener('change',()=>syncDalpickTargetCategoryChecks(el)));
   on('dalpickAiBtn','click',generateDalpickDraft);
+  on('dalpickImageBtn','click',generateDalpickImage);
+  on('dalpickAiSaveBtn','click',saveDalpick);
   on('performanceRefreshBtn','click',loadPerformanceCenter);
   on('boardSearchInput', 'input', () => renderBoardList(filterBoards()));
   on('boardTypeFilter', 'change', () => renderBoardList(filterBoards()));

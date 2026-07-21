@@ -761,6 +761,13 @@
                   <label class="field full"><span>참고 출처 URL (선택, 줄바꿈 구분)</span><textarea id="dalpick_sources" rows="2" placeholder="https://...&#10;https://..."></textarea></label>
                 </div>
                 <div id="dalpickAiStatus" class="muted">준비됨</div>
+                <div class="dalpick-ai-actions">
+                  <label class="checkbox-line"><input id="dalpick_auto_image" type="checkbox" checked><span>AI 초안 작성 후 대표 이미지도 자동 생성</span></label>
+                  <div class="dalpick-ai-action-buttons">
+                    <button id="dalpickImageBtn" class="btn ghost" type="button">AI 대표 이미지 생성</button>
+                    <button id="dalpickAiSaveBtn" class="btn primary" type="button">이 기사 저장</button>
+                  </div>
+                </div>
               </div>
 
               <div id="businessStoryFields" class="field full premium-story-box" hidden>

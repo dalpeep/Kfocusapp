@@ -667,7 +667,7 @@ function isPremiumBusiness(b){
   return true;
 }
 function boardPostsByType(type){
-  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
+  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && !(p.source_type==='dalpick' && String(p.subtype||'').toLowerCase()==='themed') && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
 }
 function getRecentSearches(){ try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function saveRecentSearch(query){
@@ -1965,7 +1965,7 @@ function getBusinessAiPick(businessId, businessCategory='') {
     content: dalpickPick.content || '',
     image: dalpickPick.image_url || '',
     source: 'dalpick',
-    articleId: String(dalpickPick.category||'').toLowerCase()==='business_story' ? `dalpick-story-${dalpickPick.id}` : ''
+    articleId: String(dalpickPick.category||'').toLowerCase()==='business_story' ? `dalpick-story-${dalpickPick.id}` : (String(dalpickPick.category||'').toLowerCase()==='themed' ? `dalpick-theme-${dalpickPick.id}` : '')
   };
 }
 
@@ -1980,7 +1980,7 @@ function renderBusinessAiPick(pick) {
         <span class="business-ai-pick-label"><span class="business-ai-pick-dot"></span>${esc(pick.eyebrow)}</span>
         <h3>${esc(pick.title)}</h3>
         ${shortBody ? `<p>${esc(shortBody)}</p>` : ''}
-        ${pick.articleId ? `<button type="button" class="business-ai-pick-link" data-story-post="${esc(pick.articleId)}">업소탐방 기사 보기 →</button>` : ''}
+        ${pick.articleId ? `<button type="button" class="business-ai-pick-link" data-story-post="${esc(pick.articleId)}">${pick.eyebrow === '추천 테마' ? '추천 테마 기사 보기 →' : '업소탐방 기사 보기 →'}</button>` : ''}
       </div>
     </section>`;
 }
