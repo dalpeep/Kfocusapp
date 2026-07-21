@@ -1848,6 +1848,75 @@ const website = b.website || b.url || '';
 const activeCoupon = coupons.find(c =>
   String(c.businessId || c.business_id) === String(b.id)
 );
+
+// 업소 상세 상단 AI Pick: 게시판의 ai_pick 글 또는 연결된 DalPick AI 추천을 사용합니다.
+function getBusinessAiPick(businessId) {
+  const now = Date.now();
+  const isVisible = (row) => {
+    if (row?.is_active === false) return false;
+    const status = String(row?.status || '').toLowerCase();
+    if (status && !['published', 'active'].includes(status)) return false;
+    const start = row?.start_at || row?.start_date;
+    const end = row?.end_at || row?.end_date;
+    if (start && new Date(start).getTime() > now) return false;
+    if (end && new Date(end).getTime() < now) return false;
+    return true;
+  };
+
+  const boardPick = (boards || [])
+    .filter(row =>
+      String(row.business_id || row.linked_business_id || '') === String(businessId) &&
+      ['ai_pick', 'aipick', 'business_ai_pick'].includes(String(row.type || row.subtype || '').toLowerCase()) &&
+      isVisible(row)
+    )
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+
+  if (boardPick) {
+    return {
+      eyebrow: 'AI PICK',
+      title: boardPick.title || '오늘의 추천',
+      summary: boardPick.summary || boardPick.excerpt || '',
+      content: boardPick.content || '',
+      image: boardPick.image_url || '',
+      source: 'board'
+    };
+  }
+
+  const dalpickPick = (dalpicks || [])
+    .filter(row =>
+      String(row.business_id || '') === String(businessId) &&
+      ['ai_pick', 'recommended'].includes(String(row.category || '').toLowerCase()) &&
+      isVisible(row)
+    )
+    .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || Number(b.priority || 0) - Number(a.priority || 0))[0];
+
+  if (!dalpickPick) return null;
+  return {
+    eyebrow: 'AI PICK',
+    title: dalpickPick.title || '오늘의 추천',
+    summary: dalpickPick.summary || '',
+    content: dalpickPick.content || '',
+    image: dalpickPick.image_url || '',
+    source: 'dalpick'
+  };
+}
+
+function renderBusinessAiPick(pick) {
+  if (!pick) return '';
+  const body = String(pick.summary || pick.content || '').trim();
+  const shortBody = body.length > 180 ? `${body.slice(0, 180).trim()}…` : body;
+  return `
+    <section class="business-ai-pick" aria-label="AI 추천">
+      ${pick.image ? `<img class="business-ai-pick-image" src="${esc(pick.image)}" alt="${esc(pick.title)}">` : ''}
+      <div class="business-ai-pick-copy">
+        <span class="business-ai-pick-label"><span class="business-ai-pick-dot"></span>${esc(pick.eyebrow)}</span>
+        <h3>${esc(pick.title)}</h3>
+        ${shortBody ? `<p>${esc(shortBody)}</p>` : ''}
+      </div>
+    </section>`;
+}
+
+const businessAiPick = getBusinessAiPick(b.id);
 function getDescriptionImages(b){
   if (Array.isArray(b.description_images)) return b.description_images;
 
@@ -1871,6 +1940,8 @@ detailCard.innerHTML = `
 		${b.video_url || b.youtube_url ? '<span class="badge-video">▶ VIDEO</span>' : ''}
       </div>
     </div>
+
+    ${renderBusinessAiPick(businessAiPick)}
 	
 ${((b.video_url || b.youtube_url) || (b.gallery_urls || b.galleryImages || []).length) ? `
 <div class="biz-gallery-strip">

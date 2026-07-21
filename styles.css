@@ -4315,3 +4315,78 @@ body,
 
 /* DalPick home */
 .dalpick-home-list{display:grid;gap:12px}.dalpick-card{width:100%;display:grid;grid-template-columns:112px 1fr;gap:14px;align-items:center;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:18px;padding:10px;box-shadow:0 8px 22px rgba(15,23,42,.06)}.dalpick-card img{width:112px;height:88px;object-fit:cover;border-radius:13px}.dalpick-card strong{display:block;margin:5px 0;font-size:16px;color:#111827}.dalpick-card p{margin:0;color:#64748b;font-size:13px;line-height:1.4}.dalpick-badge{display:inline-flex;background:#eaf2ff;color:#1769e0;font-weight:800;font-size:10px;padding:4px 7px;border-radius:999px;letter-spacing:.04em}@media(max-width:520px){.dalpick-card{grid-template-columns:96px 1fr}.dalpick-card img{width:96px;height:82px}}
+
+/* Business detail AI Pick */
+#detailCard .business-ai-pick{
+  position:relative;
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin:-18px 16px 14px;
+  padding:16px;
+  border:1px solid rgba(35,105,220,.18);
+  border-radius:20px;
+  background:linear-gradient(135deg,#f7fbff 0%,#eef5ff 100%);
+  box-shadow:0 10px 26px rgba(28,82,165,.13);
+  z-index:3;
+  overflow:hidden;
+}
+#detailCard .business-ai-pick::after{
+  content:"";
+  position:absolute;
+  width:96px;
+  height:96px;
+  right:-36px;
+  top:-45px;
+  border-radius:50%;
+  background:rgba(52,120,246,.08);
+}
+#detailCard .business-ai-pick-image{
+  width:72px;
+  height:72px;
+  flex:0 0 72px;
+  object-fit:cover;
+  border-radius:16px;
+  box-shadow:0 5px 14px rgba(25,75,150,.16);
+}
+#detailCard .business-ai-pick-copy{min-width:0;position:relative;z-index:1;}
+#detailCard .business-ai-pick-label{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:5px;
+  color:#1466d8;
+  font-size:12px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+#detailCard .business-ai-pick-dot{
+  width:9px;
+  height:9px;
+  border:3px solid #2f78e8;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(47,120,232,.12);
+}
+#detailCard .business-ai-pick h3{
+  margin:0 0 5px;
+  color:#102d59;
+  font-size:18px;
+  line-height:1.3;
+}
+#detailCard .business-ai-pick p{
+  margin:0;
+  color:#52657f;
+  font-size:14px;
+  line-height:1.55;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+@media (max-width:480px){
+  #detailCard .business-ai-pick{margin:-14px 12px 12px;padding:14px;border-radius:18px;}
+  #detailCard .business-ai-pick-image{width:62px;height:62px;flex-basis:62px;border-radius:14px;}
+  #detailCard .business-ai-pick h3{font-size:17px;}
+}
