@@ -2154,7 +2154,7 @@ detailCard.innerHTML = `
 
 	
 ${((b.video_url || b.youtube_url) || (b.gallery_urls || b.galleryImages || []).length) ? `
-<div class="biz-gallery-strip">
+<div class="biz-gallery-strip ${(b.video_url || b.youtube_url) && !(b.gallery_urls || b.galleryImages || []).length ? 'video-only' : ''}">
 
 ${b.video_url || b.youtube_url ? `
 <button type="button"
