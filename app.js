@@ -3440,6 +3440,9 @@ function showCurrentLocationMarker(position) {
     currentLocationMarker.setPosition(position);
     currentLocationMarker.setIcon(icon);
     currentLocationMarker.setMap(map);
+    if (currentLocationBubbleOverlay) {
+      currentLocationBubbleOverlay.setPosition(position);
+    }
     return;
   }
 
@@ -3451,96 +3454,129 @@ function showCurrentLocationMarker(position) {
     zIndex: 99999,
     optimized: false
   });
+
+  if (currentLocationBubbleOverlay) {
+    currentLocationBubbleOverlay.setPosition(position);
+  }
 }
-let mapLocationStatusBadge = null;
+let currentLocationBubbleOverlay = null;
 
-function ensureMapLocationStatusBadge() {
-  let badge = document.getElementById('mapLocationStatusBadge');
-
-  if (badge) {
-    mapLocationStatusBadge = badge;
-    return badge;
+class CurrentLocationBubbleOverlay extends google.maps.OverlayView {
+  constructor(position) {
+    super();
+    this.position = position;
+    this.visible = false;
+    this.div = null;
   }
 
-  if (!map) return null;
+  onAdd() {
+    const div = document.createElement('div');
+    div.className = 'current-location-map-bubble';
+    div.innerHTML = `
+      <span class="current-location-map-bubble__dot"></span>
+      <span>현재 위치 표시 중</span>
+    `;
 
-  // Google Maps 내부 DOM은 지도가 다시 그려질 때 교체될 수 있으므로
-  // 배지는 지도 DOM 안이 아니라 지도 페이지 위에 오버레이한다.
-  const mapDiv = document.getElementById('page-map') || map.getDiv();
-  mapDiv.style.position = 'relative';
+    Object.assign(div.style, {
+      position: 'absolute',
+      zIndex: '999999',
+      display: 'none',
+      alignItems: 'center',
+      gap: '7px',
+      height: '34px',
+      padding: '0 12px',
+      boxSizing: 'border-box',
+      background: 'rgba(255,255,255,0.98)',
+      color: '#2457a7',
+      border: '1px solid #d6e2f4',
+      borderRadius: '18px',
+      boxShadow: '0 3px 12px rgba(27,70,139,0.22)',
+      fontSize: '12px',
+      fontWeight: '700',
+      lineHeight: '1',
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+      transform: 'translate(-50%, -100%)'
+    });
 
-  badge = document.createElement('div');
-  badge.id = 'mapLocationStatusBadge';
+    const dot = div.querySelector('.current-location-map-bubble__dot');
+    Object.assign(dot.style, {
+      width: '8px',
+      height: '8px',
+      display: 'inline-block',
+      flex: '0 0 8px',
+      borderRadius: '50%',
+      background: '#ff4f5e',
+      border: '2px solid #ffffff',
+      boxShadow: '0 0 0 2px #3568d4'
+    });
 
-  badge.innerHTML = `
-    <span
-      style="
-        width:9px;
-        height:9px;
-        display:inline-block;
-        flex:0 0 9px;
-        border-radius:50%;
-        background:#ff4f5e;
-        border:2px solid #ffffff;
-        box-shadow:0 0 0 2px #3568d4;
-      ">
-    </span>
-    <span>현재 위치 표시 중</span>
-  `;
+    this.div = div;
+    this.getPanes().floatPane.appendChild(div);
+  }
 
-  /* 기존 CSS와 관계없이 강제 적용 */
-  Object.assign(badge.style, {
-    position: 'absolute',
-    top: '82px',
-    right: '18px',
-    zIndex: '999999',
-    display: 'none',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    minWidth: '138px',
-    height: '40px',
-    padding: '0 14px',
-    boxSizing: 'border-box',
-    background: 'rgba(255,255,255,0.98)',
-    color: '#2457a7',
-    border: '1px solid #d6e2f4',
-    borderRadius: '21px',
-    boxShadow: '0 3px 12px rgba(27,70,139,0.22)',
-    fontSize: '13px',
-    fontWeight: '700',
-    lineHeight: '1',
-    whiteSpace: 'nowrap',
-    pointerEvents: 'none',
-    visibility: 'visible',
-    opacity: '1'
-  });
+  draw() {
+    if (!this.div || !this.position) return;
 
-  mapDiv.appendChild(badge);
+    const projection = this.getProjection();
+    if (!projection) return;
 
-  mapLocationStatusBadge = badge;
-  return badge;
+    const latLng = this.position instanceof google.maps.LatLng
+      ? this.position
+      : new google.maps.LatLng(this.position.lat, this.position.lng);
+    const point = projection.fromLatLngToDivPixel(latLng);
+    if (!point) return;
+
+    // point는 마커 핀의 끝점이다. 핀 높이만큼 위에 말풍선을 고정한다.
+    this.div.style.left = `${Math.round(point.x)}px`;
+    this.div.style.top = `${Math.round(point.y - 56)}px`;
+    this.div.style.display = this.visible ? 'flex' : 'none';
+  }
+
+  setPosition(position) {
+    this.position = position;
+    this.draw();
+  }
+
+  setVisible(visible) {
+    this.visible = Boolean(visible);
+    if (this.div) this.div.style.display = this.visible ? 'flex' : 'none';
+    if (this.visible) this.draw();
+  }
+
+  onRemove() {
+    if (this.div) this.div.remove();
+    this.div = null;
+  }
+}
+
+function ensureCurrentLocationBubble() {
+  if (!map || !currentCenter) return null;
+
+  if (!currentLocationBubbleOverlay) {
+    currentLocationBubbleOverlay = new CurrentLocationBubbleOverlay(currentCenter);
+    currentLocationBubbleOverlay.setMap(map);
+  } else {
+    currentLocationBubbleOverlay.setPosition(currentCenter);
+  }
+
+  return currentLocationBubbleOverlay;
 }
 
 function setMapUiState(state) {
-  const badge = ensureMapLocationStatusBadge();
+  const bubble = ensureCurrentLocationBubble();
 
   if (state === 'current') {
     mapDirty = false;
 
-    if (badge) {
-      badge.style.setProperty('display', 'flex', 'important');
-      badge.style.setProperty('visibility', 'visible', 'important');
-      badge.style.setProperty('opacity', '1', 'important');
+    if (bubble) {
+      bubble.setPosition(currentCenter);
+      bubble.setVisible(true);
     }
 
     if (mapSearchAreaBtn) {
       mapSearchAreaBtn.classList.add('hidden');
-      mapSearchAreaBtn.style.setProperty(
-        'display',
-        'none',
-        'important'
-      );
+      mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
     }
 
     return;
@@ -3549,62 +3585,28 @@ function setMapUiState(state) {
   if (state === 'dirty') {
     mapDirty = true;
 
-    if (badge) {
-      badge.style.setProperty(
-        'display',
-        'none',
-        'important'
-      );
-    }
+    if (bubble) bubble.setVisible(false);
 
     if (mapSearchAreaBtn) {
       mapSearchAreaBtn.classList.remove('hidden');
       mapSearchAreaBtn.removeAttribute('hidden');
       mapSearchAreaBtn.disabled = false;
       mapSearchAreaBtn.textContent = '이 지역 보기';
-
-      mapSearchAreaBtn.style.setProperty(
-        'display',
-        'flex',
-        'important'
-      );
-      mapSearchAreaBtn.style.setProperty(
-        'visibility',
-        'visible',
-        'important'
-      );
-      mapSearchAreaBtn.style.setProperty(
-        'opacity',
-        '1',
-        'important'
-      );
-      mapSearchAreaBtn.style.setProperty(
-        'pointer-events',
-        'auto',
-        'important'
-      );
+      mapSearchAreaBtn.style.setProperty('display', 'flex', 'important');
+      mapSearchAreaBtn.style.setProperty('visibility', 'visible', 'important');
+      mapSearchAreaBtn.style.setProperty('opacity', '1', 'important');
+      mapSearchAreaBtn.style.setProperty('pointer-events', 'auto', 'important');
     }
 
     return;
   }
 
   mapDirty = false;
-
-  if (badge) {
-    badge.style.setProperty(
-      'display',
-      'none',
-      'important'
-    );
-  }
+  if (bubble) bubble.setVisible(false);
 
   if (mapSearchAreaBtn) {
     mapSearchAreaBtn.classList.add('hidden');
-    mapSearchAreaBtn.style.setProperty(
-      'display',
-      'none',
-      'important'
-    );
+    mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
   }
 }
 
