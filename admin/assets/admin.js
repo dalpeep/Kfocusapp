@@ -1749,66 +1749,6 @@ function normalizeAdminBoardType(t='') {
 function boardLabel(t) {
   return { notice: '지역소식', life: '라이프', business: '비즈니스', event: '지역소식', news: '라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '지역소식';
 }
-
-const ADMIN_BOARD_SUBTYPES = {
-  notice: [
-    ['event', '행사'],
-    ['notice', '공지'],
-    ['community', '커뮤니티 소식'],
-    ['urgent', '긴급알림']
-  ],
-  life: [
-    ['news', '뉴스'],
-    ['column', '칼럼'],
-    ['restaurant', '맛집'],
-    ['travel', '여행'],
-    ['health', '건강'],
-    ['education', '교육'],
-    ['interview', '인터뷰'],
-    ['recommend', '추천'],
-    ['운전·차량', '가이드 · 운전·차량'],
-    ['병원·보험', '가이드 · 병원·보험'],
-    ['학교·교육', '가이드 · 학교·교육'],
-    ['세금·비즈니스', '가이드 · 세금·비즈니스'],
-    ['주거·생활', '가이드 · 주거·생활'],
-    ['비자·여권', '가이드 · 비자·여권']
-  ],
-  business: [
-    ['job', '구인구직'],
-    ['realestate', '부동산'],
-    ['startup', '창업'],
-    ['promotion', '업체홍보'],
-    ['commercial', '상가'],
-    ['sale_event', '세일·이벤트']
-  ]
-};
-
-function boardSubtypeLabel(value='') {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  for (const options of Object.values(ADMIN_BOARD_SUBTYPES)) {
-    const found = options.find(([v]) => v === raw);
-    if (found) return found[1];
-  }
-  return raw;
-}
-
-function updateBoardSubtypeOptions(selectedValue='') {
-  const select = qs('board_subtype');
-  if (!select) return;
-  const type = normalizeAdminBoardType(val('board_type') || 'notice');
-  const options = ADMIN_BOARD_SUBTYPES[type] || [];
-  const current = String(selectedValue || select.value || '').trim();
-
-  select.innerHTML = '<option value="">세부 분류 선택</option>' + options
-    .map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`)
-    .join('');
-
-  if (current && !options.some(([value]) => value === current)) {
-    select.add(new Option(boardSubtypeLabel(current), current));
-  }
-  select.value = current;
-}
 async function loadBoards() {
   if(!supabase){
   box.innerHTML = 'Supabase 연결 없음';
@@ -1843,7 +1783,7 @@ async function loadBoards() {
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
-  updateBoardSubtypeOptions('');
+  setVal('board_subtype', '');
   setVal('board_region', getAppRegion());
   setVal('board_title', '');
   setVal('board_content', '');
@@ -1870,7 +1810,7 @@ function clearBoardForm() {
 function fillBoardForm(row) {
   setVal('board_id', row.id || '');
   setVal('board_type', normalizeAdminBoardType(row.type || 'notice'));
-  updateBoardSubtypeOptions(row.subtype || (row.type === 'rent' ? 'rent' : row.type === 'sale' ? 'sale' : ''));
+  setVal('board_subtype', row.subtype || (row.type === 'rent' ? 'rent' : row.type === 'sale' ? 'sale' : ''));
   setVal('board_region', row.region || 'dallas');
   setVal('board_title', row.title || '');
   setVal('board_content', row.content || '');
@@ -1924,7 +1864,7 @@ function renderBoardList(items) {
         ${thumb}
         <div>
           <div class="biz-title">${esc(row.title || '게시글')}</div>
-          <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
+          <div class="biz-meta">${esc(boardLabel(row.type))} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
           <div class="biz-meta">${linkedBiz ? '연결 업소: ' + esc(linkedBiz.name_ko || linkedBiz.name_en || linkedBiz.id) : esc(period)}</div>
           <div class="biz-meta">${esc(row.address || row.phone || (row.content || '').slice(0, 80))}</div>
         </div>
@@ -2093,9 +2033,12 @@ async function generateAiGuide({ publish = false } = {}) {
     const article = result.article || {};
     clearBoardForm();
     setVal('board_type', 'life');
-    updateBoardSubtypeOptions('');
     const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
-    updateBoardSubtypeOptions(guideSubtype);
+    const subtypeEl = qs('board_subtype');
+    if (subtypeEl && !Array.from(subtypeEl.options || []).some(opt => opt.value === guideSubtype)) {
+      subtypeEl.add(new Option(guideSubtype, guideSubtype));
+    }
+    setVal('board_subtype', guideSubtype);
     setVal('board_region', getAppRegion());
     setVal('board_title', article.title || topic);
     const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
@@ -2562,7 +2505,6 @@ on('refreshBtn','click', async () => {
 
   on('boardSearchInput', 'input', () => renderBoardList(filterBoards()));
   on('boardTypeFilter', 'change', () => renderBoardList(filterBoards()));
-  on('board_type', 'change', () => updateBoardSubtypeOptions(''));
   on('boardNewBtn', 'click', clearBoardForm);
   on('boardSaveBtn', 'click', saveBoard);
   on('boardDeleteBtn', 'click', deleteBoard);
