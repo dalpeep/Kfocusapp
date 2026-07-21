@@ -4390,3 +4390,14 @@ body,
   #detailCard .business-ai-pick-image{width:62px;height:62px;flex-basis:62px;border-radius:14px;}
   #detailCard .business-ai-pick h3{font-size:17px;}
 }
+
+/* Guide/Life split: center the two community tabs across the full row */
+#communityTabs.community-tabs{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  width:auto;
+}
+#communityTabs .community-tab{
+  width:100%;
+  text-align:center;
+  justify-content:center;
+}
