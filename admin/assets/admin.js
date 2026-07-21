@@ -2757,6 +2757,67 @@ function ensureBannerExtrasUI() {
     bnImage.parentElement?.insertAdjacentElement('afterend', upWrap);
   }
 
+
+  if (!qs('bnDisplayType')) {
+    const typeWrap = document.createElement('div');
+    typeWrap.className = 'field';
+    typeWrap.innerHTML = `
+      <label>광고 표시 형식</label>
+      <select id="bnDisplayType">
+        <option value="banner">큰 이미지 배너</option>
+        <option value="card">일반 카드형</option>
+      </select>
+    `;
+    bnRegion.parentElement?.insertAdjacentElement('afterend', typeWrap);
+  }
+
+  if (!qs('bnPlacement')) {
+    const placeWrap = document.createElement('div');
+    placeWrap.className = 'field';
+    placeWrap.innerHTML = `
+      <label>노출 위치</label>
+      <select id="bnPlacement">
+        <option value="home">홈 배너만</option>
+        <option value="detail">연결 업소 상세만</option>
+        <option value="both">홈 + 업소 상세</option>
+      </select>
+    `;
+    qs('bnDisplayType')?.parentElement?.insertAdjacentElement('afterend', placeWrap);
+  }
+
+  if (!qs('bnDescription')) {
+    const descWrap = document.createElement('div');
+    descWrap.className = 'field full';
+    descWrap.innerHTML = `
+      <label>카드 설명 (선택)</label>
+      <textarea id="bnDescription" rows="3" placeholder="카드형 광고에 표시할 짧은 설명"></textarea>
+    `;
+    bnImage.parentElement?.insertAdjacentElement('beforebegin', descWrap);
+  }
+
+  if (!qs('bnButtonLabel')) {
+    const buttonWrap = document.createElement('div');
+    buttonWrap.className = 'field';
+    buttonWrap.innerHTML = `
+      <label>버튼 문구</label>
+      <input id="bnButtonLabel" type="text" placeholder="자세히 보기">
+    `;
+    qs('bnLink')?.parentElement?.insertAdjacentElement('afterend', buttonWrap);
+  }
+
+  if (!qs('bnStartAt')) {
+    const dateWrap = document.createElement('div');
+    dateWrap.className = 'field full';
+    dateWrap.innerHTML = `
+      <label>노출 기간</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input id="bnStartAt" type="datetime-local" aria-label="노출 시작">
+        <input id="bnEndAt" type="datetime-local" aria-label="노출 종료">
+      </div>
+    `;
+    qs('bnOrder')?.parentElement?.insertAdjacentElement('afterend', dateWrap);
+  }
+
   on('bnBusinessSearch', 'input', renderBannerBusinessOptions);
   on('bnBusinessSelect', 'change', () => {
     const bid = val('bnBusinessSelect');
@@ -3007,6 +3068,12 @@ function clearBannerForm() {
   setChecked('bnActive', true);
   setVal('bnBusinessId', '');
   setVal('bnBusinessSearch', '');
+  setVal('bnDisplayType', 'banner');
+  setVal('bnPlacement', 'home');
+  setVal('bnDescription', '');
+  setVal('bnButtonLabel', '자세히 보기');
+  setVal('bnStartAt', '');
+  setVal('bnEndAt', '');
   const sel = qs('bnBusinessSelect'); if (sel) sel.innerHTML = '<option value="">업소를 검색하세요</option>';
 }
 
@@ -3021,6 +3088,12 @@ function fillBannerForm(row) {
   setChecked('bnActive', row.is_active !== false);
   setVal('bnBusinessId', row.business_id || '');
   setVal('bnBusinessSearch', '');
+  setVal('bnDisplayType', row.display_type || 'banner');
+  setVal('bnPlacement', row.placement || (row.business_id ? 'both' : 'home'));
+  setVal('bnDescription', row.description || '');
+  setVal('bnButtonLabel', row.button_label || '자세히 보기');
+  setVal('bnStartAt', fmtLocal(row.start_at));
+  setVal('bnEndAt', fmtLocal(row.end_at));
   if (typeof renderBannerBusinessOptions === 'function') setTimeout(() => { renderBannerBusinessOptions(); const sel = qs('bnBusinessSelect'); if (sel && row.business_id) sel.value = String(row.business_id); }, 0);
 }
 
@@ -3036,7 +3109,7 @@ function bannerCardAdminHTML(b) {
       <div class="biz-main">
         <div class="biz-title">${esc(b.title || '배너')}</div>
         <div class="biz-meta">${esc(b.region || '')}${b.sort_order != null ? ` · ${esc(String(b.sort_order))}` : ''}</div>
-        <div class="biz-meta">${b.is_active === false ? '비활성' : '활성'}</div>
+        <div class="biz-meta">${esc(b.display_type === 'card' ? '카드형' : '배너형')} · ${esc(b.placement || (b.business_id ? 'both' : 'home'))} · ${b.is_active === false ? '비활성' : '활성'}</div>
       </div>
       <div class="biz-actions">
         <button class="btn ghost banner-edit-btn" type="button" data-id="${esc(b.id)}">수정</button>
@@ -3126,12 +3199,19 @@ async function saveBanner() {
     link_url: val('bnLink').trim(),
     business_id: val('bnBusinessId').trim() || null,
     region: getAppRegion(),
+    display_type: val('bnDisplayType') || 'banner',
+    placement: val('bnPlacement') || 'home',
+    description: val('bnDescription').trim() || null,
+    button_label: val('bnButtonLabel').trim() || '자세히 보기',
+    start_at: fromLocal(val('bnStartAt')),
+    end_at: fromLocal(val('bnEndAt')),
     sort_order: Number(val('bnOrder') || 0),
     is_active: checked('bnActive')
   };
 
   if (!payload.title) return alert('배너 제목을 입력해 주세요.');
   if (!payload.image_url) return alert('배너 이미지 URL을 입력해 주세요.');
+  if (['detail','both'].includes(payload.placement) && !payload.business_id) return alert('업소 상세에 노출하려면 연결 업소를 선택해 주세요.');
 
   const id = val('bnId');
   let result;

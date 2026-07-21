@@ -1690,9 +1690,54 @@ if (typeof renderHomeBusinessTabs === 'function') {
   }
 }
 
+
+function getBusinessPageTheme(){
+  const selected = businessQuickFilter || '';
+  const selectedTarget = normalizeThemeTarget(selected);
+  const now = Date.now();
+  const rows = (dalpicks || []).filter(row => {
+    if (!isThemeDalpick(row) || row.is_active === false) return false;
+    const status = String(row.status || '').toLowerCase();
+    if (status && !['published','active'].includes(status)) return false;
+    const start = row.start_at || row.start_date;
+    const end = row.end_at || row.end_date;
+    if (start && new Date(start).getTime() > now) return false;
+    if (end && new Date(end).getTime() < now) return false;
+    const targets = parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
+    // 업종을 선택하지 않은 기본 화면에서는 전체 업종용 글을 우선하고,
+    // 없으면 가장 최신 추천 테마를 넓게 노출합니다.
+    if (!selectedTarget) return targets.includes('all') || targets.length > 0;
+    return targets.includes('all') || targets.includes(selectedTarget);
+  });
+  return rows.sort((a,b) => {
+    const at = parseThemeTargets(a.target_categories).map(normalizeThemeTarget);
+    const bt = parseThemeTargets(b.target_categories).map(normalizeThemeTarget);
+    if (!selectedTarget) {
+      const aAll = at.includes('all') ? 1 : 0;
+      const bAll = bt.includes('all') ? 1 : 0;
+      if (aAll !== bAll) return bAll - aAll;
+    }
+    return Number(b.is_featured)-Number(a.is_featured) || Number(b.priority||0)-Number(a.priority||0) || new Date(b.created_at||0)-new Date(a.created_at||0);
+  })[0] || null;
+}
+function renderBusinessThemeSpot(){
+  const spot = document.getElementById('businessThemeSpot');
+  if (!spot) return;
+  const theme = getBusinessPageTheme();
+  if (!theme) { spot.innerHTML=''; spot.hidden=true; return; }
+  const summary = String(theme.summary || theme.content || '').trim();
+  const short = summary.length > 92 ? summary.slice(0,92).trim()+'…' : summary;
+  spot.hidden=false;
+  spot.innerHTML = `<button type="button" class="business-main-theme-card" data-theme-id="${esc(theme.id)}">
+    <div class="business-main-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
+    <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
+  </button>`;
+}
+
 function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
+  renderBusinessThemeSpot();
 
   const keyword = String(businessSearch?.value || '').trim().toLowerCase();
   let rows = Array.isArray(businesses) ? businesses.slice() : [];
@@ -1779,7 +1824,14 @@ function renderMainBanners(){
 
   if(!box) return;
 
-  const rows = Array.isArray(mainBanners) ? mainBanners : [];
+  const now = Date.now();
+  const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
+    const placement = String(b.placement || (b.business_id ? 'both' : 'home')).toLowerCase();
+    if (!['home','both'].includes(placement)) return false;
+    if (b.start_at && new Date(b.start_at).getTime() > now) return false;
+    if (b.end_at && new Date(b.end_at).getTime() < now) return false;
+    return true;
+  });
   console.log('[BANNERS] rows for render', rows);
 
   if(!rows.length){
@@ -1905,16 +1957,36 @@ function normalizeThemeTarget(value){
   if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
   return s;
 }
+function parseThemeTargets(value){
+  if(Array.isArray(value)) return value;
+  if(typeof value==='string'){
+    const text=value.trim();
+    if(!text) return [];
+    // PostgreSQL text[] can occasionally arrive as "{restaurant,shopping}".
+    if(text.startsWith('{')&&text.endsWith('}')) return text.slice(1,-1).split(',').map(v=>v.replace(/^"|"$/g,'').trim()).filter(Boolean);
+    try{const parsed=JSON.parse(text);if(Array.isArray(parsed))return parsed;}catch(e){}
+    return text.split(',').map(v=>v.trim()).filter(Boolean);
+  }
+  return [];
+}
 function getBusinessTheme(business){
-  const target=normalizeThemeTarget(business?.category||business?.category_ko||business?.subcategory||'');
+  // business.category may be a UUID/internal value. Build targets from every available
+  // category field plus the same normalized label used by the business list UI.
+  const businessTargets=new Set([
+    normalizeThemeTarget(business?.category),
+    normalizeThemeTarget(business?.category_ko),
+    normalizeThemeTarget(business?.subcategory),
+    normalizeThemeTarget(business?.subcategory_ko),
+    normalizeThemeTarget(getMainCategoryLabel(business?.category_ko||business?.category||business?.subcategory||''))
+  ].filter(Boolean));
   const now=Date.now();
   return (dalpicks||[]).filter(row=>{
     if(!isThemeDalpick(row)||row.is_active===false) return false;
     const status=String(row.status||'').toLowerCase(); if(status&& !['published','active'].includes(status)) return false;
     const start=row.start_at||row.start_date, end=row.end_at||row.end_date;
     if(start&&new Date(start).getTime()>now) return false; if(end&&new Date(end).getTime()<now) return false;
-    const targets=Array.isArray(row.target_categories)?row.target_categories:[];
-    return targets.includes('all')||targets.map(normalizeThemeTarget).includes(target);
+    const targets=parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
+    return targets.includes('all')||targets.some(t=>businessTargets.has(t));
   }).sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.priority||0)-Number(a.priority||0)||new Date(b.created_at||0)-new Date(a.created_at||0))[0]||null;
 }
 function themeReadingMinutes(content){return Math.max(1,Math.ceil(String(content||'').replace(/\s+/g,' ').trim().length/500));}
@@ -2003,8 +2075,58 @@ function renderBusinessAiPick(pick) {
     </section>`;
 }
 
+
+function getBusinessPromotions(businessId){
+  const now = Date.now();
+  return (mainBanners || []).filter(row => {
+    if (String(row.business_id || '') !== String(businessId)) return false;
+    if (row.is_active === false) return false;
+    const placement = String(row.placement || 'both').toLowerCase();
+    if (!['detail','both'].includes(placement)) return false;
+    if (row.start_at && new Date(row.start_at).getTime() > now) return false;
+    if (row.end_at && new Date(row.end_at).getTime() < now) return false;
+    return true;
+  }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0) || new Date(b.created_at||0)-new Date(a.created_at||0));
+}
+
+function renderBusinessPromotion(promo){
+  if (!promo) return '';
+  const type = String(promo.display_type || 'banner').toLowerCase();
+  if (type === 'card') {
+    const desc = String(promo.description || '').trim();
+    return `<button type="button" class="business-detail-ad-card" data-business-promo="${esc(promo.id)}">
+      <div class="business-detail-ad-thumb"><img src="${esc(promo.image_url || '/assets/kfocus-icon.png')}" alt="${esc(promo.title || '업소 광고')}"></div>
+      <div class="business-detail-ad-copy"><div class="business-detail-ad-label">SPONSORED</div><h3>${esc(promo.title || '업소 소식')}</h3>${desc?`<p>${esc(desc.length>100?desc.slice(0,100)+'…':desc)}</p>`:''}<span>${esc(promo.button_label || '자세히 보기')} →</span></div>
+    </button>`;
+  }
+  return `<button type="button" class="business-detail-banner" data-business-promo="${esc(promo.id)}" aria-label="${esc(promo.title || '업소 광고')}">
+    <img src="${esc(promo.image_url || '')}" alt="${esc(promo.title || '업소 광고')}">
+    <span class="business-detail-banner-badge">AD</span>
+  </button>`;
+}
+
+function renderBusinessTopPromo(promotions, coupon, pick){
+  if (promotions && promotions.length) return promotions.slice(0,3).map(renderBusinessPromotion).join('');
+  if (coupon) {
+    const image = coupon.image_url || coupon.image || '';
+    const desc = String(coupon.description || coupon.summary || '').trim();
+    return `<button type="button" class="business-top-promo coupon-open" data-coupon="${esc(coupon.id)}">
+      <div class="business-top-promo-thumb">${image?`<img src="${esc(image)}" alt="${esc(coupon.title||'쿠폰')}">`:'<span>🎟️</span>'}</div>
+      <div class="business-top-promo-copy"><div class="business-top-promo-label">업소 쿠폰</div><h3>${esc(coupon.title||'사용 가능한 쿠폰')}</h3>${desc?`<p>${esc(desc.length>90?desc.slice(0,90)+'…':desc)}</p>`:''}</div>
+    </button>`;
+  }
+  if (pick) {
+    const body = String(pick.summary || pick.content || '').trim();
+    return `<section class="business-top-promo business-top-ad">
+      <div class="business-top-promo-thumb">${pick.image?`<img src="${esc(pick.image)}" alt="${esc(pick.title||'업소 소식')}">`:'<span>📣</span>'}</div>
+      <div class="business-top-promo-copy"><div class="business-top-promo-label">업소 소식</div><h3>${esc(pick.title||'오늘의 업소 소식')}</h3>${body?`<p>${esc(body.length>90?body.slice(0,90)+'…':body)}</p>`:''}</div>
+    </section>`;
+  }
+  return '';
+}
+
 const businessAiPick = getBusinessAiPick(b.id);
-const businessTheme = getBusinessTheme(b);
+const businessPromotions = getBusinessPromotions(b.id);
 function getDescriptionImages(b){
   if (Array.isArray(b.description_images)) return b.description_images;
 
@@ -2018,7 +2140,7 @@ function getDescriptionImages(b){
 detailCard.innerHTML = `
   <article class="biz-detail-v2">
 
-    ${renderBusinessThemeCard(businessTheme)}
+    ${renderBusinessTopPromo(businessPromotions, activeCoupon, businessAiPick)}
     <div class="biz-detail-hero">
       <img src="${esc(img)}" alt="${esc(bizName)}">
 
@@ -2030,7 +2152,6 @@ detailCard.innerHTML = `
       </div>
     </div>
 
-    ${renderBusinessAiPick(businessAiPick)}
 	
 ${((b.video_url || b.youtube_url) || (b.gallery_urls || b.galleryImages || []).length) ? `
 <div class="biz-gallery-strip">
@@ -2185,6 +2306,14 @@ ${getDescriptionImages(b).length ? `
 
   </article>
 `;
+
+detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
+    if (!promo) return;
+    if (promo.link_url) window.open(normalizeUrl(promo.link_url), '_blank', 'noopener');
+  });
+});
 
 detailCard.querySelector('[data-theme-id]')?.addEventListener('click',()=>{
   const theme=(dalpicks||[]).find(d=>String(d.id)===String(detailCard.querySelector('[data-theme-id]')?.dataset.themeId));
