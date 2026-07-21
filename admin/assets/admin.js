@@ -1837,6 +1837,7 @@ async function loadBoards() {
   }
   boardTable = 'posts';
   boards = loaded || [];
+  const aiBiz=qs('aiContentBusiness'); if(aiBiz){ aiBiz.innerHTML='<option value="">선택 안 함</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join(''); }
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
@@ -2063,7 +2064,7 @@ function setAiGuideBusy(busy, message='') {
 async function generateAiGuide({ publish = false } = {}) {
   const topic = val('aiGuideTopic').trim();
   const category = val('aiGuideCategory') || 'driving';
-  const boardType = val('aiGuideBoardType') || 'life';
+  const contentType = val('aiContentType') || 'guide';
   const sources = String(val('aiGuideSources') || '')
     .split(/\r?\n|,/)
     .map(v => v.trim())
@@ -2083,7 +2084,7 @@ async function generateAiGuide({ publish = false } = {}) {
     const response = await fetch('/.netlify/functions/generate-guide', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, category, sources, instructions })
+      body: JSON.stringify({ topic, category, sources, instructions, contentType, businessName: qs('aiContentBusiness')?.selectedOptions?.[0]?.textContent || '' })
     });
     const text = await response.text();
     let result = {};
@@ -2092,10 +2093,16 @@ async function generateAiGuide({ publish = false } = {}) {
 
     const article = result.article || {};
     clearBoardForm();
-    setVal('board_type', 'life');
-    updateBoardSubtypeOptions('');
-    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
+    const typeMap = { dalpick:'life', event:'notice', life:'life', guide:'life', ai_pick:'life' };
+    const subtypeMap = { dalpick:'dalpick_recommend', event:'event', life:'recommend', ai_pick:'ai_pick' };
+    setVal('board_type', typeMap[contentType] || 'life');
+    const guideSubtype = contentType === 'guide' ? (result.category_name || category) : (subtypeMap[contentType] || 'recommend');
     updateBoardSubtypeOptions(guideSubtype);
+    if(contentType === 'dalpick' && !Array.from(qs('board_subtype').options).some(o=>o.value===guideSubtype)) qs('board_subtype').add(new Option('DalPick · 추천', guideSubtype));
+    if(contentType === 'ai_pick' && !Array.from(qs('board_subtype').options).some(o=>o.value===guideSubtype)) qs('board_subtype').add(new Option('업소 AI Pick', guideSubtype));
+    setVal('board_subtype', guideSubtype);
+    setVal('board_business_select', val('aiContentBusiness'));
+    setVal('board_business_id', val('aiContentBusiness'));
     setVal('board_region', getAppRegion());
     setVal('board_title', article.title || topic);
     const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
