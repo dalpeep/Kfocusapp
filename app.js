@@ -1957,6 +1957,10 @@ function normalizeThemeTarget(value){
   if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
   return s;
 }
+// Backward-compatible alias for an earlier theme helper typo used by cached builds.
+function normalThemeTarget(value){
+  return normalizeThemeTarget(value);
+}
 function parseThemeTargets(value){
   if(Array.isArray(value)) return value;
   if(typeof value==='string'){
