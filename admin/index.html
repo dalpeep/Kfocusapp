@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=2" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=8"></script>
+  <script type="module" src="assets/admin.js?v=dalpick-studio-1"></script>
 <style>
 .admin-card{
   background:#fff;
@@ -31,15 +31,18 @@
       </div>
 
       <nav class="nav" id="adminNav">
+        <div class="nav-group-title">콘텐츠 스튜디오</div>
+        <button class="nav-item" data-section="dalpick">AI 콘텐츠 스튜디오</button>
+        <button class="nav-item" data-section="board">게시판·가이드 관리</button>
+        <div class="nav-group-title">운영 관리</div>
         <button class="nav-item active" data-section="business">업소 관리</button>
         <button class="nav-item" data-section="coupon">쿠폰 관리</button>
         <button class="nav-item" data-section="couponRedemptions">쿠폰 사용 내역</button>
         <button class="nav-item" data-section="slide">슬라이드 관리</button>
-        <button class="nav-item" data-section="dalpick">DalPick 관리</button>
-        <button class="nav-item" data-section="board">게시판 관리</button>
 		<button class="nav-item" data-section="banners">배너 관리</button>
 		<button class="nav-item" data-section="requests">신청 관리</button>
 		<button class="nav-item" data-section="adsOps" onclick="loadAdsOps()">광고 운영</button>
+        <button class="nav-item" data-section="performance">광고 성과 센터</button>
 		<button class="nav-item" type="button" data-section="push">푸시 발송</button>
         <button class="nav-item" type="button" data-section="adminUsers">관리자 관리</button>
       </nav>
@@ -727,22 +730,57 @@
             <div class="panel-head"><h2>DalPick 목록</h2><span id="dalpickCountText" class="muted">0개</span></div>
             <div class="toolbar-row">
               <label class="field compact"><span>검색</span><input id="dalpickSearchInput" type="text" placeholder="제목, 요약, 업소명" /></label>
-              <label class="field compact"><span>분류</span><select id="dalpickCategoryFilter"><option value="all">전체</option><option value="new_business">신규 업소</option><option value="coupon">쿠폰</option><option value="recommended">추천 업소</option><option value="ai_pick">AI 추천</option><option value="seasonal">시즌 추천</option><option value="event">행사</option><option value="promotion">프로모션</option></select></label>
+              <label class="field compact"><span>콘텐츠 유형</span><select id="dalpickCategoryFilter">
+                <option value="all">전체</option><option value="local_info">지역 정보</option><option value="lifestyle">생활 정보</option><option value="themed">테마 추천</option><option value="recommended">추천 업소</option><option value="new_business">신규 업소</option><option value="coupon">쿠폰</option><option value="event">행사</option><option value="business_story">업소탐방 Premium</option>
+              </select></label>
               <button id="dalpickNewBtn" class="btn primary inline-btn" type="button">새 DalPick</button>
             </div>
             <div id="dalpickList" class="business-list"></div>
           </div>
           <div class="panel">
-            <div class="panel-head"><h2 id="dalpickFormTitle">새 DalPick</h2><div><button id="dalpickDeleteBtn" class="btn danger" type="button">삭제</button> <button id="dalpickSaveBtn" class="btn primary" type="button">저장</button></div></div>
+            <div class="panel-head"><div><h2 id="dalpickFormTitle">DalPick 콘텐츠 스튜디오</h2><p class="muted">주제와 핵심 내용만 입력하고 AI로 초안을 만든 뒤 검토하여 게시하세요.</p></div><div><button id="dalpickDeleteBtn" class="btn danger" type="button">삭제</button> <button id="dalpickSaveBtn" class="btn primary" type="button">저장</button></div></div>
             <form id="dalpickForm" class="form-grid">
               <input type="hidden" id="dalpick_id" />
-              <label class="field"><span>분류</span><select id="dalpick_category"><option value="new_business">신규 업소</option><option value="coupon">쿠폰</option><option value="recommended">추천 업소</option><option value="ai_pick">AI 추천</option><option value="seasonal">시즌 추천</option><option value="event">행사</option><option value="promotion">프로모션</option></select></label>
+              <label class="field"><span>콘텐츠 유형</span><select id="dalpick_category">
+                <option value="local_info">지역 정보 · 업소 연결 없음</option>
+                <option value="lifestyle">생활 정보 · 업소 연결 없음</option>
+                <option value="themed">테마 추천 · 업소 선택 가능</option>
+                <option value="recommended">추천 업소 · 업소 필수</option>
+                <option value="new_business">신규 업소 · 업소 필수</option>
+                <option value="coupon">쿠폰 · 업소 권장</option>
+                <option value="event">행사 · 업소 선택 가능</option>
+                <option value="business_story">업소탐방 Premium · 업소 필수</option>
+              </select></label>
               <label class="field"><span>지역</span><select id="dalpick_region"><option value="dallas">Dallas</option><option value="colorado">Denver</option></select></label>
+
+              <div class="field full dalpick-ai-box">
+                <div class="dalpick-ai-head"><div><strong>✨ AI 기사 작성</strong><p id="dalpickTypeHelp" class="muted">지역 명소, 여행지, 계절 정보를 업소 연결 없이 작성할 수 있습니다.</p></div><button id="dalpickAiBtn" class="btn primary" type="button">AI 초안 만들기</button></div>
+                <div class="form-grid dalpick-ai-grid">
+                  <label class="field full"><span>주제</span><input id="dalpick_topic" type="text" placeholder="예: 텍사스 여름에 가볼 만한 계곡" /></label>
+                  <label class="field full"><span>AI에게 알려줄 핵심 내용</span><textarea id="dalpick_instructions" rows="4" placeholder="예: 달라스에서 운전 가능한 거리, 가족 방문, 입장료와 주차 여부를 포함. 확인되지 않은 정보는 단정하지 말 것."></textarea></label>
+                  <label class="field full"><span>참고 출처 URL (선택, 줄바꿈 구분)</span><textarea id="dalpick_sources" rows="2" placeholder="https://...&#10;https://..."></textarea></label>
+                </div>
+                <div id="dalpickAiStatus" class="muted">준비됨</div>
+              </div>
+
+              <div id="businessStoryFields" class="field full premium-story-box" hidden>
+                <div class="panel-head"><div><strong>🏪 업소탐방 인터뷰 자료</strong><p class="muted">대표자에게 받은 답변만 사용하며, AI가 사실을 만들어내지 않도록 구성합니다.</p></div><span class="pill">Sponsored</span></div>
+                <div class="form-grid">
+                  <label class="field"><span>기사 스타일</span><select id="dalpick_story_style"><option value="interview">대표자 인터뷰형</option><option value="story">브랜드 스토리형</option><option value="intro">업소 소개형</option></select></label>
+                  <label class="field"><span>대표자 이름 (선택)</span><input id="dalpick_owner_name" type="text" /></label>
+                  <label class="field full"><span>창업 계기</span><textarea id="dalpick_q1" rows="2"></textarea></label>
+                  <label class="field full"><span>가장 자신 있는 서비스·메뉴</span><textarea id="dalpick_q2" rows="2"></textarea></label>
+                  <label class="field full"><span>다른 업소와의 차별점</span><textarea id="dalpick_q3" rows="2"></textarea></label>
+                  <label class="field full"><span>고객이 많이 찾는 이유</span><textarea id="dalpick_q4" rows="2"></textarea></label>
+                  <label class="field full"><span>앞으로의 계획</span><textarea id="dalpick_q5" rows="2"></textarea></label>
+                  <label class="field full"><span>고객에게 전하고 싶은 말</span><textarea id="dalpick_q6" rows="2"></textarea></label>
+                </div>
+              </div>
+              <label class="field full"><span>연결 업소 <small id="dalpickBusinessRequirement" class="muted">선택 사항</small></span><select id="dalpick_business_id"><option value="">연결 안 함</option></select></label>
               <label class="field full"><span>제목</span><input id="dalpick_title" type="text" /></label>
               <label class="field full"><span>요약</span><textarea id="dalpick_summary" rows="3"></textarea></label>
-              <label class="field full"><span>본문</span><textarea id="dalpick_content" rows="8"></textarea></label>
-              <label class="field full"><span>연결 업소</span><select id="dalpick_business_id"><option value="">연결 안 함</option></select></label>
-              <label class="field full"><span>대표 이미지 URL</span><input id="dalpick_image_url" type="url" placeholder="https://..." /></label>
+              <label class="field full"><span>본문</span><textarea id="dalpick_content" rows="10"></textarea></label>
+              <label class="field full"><span>대표 이미지 URL</span><input id="dalpick_image_url" type="url" placeholder="https://... (업소 연결 시 비워두면 업소 대표사진 사용 가능)" /></label>
               <label class="field"><span>노출 시작</span><input id="dalpick_start_at" type="datetime-local" /></label>
               <label class="field"><span>노출 종료</span><input id="dalpick_end_at" type="datetime-local" /></label>
               <label class="field"><span>우선순위</span><input id="dalpick_priority" type="number" min="0" value="0" /></label>
@@ -750,6 +788,22 @@
               <label class="field checkbox-line"><input id="dalpick_is_active" type="checkbox" checked /><span>게시</span></label>
             </form>
           </div>
+        </div>
+      </section>
+
+      <section id="section-performance" class="admin-section hidden">
+        <div class="panel-head"><div><h2>광고 성과 센터</h2><p class="muted">이 화면은 관리자에게만 표시됩니다. 일반 사용자 화면에는 조회수·클릭수·성과 등급이 노출되지 않습니다.</p></div><span class="pill">Private Admin Only</span></div>
+        <div class="performance-grid">
+          <div class="metric-card"><span>기사 조회</span><strong id="metricArticleViews">0</strong><small>최근 30일</small></div>
+          <div class="metric-card"><span>AI Pick 클릭</span><strong id="metricAiPickClicks">0</strong><small>최근 30일</small></div>
+          <div class="metric-card"><span>전화 연결</span><strong id="metricPhoneClicks">0</strong><small>최근 30일</small></div>
+          <div class="metric-card"><span>길찾기</span><strong id="metricDirectionClicks">0</strong><small>최근 30일</small></div>
+          <div class="metric-card"><span>웹사이트 방문</span><strong id="metricWebsiteClicks">0</strong><small>최근 30일</small></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>업소별 비공개 성과</h3><button id="performanceRefreshBtn" class="btn ghost" type="button">새로고침</button></div>
+          <div id="performanceStatus" class="muted">성과 테이블을 연결하면 데이터가 표시됩니다.</div>
+          <div id="performanceBusinessList" class="performance-table"></div>
         </div>
       </section>
 
@@ -792,7 +846,7 @@
         <section class="toolbar card">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="boardSearchInput" type="text" placeholder="제목, 내용" /></label>
-            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="notice">행사안내</option><option value="life">달라스 라이프</option><option value="guide">달라스 가이드</option><option value="business">비즈니스</option></select></label>
+            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="notice">행사안내</option><option value="life">달라스 라이프</option><option value="guide">달라스 가이드</option><option value="business_story">업소탐방</option></select></label>
             <button id="boardNewBtn" class="btn primary inline-btn" type="button">새 글</button>
           </div>
         </section>
@@ -814,7 +868,7 @@
 
             <form id="boardForm" class="form-grid">
               <input type="hidden" id="board_id" />
-              <label class="field"><span>분류</span><select id="board_type"><option value="notice">행사안내</option><option value="life">달라스 라이프</option><option value="guide">달라스 가이드</option><option value="business">비즈니스</option></select></label>
+              <label class="field"><span>분류</span><select id="board_type"><option value="notice">행사안내</option><option value="life">달라스 라이프</option><option value="guide">달라스 가이드</option><option value="business_story">업소탐방</option></select></label>
               <label class="field"><span>세부 분류</span><select id="board_subtype"></select></label>
               <label class="field"><span>지역</span><select id="board_region"><option value="colorado">colorado</option><option value="dallas">dallas</option></select></label>
               <label class="field full"><span>제목</span><input id="board_title" type="text" /></label>

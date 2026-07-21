@@ -532,3 +532,13 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .ai-guide-actions .tiny{flex:1;min-width:240px}
 .ai-guide-actions button[disabled]{opacity:.65;cursor:wait}
 @media(max-width:720px){.ai-guide-actions .btn{width:100%}.ai-guide-actions .tiny{min-width:100%}}
+
+/* DalPick Content Studio */
+.dalpick-ai-box{border:1px solid #cfe0ff;border-radius:16px;padding:16px;background:linear-gradient(180deg,#f7fbff 0%,#fff 100%)}
+.dalpick-ai-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+.dalpick-ai-head p{margin:4px 0 0}
+.dalpick-ai-grid{margin-top:8px}
+#dalpickAiStatus{margin-top:10px;min-height:20px}
+@media(max-width:760px){.dalpick-ai-head{flex-direction:column}.dalpick-ai-head .btn{width:100%}}
+
+.nav-group-title{padding:18px 14px 7px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.62}.premium-story-box{border:1px solid #f1c879;background:#fffaf0;border-radius:14px;padding:16px}.performance-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}.metric-card{background:#fff;border:1px solid #dfe6f2;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}.metric-card strong{font-size:28px}.metric-card small{color:#64748b}.performance-row{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:12px;padding:12px;border-bottom:1px solid #edf1f7}.performance-table{margin-top:10px}@media(max-width:900px){.performance-grid{grid-template-columns:repeat(2,1fr)}.performance-row{grid-template-columns:1fr 1fr}}
