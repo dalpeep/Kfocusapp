@@ -11,6 +11,7 @@ let supabase = null;
 let businesses = [];
 let coupons = [];
 let boards = [];
+let dalpicks = [];
 let slides = [];
 let banners = [];
 let boardTable = 'posts';
@@ -149,6 +150,7 @@ let currentSection = 'business';
 let selectedId = null;
 let selectedCouponId = null;
 let selectedBoardId = null;
+let selectedDalpickId = null;
 let selectedSlideBusinessId = null;
 
 const BUSINESS_FIELDS = [
@@ -236,6 +238,7 @@ function setPageMeta() {
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
+    dalpick: ['DalPick 관리자', '메인 추천 콘텐츠를 등록하고 노출 기간과 우선순위를 관리합니다.'],
     board: ['커뮤니티 관리자', '지역소식 / 라이프 / 비즈니스 글을 관리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
     requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
@@ -1809,6 +1812,18 @@ function updateBoardSubtypeOptions(selectedValue='') {
   }
   select.value = current;
 }
+
+const DALPICK_LABELS={new_business:'신규 업소',coupon:'쿠폰',recommended:'추천 업소',ai_pick:'AI 추천',seasonal:'시즌 추천',event:'행사',promotion:'프로모션'};
+function dalpickLabel(v){return DALPICK_LABELS[v]||v||'DalPick';}
+function renderDalpickBusinessOptions(){const el=qs('dalpick_business_id');if(!el)return;const cur=el.value;el.innerHTML='<option value="">연결 안 함</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.id)}</option>`).join('');el.value=cur;}
+async function loadDalpicks(){if(!supabase)return;const {data,error}=await supabase.from('dalpick').select('*').eq('region',getAppRegion()).order('is_featured',{ascending:false}).order('priority',{ascending:false}).order('created_at',{ascending:false});if(error){console.warn('DalPick load:',error.message);safeText('dalpickCountText','테이블 필요');return;}dalpicks=data||[];renderDalpickBusinessOptions();renderDalpickList(filterDalpicks());}
+function filterDalpicks(){const q=val('dalpickSearchInput').trim().toLowerCase(),cat=val('dalpickCategoryFilter')||'all';return dalpicks.filter(d=>{if(cat!=='all'&&d.category!==cat)return false;if(!q)return true;const b=businesses.find(x=>String(x.id)===String(d.business_id));return [d.title,d.summary,d.content,b?.name_ko,b?.name_en].join(' ').toLowerCase().includes(q);});}
+function renderDalpickList(items){safeText('dalpickCountText',`${items.length}개`);const el=qs('dalpickList');if(!el)return;el.innerHTML=items.map(d=>{const b=businesses.find(x=>String(x.id)===String(d.business_id));return `<button type="button" class="biz-item dalpick-row ${String(d.id)===String(selectedDalpickId)?'active':''}" data-id="${esc(d.id)}">${d.image_url?`<img class="biz-thumb" src="${esc(d.image_url)}" alt="">`:'<div class="biz-thumb board-thumb-fallback">✨</div>'}<div><div class="biz-title">${esc(d.title||'제목 없음')}</div><div class="biz-meta">${esc(dalpickLabel(d.category))}${d.is_featured?' · 대표':''}${d.is_active===false?' · 비활성':''}</div><div class="biz-meta">${esc(b?.name_ko||b?.name_en||d.summary||'')}</div></div></button>`}).join('')||'<div class="muted">등록된 DalPick이 없습니다.</div>';el.querySelectorAll('.dalpick-row').forEach(btn=>btn.addEventListener('click',()=>{const row=dalpicks.find(d=>String(d.id)===String(btn.dataset.id));if(row){fillDalpickForm(row);renderDalpickList(filterDalpicks());}}));}
+function clearDalpickForm(){selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_category','new_business');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_is_active',true);safeText('dalpickFormTitle','새 DalPick');renderDalpickList(filterDalpicks());}
+function fillDalpickForm(d){selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'recommended');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_is_active',d.is_active!==false);safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);}
+async function saveDalpick(){const payload={region:getAppRegion(),category:val('dalpick_category'),title:val('dalpick_title').trim(),summary:val('dalpick_summary').trim()||null,content:val('dalpick_content').trim()||null,business_id:val('dalpick_business_id')||null,image_url:val('dalpick_image_url').trim()||null,start_at:fromLocal(val('dalpick_start_at')),end_at:fromLocal(val('dalpick_end_at')),priority:Number(val('dalpick_priority')||0),is_featured:checked('dalpick_is_featured'),is_active:checked('dalpick_is_active')};if(!payload.title)return alert('제목을 입력하세요.');const q=selectedDalpickId?supabase.from('dalpick').update(payload).eq('id',selectedDalpickId):supabase.from('dalpick').insert(payload);const {error}=await q;if(error)return alert(`DalPick 저장 실패: ${error.message}`);await loadDalpicks();clearDalpickForm();alert('DalPick을 저장했습니다.');}
+async function deleteDalpick(){if(!selectedDalpickId)return alert('삭제할 DalPick을 선택하세요.');if(!confirm('이 DalPick을 삭제할까요?'))return;const {error}=await supabase.from('dalpick').delete().eq('id',selectedDalpickId);if(error)return alert(`삭제 실패: ${error.message}`);await loadDalpicks();clearDalpickForm();}
+
 async function loadBoards() {
   if(!supabase){
   box.innerHTML = 'Supabase 연결 없음';
@@ -1837,7 +1852,6 @@ async function loadBoards() {
   }
   boardTable = 'posts';
   boards = loaded || [];
-  const aiBiz=qs('aiContentBusiness'); if(aiBiz){ aiBiz.innerHTML='<option value="">선택 안 함</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join(''); }
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
@@ -2064,7 +2078,7 @@ function setAiGuideBusy(busy, message='') {
 async function generateAiGuide({ publish = false } = {}) {
   const topic = val('aiGuideTopic').trim();
   const category = val('aiGuideCategory') || 'driving';
-  const contentType = val('aiContentType') || 'guide';
+  const boardType = val('aiGuideBoardType') || 'life';
   const sources = String(val('aiGuideSources') || '')
     .split(/\r?\n|,/)
     .map(v => v.trim())
@@ -2084,7 +2098,7 @@ async function generateAiGuide({ publish = false } = {}) {
     const response = await fetch('/.netlify/functions/generate-guide', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, category, sources, instructions, contentType, businessName: qs('aiContentBusiness')?.selectedOptions?.[0]?.textContent || '' })
+      body: JSON.stringify({ topic, category, sources, instructions })
     });
     const text = await response.text();
     let result = {};
@@ -2093,16 +2107,10 @@ async function generateAiGuide({ publish = false } = {}) {
 
     const article = result.article || {};
     clearBoardForm();
-    const typeMap = { dalpick:'life', event:'notice', life:'life', guide:'life', ai_pick:'life' };
-    const subtypeMap = { dalpick:'dalpick_recommend', event:'event', life:'recommend', ai_pick:'ai_pick' };
-    setVal('board_type', typeMap[contentType] || 'life');
-    const guideSubtype = contentType === 'guide' ? (result.category_name || category) : (subtypeMap[contentType] || 'recommend');
+    setVal('board_type', 'life');
+    updateBoardSubtypeOptions('');
+    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
     updateBoardSubtypeOptions(guideSubtype);
-    if(contentType === 'dalpick' && !Array.from(qs('board_subtype').options).some(o=>o.value===guideSubtype)) qs('board_subtype').add(new Option('DalPick · 추천', guideSubtype));
-    if(contentType === 'ai_pick' && !Array.from(qs('board_subtype').options).some(o=>o.value===guideSubtype)) qs('board_subtype').add(new Option('업소 AI Pick', guideSubtype));
-    setVal('board_subtype', guideSubtype);
-    setVal('board_business_select', val('aiContentBusiness'));
-    setVal('board_business_id', val('aiContentBusiness'));
     setVal('board_region', getAppRegion());
     setVal('board_title', article.title || topic);
     const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
@@ -2536,6 +2544,7 @@ function bindEvents() {
 
 on('refreshBtn','click', async () => {
   await Promise.all([loadBusinesses(), loadCoupons(), loadBoards(), loadSlides(), loadBusinessStats()]);
+  await loadDalpicks();
 
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
@@ -2567,6 +2576,11 @@ on('refreshBtn','click', async () => {
   on('couponSaveBtn', 'click', saveCoupon);
   on('couponDeleteBtn', 'click', deleteCoupon);
 
+  on('dalpickSearchInput','input',()=>renderDalpickList(filterDalpicks()));
+  on('dalpickCategoryFilter','change',()=>renderDalpickList(filterDalpicks()));
+  on('dalpickNewBtn','click',clearDalpickForm);
+  on('dalpickSaveBtn','click',saveDalpick);
+  on('dalpickDeleteBtn','click',deleteDalpick);
   on('boardSearchInput', 'input', () => renderBoardList(filterBoards()));
   on('boardTypeFilter', 'change', () => renderBoardList(filterBoards()));
   on('board_type', 'change', () => updateBoardSubtypeOptions(''));
@@ -2710,7 +2724,8 @@ async function init() {
   clearSlideForm();
   switchSection('business');
 
-  await Promise.all([loadBusinesses(), loadCoupons(), loadBanners() ,loadBoards(), loadSlides(), loadBusinessStats()]);
+  await Promise.all([loadBusinesses(), loadCoupons(), loadBanners(), loadBoards(), loadSlides(), loadBusinessStats()]);
+  await loadDalpicks();
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
   

@@ -89,7 +89,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=8" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -269,11 +269,11 @@ onclick="showPage('contact');closeMenu();">
     <button
       class="text-link"
       type="button"
-      data-board="dalpick">
-      전체보기
+      data-nav="coupon">
+      쿠폰보기
     </button>
   </div>
-  <div id="dalPickList" class="dalpick-list"></div>
+  <div id="dalpickList" class="dalpick-home-list"></div>
 
 
 <section class="card section-card home-business-tabs-card">
@@ -315,8 +315,9 @@ onclick="showPage('contact');closeMenu();">
 
   
 <div id="communityTabs" class="community-tabs">
-  <button type="button" class="community-tab active" data-board="notice">행사안내</button>
-  <button type="button" class="community-tab" data-board="life">달라스 라이프</button>
+  <button type="button" class="community-tab active" data-board="notice">지역소식</button>
+  <button type="button" class="community-tab" data-board="life">라이프</button>
+  <button type="button" class="community-tab" data-board="business">비즈니스</button>
 </div>
 
   <div id="homeBoardList" class="home-board-list"></div>
@@ -368,7 +369,7 @@ onclick="showPage('contact');closeMenu();">
         <section class="card section-card guide-page-card">
           <div class="guide-page-head">
             <span class="guide-page-icon"><i data-lucide="book-open"></i></span>
-            <div><h2>달라스 가이드</h2><p>달라스에 처음 온 분을 위한 필수 생활정보를 확인하세요.</p></div>
+            <div><h2>달라스 가이드</h2><p>달라스 생활에 필요한 정보를 주제별로 확인하세요.</p></div>
           </div>
           <div class="guide-grid">
             <button class="guide-card" type="button" data-guide-topic="운전면허 차량등록 자동차">🚗<strong>운전·차량</strong><span>면허, 차량등록, 교통 정보</span></button>
@@ -581,7 +582,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 <script src="main-banners.js?v=2"></script>
 <script type="module" src="main-banners.js"></script>
 
