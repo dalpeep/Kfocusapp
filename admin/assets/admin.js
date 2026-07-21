@@ -1746,11 +1746,12 @@ function normalizeAdminBoardType(t='') {
   const v = String(t || '').toLowerCase();
   if (['notice','event','local'].includes(v)) return 'notice';
   if (['life','news','column'].includes(v)) return 'life';
+  if (['guide','dallas-guide','dallas_guide'].includes(v)) return 'guide';
   if (['business','job','rent','sale','realestate','property'].includes(v)) return 'business';
   return 'notice';
 }
 function boardLabel(t) {
-  return { notice: '지역소식', life: '라이프', business: '비즈니스', event: '지역소식', news: '라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '지역소식';
+  return { notice: '행사안내', life: '달라스 라이프', guide: '달라스 가이드', business: '비즈니스', event: '행사안내', news: '달라스 라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '행사안내';
 }
 
 const ADMIN_BOARD_SUBTYPES = {
@@ -1768,13 +1769,15 @@ const ADMIN_BOARD_SUBTYPES = {
     ['health', '건강'],
     ['education', '교육'],
     ['interview', '인터뷰'],
-    ['recommend', '추천'],
-    ['운전·차량', '가이드 · 운전·차량'],
-    ['병원·보험', '가이드 · 병원·보험'],
-    ['학교·교육', '가이드 · 학교·교육'],
-    ['세금·비즈니스', '가이드 · 세금·비즈니스'],
-    ['주거·생활', '가이드 · 주거·생활'],
-    ['비자·여권', '가이드 · 비자·여권']
+    ['recommend', '추천']
+  ],
+  guide: [
+    ['운전·차량', '운전·차량'],
+    ['병원·보험', '병원·보험'],
+    ['학교·교육', '학교·교육'],
+    ['세금·비즈니스', '세금·비즈니스'],
+    ['주거·생활', '주거·생활'],
+    ['비자·여권', '비자·여권']
   ],
   business: [
     ['job', '구인구직'],
@@ -1932,7 +1935,7 @@ function renderBoardList(items) {
     const linkedBiz = businesses.find((b) => String(b.id) === String(row.business_id || row.linked_business_id || ''));
     const thumb = row.image_url
       ? `<img class="biz-thumb board-thumb-image" src="${esc(row.image_url)}" alt="${esc(row.title || '게시글')}" />`
-      : `<div class="biz-thumb board-thumb-fallback">${({ notice: '🎉', news: '📰', job: '💼', realestate: '🏠', rent: '🏠', sale: '🏠' })[normalizeAdminBoardType(row.type)] || '📝'}</div>`;
+      : `<div class="biz-thumb board-thumb-fallback">${({ notice: '📅', life: '📰', guide: '📘', business: '💼' })[normalizeAdminBoardType(row.type)] || '📝'}</div>`;
 
     return `
       <button type="button" class="biz-item board-row ${row.id === selectedBoardId ? 'active' : ''}" data-id="${esc(row.id)}">
@@ -2078,7 +2081,7 @@ function setAiGuideBusy(busy, message='') {
 async function generateAiGuide({ publish = false } = {}) {
   const topic = val('aiGuideTopic').trim();
   const category = val('aiGuideCategory') || 'driving';
-  const boardType = val('aiGuideBoardType') || 'life';
+  const boardType = val('aiGuideBoardType') || 'guide';
   const sources = String(val('aiGuideSources') || '')
     .split(/\r?\n|,/)
     .map(v => v.trim())
@@ -2107,7 +2110,7 @@ async function generateAiGuide({ publish = false } = {}) {
 
     const article = result.article || {};
     clearBoardForm();
-    setVal('board_type', 'life');
+    setVal('board_type', 'guide');
     updateBoardSubtypeOptions('');
     const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
     updateBoardSubtypeOptions(guideSubtype);

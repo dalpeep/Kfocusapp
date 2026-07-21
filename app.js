@@ -630,17 +630,18 @@ function queryMatches(query, values){
 function normalizeBoardType(v = '') {
   const s = normalizeSearchText(v);
   if (['notice','event','events','local','community','지역소식','행사','공지','공지/행사','행사안내'].includes(s)) return 'notice';
-  if (['life','lifestyle','news','column','news-column','라이프','뉴스','칼럼','뉴스·칼럼','뉴스/칼럼'].includes(s)) return 'life';
+  if (['life','lifestyle','news','column','news-column','라이프','뉴스','칼럼','뉴스·칼럼','뉴스/칼럼','달라스 라이프'].includes(s)) return 'life';
+  if (['guide','dallas-guide','dallas_guide','가이드','달라스 가이드'].includes(s)) return 'guide';
   if (['business','biz','job','jobs','realestate','property','rent','rental','sale','비즈니스','구인','구직','구인구직','구인/구직','렌트','임대','매매','부동산','하우징','업체홍보','창업'].includes(s)) return 'business';
   return 'notice';
 }
 
 function boardLabel(type) {
-  return { notice: '지역소식', life: '라이프', business: '비즈니스' }[normalizeBoardType(type)] || '지역소식';
+  return { notice: '행사안내', life: '달라스 라이프', guide: '달라스 가이드', business: '비즈니스' }[normalizeBoardType(type)] || '행사안내';
 }
 
 function boardThumbEmoji(type) {
-  return { notice: '📢', life: '📰', business: '💼' }[normalizeBoardType(type)] || '📝';
+  return { notice: '📅', life: '📰', guide: '📘', business: '💼' }[normalizeBoardType(type)] || '📝';
 }
 function parseBoardGallery(value){
   if(Array.isArray(value)) return value.filter(Boolean);
@@ -1575,13 +1576,13 @@ function renderGuidePosts(topic='') {
   if (!list) return;
   const q = normalizeSearchText(topic);
   const rows = boardPosts.filter(p => {
-    const isLife = normalizeBoardType(p.type) === 'life';
+    const isGuide = normalizeBoardType(p.type) === 'guide';
     const visible = adminSession || !p.region || normalizeRegionKey(p.region) === currentRegion;
     const text = normalizeSearchText([p.title, p.content, p.subtype].filter(Boolean).join(' '));
     const keywords = q.split(/\s+/).filter(Boolean);
-    return isLife && visible && (!keywords.length || keywords.some(word => text.includes(word)));
+    return isGuide && visible && (!keywords.length || keywords.some(word => text.includes(word)));
   }).slice(0, 12);
-  list.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : '<div class="board-empty">등록된 생활정보 글이 없습니다.</div>';
+  list.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : '<div class="board-empty">등록된 달라스 가이드가 없습니다.</div>';
 }
 
 function renderHome(){

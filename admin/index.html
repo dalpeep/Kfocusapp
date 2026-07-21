@@ -776,7 +776,7 @@
             </label>
             <label class="field"><span>게시 분류</span>
               <select id="aiGuideBoardType" disabled>
-                <option value="life">라이프 (달라스 가이드에 표시)</option>
+                <option value="guide">달라스 가이드 (고정 정보)</option>
               </select>
             </label>
             <label class="field full"><span>참고할 공식 출처 URL (선택)</span><textarea id="aiGuideSources" rows="3" placeholder="한 줄에 하나씩 입력하세요. AI가 출처를 임의로 만들지 않도록 공식 링크를 넣는 것이 좋습니다."></textarea></label>
@@ -792,7 +792,7 @@
         <section class="toolbar card">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="boardSearchInput" type="text" placeholder="제목, 내용" /></label>
-            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="notice">지역소식</option><option value="life">라이프</option><option value="business">비즈니스</option></select></label>
+            <label class="field compact"><span>분류</span><select id="boardTypeFilter"><option value="all">전체</option><option value="notice">행사안내</option><option value="life">달라스 라이프</option><option value="guide">달라스 가이드</option><option value="business">비즈니스</option></select></label>
             <button id="boardNewBtn" class="btn primary inline-btn" type="button">새 글</button>
           </div>
         </section>
@@ -814,7 +814,7 @@
 
             <form id="boardForm" class="form-grid">
               <input type="hidden" id="board_id" />
-              <label class="field"><span>분류</span><select id="board_type"><option value="notice">지역소식</option><option value="life">라이프</option><option value="business">비즈니스</option></select></label>
+              <label class="field"><span>분류</span><select id="board_type"><option value="notice">행사안내</option><option value="life">달라스 라이프</option><option value="guide">달라스 가이드</option><option value="business">비즈니스</option></select></label>
               <label class="field"><span>세부 분류</span><select id="board_subtype"></select></label>
               <label class="field"><span>지역</span><select id="board_region"><option value="colorado">colorado</option><option value="dallas">dallas</option></select></label>
               <label class="field full"><span>제목</span><input id="board_title" type="text" /></label>
