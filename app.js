@@ -1004,14 +1004,21 @@ async function loadDalpicksFromSupabase(){
   dalpicks=[];
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY) return false;
   try{
-    const select='id,region,category,title,summary,content,business_id,image_url,start_at,end_at,priority,is_featured,is_active,created_at';
-    const url=`${SUPABASE_URL}/rest/v1/dalpick?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&is_active=eq.true&order=is_featured.desc,priority.desc,created_at.desc`;
+    // select=* keeps this compatible with both the original and migrated DalPick schemas.
+    const url=`${SUPABASE_URL}/rest/v1/dalpick?select=*`;
     const res=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
-    if(!res.ok) throw new Error(`DalPick ${res.status}`);
-    dalpicks=await res.json(); return true;
+    if(!res.ok){
+      const detail=await res.text().catch(()=> '');
+      throw new Error(`DalPick ${res.status}${detail?`: ${detail}`:''}`);
+    }
+    const rows=await res.json();
+    dalpicks=(Array.isArray(rows)?rows:[])
+      .filter(d=>!d.region||String(d.region).toLowerCase()===getAppRegion())
+      .sort((a,b)=>Number(b.is_featured??b.featured??false)-Number(a.is_featured??a.featured??false)||Number(b.priority||0)-Number(a.priority||0)||new Date(b.created_at||0)-new Date(a.created_at||0));
+    return true;
   }catch(e){console.warn('DalPick load skipped:',e);return false;}
 }
-function activeDalpicks(){const now=Date.now();return (dalpicks||[]).filter(d=>{const st=d.start_at?new Date(d.start_at).getTime():null,en=d.end_at?new Date(d.end_at).getTime():null;return d.is_active!==false&&(!st||st<=now)&&(!en||en>=now);});}
+function activeDalpicks(){const now=Date.now();return (dalpicks||[]).filter(d=>{const st=d.start_at||d.start_date,en=d.end_at||d.end_date;const status=String(d.status||'').toLowerCase();return d.is_active!==false&&status!=='draft'&&status!=='inactive'&&(!st||new Date(st).getTime()<=now)&&(!en||new Date(en).getTime()>=now);});}
 function dalpickBadge(c){return ({new_business:'NEW',coupon:'COUPON',recommended:'추천',ai_pick:'AI PICK',seasonal:'SEASON',event:'EVENT',promotion:'PROMO'})[c]||'DALPICK';}
 function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;let rows=activeDalpicks().slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content){alert(`${d.title}
 
@@ -1863,7 +1870,7 @@ function getBusinessAiPick(businessId) {
     return true;
   };
 
-  const boardPick = (boards || [])
+  const boardPick = (boardPosts || [])
     .filter(row =>
       String(row.business_id || row.linked_business_id || '') === String(businessId) &&
       ['ai_pick', 'aipick', 'business_ai_pick'].includes(String(row.type || row.subtype || '').toLowerCase()) &&
