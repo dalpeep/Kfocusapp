@@ -522,3 +522,13 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .board-extra-wrap{padding:14px;border:1px dashed #cbd8ee;border-radius:14px;background:#f8fbff}.board-extra-fields{display:none;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.board-extra-fields .field.full{grid-column:1/-1}@media(max-width:760px){.board-extra-fields{grid-template-columns:1fr}}
 
 .premium-badge{background:#f59e0b!important;color:#fff!important}.video-badge{background:#7c3aed!important;color:#fff!important}.hidden-badge{background:#64748b!important;color:#fff!important}
+
+/* AI Dallas Guide writer */
+.ai-guide-panel{margin-bottom:16px;border:1px solid #cfe0ff;background:linear-gradient(180deg,#f8fbff 0%,#fff 100%)}
+.ai-guide-panel .panel-head{align-items:flex-start}
+.ai-guide-panel h2{margin-bottom:4px}
+.ai-guide-grid{margin-top:14px}
+.ai-guide-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ai-guide-actions .tiny{flex:1;min-width:240px}
+.ai-guide-actions button[disabled]{opacity:.65;cursor:wait}
+@media(max-width:720px){.ai-guide-actions .btn{width:100%}.ai-guide-actions .tiny{min-width:100%}}
