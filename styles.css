@@ -4407,18 +4407,15 @@ body,
 .board-detail-v3-badges .sponsored{background:#fff3cd;color:#7a5300;border:1px solid #f2d675;}
 .business-ai-pick-link{margin-top:10px;border:0;background:transparent;padding:0;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;}
 
-/* 추천 테마: DalPick/AI Pick과 시각적으로 구분되는 업종 공통 카드 */
-#detailCard .business-theme-pick{
-  border-style:solid;
-}
-#detailCard .business-theme-pick .business-ai-pick-label::before{
-  content:'THEME';
-  margin-right:6px;
-  font-size:10px;
-  letter-spacing:.08em;
-  opacity:.72;
-}
 
-
-/* 업소 탭 상단 추천 테마 */
-.business-theme-top{margin:0 0 14px}.business-page-theme-card{width:100%;border:1px solid #d8e4ff;background:linear-gradient(135deg,#fffaf1,#f4f8ff);border-radius:18px;padding:12px;display:flex;gap:12px;align-items:center;text-align:left;box-shadow:0 8px 22px rgba(44,91,170,.09)}.business-page-theme-card img{width:92px;height:70px;object-fit:cover;border-radius:13px;flex:none}.business-page-theme-card div{min-width:0}.business-page-theme-card span{display:inline-block;font-size:11px;font-weight:800;color:#e46b22;background:#fff0df;border-radius:999px;padding:4px 8px;margin-bottom:5px}.business-page-theme-card strong{display:block;font-size:16px;line-height:1.35;color:#102a56;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.business-page-theme-card p{margin:4px 0 0;font-size:13px;line-height:1.4;color:#60708a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Business detail compact theme card */
+#detailCard .business-theme-card{width:calc(100% - 24px);margin:10px 12px 12px;padding:10px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #e4e7ec;border-radius:16px;background:#f7f7f8;text-align:left;box-shadow:0 5px 14px rgba(15,23,42,.06);cursor:pointer}
+#detailCard .business-theme-thumb{width:92px;height:78px;border-radius:12px;overflow:hidden;background:#eef2f7;display:grid;place-items:center;font-size:26px}
+#detailCard .business-theme-thumb img{width:100%;height:100%;object-fit:cover}
+#detailCard .business-theme-copy{min-width:0}
+#detailCard .business-theme-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+#detailCard .business-theme-top span{font-size:11px;font-weight:900;color:#2865cf;background:#eaf2ff;padding:3px 7px;border-radius:999px}
+#detailCard .business-theme-top small{font-size:11px;color:#667085;white-space:nowrap}
+#detailCard .business-theme-card h3{margin:0 0 4px;font-size:16px;line-height:1.3;color:#20242c;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#detailCard .business-theme-card p{margin:0;color:#7a808b;font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:420px){#detailCard .business-theme-card{grid-template-columns:82px minmax(0,1fr)}#detailCard .business-theme-thumb{width:82px;height:72px}}
