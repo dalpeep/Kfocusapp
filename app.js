@@ -1886,7 +1886,7 @@ const activeCoupon = coupons.find(c =>
 );
 
 // 업소 상세 상단 AI Pick: 게시판의 ai_pick 글 또는 연결된 DalPick AI 추천을 사용합니다.
-function getBusinessAiPick(businessId) {
+function getBusinessAiPick(businessId, businessCategory='') {
   const now = Date.now();
   const isVisible = (row) => {
     if (row?.is_active === false) return false;
@@ -1918,7 +1918,7 @@ function getBusinessAiPick(businessId) {
     };
   }
 
-  const dalpickPick = (dalpicks || [])
+  const directPick = (dalpicks || [])
     .filter(row =>
       String(row.business_id || '') === String(businessId) &&
       ['ai_pick', 'recommended', 'business_story'].includes(String(row.category || '').toLowerCase()) &&
@@ -1926,9 +1926,19 @@ function getBusinessAiPick(businessId) {
     )
     .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || Number(b.priority || 0) - Number(a.priority || 0))[0];
 
+  const mainCategory = getMainCategoryLabel(businessCategory) || '서비스';
+  const themedPick = (dalpicks || [])
+    .filter(row => {
+      if (String(row.category || '').toLowerCase() !== 'themed' || !isVisible(row)) return false;
+      const targets = Array.isArray(row.target_categories) ? row.target_categories : [];
+      return targets.includes('전체') || targets.includes('all') || targets.includes(mainCategory);
+    })
+    .sort((a, b) => Number(b.is_featured) - Number(a.is_featured) || Number(b.priority || 0) - Number(a.priority || 0) || new Date(b.created_at || 0) - new Date(a.created_at || 0))[0];
+
+  const dalpickPick = directPick || themedPick;
   if (!dalpickPick) return null;
   return {
-    eyebrow: 'AI PICK',
+    eyebrow: String(dalpickPick.category||'').toLowerCase()==='themed' ? '추천 테마' : 'AI PICK',
     title: dalpickPick.title || '오늘의 추천',
     summary: dalpickPick.summary || '',
     content: dalpickPick.content || '',
@@ -1954,7 +1964,7 @@ function renderBusinessAiPick(pick) {
     </section>`;
 }
 
-const businessAiPick = getBusinessAiPick(b.id);
+const businessAiPick = getBusinessAiPick(b.id, b.category);
 function getDescriptionImages(b){
   if (Array.isArray(b.description_images)) return b.description_images;
 

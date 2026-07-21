@@ -777,6 +777,21 @@
                 </div>
               </div>
               <label class="field full"><span>연결 업소 <small id="dalpickBusinessRequirement" class="muted">선택 사항</small></span><select id="dalpick_business_id"><option value="">연결 안 함</option></select></label>
+              <div id="dalpickTargetCategoryFields" class="field full target-category-box" hidden>
+                <span>상세페이지 노출 업종 <small class="muted">복수 선택 가능</small></span>
+                <div class="target-category-grid">
+                  <label><input id="dalpick_target_all" name="dalpick_target_category" type="checkbox" value="전체" checked> 전체 업소</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="식당"> 식당</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="쇼핑"> 쇼핑</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="병원"> 병원</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="금융"> 금융·세무</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="법률"> 법률</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="교회"> 교회</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="서비스"> 서비스·자동차</label>
+                  <label><input name="dalpick_target_category" type="checkbox" value="부동산"> 부동산</label>
+                </div>
+                <small class="muted">예: 음식 이야기는 ‘식당’, 절세 정보는 ‘금융·세무’, 내 집 마련은 ‘부동산’, 자동차 정비는 ‘서비스·자동차’를 선택합니다.</small>
+              </div>
               <label class="field full"><span>제목</span><input id="dalpick_title" type="text" /></label>
               <label class="field full"><span>요약</span><textarea id="dalpick_summary" rows="3"></textarea></label>
               <label class="field full"><span>본문</span><textarea id="dalpick_content" rows="10"></textarea></label>
