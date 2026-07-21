@@ -667,7 +667,8 @@ function isPremiumBusiness(b){
   return true;
 }
 function boardPostsByType(type){
-  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
+  const hiddenThemeTitles=new Set((dalpicks||[]).filter(isThemeDalpick).map(d=>String(d.title||'').trim()).filter(Boolean));
+  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && !hiddenThemeTitles.has(String(p.title||'').trim()) && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
 }
 function getRecentSearches(){ try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function saveRecentSearch(query){
@@ -1022,6 +1023,12 @@ async function loadDalpicksFromSupabase(){
   }catch(e){console.warn('DalPick load skipped:',e);return false;}
 }
 function activeDalpicks(){const now=Date.now();return (dalpicks||[]).filter(d=>{const st=d.start_at||d.start_date,en=d.end_at||d.end_date;const status=String(d.status||'').toLowerCase();return d.is_active!==false&&status!=='draft'&&status!=='inactive'&&(!st||new Date(st).getTime()<=now)&&(!en||new Date(en).getTime()>=now);});}
+function isThemeDalpick(row){
+  if(!row)return false;
+  if(String(row.category||'').toLowerCase()==='themed')return true;
+  const targets=Array.isArray(row.target_categories)?row.target_categories:[];
+  return targets.length>0;
+}
 
 function syncBusinessStoriesToBoardPosts(){
   const existing=(boardPosts||[]).filter(p=>!String(p.id||'').startsWith('dalpick-story-'));
@@ -1051,7 +1058,7 @@ function syncBusinessStoriesToBoardPosts(){
   boardPosts=[...stories,...existing];
 }
 function dalpickBadge(c){return ({new_business:'NEW',coupon:'COUPON',recommended:'추천',ai_pick:'AI PICK',seasonal:'SEASON',event:'EVENT',promotion:'PROMO',business_story:'업소탐방'})[c]||'DALPICK';}
-function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;let rows=activeDalpicks().filter(d=>String(d.category||'').toLowerCase()!=='themed'||d.show_in_dalpick===true).slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(String(d.category||'').toLowerCase()==='business_story'){openBoardPost(`dalpick-story-${d.id}`);}else if(String(d.category||'').toLowerCase()==='themed'){openThemeArticle(d);}else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content){alert(`${d.title}\n\n${d.content}`);}}));if(window.lucide)window.lucide.createIcons();}
+function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;let rows=activeDalpicks().filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true).slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(String(d.category||'').toLowerCase()==='business_story'){openBoardPost(`dalpick-story-${d.id}`);}else if(isThemeDalpick(d)){openThemeArticle(d);}else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content){alert(`${d.title}\n\n${d.content}`);}}));if(window.lucide)window.lucide.createIcons();}
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
@@ -1902,7 +1909,7 @@ function getBusinessTheme(business){
   const target=normalizeThemeTarget(business?.category||business?.category_ko||business?.subcategory||'');
   const now=Date.now();
   return (dalpicks||[]).filter(row=>{
-    if(String(row.category||'').toLowerCase()!=='themed'||row.is_active===false) return false;
+    if(!isThemeDalpick(row)||row.is_active===false) return false;
     const status=String(row.status||'').toLowerCase(); if(status&& !['published','active'].includes(status)) return false;
     const start=row.start_at||row.start_date, end=row.end_at||row.end_date;
     if(start&&new Date(start).getTime()>now) return false; if(end&&new Date(end).getTime()<now) return false;
@@ -2178,6 +2185,11 @@ ${getDescriptionImages(b).length ? `
 
   </article>
 `;
+
+detailCard.querySelector('[data-theme-id]')?.addEventListener('click',()=>{
+  const theme=(dalpicks||[]).find(d=>String(d.id)===String(detailCard.querySelector('[data-theme-id]')?.dataset.themeId));
+  if(theme) openThemeArticle(theme);
+});
 
 detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
   btn.addEventListener('click', () => {
