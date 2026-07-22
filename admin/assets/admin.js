@@ -2391,7 +2391,7 @@ async function generateAiGuide({ publish = false } = {}) {
       await saveBoard();
       safeText('aiGuideStatus', 'AI 가이드가 게시되었습니다.');
     } else {
-      const q=result.quality||{}; safeText('aiGuideStatus', `초안 완료${q.score?` · 품질 ${q.score}점`:''}${q.intent_type?` · ${q.intent_type}`:''}${q.google_places_used?` · Google 장소 ${q.google_places_count||0}곳 확인`:''}${q.provided_urls_read?` · 참고 URL ${q.provided_urls_read}건 읽음`:''}${q.official_pages_read?` · 공식 사이트 ${q.official_pages_read}건 읽음`:''}${q.places_checked?' · 장소 검증':''}. 아래 양식을 검토 후 저장하세요.`);
+      const q=result.quality||{}; safeText('aiGuideStatus', `초안 완료${q.score?` · 품질 ${q.score}점`:''}${q.intent_type?` · ${q.intent_type}`:''}${q.web_search_used?` · OpenAI 웹검색 ${q.web_facts_count||0}건`:''}${q.web_candidates_count?` · 후보 ${q.web_candidates_count}곳`:''}${q.google_places_used?` · Google 장소 ${q.google_places_count||0}곳 교차확인`:''}${q.target_city?` · 지역 ${q.target_city}`:''}${q.provided_urls_read?` · 참고 URL ${q.provided_urls_read}건 읽음`:''}${q.official_pages_read?` · 공식 사이트 ${q.official_pages_read}건 읽음`:''}. 아래 양식을 검토 후 저장하세요.`);
       alert('AI 초안이 생성되었습니다.\n\n아래 제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
     }
   } catch (error) {
