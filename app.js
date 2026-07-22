@@ -1723,18 +1723,43 @@ function renderHomeBoardSection(type='notice'){
   if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
   if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
 }
-function renderGuidePosts(topic='') {
+const GUIDE_SUBTYPE_KEY = 'daltownmap_guide_subtype';
+const GUIDE_DEFAULT_SUBTYPE = '운전·차량';
+let selectedGuideSubtype = localStorage.getItem(GUIDE_SUBTYPE_KEY) || GUIDE_DEFAULT_SUBTYPE;
+
+function normalizeGuideSubtype(value='') {
+  return String(value || '')
+    .trim()
+    .replace(/[ㆍ・]/g, '·')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function renderGuidePosts(subtype = selectedGuideSubtype) {
   const list = document.getElementById('guidePostList');
   if (!list) return;
-  const q = normalizeSearchText(topic);
+
+  selectedGuideSubtype = subtype || GUIDE_DEFAULT_SUBTYPE;
+  localStorage.setItem(GUIDE_SUBTYPE_KEY, selectedGuideSubtype);
+
+  document.querySelectorAll('[data-guide-subtype]').forEach(card => {
+    card.classList.toggle(
+      'active',
+      normalizeGuideSubtype(card.dataset.guideSubtype) === normalizeGuideSubtype(selectedGuideSubtype)
+    );
+  });
+
+  const selected = normalizeGuideSubtype(selectedGuideSubtype);
   const rows = boardPosts.filter(p => {
     const isGuide = normalizeBoardType(p.type) === 'guide';
     const visible = adminSession || !p.region || normalizeRegionKey(p.region) === currentRegion;
-    const text = normalizeSearchText([p.title, p.content, p.subtype].filter(Boolean).join(' '));
-    const keywords = q.split(/\s+/).filter(Boolean);
-    return isGuide && visible && (!keywords.length || keywords.some(word => text.includes(word)));
+    const exactSubtype = normalizeGuideSubtype(p.subtype) === selected;
+    return isGuide && visible && exactSubtype;
   }).slice(0, 12);
-  list.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : '<div class="board-empty">등록된 달라스 가이드가 없습니다.</div>';
+
+  list.innerHTML = rows.length
+    ? rows.map(boardListItemHTML).join('')
+    : `<div class="board-empty">${esc(selectedGuideSubtype)}에 등록된 생활정보가 없습니다.</div>`;
 }
 
 function renderHome(){
@@ -4650,10 +4675,9 @@ function setMapPageMode(isMap) {
 
 
 document.addEventListener('click', (e) => {
-  const guideCard = e.target.closest('[data-guide-topic]');
+  const guideCard = e.target.closest('[data-guide-subtype]');
   if (!guideCard) return;
-  document.querySelectorAll('.guide-card').forEach(card => card.classList.toggle('active', card === guideCard));
-  renderGuidePosts(guideCard.dataset.guideTopic || '');
+  renderGuidePosts(guideCard.dataset.guideSubtype || GUIDE_DEFAULT_SUBTYPE);
 });
 
 document.addEventListener('click', (e) => {
@@ -4980,3 +5004,4 @@ function initAndroidInstallBanner() {
     banner.classList.add('hidden');
   });
 }
+console.info('[DalTownMap] v8.7 guide subcategory fix loaded');
