@@ -3,6 +3,8 @@ const clean = (v = '') => String(v ?? '').trim();
 
 let businessRows = [];
 let lastPackage = null;
+let currentCampaignId = null;
+const CAMPAIGN_STORAGE_KEY = 'daltown-ai-campaigns-v1';
 
 const STYLE_LABELS = {
   premium: '고급스럽고 신뢰감 있는 프리미엄',
@@ -11,6 +13,119 @@ const STYLE_LABELS = {
   warm: '따뜻하고 친근한',
   energetic: '활기차고 역동적인'
 };
+
+
+function uid() {
+  return `cmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readCampaigns() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(CAMPAIGN_STORAGE_KEY) || '[]');
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCampaigns(rows) {
+  localStorage.setItem(CAMPAIGN_STORAGE_KEY, JSON.stringify(rows));
+}
+
+function statusLabel(status) {
+  return ({ draft: '작성중', completed: '완료', published: '게시' })[status] || '작성중';
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>'"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[ch]));
+}
+
+function saveCampaign(pkg, options = {}) {
+  const rows = readCampaigns();
+  const now = new Date().toISOString();
+  const id = options.id || pkg.id || currentCampaignId || uid();
+  const existing = rows.find((row) => row.id === id);
+  const status = options.status || $('aiCampaignWorkflowStatus')?.value || existing?.status || 'draft';
+  const record = {
+    ...pkg,
+    id,
+    status,
+    createdAt: existing?.createdAt || pkg.createdAt || now,
+    updatedAt: now
+  };
+  const next = [record, ...rows.filter((row) => row.id !== id)];
+  writeCampaigns(next);
+  currentCampaignId = id;
+  lastPackage = record;
+  if ($('aiCampaignWorkflowStatus')) $('aiCampaignWorkflowStatus').value = status;
+  renderCampaignList();
+  return record;
+}
+
+function renderCampaignList() {
+  const list = $('aiCampaignList');
+  const empty = $('aiCampaignListEmpty');
+  if (!list || !empty) return;
+  const q = clean($('aiCampaignSearch')?.value).toLowerCase();
+  const status = clean($('aiCampaignStatusFilter')?.value) || 'all';
+  const rows = readCampaigns().filter((row) => {
+    const haystack = `${row.businessName || ''} ${row.name || ''} ${row.benefit || ''}`.toLowerCase();
+    return (!q || haystack.includes(q)) && (status === 'all' || row.status === status);
+  });
+  list.innerHTML = rows.map((row) => {
+    const updated = row.updatedAt ? new Date(row.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `<article class="ai-campaign-row ${row.id === currentCampaignId ? 'is-active' : ''}" data-campaign-id="${escapeHtml(row.id)}">
+      <div><div class="ai-campaign-title">${escapeHtml(row.name || '이름 없는 캠페인')}</div><div class="ai-campaign-meta">${escapeHtml(row.benefit || '')}</div></div>
+      <div><strong>${escapeHtml(row.businessName || '업소 미지정')}</strong><div class="ai-campaign-meta">${escapeHtml(row.category || '')}</div></div>
+      <div><span class="ai-status-pill ai-status-${escapeHtml(row.status || 'draft')}">${statusLabel(row.status)}</span></div>
+      <div class="ai-campaign-meta">${escapeHtml(updated)}</div>
+      <div class="ai-row-actions"><button class="btn secondary ai-open-campaign" type="button" data-id="${escapeHtml(row.id)}">열기</button><button class="btn ghost ai-duplicate-campaign" type="button" data-id="${escapeHtml(row.id)}">복제</button></div>
+    </article>`;
+  }).join('');
+  empty.classList.toggle('hidden', rows.length > 0);
+  list.classList.toggle('hidden', rows.length === 0);
+  list.querySelectorAll('.ai-open-campaign').forEach((btn) => btn.addEventListener('click', () => openCampaign(btn.dataset.id)));
+  list.querySelectorAll('.ai-duplicate-campaign').forEach((btn) => btn.addEventListener('click', () => duplicateCampaign(btn.dataset.id)));
+}
+
+function fillInput(pkg) {
+  if ($('aiCampaignBusiness')) $('aiCampaignBusiness').value = String(pkg.business?.id || '');
+  if ($('aiCampaignName')) $('aiCampaignName').value = pkg.name || '';
+  if ($('aiCampaignBenefit')) $('aiCampaignBenefit').value = pkg.benefit || '';
+  if ($('aiCampaignStart')) $('aiCampaignStart').value = pkg.start || '';
+  if ($('aiCampaignEnd')) $('aiCampaignEnd').value = pkg.end || '';
+  if ($('aiCampaignStyle')) $('aiCampaignStyle').value = pkg.style || 'premium';
+  if ($('aiCampaignCta')) $('aiCampaignCta').value = pkg.cta || '자세히 보기';
+  if ($('aiCampaignNotes')) $('aiCampaignNotes').value = pkg.notes || '';
+}
+
+function openCampaign(id) {
+  const pkg = readCampaigns().find((row) => row.id === id);
+  if (!pkg) return alert('캠페인을 찾을 수 없습니다.');
+  currentCampaignId = id;
+  fillInput(pkg);
+  renderPackage(pkg, false);
+  if ($('aiCampaignWorkflowStatus')) $('aiCampaignWorkflowStatus').value = pkg.status || 'draft';
+  renderCampaignList();
+  $('section-aiStudio')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function duplicateCampaign(id) {
+  const pkg = readCampaigns().find((row) => row.id === id);
+  if (!pkg) return;
+  const copy = { ...pkg, id: uid(), name: `${pkg.name} 복사본`, status: 'draft', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const rows = readCampaigns();
+  writeCampaigns([copy, ...rows]);
+  openCampaign(copy.id);
+}
+
+function deleteCurrentCampaign() {
+  if (!currentCampaignId) return alert('삭제할 캠페인을 먼저 여세요.');
+  if (!confirm('이 캠페인을 삭제할까요?')) return;
+  writeCampaigns(readCampaigns().filter((row) => row.id !== currentCampaignId));
+  resetForm();
+  renderCampaignList();
+}
 
 function formatDate(v) {
   if (!v) return '';
@@ -73,7 +188,7 @@ function setOutput(id, value) {
   if (el) el.value = value;
 }
 
-function renderPackage(pkg) {
+function renderPackage(pkg, persist = true) {
   lastPackage = pkg;
   setOutput('aiArticleResult', pkg.article);
   setOutput('aiBannerResult', pkg.banner);
@@ -83,8 +198,12 @@ function renderPackage(pkg) {
   setOutput('aiRunwayResult', pkg.runway);
   $('aiCampaignEmpty')?.classList.add('hidden');
   $('aiCampaignResults')?.classList.remove('hidden');
-  if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = `${pkg.businessName} · ${pkg.name} 패키지가 생성되었습니다.`;
-  localStorage.setItem('daltown-ai-campaign-draft', JSON.stringify({ input: collectInput(), createdAt: new Date().toISOString() }));
+  if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = `${pkg.businessName} · ${pkg.name} 캠페인 상세입니다.`;
+  if (persist) {
+    const saved = saveCampaign(pkg, { id: currentCampaignId || undefined });
+    lastPackage = saved;
+    if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = `${saved.businessName} · ${saved.name} 캠페인이 자동 저장되었습니다.`;
+  }
 }
 
 async function copyText(text) {
@@ -190,6 +309,8 @@ function seasonIdeas() {
 function resetForm() {
   $('aiCampaignForm')?.reset();
   lastPackage = null;
+  currentCampaignId = null;
+  if ($('aiCampaignWorkflowStatus')) $('aiCampaignWorkflowStatus').value = 'draft';
   $('aiCampaignResults')?.classList.add('hidden');
   $('aiCampaignEmpty')?.classList.remove('hidden');
   if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = '정보를 입력하고 캠페인 생성 버튼을 누르세요.';
@@ -217,6 +338,24 @@ function init() {
   $('aiSendDalpickBtn')?.addEventListener('click', sendDalpick);
   $('aiSendBannerBtn')?.addEventListener('click', sendBanner);
   $('aiSendCouponBtn')?.addEventListener('click', sendCoupon);
+  $('aiCampaignSaveBtn')?.addEventListener('click', () => {
+    if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
+    const data = collectInput();
+    const error = validate(data);
+    if (error) return alert(error);
+    const updated = makePackage(data);
+    const saved = saveCampaign(updated, { id: currentCampaignId || undefined, status: $('aiCampaignWorkflowStatus')?.value || 'draft' });
+    renderPackage(saved, false);
+    alert('캠페인 수정 내용을 저장했습니다.');
+  });
+  $('aiCampaignDeleteBtn')?.addEventListener('click', deleteCurrentCampaign);
+  $('aiCampaignWorkflowStatus')?.addEventListener('change', () => {
+    if (!lastPackage || !currentCampaignId) return;
+    saveCampaign(lastPackage, { id: currentCampaignId, status: $('aiCampaignWorkflowStatus').value });
+  });
+  $('aiCampaignSearch')?.addEventListener('input', renderCampaignList);
+  $('aiCampaignStatusFilter')?.addEventListener('change', renderCampaignList);
+  renderCampaignList();
 
   window.addEventListener('kfocus:businesses-loaded', (event) => fillBusinessOptions(event.detail || []));
   if (window.KFocusAdminBridge?.getBusinesses) fillBusinessOptions(window.KFocusAdminBridge.getBusinesses());

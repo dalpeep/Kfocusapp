@@ -130,7 +130,7 @@
       <section id="section-aiStudio" class="admin-section">
         <section class="card ai-studio-hero">
           <div>
-            <span class="ai-studio-kicker">DalTownMap v3.1</span>
+            <span class="ai-studio-kicker">DalTownMap v3.2</span>
             <h2>AI 광고 스튜디오</h2>
             <p class="muted">업소와 행사 정보 한 번으로 기사·배너·쿠폰·SNS·영상 제작안을 만듭니다. 영상은 직접 렌더링하지 않고 Grok·Runway용 프롬프트를 준비합니다.</p>
           </div>
@@ -138,6 +138,26 @@
             <button id="aiCampaignResetBtn" class="btn ghost" type="button">새 캠페인</button>
             <button id="aiCampaignGenerateBtn" class="btn primary" type="button">✨ 캠페인 생성</button>
           </div>
+        </section>
+
+        <section class="card ai-campaign-library">
+          <div class="panel-head">
+            <div>
+              <h2>캠페인 목록</h2>
+              <p class="muted">생성한 캠페인은 자동 저장됩니다. 항목을 열면 기사·배너·쿠폰·SNS·영상 프롬프트를 다시 확인할 수 있습니다.</p>
+            </div>
+            <div class="ai-library-tools">
+              <input id="aiCampaignSearch" type="search" placeholder="업소명 또는 캠페인 검색">
+              <select id="aiCampaignStatusFilter">
+                <option value="all">전체 상태</option>
+                <option value="draft">작성중</option>
+                <option value="completed">완료</option>
+                <option value="published">게시</option>
+              </select>
+            </div>
+          </div>
+          <div id="aiCampaignList" class="ai-campaign-list"></div>
+          <div id="aiCampaignListEmpty" class="ai-list-empty">저장된 캠페인이 없습니다. 위에서 새 캠페인을 생성하세요.</div>
         </section>
 
         <section class="ai-studio-grid">
@@ -160,7 +180,7 @@
           </div>
 
           <div class="card ai-studio-output-card">
-            <div class="panel-head"><div><h2>생성 결과</h2><p id="aiCampaignStatus" class="muted">정보를 입력하고 캠페인 생성 버튼을 누르세요.</p></div><button id="aiCopyAllBtn" class="btn ghost" type="button">전체 복사</button></div>
+            <div class="panel-head"><div><h2>캠페인 상세</h2><p id="aiCampaignStatus" class="muted">정보를 입력하고 캠페인 생성 버튼을 누르세요.</p></div><div class="ai-detail-actions"><select id="aiCampaignWorkflowStatus" title="캠페인 상태"><option value="draft">작성중</option><option value="completed">완료</option><option value="published">게시</option></select><button id="aiCampaignSaveBtn" class="btn secondary" type="button">수정 저장</button><button id="aiCampaignDeleteBtn" class="btn danger" type="button">삭제</button><button id="aiCopyAllBtn" class="btn ghost" type="button">전체 복사</button></div></div>
             <div id="aiCampaignEmpty" class="ai-empty-state">✨ 캠페인 패키지가 여기에 표시됩니다.</div>
             <div id="aiCampaignResults" class="ai-result-stack hidden">
               <article class="ai-result-card"><div class="ai-result-head"><strong>기사·DalPick</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiArticleResult" type="button">복사</button></div><textarea id="aiArticleResult" rows="10" readonly></textarea><button id="aiSendDalpickBtn" class="btn secondary full-btn" type="button">AI 콘텐츠 스튜디오로 보내기</button></article>
