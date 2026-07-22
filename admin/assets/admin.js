@@ -2356,9 +2356,21 @@ async function generateAiGuide({ publish = false } = {}) {
 
   const originalDraftText = qs('aiGuideDraftBtn')?.textContent || 'AI 초안 만들기';
   const originalPublishText = qs('aiGuidePublishBtn')?.textContent || 'AI 작성 후 바로 게시';
-  setAiGuideBusy(true, 'AI가 글을 작성하고 있습니다. 잠시 기다려 주세요...');
+  setAiGuideBusy(true, '1/4 요청 의도를 분석하고 있습니다...');
   if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = '작성 중...';
   if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = '작성 중...';
+
+  const progressMessages = [
+    '1/4 요청 의도를 분석하고 있습니다...',
+    '2/4 Google Places와 참고 URL을 확인하고 있습니다...',
+    '3/4 확인된 근거로 기사를 작성하고 있습니다...',
+    '4/4 허위 정보와 주제 이탈을 최종 점검하고 있습니다...'
+  ];
+  let progressIndex = 0;
+  const progressTimer = setInterval(() => {
+    progressIndex = Math.min(progressIndex + 1, progressMessages.length - 1);
+    safeText('aiGuideStatus', progressMessages[progressIndex]);
+  }, 5000);
 
   try {
     const response = await fetch('/.netlify/functions/generate-guide', {
@@ -2369,7 +2381,12 @@ async function generateAiGuide({ publish = false } = {}) {
     const text = await response.text();
     let result = {};
     try { result = JSON.parse(text); } catch (_) {}
-    if (!response.ok) throw new Error(result.error || text || 'AI 글 생성에 실패했습니다.');
+    if (!response.ok) {
+      const htmlTimeout = /<html|inactivity timeout|updating api/i.test(text || '');
+      throw new Error(result.error || (htmlTimeout
+        ? '서버 응답 시간이 초과되었습니다. 이번 안정화 버전은 검색량을 줄여 재시도하도록 최적화되어 있습니다. 잠시 후 다시 시도해 주세요.'
+        : text) || 'AI 글 생성에 실패했습니다.');
+    }
 
     const article = result.article || {};
     clearBoardForm();
@@ -2399,6 +2416,7 @@ async function generateAiGuide({ publish = false } = {}) {
     safeText('aiGuideStatus', `오류: ${error.message}`);
     alert(`AI 가이드 생성 실패: ${error.message}`);
   } finally {
+    clearInterval(progressTimer);
     if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = originalDraftText;
     if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = originalPublishText;
     if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').disabled = false;
