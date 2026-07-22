@@ -4514,3 +4514,17 @@ body,
 .dalpick-badge.badge-event{background:#fff0f0;color:#df3b3b}
 .dalpick-badge.badge-promotion{background:#fff7dd;color:#9a6a00}
 @media(max-width:520px){.dalpick-slide .dalpick-card{min-height:102px}}
+
+
+/* v8.4 recommendation theme + main banner carousels */
+.business-theme-carousel,.main-banner-carousel{width:100%;overflow:hidden}
+.business-theme-viewport,.main-banner-viewport{overflow:hidden;width:100%;touch-action:pan-y}
+.business-theme-track,.main-banner-track{display:flex;width:100%;transition:transform .38s ease;will-change:transform}
+.business-theme-slide,.main-banner-slide{flex:0 0 100%;min-width:100%}
+.business-theme-slide .business-main-theme-card,.main-banner-slide .main-banner-card{width:100%}
+.business-theme-dots,.main-banner-dots{display:flex;justify-content:center;align-items:center;gap:7px;padding:8px 0 2px}
+.business-theme-dot,.main-banner-dot{width:8px;height:8px;border:0;border-radius:999px;background:#cbd5e1;padding:0;transition:width .2s ease,background .2s ease}
+.business-theme-dot.active,.main-banner-dot.active{width:24px;background:#5b6df8}
+.main-banner-carousel .main-banner-card{display:block;border:0;padding:0;background:transparent;border-radius:22px;overflow:hidden;cursor:pointer}
+.main-banner-carousel .main-banner-card img{display:block;width:100%;height:auto;aspect-ratio:16/7;object-fit:cover}
+.business-theme-carousel.is-single .business-theme-dots,.main-banner-carousel.is-single .main-banner-dots{display:none}

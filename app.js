@@ -1,4 +1,4 @@
-console.log('[DalTownMap] v8.2 coupon-banner-fix loaded');
+console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
 const FALLBACK_BUSINESSES = [
@@ -1839,11 +1839,11 @@ function themeReadingMinutes(content){
   return Math.max(1,Math.ceil(String(content||'').replace(/\s+/g,' ').trim().length/500));
 }
 
-function getBusinessPageTheme(){
+function getBusinessPageThemes(){
   const selected = businessQuickFilter || '';
   const selectedTarget = normalizeThemeTarget(selected);
   const now = Date.now();
-  const rows = (dalpicks || []).filter(row => {
+  return (dalpicks || []).filter(row => {
     if (!isThemeDalpick(row) || row.is_active === false) return false;
     const status = String(row.status || '').toLowerCase();
     if (status && !['published','active'].includes(status)) return false;
@@ -1852,12 +1852,9 @@ function getBusinessPageTheme(){
     if (start && new Date(start).getTime() > now) return false;
     if (end && new Date(end).getTime() < now) return false;
     const targets = parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
-    // 업종을 선택하지 않은 기본 화면에서는 전체 업종용 글을 우선하고,
-    // 없으면 가장 최신 추천 테마를 넓게 노출합니다.
     if (!selectedTarget) return targets.includes('all') || targets.length > 0;
     return targets.includes('all') || targets.includes(selectedTarget);
-  });
-  return rows.sort((a,b) => {
+  }).sort((a,b) => {
     const at = parseThemeTargets(a.target_categories).map(normalizeThemeTarget);
     const bt = parseThemeTargets(b.target_categories).map(normalizeThemeTarget);
     if (!selectedTarget) {
@@ -1866,20 +1863,44 @@ function getBusinessPageTheme(){
       if (aAll !== bAll) return bAll - aAll;
     }
     return Number(b.is_featured)-Number(a.is_featured) || Number(b.priority||0)-Number(a.priority||0) || new Date(b.created_at||0)-new Date(a.created_at||0);
-  })[0] || null;
+  });
 }
+function getBusinessPageTheme(){ return getBusinessPageThemes()[0] || null; }
+let businessThemeCarouselTimer = null;
 function renderBusinessThemeSpot(){
   const spot = document.getElementById('businessThemeSpot');
   if (!spot) return;
-  const theme = getBusinessPageTheme();
-  if (!theme) { spot.innerHTML=''; spot.hidden=true; return; }
-  const summary = String(theme.summary || theme.content || '').trim();
-  const short = summary.length > 92 ? summary.slice(0,92).trim()+'…' : summary;
+  if (businessThemeCarouselTimer) { clearInterval(businessThemeCarouselTimer); businessThemeCarouselTimer = null; }
+  const themes = getBusinessPageThemes();
+  if (!themes.length) { spot.innerHTML=''; spot.hidden=true; return; }
   spot.hidden=false;
-  spot.innerHTML = `<button type="button" class="business-main-theme-card" data-theme-id="${esc(theme.id)}">
-    <div class="business-main-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
-    <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
-  </button>`;
+  spot.innerHTML = `<div class="business-theme-carousel ${themes.length===1?'is-single':''}">
+    <div class="business-theme-viewport"><div class="business-theme-track">
+      ${themes.map(theme=>{
+        const summary=String(theme.summary||theme.content||'').trim();
+        const short=summary.length>92?summary.slice(0,92).trim()+'…':summary;
+        return `<div class="business-theme-slide"><button type="button" class="business-main-theme-card" data-theme-id="${esc(theme.id)}">
+          <div class="business-main-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
+          <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
+        </button></div>`;
+      }).join('')}
+    </div></div>
+    ${themes.length>1?`<div class="business-theme-dots">${themes.map((_,i)=>`<button type="button" class="business-theme-dot ${i===0?'active':''}" data-index="${i}" aria-label="추천 테마 ${i+1}"></button>`).join('')}</div>`:''}
+  </div>`;
+  if(themes.length<2) return;
+  const track=spot.querySelector('.business-theme-track');
+  const viewport=spot.querySelector('.business-theme-viewport');
+  const dots=[...spot.querySelectorAll('.business-theme-dot')];
+  let current=0, startX=0, deltaX=0;
+  const moveTo=(index)=>{ current=(index+themes.length)%themes.length; track.style.transform=`translateX(-${current*100}%)`; dots.forEach((d,i)=>d.classList.toggle('active',i===current)); };
+  const restart=()=>{ if(businessThemeCarouselTimer)clearInterval(businessThemeCarouselTimer); businessThemeCarouselTimer=setInterval(()=>moveTo(current+1),6000); };
+  dots.forEach(d=>d.addEventListener('click',()=>{moveTo(Number(d.dataset.index||0));restart();}));
+  viewport.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;deltaX=0;if(businessThemeCarouselTimer)clearInterval(businessThemeCarouselTimer);},{passive:true});
+  viewport.addEventListener('touchmove',e=>{deltaX=e.touches[0].clientX-startX;},{passive:true});
+  viewport.addEventListener('touchend',()=>{if(Math.abs(deltaX)>45)moveTo(current+(deltaX<0?1:-1));restart();});
+  spot.addEventListener('mouseenter',()=>{if(businessThemeCarouselTimer)clearInterval(businessThemeCarouselTimer);});
+  spot.addEventListener('mouseleave',restart);
+  restart();
 }
 
 function renderBusinessList() {
@@ -1964,61 +1985,49 @@ function renderCategories() {
     >${esc(c)}</button>
   `).join('');
 }
+let mainBannerCarouselTimer = null;
 function renderMainBanners(){
-  console.log('[BANNERS] render start', mainBanners);
-
   const box = document.getElementById('mainBanners');
-  console.log('[BANNERS] box exists', !!box);
-
   if(!box) return;
-
+  if(mainBannerCarouselTimer){ clearInterval(mainBannerCarouselTimer); mainBannerCarouselTimer=null; }
   const now = Date.now();
   const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
     const placement = String(b.placement || (b.business_id ? 'both' : 'home')).toLowerCase();
     if (!['home','both'].includes(placement)) return false;
     if (b.start_at && new Date(b.start_at).getTime() > now) return false;
     if (b.end_at && new Date(b.end_at).getTime() < now) return false;
-    return true;
-  });
-  console.log('[BANNERS] rows for render', rows);
-
-  if(!rows.length){
-    box.innerHTML = '';
-    return;
-  }
-
-  box.innerHTML = `
-    <div class="main-banner-list">
-      ${rows.map(b => `
-        <button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}">
-          <img src="${esc(b.image_url || '')}" alt="${esc(b.title || 'Sponsor banner')}">
-        </button>
-      `).join('')}
-    </div>
-  `;
-
-  console.log('[BANNERS] html inserted', box.innerHTML);
-
-  box.querySelectorAll('.main-banner-card').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.bannerId;
-      const banner = rows.find(x => String(x.id) === String(id));
-      if(!banner) return;
-
-      if(banner.business_id){
-        selectedBizId = banner.business_id;
-        currentDetailVideoOverride = '';
-        renderDetail(banner.business_id);
-        showPage('business-detail');
-        return;
-      }
-
-      if(banner.link_url){
-        window.open(normalizeUrl(banner.link_url), '_blank', 'noopener');
-      }
-    });
-  });
+    return b.is_active !== false && !!b.image_url;
+  }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+  if(!rows.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="main-banner-carousel ${rows.length===1?'is-single':''}">
+    <div class="main-banner-viewport"><div class="main-banner-track">
+      ${rows.map(b=>`<div class="main-banner-slide"><button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}"><img src="${esc(b.image_url||'')}" alt="${esc(b.title||'Sponsor banner')}"></button></div>`).join('')}
+    </div></div>
+    ${rows.length>1?`<div class="main-banner-dots">${rows.map((_,i)=>`<button type="button" class="main-banner-dot ${i===0?'active':''}" data-index="${i}" aria-label="배너 ${i+1}"></button>`).join('')}</div>`:''}
+  </div>`;
+  const openBanner=(banner)=>{
+    if(!banner)return;
+    if(banner.business_id){ selectedBizId=banner.business_id; currentDetailVideoOverride=''; renderDetail(banner.business_id); showPage('business-detail'); return; }
+    const url=banner.link_url||banner.external_url;
+    if(url) window.open(normalizeUrl(url),'_blank','noopener');
+  };
+  box.querySelectorAll('.main-banner-card').forEach(btn=>btn.addEventListener('click',()=>openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)))));
+  if(rows.length<2)return;
+  const track=box.querySelector('.main-banner-track');
+  const viewport=box.querySelector('.main-banner-viewport');
+  const dots=[...box.querySelectorAll('.main-banner-dot')];
+  let current=0,startX=0,deltaX=0;
+  const moveTo=(index)=>{current=(index+rows.length)%rows.length;track.style.transform=`translateX(-${current*100}%)`;dots.forEach((d,i)=>d.classList.toggle('active',i===current));};
+  const restart=()=>{if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);mainBannerCarouselTimer=setInterval(()=>moveTo(current+1),5000);};
+  dots.forEach(d=>d.addEventListener('click',()=>{moveTo(Number(d.dataset.index||0));restart();}));
+  viewport.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;deltaX=0;if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);},{passive:true});
+  viewport.addEventListener('touchmove',e=>{deltaX=e.touches[0].clientX-startX;},{passive:true});
+  viewport.addEventListener('touchend',()=>{if(Math.abs(deltaX)>45)moveTo(current+(deltaX<0?1:-1));restart();});
+  box.addEventListener('mouseenter',()=>{if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);});
+  box.addEventListener('mouseleave',restart);
+  restart();
 }
+
 function renderCoupons(){
   if(!couponTodayList || !couponAllList) return;
   const today = todayCoupons();
