@@ -1,3 +1,4 @@
+console.log('[DalTownMap] v8.2 coupon-banner-fix loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
 const FALLBACK_BUSINESSES = [
@@ -1165,25 +1166,36 @@ async function loadCouponsFromSupabase(){
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
     const rows = await res.json();
-    const bizIds = new Set(businesses.map(b=>String(b.id)));
-    coupons = (Array.isArray(rows)?rows:[]).filter(r=>bizIds.has(String(r.business_id))).map((row, idx)=>({
+    // 쿠폰은 연결 업소가 현재 지역 업소 목록에 없더라도 쿠폰 자체 데이터로 노출합니다.
+    // 이전 코드는 business_id가 businesses 배열에 없으면 정상 쿠폰까지 모두 제거했습니다.
+    coupons = (Array.isArray(rows)?rows:[]).map((row, idx)=>({
       id: row.id || `cp${idx+1}`,
-      businessId: row.business_id,
+      businessId: row.business_id || '',
+      business_id: row.business_id || '',
       title: row.title || '쿠폰',
       description: row.description || '',
       couponCode: row.coupon_code || '',
-	  use_link_url: row.use_link_url || '',
+      coupon_code: row.coupon_code || '',
+      use_link_url: row.use_link_url || '',
       imageUrl: row.image_url || '',
-	  discount_label: row.discount_label || '',
+      image_url: row.image_url || '',
+      discount_label: row.discount_label || '',
       startAt: row.start_at || '',
+      start_at: row.start_at || '',
       endAt: row.end_at || '',
+      end_at: row.end_at || '',
       isActive: row.is_active !== false,
-      isToday: !!row.is_today_coupon,
+      is_active: row.is_active !== false,
+      isToday: row.is_today_coupon === true,
+      is_today_coupon: row.is_today_coupon === true,
       sortOrder: row.sort_order == null ? 1000 : Number(row.sort_order),
+      sort_order: row.sort_order == null ? 1000 : Number(row.sort_order),
       createdAt: row.created_at || '',
+      created_at: row.created_at || '',
       notify_emails: row.notify_emails || '',
       notify_phones: row.notify_phones || ''
     }));
+    console.log('[COUPONS] loaded', coupons.length, coupons.map(c=>({id:c.id,title:c.title,isToday:c.isToday,businessId:c.businessId})));
     return true;
   } catch (e) {
     console.warn('Using fallback coupons', e);
@@ -1279,7 +1291,10 @@ return {
 
     title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
 
-    desc: `${b.category} · ${getRegionLabel(b.region || currentRegion)}`,
+    // 연결 업소를 찾지 못해도 undefined가 화면에 노출되지 않도록 안전하게 구성합니다.
+    desc: [b.category || b.category_ko || '', getRegionLabel(b.region || s.region || currentRegion)]
+      .filter(Boolean)
+      .join(' · '),
 
     slideDesc: s.description || s.promo_text || '',
 
@@ -3129,7 +3144,7 @@ function renderHero(){
         <div class="hero-slide-content">
           <span class="hero-chip">${esc(s.type || 'BANNER')}</span>
           <h2>${esc(s.title || '')}</h2>
-          <p>${esc(s.desc || '')}</p>
+          <p>${esc(s.desc || s.slideDesc || '')}</p>
          
         </div>
       </article>
