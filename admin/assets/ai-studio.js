@@ -133,7 +133,7 @@ function fillInput(pkg) {
   if ($('aiCouponStyle')) $('aiCouponStyle').value = pkg.couponStyle || 'premium';
   if ($('aiCouponCode')) $('aiCouponCode').value = pkg.customCouponCode || '';
   if ($('aiCouponUsage')) $('aiCouponUsage').value = pkg.couponUsage || '직원에게 쿠폰 화면 제시';
-  if ($('aiCouponToday')) $('aiCouponToday').checked = Boolean(pkg.couponToday);
+  if ($('aiCouponToday')) $('aiCouponToday').checked = pkg.couponToday !== false;
   applySelectedAssets(pkg.assets || DEFAULT_ASSETS);
 }
 

@@ -1549,7 +1549,7 @@ function clearCouponForm() {
   ['coupon_id', 'coupon_title', 'coupon_code',  'coupon_use_link_url', 'coupon_notify_emails', 'coupon_notify_phones', 'coupon_discount_label', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order'].forEach((id) => setVal(id, ''));
   setVal('coupon_business_id', '');
   setChecked('coupon_is_active', true);
-  setChecked('coupon_is_today', false);
+  setChecked('coupon_is_today', true);
   selectedCouponId = null;
   safeText('couponFormTitle', '새 쿠폰');
   $$('.coupon-row').forEach((el) => el.classList.remove('active'));

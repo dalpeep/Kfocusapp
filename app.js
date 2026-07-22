@@ -1067,7 +1067,12 @@ function renderDalpicks(){
   const dalpickItems=activeDalpicks()
     .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
     .map(d=>({kind:'dalpick', id:String(d.id), data:d, date:d.created_at||d.start_at||''}));
-  const couponItems=(typeof todayCoupons==='function'?todayCoupons():[])
+  // 메인 DalPick은 오늘 지정 쿠폰만이 아니라 현재 활성 쿠폰도 함께 사용합니다.
+  // 오늘 쿠폰을 먼저 배치하고, 나머지는 정렬 순서와 최신순으로 이어집니다.
+  const allActiveCoupons = (typeof activeCoupons==='function' ? activeCoupons(coupons) : []);
+  const couponItems = allActiveCoupons
+    .slice()
+    .sort((a,b)=>Number(Boolean(b.isToday))-Number(Boolean(a.isToday)) || (a.sortOrder||1000)-(b.sortOrder||1000) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
   // DalPick 콘텐츠와 '오늘의 쿠폰'을 하나의 슬라이드에 함께 노출합니다.
@@ -1542,7 +1547,10 @@ function activeCoupons(list=coupons){
   }).sort((a,b)=> (a.sortOrder||1000)-(b.sortOrder||1000) || (new Date(a.endAt||'2999-01-01') - new Date(b.endAt||'2999-01-01')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }
 function todayCoupons(){
-  return activeCoupons(coupons).filter(c=>c.isToday);
+  const active = activeCoupons(coupons);
+  const featured = active.filter(c=>c.isToday);
+  // 기존 데이터에 '오늘의 쿠폰' 체크가 하나도 없으면 활성 쿠폰을 비워 두지 않고 보여줍니다.
+  return featured.length ? featured : active;
 }
 function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
 function couponCardHTML(c, mode='all'){
@@ -2316,7 +2324,7 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
     <section class="biz-detail-card">
       <h2>${esc(bizName)}</h2>
-      <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
+      <p class="biz-detail-meta">${esc(category || '업소')} · DalTownMap</p>
 
 <div class="biz-detail-rating">
 ${b.rating ? `
