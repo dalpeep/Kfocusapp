@@ -152,6 +152,7 @@ let selectedCouponId = null;
 let selectedBoardId = null;
 let selectedDalpickId = null;
 let selectedSlideBusinessId = null;
+let selectedSlideId = null;
 
 const BUSINESS_FIELDS = [
   'id', 'name_ko', 'name_en', 'category_ko', 'area', 'region', 'phone',
@@ -2356,8 +2357,11 @@ async function generateAiGuide({ publish = false } = {}) {
 /* ---------------------------
    Slides
 --------------------------- */
-function slideByBusinessId(id) {
-  return slides.find((s) => String(s.business_id) === String(id)) || null;
+function slideById(id) {
+  return slides.find((s) => String(s.id) === String(id)) || null;
+}
+function slidesByBusinessId(id) {
+  return slides.filter((s) => String(s.business_id || '') === String(id || ''));
 }
 async function loadSlides() {
   if (!supabase) return;
@@ -2382,10 +2386,11 @@ function renderSlideBusinessOptions() {
   if (!el) return;
   const region = currentRegionScope();
   const rows = businesses.filter((b) => region === 'all' || (b.region || 'dallas') === region);
-  el.innerHTML = '<option value="">업소 선택</option>' +
+  el.innerHTML = '<option value="">업소 연결 안 함</option>' +
     rows.map((b) => `<option value="${esc(b.id)}">${esc(b.name_ko || b.name_en || b.id)}</option>`).join('');
 }
 function clearSlideForm() {
+  setVal('slide_id', '');
   setVal('slide_business_id', '');
   setVal('slide_business_select', '');
   setChecked('slide_promo_enabled', true);
@@ -2398,71 +2403,71 @@ function clearSlideForm() {
   setVal('slide_start_at', '');
   setVal('slide_end_at', '');
   selectedSlideBusinessId = null;
+  selectedSlideId = null;
   safeText('slideFormTitle', '새 슬라이드');
   $$('.slide-row').forEach((el) => el.classList.remove('active'));
 }
-function fillSlideForm(rowOrBusiness) {
-  const businessId = rowOrBusiness?.business_id || rowOrBusiness?.id || '';
-  const slide = rowOrBusiness?.business_id ? rowOrBusiness : slideByBusinessId(businessId);
+function fillSlideForm(slide) {
+  // 업소 목록의 '슬라이드' 버튼에서 들어온 경우에는 기존 슬라이드를 수정하지 않고
+  // 해당 업소가 미리 선택된 새 슬라이드 양식을 연다.
+  if (slide && slide.id && !slide.business_id && businesses.some((b) => String(b.id) === String(slide.id))) {
+    const businessId = slide.id;
+    clearSlideForm();
+    setVal('slide_business_id', businessId);
+    setVal('slide_business_select', businessId);
+    selectedSlideBusinessId = businessId;
+    safeText('slideFormTitle', `새 슬라이드 · ${slide.name_ko || slide.name_en || '선택 업소'}`);
+    return;
+  }
+  if (!slide || !slide.id) return clearSlideForm();
+  const businessId = slide.business_id || '';
+  setVal('slide_id', slide.id || '');
   setVal('slide_business_id', businessId);
   setVal('slide_business_select', businessId);
-  setChecked('slide_promo_enabled', slide?.promo_enabled !== false);
-  setChecked('slide_home_fixed', !!slide?.home_fixed);
-  setVal('slide_home_fixed_sort', slide?.home_fixed_sort ?? 1000);
-  setVal('slide_promo_text', slide?.promo_text || '');
-  setVal('slide_promo_image_url', slide?.promo_image_url || '');
-  setVal('slide_video_url', slide?.video_url || '');
-  setVal('slide_link_url', slide?.link_url || '');
-  setVal('slide_start_at', fmtLocal(slide?.promo_start_at));
-  setVal('slide_end_at', fmtLocal(slide?.promo_end_at));
+  setChecked('slide_promo_enabled', slide.promo_enabled !== false);
+  setChecked('slide_home_fixed', !!slide.home_fixed);
+  setVal('slide_home_fixed_sort', slide.home_fixed_sort ?? 1000);
+  setVal('slide_promo_text', slide.promo_text || '');
+  setVal('slide_promo_image_url', slide.promo_image_url || '');
+  setVal('slide_video_url', slide.video_url || '');
+  setVal('slide_link_url', slide.link_url || '');
+  setVal('slide_start_at', fmtLocal(slide.promo_start_at));
+  setVal('slide_end_at', fmtLocal(slide.promo_end_at));
+  selectedSlideId = slide.id;
   selectedSlideBusinessId = businessId || null;
-  safeText('slideFormTitle', businessId ? `슬라이드 설정 #${businessId}` : '새 슬라이드');
+  const biz = businesses.find((b) => String(b.id) === String(businessId));
+  safeText('slideFormTitle', `슬라이드 수정 · ${biz?.name_ko || biz?.name_en || (businessId ? '연결 업소' : '업소 미연결')}`);
 }
 function filterSlides() {
   const q = val('slideSearchInput').trim().toLowerCase();
   const region = currentRegionScope();
-  const bizRows = businesses.filter((b) => region === 'all' || (b.region || 'colorado') === region);
-  return bizRows.filter((b) => {
-    const slide = slideByBusinessId(b.id);
+  return (slides || []).filter((slide) => {
+    if (region !== 'all' && (slide.region || 'dallas') !== region) return false;
+    const biz = businesses.find((b) => String(b.id) === String(slide.business_id || ''));
     if (!q) return true;
-    return [b.name_ko, b.name_en, slide?.promo_text, b.category_ko].join(' ').toLowerCase().includes(q);
-  }).sort((a, b) => {
-    const sa = slideByBusinessId(a.id);
-    const sb = slideByBusinessId(b.id);
-    const aActive = sa ? 0 : 1;
-    const bActive = sb ? 0 : 1;
-    return aActive - bActive || (sa?.home_fixed_sort ?? 1000) - (sb?.home_fixed_sort ?? 1000) || String(a.name_ko || '').localeCompare(String(b.name_ko || ''), 'ko');
-  });
+    return [slide.promo_text, slide.link_url, biz?.name_ko, biz?.name_en, biz?.category_ko]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  }).sort((a, b) =>
+    Number(a.home_fixed_sort ?? 1000) - Number(b.home_fixed_sort ?? 1000) ||
+    String(b.created_at || '').localeCompare(String(a.created_at || ''))
+  );
 }
 function renderSlideList(items) {
-  const activeCount = slides.filter((s) => currentRegionScope() === 'all' || (s.region || 'colorado') === currentRegionScope()).length;
-  safeText('slideCountText', `${activeCount}개`);
+  safeText('slideCountText', `${(items || []).length}개`);
   const listEl = qs('slideList');
   if (!listEl) return;
-  
-  const slideBusinessIds = new Set(
-  slides
-    .filter(s =>
-      s &&
-      s.business_id &&
-      (currentRegionScope() === 'all' || (s.region || 'colorado') === currentRegionScope())
-    )
-    .map(s => String(s.business_id))
-);
-
-items = (items || []).filter(biz => slideBusinessIds.has(String(biz.id)));
-
-  listEl.innerHTML = items.map((biz) => {
-    const slide = slideByBusinessId(biz.id);
-    const img = slide?.promo_image_url || biz.image_url || 'https://placehold.co/120x120?text=Slide';
-    const meta = slide ? (slide.promo_text || '슬라이드 문구 없음') : '슬라이드 미등록';
-    const state = slide ? `${slide.promo_enabled ? '프로모션' : '비활성'}${slide.home_fixed ? ' · 홈고정' : ''}` : '업소 선택 가능';
+  listEl.innerHTML = (items || []).map((slide) => {
+    const biz = businesses.find((b) => String(b.id) === String(slide.business_id || ''));
+    const img = slide.promo_image_url || biz?.image_url || 'https://placehold.co/120x120?text=Slide';
+    const title = slide.promo_text || biz?.name_ko || biz?.name_en || '독립 슬라이드';
+    const owner = biz ? `연결: ${biz.name_ko || biz.name_en}` : '업소 연결 없음';
+    const state = `${slide.promo_enabled ? '게시' : '비활성'}${slide.home_fixed ? ' · 홈고정' : ''} · 순서 ${slide.home_fixed_sort ?? 1000}`;
     return `
-      <button type="button" class="biz-item slide-row ${biz.id === selectedSlideBusinessId ? 'active' : ''}" data-id="${esc(biz.id)}">
+      <button type="button" class="biz-item slide-row ${String(slide.id) === String(selectedSlideId) ? 'active' : ''}" data-slide-id="${esc(slide.id)}">
         <img class="biz-thumb" src="${esc(img)}" alt="thumb" />
         <div>
-          <div class="biz-title">${esc(biz.name_ko || biz.name_en || `ID ${biz.id}`)}</div>
-          <div class="biz-meta">${esc(meta)}</div>
+          <div class="biz-title">${esc(title)}</div>
+          <div class="biz-meta">${esc(owner)}</div>
           <div class="biz-meta">${esc(state)}</div>
         </div>
       </button>
@@ -2471,56 +2476,56 @@ items = (items || []).filter(biz => slideBusinessIds.has(String(biz.id)));
 
   listEl.querySelectorAll('.slide-row').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const biz = businesses.find((b) => String(b.id) === String(btn.dataset.id));
-      if (biz) {
-        fillSlideForm(biz);
+      const slide = slideById(btn.dataset.slideId);
+      if (slide) {
+        fillSlideForm(slide);
         renderSlideList(filterSlides());
       }
     });
   });
 }
 async function saveSlide() {
-  const businessId = val('slide_business_select') || val('slide_business_id');
-  if (!businessId) return alert('업소를 선택하세요.');
-  const biz = businesses.find((b) => String(b.id) === String(businessId));
-  
-  console.log('slide_video_url raw =', val('slide_video_url'));
-  
-const payload = {
-  business_id: businessId,
-  region: getAppRegion(),
-  promo_enabled: checked('slide_promo_enabled'),
-  home_fixed: checked('slide_home_fixed'),
-  home_fixed_sort: Number(val('slide_home_fixed_sort') || 1000),
-  promo_text: val('slide_promo_text').trim() || null,
-  promo_image_url: val('slide_promo_image_url').trim() || null,
+  const slideId = val('slide_id') || selectedSlideId;
+  const businessId = val('slide_business_select') || null;
+  const payload = {
+    business_id: businessId,
+    region: getAppRegion(),
+    promo_enabled: checked('slide_promo_enabled'),
+    home_fixed: checked('slide_home_fixed'),
+    home_fixed_sort: Number(val('slide_home_fixed_sort') || 1000),
+    promo_text: val('slide_promo_text').trim() || null,
+    promo_image_url: val('slide_promo_image_url').trim() || null,
+    video_url: val('slide_video_url').trim() || null,
+    link_url: val('slide_link_url').trim() || null,
+    promo_start_at: fromLocal(val('slide_start_at')),
+    promo_end_at: fromLocal(val('slide_end_at')),
+    updated_at: new Date().toISOString()
+  };
 
-  // ⭐ 이거 추가
-  video_url: val('slide_video_url').trim() || null,
-  link_url: val('slide_link_url') || null,
-  promo_start_at: fromLocal(val('slide_start_at')),
-  promo_end_at: fromLocal(val('slide_end_at')),
-  updated_at: new Date().toISOString()
-};
-
-  console.log('SAVE PAYLOAD =', payload);
-
-  const { data, error } = await supabase.from('slides').upsert(payload, { onConflict: 'business_id' }).select().single();
+  let query;
+  if (slideId) {
+    query = supabase.from('slides').update(payload).eq('id', slideId).select().single();
+  } else {
+    query = supabase.from('slides').insert(payload).select().single();
+  }
+  const { data, error } = await query;
   if (error) return alert(`슬라이드 저장 실패: ${error.message}`);
 
   await loadSlides();
   if (data) fillSlideForm(data);
-  alert('슬라이드 저장 완료');
+  renderSlideList(filterSlides());
+  alert(slideId ? '슬라이드 수정 완료' : '새 슬라이드 추가 완료');
 }
 async function deleteSlide() {
-  const businessId = val('slide_business_select') || val('slide_business_id') || selectedSlideBusinessId;
-  if (!businessId) return alert('삭제할 슬라이드를 선택하세요.');
-  if (!confirm('선택한 슬라이드를 삭제할까요?')) return;
-  const { error } = await supabase.from('slides').delete().eq('business_id', businessId);
+  const slideId = val('slide_id') || selectedSlideId;
+  if (!slideId) return alert('삭제할 슬라이드를 선택하세요.');
+  if (!confirm('선택한 슬라이드 한 개만 삭제할까요?')) return;
+  const { error } = await supabase.from('slides').delete().eq('id', slideId);
   if (error) return alert(`슬라이드 삭제 실패: ${error.message}`);
   await loadSlides();
   clearSlideForm();
-  alert('슬라이드 삭제 완료');
+  renderSlideList(filterSlides());
+  alert('선택한 슬라이드가 삭제되었습니다.');
 }
 
 function parseImageUrls(v) {

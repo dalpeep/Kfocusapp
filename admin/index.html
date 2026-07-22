@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=8.3.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=8.3.0"></script>
+  <script type="module" src="assets/admin.js?v=8.6.0"></script>
   <script type="module" src="assets/ai-studio.js?v=6.0.0"></script>
 <style>
 .admin-card{
@@ -665,8 +665,9 @@
             </div>
 
             <form id="slideForm" class="form-grid">
+              <input type="hidden" id="slide_id" />
               <input type="hidden" id="slide_business_id" />
-              <label class="field full"><span>선택 업소</span><select id="slide_business_select"></select></label>
+              <label class="field full"><span>연결 업소 (선택 사항)</span><select id="slide_business_select"></select><small class="muted">업소를 연결하지 않아도 독립 슬라이드로 저장할 수 있습니다.</small></label>
               <label class="field checkbox-line"><input id="slide_promo_enabled" type="checkbox" /><span>프로모션 사용</span></label>
               <label class="field checkbox-line"><input id="slide_home_fixed" type="checkbox" /><span>홈 고정</span></label>
               <label class="field"><span>홈 고정 순서</span><input id="slide_home_fixed_sort" type="number" /></label>
