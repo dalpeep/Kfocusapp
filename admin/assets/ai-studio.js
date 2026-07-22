@@ -99,9 +99,37 @@ function fillInput(pkg) {
   if ($('aiCampaignNotes')) $('aiCampaignNotes').value = pkg.notes || '';
 }
 
+function ensureCompletePackage(pkg) {
+  if (!pkg) return null;
+  const hasOutputs = pkg.article && pkg.banner && pkg.coupon && pkg.social && pkg.grok && pkg.runway;
+  if (hasOutputs) return pkg;
+  const business = pkg.business || businessRows.find((row) => String(row.id) === String(pkg.business?.id || pkg.businessId || '')) || null;
+  const rebuilt = makePackage({
+    business,
+    businessName: clean(pkg.businessName || business?.name_ko || business?.name_en),
+    category: clean(pkg.category || business?.category_ko),
+    phone: clean(pkg.phone || business?.phone),
+    website: clean(pkg.website || business?.website),
+    address: clean(pkg.address || business?.address),
+    name: clean(pkg.name),
+    benefit: clean(pkg.benefit),
+    start: clean(pkg.start),
+    end: clean(pkg.end),
+    style: clean(pkg.style) || 'premium',
+    cta: clean(pkg.cta) || '자세히 보기',
+    notes: clean(pkg.notes)
+  });
+  return { ...pkg, ...rebuilt, business: business || pkg.business };
+}
+
 function openCampaign(id) {
-  const pkg = readCampaigns().find((row) => row.id === id);
-  if (!pkg) return alert('캠페인을 찾을 수 없습니다.');
+  const raw = readCampaigns().find((row) => row.id === id);
+  if (!raw) return alert('캠페인을 찾을 수 없습니다.');
+  const pkg = ensureCompletePackage(raw);
+  if (pkg.article !== raw.article || pkg.banner !== raw.banner) {
+    const rows = readCampaigns().map((row) => row.id === id ? { ...pkg, updatedAt: row.updatedAt || new Date().toISOString() } : row);
+    writeCampaigns(rows);
+  }
   currentCampaignId = id;
   fillInput(pkg);
   renderPackage(pkg, false);
@@ -242,16 +270,63 @@ function sendDalpick() {
   }, 50);
 }
 
+function setValueWhenReady(id, value) {
+  const el = $(id);
+  if (!el) return false;
+  if (el.type === 'checkbox') el.checked = Boolean(value);
+  else el.value = value ?? '';
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  return true;
+}
+
 function sendBanner() {
-  if (!lastPackage) return alert('먼저 캠페인을 생성하세요.');
+  if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
+  lastPackage = ensureCompletePackage(lastPackage);
+  const businessId = String(lastPackage.business?.id || '');
+  const bannerDraft = {
+    title: `${lastPackage.businessName} · ${lastPackage.name}`,
+    description: `${lastPackage.benefit}${lastPackage.notes ? `\n${lastPackage.notes}` : ''}`,
+    buttonLabel: lastPackage.cta || '자세히 보기',
+    region: lastPackage.business?.region || window.getAppRegion?.() || 'dallas',
+    businessId,
+    placement: businessId ? 'detail' : 'home',
+    displayType: 'banner',
+    startAt: lastPackage.start ? `${lastPackage.start}T00:00` : '',
+    endAt: lastPackage.end ? `${lastPackage.end}T23:59` : '',
+    campaignId: lastPackage.id || currentCampaignId || '',
+    campaignPrompt: lastPackage.banner || ''
+  };
+  sessionStorage.setItem('daltown-banner-draft-v1', JSON.stringify(bannerDraft));
   switchSection('banners');
-  setTimeout(() => {
-    if ($('bnTitle')) $('bnTitle').value = `${lastPackage.businessName} · ${lastPackage.name}`;
-    if ($('bnRegion')) $('bnRegion').value = lastPackage.business?.region || window.getAppRegion?.() || 'dallas';
-    if ($('bnActive')) $('bnActive').checked = true;
-    $('bnImage')?.focus();
-    alert('제목과 지역을 옮겼습니다. Grok에서 만든 이미지를 업로드하고 링크를 설정한 뒤 저장하세요.');
-  }, 50);
+
+  let tries = 0;
+  const applyDraft = () => {
+    tries += 1;
+    setValueWhenReady('bnTitle', bannerDraft.title);
+    setValueWhenReady('bnDescription', bannerDraft.description);
+    setValueWhenReady('bnButtonLabel', bannerDraft.buttonLabel);
+    setValueWhenReady('bnRegion', bannerDraft.region);
+    setValueWhenReady('bnDisplayType', bannerDraft.displayType);
+    setValueWhenReady('bnPlacement', bannerDraft.placement);
+    setValueWhenReady('bnStartAt', bannerDraft.startAt);
+    setValueWhenReady('bnEndAt', bannerDraft.endAt);
+    setValueWhenReady('bnActive', true);
+    if (businessId) {
+      setValueWhenReady('bnBusinessId', businessId);
+      setValueWhenReady('bnBusinessSearch', lastPackage.businessName || '');
+      setValueWhenReady('bnBusinessSelect', businessId);
+    }
+    const image = $('bnImage');
+    if (image || tries >= 12) {
+      image?.focus();
+      const formPanel = image?.closest('.form-panel') || $('section-banners');
+      formPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      alert('캠페인 내용을 배너 입력란에 불러왔습니다. 이미지 URL을 넣거나 이미지 파일을 업로드한 뒤 저장하세요.');
+      return;
+    }
+    setTimeout(applyDraft, 100);
+  };
+  setTimeout(applyDraft, 80);
 }
 
 function sendCoupon() {
@@ -337,6 +412,7 @@ function init() {
   }));
   $('aiSendDalpickBtn')?.addEventListener('click', sendDalpick);
   $('aiSendBannerBtn')?.addEventListener('click', sendBanner);
+  $('aiCampaignRegisterBannerBtn')?.addEventListener('click', sendBanner);
   $('aiSendCouponBtn')?.addEventListener('click', sendCoupon);
   $('aiCampaignSaveBtn')?.addEventListener('click', () => {
     if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
