@@ -238,6 +238,7 @@ function setPageMeta() {
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
+    aiStudio: ['AI 광고 스튜디오', '업소 정보 한 번으로 기사·배너·쿠폰·SNS·영상 제작안을 만듭니다.'],
     dalpick: ['AI 콘텐츠 스튜디오', 'DalPick과 업소탐방 Premium 콘텐츠를 AI로 작성하고 발행합니다.'],
     performance: ['광고 성과 센터', '관리자 전용 비공개 광고 성과를 확인합니다.'],
     board: ['커뮤니티 관리자', '지역소식 / 라이프 / 비즈니스 글을 관리합니다.'],
@@ -1125,6 +1126,10 @@ async function loadBusinesses() {
     return;
   }
   businesses = data || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getBusinesses = () => [...businesses];
+  window.KFocusAdminBridge.switchSection = switchSection;
+  window.dispatchEvent(new CustomEvent('kfocus:businesses-loaded', { detail: [...businesses] }));
   businessCategoryOptions();
   renderBusinessList(filterBusinesses());
   fillBusinessOptions();
