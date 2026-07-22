@@ -1,3 +1,4 @@
+console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -1067,12 +1068,7 @@ function renderDalpicks(){
   const dalpickItems=activeDalpicks()
     .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
     .map(d=>({kind:'dalpick', id:String(d.id), data:d, date:d.created_at||d.start_at||''}));
-  // 메인 DalPick은 오늘 지정 쿠폰만이 아니라 현재 활성 쿠폰도 함께 사용합니다.
-  // 오늘 쿠폰을 먼저 배치하고, 나머지는 정렬 순서와 최신순으로 이어집니다.
-  const allActiveCoupons = (typeof activeCoupons==='function' ? activeCoupons(coupons) : []);
-  const couponItems = allActiveCoupons
-    .slice()
-    .sort((a,b)=>Number(Boolean(b.isToday))-Number(Boolean(a.isToday)) || (a.sortOrder||1000)-(b.sortOrder||1000) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
+  const couponItems=(typeof todayCoupons==='function'?todayCoupons():[])
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
   // DalPick 콘텐츠와 '오늘의 쿠폰'을 하나의 슬라이드에 함께 노출합니다.
@@ -1548,9 +1544,9 @@ function activeCoupons(list=coupons){
 }
 function todayCoupons(){
   const active = activeCoupons(coupons);
-  const featured = active.filter(c=>c.isToday);
-  // 기존 데이터에 '오늘의 쿠폰' 체크가 하나도 없으면 활성 쿠폰을 비워 두지 않고 보여줍니다.
-  return featured.length ? featured : active;
+  const today = active.filter(c=>c.isToday);
+  // 오늘의 쿠폰 표시값이 하나도 없으면 활성 쿠폰을 대신 보여 줍니다.
+  return today.length ? today : active;
 }
 function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
 function couponCardHTML(c, mode='all'){
@@ -2324,7 +2320,7 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
     <section class="biz-detail-card">
       <h2>${esc(bizName)}</h2>
-      <p class="biz-detail-meta">${esc(category || '업소')} · DalTownMap</p>
+      <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
 
 <div class="biz-detail-rating">
 ${b.rating ? `
