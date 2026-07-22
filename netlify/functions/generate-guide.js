@@ -34,6 +34,87 @@ async function askOpenAI({ name, schema, system, prompt }) {
   return JSON.parse(text);
 }
 
+function extractJsonObject(text = '') {
+  const cleaned = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+  try { return JSON.parse(cleaned); } catch (_) {}
+  const first = cleaned.indexOf('{');
+  const last = cleaned.lastIndexOf('}');
+  if (first >= 0 && last > first) return JSON.parse(cleaned.slice(first, last + 1));
+  throw new Error('웹 검색 응답을 JSON으로 해석하지 못했습니다.');
+}
+
+function extractWebSources(json = {}) {
+  const sources = [];
+  const seen = new Set();
+  const visit = value => {
+    if (!value || typeof value !== 'object') return;
+    if (Array.isArray(value)) return value.forEach(visit);
+    const url = value.url || value.uri;
+    const title = value.title || value.name || '';
+    if (typeof url === 'string' && /^https?:\/\//i.test(url) && !seen.has(url)) {
+      seen.add(url);
+      sources.push({ title: String(title || '웹 검색 출처'), url, type: 'web_search' });
+    }
+    Object.values(value).forEach(visit);
+  };
+  visit(json);
+  return sources.slice(0, 20);
+}
+
+async function searchWebEvidence({ topic, category, instructions, providedQueries = [] }) {
+  const queryHints = providedQueries.filter(Boolean).slice(0, 3).join(' / ');
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: process.env.OPENAI_WEB_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+      tools: [{ type: 'web_search' }],
+      tool_choice: 'auto',
+      input: [{ role: 'user', content: [{ type: 'input_text', text: `현재 공개 웹 검색을 사용해 다음 요청에 직접 맞는 근거를 찾으세요.\n\n주제: ${topic}\n분야: ${categoryNames[category] || category}\n추가 지시: ${instructions || '없음'}\n검색 힌트: ${queryHints || '없음'}\n\n제목의 제한 조건(예: 한인, 한국어 가능, 여의사, 소아, 특정 도시)을 절대 일반화하지 마세요. 장소 목록이면 조건에 실제로 부합한다고 검색 결과에서 확인되는 후보만 제시하세요. 단순히 같은 업종이라는 이유로 포함하지 마세요.\n\n반드시 아래 JSON 객체 하나만 출력하세요.\n{\n  "summary": "검색 결과 핵심 요약",\n  "candidates": [{"name":"후보명","why_match":"요청 조건과 일치하는 검색 근거","city":"도시","evidence_urls":["https://..."]}],\n  "facts": [{"claim":"확인된 사실","source_url":"https://..."}],\n  "warnings": ["확인하지 못한 점"]\n}\n후보명이나 사실을 찾지 못하면 빈 배열을 사용하고 절대 추측하지 마세요.` }] }],
+      max_output_tokens: 3500
+    })
+  });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json?.error?.message || '웹 검색 요청에 실패했습니다.');
+  const parsed = extractJsonObject(outputText(json));
+  return {
+    summary: String(parsed.summary || ''),
+    candidates: Array.isArray(parsed.candidates) ? parsed.candidates.slice(0, 10) : [],
+    facts: Array.isArray(parsed.facts) ? parsed.facts.slice(0, 20) : [],
+    warnings: Array.isArray(parsed.warnings) ? parsed.warnings.slice(0, 10) : [],
+    sources: extractWebSources(json)
+  };
+}
+
+function extractGoogleQuery(url) {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)google\./i.test(u.hostname)) return '';
+    return String(u.searchParams.get('q') || u.searchParams.get('query') || '').trim();
+  } catch (_) { return ''; }
+}
+
+function normalizeText(value = '') {
+  return String(value).toLowerCase().replace(/[^a-z0-9가-힣]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function scoreCandidatePlace(place, candidate, topic) {
+  const p = normalizeText(`${place.name} ${place.address} ${place.query}`);
+  const c = normalizeText(`${candidate?.name || ''} ${candidate?.city || ''} ${candidate?.why_match || ''}`);
+  const t = normalizeText(topic);
+  let score = 0;
+  const nameTokens = normalizeText(candidate?.name || '').split(' ').filter(x => x.length > 1);
+  if (nameTokens.length && nameTokens.every(x => p.includes(x))) score += 55;
+  else score += nameTokens.filter(x => p.includes(x)).length * 10;
+  const cityTokens = normalizeText(candidate?.city || '').split(' ').filter(x => x.length > 2);
+  score += cityTokens.filter(x => p.includes(x)).length * 8;
+  const hard = ['한인','한국어','korean','여의사','female','소아','pediatric','내과','internal medicine','치과','dental'];
+  for (const q of hard) if (t.includes(q) && (c.includes(q) || p.includes(q))) score += 8;
+  if (place.website) score += 3;
+  if (place.phone) score += 2;
+  return score;
+}
+
 function stripHtml(html = '') {
   return String(html)
     .replace(/<script[\s\S]*?<\/script>/gi, ' ')
@@ -120,43 +201,6 @@ async function searchGooglePlaces(query, count = 5) {
     types: place.types || [],
     query
   }));
-}
-
-
-function extractGoogleQuery(url) {
-  try {
-    const u = new URL(url);
-    if (!/(^|\.)google\./i.test(u.hostname)) return '';
-    return String(u.searchParams.get('q') || u.searchParams.get('query') || '').trim();
-  } catch (_) { return ''; }
-}
-
-function getHardQualifiers(topic = '', instructions = '') {
-  const text = `${topic} ${instructions}`;
-  const qualifiers = [];
-  if (/(한인|한국인|한국어|코리안|korean)/i.test(text)) qualifiers.push('korean');
-  if (/(여성|여의사|female|woman)/i.test(text)) qualifiers.push('female');
-  if (/(소아|어린이|아동|pediatric|children)/i.test(text)) qualifiers.push('pediatric');
-  if (/(내과|internal medicine)/i.test(text)) qualifiers.push('internal_medicine');
-  if (/(치과|dental|dentist)/i.test(text)) qualifiers.push('dental');
-  return qualifiers;
-}
-
-function qualifierEvidenceText(place, pageText = '') {
-  return `${place.name || ''} ${place.address || ''} ${place.website || ''} ${place.primary_type || ''} ${(place.types || []).join(' ')} ${pageText || ''}`.toLowerCase();
-}
-
-function matchesHardQualifiers(place, pageText, qualifiers) {
-  if (!qualifiers.length) return true;
-  const t = qualifierEvidenceText(place, pageText);
-  const checks = {
-    korean: /(한인|한국인|한국어|한국 의사|korean[- ]?speaking|korean language|korean physician|korean doctor|korean medical|우리들|코리안)/i.test(t),
-    female: /(여의사|여성 의사|female physician|female doctor|woman physician|woman doctor)/i.test(t),
-    pediatric: /(소아|아동|어린이|pediatric|children)/i.test(t),
-    internal_medicine: /(내과|internal medicine|internist)/i.test(t),
-    dental: /(치과|dental|dentist)/i.test(t)
-  };
-  return qualifiers.every(q => checks[q] !== false);
 }
 
 function isPlaceBasedTopic(category, topic) {
@@ -257,47 +301,57 @@ exports.handler = async (event) => {
     });
 
     const placeBased = isPlaceBasedTopic(category, topic);
-    const hardQualifiers = getHardQualifiers(topic, instructions);
-    const googleLinkQueries = sources.map(extractGoogleQuery).filter(Boolean);
-    const queryPool = [...new Set([topic, ...googleLinkQueries, ...plan.search_queries])].slice(0, 3);
-    const placeResults = [];
-    if (placeBased) {
-      const batches = await Promise.all(queryPool.map(async query => {
-        let localizedQuery = /Dallas|Fort Worth|DFW|Texas|Carrollton|Plano|Frisco/i.test(query) ? query : `${query} Dallas Fort Worth Texas`;
-        if (hardQualifiers.includes('korean') && !/(한인|한국어|korean)/i.test(localizedQuery)) localizedQuery = `Korean Korean-speaking ${localizedQuery}`;
-        return searchGooglePlaces(localizedQuery, 6);
-      }));
-      batches.forEach(results => placeResults.push(...results));
+    const googleUrlQueries = sources.map(extractGoogleQuery).filter(Boolean);
+    let webEvidence = { summary: '', candidates: [], facts: [], warnings: [], sources: [] };
+    try {
+      webEvidence = await searchWebEvidence({ topic, category, instructions, providedQueries: [...googleUrlQueries, ...plan.search_queries] });
+    } catch (webError) {
+      console.warn('web search unavailable:', webError.message);
+      webEvidence.warnings = [`웹 검색을 완료하지 못했습니다: ${webError.message}`];
     }
-    const candidatePlaces = uniquePlaces(placeResults).slice(0, 12);
+
+    const placeQueries = placeBased ? [
+      ...webEvidence.candidates.map(c => `${c.name} ${c.city || ''}`.trim()),
+      ...googleUrlQueries,
+      ...plan.search_queries.slice(0, 3)
+    ].filter(Boolean).slice(0, 8) : [];
+
+    const placeBatches = await Promise.all(placeQueries.map(async query => {
+      try {
+        const localizedQuery = /Dallas|Fort Worth|DFW|Texas|Carrollton|Plano|Frisco/i.test(query) ? query : `${query} Dallas Fort Worth Texas`;
+        return await searchGooglePlaces(localizedQuery, 5);
+      } catch (error) {
+        console.warn('place search failed:', query, error.message);
+        return [];
+      }
+    }));
+    const rankedPlaces = uniquePlaces(placeBatches.flat()).map(place => {
+      const best = webEvidence.candidates.map(candidate => ({ candidate, score: scoreCandidatePlace(place, candidate, topic) })).sort((a, b) => b.score - a.score)[0] || { candidate: null, score: 0 };
+      return { ...place, web_match_score: best.score, matched_candidate: best.candidate };
+    }).sort((a, b) => b.web_match_score - a.web_match_score);
+    const verifiedPlaces = (webEvidence.candidates.length ? rankedPlaces.filter(p => p.web_match_score >= 35) : rankedPlaces).slice(0, 14);
 
     const providedPages = await Promise.all(sources.filter(url => !extractGoogleQuery(url)).slice(0, 4).map(fetchPageText));
     const readableProvided = providedPages.filter(p => p.ok && p.text);
 
-    if (sources.length && readableProvided.length === 0) {
-      throw new Error('입력한 참고 URL의 내용을 읽지 못했습니다. 주소가 공개 웹페이지인지 확인해 주세요. 잘못된 내용을 추측해 작성하지 않도록 생성을 중단했습니다.');
+    const ordinarySourceCount = sources.filter(url => !extractGoogleQuery(url)).length;
+    if (ordinarySourceCount > 0 && readableProvided.length === 0) {
+      throw new Error('입력한 일반 참고 URL의 내용을 읽지 못했습니다. 주소가 공개 웹페이지인지 확인해 주세요. Google 검색 결과 URL은 검색어 추출용으로 처리됩니다.');
     }
-    if (!placeBased && readableProvided.length === 0) {
-      throw new Error('이 주제는 장소 검색만으로 사실을 확인하기 어렵습니다. 공식기관 또는 신뢰할 수 있는 참고 URL을 하나 이상 입력해 주세요.');
+    if (!placeBased && readableProvided.length === 0 && webEvidence.sources.length === 0 && webEvidence.facts.length === 0) {
+      throw new Error('이 주제의 신뢰할 수 있는 웹 검색 근거를 확보하지 못했습니다. 공식기관 또는 신뢰할 수 있는 참고 URL을 추가해 주세요.');
     }
-    if (placeBased && candidatePlaces.length === 0 && readableProvided.length === 0) {
-      throw new Error('Google Maps/Places에서 확인 가능한 장소를 찾지 못했습니다. 검색 주제나 지역명을 더 구체적으로 입력하거나 공식 참고 URL을 추가해 주세요.');
+    if (placeBased && verifiedPlaces.length === 0 && readableProvided.length === 0 && webEvidence.candidates.length === 0) {
+      throw new Error('웹 검색과 Google Maps/Places에서 요청 조건에 맞는 장소를 확인하지 못했습니다. 임의의 장소를 추천하지 않고 생성을 중단했습니다.');
     }
 
-    const officialWebsiteUrls = [...new Set(candidatePlaces.map(p => p.website).filter(isHttpUrl))].slice(0, 4);
+    const officialWebsiteUrls = [...new Set(verifiedPlaces.map(p => p.website).filter(isHttpUrl))].slice(0, readableProvided.length ? 2 : 3);
     const officialPages = await Promise.all(officialWebsiteUrls.map(fetchPageText));
-    const pageTextByUrl = new Map(officialPages.filter(p => p.ok).map(p => [p.url, p.text]));
-    const verifiedPlaces = candidatePlaces.filter(place => {
-      const pageText = pageTextByUrl.get(place.website) || '';
-      return matchesHardQualifiers(place, pageText, hardQualifiers);
-    }).slice(0, 8);
-    const readableOfficialPages = officialPages.filter(p => p.ok && p.text && verifiedPlaces.some(v => v.website === p.url));
-
-    if (placeBased && hardQualifiers.length && verifiedPlaces.length === 0) {
-      throw new Error(`검색 결과에서 필수 조건(${hardQualifiers.join(', ')})을 공식 자료로 확인한 장소를 찾지 못했습니다. 조건을 임의로 추측하지 않고 생성을 중단했습니다.`);
-    }
+    const readableOfficialPages = officialPages.filter(p => p.ok && p.text);
 
     const evidence = [
+      `[실시간 웹 검색 요약]\n${webEvidence.summary || '요약 없음'}\n후보: ${JSON.stringify(webEvidence.candidates)}\n확인 사실: ${JSON.stringify(webEvidence.facts)}\n주의: ${JSON.stringify(webEvidence.warnings)}`,
+      ...webEvidence.sources.map((p, i) => `[웹 검색 출처 ${i + 1}]\nURL: ${p.url}\n제목: ${p.title}`),
       ...readableProvided.map((p, i) => `[사용자 제공 출처 ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`),
       ...verifiedPlaces.map((p, i) => `[Google Maps/Places 확인 ${i + 1}]\n이름: ${p.name}\n주소: ${p.address}\n전화: ${p.phone || '미제공'}\n웹사이트: ${p.website || '미제공'}\nGoogle 지도: ${p.google_maps_url || '미제공'}\n평점: ${p.rating ?? '미제공'}\n리뷰 수: ${p.review_count ?? '미제공'}\n영업 상태: ${p.business_status || '미제공'}`),
       ...readableOfficialPages.map((p, i) => `[장소 공식 웹사이트 ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`)
@@ -305,9 +359,8 @@ exports.handler = async (event) => {
 
     const draft = await askOpenAI({
       name: 'daltown_guide_draft', schema: articleSchema,
-      system: '당신은 달라스 한인 지역 미디어의 사실 검증형 한국어 편집자입니다. 제공된 Google Maps/Places 검증 자료와 읽은 공식 웹페이지 안에 명시된 사실만 사용합니다.',
-      prompt: `아래 기획서와 실제 검증 근거만으로 한국어 가이드 초안을 작성하세요.\n\n[사용자 요청]\n${topic}\n\n[기획서]\n기사 유형: ${plan.intent_type}\n목표: ${plan.user_goal}\n반드시 포함: ${plan.must_cover.join(' / ')}\n반드시 제외: ${plan.must_avoid.join(' / ')}\n개요: ${plan.outline.join(' > ')}\n\n[Google Maps/Places 검증 자료 및 URL 본문]\n${evidence}\n\n[절대 규칙]\n- 근거에 없는 병원명, 의사명, 학교명, 주소, 전화번호, 운영시간, 비용, 후기, 순위는 절대로 만들지 마세요.\n- 555 전화번호나 예시 주소를 작성하지 마세요.\n- Dallas/Texas 주제에 타주 주소를 넣지 마세요.\n- Google Places와 공식 홈페이지가 충돌하면 공식 홈페이지의 최신 정보를 우선하되, 해결되지 않으면 해당 정보를 생략하세요.\n- 사용자 제공 URL은 실제 본문이 제공되었으므로 가장 우선적으로 반영하세요.\n- 목록형 장소 정보는 각 항목에 확인 가능한 이름과 주소가 있을 때만 포함하세요.
-- '한인/한국어/Korean'이 핵심 조건이면 공식 홈페이지 또는 검증 근거에서 한국어 지원, 한인 의료진, Korean-speaking 등의 명시적 증거가 있는 장소만 포함하세요. 단순히 지역 내 병원이라는 이유로 포함하지 마세요.\n- 확인할 수 없는 내용은 추측하지 말고 생략하거나 '공식 홈페이지에서 재확인 필요'라고 쓰세요.\n- source_url에는 가장 핵심적인 공식 출처 URL 하나를 넣으세요.\n- 모바일에서 읽기 좋은 소제목과 짧은 문단을 사용하세요.`
+      system: '당신은 달라스 한인 지역 미디어의 사실 검증형 한국어 편집자입니다. 제공된 실시간 웹 검색 결과, Google Maps/Places 검증 자료, 읽은 공식 웹페이지에 명시된 사실만 사용합니다.',
+      prompt: `아래 기획서와 실제 검증 근거만으로 한국어 가이드 초안을 작성하세요.\n\n[사용자 요청]\n${topic}\n\n[기획서]\n기사 유형: ${plan.intent_type}\n목표: ${plan.user_goal}\n반드시 포함: ${plan.must_cover.join(' / ')}\n반드시 제외: ${plan.must_avoid.join(' / ')}\n개요: ${plan.outline.join(' > ')}\n\n[실시간 웹 검색·Google Maps/Places 검증 자료 및 URL 본문]\n${evidence}\n\n[절대 규칙]\n- 근거에 없는 병원명, 의사명, 학교명, 주소, 전화번호, 운영시간, 비용, 후기, 순위는 절대로 만들지 마세요.\n- 555 전화번호나 예시 주소를 작성하지 마세요.\n- Dallas/Texas 주제에 타주 주소를 넣지 마세요.\n- Google Places와 공식 홈페이지가 충돌하면 공식 홈페이지의 최신 정보를 우선하되, 해결되지 않으면 해당 정보를 생략하세요.\n- 사용자 제공 일반 URL 본문은 최우선으로 반영하세요. Google 검색 URL은 검색어를 추출해 실시간 웹 검색과 장소 검색에 사용했습니다.\n- 웹 검색에서 요청의 제한 조건(예: 한인·한국어 가능)이 확인된 후보만 장소 검증 결과와 결합하세요.\n- 목록형 장소 정보는 각 항목에 확인 가능한 이름과 주소가 있을 때만 포함하세요.\n- 확인할 수 없는 내용은 추측하지 말고 생략하거나 '공식 홈페이지에서 재확인 필요'라고 쓰세요.\n- source_url에는 가장 핵심적인 공식 출처 URL 하나를 넣으세요.\n- 모바일에서 읽기 좋은 소제목과 짧은 문단을 사용하세요.`
     });
 
     const placeVerification = placeBased
@@ -321,6 +374,7 @@ exports.handler = async (event) => {
     });
 
     const usedSources = [
+      ...webEvidence.sources,
       ...readableProvided.map(p => ({ title: '사용자 제공 참고 URL', url: p.url, type: 'provided_url' })),
       ...verifiedPlaces.slice(0, 12).map(p => ({ title: p.name, url: p.google_maps_url || p.website, type: 'google_place', address: p.address })),
       ...readableOfficialPages.map(p => ({ title: '공식 웹사이트', url: p.url, type: 'official_website' }))
@@ -335,10 +389,11 @@ exports.handler = async (event) => {
           score: review.score, intent_match: review.intent_match, relevance: review.relevance,
           unsupported_claim_risk: review.unsupported_claim_risk, problems: review.problems,
           intent_type: plan.intent_type, search_queries: plan.search_queries,
-          google_search_used: false,
+          google_search_used: webEvidence.sources.length > 0 || webEvidence.candidates.length > 0,
+          web_search_candidates: webEvidence.candidates.length,
+          web_search_warnings: webEvidence.warnings,
           google_places_used: placeBased,
           google_places_count: verifiedPlaces.length,
-          hard_qualifiers: hardQualifiers,
           provided_urls_read: readableProvided.length,
           official_pages_read: readableOfficialPages.length,
           places_checked: placeVerification.checked,
