@@ -3381,7 +3381,12 @@ function showPage(page, opts={}){
 
 
 // 추천 테마 카드 클릭
- document.addEventListener('click',e=>{const btn=e.target.closest('.business-theme-card');if(!btn)return;const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));if(theme)openThemeArticle(theme);});
+ document.addEventListener('click',e=>{
+  const btn=e.target.closest('.business-main-theme-card, .business-theme-card');
+  if(!btn)return;
+  const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));
+  if(theme) openThemeArticle(theme);
+});
 
 function initPageSwipe(){
   let sx=0, sy=0, active=false, moved=false;
