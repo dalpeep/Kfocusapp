@@ -1129,6 +1129,21 @@ async function loadBusinesses() {
   window.KFocusAdminBridge = window.KFocusAdminBridge || {};
   window.KFocusAdminBridge.getBusinesses = () => [...businesses];
   window.KFocusAdminBridge.switchSection = switchSection;
+  window.KFocusAdminBridge.uploadGeneratedImage = async (blob, filename = 'ai-generated.png') => {
+    if (!supabase) throw new Error('Supabase가 아직 연결되지 않았습니다.');
+    if (!(blob instanceof Blob)) throw new Error('업로드할 이미지 데이터가 없습니다.');
+    const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `ai-campaigns/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+    const { error } = await supabase.storage.from('public-images').upload(path, blob, {
+      upsert: false,
+      contentType: blob.type || 'image/png',
+      cacheControl: '31536000'
+    });
+    if (error) throw error;
+    const { data } = supabase.storage.from('public-images').getPublicUrl(path);
+    if (!data?.publicUrl) throw new Error('업로드 URL을 만들지 못했습니다.');
+    return data.publicUrl;
+  };
   window.dispatchEvent(new CustomEvent('kfocus:businesses-loaded', { detail: [...businesses] }));
   businessCategoryOptions();
   renderBusinessList(filterBusinesses());

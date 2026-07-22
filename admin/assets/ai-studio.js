@@ -315,6 +315,7 @@ function renderPackage(pkg, persist = true) {
   setOutput('aiGrokResult', pkg.grok);
   setOutput('aiRunwayResult', pkg.runway);
   applySelectedAssets(pkg.assets || DEFAULT_ASSETS);
+  ['banner','coupon','poster','social','thumbnail'].forEach((asset) => renderGeneratedPreview(asset, pkg.generatedImages?.[asset] || ''));
   $('aiCampaignEmpty')?.classList.add('hidden');
   $('aiCampaignResults')?.classList.remove('hidden');
   if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = `${pkg.businessName} · ${pkg.name} 캠페인 상세입니다.`;
@@ -385,7 +386,8 @@ function sendBanner() {
     startAt: lastPackage.start ? `${lastPackage.start}T00:00` : '',
     endAt: lastPackage.end ? `${lastPackage.end}T23:59` : '',
     campaignId: lastPackage.id || currentCampaignId || '',
-    campaignPrompt: lastPackage.banner || ''
+    campaignPrompt: lastPackage.banner || '',
+    imageUrl: lastPackage.generatedImages?.banner || ''
   };
   sessionStorage.setItem('daltown-banner-draft-v1', JSON.stringify(bannerDraft));
   switchSection('banners');
@@ -401,6 +403,7 @@ function sendBanner() {
     setValueWhenReady('bnPlacement', bannerDraft.placement);
     setValueWhenReady('bnStartAt', bannerDraft.startAt);
     setValueWhenReady('bnEndAt', bannerDraft.endAt);
+    if (bannerDraft.imageUrl) setValueWhenReady('bnImage', bannerDraft.imageUrl);
     setValueWhenReady('bnActive', true);
     if (businessId) {
       setValueWhenReady('bnBusinessId', businessId);
@@ -412,7 +415,7 @@ function sendBanner() {
       image?.focus();
       const formPanel = image?.closest('.form-panel') || $('section-banners');
       formPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      alert('캠페인 내용을 배너 입력란에 불러왔습니다. 이미지 URL을 넣거나 이미지 파일을 업로드한 뒤 저장하세요.');
+      alert(bannerDraft.imageUrl ? '생성된 이미지와 캠페인 내용을 배너 입력란에 불러왔습니다. 확인 후 저장하세요.' : '캠페인 내용을 배너 입력란에 불러왔습니다. 이미지를 생성하거나 이미지 URL을 넣은 뒤 저장하세요.');
       return;
     }
     setTimeout(applyDraft, 100);
@@ -433,7 +436,8 @@ function sendCoupon() {
     endAt: lastPackage.end ? `${lastPackage.end}T23:59` : '',
     isToday: Boolean(lastPackage.couponToday),
     campaignId: lastPackage.id || currentCampaignId || '',
-    imagePrompt: lastPackage.coupon || ''
+    imagePrompt: lastPackage.coupon || '',
+    imageUrl: lastPackage.generatedImages?.coupon || ''
   };
   sessionStorage.setItem('daltown-coupon-draft-v1', JSON.stringify(couponDraft));
   switchSection('coupon');
@@ -448,13 +452,14 @@ function sendCoupon() {
     setValueWhenReady('coupon_description', couponDraft.description);
     setValueWhenReady('coupon_start_at', couponDraft.startAt);
     setValueWhenReady('coupon_end_at', couponDraft.endAt);
+    if (couponDraft.imageUrl) setValueWhenReady('coupon_image_url', couponDraft.imageUrl);
     setValueWhenReady('coupon_is_active', true);
     setValueWhenReady('coupon_is_today', couponDraft.isToday);
     const image = $('coupon_image_url');
     if (image || tries >= 12) {
       image?.focus();
       image?.closest('.form-panel, .card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      alert('AI 캠페인의 쿠폰 내용을 쿠폰 관리에 불러왔습니다. Grok에서 만든 이미지를 업로드하거나 이미지 URL을 입력한 뒤 저장하세요.');
+      alert(couponDraft.imageUrl ? '생성된 이미지와 쿠폰 내용을 쿠폰 관리에 불러왔습니다. 확인 후 저장하세요.' : 'AI 캠페인의 쿠폰 내용을 불러왔습니다. 이미지를 생성하거나 이미지 URL을 입력한 뒤 저장하세요.');
       return;
     }
     setTimeout(applyDraft, 100);
@@ -529,6 +534,171 @@ async function openChatGPTImage(asset) {
   alert('ChatGPT 이미지 프롬프트를 복사하고 ChatGPT를 새 탭에서 열었습니다. 입력창에 붙여넣고 이미지를 생성하세요.');
 }
 
+
+const GENERATED_ASSET_LABELS = { banner:'배너', coupon:'쿠폰', poster:'포스터', social:'SNS 이미지', thumbnail:'썸네일' };
+
+function base64ToBlob(base64, mime = 'image/png') {
+  const bytes = atob(base64);
+  const array = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i += 1) array[i] = bytes.charCodeAt(i);
+  return new Blob([array], { type: mime });
+}
+
+function loadImageFromBlob(blob) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+    image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('생성 이미지를 읽지 못했습니다.')); };
+    image.src = url;
+  });
+}
+
+function wrapCanvasText(ctx, text, maxWidth) {
+  const source = clean(text);
+  if (!source) return [];
+  const words = source.split(/\s+/);
+  const lines = [];
+  let line = '';
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+    else line = test;
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function composeCampaignImage(asset, backgroundBlob, pkg) {
+  const image = await loadImageFromBlob(backgroundBlob);
+  const canvas = document.createElement('canvas');
+  canvas.width = image.naturalWidth || image.width;
+  canvas.height = image.naturalHeight || image.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  const portrait = canvas.height > canvas.width;
+  const square = Math.abs(canvas.width - canvas.height) < 30;
+  const pad = Math.round(canvas.width * 0.06);
+  const panelW = portrait ? canvas.width - pad * 2 : Math.round(canvas.width * 0.58);
+  const panelX = pad;
+  const panelY = portrait ? Math.round(canvas.height * 0.48) : pad;
+  const panelH = portrait ? canvas.height - panelY - pad : canvas.height - pad * 2;
+
+  const grad = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY);
+  grad.addColorStop(0, 'rgba(0,0,0,.84)');
+  grad.addColorStop(0.72, 'rgba(0,0,0,.54)');
+  grad.addColorStop(1, 'rgba(0,0,0,.08)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  const r = Math.round(canvas.width * 0.025);
+  ctx.roundRect(panelX, panelY, panelW, panelH, r);
+  ctx.fill();
+
+  const innerX = panelX + Math.round(pad * 0.62);
+  const maxTextW = panelW - Math.round(pad * 1.2);
+  let y = panelY + Math.round(panelH * 0.14);
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = 'rgba(0,0,0,.5)';
+  ctx.shadowBlur = 8;
+
+  const businessSize = Math.max(24, Math.round(canvas.width * 0.025));
+  ctx.font = `700 ${businessSize}px Arial, "Noto Sans KR", sans-serif`;
+  ctx.fillStyle = '#dbeafe';
+  ctx.fillText(pkg.businessName || '', innerX, y);
+  y += Math.round(businessSize * 1.55);
+
+  const titleSize = Math.max(42, Math.round(canvas.width * (portrait ? 0.064 : square ? 0.058 : 0.048)));
+  ctx.font = `900 ${titleSize}px Arial, "Noto Sans KR", sans-serif`;
+  ctx.fillStyle = '#fff';
+  const titleLines = wrapCanvasText(ctx, pkg.name || '', maxTextW).slice(0, 3);
+  titleLines.forEach((line) => { ctx.fillText(line, innerX, y); y += Math.round(titleSize * 1.12); });
+
+  const benefitSize = Math.max(27, Math.round(canvas.width * 0.029));
+  ctx.font = `700 ${benefitSize}px Arial, "Noto Sans KR", sans-serif`;
+  ctx.fillStyle = '#fde68a';
+  y += Math.round(benefitSize * .4);
+  wrapCanvasText(ctx, pkg.benefit || '', maxTextW).slice(0, 3).forEach((line) => { ctx.fillText(line, innerX, y); y += Math.round(benefitSize * 1.25); });
+
+  if (asset === 'coupon' && pkg.couponCode) {
+    const codeSize = Math.max(22, Math.round(canvas.width * .026));
+    ctx.font = `700 ${codeSize}px ui-monospace, monospace`;
+    ctx.fillStyle = '#fff';
+    y += Math.round(codeSize * .45);
+    ctx.fillText(`쿠폰 코드  ${pkg.couponCode}`, innerX, y);
+    y += Math.round(codeSize * 1.35);
+  }
+  if ((asset === 'coupon' || asset === 'poster') && pkg.period) {
+    const periodSize = Math.max(20, Math.round(canvas.width * .023));
+    ctx.font = `600 ${periodSize}px Arial, "Noto Sans KR", sans-serif`;
+    ctx.fillStyle = '#e5e7eb';
+    ctx.fillText(pkg.period, innerX, y);
+    y += Math.round(periodSize * 1.5);
+  }
+
+  if (asset === 'banner' || asset === 'poster') {
+    const cta = clean(pkg.cta);
+    if (cta) {
+      const btnSize = Math.max(21, Math.round(canvas.width * .023));
+      ctx.font = `800 ${btnSize}px Arial, "Noto Sans KR", sans-serif`;
+      const btnW = Math.min(maxTextW, ctx.measureText(cta).width + Math.round(btnSize * 2.2));
+      const btnH = Math.round(btnSize * 2.15);
+      const btnY = Math.min(panelY + panelH - btnH - Math.round(pad * .55), y + Math.round(btnSize * .5));
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.roundRect(innerX, btnY, btnW, btnH, btnH / 2); ctx.fill();
+      ctx.fillStyle = '#1d4ed8';
+      ctx.fillText(cta, innerX + Math.round(btnSize * 1.05), btnY + Math.round(btnSize * .55));
+    }
+  }
+
+  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('이미지 합성에 실패했습니다.')), 'image/png', 0.95));
+}
+
+function generatedPreviewContainer(asset) {
+  return document.querySelector(`[data-generated-preview="${asset}"]`);
+}
+
+function renderGeneratedPreview(asset, url) {
+  const box = generatedPreviewContainer(asset);
+  if (!box) return;
+  if (!url) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.classList.remove('hidden');
+  box.innerHTML = `<img src="${escapeHtml(url)}" alt="${escapeHtml(GENERATED_ASSET_LABELS[asset] || 'AI 생성 이미지')} 미리보기"><div class="ai-generated-meta"><span>✓ 생성·저장 완료</span><a href="${escapeHtml(url)}" target="_blank" rel="noopener">원본 열기</a></div>`;
+}
+
+async function generateImageInStudio(asset, button) {
+  if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
+  const pkg = ensureCompletePackage(lastPackage);
+  const label = GENERATED_ASSET_LABELS[asset] || '이미지';
+  const original = button?.textContent || '';
+  if (button) { button.disabled = true; button.textContent = `⏳ ${label} 생성 중...`; }
+  try {
+    const response = await fetch('/.netlify/functions/generate-campaign-image', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ asset, businessName: pkg.businessName, campaignName: pkg.name, benefit: pkg.benefit, style: STYLE_LABELS[pkg.style] || pkg.style, notes: pkg.notes || '' })
+    });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(json?.error || `${label} 생성에 실패했습니다.`);
+    const background = base64ToBlob(json.b64_json, 'image/png');
+    const composed = await composeCampaignImage(asset, background, pkg);
+    const filename = `${asset}-${pkg.id || currentCampaignId || Date.now()}.png`;
+    const url = await window.KFocusAdminBridge?.uploadGeneratedImage?.(composed, filename);
+    if (!url) throw new Error('Supabase Storage 업로드 기능을 사용할 수 없습니다. 관리자 연결 상태를 확인하세요.');
+    const generatedImages = { ...(pkg.generatedImages || {}), [asset]: url };
+    const saved = saveCampaign({ ...pkg, generatedImages }, { id: currentCampaignId || pkg.id || undefined, status: pkg.status || 'draft' });
+    lastPackage = saved;
+    renderGeneratedPreview(asset, url);
+    alert(`${label} 이미지를 만들고 Supabase Storage에 저장했습니다.`);
+  } catch (error) {
+    console.error('generateImageInStudio:', error);
+    alert(error.message || '이미지 생성 중 오류가 발생했습니다.');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = original; }
+  }
+}
+
 function updateEditorState(hasCampaign) {
   const ids = ['aiCampaignSaveBtn', 'aiCampaignDeleteBtn', 'aiCampaignRegisterBannerBtn', 'aiCopyAllBtn', 'aiSendCouponBtn'];
   ids.forEach((id) => {
@@ -581,6 +751,7 @@ function init() {
   $('aiCampaignRegisterBannerBtn')?.addEventListener('click', sendBanner);
   $('aiSendCouponBtn')?.addEventListener('click', sendCoupon);
   document.querySelectorAll('.ai-chatgpt-image-btn').forEach((btn) => btn.addEventListener('click', () => openChatGPTImage(btn.dataset.chatgptAsset)));
+  document.querySelectorAll('.ai-direct-image-btn').forEach((btn) => btn.addEventListener('click', () => generateImageInStudio(btn.dataset.directAsset, btn)));
   $('aiCampaignSaveBtn')?.addEventListener('click', () => {
     if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
     const data = collectInput();
