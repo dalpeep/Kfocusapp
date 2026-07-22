@@ -1,3 +1,4 @@
+console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
@@ -932,6 +933,8 @@ async function loadRealData(){
           review_count: row.review_count,
           google_maps_url: row.google_maps_url,
           google_review_url: row.google_review_url,
+          // 관리자에서 '목록 숨김'으로 저장한 업소는 모든 공개 업소 노출에서 제외합니다.
+          list_visible: row.list_visible !== false,
           monday: row.monday,
           tuesday: row.tuesday,
           wednesday: row.wednesday,
