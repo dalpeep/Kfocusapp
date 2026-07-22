@@ -895,6 +895,17 @@
               <label class="field full"><span>요약</span><textarea id="dalpick_summary" rows="3"></textarea></label>
               <label class="field full"><span>본문</span><textarea id="dalpick_content" rows="10"></textarea></label>
               <label class="field full"><span>대표 이미지 URL</span><input id="dalpick_image_url" type="url" placeholder="https://... (업소 연결 시 비워두면 업소 대표사진 사용 가능)" /></label>
+              <div class="field full upload-block image-manager-box">
+                <span>대표 이미지 관리</span>
+                <div class="upload-row">
+                  <input id="dalpick_image_file" type="file" accept="image/*" />
+                  <button id="dalpickUploadImageBtn" class="btn ghost" type="button">직접 업로드</button>
+                  <button id="dalpickRegenerateImageBtn" class="btn ghost" type="button">AI 다시 생성</button>
+                  <button id="dalpickClearImageBtn" class="btn danger" type="button">이미지 제거</button>
+                </div>
+                <label class="field full"><span>AI 이미지 수정 요청</span><input id="dalpick_image_instruction" type="text" placeholder="예: 사람 없이 달라스 도심 배경으로, 더 밝고 신뢰감 있게" /></label>
+                <div class="tiny muted">AI 수정은 현재 글 내용과 요청 문구를 반영해 새 이미지를 생성합니다. 기존 이미지는 새 이미지로 교체됩니다.</div>
+              </div>
               <div id="dalpickImagePreviewWrap" class="field full dalpick-image-preview-wrap" hidden><span>대표 이미지 미리보기</span><img id="dalpickImagePreview" class="dalpick-image-preview" alt="대표 이미지 미리보기"></div>
               <label class="field"><span>노출 시작</span><input id="dalpick_start_at" type="datetime-local" /></label>
               <label class="field"><span>노출 종료</span><input id="dalpick_end_at" type="datetime-local" /></label>
@@ -995,7 +1006,17 @@
               <label class="field full"><span>연결 업소 검색</span><input id="board_business_search" type="text" placeholder="업소명, 전화, 주소로 검색" /></label>
               <label class="field full"><span>연결 업소 선택</span><select id="board_business_select"></select></label>
 
-              <label class="field full"><span>이미지 URL</span><input id="board_image_url" type="url" placeholder="https://..." /></label>
+              <label class="field full"><span>대표 이미지 URL</span><input id="board_image_url" type="url" placeholder="https://..." /></label>
+              <div class="field full upload-block image-manager-box">
+                <span>달라스 가이드 대표 이미지</span>
+                <div class="upload-row">
+                  <button id="boardAiImageBtn" class="btn ghost" type="button">AI 이미지 생성</button>
+                  <button id="boardAiRegenerateBtn" class="btn ghost" type="button">AI 다시 생성</button>
+                </div>
+                <label class="field full"><span>AI 이미지 수정 요청</span><input id="board_image_instruction" type="text" placeholder="예: 텍사스 운전면허와 DMV를 상징하는 깔끔한 이미지, 글자 없이" /></label>
+                <div id="boardImageStatus" class="tiny muted">달라스 가이드뿐 아니라 다른 게시글에도 사용할 수 있습니다.</div>
+              </div>
+              <div id="boardImagePreviewWrap" class="field full dalpick-image-preview-wrap" hidden><span>대표 이미지 미리보기</span><img id="boardImagePreview" class="dalpick-image-preview" alt="게시글 대표 이미지 미리보기"></div>
 			  <label class="field full">
               <span>이미지 클릭 링크</span>
               <input

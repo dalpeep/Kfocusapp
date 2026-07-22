@@ -13,6 +13,8 @@ exports.handler = async function handler(event) {
     const title = String(body.title || '').trim();
     const summary = String(body.summary || '').trim();
     const category = String(body.category || 'themed').trim();
+    const instruction = String(body.instruction || '').trim();
+    const currentImageUrl = String(body.current_image_url || '').trim();
     if (!title) return { statusCode: 400, body: JSON.stringify({ error: '기사 제목이 필요합니다.' }) };
 
     const prompt = [
@@ -20,6 +22,8 @@ exports.handler = async function handler(event) {
       `Article title: ${title}`,
       summary ? `Article summary: ${summary}` : '',
       `Content category: ${category}`,
+      instruction ? `User art direction / requested revision: ${instruction}` : '',
+      currentImageUrl ? 'This is a requested replacement for an existing image. Create a clearly improved alternative rather than duplicating the previous composition.' : '',
       'Photorealistic magazine-style image, warm natural lighting, clean composition, no logos, no watermarks, no readable text, no UI elements.',
       'Landscape composition suitable for a compact article card and mobile hero crop.'
     ].filter(Boolean).join('\n');

@@ -598,3 +598,6 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .ai-image-action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.ai-image-action-row .btn{flex:1;min-width:180px}.ai-chatgpt-image-btn{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:none}
 
 .ai-direct-image-btn{background:linear-gradient(135deg,#0f766e,#2563eb);color:#fff;border:none}.ai-generated-preview{flex-basis:100%;margin-top:10px;border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;background:#fff}.ai-generated-preview img{display:block;width:100%;max-height:420px;object-fit:contain;background:#e2e8f0}.ai-generated-meta{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;font-size:13px;color:#166534}.ai-generated-meta a{color:#1d4ed8;font-weight:700}.ai-generated-preview.hidden{display:none}
+
+/* v9.0 unified image manager */
+.image-manager-box{border:1px solid #d8e3f8;border-radius:14px;padding:14px;background:#f8fbff}.image-manager-box>.field{margin-top:10px}.image-manager-box .upload-row{flex-wrap:wrap;gap:8px}.dalpick-image-preview{max-width:520px;width:100%;max-height:320px;object-fit:cover;border-radius:14px;border:1px solid #d7e0ef;background:#fff}
