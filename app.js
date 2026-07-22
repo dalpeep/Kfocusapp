@@ -1058,7 +1058,102 @@ function syncBusinessStoriesToBoardPosts(){
   boardPosts=[...stories,...existing];
 }
 function dalpickBadge(c){return ({new_business:'NEW',coupon:'COUPON',recommended:'추천',ai_pick:'AI PICK',seasonal:'SEASON',event:'EVENT',promotion:'PROMO',business_story:'업소탐방'})[c]||'DALPICK';}
-function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;let rows=activeDalpicks().filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true).slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(String(d.category||'').toLowerCase()==='business_story'){openBoardPost(`dalpick-story-${d.id}`);}else if(isThemeDalpick(d)){openThemeArticle(d);}else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content){alert(`${d.title}\n\n${d.content}`);}}));if(window.lucide)window.lucide.createIcons();}
+let dalpickCarouselTimer = null;
+function renderDalpicks(){
+  const box=document.getElementById('dalpickList');
+  if(!box) return;
+  if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
+
+  const dalpickItems=activeDalpicks()
+    .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
+    .map(d=>({kind:'dalpick', id:String(d.id), data:d, date:d.created_at||d.start_at||''}));
+  const couponItems=(typeof todayCoupons==='function'?todayCoupons():[])
+    .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
+
+  // DalPick 콘텐츠와 '오늘의 쿠폰'을 하나의 슬라이드에 함께 노출합니다.
+  // 같은 쿠폰이 DalPick에도 등록된 경우 제목+업소 기준으로 한 번만 보여줍니다.
+  const seen=new Set();
+  const items=[...dalpickItems,...couponItems]
+    .filter(item=>{
+      const d=item.data||{};
+      const bizId=d.business_id||d.businessId||'';
+      const key=`${item.kind==='coupon'?'coupon':String(d.category||'dalpick').toLowerCase()}|${String(d.title||'').trim()}|${bizId}`;
+      if(seen.has(key)) return false;
+      seen.add(key); return true;
+    })
+    .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
+    .slice(0,8);
+
+  if(!items.length){
+    box.innerHTML='<div class="board-empty">등록된 DalPick 또는 오늘의 쿠폰이 없습니다.</div>';
+    return;
+  }
+
+  const slideHTML=items.map((item,index)=>{
+    const d=item.data||{};
+    if(item.kind==='coupon'){
+      const b=getBiz(d.businessId||d.business_id)||{};
+      const img=d.imageUrl||d.image_url||d.image||b.image||b.image_url||'/assets/kfocus-icon.png';
+      return `<div class="dalpick-slide" data-slide-index="${index}">
+        <button class="dalpick-card coupon-open" type="button" data-coupon="${esc(d.id)}">
+          <img src="${esc(img)}" alt="${esc(d.title||'오늘의 쿠폰')}">
+          <div><span class="dalpick-badge badge-coupon">🎟 쿠폰</span><strong>${esc(d.title||'오늘의 쿠폰')}</strong><p>${esc(d.discount_label||d.description||b.name||'')}</p></div>
+        </button>
+      </div>`;
+    }
+    const b=getBiz(d.business_id)||{};
+    const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';
+    const category=String(d.category||'').toLowerCase();
+    const badgeClass=`badge-${category.replace(/[^a-z0-9_-]/g,'')||'dalpick'}`;
+    return `<div class="dalpick-slide" data-slide-index="${index}">
+      <button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}">
+        <img src="${esc(img)}" alt="${esc(d.title||'DalPick')}">
+        <div><span class="dalpick-badge ${badgeClass}">${esc(dalpickBadge(category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div>
+      </button>
+    </div>`;
+  }).join('');
+
+  box.innerHTML=`<div class="dalpick-carousel ${items.length===1?'is-single':''}">
+    <div class="dalpick-viewport"><div class="dalpick-track">${slideHTML}</div></div>
+    ${items.length>1?`<div class="dalpick-dots" aria-label="DalPick 슬라이드">${items.map((_,i)=>`<button type="button" class="dalpick-dot ${i===0?'active':''}" data-dalpick-dot="${i}" aria-label="${i+1}번째 콘텐츠"></button>`).join('')}</div>`:''}
+  </div>`;
+
+  const carousel=box.querySelector('.dalpick-carousel');
+  const viewport=box.querySelector('.dalpick-viewport');
+  const track=box.querySelector('.dalpick-track');
+  const dots=[...box.querySelectorAll('.dalpick-dot')];
+  let current=0, touchStartX=0, touchDeltaX=0;
+  const moveTo=(idx)=>{
+    current=(idx+items.length)%items.length;
+    track.style.transform=`translateX(-${current*100}%)`;
+    dots.forEach((dot,i)=>dot.classList.toggle('active',i===current));
+  };
+  const restart=()=>{
+    if(items.length<2) return;
+    if(dalpickCarouselTimer) clearInterval(dalpickCarouselTimer);
+    dalpickCarouselTimer=setInterval(()=>moveTo(current+1),5500);
+  };
+  dots.forEach(dot=>dot.addEventListener('click',()=>{moveTo(Number(dot.dataset.dalpickDot)||0);restart();}));
+  if(viewport && items.length>1){
+    viewport.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;touchDeltaX=0;if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);},{passive:true});
+    viewport.addEventListener('touchmove',e=>{touchDeltaX=e.touches[0].clientX-touchStartX;},{passive:true});
+    viewport.addEventListener('touchend',()=>{if(Math.abs(touchDeltaX)>45) moveTo(current+(touchDeltaX<0?1:-1));restart();});
+    carousel.addEventListener('mouseenter',()=>{if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);});
+    carousel.addEventListener('mouseleave',restart);
+    restart();
+  }
+
+  box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{
+    const item=items.find(x=>x.kind==='dalpick'&&String(x.id)===String(btn.dataset.dalpickId));
+    const d=item?.data;if(!d)return;
+    if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
+    else if(isThemeDalpick(d)) openThemeArticle(d);
+    else if(String(d.category||'').toLowerCase()==='coupon' && d.coupon_id){ renderCouponDetail(d.coupon_id); lastBasePage=currentPage; showPage('coupon-detail'); }
+    else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}
+    else if(d.content){alert(`${d.title}\n\n${d.content}`);}
+  }));
+  if(window.lucide)window.lucide.createIcons();
+}
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
