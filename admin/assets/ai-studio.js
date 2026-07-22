@@ -111,6 +111,11 @@ function fillInput(pkg) {
   if ($('aiCampaignStyle')) $('aiCampaignStyle').value = pkg.style || 'premium';
   if ($('aiCampaignCta')) $('aiCampaignCta').value = pkg.cta || '자세히 보기';
   if ($('aiCampaignNotes')) $('aiCampaignNotes').value = pkg.notes || '';
+  if ($('aiCouponType')) $('aiCouponType').value = pkg.couponType || 'discount';
+  if ($('aiCouponStyle')) $('aiCouponStyle').value = pkg.couponStyle || 'premium';
+  if ($('aiCouponCode')) $('aiCouponCode').value = pkg.customCouponCode || '';
+  if ($('aiCouponUsage')) $('aiCouponUsage').value = pkg.couponUsage || '직원에게 쿠폰 화면 제시';
+  if ($('aiCouponToday')) $('aiCouponToday').checked = Boolean(pkg.couponToday);
 }
 
 function ensureCompletePackage(pkg) {
@@ -131,7 +136,12 @@ function ensureCompletePackage(pkg) {
     end: clean(pkg.end),
     style: clean(pkg.style) || 'premium',
     cta: clean(pkg.cta) || '자세히 보기',
-    notes: clean(pkg.notes)
+    notes: clean(pkg.notes),
+    couponType: clean(pkg.couponType) || 'discount',
+    couponStyle: clean(pkg.couponStyle) || 'premium',
+    customCouponCode: clean(pkg.customCouponCode),
+    couponUsage: clean(pkg.couponUsage) || '직원에게 쿠폰 화면 제시',
+    couponToday: Boolean(pkg.couponToday)
   });
   return { ...pkg, ...rebuilt, business: business || pkg.business };
 }
@@ -202,7 +212,12 @@ function collectInput() {
     end: clean($('aiCampaignEnd')?.value),
     style: clean($('aiCampaignStyle')?.value) || 'premium',
     cta: clean($('aiCampaignCta')?.value) || '자세히 보기',
-    notes: clean($('aiCampaignNotes')?.value)
+    notes: clean($('aiCampaignNotes')?.value),
+    couponType: clean($('aiCouponType')?.value) || 'discount',
+    couponStyle: clean($('aiCouponStyle')?.value) || 'premium',
+    customCouponCode: clean($('aiCouponCode')?.value),
+    couponUsage: clean($('aiCouponUsage')?.value) || '직원에게 쿠폰 화면 제시',
+    couponToday: Boolean($('aiCouponToday')?.checked)
   };
 }
 
@@ -223,8 +238,17 @@ function makePackage(d) {
   const summary = `${d.businessName}에서 ${d.benefit} 혜택을 제공하는 ${d.name} 캠페인을 진행합니다.`;
   const article = `${title}\n\n${summary}\n\n${d.businessName}은(는) 이번 캠페인을 통해 고객에게 ${d.benefit} 혜택을 제공합니다. 행사 기간은 ${period}입니다. 참여 조건과 제공 내용은 방문 또는 예약 전에 업소에 다시 확인하는 것이 좋습니다.\n\n${d.notes ? `주요 안내\n${d.notes}\n\n` : ''}${d.cta}: ${d.phone || d.website || '업소 상세페이지에서 확인'}\n\n※ 본 문안은 입력된 정보만을 바탕으로 작성된 초안입니다. 게시 전 가격, 기간, 조건을 반드시 확인하세요.`;
   const banner = `메인 문구: ${d.name}\n보조 문구: ${d.benefit}\n업소명: ${d.businessName}\n기간: ${period}\n버튼: ${d.cta}\n디자인 방향: ${style} 광고 배너, 글자는 선명하고 모바일에서도 읽기 쉽게, 과도한 장식 없이 업소와 혜택을 가장 크게 표시`;
-  const couponCode = `${d.businessName.replace(/\s+/g, '').slice(0, 6).toUpperCase()}-${new Date().getMonth() + 1}`;
-  const coupon = `쿠폰 제목: ${d.name}\n할인·혜택: ${d.benefit}\n사용 기간: ${period}\n쿠폰 코드 예시: ${couponCode}\n사용 방법: 직원에게 쿠폰 화면 제시\n주의사항: 다른 행사와 중복 적용 여부 및 세부 조건은 업소 확인 필요\n버튼: ${d.cta}`;
+  const couponCode = d.customCouponCode || `${d.businessName.replace(/\s+/g, '').slice(0, 6).toUpperCase()}-${new Date().getMonth() + 1}`;
+  const couponTypeLabel = ({ discount: '할인', free: '무료', gift: '사은품', event: '이벤트', reservation: '예약', limited: '기간 한정' })[d.couponType] || '할인';
+  const couponStyleLabel = ({ premium: 'Premium', modern: 'Modern', luxury: 'Luxury', minimal: 'Minimal' })[d.couponStyle] || 'Premium';
+  const couponDesigns = [
+    `Style A · Premium: 어두운 고급 배경, 금색 포인트, 혜택 문구를 가장 크게, 업소명과 기간은 작게`,
+    `Style B · Modern: 밝은 흰색 배경, 선명한 컬러 블록, 모바일 가독성 중심`,
+    `Style C · Luxury: 고급 소재 질감과 여백, 차분한 타이포그래피, 과장 없는 프리미엄 분위기`,
+    `Style D · Minimal: 이미지 한 장과 핵심 혜택만 강조, 불필요한 장식 제거`
+  ].join('\n');
+  const couponImagePrompt = `[Grok 쿠폰 이미지 생성 프롬프트]\n${d.businessName}의 “${d.name}” 쿠폰 이미지를 제작해 주세요. 쿠폰 유형은 ${couponTypeLabel}, 핵심 혜택은 “${d.benefit}”, 기본 스타일은 ${couponStyleLabel}. 한글 문구가 들어갈 깨끗한 여백을 확보하고, 실제 로고를 임의로 만들지 마세요. 1:1 정사각형과 16:9 가로형 두 버전의 구도를 제안해 주세요. 쿠폰 코드 ${couponCode}, 기간 ${period}, CTA ${d.cta}.\n\n${couponDesigns}`;
+  const coupon = `쿠폰 제목: ${d.name}\n쿠폰 유형: ${couponTypeLabel}\n할인·혜택: ${d.benefit}\n사용 기간: ${period}\n쿠폰 코드: ${couponCode}\n사용 방법: ${d.couponUsage || '직원에게 쿠폰 화면 제시'}\n오늘의 쿠폰: ${d.couponToday ? '표시' : '표시 안 함'}\n주의사항: 다른 행사와 중복 적용 여부 및 세부 조건은 업소 확인 필요\n버튼: ${d.cta}\n\n${couponImagePrompt}`;
   const social = `${d.businessName}에서 ${d.name}을(를) 진행합니다.\n\n🎁 혜택: ${d.benefit}\n📅 기간: ${period}\n${d.address ? `📍 ${d.address}\n` : ''}${d.phone ? `☎️ ${d.phone}\n` : ''}\n${d.notes ? `${d.notes}\n\n` : ''}${d.cta}\n\n#달라스 #달타운맵 #${d.category.replace(/\s+/g, '') || '지역업소'} #이벤트`;
   const grok = `[Grok 이미지 생성 프롬프트]\n${d.businessName}의 “${d.name}” 광고 이미지를 제작해 주세요. ${style} 스타일. 핵심 혜택은 “${d.benefit}”. 업종은 “${d.category || '지역 비즈니스'}”. 실제 로고나 상표를 임의로 만들지 말고, 한글 텍스트를 이미지에 직접 넣기보다는 텍스트를 배치할 깨끗한 여백을 확보해 주세요. 16:9 배너, 1:1 SNS, 9:16 스토리 버전의 구도를 각각 제안해 주세요. 고해상도, 자연스러운 조명, 과장되거나 사실과 다른 장면 금지.\n\n[Grok 영상 구성 프롬프트]\n${d.businessName}의 ${d.name} 15초 광고 영상을 기획해 주세요. 장면 4개, 고정적이고 부드러운 카메라, 자막은 짧게. Scene 1 업종과 분위기를 보여주는 오프닝, Scene 2 핵심 서비스, Scene 3 혜택 “${d.benefit}”, Scene 4 업소명과 CTA “${d.cta}”. 각 장면의 이미지 생성 프롬프트, 화면 자막, 권장 길이를 표로 작성해 주세요. 확인되지 않은 가격이나 조건은 만들지 마세요.`;
   const runway = `[Runway image-to-video 프롬프트]\nCreate a polished 15-second local business advertisement for ${d.businessName}. ${style} visual direction. Use four short scenes with subtle natural motion, stable camera, realistic lighting, no distorted hands or faces, no invented logos, no camera shake, and no sudden zoom. Emphasize the promotion: ${d.benefit}. End with clean space for the Korean call-to-action: ${d.cta}.\n\nScene plan\n1) 0–3s: Establishing visual for ${d.category || 'the business'}\n2) 3–7s: Close-up of the main service or product\n3) 7–11s: Benefit-focused visual, leave room for “${d.benefit}”\n4) 11–15s: Calm branded ending, leave room for business name and CTA\n\nNegative prompt: unreadable text, warped objects, extra fingers, fake logos, aggressive camera movement, flicker, low resolution.`;
@@ -351,20 +375,45 @@ function sendBanner() {
 }
 
 function sendCoupon() {
-  if (!lastPackage) return alert('먼저 캠페인을 생성하세요.');
+  if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
+  lastPackage = ensureCompletePackage(lastPackage);
+  const couponDraft = {
+    businessId: String(lastPackage.business?.id || ''),
+    title: lastPackage.name || '',
+    code: lastPackage.couponCode || '',
+    discountLabel: lastPackage.benefit || '',
+    description: [lastPackage.benefit, lastPackage.notes, lastPackage.couponUsage].filter(Boolean).join('\n'),
+    startAt: lastPackage.start ? `${lastPackage.start}T00:00` : '',
+    endAt: lastPackage.end ? `${lastPackage.end}T23:59` : '',
+    isToday: Boolean(lastPackage.couponToday),
+    campaignId: lastPackage.id || currentCampaignId || '',
+    imagePrompt: lastPackage.coupon || ''
+  };
+  sessionStorage.setItem('daltown-coupon-draft-v1', JSON.stringify(couponDraft));
   switchSection('coupon');
-  setTimeout(() => {
-    const set = (id, value) => { if ($(id)) $(id).value = value ?? ''; };
-    set('coupon_business_id', String(lastPackage.business?.id || ''));
-    set('coupon_title', lastPackage.name);
-    set('coupon_code', lastPackage.couponCode);
-    set('coupon_discount_label', lastPackage.benefit);
-    set('coupon_description', `${lastPackage.benefit}\n${lastPackage.notes}`.trim());
-    set('coupon_start_at', lastPackage.start ? `${lastPackage.start}T00:00` : '');
-    set('coupon_end_at', lastPackage.end ? `${lastPackage.end}T23:59` : '');
-    if ($('coupon_is_active')) $('coupon_is_active').checked = true;
-    $('coupon_title')?.focus();
-  }, 50);
+
+  let tries = 0;
+  const applyDraft = () => {
+    tries += 1;
+    setValueWhenReady('coupon_business_id', couponDraft.businessId);
+    setValueWhenReady('coupon_title', couponDraft.title);
+    setValueWhenReady('coupon_code', couponDraft.code);
+    setValueWhenReady('coupon_discount_label', couponDraft.discountLabel);
+    setValueWhenReady('coupon_description', couponDraft.description);
+    setValueWhenReady('coupon_start_at', couponDraft.startAt);
+    setValueWhenReady('coupon_end_at', couponDraft.endAt);
+    setValueWhenReady('coupon_is_active', true);
+    setValueWhenReady('coupon_is_today', couponDraft.isToday);
+    const image = $('coupon_image_url');
+    if (image || tries >= 12) {
+      image?.focus();
+      image?.closest('.form-panel, .card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      alert('AI 캠페인의 쿠폰 내용을 쿠폰 관리에 불러왔습니다. Grok에서 만든 이미지를 업로드하거나 이미지 URL을 입력한 뒤 저장하세요.');
+      return;
+    }
+    setTimeout(applyDraft, 100);
+  };
+  setTimeout(applyDraft, 80);
 }
 
 function fillBusinessOptions(rows) {
@@ -403,7 +452,7 @@ function seasonIdeas() {
 }
 
 function updateEditorState(hasCampaign) {
-  const ids = ['aiCampaignSaveBtn', 'aiCampaignDeleteBtn', 'aiCampaignRegisterBannerBtn', 'aiCopyAllBtn'];
+  const ids = ['aiCampaignSaveBtn', 'aiCampaignDeleteBtn', 'aiCampaignRegisterBannerBtn', 'aiCopyAllBtn', 'aiSendCouponBtn'];
   ids.forEach((id) => {
     const el = $(id);
     if (el) el.disabled = !hasCampaign;

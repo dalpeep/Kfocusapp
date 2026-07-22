@@ -588,3 +588,6 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .dalpick-row-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
 .dalpick-row-actions .btn{white-space:nowrap;padding:9px 14px}
 @media (max-width:700px){.dalpick-row{grid-template-columns:auto minmax(0,1fr)}.dalpick-row-actions{grid-column:1/-1;width:100%;justify-content:flex-end}.dalpick-row-actions .btn{flex:0 0 auto}}
+
+/* DalTownMap v4.0 AI coupon studio */
+#aiCouponToday{width:auto}.ai-studio-input-card .checkbox-line{align-items:center;gap:8px}

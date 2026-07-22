@@ -130,7 +130,7 @@
       <section id="section-aiStudio" class="admin-section">
         <section class="card ai-studio-hero">
           <div>
-            <span class="ai-studio-kicker">DalTownMap v3.4</span>
+            <span class="ai-studio-kicker">DalTownMap v4.0</span>
             <h2>AI 광고 스튜디오</h2>
             <p class="muted">업소와 행사 정보 한 번으로 기사·배너·쿠폰·SNS·영상 제작안을 만듭니다. 영상은 직접 렌더링하지 않고 Grok·Runway용 프롬프트를 준비합니다.</p>
           </div>
@@ -171,6 +171,11 @@
               <label class="field"><span>종료일</span><input id="aiCampaignEnd" type="date"></label>
               <label class="field"><span>스타일</span><select id="aiCampaignStyle"><option value="premium">Premium</option><option value="modern">Modern</option><option value="minimal">Minimal</option><option value="warm">Warm</option><option value="energetic">Energetic</option></select></label>
               <label class="field"><span>주요 행동</span><select id="aiCampaignCta"><option value="예약하기">예약하기</option><option value="전화하기">전화하기</option><option value="자세히 보기">자세히 보기</option><option value="쿠폰 받기">쿠폰 받기</option><option value="방문하기">방문하기</option></select></label>
+              <label class="field"><span>쿠폰 유형</span><select id="aiCouponType"><option value="discount">할인</option><option value="free">무료</option><option value="gift">사은품</option><option value="event">이벤트</option><option value="reservation">예약</option><option value="limited">기간 한정</option></select></label>
+              <label class="field"><span>쿠폰 디자인</span><select id="aiCouponStyle"><option value="premium">Premium</option><option value="modern">Modern</option><option value="luxury">Luxury</option><option value="minimal">Minimal</option></select></label>
+              <label class="field"><span>쿠폰 코드</span><input id="aiCouponCode" type="text" placeholder="비워두면 자동 생성"></label>
+              <label class="field"><span>사용 방법</span><input id="aiCouponUsage" type="text" placeholder="예: 직원에게 쿠폰 화면 제시"></label>
+              <label class="field full checkbox-line"><input id="aiCouponToday" type="checkbox"><span>메인 ‘오늘의 쿠폰’에도 표시</span></label>
               <label class="field full"><span>핵심 내용·주의사항</span><textarea id="aiCampaignNotes" rows="5" placeholder="가격, 조건, 대상, 예약 방법 등 사실 확인된 내용만 입력하세요."></textarea></label>
             </form>
             <div class="ai-season-box">
@@ -185,7 +190,7 @@
             <div id="aiCampaignResults" class="ai-result-stack hidden">
               <article class="ai-result-card"><div class="ai-result-head"><strong>기사·DalPick</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiArticleResult" type="button">복사</button></div><textarea id="aiArticleResult" rows="10" readonly></textarea><button id="aiSendDalpickBtn" class="btn secondary full-btn" type="button">AI 콘텐츠 스튜디오로 보내기</button></article>
               <article class="ai-result-card"><div class="ai-result-head"><strong>배너 광고안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiBannerResult" type="button">복사</button></div><textarea id="aiBannerResult" rows="7" readonly></textarea><button id="aiSendBannerBtn" class="btn secondary full-btn" type="button">배너 관리로 보내기</button></article>
-              <article class="ai-result-card"><div class="ai-result-head"><strong>쿠폰 광고안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiCouponResult" type="button">복사</button></div><textarea id="aiCouponResult" rows="7" readonly></textarea><button id="aiSendCouponBtn" class="btn secondary full-btn" type="button">쿠폰 관리로 보내기</button></article>
+              <article class="ai-result-card"><div class="ai-result-head"><strong>AI 쿠폰 제작안 · 4가지 디자인 프롬프트</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiCouponResult" type="button">복사</button></div><textarea id="aiCouponResult" rows="7" readonly></textarea><button id="aiSendCouponBtn" class="btn secondary full-btn" type="button">쿠폰으로 등록</button></article>
               <article class="ai-result-card"><div class="ai-result-head"><strong>SNS 게시안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiSocialResult" type="button">복사</button></div><textarea id="aiSocialResult" rows="8" readonly></textarea></article>
               <article class="ai-result-card"><div class="ai-result-head"><strong>Grok 이미지·영상 프롬프트</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiGrokResult" type="button">복사</button></div><textarea id="aiGrokResult" rows="12" readonly></textarea></article>
               <article class="ai-result-card"><div class="ai-result-head"><strong>Runway 선택 프롬프트</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiRunwayResult" type="button">복사</button></div><textarea id="aiRunwayResult" rows="9" readonly></textarea></article>
