@@ -4483,3 +4483,15 @@ body,
   width:100% !important;
   height:100% !important;
 }
+
+
+/* v3.5 business detail banner copy overlay */
+#detailCard .business-detail-banner{min-height:150px;text-align:left;color:#fff}
+#detailCard .business-detail-banner img{max-height:220px;aspect-ratio:16/6}
+#detailCard .business-detail-banner-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,12,28,.82) 0%,rgba(5,12,28,.52) 48%,rgba(5,12,28,.08) 100%);pointer-events:none}
+#detailCard .business-detail-banner-copy{position:absolute;left:18px;right:72px;bottom:16px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+#detailCard .business-detail-banner-copy strong{font-size:clamp(18px,4.8vw,25px);line-height:1.18;font-weight:900;color:#fff}
+#detailCard .business-detail-banner-copy small{font-size:13px;line-height:1.35;color:rgba(255,255,255,.92);font-style:normal}
+#detailCard .business-detail-banner-copy em{margin-top:3px;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.94);color:#173f91;font-size:12px;font-weight:900;font-style:normal;text-shadow:none}
+#detailCard .business-detail-banner-badge{z-index:3}
+@media (max-width:480px){#detailCard .business-detail-banner-copy{left:14px;right:58px;bottom:13px}#detailCard .business-detail-banner-copy small{font-size:12px}#detailCard .business-detail-banner img{min-height:155px}}

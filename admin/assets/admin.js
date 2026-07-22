@@ -2810,6 +2810,28 @@ function ensureBannerExtrasUI() {
     qs('bnLink')?.parentElement?.insertAdjacentElement('afterend', buttonWrap);
   }
 
+
+  if (!qs('bnLinkType')) {
+    const linkWrap = document.createElement('div');
+    linkWrap.className = 'field full';
+    linkWrap.innerHTML = `
+      <label>클릭 연결 방식</label>
+      <select id="bnLinkType">
+        <option value="business">연결 업소 상세</option>
+        <option value="post">게시글</option>
+        <option value="dalpick">DalPick / 추천 테마</option>
+        <option value="coupon">쿠폰</option>
+        <option value="external">외부 링크</option>
+        <option value="phone">전화 걸기</option>
+        <option value="none">클릭 없음</option>
+      </select>
+      <select id="bnLinkTarget" style="margin-top:8px;width:100%"></select>
+      <input id="bnLinkCustom" type="text" style="margin-top:8px" placeholder="외부 URL 또는 전화번호">
+      <div id="bnLinkHelp" style="margin-top:6px;color:#666;font-size:12px"></div>
+    `;
+    qs('bnLink')?.parentElement?.insertAdjacentElement('afterend', linkWrap);
+  }
+
   if (!qs('bnStartAt')) {
     const dateWrap = document.createElement('div');
     dateWrap.className = 'field full';
@@ -2831,9 +2853,51 @@ function ensureBannerExtrasUI() {
     if (row) setVal('bnBusinessSearch', row.name_ko || row.name_en || row.name || '');
   });
   on('bnRegion', 'change', renderBannerBusinessOptions);
+  on('bnLinkType', 'change', renderBannerLinkOptions);
   on('bannerImageUploadBtn', 'click', uploadBannerImageToField);
 
   renderBannerBusinessOptions();
+  renderBannerLinkOptions();
+}
+
+function renderBannerLinkOptions() {
+  const type = val('bnLinkType') || 'business';
+  const target = qs('bnLinkTarget');
+  const custom = qs('bnLinkCustom');
+  const help = qs('bnLinkHelp');
+  if (!target || !custom) return;
+  target.hidden = ['external','phone','none'].includes(type);
+  custom.hidden = !['external','phone'].includes(type);
+  let rows = [];
+  if (type === 'business') rows = businesses.map(x => ({id:x.id,label:x.name_ko||x.name_en||x.name||x.id}));
+  if (type === 'post') rows = boards.map(x => ({id:x.id,label:x.title||`게시글 #${x.id}`}));
+  if (type === 'dalpick') rows = dalpicks.map(x => ({id:x.id,label:x.title||`DalPick #${x.id}`}));
+  if (type === 'coupon') rows = coupons.map(x => ({id:x.id,label:x.title||`쿠폰 #${x.id}`}));
+  const current = target.dataset.value || '';
+  target.innerHTML = '<option value="">대상을 선택하세요</option>' + rows.map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('');
+  if (current) target.value = current;
+  if (help) help.textContent = ({business:'배너 클릭 시 연결 업소 상세페이지를 엽니다.',post:'특정 게시글 상세로 이동합니다.',dalpick:'DalPick 또는 추천 테마 상세를 엽니다.',coupon:'선택한 쿠폰 상세를 엽니다.',external:'웹사이트나 예약 페이지 주소를 입력하세요.',phone:'전화번호를 입력하면 클릭 시 전화 앱이 열립니다.',none:'배너는 표시되지만 클릭 동작은 없습니다.'})[type] || '';
+}
+
+function parseBannerLink(linkUrl, businessId) {
+  const raw = String(linkUrl || '').trim();
+  if (!raw && businessId) return {type:'business', target:String(businessId), custom:''};
+  const m = raw.match(/^(post|dalpick|coupon|business):(.+)$/i);
+  if (m) return {type:m[1].toLowerCase(), target:m[2], custom:''};
+  if (/^tel:/i.test(raw)) return {type:'phone', target:'', custom:raw.replace(/^tel:/i,'')};
+  if (raw) return {type:'external', target:'', custom:raw};
+  return {type:'none', target:'', custom:''};
+}
+
+function buildBannerLink() {
+  const type = val('bnLinkType') || 'business';
+  const target = val('bnLinkTarget').trim();
+  const custom = val('bnLinkCustom').trim();
+  if (type === 'business') return target ? `business:${target}` : '';
+  if (['post','dalpick','coupon'].includes(type)) return target ? `${type}:${target}` : '';
+  if (type === 'phone') return custom ? `tel:${custom.replace(/[^0-9+]/g,'')}` : '';
+  if (type === 'external') return custom;
+  return '';
 }
 
 function renderBannerBusinessOptions() {
@@ -3068,6 +3132,9 @@ function clearBannerForm() {
   setVal('bnTitle', '');
   setVal('bnImage', '');
   setVal('bnLink', '');
+  setVal('bnLinkType', 'business');
+  const linkTarget = qs('bnLinkTarget'); if (linkTarget) { linkTarget.dataset.value=''; linkTarget.value=''; }
+  setVal('bnLinkCustom', '');
   setVal('bnRegion', currentRegionScope() === 'all' ? 'dallas' : currentRegionScope());
   setVal('bnOrder', '0');
   setChecked('bnActive', true);
@@ -3080,6 +3147,7 @@ function clearBannerForm() {
   setVal('bnStartAt', '');
   setVal('bnEndAt', '');
   const sel = qs('bnBusinessSelect'); if (sel) sel.innerHTML = '<option value="">업소를 검색하세요</option>';
+  renderBannerLinkOptions();
 }
 
 function fillBannerForm(row) {
@@ -3088,6 +3156,10 @@ function fillBannerForm(row) {
   setVal('bnTitle', row.title || '');
   setVal('bnImage', row.image_url || '');
   setVal('bnLink', row.link_url || '');
+  const parsedLink = parseBannerLink(row.link_url, row.business_id);
+  setVal('bnLinkType', parsedLink.type);
+  setVal('bnLinkCustom', parsedLink.custom);
+  const linkTarget = qs('bnLinkTarget'); if (linkTarget) linkTarget.dataset.value = parsedLink.target || '';
   setVal('bnRegion', row.region || '');
   setVal('bnOrder', row.sort_order == null ? '0' : String(row.sort_order));
   setChecked('bnActive', row.is_active !== false);
@@ -3099,7 +3171,7 @@ function fillBannerForm(row) {
   setVal('bnButtonLabel', row.button_label || '자세히 보기');
   setVal('bnStartAt', fmtLocal(row.start_at));
   setVal('bnEndAt', fmtLocal(row.end_at));
-  if (typeof renderBannerBusinessOptions === 'function') setTimeout(() => { renderBannerBusinessOptions(); const sel = qs('bnBusinessSelect'); if (sel && row.business_id) sel.value = String(row.business_id); }, 0);
+  if (typeof renderBannerBusinessOptions === 'function') setTimeout(() => { renderBannerBusinessOptions(); const sel = qs('bnBusinessSelect'); if (sel && row.business_id) sel.value = String(row.business_id); renderBannerLinkOptions(); const target=qs('bnLinkTarget'); if(target && parsedLink.target) target.value=String(parsedLink.target); }, 0);
 }
 
 function bannerCardAdminHTML(b) {
@@ -3201,7 +3273,7 @@ async function saveBanner() {
   const payload = {
     title: val('bnTitle').trim(),
     image_url: val('bnImage').trim(),
-    link_url: val('bnLink').trim(),
+    link_url: buildBannerLink(),
     business_id: val('bnBusinessId').trim() || null,
     region: getAppRegion(),
     display_type: val('bnDisplayType') || 'banner',
@@ -3217,6 +3289,9 @@ async function saveBanner() {
   if (!payload.title) return alert('배너 제목을 입력해 주세요.');
   if (!payload.image_url) return alert('배너 이미지 URL을 입력해 주세요.');
   if (['detail','both'].includes(payload.placement) && !payload.business_id) return alert('업소 상세에 노출하려면 연결 업소를 선택해 주세요.');
+  const linkType = val('bnLinkType') || 'business';
+  if (['post','dalpick','coupon','business'].includes(linkType) && !val('bnLinkTarget').trim()) return alert('클릭 연결 대상을 선택해 주세요.');
+  if (['external','phone'].includes(linkType) && !val('bnLinkCustom').trim()) return alert('클릭 연결 주소 또는 전화번호를 입력해 주세요.');
 
   const id = val('bnId');
   let result;

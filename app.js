@@ -2137,8 +2137,15 @@ function renderBusinessPromotion(promo){
       <div class="business-detail-ad-copy"><div class="business-detail-ad-label">SPONSORED</div><h3>${esc(promo.title || '업소 소식')}</h3>${desc?`<p>${esc(desc.length>100?desc.slice(0,100)+'…':desc)}</p>`:''}<span>${esc(promo.button_label || '자세히 보기')} →</span></div>
     </button>`;
   }
+  const desc = String(promo.description || '').trim();
   return `<button type="button" class="business-detail-banner" data-business-promo="${esc(promo.id)}" aria-label="${esc(promo.title || '업소 광고')}">
     <img src="${esc(promo.image_url || '')}" alt="${esc(promo.title || '업소 광고')}">
+    <span class="business-detail-banner-shade"></span>
+    <span class="business-detail-banner-copy">
+      <strong>${esc(promo.title || '업소 소식')}</strong>
+      ${desc ? `<small>${esc(desc.length > 90 ? desc.slice(0,90)+'…' : desc)}</small>` : ''}
+      <em>${esc(promo.button_label || '자세히 보기')} →</em>
+    </span>
     <span class="business-detail-banner-badge">AD</span>
   </button>`;
 }
@@ -2349,7 +2356,28 @@ detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
   btn.addEventListener('click', () => {
     const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
     if (!promo) return;
-    if (promo.link_url) window.open(normalizeUrl(promo.link_url), '_blank', 'noopener');
+    const raw = String(promo.link_url || '').trim();
+    const match = raw.match(/^(business|post|dalpick|coupon):(.+)$/i);
+    if (match) {
+      const type = match[1].toLowerCase();
+      const target = match[2];
+      if (type === 'business') { selectedBizId = target; renderDetail(target); showPage('business-detail'); return; }
+      if (type === 'post') { openBoardPost(target); return; }
+      if (type === 'coupon') { renderCouponDetail(target); lastBasePage = currentPage; showPage('coupon-detail'); return; }
+      if (type === 'dalpick') {
+        const item = (dalpicks || []).find(x => String(x.id) === String(target));
+        if (!item) return alert('연결된 DalPick을 찾을 수 없습니다.');
+        if (String(item.category || '').toLowerCase() === 'business_story') openBoardPost(`dalpick-story-${item.id}`);
+        else if (isThemeDalpick(item)) openThemeArticle(item);
+        else if (item.business_id) { selectedBizId=item.business_id; renderDetail(item.business_id); showPage('business-detail'); }
+        else if (item.content) alert(`${item.title || 'DalPick'}\n\n${item.content}`);
+        return;
+      }
+    }
+    if (/^tel:/i.test(raw)) { window.location.href = raw; return; }
+    if (raw) { window.open(normalizeUrl(raw), '_blank', 'noopener'); return; }
+    if (promo.business_id) { selectedBizId=promo.business_id; renderDetail(promo.business_id); showPage('business-detail'); }
+
   });
 });
 
