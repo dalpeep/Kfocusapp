@@ -2134,7 +2134,7 @@ function renderBusinessPromotion(promo){
     const desc = String(promo.description || '').trim();
     return `<button type="button" class="business-detail-ad-card" data-business-promo="${esc(promo.id)}">
       <div class="business-detail-ad-thumb"><img src="${esc(promo.image_url || '/assets/kfocus-icon.png')}" alt="${esc(promo.title || '업소 광고')}"></div>
-      <div class="business-detail-ad-copy"><div class="business-detail-ad-label">SPONSORED</div><h3>${esc(promo.title || '업소 소식')}</h3>${desc?`<p>${esc(desc.length>100?desc.slice(0,100)+'…':desc)}</p>`:''}<span>${esc(promo.button_label || '자세히 보기')} →</span></div>
+      <div class="business-detail-ad-copy"><div class="business-detail-ad-label">SPONSORED</div><h3>${esc(promo.title || '업소 소식')}</h3>${desc?`<p>${esc(desc.length>100?desc.slice(0,100)+'…':desc)}</p>`:''}${String(promo.button_label || '').trim() ? `<span>${esc(promo.button_label)} →</span>` : ''}</div>
     </button>`;
   }
   const desc = String(promo.description || '').trim();
@@ -2144,7 +2144,7 @@ function renderBusinessPromotion(promo){
     <span class="business-detail-banner-copy">
       <strong>${esc(promo.title || '업소 소식')}</strong>
       ${desc ? `<small>${esc(desc.length > 90 ? desc.slice(0,90)+'…' : desc)}</small>` : ''}
-      <em>${esc(promo.button_label || '자세히 보기')} →</em>
+      ${String(promo.button_label || '').trim() ? `<em>${esc(promo.button_label)} →</em>` : ''}
     </span>
     <span class="business-detail-banner-badge">AD</span>
   </button>`;

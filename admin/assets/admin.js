@@ -2806,8 +2806,19 @@ function ensureBannerExtrasUI() {
     buttonWrap.innerHTML = `
       <label>버튼 문구</label>
       <input id="bnButtonLabel" type="text" placeholder="자세히 보기">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:500">
+        <input id="bnShowButton" type="checkbox" checked>
+        배너에 버튼 표시
+      </label>
+      <div style="margin-top:5px;color:#666;font-size:12px">체크를 해제하면 제목과 설명만 표시됩니다. 배너 전체 클릭 연결은 그대로 사용할 수 있습니다.</div>
     `;
     qs('bnLink')?.parentElement?.insertAdjacentElement('afterend', buttonWrap);
+    qs('bnShowButton')?.addEventListener('change', () => {
+      const input = qs('bnButtonLabel');
+      if (!input) return;
+      input.disabled = !checked('bnShowButton');
+      input.style.opacity = checked('bnShowButton') ? '1' : '.55';
+    });
   }
 
 
@@ -3144,6 +3155,8 @@ function clearBannerForm() {
   setVal('bnPlacement', 'home');
   setVal('bnDescription', '');
   setVal('bnButtonLabel', '자세히 보기');
+  setChecked('bnShowButton', true);
+  const bnBtnInput = qs('bnButtonLabel'); if (bnBtnInput) { bnBtnInput.disabled = false; bnBtnInput.style.opacity = '1'; }
   setVal('bnStartAt', '');
   setVal('bnEndAt', '');
   const sel = qs('bnBusinessSelect'); if (sel) sel.innerHTML = '<option value="">업소를 검색하세요</option>';
@@ -3168,7 +3181,10 @@ function fillBannerForm(row) {
   setVal('bnDisplayType', row.display_type || 'banner');
   setVal('bnPlacement', row.placement || (row.business_id ? 'both' : 'home'));
   setVal('bnDescription', row.description || '');
-  setVal('bnButtonLabel', row.button_label || '자세히 보기');
+  const hasBannerButton = String(row.button_label || '').trim() !== '';
+  setChecked('bnShowButton', hasBannerButton);
+  setVal('bnButtonLabel', hasBannerButton ? row.button_label : '');
+  const bnBtnInput = qs('bnButtonLabel'); if (bnBtnInput) { bnBtnInput.disabled = !hasBannerButton; bnBtnInput.style.opacity = hasBannerButton ? '1' : '.55'; }
   setVal('bnStartAt', fmtLocal(row.start_at));
   setVal('bnEndAt', fmtLocal(row.end_at));
   if (typeof renderBannerBusinessOptions === 'function') setTimeout(() => { renderBannerBusinessOptions(); const sel = qs('bnBusinessSelect'); if (sel && row.business_id) sel.value = String(row.business_id); renderBannerLinkOptions(); const target=qs('bnLinkTarget'); if(target && parsedLink.target) target.value=String(parsedLink.target); }, 0);
@@ -3279,7 +3295,7 @@ async function saveBanner() {
     display_type: val('bnDisplayType') || 'banner',
     placement: val('bnPlacement') || 'home',
     description: val('bnDescription').trim() || null,
-    button_label: val('bnButtonLabel').trim() || '자세히 보기',
+    button_label: checked('bnShowButton') ? (val('bnButtonLabel').trim() || '자세히 보기') : '',
     start_at: fromLocal(val('bnStartAt')),
     end_at: fromLocal(val('bnEndAt')),
     sort_order: Number(val('bnOrder') || 0),
