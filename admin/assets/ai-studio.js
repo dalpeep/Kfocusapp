@@ -74,22 +74,36 @@ function renderCampaignList() {
   });
   list.innerHTML = rows.map((row) => {
     const updated = row.updatedAt ? new Date(row.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-    return `<article class="ai-campaign-row ${row.id === currentCampaignId ? 'is-active' : ''}" data-campaign-id="${escapeHtml(row.id)}">
+    return `<article class="ai-campaign-row ${row.id === currentCampaignId ? 'is-active' : ''}" data-campaign-id="${escapeHtml(row.id)}" tabindex="0" role="button" aria-label="${escapeHtml(row.name || '캠페인')} 열기">
       <div><div class="ai-campaign-title">${escapeHtml(row.name || '이름 없는 캠페인')}</div><div class="ai-campaign-meta">${escapeHtml(row.benefit || '')}</div></div>
       <div><strong>${escapeHtml(row.businessName || '업소 미지정')}</strong><div class="ai-campaign-meta">${escapeHtml(row.category || '')}</div></div>
       <div><span class="ai-status-pill ai-status-${escapeHtml(row.status || 'draft')}">${statusLabel(row.status)}</span></div>
       <div class="ai-campaign-meta">${escapeHtml(updated)}</div>
-      <div class="ai-row-actions"><button class="btn secondary ai-open-campaign" type="button" data-id="${escapeHtml(row.id)}">열기</button><button class="btn ghost ai-duplicate-campaign" type="button" data-id="${escapeHtml(row.id)}">복제</button></div>
+      <div class="ai-row-actions"><button class="btn secondary ai-open-campaign" type="button" data-id="${escapeHtml(row.id)}">수정</button><button class="btn ghost ai-duplicate-campaign" type="button" data-id="${escapeHtml(row.id)}">복제</button><button class="btn danger ai-delete-campaign" type="button" data-id="${escapeHtml(row.id)}">삭제</button></div>
     </article>`;
   }).join('');
   empty.classList.toggle('hidden', rows.length > 0);
   list.classList.toggle('hidden', rows.length === 0);
+
+  list.querySelectorAll('.ai-campaign-row').forEach((row) => {
+    const open = () => openCampaign(row.dataset.campaignId);
+    row.addEventListener('click', (event) => {
+      if (!event.target.closest('button')) open();
+    });
+    row.addEventListener('keydown', (event) => {
+      if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest('button')) {
+        event.preventDefault();
+        open();
+      }
+    });
+  });
   list.querySelectorAll('.ai-open-campaign').forEach((btn) => btn.addEventListener('click', () => openCampaign(btn.dataset.id)));
   list.querySelectorAll('.ai-duplicate-campaign').forEach((btn) => btn.addEventListener('click', () => duplicateCampaign(btn.dataset.id)));
+  list.querySelectorAll('.ai-delete-campaign').forEach((btn) => btn.addEventListener('click', () => deleteCampaignById(btn.dataset.id)));
 }
 
 function fillInput(pkg) {
-  if ($('aiCampaignBusiness')) $('aiCampaignBusiness').value = String(pkg.business?.id || '');
+  if ($('aiCampaignBusiness')) $('aiCampaignBusiness').value = String(pkg.business?.id || pkg.businessId || '');
   if ($('aiCampaignName')) $('aiCampaignName').value = pkg.name || '';
   if ($('aiCampaignBenefit')) $('aiCampaignBenefit').value = pkg.benefit || '';
   if ($('aiCampaignStart')) $('aiCampaignStart').value = pkg.start || '';
@@ -147,12 +161,18 @@ function duplicateCampaign(id) {
   openCampaign(copy.id);
 }
 
-function deleteCurrentCampaign() {
-  if (!currentCampaignId) return alert('삭제할 캠페인을 먼저 여세요.');
-  if (!confirm('이 캠페인을 삭제할까요?')) return;
-  writeCampaigns(readCampaigns().filter((row) => row.id !== currentCampaignId));
-  resetForm();
+function deleteCampaignById(id) {
+  const campaign = readCampaigns().find((row) => row.id === id);
+  if (!campaign) return alert('삭제할 캠페인을 찾을 수 없습니다.');
+  if (!confirm(`“${campaign.name || '이 캠페인'}”을 삭제할까요?\n삭제한 캠페인은 복구할 수 없습니다.`)) return;
+  writeCampaigns(readCampaigns().filter((row) => row.id !== id));
+  if (currentCampaignId === id) resetForm();
   renderCampaignList();
+}
+
+function deleteCurrentCampaign() {
+  if (!currentCampaignId) return alert('삭제할 캠페인을 목록에서 먼저 선택하세요.');
+  deleteCampaignById(currentCampaignId);
 }
 
 function formatDate(v) {
@@ -218,6 +238,7 @@ function setOutput(id, value) {
 
 function renderPackage(pkg, persist = true) {
   lastPackage = pkg;
+  updateEditorState(true);
   setOutput('aiArticleResult', pkg.article);
   setOutput('aiBannerResult', pkg.banner);
   setOutput('aiCouponResult', pkg.coupon);
@@ -381,6 +402,16 @@ function seasonIdeas() {
   }));
 }
 
+function updateEditorState(hasCampaign) {
+  const ids = ['aiCampaignSaveBtn', 'aiCampaignDeleteBtn', 'aiCampaignRegisterBannerBtn', 'aiCopyAllBtn'];
+  ids.forEach((id) => {
+    const el = $(id);
+    if (el) el.disabled = !hasCampaign;
+  });
+  const status = $('aiCampaignWorkflowStatus');
+  if (status) status.disabled = !hasCampaign;
+}
+
 function resetForm() {
   $('aiCampaignForm')?.reset();
   lastPackage = null;
@@ -389,10 +420,12 @@ function resetForm() {
   $('aiCampaignResults')?.classList.add('hidden');
   $('aiCampaignEmpty')?.classList.remove('hidden');
   if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = '정보를 입력하고 캠페인 생성 버튼을 누르세요.';
+  updateEditorState(false);
 }
 
 function init() {
   seasonIdeas();
+  updateEditorState(false);
   $('aiCampaignGenerateBtn')?.addEventListener('click', () => {
     const data = collectInput();
     const error = validate(data);

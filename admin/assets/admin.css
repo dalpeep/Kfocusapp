@@ -573,3 +573,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 #aiCampaignRegisterBannerBtn{box-shadow:0 6px 16px rgba(37,99,235,.22)}
 .ai-detail-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 @media (max-width:760px){#aiCampaignRegisterBannerBtn{width:100%}.ai-detail-actions{width:100%}}
+
+/* DalTownMap v3.4 campaign editor */
+.hidden{display:none!important}
+.ai-campaign-row{cursor:pointer}
+.ai-campaign-row:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
+.ai-row-actions .danger{border:1px solid #fecaca;background:#fff1f2;color:#b91c1c}
+.ai-detail-actions button:disabled,.ai-detail-actions select:disabled{opacity:.45;cursor:not-allowed}
