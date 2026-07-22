@@ -497,6 +497,38 @@ function seasonIdeas() {
   }));
 }
 
+
+function buildChatGPTImagePrompt(asset, pkg) {
+  const style = STYLE_LABELS[pkg.style] || pkg.style || '프리미엄';
+  const exactText = {
+    banner: [`${pkg.name}`, `${pkg.benefit}`, `${pkg.businessName}`, `${pkg.cta}`],
+    coupon: [`${pkg.name}`, `${pkg.benefit}`, `${pkg.businessName}`, `${pkg.period}`, `${pkg.couponCode}`],
+    poster: [`${pkg.name}`, `${pkg.benefit}`, `${pkg.businessName}`, `${pkg.period}`, `${pkg.cta}`],
+    social: [`${pkg.name}`, `${pkg.benefit}`, `${pkg.businessName}`],
+    thumbnail: [`${pkg.name}`, `${pkg.benefit}`, `${pkg.businessName}`]
+  }[asset] || [];
+  const specs = {
+    banner: '업소 상세페이지용 16:9 가로 배너. 모바일에서도 제목과 혜택이 또렷하게 보이게 구성하고, CTA 버튼 영역을 포함한다.',
+    coupon: '1:1 정사각형 쿠폰 이미지. 혜택을 가장 크게 표시하고 쿠폰 코드와 기간을 정확히 넣는다.',
+    poster: 'A4 세로 포스터와 4:5 SNS 포스터에 모두 사용할 수 있는 세로형 구성.',
+    social: '인스타그램 1:1 정사각형 광고 이미지. 핵심 혜택과 업소명을 간결하게 표시한다.',
+    thumbnail: 'YouTube 16:9 썸네일. 큰 제목, 강한 대비, 모바일 가독성을 우선한다.'
+  }[asset] || '광고 이미지';
+  return `DalTownMap 지역 비즈니스 광고 이미지를 만들어 주세요.\n\n형식: ${specs}\n스타일: ${style}\n업소명: ${pkg.businessName}\n캠페인: ${pkg.name}\n혜택: ${pkg.benefit}\n기간: ${pkg.period}\nCTA: ${pkg.cta}\n\n이미지 안에 아래 한국어 문구를 철자와 띄어쓰기를 바꾸지 말고 정확히 넣어 주세요:\n${exactText.map((t, i) => `${i + 1}. “${t}”`).join('\n')}\n\n중요 조건:\n- 한국어 글자가 깨지거나 다른 언어로 바뀌지 않게 한다.\n- 실제 로고가 제공되지 않았으므로 임의의 로고를 만들지 않는다.\n- 과장된 가격, 할인율, 연락처 등 입력되지 않은 사실을 추가하지 않는다.\n- 텍스트가 배경과 겹치지 않게 충분한 여백과 대비를 둔다.\n- 완성된 광고 이미지만 생성한다.`;
+}
+
+async function openChatGPTImage(asset) {
+  if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
+  const prompt = buildChatGPTImagePrompt(asset, ensureCompletePackage(lastPackage));
+  await copyText(prompt);
+  const popup = window.open('https://chatgpt.com/', '_blank', 'noopener,noreferrer');
+  if (!popup) {
+    alert('ChatGPT 이미지 프롬프트를 복사했습니다. 새 탭이 차단되었으면 ChatGPT를 직접 열어 붙여넣으세요.');
+    return;
+  }
+  alert('ChatGPT 이미지 프롬프트를 복사하고 ChatGPT를 새 탭에서 열었습니다. 입력창에 붙여넣고 이미지를 생성하세요.');
+}
+
 function updateEditorState(hasCampaign) {
   const ids = ['aiCampaignSaveBtn', 'aiCampaignDeleteBtn', 'aiCampaignRegisterBannerBtn', 'aiCopyAllBtn', 'aiSendCouponBtn'];
   ids.forEach((id) => {
@@ -548,6 +580,7 @@ function init() {
   $('aiSendBannerBtn')?.addEventListener('click', sendBanner);
   $('aiCampaignRegisterBannerBtn')?.addEventListener('click', sendBanner);
   $('aiSendCouponBtn')?.addEventListener('click', sendCoupon);
+  document.querySelectorAll('.ai-chatgpt-image-btn').forEach((btn) => btn.addEventListener('click', () => openChatGPTImage(btn.dataset.chatgptAsset)));
   $('aiCampaignSaveBtn')?.addEventListener('click', () => {
     if (!lastPackage) return alert('먼저 캠페인을 생성하거나 목록에서 여세요.');
     const data = collectInput();
