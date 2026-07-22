@@ -33,8 +33,8 @@ exports.handler = async function handler(event) {
       body: JSON.stringify({
         model: 'gpt-image-1',
         prompt,
-        size: '1536x1024',
-        quality: 'medium',
+        size: '1024x1024',
+        quality: 'low',
         output_format: 'png'
       })
     });
@@ -45,6 +45,7 @@ exports.handler = async function handler(event) {
       return { statusCode: response.status || 500, body: JSON.stringify({ error: message }) };
     }
 
+    console.log('generate-dalpick-image OpenAI status:', response.status);
     const b64 = json?.data?.[0]?.b64_json;
     if (!b64) return { statusCode: 502, body: JSON.stringify({ error: '이미지 데이터가 반환되지 않았습니다.' }) };
 

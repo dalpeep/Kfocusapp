@@ -1872,7 +1872,30 @@ function renderDalpickList(items){
     alert('DalPick이 삭제되었습니다.');
   }));
 }
-function updateDalpickImagePreview(){const url=val('dalpick_image_url').trim();const wrap=qs('dalpickImagePreviewWrap');const img=qs('dalpickImagePreview');if(!wrap||!img)return;wrap.hidden=!url;if(url){img.src=url;}else{img.removeAttribute('src');}}
+function updateDalpickImagePreview(){
+  const url=val('dalpick_image_url').trim();
+  const wrap=qs('dalpickImagePreviewWrap');
+  const img=qs('dalpickImagePreview');
+  if(!wrap||!img)return;
+  img.onload=null;
+  img.onerror=null;
+  if(!url){
+    wrap.hidden=true;
+    img.removeAttribute('src');
+    return;
+  }
+  wrap.hidden=false;
+  img.alt='대표 이미지 불러오는 중';
+  img.onload=()=>{ img.alt='대표 이미지 미리보기'; };
+  img.onerror=()=>{
+    console.error('[DalPick Image] preview load failed:',url);
+    img.removeAttribute('src');
+    img.alt='대표 이미지를 불러오지 못했습니다.';
+    wrap.hidden=true;
+    safeText('dalpickAiStatus','이미지 URL은 입력됐지만 미리보기를 불러오지 못했습니다.');
+  };
+  img.src=url;
+}
 function clearDalpickForm(){selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_is_active',true);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_auto_image',true);document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=false);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();updateDalpickImagePreview();renderDalpickList(filterDalpicks());}
 function fillDalpickForm(d){selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'local_info');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_is_active',d.is_active!==false);setChecked('dalpick_show_in_dalpick',!!d.show_in_dalpick);{const targets=Array.isArray(d.target_categories)?d.target_categories:[];document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=targets.includes(x.value));}safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);updateDalpickTypeUI();updateDalpickImagePreview();}
 async function saveDalpick(){
@@ -1907,28 +1930,62 @@ function updateDalpickTypeUI(){
 async function generateDalpickImage(){
   const title=val('dalpick_title').trim()||val('dalpick_topic').trim();
   const summary=val('dalpick_summary').trim();
-  if(!title)return alert('먼저 기사 제목이나 주제를 입력하세요.');
-  const btn=qs('dalpickImageBtn');const old=btn?.textContent||'AI 대표 이미지 생성';
+  if(!title){alert('먼저 기사 제목이나 주제를 입력하세요.');return false;}
+  const btn=qs('dalpickImageBtn');
+  const old=btn?.textContent||'AI 대표 이미지 생성';
   if(btn){btn.disabled=true;btn.textContent='이미지 생성 중...';}
-  safeText('dalpickAiStatus','AI가 대표 이미지를 만들고 있습니다...');
+  safeText('dalpickAiStatus','AI 대표 이미지 요청 중...');
+  console.log('[DalPick Image] generation started',{title,category:val('dalpick_category')||'themed'});
   try{
-    const response=await fetch('/.netlify/functions/generate-dalpick-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,summary,category:val('dalpick_category')||'themed'})});
-    const json=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(json.error||'이미지 생성에 실패했습니다.');
-    const binary=atob(json.b64_json||'');
-    if(!binary)throw new Error('생성된 이미지 데이터가 없습니다.');
-    const bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const response=await fetch('/.netlify/functions/generate-dalpick-image?v=8.3.0',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
+      body:JSON.stringify({title,summary,category:val('dalpick_category')||'themed'})
+    });
+    console.log('[DalPick Image] function response:',response.status,response.statusText);
+    const raw=await response.text();
+    let json={};
+    try{json=raw?JSON.parse(raw):{};}catch(parseError){
+      console.error('[DalPick Image] invalid JSON response:',raw.slice(0,500));
+      throw new Error(`이미지 서버 응답을 읽지 못했습니다. HTTP ${response.status}`);
+    }
+    if(!response.ok)throw new Error(json.error||`이미지 생성에 실패했습니다. HTTP ${response.status}`);
+    const encoded=String(json.b64_json||'');
+    if(!encoded)throw new Error('생성된 이미지 데이터가 없습니다.');
+    console.log('[DalPick Image] image data received:',Math.round(encoded.length/1024),'KB');
+    let binary;
+    try{binary=atob(encoded);}catch(e){throw new Error('이미지 데이터 변환에 실패했습니다.');}
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
     const file=new File([bytes],`dalpick-${Date.now()}.png`,{type:'image/png'});
-    const path=`uploads/dalpicks/${Date.now()}-${Math.random().toString(36).slice(2,8)}.png`;
-    const {error}=await supabase.storage.from('public-images').upload(path,file,{upsert:false,contentType:'image/png'});
-    if(error)throw error;
-    const {data}=supabase.storage.from('public-images').getPublicUrl(path);
-    setVal('dalpick_image_url',data?.publicUrl||'');updateDalpickImagePreview();
-    safeText('dalpickAiStatus','대표 이미지 생성 및 업로드 완료');
-  }catch(error){console.error('DalPick image:',error);safeText('dalpickAiStatus',`이미지 오류: ${error.message}`);alert(error.message);}
-  finally{if(btn){btn.disabled=false;btn.textContent=old;}}
-}
+    if(!supabase)throw new Error('Supabase 연결이 준비되지 않았습니다. 새로고침 후 다시 시도하세요.');
+    const bucket=cfg.STORAGE_BUCKET||'public-images';
+    const baseFolder=String(cfg.STORAGE_FOLDER||'').replace(/^\/+|\/+$/g,'');
+    const folder=baseFolder?`${baseFolder}/uploads/dalpicks`:'uploads/dalpicks';
+    const path=`${folder}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.png`;
+    console.log('[DalPick Image] storage upload started:',bucket,path);
+    safeText('dalpickAiStatus','이미지 생성 완료 · 저장소 업로드 중...');
+    const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:false,cacheControl:'3600',contentType:'image/png'});
+    if(error)throw new Error(`Storage 업로드 실패: ${error.message}`);
+    const {data}=supabase.storage.from(bucket).getPublicUrl(path);
+    const publicUrl=data?.publicUrl||'';
+    if(!publicUrl)throw new Error('업로드된 이미지의 공개 URL을 만들지 못했습니다.');
+    console.log('[DalPick Image] public URL created:',publicUrl);
+    setVal('dalpick_image_url',publicUrl);
+    updateDalpickImagePreview();
+    safeText('dalpickAiStatus','✅ 대표 이미지 생성 및 업로드 완료');
+    return true;
+  }catch(error){
+    console.error('[DalPick Image] failed:',error);
+    safeText('dalpickAiStatus',`❌ 이미지 오류: ${error.message}`);
+    alert(`대표 이미지 생성 실패
 
+${error.message}`);
+    return false;
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=old;}
+  }
+}
 async function generateDalpickDraft(){
   const topic=val('dalpick_topic').trim();
   if(!topic) return alert('AI로 작성할 주제를 입력하세요.');
@@ -1970,7 +2027,7 @@ async function generateDalpickDraft(){
       if(image) setVal('dalpick_image_url',image);
     }
     safeText('dalpickAiStatus',`초안 작성 완료${article.image_search_keywords?` · 이미지 검색어: ${article.image_search_keywords}`:''}`);
-    if(checked('dalpick_auto_image')) await generateDalpickImage();
+    if(checked('dalpick_auto_image')){console.log('[DalPick Image] automatic generation requested');await generateDalpickImage();}else{console.log('[DalPick Image] automatic generation skipped: checkbox off');}
   }catch(error){
     console.error('DalPick AI:',error);
     safeText('dalpickAiStatus',`오류: ${error.message}`);
