@@ -14,6 +14,24 @@ const STYLE_LABELS = {
   energetic: '활기차고 역동적인'
 };
 
+const DEFAULT_ASSETS = ['article', 'banner', 'coupon', 'social'];
+function selectedAssets() {
+  return [...document.querySelectorAll('#aiAssetSelector input[type="checkbox"]:checked')].map((el) => el.value);
+}
+function applySelectedAssets(assets) {
+  const set = new Set(Array.isArray(assets) && assets.length ? assets : DEFAULT_ASSETS);
+  document.querySelectorAll('#aiAssetSelector input[type="checkbox"]').forEach((el) => { el.checked = set.has(el.value); });
+  syncAssetCards();
+}
+function syncAssetCards() {
+  const set = new Set(selectedAssets());
+  document.querySelectorAll('[data-asset-result]').forEach((el) => el.classList.toggle('asset-hidden', !set.has(el.dataset.assetResult)));
+  ['aiCouponType','aiCouponStyle','aiCouponCode','aiCouponUsage','aiCouponToday'].forEach((id) => {
+    const field = $(id)?.closest('.field');
+    if (field) field.classList.toggle('hidden', !set.has('coupon'));
+  });
+}
+
 
 function uid() {
   return `cmp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -116,7 +134,9 @@ function fillInput(pkg) {
   if ($('aiCouponCode')) $('aiCouponCode').value = pkg.customCouponCode || '';
   if ($('aiCouponUsage')) $('aiCouponUsage').value = pkg.couponUsage || '직원에게 쿠폰 화면 제시';
   if ($('aiCouponToday')) $('aiCouponToday').checked = Boolean(pkg.couponToday);
+  applySelectedAssets(pkg.assets || DEFAULT_ASSETS);
 }
+
 
 function ensureCompletePackage(pkg) {
   if (!pkg) return null;
@@ -124,6 +144,7 @@ function ensureCompletePackage(pkg) {
   if (hasOutputs) return pkg;
   const business = pkg.business || businessRows.find((row) => String(row.id) === String(pkg.business?.id || pkg.businessId || '')) || null;
   const rebuilt = makePackage({
+    assets: Array.isArray(pkg.assets) && pkg.assets.length ? pkg.assets : DEFAULT_ASSETS,
     business,
     businessName: clean(pkg.businessName || business?.name_ko || business?.name_en),
     category: clean(pkg.category || business?.category_ko),
@@ -200,6 +221,7 @@ function getBusiness() {
 function collectInput() {
   const business = getBusiness();
   return {
+    assets: selectedAssets(),
     business,
     businessName: clean(business?.name_ko || business?.name_en),
     category: clean(business?.category_ko),
@@ -222,6 +244,7 @@ function collectInput() {
 }
 
 function validate(data) {
+  if (!data.assets || !data.assets.length) return '만들 제작물을 하나 이상 선택하세요.';
   if (!data.businessName) return '업소를 선택하세요.';
   if (!data.name) return '캠페인·행사명을 입력하세요.';
   if (!data.benefit) return '혜택을 입력하세요.';
@@ -250,9 +273,29 @@ function makePackage(d) {
   const couponImagePrompt = `[Grok 쿠폰 이미지 생성 프롬프트]\n${d.businessName}의 “${d.name}” 쿠폰 이미지를 제작해 주세요. 쿠폰 유형은 ${couponTypeLabel}, 핵심 혜택은 “${d.benefit}”, 기본 스타일은 ${couponStyleLabel}. 한글 문구가 들어갈 깨끗한 여백을 확보하고, 실제 로고를 임의로 만들지 마세요. 1:1 정사각형과 16:9 가로형 두 버전의 구도를 제안해 주세요. 쿠폰 코드 ${couponCode}, 기간 ${period}, CTA ${d.cta}.\n\n${couponDesigns}`;
   const coupon = `쿠폰 제목: ${d.name}\n쿠폰 유형: ${couponTypeLabel}\n할인·혜택: ${d.benefit}\n사용 기간: ${period}\n쿠폰 코드: ${couponCode}\n사용 방법: ${d.couponUsage || '직원에게 쿠폰 화면 제시'}\n오늘의 쿠폰: ${d.couponToday ? '표시' : '표시 안 함'}\n주의사항: 다른 행사와 중복 적용 여부 및 세부 조건은 업소 확인 필요\n버튼: ${d.cta}\n\n${couponImagePrompt}`;
   const social = `${d.businessName}에서 ${d.name}을(를) 진행합니다.\n\n🎁 혜택: ${d.benefit}\n📅 기간: ${period}\n${d.address ? `📍 ${d.address}\n` : ''}${d.phone ? `☎️ ${d.phone}\n` : ''}\n${d.notes ? `${d.notes}\n\n` : ''}${d.cta}\n\n#달라스 #달타운맵 #${d.category.replace(/\s+/g, '') || '지역업소'} #이벤트`;
+  const poster = `[포스터 제작안]
+형식: A4 세로형 및 4:5 디지털 포스터
+제목: ${d.name}
+업소명: ${d.businessName}
+핵심 혜택: ${d.benefit}
+기간: ${period}
+CTA: ${d.cta}
+디자인: ${style}, 상단에는 강한 제목, 중앙에는 관련 대표 이미지, 하단에는 기간·연락처·CTA를 명확하게 배치
+
+[ChatGPT 이미지 생성용 프롬프트]
+${d.businessName}의 “${d.name}” 홍보 포스터를 제작한다. ${style} 스타일, A4 세로형, 한글 제목과 혜택을 정확히 읽을 수 있도록 넓은 텍스트 영역을 확보한다. 실제 로고를 임의로 만들지 않는다. 제목 “${d.name}”, 혜택 “${d.benefit}”, 기간 “${period}”, CTA “${d.cta}”를 사용한다.`;
+  const thumbnail = `[유튜브·숏폼 썸네일 제작안]
+메인 제목: ${d.name}
+보조 문구: ${d.benefit}
+업소명: ${d.businessName}
+권장 비율: YouTube 16:9 / Shorts 9:16
+구성: 핵심 이미지 1개, 큰 제목 6~12자, 보조 문구 1줄, 모바일에서 즉시 읽히는 대비
+
+[ChatGPT 이미지 생성용 프롬프트]
+${d.businessName}의 “${d.name}” 유튜브 썸네일을 제작한다. ${style} 스타일, 강한 시각적 대비, 제목 “${d.name}”과 혜택 “${d.benefit}”이 선명하게 보이게 한다. 16:9와 9:16 두 구도를 제안하고, 과도한 글자나 가짜 로고는 사용하지 않는다.`;
   const grok = `[Grok 이미지 생성 프롬프트]\n${d.businessName}의 “${d.name}” 광고 이미지를 제작해 주세요. ${style} 스타일. 핵심 혜택은 “${d.benefit}”. 업종은 “${d.category || '지역 비즈니스'}”. 실제 로고나 상표를 임의로 만들지 말고, 한글 텍스트를 이미지에 직접 넣기보다는 텍스트를 배치할 깨끗한 여백을 확보해 주세요. 16:9 배너, 1:1 SNS, 9:16 스토리 버전의 구도를 각각 제안해 주세요. 고해상도, 자연스러운 조명, 과장되거나 사실과 다른 장면 금지.\n\n[Grok 영상 구성 프롬프트]\n${d.businessName}의 ${d.name} 15초 광고 영상을 기획해 주세요. 장면 4개, 고정적이고 부드러운 카메라, 자막은 짧게. Scene 1 업종과 분위기를 보여주는 오프닝, Scene 2 핵심 서비스, Scene 3 혜택 “${d.benefit}”, Scene 4 업소명과 CTA “${d.cta}”. 각 장면의 이미지 생성 프롬프트, 화면 자막, 권장 길이를 표로 작성해 주세요. 확인되지 않은 가격이나 조건은 만들지 마세요.`;
   const runway = `[Runway image-to-video 프롬프트]\nCreate a polished 15-second local business advertisement for ${d.businessName}. ${style} visual direction. Use four short scenes with subtle natural motion, stable camera, realistic lighting, no distorted hands or faces, no invented logos, no camera shake, and no sudden zoom. Emphasize the promotion: ${d.benefit}. End with clean space for the Korean call-to-action: ${d.cta}.\n\nScene plan\n1) 0–3s: Establishing visual for ${d.category || 'the business'}\n2) 3–7s: Close-up of the main service or product\n3) 7–11s: Benefit-focused visual, leave room for “${d.benefit}”\n4) 11–15s: Calm branded ending, leave room for business name and CTA\n\nNegative prompt: unreadable text, warped objects, extra fingers, fake logos, aggressive camera movement, flicker, low resolution.`;
-  return { ...d, title, summary, article, banner, coupon, social, grok, runway, period, couponCode, facts };
+  return { ...d, title, summary, article, banner, coupon, poster, social, thumbnail, grok, runway, period, couponCode, facts };
 }
 
 function setOutput(id, value) {
@@ -266,9 +309,12 @@ function renderPackage(pkg, persist = true) {
   setOutput('aiArticleResult', pkg.article);
   setOutput('aiBannerResult', pkg.banner);
   setOutput('aiCouponResult', pkg.coupon);
+  setOutput('aiPosterResult', pkg.poster);
   setOutput('aiSocialResult', pkg.social);
+  setOutput('aiThumbnailResult', pkg.thumbnail);
   setOutput('aiGrokResult', pkg.grok);
   setOutput('aiRunwayResult', pkg.runway);
+  applySelectedAssets(pkg.assets || DEFAULT_ASSETS);
   $('aiCampaignEmpty')?.classList.add('hidden');
   $('aiCampaignResults')?.classList.remove('hidden');
   if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = `${pkg.businessName} · ${pkg.name} 캠페인 상세입니다.`;
@@ -469,11 +515,16 @@ function resetForm() {
   $('aiCampaignResults')?.classList.add('hidden');
   $('aiCampaignEmpty')?.classList.remove('hidden');
   if ($('aiCampaignStatus')) $('aiCampaignStatus').textContent = '정보를 입력하고 캠페인 생성 버튼을 누르세요.';
+  applySelectedAssets(DEFAULT_ASSETS);
   updateEditorState(false);
 }
 
 function init() {
   seasonIdeas();
+  applySelectedAssets(DEFAULT_ASSETS);
+  document.querySelectorAll('#aiAssetSelector input[type="checkbox"]').forEach((el) => el.addEventListener('change', syncAssetCards));
+  $('aiSelectAllAssets')?.addEventListener('click', () => { document.querySelectorAll('#aiAssetSelector input[type="checkbox"]').forEach((el) => { el.checked = true; }); syncAssetCards(); });
+  $('aiClearAssets')?.addEventListener('click', () => { document.querySelectorAll('#aiAssetSelector input[type="checkbox"]').forEach((el) => { el.checked = false; }); syncAssetCards(); });
   updateEditorState(false);
   $('aiCampaignGenerateBtn')?.addEventListener('click', () => {
     const data = collectInput();
@@ -484,7 +535,8 @@ function init() {
   $('aiCampaignResetBtn')?.addEventListener('click', resetForm);
   $('aiCopyAllBtn')?.addEventListener('click', async () => {
     if (!lastPackage) return alert('먼저 캠페인을 생성하세요.');
-    await copyText([lastPackage.article, lastPackage.banner, lastPackage.coupon, lastPackage.social, lastPackage.grok, lastPackage.runway].join('\n\n--------------------\n\n'));
+    const parts = { article:lastPackage.article, banner:lastPackage.banner, coupon:lastPackage.coupon, poster:lastPackage.poster, social:lastPackage.social, thumbnail:lastPackage.thumbnail, video:[lastPackage.grok,lastPackage.runway].join('\n\n') };
+    await copyText((lastPackage.assets || DEFAULT_ASSETS).map((key) => parts[key]).filter(Boolean).join('\n\n--------------------\n\n'));
     alert('전체 캠페인 문안을 복사했습니다.');
   });
   document.querySelectorAll('.ai-copy-btn').forEach((btn) => btn.addEventListener('click', async () => {
