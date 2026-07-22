@@ -3380,12 +3380,33 @@ function showPage(page, opts={}){
 }
 
 
+// 추천 테마 기사 열기: 이 함수는 반드시 전역 범위에 있어야 업소 메인에서도 사용할 수 있습니다.
+window.openThemeArticle = function(theme){
+  if(!theme) return;
+  const post = {
+    id: `theme-${theme.id}`,
+    type: 'life',
+    title: theme.title || '추천 테마',
+    content: theme.content || theme.summary || '',
+    summary: theme.summary || '',
+    image_url: theme.image_url || '',
+    created_at: theme.created_at || new Date().toISOString(),
+    author_name: 'DalTownMap'
+  };
+  const existing = (boardPosts || []).findIndex(p=>String(p.id)===String(post.id));
+  if(existing >= 0) boardPosts[existing] = post;
+  else boardPosts.push(post);
+  renderBoardPage('life', post.id);
+  lastBasePage = currentPage;
+  showPage('board-detail');
+};
+
 // 추천 테마 카드 클릭
  document.addEventListener('click',e=>{
   const btn=e.target.closest('.business-main-theme-card, .business-theme-card');
   if(!btn)return;
   const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));
-  if(theme) openThemeArticle(theme);
+  if(theme) window.openThemeArticle(theme);
 });
 
 function initPageSwipe(){
