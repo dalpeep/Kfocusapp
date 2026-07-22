@@ -2075,7 +2075,7 @@ async function generateDalpickDraft(){
       const image=business.image_url||business.thumbnail_url||business.logo_url||'';
       if(image) setVal('dalpick_image_url',image);
     }
-    safeText('dalpickAiStatus',`초안 작성 완료${article.image_search_keywords?` · 이미지 검색어: ${article.image_search_keywords}`:''}`);
+    const q=json.quality||{}; safeText('dalpickAiStatus',`초안 작성 완료${q.score?` · 품질 ${q.score}점`:''}${q.intent_type?` · ${q.intent_type}`:''}${article.image_search_keywords?` · 이미지 검색어: ${article.image_search_keywords}`:''}`);
     if(checked('dalpick_auto_image')){console.log('[DalPick Image] automatic generation requested');await generateDalpickImage();}else{console.log('[DalPick Image] automatic generation skipped: checkbox off');}
   }catch(error){
     console.error('DalPick AI:',error);
@@ -2391,7 +2391,7 @@ async function generateAiGuide({ publish = false } = {}) {
       await saveBoard();
       safeText('aiGuideStatus', 'AI 가이드가 게시되었습니다.');
     } else {
-      safeText('aiGuideStatus', '초안이 아래 게시글 양식에 입력되었습니다. 검토 후 저장하세요.');
+      const q=result.quality||{}; safeText('aiGuideStatus', `초안 완료${q.score?` · 품질 ${q.score}점`:''}${q.intent_type?` · ${q.intent_type}`:''}. 아래 양식을 검토 후 저장하세요.`);
       alert('AI 초안이 생성되었습니다.\n\n아래 제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
     }
   } catch (error) {
