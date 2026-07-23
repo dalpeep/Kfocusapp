@@ -347,6 +347,147 @@ const schema = {
   }, required: ['interpreted_request','queries_used','candidates']
 };
 
+
+
+function classifyRequest(topic = '', category = '') {
+  const t = String(topic).toLowerCase();
+  const businessWords = /(추천|찾아|어디|업소|가게|식당|병원|내과|치과|소아과|한의원|약국|변호사|회계사|보험사|부동산|미용실|정비소|업체|회사|restaurant|clinic|doctor|dentist|attorney|lawyer|realtor|accountant|near me)/i;
+  const infoWords = /(방법|절차|신청|갱신|등록|자격|조건|준비물|서류|비용|기간|규정|법|정책|혜택|발급|예약 방법|어떻게|무엇을|언제|학교 등록|운전면허|차량 등록|세금|메디케어|메디케이드|aca|비자|여권|이민|시민권|유틸리티|쓰레기 수거|공식|deadline|requirements|apply|renew|registration|eligibility|rules|law|policy)/i;
+  const hasBusiness = businessWords.test(t);
+  const hasInfo = infoWords.test(t);
+  if (hasBusiness && hasInfo) return 'mixed';
+  if (hasBusiness) return 'business';
+  if (hasInfo) return 'information';
+  // 카테고리가 생활정보 성격이면 기본적으로 정보형으로 처리하되, 구체 업종명이 있으면 업소형
+  if (['driving','education','housing','immigration'].includes(category)) return 'information';
+  return 'business';
+}
+
+function officialDomainHints(category = '', topic = '') {
+  const map = {
+    driving: ['txdmv.gov', 'dps.texas.gov', 'texas.gov', 'ntta.org'],
+    health: ['medicare.gov', 'medicaid.gov', 'healthcare.gov', 'hhs.texas.gov', 'cdc.gov', 'nih.gov'],
+    education: ['tea.texas.gov', 'pisd.edu', 'friscoisd.org', 'cfbisd.edu', 'dallasisd.org', 'ed.gov'],
+    business: ['irs.gov', 'comptroller.texas.gov', 'sos.state.tx.us', 'sba.gov', 'twc.texas.gov'],
+    housing: ['plano.gov', 'cityofcarrollton.com', 'dallascityhall.com', 'collincountytx.gov', 'dentoncounty.gov', 'puc.texas.gov'],
+    immigration: ['uscis.gov', 'travel.state.gov', 'kr.usembassy.gov', 'overseas.mofa.go.kr']
+  };
+  const hints = [...(map[category] || [])];
+  const t = String(topic).toLowerCase();
+  if (/plano isd|플레이노.*학교/.test(t)) hints.unshift('pisd.edu');
+  if (/carrollton|캐롤/.test(t)) hints.unshift('cityofcarrollton.com');
+  if (/collin county|콜린/.test(t)) hints.unshift('collincountytx.gov');
+  if (/denton county|덴튼/.test(t)) hints.unshift('dentoncounty.gov');
+  return uniqueStrings(hints);
+}
+
+const infoSchema = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    interpreted_request: { type: 'string' },
+    queries_used: { type: 'array', items: { type: 'string' } },
+    candidates: { type: 'array', items: { type: 'object', additionalProperties: false,
+      properties: {
+        name: { type: 'string' },
+        city: { type: 'string' },
+        specialty: { type: 'string' },
+        qualifier_evidence: { type: 'string' },
+        confidence: { type: 'integer' },
+        source_urls: { type: 'array', items: { type: 'string' } },
+        source_titles: { type: 'array', items: { type: 'string' } },
+        published_or_updated: { type: 'string' },
+        official_source: { type: 'boolean' }
+      },
+      required: ['name','city','specialty','qualifier_evidence','confidence','source_urls','source_titles','published_or_updated','official_source']
+    }}
+  }, required: ['interpreted_request','queries_used','candidates']
+};
+
+async function searchInformation(topic, category, instructions, sources, model) {
+  const domains = officialDomainHints(category, topic);
+  const response = await callResponses({
+    model,
+    tools: [{ type: 'web_search', search_context_size: 'high' }], tool_choice: 'auto',
+    input: [
+      { role: 'system', content: [{ type: 'input_text', text: '당신은 달라스·텍사스 한인 생활정보 사실 검증 편집자입니다. 정부기관, 시·카운티, 교육청, 공공기관 및 공식 전문기관을 최우선으로 검색하세요. 최신 날짜와 관할 지역을 확인하고, 커뮤니티 글이나 광고성 페이지는 공식 근거를 보조할 때만 사용하세요.' }] },
+      { role: 'user', content: [{ type: 'input_text', text: `생활정보 요청: ${topic}\n분야: ${category || '원문 기준'}\n추가 지시: ${instructions || '없음'}\n사용자 참고 URL:\n${sources.join('\n') || '없음'}\n공식 도메인 우선 후보: ${domains.join(', ') || '미지정'}\n\n검색 규칙:\n- 현재 시행 중인 정보인지 확인하고 가능한 경우 공식 페이지의 갱신일을 확인하세요.\n- 연방/텍사스/카운티/시/교육청 등 관할이 다르면 구분하세요.\n- 신청 방법, 자격, 준비 서류, 비용, 처리 기간, 공식 연락처 중 실제 확인된 것만 근거 요약에 포함하세요.\n- 같은 내용을 반복하는 페이지는 합치고, 핵심 공식 출처를 최대 8개 반환하세요.\n- name은 기관명 또는 공식 페이지 제목으로 작성하세요.\n- source_urls에는 실제로 확인한 URL만 넣으세요.` }] }
+    ],
+    text: { format: { type: 'json_schema', name: 'daltown_information_search_v18', strict: true, schema: infoSchema } }
+  });
+  const text = outputText(response);
+  if (!text) throw new Error('생활정보 웹 검색 결과가 비어 있습니다.');
+  const research = JSON.parse(text);
+  const candidates = (research.candidates || []).filter(c => c.name && c.source_urls?.length).map((c, i) => ({
+    ...c,
+    candidate_kind: 'information',
+    aliases: [],
+    qualifier_evidence_score: c.official_source ? 40 : 24,
+    specialty_score: 20,
+    evidence_level: c.official_source ? 'strong' : 'moderate',
+    final_score: clamp((c.confidence || 60) + (c.official_source ? 10 : 0), 0, 100),
+    evidence_status: c.official_source ? 'confirmed' : 'probable',
+    place_verified: false,
+    place: null,
+    community_sources: [],
+    community_source_bonus: 0,
+    source_urls: uniqueStrings(c.source_urls).slice(0, 5),
+    source_titles: uniqueStrings(c.source_titles).slice(0, 5),
+    phone: '', address: '', website: c.source_urls?.[0] || '',
+    info_order: i + 1
+  })).sort((a,b) => b.final_score - a.final_score).slice(0, 8);
+  return { research, candidates, domains };
+}
+
+async function searchBusinesses(topic, category, instructions, sources, model) {
+  const city = extractRequestedCity(topic);
+  const qualifiers = extractHardQualifiers(topic);
+  const qualifierLabels = qualifiers.map(q => q.label);
+  const [dbRows, webResponse] = await Promise.all([
+    fetchDalTownMapBusinesses(),
+    callResponses({
+      model,
+      tools: [{ type: 'web_search', search_context_size: 'medium' }], tool_choice: 'auto',
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: '당신은 달라스 한인 지역정보 조사 편집자입니다. 달사람 온라인 업소록을 핵심 외부 자료로 사용하고, 공식 홈페이지와 Google 정보로 최신성을 교차 검증하세요. 주간포커스와 중앙일보 업소록은 검색하지 마세요.' }] },
+        { role: 'user', content: [{ type: 'input_text', text: `요청: ${topic}\n분야: ${category || '원문 기준'}\n요청 도시: ${city || '원문에서 판단'}\n필수 조건: ${qualifierLabels.join(', ') || '없음'}\n추가 지시: ${instructions || '없음'}\n사용자 참고 URL:\n${sources.join('\n') || '없음'}\n\n반드시 달사람 업소록 ${DALSARAM_DIRECTORY_URL} 및 site:dalsaram.com/shop 검색을 한국어와 영어로 각각 수행하세요. 달사람 결과는 한인 커뮤니티 관련성 근거로 사용하고 주소·전화·영업 상태는 공식 사이트 또는 Google 정보로 검증하세요. 같은 업소의 표기 차이는 aliases로 합치세요. 최대 10개 후보, 실제 근거 URL만 반환하세요.` }] }
+      ],
+      text: { format: { type: 'json_schema', name: 'guide_search_results_v18_business', strict: true, schema } }
+    })
+  ]);
+  const text = outputText(webResponse);
+  if (!text) throw new Error('달사람 웹 검색 결과가 비어 있습니다.');
+  const research = JSON.parse(text);
+  const webCandidates = (research.candidates || []).filter(c => c.name).map(c => ({
+    ...c, candidate_kind: 'business',
+    source_urls: uniqueStrings(c.source_urls).slice(0, 6), source_titles: uniqueStrings(c.source_titles).slice(0, 6),
+    local_sources: (c.source_urls || []).some(u => String(u).includes('dalsaram.com')) ? [LOCAL_SOURCE_META.dalsaram] : [],
+    phone: '', address: '', website: '', local_match_score: 0
+  }));
+  const dbCandidates = searchDalTownMap(dbRows, topic, city, qualifiers).map(c => ({...c, candidate_kind:'business'}));
+  const ktnCandidates = searchKtn(topic, city, qualifiers).map(c => ({...c, candidate_kind:'business'}));
+  let merged = dedupeCandidates([...dbCandidates, ...ktnCandidates, ...webCandidates]);
+  merged = merged.sort((a,b) => (b.local_match_score || 0) - (a.local_match_score || 0)).slice(0, 18);
+  const placeGroups = await Promise.all(merged.map(c => {
+    if (c.place) return Promise.resolve([c.place]);
+    const specialty = c.specialty || qualifierLabels.filter(x => x !== '한인·한국어').join(' ');
+    return searchGooglePlaces(`${c.name} ${specialty} ${city || c.city || 'Texas'}`, 5);
+  }));
+  const ranked = merged.map((c, i) => {
+    const place = c.place || bestPlace(c, placeGroups[i] || [], city);
+    const finalScore = computeScore(c, place, city, qualifiers);
+    const evidenceScore = clamp(c.qualifier_evidence_score, 0, 40);
+    const koreanRequested = qualifiers.some(q => q.key === 'korean');
+    const evidenceStatus = !koreanRequested ? 'not_required' : evidenceScore >= 25 ? 'confirmed' : evidenceScore >= 12 ? 'probable' : 'unconfirmed';
+    return {...c, candidate_kind:'business', place_verified:Boolean(place), place:place||null, final_score:finalScore,
+      community_source_bonus:Math.min(25,(c.local_sources||[]).reduce((s,x)=>s+(x.weight||0),0)), community_sources:c.local_sources||[],
+      evidence_status:evidenceStatus, city_match:cityScore(c,place,city)>0, cross_source_count:(c.local_sources||[]).length,
+      source_origin:(c.local_sources||[]).map(s=>s.key)};
+  }).filter(c => c.final_score >= 22).sort((a,b)=>b.final_score-a.final_score);
+  const exactCity = ranked.filter(c => c.city_match);
+  const candidates = (exactCity.length >= 3 ? exactCity : ranked).slice(0,8);
+  return { research, candidates, city, qualifiers, dbRowsCount:dbRows.length, mergedCount:merged.length };
+}
+
 exports.handler = async event => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'POST only' }) };
@@ -358,78 +499,48 @@ exports.handler = async event => {
     const instructions = String(body.instructions || '').trim();
     const sources = Array.isArray(body.sources) ? uniqueStrings(body.sources) : [];
     if (!topic) return { statusCode: 400, headers, body: JSON.stringify({ error: '검색 주제를 입력하세요.' }) };
-
-    const city = extractRequestedCity(topic);
-    const qualifiers = extractHardQualifiers(topic);
-    const qualifierLabels = qualifiers.map(q => q.label);
     const model = process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+    const searchType = classifyRequest(topic, category);
 
-    const [dbRows, webResponse] = await Promise.all([
-      fetchDalTownMapBusinesses(),
-      callResponses({
-        model,
-        tools: [{ type: 'web_search', search_context_size: 'medium' }], tool_choice: 'auto',
-        input: [
-          { role: 'system', content: [{ type: 'input_text', text: '당신은 달라스 한인 지역정보 조사 편집자입니다. 이번 검색에서는 달사람 온라인 업소록을 핵심 외부 자료로 사용하고, 공식 홈페이지와 Google 정보로 최신성을 교차 검증하세요. 주간포커스와 중앙일보 업소록은 검색하지 마세요.' }] },
-          { role: 'user', content: [{ type: 'input_text', text: `요청: ${topic}\n분야: ${category || '원문 기준'}\n요청 도시: ${city || '원문에서 판단'}\n필수 조건: ${qualifierLabels.join(', ') || '없음'}\n추가 지시: ${instructions || '없음'}\n사용자 참고 URL:\n${sources.join('\n') || '없음'}\n\n반드시 달사람 업소록 ${DALSARAM_DIRECTORY_URL} 및 site:dalsaram.com/shop 검색을 한국어와 영어로 각각 수행하세요. 달사람 결과는 한인 커뮤니티 관련성 근거로 사용하고 주소·전화·영업 상태는 공식 사이트 또는 Google 정보로 검증하세요. 같은 업소의 표기 차이는 aliases로 합치세요. 최대 10개 후보, 실제 근거 URL만 반환하세요.` }] }
-        ],
-        text: { format: { type: 'json_schema', name: 'guide_search_results_v16', strict: true, schema } }
-      })
-    ]);
+    if (searchType === 'information') {
+      const info = await searchInformation(topic, category, instructions, sources, model);
+      return { statusCode: 200, headers, body: JSON.stringify({
+        topic, search_type:'information', search_type_label:'생활정보', requested_city:extractRequestedCity(topic), hard_qualifiers:[],
+        interpreted_request:info.research.interpreted_request,
+        queries_used:uniqueStrings([...(info.research.queries_used||[]), ...info.domains.map(d=>`공식 출처: ${d}`)]),
+        source_stats:{ official_sources:info.candidates.filter(c=>c.official_source).length, information_sources:info.candidates.length },
+        candidates:info.candidates,
+        message:info.candidates.length ? `${info.candidates.length}개의 생활정보 공식 근거를 찾았습니다.` : '공식 생활정보 근거를 찾지 못했습니다.'
+      })};
+    }
 
-    const text = outputText(webResponse);
-    if (!text) throw new Error('달사람 웹 검색 결과가 비어 있습니다.');
-    const research = JSON.parse(text);
-    const webCandidates = (research.candidates || []).filter(c => c.name).map(c => ({
-      ...c,
-      source_urls: uniqueStrings(c.source_urls).slice(0, 6),
-      source_titles: uniqueStrings(c.source_titles).slice(0, 6),
-      local_sources: (c.source_urls || []).some(u => String(u).includes('dalsaram.com')) ? [LOCAL_SOURCE_META.dalsaram] : [],
-      phone: '', address: '', website: '', local_match_score: 0
-    }));
+    if (searchType === 'mixed') {
+      const [biz, info] = await Promise.all([
+        searchBusinesses(topic, category, instructions, sources, model),
+        searchInformation(topic, category, instructions, sources, model)
+      ]);
+      const candidates = [...info.candidates.slice(0,4), ...biz.candidates.slice(0,6)].slice(0,10);
+      return { statusCode:200, headers, body:JSON.stringify({
+        topic, search_type:'mixed', search_type_label:'생활정보 + 업소', requested_city:biz.city, hard_qualifiers:biz.qualifiers.map(q=>q.key),
+        interpreted_request:`${info.research.interpreted_request} / ${biz.research.interpreted_request}`,
+        queries_used:uniqueStrings([...(info.research.queries_used||[]), ...(biz.research.queries_used||[]), 'DalTownMap DB 내부 검색','KTN CSV 내부 검색',`달사람 업소록 ${DALSARAM_DIRECTORY_URL}`]),
+        source_stats:{daltownmap_db_rows:biz.dbRowsCount,ktn_csv_rows:KTN_BUSINESSES.length,business_candidates:biz.candidates.length,information_sources:info.candidates.length},
+        candidates,
+        message:`생활정보 근거 ${info.candidates.length}개와 업소 후보 ${biz.candidates.length}개를 함께 찾았습니다.`
+      })};
+    }
 
-    const dbCandidates = searchDalTownMap(dbRows, topic, city, qualifiers);
-    const ktnCandidates = searchKtn(topic, city, qualifiers);
-    let merged = dedupeCandidates([...dbCandidates, ...ktnCandidates, ...webCandidates]);
-    merged = merged.sort((a,b) => (b.local_match_score || 0) - (a.local_match_score || 0)).slice(0, 18);
-
-    const placeGroups = await Promise.all(merged.map(c => {
-      if (c.place) return Promise.resolve([c.place]);
-      const specialty = c.specialty || qualifierLabels.filter(x => x !== '한인·한국어').join(' ');
-      return searchGooglePlaces(`${c.name} ${specialty} ${city || c.city || 'Texas'}`, 5);
-    }));
-
-    const ranked = merged.map((c, i) => {
-      const place = c.place || bestPlace(c, placeGroups[i] || [], city);
-      const finalScore = computeScore(c, place, city, qualifiers);
-      const evidenceScore = clamp(c.qualifier_evidence_score, 0, 40);
-      const koreanRequested = qualifiers.some(q => q.key === 'korean');
-      const evidenceStatus = !koreanRequested ? 'not_required' : evidenceScore >= 25 ? 'confirmed' : evidenceScore >= 12 ? 'probable' : 'unconfirmed';
-      return {
-        ...c,
-        place_verified: Boolean(place), place: place || null, final_score: finalScore,
-        community_source_bonus: Math.min(25, (c.local_sources || []).reduce((s,x)=>s+(x.weight||0),0)),
-        community_sources: c.local_sources || [], evidence_status: evidenceStatus,
-        city_match: cityScore(c, place, city) > 0,
-        cross_source_count: (c.local_sources || []).length,
-        source_origin: (c.local_sources || []).map(s => s.key)
-      };
-    }).filter(c => c.final_score >= 22).sort((a,b) => b.final_score - a.final_score);
-
-    const exactCity = ranked.filter(c => c.city_match);
-    const candidates = (exactCity.length >= 3 ? exactCity : ranked).slice(0, 8);
-    return { statusCode: 200, headers, body: JSON.stringify({
-      topic, requested_city: city, hard_qualifiers: qualifiers.map(q => q.key),
-      interpreted_request: research.interpreted_request,
-      queries_used: uniqueStrings([...(research.queries_used || []), 'DalTownMap DB 내부 검색', 'KTN CSV 내부 검색', `달사람 업소록 ${DALSARAM_DIRECTORY_URL}`]),
-      source_stats: { daltownmap_db_rows: dbRows.length, ktn_csv_rows: KTN_BUSINESSES.length, merged_candidates: merged.length },
-      candidates,
-      message: candidates.length
-        ? `${candidates.length}개의 후보를 찾았습니다. DalTownMap DB, KTN 업소록 파일, 달사람 온라인 업소록을 교차 검색하고 중복을 합쳤습니다.`
-        : '교차 검색 결과 조건에 맞는 후보를 찾지 못했습니다.'
+    const biz = await searchBusinesses(topic, category, instructions, sources, model);
+    return { statusCode:200, headers, body:JSON.stringify({
+      topic, search_type:'business', search_type_label:'업소', requested_city:biz.city, hard_qualifiers:biz.qualifiers.map(q=>q.key),
+      interpreted_request:biz.research.interpreted_request,
+      queries_used:uniqueStrings([...(biz.research.queries_used||[]),'DalTownMap DB 내부 검색','KTN CSV 내부 검색',`달사람 업소록 ${DALSARAM_DIRECTORY_URL}`]),
+      source_stats:{daltownmap_db_rows:biz.dbRowsCount,ktn_csv_rows:KTN_BUSINESSES.length,merged_candidates:biz.mergedCount},
+      candidates:biz.candidates,
+      message:biz.candidates.length ? `${biz.candidates.length}개의 업소 후보를 찾았습니다. 자체 DB, KTN 파일, 달사람을 교차 검색했습니다.` : '조건에 맞는 업소 후보를 찾지 못했습니다.'
     })};
   } catch (error) {
-    console.error('search-guide error', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || '검색 오류' }) };
+    console.error('search-guide v18 error', error);
+    return { statusCode:500, headers, body:JSON.stringify({error:error.message||'검색 오류'}) };
   }
 };

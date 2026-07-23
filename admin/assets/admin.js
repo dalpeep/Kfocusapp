@@ -2322,7 +2322,7 @@ async function deleteBoard() {
 }
 
 /* ---------------------------
-   AI Dallas Guide v13: evidence scoring -> review -> generate
+   AI Dallas Guide v18: request classification -> official info/business/mixed search
 --------------------------- */
 const AI_GUIDE_CATEGORY_NAMES = {
   driving: '운전면허 차량등록 자동차 운전·차량',
@@ -2387,10 +2387,11 @@ function renderAiGuideCandidates(result) {
         <input id="aiGuideCandidate_${i}" type="checkbox" checked style="margin:4px 0 0 0;flex:0 0 auto;width:16px;height:16px;">
         <div style="min-width:0;flex:1 1 auto;width:auto;max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal;text-align:left;">
           <div style="font-weight:700;">${esc(place.name || c.name || '')}</div>
-          <div class="tiny muted" style="margin-top:4px;">${esc(place.address || c.city || '')}</div>
+          <div class="tiny muted" style="margin-top:4px;">${esc(c.candidate_kind === 'information' ? (c.specialty || c.city || '') : (place.address || c.city || ''))}</div>
           ${place.phone ? `<div class="tiny">전화: ${esc(place.phone)}</div>` : ''}
-          <div class="tiny" style="margin-top:5px;"><b>한인·필수조건 근거:</b> ${esc(c.qualifier_evidence || '근거 설명 없음')}</div>
-          <div class="tiny" style="margin-top:5px;"><b>종합점수 ${Number(c.final_score || c.confidence || 0)}점</b> · 근거 ${c.evidence_status === 'confirmed' ? '확인' : c.evidence_status === 'probable' ? '가능성 높음' : c.evidence_status === 'unconfirmed' ? '추가 확인 필요' : '해당 없음'} · Google Places ${c.place_verified ? '연락처 확인됨' : '미확인'}</div>
+          <div class="tiny" style="margin-top:5px;"><b>${c.candidate_kind === 'information' ? '핵심 공식 근거' : '한인·필수조건 근거'}:</b> ${esc(c.qualifier_evidence || '근거 설명 없음')}</div>
+          <div class="tiny" style="margin-top:5px;"><b>신뢰도 ${Number(c.final_score || c.confidence || 0)}점</b> · 근거 ${c.evidence_status === 'confirmed' ? '확인' : c.evidence_status === 'probable' ? '가능성 높음' : c.evidence_status === 'unconfirmed' ? '추가 확인 필요' : '해당 없음'}${c.candidate_kind === 'information' ? ` · 공식 출처 ${c.official_source ? '예' : '보조 자료'}` : ` · Google Places ${c.place_verified ? '연락처 확인됨' : '미확인'}`}</div>
+          ${c.published_or_updated ? `<div class="tiny" style="margin-top:5px;"><b>게시·갱신:</b> ${esc(c.published_or_updated)}</div>` : ''}
           ${(c.community_sources || []).length ? `<div class="tiny" style="margin-top:5px;"><b>한인 매체 근거:</b> ${(c.community_sources || []).map(s => esc(s.label || s.key || '')).join(' · ')}${c.community_source_bonus ? ` · 가중치 +${Number(c.community_source_bonus)}` : ''}</div>` : ''}
           ${sourceLinks ? `<div class="tiny" style="margin-top:5px;">${sourceLinks}</div>` : ''}
         </div>
@@ -2403,7 +2404,7 @@ async function searchAiGuideCandidates() {
   const input = getAiGuideInput();
   if (!input.topic) return alert('검색할 주제를 입력하세요.');
   aiGuideSearchResult = null;
-  setAiGuideBusy(true, '웹 근거 수집, 증거 점수 계산, Google Places 연락처 확인 중입니다...');
+  setAiGuideBusy(true, '질문 유형을 분석하고 공식 생활정보 또는 업소 근거를 검색하고 있습니다...');
   try {
     const response = await fetch('/.netlify/functions/search-guide', {
       method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2415,7 +2416,7 @@ async function searchAiGuideCandidates() {
     aiGuideSearchResult = result;
     renderAiGuideCandidates(result);
     const count = result.candidates?.length || 0;
-    safeText('aiGuideStatus', count ? `${count}개 후보를 찾았습니다. 기사에 사용할 후보를 체크한 뒤 2단계를 누르세요.` : result.message || '검증 후보가 없습니다.');
+    safeText('aiGuideStatus', count ? `${result.search_type_label || '검색'} 근거 ${count}개를 찾았습니다. 사용할 항목을 체크한 뒤 2단계를 누르세요.` : result.message || '검증 근거가 없습니다.');
   } catch (error) {
     console.error('searchAiGuideCandidates error:', error);
     safeText('aiGuideStatus', `검색 오류: ${error.message}`);
