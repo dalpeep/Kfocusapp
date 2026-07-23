@@ -1,6 +1,16 @@
 <!DOCTYPE html>
+<!-- DalTownMap v8.1 deployment-fixed -->
 <html lang="ko">
 <head>
+	<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8RXPTSNPBV"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-8RXPTSNPBV');
+</script>
 <meta charset="UTF-8">
 <meta
   name="viewport"
@@ -89,11 +99,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=community-tabs-center-1" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-  <script>
   <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
 
@@ -148,11 +157,10 @@ Dallas Korean Business Directory</strong>
 커뮤니티
 </div>
 
-<button class="side-link board-link" data-board="notice">지역소식</button>
+<button class="side-link board-link" data-board="notice">행사안내</button>
 
-<button class="side-link board-link" data-board="life">라이프</button>
+<button class="side-link board-link" data-board="life">달라스 라이프</button>
 
-<button class="side-link board-link" data-board="business">비즈니스</button>
 
 <button class="side-link" data-nav="guide">달라스 가이드</button>
 
@@ -263,17 +271,12 @@ onclick="showPage('contact');closeMenu();">
 		
     <div class="section-head compact-head">
     <h3 class="section-title">
-    <i data-lucide="ticket-percent"></i>
-    오늘의 쿠폰
+    <i data-lucide="sparkles"></i>
+    DalPick
     </h3>
-    <button
-      class="text-link"
-      type="button"
-      data-nav="coupon">
-      전체보기
-    </button>
+
   </div>
-  <div id="todayCouponList" class="today-coupon-list"></div>
+  <div id="dalpickList" class="dalpick-home-list"></div>
 
 
 <section class="card section-card home-business-tabs-card">
@@ -315,9 +318,9 @@ onclick="showPage('contact');closeMenu();">
 
   
 <div id="communityTabs" class="community-tabs">
-  <button type="button" class="community-tab active" data-board="notice">지역소식</button>
-  <button type="button" class="community-tab" data-board="life">라이프</button>
-  <button type="button" class="community-tab" data-board="business">비즈니스</button>
+  <button type="button" class="community-tab active" data-board="notice">행사안내</button>
+  <button type="button" class="community-tab" data-board="life">달라스 라이프</button>
+  <button type="button" class="community-tab" data-board="business_story">업소탐방</button>
 </div>
 
   <div id="homeBoardList" class="home-board-list"></div>
@@ -327,6 +330,7 @@ onclick="showPage('contact');closeMenu();">
 
       <section class="page" id="page-business">
         <section class="card section-card">
+          <div id="businessThemeSpot" class="business-theme-spot" aria-live="polite"></div>
           <div class="search-row"><input type="search" id="businessSearch" placeholder="업소명, 카테고리, 지역 검색" /></div>
           <div id="categoryRow" class="category-row"></div>
           <div id="businessList" class="business-list"></div>
@@ -369,15 +373,15 @@ onclick="showPage('contact');closeMenu();">
         <section class="card section-card guide-page-card">
           <div class="guide-page-head">
             <span class="guide-page-icon"><i data-lucide="book-open"></i></span>
-            <div><h2>달라스 가이드</h2><p>달라스 생활에 필요한 정보를 주제별로 확인하세요.</p></div>
+            <div><h2>달라스 가이드</h2><p>달라스에 처음 온 분들을 위한 고정 생활정보입니다.</p></div>
           </div>
           <div class="guide-grid">
-            <button class="guide-card" type="button" data-guide-topic="운전면허 차량등록 자동차">🚗<strong>운전·차량</strong><span>면허, 차량등록, 교통 정보</span></button>
-            <button class="guide-card" type="button" data-guide-topic="병원 보험 건강">🏥<strong>병원·보험</strong><span>병원 이용과 보험 안내</span></button>
-            <button class="guide-card" type="button" data-guide-topic="학교 교육 학군">🏫<strong>학교·교육</strong><span>학군, 학교, 교육 정보</span></button>
-            <button class="guide-card" type="button" data-guide-topic="세금 창업 비즈니스">💰<strong>세금·비즈니스</strong><span>세금, 창업, 사업 절차</span></button>
-            <button class="guide-card" type="button" data-guide-topic="주택 유틸리티 전기 인터넷">🏠<strong>주거·생활</strong><span>주택과 생활서비스 안내</span></button>
-            <button class="guide-card" type="button" data-guide-topic="비자 여권 이민">📄<strong>비자·여권</strong><span>여권과 이민 관련 정보</span></button>
+            <button class="guide-card" type="button" data-guide-subtype="운전·차량">🚗<strong>운전·차량</strong><span>면허, 차량등록, 교통 정보</span></button>
+            <button class="guide-card" type="button" data-guide-subtype="병원·보험">🏥<strong>병원·보험</strong><span>병원 이용과 보험 안내</span></button>
+            <button class="guide-card" type="button" data-guide-subtype="학교·교육">🏫<strong>학교·교육</strong><span>학군, 학교, 교육 정보</span></button>
+            <button class="guide-card" type="button" data-guide-subtype="세금·비즈니스">💰<strong>세금·비즈니스</strong><span>세금, 창업, 사업 절차</span></button>
+            <button class="guide-card" type="button" data-guide-subtype="주거·생활">🏠<strong>주거·생활</strong><span>주택과 생활서비스 안내</span></button>
+            <button class="guide-card" type="button" data-guide-subtype="비자·여권">📄<strong>비자·여권</strong><span>여권과 이민 관련 정보</span></button>
           </div>
           <div class="guide-latest">
             <div class="section-head compact-head"><h3>생활정보 글</h3></div>
@@ -582,9 +586,8 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app.js?v=7"></script>
-<script src="main-banners.js?v=2"></script>
-<script type="module" src="main-banners.js"></script>
+<script src="app.js?v=24.2.0"></script>
+<script src="main-banners.js?v=v8.2-coupon-banner-fix-20260722"></script>
 
 <div id="videoModal" class="video-modal hidden">
   <div class="video-modal-backdrop" id="videoModalBackdrop"></div>

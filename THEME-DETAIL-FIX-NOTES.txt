@@ -1,0 +1,6 @@
+추천 테마 상세페이지 노출 수정
+
+- 업소 category가 내부 코드/UUID여도 화면용 대표 카테고리로 다시 판별
+- category, category_ko, subcategory, subcategory_ko를 모두 비교
+- Supabase target_categories가 배열 또는 문자열 형태여도 처리
+- 식당 체크(target_categories = restaurant)된 테마를 식당 상세 상단에 표시

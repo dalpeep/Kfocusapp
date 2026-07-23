@@ -11,6 +11,7 @@ let supabase = null;
 let businesses = [];
 let coupons = [];
 let boards = [];
+let dalpicks = [];
 let slides = [];
 let banners = [];
 let boardTable = 'posts';
@@ -149,7 +150,9 @@ let currentSection = 'business';
 let selectedId = null;
 let selectedCouponId = null;
 let selectedBoardId = null;
+let selectedDalpickId = null;
 let selectedSlideBusinessId = null;
+let selectedSlideId = null;
 
 const BUSINESS_FIELDS = [
   'id', 'name_ko', 'name_en', 'category_ko', 'area', 'region', 'phone',
@@ -233,9 +236,13 @@ function switchSection(section) {
 function setPageMeta() {
   const titleMap = {
     business: ['업소 관리자', 'Dallas와 지역 업소를 조회하고 수정/추가할 수 있습니다.'],
+    businessCrm: ['업소 마케팅 CRM', '업소별 홍보 상태, 다음 권장 일정과 오늘 해야 할 일을 관리합니다.'],
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
+    aiStudio: ['AI 콘텐츠 스튜디오', '주제 분석부터 콘텐츠 추천·생성·발행 연결까지 한 번에 진행합니다.'],
+    dalpick: ['DalPick 관리', '생성된 DalPick과 업소탐방 Premium 콘텐츠를 검토하고 발행합니다.'],
+    performance: ['광고 성과 센터', '관리자 전용 비공개 광고 성과를 확인합니다.'],
     board: ['커뮤니티 관리자', '지역소식 / 라이프 / 비즈니스 글을 관리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
     requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
@@ -1121,6 +1128,26 @@ async function loadBusinesses() {
     return;
   }
   businesses = data || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getBusinesses = () => [...businesses];
+  window.KFocusAdminBridge.getRegion = () => getAppRegion();
+  window.KFocusAdminBridge.switchSection = switchSection;
+  window.KFocusAdminBridge.uploadGeneratedImage = async (blob, filename = 'ai-generated.png') => {
+    if (!supabase) throw new Error('Supabase가 아직 연결되지 않았습니다.');
+    if (!(blob instanceof Blob)) throw new Error('업로드할 이미지 데이터가 없습니다.');
+    const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '-');
+    const path = `ai-campaigns/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+    const { error } = await supabase.storage.from('public-images').upload(path, blob, {
+      upsert: false,
+      contentType: blob.type || 'image/png',
+      cacheControl: '31536000'
+    });
+    if (error) throw error;
+    const { data } = supabase.storage.from('public-images').getPublicUrl(path);
+    if (!data?.publicUrl) throw new Error('업로드 URL을 만들지 못했습니다.');
+    return data.publicUrl;
+  };
+  window.dispatchEvent(new CustomEvent('kfocus:businesses-loaded', { detail: [...businesses] }));
   businessCategoryOptions();
   renderBusinessList(filterBusinesses());
   fillBusinessOptions();
@@ -1366,7 +1393,9 @@ async function uploadBoardImage() {
   try {
     const publicUrl = await uploadFileToStorage(file, 'boards');
     setVal('board_image_url', publicUrl || '');
+    updateBoardImagePreview();
     if (qs('board_image_file')) qs('board_image_file').value = '';
+    safeText('boardImageStatus','✅ 직접 업로드 완료 · 게시글 저장 버튼을 눌러 주세요.');
     alert('게시판 이미지 업로드 완료');
   } catch (e) {
     alert(`게시판 이미지 업로드 실패: ${e.message}`);
@@ -1619,7 +1648,11 @@ async function loadCoupons() {
     return;
   }
   coupons = data || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getCoupons = () => [...coupons];
+  window.dispatchEvent(new CustomEvent('kfocus:coupons-loaded', {detail:[...coupons]}));
   renderCouponList(filterCoupons());
+  renderDalpickHomeExposure();
   renderBusinessList(filterBusinesses());
 }
 function collectCouponPayload() {
@@ -1743,11 +1776,12 @@ function normalizeAdminBoardType(t='') {
   const v = String(t || '').toLowerCase();
   if (['notice','event','local'].includes(v)) return 'notice';
   if (['life','news','column'].includes(v)) return 'life';
+  if (['guide','dallas-guide','dallas_guide'].includes(v)) return 'guide';
   if (['business','job','rent','sale','realestate','property'].includes(v)) return 'business';
   return 'notice';
 }
 function boardLabel(t) {
-  return { notice: '지역소식', life: '라이프', business: '비즈니스', event: '지역소식', news: '라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '지역소식';
+  return { notice: '행사안내', life: '달라스 라이프', guide: '달라스 가이드', business_story: '업소탐방', event: '행사안내', news: '달라스 라이프', job: '비즈니스', realestate: '비즈니스', rent: '비즈니스', sale: '비즈니스' }[String(t || '').toLowerCase()] || '행사안내';
 }
 
 const ADMIN_BOARD_SUBTYPES = {
@@ -1765,13 +1799,15 @@ const ADMIN_BOARD_SUBTYPES = {
     ['health', '건강'],
     ['education', '교육'],
     ['interview', '인터뷰'],
-    ['recommend', '추천'],
-    ['운전·차량', '가이드 · 운전·차량'],
-    ['병원·보험', '가이드 · 병원·보험'],
-    ['학교·교육', '가이드 · 학교·교육'],
-    ['세금·비즈니스', '가이드 · 세금·비즈니스'],
-    ['주거·생활', '가이드 · 주거·생활'],
-    ['비자·여권', '가이드 · 비자·여권']
+    ['recommend', '추천']
+  ],
+  guide: [
+    ['운전·차량', '운전·차량'],
+    ['병원·보험', '병원·보험'],
+    ['학교·교육', '학교·교육'],
+    ['세금·비즈니스', '세금·비즈니스'],
+    ['주거·생활', '주거·생활'],
+    ['비자·여권', '비자·여권']
   ],
   business: [
     ['job', '구인구직'],
@@ -1809,6 +1845,308 @@ function updateBoardSubtypeOptions(selectedValue='') {
   }
   select.value = current;
 }
+
+function adminRowIsActive(row, startKey='start_at', endKey='end_at'){
+  if(!row || row.is_active === false) return false;
+  const now=Date.now();
+  const start=row[startKey] || row.start_date;
+  const end=row[endKey] || row.end_date;
+  const startMs=start ? new Date(start).getTime() : null;
+  const endMs=end ? new Date(end).getTime() : null;
+  return (!startMs || Number.isNaN(startMs) || startMs<=now) && (!endMs || Number.isNaN(endMs) || endMs>=now);
+}
+function renderDalpickHomeExposure(){
+  const box=qs('dalpickExposureList');
+  if(!box) return;
+  const region=getAppRegion();
+  const dalpickRows=(dalpicks||[])
+    .filter(d=>String(d.region||region).toLowerCase()===region)
+    .filter(d=>{
+      const status=String(d.status||'').toLowerCase();
+      if(status==='draft'||status==='inactive') return false;
+      if(!adminRowIsActive(d)) return false;
+      const themed=String(d.category||'').toLowerCase()==='themed'||(Array.isArray(d.target_categories)&&d.target_categories.length>0);
+      return !themed || d.show_in_dalpick===true;
+    })
+    .map(d=>({source:'dalpick',id:d.id,title:d.title||'제목 없음',subtitle:`${dalpickLabel(d.category)}${d.is_featured?' · 대표 노출':''}`,date:d.created_at||d.start_at||'',row:d}));
+  const couponRows=(coupons||[])
+    .filter(c=>c.is_today_coupon===true && adminRowIsActive(c))
+    .filter(c=>{
+      const b=businesses.find(x=>String(x.id)===String(c.business_id));
+      return !b?.region || String(b.region).toLowerCase()===region;
+    })
+    .map(c=>{const b=businesses.find(x=>String(x.id)===String(c.business_id));return {source:'coupon',id:c.id,title:c.title||'쿠폰',subtitle:`오늘의 쿠폰 · ${b?.name_ko||b?.name_en||b?.name||'연결 업소 없음'}`,date:c.created_at||c.start_at||'',row:c};});
+  const rows=[...dalpickRows,...couponRows]
+    .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
+    .slice(0,8);
+  safeText('dalpickExposureCount',`${rows.length}개`);
+  if(!rows.length){box.innerHTML='<div class="muted dalpick-exposure-empty">현재 홈 DalPick에 노출되는 항목이 없습니다. DalPick을 게시하거나 쿠폰에서 ‘오늘의 쿠폰’을 체크하세요.</div>';return;}
+  box.innerHTML=rows.map(item=>`<div class="dalpick-exposure-item">
+    <div class="dalpick-exposure-source ${item.source}">${item.source==='coupon'?'쿠폰':'DalPick'}</div>
+    <div class="dalpick-exposure-copy"><strong>${esc(item.title)}</strong><span>${esc(item.subtitle)}</span></div>
+    <button type="button" class="btn ghost dalpick-exposure-open" data-source="${item.source}" data-id="${esc(item.id)}">관리</button>
+  </div>`).join('');
+  box.querySelectorAll('.dalpick-exposure-open').forEach(btn=>btn.addEventListener('click',()=>{
+    const id=btn.dataset.id;
+    if(btn.dataset.source==='coupon'){
+      const row=coupons.find(c=>String(c.id)===String(id));
+      switchSection('coupon');
+      if(row){fillCouponForm(row);renderCouponList(filterCoupons());qs('couponFormTitle')?.scrollIntoView({behavior:'smooth',block:'start'});}
+      return;
+    }
+    const row=dalpicks.find(d=>String(d.id)===String(id));
+    switchSection('dalpick');
+    if(row){fillDalpickForm(row);renderDalpickList(filterDalpicks());qs('dalpickFormTitle')?.scrollIntoView({behavior:'smooth',block:'start'});}
+  }));
+}
+
+const DALPICK_LABELS={local_info:'지역 정보',lifestyle:'생활 정보',themed:'테마 추천',recommended:'추천 업소',new_business:'신규 업소',coupon:'쿠폰',event:'행사',business_story:'업소탐방 Premium',ai_pick:'AI 추천',seasonal:'시즌 추천',promotion:'프로모션'};
+const DALPICK_BUSINESS_REQUIRED=new Set(['recommended','new_business','business_story']);
+const DALPICK_TYPE_HELP={local_info:'지역 명소, 여행지, 계절 정보를 업소 연결 없이 작성할 수 있습니다.',lifestyle:'텍사스 생활 팁과 실용 정보를 특정 업체 홍보 없이 작성합니다.',themed:'하나의 주제로 정보형 기사를 만들고 필요할 때만 업소를 연결합니다.',recommended:'선택한 업소를 중심으로 추천 콘텐츠를 작성합니다.',new_business:'새로 등록된 업소의 특징을 소개합니다.',coupon:'쿠폰이나 프로모션 내용을 소개합니다. 업소 연결을 권장합니다.',event:'지역 행사나 이벤트를 소개합니다. 업소 연결은 선택 사항입니다.',business_story:'선택한 업소를 중심으로 업소탐방 기사를 작성합니다. 연결 업소가 반드시 필요합니다.'};
+function dalpickLabel(v){return DALPICK_LABELS[v]||v||'DalPick';}
+function renderDalpickBusinessOptions(){const el=qs('dalpick_business_id');if(!el)return;const cur=el.value;el.innerHTML='<option value="">연결 안 함</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.id)}</option>`).join('');el.value=cur;}
+async function loadDalpicks(){if(!supabase)return;const {data,error}=await supabase.from('dalpick').select('*').eq('region',getAppRegion()).order('is_featured',{ascending:false}).order('priority',{ascending:false}).order('created_at',{ascending:false});if(error){console.warn('DalPick load:',error.message);safeText('dalpickCountText','테이블 필요');return;}dalpicks=data||[];window.KFocusAdminBridge=window.KFocusAdminBridge||{};window.KFocusAdminBridge.getDalpicks=()=>[...dalpicks];window.dispatchEvent(new CustomEvent('kfocus:dalpicks-loaded',{detail:[...dalpicks]}));renderDalpickBusinessOptions();renderDalpickList(filterDalpicks());renderDalpickHomeExposure();}
+function filterDalpicks(){const q=val('dalpickSearchInput').trim().toLowerCase(),cat=val('dalpickCategoryFilter')||'all';return dalpicks.filter(d=>{if(cat!=='all'&&d.category!==cat)return false;if(!q)return true;const b=businesses.find(x=>String(x.id)===String(d.business_id));return [d.title,d.summary,d.content,b?.name_ko,b?.name_en].join(' ').toLowerCase().includes(q);});}
+function renderDalpickList(items){
+  safeText('dalpickCountText',`${items.length}개`);
+  const el=qs('dalpickList');
+  if(!el)return;
+  el.innerHTML=items.map(d=>{
+    const b=businesses.find(x=>String(x.id)===String(d.business_id));
+    return `<div class="biz-item dalpick-row ${String(d.id)===String(selectedDalpickId)?'active':''}" data-id="${esc(d.id)}" role="button" tabindex="0">
+      ${d.image_url?`<img class="biz-thumb" src="${esc(d.image_url)}" alt="">`:'<div class="biz-thumb board-thumb-fallback">✨</div>'}
+      <div class="dalpick-row-copy"><div class="biz-title">${esc(d.title||'제목 없음')}</div><div class="biz-meta">${esc(dalpickLabel(d.category))}${d.is_featured?' · 대표':''}${d.is_active===false?' · 비활성':''}</div><div class="biz-meta">${esc(b?.name_ko||b?.name_en||d.summary||'')}</div></div>
+      <div class="dalpick-row-actions"><button type="button" class="btn secondary dalpick-edit-row" data-id="${esc(d.id)}">수정</button><button type="button" class="btn danger dalpick-delete-row" data-id="${esc(d.id)}">삭제</button></div>
+    </div>`;
+  }).join('')||'<div class="muted">등록된 DalPick이 없습니다.</div>';
+  const openRow=(id)=>{const row=dalpicks.find(d=>String(d.id)===String(id));if(row){fillDalpickForm(row);renderDalpickList(filterDalpicks());qs('dalpickFormTitle')?.scrollIntoView({behavior:'smooth',block:'start'});}};
+  el.querySelectorAll('.dalpick-row').forEach(row=>{
+    row.addEventListener('click',(e)=>{if(e.target.closest('button'))return;openRow(row.dataset.id);});
+    row.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openRow(row.dataset.id);}});
+  });
+  el.querySelectorAll('.dalpick-edit-row').forEach(btn=>btn.addEventListener('click',()=>openRow(btn.dataset.id)));
+  el.querySelectorAll('.dalpick-delete-row').forEach(btn=>btn.addEventListener('click',async()=>{
+    const row=dalpicks.find(d=>String(d.id)===String(btn.dataset.id));
+    if(!row||!confirm(`“${row.title||'이 DalPick'}”을 삭제할까요?`))return;
+    const {error}=await supabase.from('dalpick').delete().eq('id',row.id);
+    if(error)return alert(`삭제 실패: ${error.message}`);
+    if(String(selectedDalpickId)===String(row.id))clearDalpickForm();
+    await loadDalpicks();
+    alert('DalPick이 삭제되었습니다.');
+  }));
+}
+function updateDalpickImagePreview(){
+  const url=val('dalpick_image_url').trim();
+  const wrap=qs('dalpickImagePreviewWrap');
+  const img=qs('dalpickImagePreview');
+  if(!wrap||!img)return;
+  img.onload=null;
+  img.onerror=null;
+  if(!url){
+    wrap.hidden=true;
+    img.removeAttribute('src');
+    return;
+  }
+  wrap.hidden=false;
+  img.alt='대표 이미지 불러오는 중';
+  img.onload=()=>{ img.alt='대표 이미지 미리보기'; };
+  img.onerror=()=>{
+    console.error('[DalPick Image] preview load failed:',url);
+    img.removeAttribute('src');
+    img.alt='대표 이미지를 불러오지 못했습니다.';
+    wrap.hidden=true;
+    safeText('dalpickAiStatus','이미지 URL은 입력됐지만 미리보기를 불러오지 못했습니다.');
+  };
+  img.src=url;
+}
+function clearDalpickForm(){window.dalpickTopicFirstReady=false;selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_image_instruction','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_is_active',true);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_auto_image',true);document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=false);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();updateDalpickImagePreview();renderDalpickList(filterDalpicks());}
+function fillDalpickForm(d){window.dalpickTopicFirstReady=true;selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'local_info');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_is_active',d.is_active!==false);setChecked('dalpick_show_in_dalpick',!!d.show_in_dalpick);{const targets=Array.isArray(d.target_categories)?d.target_categories:[];document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=targets.includes(x.value));}safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);updateDalpickTypeUI();updateDalpickImagePreview();}
+async function saveDalpick(){
+  const selectedCategory=val('dalpick_category')||'local_info';
+  const themeMode=selectedCategory==='themed';
+  const selectedTargets=themeMode?[...document.querySelectorAll('[name="dalpick_target_category"]:checked')].map(x=>x.value):[];
+  const payload={region:getAppRegion(),category:selectedCategory,title:val('dalpick_title').trim(),summary:val('dalpick_summary').trim()||null,content:val('dalpick_content').trim()||null,business_id:val('dalpick_business_id')||null,image_url:val('dalpick_image_url').trim()||null,start_at:fromLocal(val('dalpick_start_at')),end_at:fromLocal(val('dalpick_end_at')),priority:Number(val('dalpick_priority')||0),is_featured:checked('dalpick_is_featured'),is_active:checked('dalpick_is_active'),status:checked('dalpick_is_active')?'published':'draft',target_categories:selectedTargets,show_in_dalpick:themeMode&&checked('dalpick_show_in_dalpick')};
+  if(!payload.title)return alert('제목을 입력하세요.');
+  if(payload.category==='themed'&&!payload.target_categories.length)return alert('추천 테마를 표시할 업종을 하나 이상 선택하세요.');
+  if(DALPICK_BUSINESS_REQUIRED.has(payload.category)&&!payload.business_id)return alert('이 콘텐츠 유형은 연결 업소를 선택해야 합니다.');
+  const q=selectedDalpickId?supabase.from('dalpick').update(payload).eq('id',selectedDalpickId):supabase.from('dalpick').insert(payload);
+  const {error}=await q;
+  if(error)return alert(`추천 테마 저장 실패: ${error.message}`);
+  await loadDalpicks();clearDalpickForm();alert(payload.category==='themed'?'추천 테마 기사로 저장했습니다.':'DalPick을 저장했습니다.');
+}
+async function deleteDalpick(){if(!selectedDalpickId)return alert('삭제할 DalPick을 선택하세요.');if(!confirm('이 DalPick을 삭제할까요?'))return;const {error}=await supabase.from('dalpick').delete().eq('id',selectedDalpickId);if(error)return alert(`삭제 실패: ${error.message}`);await loadDalpicks();clearDalpickForm();}
+
+function updateDalpickTypeUI(){
+  const category=val('dalpick_category')||'local_info';
+  if(category!=='themed'){
+    document.querySelectorAll('[name="dalpick_target_category"]:checked').forEach(x=>x.checked=false);
+    setChecked('dalpick_show_in_dalpick',false);
+  }
+  safeText('dalpickTypeHelp',DALPICK_TYPE_HELP[category]||'DalPick 콘텐츠를 작성합니다.');
+  const required=DALPICK_BUSINESS_REQUIRED.has(category);
+  safeText('dalpickBusinessRequirement',required?'필수':'선택 사항');
+  const businessSelect=qs('dalpick_business_id');
+  const storyFields=qs('businessStoryFields'); if(storyFields) storyFields.hidden=category!=='business_story'; const themeFields=qs('dalpickThemeFields'); if(themeFields) themeFields.hidden=category!=='themed';
+  if(businessSelect) businessSelect.required=required;
+}
+
+async function uploadDalpickImage(){
+  const file=qs('dalpick_image_file')?.files?.[0];
+  if(!file) return alert('업로드할 대표 이미지를 선택하세요.');
+  const btn=qs('dalpickUploadImageBtn'); const old=btn?.textContent||'직접 업로드';
+  if(btn){btn.disabled=true;btn.textContent='업로드 중...';}
+  try{
+    const publicUrl=await uploadFileToStorage(file,'dalpicks/manual');
+    setVal('dalpick_image_url',publicUrl||'');
+    updateDalpickImagePreview();
+    if(qs('dalpick_image_file')) qs('dalpick_image_file').value='';
+    safeText('dalpickAiStatus','✅ 직접 업로드 완료 · 저장 버튼을 눌러 주세요.');
+  }catch(e){alert(`대표 이미지 업로드 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function clearDalpickImage(){
+  setVal('dalpick_image_url','');
+  if(qs('dalpick_image_file')) qs('dalpick_image_file').value='';
+  updateDalpickImagePreview();
+  safeText('dalpickAiStatus','대표 이미지가 제거되었습니다. 저장 버튼을 눌러 반영하세요.');
+}
+function updateBoardImagePreview(){
+  const url=val('board_image_url').trim(), wrap=qs('boardImagePreviewWrap'), img=qs('boardImagePreview');
+  if(!wrap||!img) return;
+  if(!url){wrap.hidden=true;img.removeAttribute('src');return;}
+  wrap.hidden=false; img.src=url;
+  img.onerror=()=>{wrap.hidden=true;safeText('boardImageStatus','❌ 이미지를 불러오지 못했습니다. URL을 확인해 주세요.');};
+}
+async function generateBoardImage(){
+  const title=val('board_title').trim();
+  const summary=(val('board_content').trim()||'').slice(0,700);
+  if(!title) return alert('먼저 게시글 제목을 입력하세요.');
+  const btn=qs('boardAiImageBtn'); const old=btn?.textContent||'AI 이미지 생성';
+  if(btn){btn.disabled=true;btn.textContent='생성 중...';}
+  safeText('boardImageStatus','AI 대표 이미지를 생성하고 있습니다...');
+  try{
+    const response=await fetch('/.netlify/functions/generate-dalpick-image?v=9.0.0',{method:'POST',headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},body:JSON.stringify({title,summary,category:`guide-${val('board_subtype')||val('board_type')||'article'}`,instruction:val('board_image_instruction').trim(),current_image_url:val('board_image_url').trim()})});
+    const json=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(json.error||`HTTP ${response.status}`);
+    const encoded=String(json.b64_json||''); if(!encoded) throw new Error('생성된 이미지 데이터가 없습니다.');
+    const binary=atob(encoded), bytes=new Uint8Array(binary.length); for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const file=new File([bytes],`guide-${Date.now()}.png`,{type:'image/png'});
+    const publicUrl=await uploadFileToStorage(file,'boards/ai');
+    setVal('board_image_url',publicUrl||''); updateBoardImagePreview();
+    safeText('boardImageStatus','✅ AI 이미지 생성 완료 · 게시글 저장 버튼을 눌러 주세요.');
+    return true;
+  }catch(e){safeText('boardImageStatus',`❌ 이미지 오류: ${e.message}`);alert(`가이드 이미지 생성 실패\n\n${e.message}`);return false;}finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+async function generateDalpickImage(){
+  const title=val('dalpick_title').trim()||val('dalpick_topic').trim();
+  const summary=val('dalpick_summary').trim();
+  if(!title){alert('먼저 기사 제목이나 주제를 입력하세요.');return false;}
+  const btn=qs('dalpickImageBtn');
+  const old=btn?.textContent||'AI 대표 이미지 생성';
+  if(btn){btn.disabled=true;btn.textContent='이미지 생성 중...';}
+  safeText('dalpickAiStatus','AI 대표 이미지 요청 중...');
+  console.log('[DalPick Image] generation started',{title,category:val('dalpick_category')||'themed'});
+  try{
+    const response=await fetch('/.netlify/functions/generate-dalpick-image?v=8.3.0',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Cache-Control':'no-cache'},
+      body:JSON.stringify({title,summary,category:val('dalpick_category')||'themed',instruction:val('dalpick_image_instruction').trim(),current_image_url:val('dalpick_image_url').trim()})
+    });
+    console.log('[DalPick Image] function response:',response.status,response.statusText);
+    const raw=await response.text();
+    let json={};
+    try{json=raw?JSON.parse(raw):{};}catch(parseError){
+      console.error('[DalPick Image] invalid JSON response:',raw.slice(0,500));
+      throw new Error(`이미지 서버 응답을 읽지 못했습니다. HTTP ${response.status}`);
+    }
+    if(!response.ok)throw new Error(json.error||`이미지 생성에 실패했습니다. HTTP ${response.status}`);
+    const encoded=String(json.b64_json||'');
+    if(!encoded)throw new Error('생성된 이미지 데이터가 없습니다.');
+    console.log('[DalPick Image] image data received:',Math.round(encoded.length/1024),'KB');
+    let binary;
+    try{binary=atob(encoded);}catch(e){throw new Error('이미지 데이터 변환에 실패했습니다.');}
+    const bytes=new Uint8Array(binary.length);
+    for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+    const file=new File([bytes],`dalpick-${Date.now()}.png`,{type:'image/png'});
+    if(!supabase)throw new Error('Supabase 연결이 준비되지 않았습니다. 새로고침 후 다시 시도하세요.');
+    const bucket=cfg.STORAGE_BUCKET||'public-images';
+    const baseFolder=String(cfg.STORAGE_FOLDER||'').replace(/^\/+|\/+$/g,'');
+    const folder=baseFolder?`${baseFolder}/uploads/dalpicks`:'uploads/dalpicks';
+    const path=`${folder}/${Date.now()}-${Math.random().toString(36).slice(2,8)}.png`;
+    console.log('[DalPick Image] storage upload started:',bucket,path);
+    safeText('dalpickAiStatus','이미지 생성 완료 · 저장소 업로드 중...');
+    const {error}=await supabase.storage.from(bucket).upload(path,file,{upsert:false,cacheControl:'3600',contentType:'image/png'});
+    if(error)throw new Error(`Storage 업로드 실패: ${error.message}`);
+    const {data}=supabase.storage.from(bucket).getPublicUrl(path);
+    const publicUrl=data?.publicUrl||'';
+    if(!publicUrl)throw new Error('업로드된 이미지의 공개 URL을 만들지 못했습니다.');
+    console.log('[DalPick Image] public URL created:',publicUrl);
+    setVal('dalpick_image_url',publicUrl);
+    updateDalpickImagePreview();
+    safeText('dalpickAiStatus','✅ 대표 이미지 생성 및 업로드 완료');
+    return true;
+  }catch(error){
+    console.error('[DalPick Image] failed:',error);
+    safeText('dalpickAiStatus',`❌ 이미지 오류: ${error.message}`);
+    alert(`대표 이미지 생성 실패
+
+${error.message}`);
+    return false;
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=old;}
+  }
+}
+async function generateDalpickDraft(){
+  if(window.dalpickTopicFirstReady===false) return alert('먼저 주제를 분석하고 추천 분류를 확정하세요.');
+  const topic=val('dalpick_topic').trim();
+  if(!topic) return alert('AI로 작성할 주제를 입력하세요.');
+  const category=val('dalpick_category')||'local_info';
+  const businessId=val('dalpick_business_id')||'';
+  if(DALPICK_BUSINESS_REQUIRED.has(category)&&!businessId) return alert('이 콘텐츠 유형은 연결 업소를 먼저 선택하세요.');
+  const business=businesses.find(b=>String(b.id)===String(businessId));
+  const sources=String(val('dalpick_sources')||'').split(/\n|,/).map(v=>v.trim()).filter(Boolean);
+  const interview = category==='business_story' ? {
+    style:val('dalpick_story_style'), owner_name:val('dalpick_owner_name').trim(),
+    startup_reason:val('dalpick_q1').trim(), signature:val('dalpick_q2').trim(), difference:val('dalpick_q3').trim(),
+    customer_reason:val('dalpick_q4').trim(), future_plan:val('dalpick_q5').trim(), message:val('dalpick_q6').trim()
+  } : null;
+  const btn=qs('dalpickAiBtn');
+  const old=btn?.textContent||'AI 초안 만들기';
+  if(btn){btn.disabled=true;btn.textContent='작성 중...';}
+  safeText('dalpickAiStatus','AI가 DalPick 초안을 작성하고 있습니다...');
+  try{
+    const response=await fetch('/.netlify/functions/generate-dalpick',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        topic,category,instructions:val('dalpick_instructions').trim(),sources,interview,
+        business:business?{
+          name:business.name_ko||business.name_en||'',
+          category:business.category||business.category_ko||'',
+          city:business.city||business.address||'',
+          description:business.description||business.description_ko||business.short_description||''
+        }:null
+      })
+    });
+    const json=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(json.error||'AI 초안 생성에 실패했습니다.');
+    const article=json.article||{};
+    setVal('dalpick_title',article.title||topic);
+    setVal('dalpick_summary',article.summary||'');
+    setVal('dalpick_content',article.content||'');
+    if(!val('dalpick_image_url')&&business){
+      const image=business.image_url||business.thumbnail_url||business.logo_url||'';
+      if(image) setVal('dalpick_image_url',image);
+    }
+    const q=json.quality||{}; safeText('dalpickAiStatus',`초안 작성 완료${q.score?` · 품질 ${q.score}점`:''}${q.intent_type?` · ${q.intent_type}`:''}${article.image_search_keywords?` · 이미지 검색어: ${article.image_search_keywords}`:''}`);
+    if(checked('dalpick_auto_image')){console.log('[DalPick Image] automatic generation requested');await generateDalpickImage();}else{console.log('[DalPick Image] automatic generation skipped: checkbox off');}
+  }catch(error){
+    console.error('DalPick AI:',error);
+    safeText('dalpickAiStatus',`오류: ${error.message}`);
+    alert(error.message);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=old;}
+  }
+}
+
 async function loadBoards() {
   if(!supabase){
   box.innerHTML = 'Supabase 연결 없음';
@@ -1837,6 +2175,9 @@ async function loadBoards() {
   }
   boardTable = 'posts';
   boards = loaded || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getBoards = () => [...boards];
+  window.dispatchEvent(new CustomEvent('kfocus:boards-loaded', {detail:[...boards]}));
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
@@ -1850,6 +2191,8 @@ function clearBoardForm() {
   setVal('board_phone', '');
   setVal('board_address', '');
   setVal('board_image_url', '');
+  setVal('board_image_instruction','');
+  updateBoardImagePreview();
   setVal('board_image_link_url', '');
   setVal('board_gallery_urls', '');
   setVal('board_external_url', '');
@@ -1880,6 +2223,8 @@ function fillBoardForm(row) {
   setVal('board_business_search', '');
   renderBoardBusinessOptions();
   setVal('board_image_url', row.image_url || '');
+  setVal('board_image_instruction','');
+  updateBoardImagePreview();
   setVal('board_image_link_url', row.image_link_url || '');
   setVal('board_gallery_urls', Array.isArray(row.gallery_urls) ? row.gallery_urls.join('\n') : (row.gallery_urls || ''));
   setVal('board_external_url', row.external_url || '');
@@ -1917,7 +2262,7 @@ function renderBoardList(items) {
     const linkedBiz = businesses.find((b) => String(b.id) === String(row.business_id || row.linked_business_id || ''));
     const thumb = row.image_url
       ? `<img class="biz-thumb board-thumb-image" src="${esc(row.image_url)}" alt="${esc(row.title || '게시글')}" />`
-      : `<div class="biz-thumb board-thumb-fallback">${({ notice: '🎉', news: '📰', job: '💼', realestate: '🏠', rent: '🏠', sale: '🏠' })[normalizeAdminBoardType(row.type)] || '📝'}</div>`;
+      : `<div class="biz-thumb board-thumb-fallback">${({ notice: '📅', life: '📰', guide: '📘', business_story: '🏪' })[normalizeAdminBoardType(row.type)] || '📝'}</div>`;
 
     return `
       <button type="button" class="biz-item board-row ${row.id === selectedBoardId ? 'active' : ''}" data-id="${esc(row.id)}">
@@ -2041,7 +2386,7 @@ async function deleteBoard() {
 }
 
 /* ---------------------------
-   AI Dallas Guide
+   AI Dallas Guide v18: request classification -> official info/business/mixed search
 --------------------------- */
 const AI_GUIDE_CATEGORY_NAMES = {
   driving: '운전면허 차량등록 자동차 운전·차량',
@@ -2051,85 +2396,148 @@ const AI_GUIDE_CATEGORY_NAMES = {
   housing: '주택 유틸리티 전기 인터넷 주거·생활',
   immigration: '비자 여권 이민 비자·여권'
 };
+let aiGuideSearchResult = null;
 
-function setAiGuideBusy(busy, message='') {
-  const draftBtn = qs('aiGuideDraftBtn');
-  const publishBtn = qs('aiGuidePublishBtn');
-  if (draftBtn) draftBtn.disabled = busy;
-  if (publishBtn) publishBtn.disabled = busy;
-  safeText('aiGuideStatus', message || (busy ? 'AI가 글을 작성하고 있습니다...' : '준비됨'));
+function getAiGuideInput() {
+  return {
+    topic: val('aiGuideTopic').trim(),
+    category: val('aiGuideCategory') || 'driving',
+    boardType: val('aiGuideBoardType') || 'guide',
+    sources: String(val('aiGuideSources') || '').split(/\r?\n|,/).map(v => v.trim()).filter(Boolean),
+    instructions: val('aiGuideInstructions').trim()
+  };
 }
-
-async function generateAiGuide({ publish = false } = {}) {
-  const topic = val('aiGuideTopic').trim();
-  const category = val('aiGuideCategory') || 'driving';
-  const boardType = val('aiGuideBoardType') || 'life';
-  const sources = String(val('aiGuideSources') || '')
-    .split(/\r?\n|,/)
-    .map(v => v.trim())
-    .filter(Boolean);
-  const instructions = val('aiGuideInstructions').trim();
-
-  if (!topic) return alert('AI가 작성할 주제를 입력하세요.');
-  if (publish && !confirm(`AI가 작성한 글을 바로 게시할까요?\n\n주제: ${topic}\n\n게시 전 검토가 필요한 정보일 수 있습니다.`)) return;
-
-  const originalDraftText = qs('aiGuideDraftBtn')?.textContent || 'AI 초안 만들기';
-  const originalPublishText = qs('aiGuidePublishBtn')?.textContent || 'AI 작성 후 바로 게시';
-  setAiGuideBusy(true, 'AI가 글을 작성하고 있습니다. 잠시 기다려 주세요...');
-  if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = '작성 중...';
-  if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = '작성 중...';
-
+function setAiGuideBusy(busy, message='') {
+  const searchBtn = qs('aiGuideSearchBtn');
+  const draftBtn = qs('aiGuideDraftBtn');
+  if (searchBtn) searchBtn.disabled = busy;
+  if (draftBtn) draftBtn.disabled = busy || !aiGuideSearchResult?.candidates?.length;
+  safeText('aiGuideStatus', message || (busy ? '처리 중...' : '준비됨'));
+}
+function selectedAiGuideCandidates() {
+  if (!aiGuideSearchResult?.candidates) return [];
+  return aiGuideSearchResult.candidates.filter((_, i) => qs(`aiGuideCandidate_${i}`)?.checked);
+}
+function renderAiGuideCandidates(result) {
+  const panel = qs('aiGuideSearchPanel');
+  const list = qs('aiGuideCandidateList');
+  if (!panel || !list) return;
+  panel.style.display = 'block';
+  const queries = (result.queries_used || []).join(' · ');
+  safeText('aiGuideSearchSummary', `${result.interpreted_request || ''}${queries ? `\n검색어: ${queries}` : ''}`);
+  list.innerHTML = '';
+  list.style.cssText = 'display:flex;flex-direction:column;gap:10px;width:100%;max-width:100%;min-width:0;box-sizing:border-box;';
+  (result.candidates || []).forEach((c, i) => {
+    const place = c.place || {};
+    const card = document.createElement('label');
+    card.style.cssText = [
+      'display:block',
+      'width:100%',
+      'max-width:100%',
+      'box-sizing:border-box',
+      'border:1px solid #d7dce5',
+      'border-radius:10px',
+      'padding:12px',
+      'margin:0',
+      'background:#fff',
+      'cursor:pointer',
+      'text-align:left',
+      'white-space:normal',
+      'overflow:hidden'
+    ].join(';');
+    const sourceLinks = (c.source_urls || []).slice(0, 3).map((url, n) => `<a href="${esc(url)}" target="_blank" rel="noopener">근거 ${n + 1}</a>`).join(' · ');
+    card.innerHTML = `
+      <div style="display:flex;align-items:flex-start;justify-content:flex-start;gap:10px;width:100%;min-width:0;box-sizing:border-box;text-align:left;">
+        <input id="aiGuideCandidate_${i}" type="checkbox" checked style="margin:4px 0 0 0;flex:0 0 auto;width:16px;height:16px;">
+        <div style="min-width:0;flex:1 1 auto;width:auto;max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal;text-align:left;">
+          <div style="font-weight:700;">${esc(place.name || c.name || '')}</div>
+          <div class="tiny muted" style="margin-top:4px;">${esc(c.candidate_kind === 'information' ? (c.specialty || c.city || '') : (place.address || c.city || ''))}</div>
+          ${place.phone ? `<div class="tiny">전화: ${esc(place.phone)}</div>` : ''}
+          <div class="tiny" style="margin-top:5px;"><b>${c.candidate_kind === 'information' ? '핵심 공식 근거' : '한인·필수조건 근거'}:</b> ${esc(c.qualifier_evidence || '근거 설명 없음')}</div>
+          <div class="tiny" style="margin-top:5px;"><b>신뢰도 ${Number(c.final_score || c.confidence || 0)}점</b> · 근거 ${c.evidence_status === 'confirmed' ? '확인' : c.evidence_status === 'probable' ? '가능성 높음' : c.evidence_status === 'unconfirmed' ? '추가 확인 필요' : '해당 없음'}${c.candidate_kind === 'information' ? ` · 공식 출처 ${c.official_source ? '예' : '보조 자료'}` : ` · Google Places ${c.place_verified ? '연락처 확인됨' : '미확인'}`}</div>
+          ${c.published_or_updated ? `<div class="tiny" style="margin-top:5px;"><b>게시·갱신:</b> ${esc(c.published_or_updated)}</div>` : ''}
+          ${(c.community_sources || []).length ? `<div class="tiny" style="margin-top:5px;"><b>한인 매체 근거:</b> ${(c.community_sources || []).map(s => esc(s.label || s.key || '')).join(' · ')}${c.community_source_bonus ? ` · 가중치 +${Number(c.community_source_bonus)}` : ''}</div>` : ''}
+          ${sourceLinks ? `<div class="tiny" style="margin-top:5px;">${sourceLinks}</div>` : ''}
+        </div>
+      </div>`;
+    list.appendChild(card);
+  });
+  if (!(result.candidates || []).length) list.innerHTML = '<div class="tiny muted">관련 후보를 찾지 못했습니다. 참고 URL이나 알고 있는 업소명을 추가해 다시 검색해 주세요.</div>';
+}
+async function searchAiGuideCandidates() {
+  const input = getAiGuideInput();
+  if (!input.topic) return alert('검색할 주제를 입력하세요.');
+  aiGuideSearchResult = null;
+  setAiGuideBusy(true, '질문 유형을 분석하고 공식 생활정보 또는 업소 근거를 검색하고 있습니다...');
   try {
-    const response = await fetch('/.netlify/functions/generate-guide', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, category, sources, instructions })
+    const response = await fetch('/.netlify/functions/search-guide', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({topic: input.topic, category: input.category, sources: input.sources, instructions: input.instructions})
     });
     const text = await response.text();
-    let result = {};
-    try { result = JSON.parse(text); } catch (_) {}
+    let result = {}; try { result = JSON.parse(text); } catch (_) {}
+    if (!response.ok) throw new Error(result.error || text || '검색에 실패했습니다.');
+    aiGuideSearchResult = result;
+    renderAiGuideCandidates(result);
+    const count = result.candidates?.length || 0;
+    safeText('aiGuideStatus', count ? `${result.search_type_label || '검색'} 근거 ${count}개를 찾았습니다. 사용할 항목을 체크한 뒤 2단계를 누르세요.` : result.message || '검증 근거가 없습니다.');
+  } catch (error) {
+    console.error('searchAiGuideCandidates error:', error);
+    safeText('aiGuideStatus', `검색 오류: ${error.message}`);
+    alert(`AI 검색 실패: ${error.message}`);
+  } finally {
+    setAiGuideBusy(false, qs('aiGuideStatus')?.textContent || '');
+  }
+}
+async function generateAiGuide() {
+  const input = getAiGuideInput();
+  const selected = selectedAiGuideCandidates();
+  if (!input.topic) return alert('AI가 작성할 주제를 입력하세요.');
+  if (!aiGuideSearchResult) return alert('먼저 1단계에서 검색 후보를 찾아 주세요.');
+  if (!selected.length) return alert('기사에 사용할 후보를 한 곳 이상 선택하세요.');
+  setAiGuideBusy(true, `선택한 ${selected.length}개 후보로 기사를 작성하고 있습니다...`);
+  try {
+    const response = await fetch('/.netlify/functions/generate-guide', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({topic: input.topic, category: input.category, sources: input.sources, instructions: input.instructions, selected_candidates: selected})
+    });
+    const text = await response.text();
+    let result = {}; try { result = JSON.parse(text); } catch (_) {}
     if (!response.ok) throw new Error(result.error || text || 'AI 글 생성에 실패했습니다.');
-
     const article = result.article || {};
     clearBoardForm();
-    setVal('board_type', 'life');
+    setVal('board_type', 'guide');
     updateBoardSubtypeOptions('');
-    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
+    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[input.category] || result.category_name || input.category;
     updateBoardSubtypeOptions(guideSubtype);
     setVal('board_region', getAppRegion());
-    setVal('board_title', article.title || topic);
-    const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
+    setVal('board_title', article.title || input.topic);
+    const evidenceBlock = selected.flatMap(c => c.source_urls || []).filter(Boolean);
+    const sourceBlock = evidenceBlock.length ? `\n\n[확인 근거]\n${[...new Set(evidenceBlock)].join('\n')}` : '';
     setVal('board_content', `${article.summary ? article.summary + '\n\n' : ''}${article.content || ''}${sourceBlock}`.trim());
     setVal('board_author_name', article.author_name || '달타운맵 편집부');
-    setVal('board_external_url', article.source_url || sources[0] || '');
-    setVal('board_link_label', article.link_label || (sources.length ? '공식 정보 확인' : ''));
-    setChecked('board_is_active', publish);
-
-    if (publish) {
-      safeText('aiGuideStatus', 'AI 글 작성 완료. 게시판에 저장 중...');
-      await saveBoard();
-      safeText('aiGuideStatus', 'AI 가이드가 게시되었습니다.');
-    } else {
-      safeText('aiGuideStatus', '초안이 아래 게시글 양식에 입력되었습니다. 검토 후 저장하세요.');
-      alert('AI 초안이 생성되었습니다.\n\n아래 제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
-    }
+    setVal('board_external_url', article.source_url || evidenceBlock[0] || '');
+    setVal('board_link_label', article.link_label || (evidenceBlock.length ? '공식 정보 확인' : ''));
+    setChecked('board_is_active', false);
+    safeText('aiGuideStatus', `초안 완료 · 선택 후보 ${selected.length}곳. 아래 내용을 검토한 뒤 저장하세요.`);
+    alert('AI 초안이 생성되었습니다.\n\n제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
   } catch (error) {
     console.error('generateAiGuide error:', error);
-    safeText('aiGuideStatus', `오류: ${error.message}`);
+    safeText('aiGuideStatus', `작성 오류: ${error.message}`);
     alert(`AI 가이드 생성 실패: ${error.message}`);
   } finally {
-    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = originalDraftText;
-    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = originalPublishText;
-    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').disabled = false;
-    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').disabled = false;
+    setAiGuideBusy(false, qs('aiGuideStatus')?.textContent || '');
   }
 }
 
 /* ---------------------------
    Slides
 --------------------------- */
-function slideByBusinessId(id) {
-  return slides.find((s) => String(s.business_id) === String(id)) || null;
+function slideById(id) {
+  return slides.find((s) => String(s.id) === String(id)) || null;
+}
+function slidesByBusinessId(id) {
+  return slides.filter((s) => String(s.business_id || '') === String(id || ''));
 }
 async function loadSlides() {
   if (!supabase) return;
@@ -2146,6 +2554,9 @@ async function loadSlides() {
     return;
   }
   slides = data || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getSlides = () => [...slides];
+  window.dispatchEvent(new CustomEvent('kfocus:slides-loaded', {detail:[...slides]}));
   renderSlideList(filterSlides());
   renderBusinessList(filterBusinesses());
 }
@@ -2154,10 +2565,11 @@ function renderSlideBusinessOptions() {
   if (!el) return;
   const region = currentRegionScope();
   const rows = businesses.filter((b) => region === 'all' || (b.region || 'dallas') === region);
-  el.innerHTML = '<option value="">업소 선택</option>' +
+  el.innerHTML = '<option value="">업소 연결 안 함</option>' +
     rows.map((b) => `<option value="${esc(b.id)}">${esc(b.name_ko || b.name_en || b.id)}</option>`).join('');
 }
 function clearSlideForm() {
+  setVal('slide_id', '');
   setVal('slide_business_id', '');
   setVal('slide_business_select', '');
   setChecked('slide_promo_enabled', true);
@@ -2170,71 +2582,71 @@ function clearSlideForm() {
   setVal('slide_start_at', '');
   setVal('slide_end_at', '');
   selectedSlideBusinessId = null;
+  selectedSlideId = null;
   safeText('slideFormTitle', '새 슬라이드');
   $$('.slide-row').forEach((el) => el.classList.remove('active'));
 }
-function fillSlideForm(rowOrBusiness) {
-  const businessId = rowOrBusiness?.business_id || rowOrBusiness?.id || '';
-  const slide = rowOrBusiness?.business_id ? rowOrBusiness : slideByBusinessId(businessId);
+function fillSlideForm(slide) {
+  // 업소 목록의 '슬라이드' 버튼에서 들어온 경우에는 기존 슬라이드를 수정하지 않고
+  // 해당 업소가 미리 선택된 새 슬라이드 양식을 연다.
+  if (slide && slide.id && !slide.business_id && businesses.some((b) => String(b.id) === String(slide.id))) {
+    const businessId = slide.id;
+    clearSlideForm();
+    setVal('slide_business_id', businessId);
+    setVal('slide_business_select', businessId);
+    selectedSlideBusinessId = businessId;
+    safeText('slideFormTitle', `새 슬라이드 · ${slide.name_ko || slide.name_en || '선택 업소'}`);
+    return;
+  }
+  if (!slide || !slide.id) return clearSlideForm();
+  const businessId = slide.business_id || '';
+  setVal('slide_id', slide.id || '');
   setVal('slide_business_id', businessId);
   setVal('slide_business_select', businessId);
-  setChecked('slide_promo_enabled', slide?.promo_enabled !== false);
-  setChecked('slide_home_fixed', !!slide?.home_fixed);
-  setVal('slide_home_fixed_sort', slide?.home_fixed_sort ?? 1000);
-  setVal('slide_promo_text', slide?.promo_text || '');
-  setVal('slide_promo_image_url', slide?.promo_image_url || '');
-  setVal('slide_video_url', slide?.video_url || '');
-  setVal('slide_link_url', slide?.link_url || '');
-  setVal('slide_start_at', fmtLocal(slide?.promo_start_at));
-  setVal('slide_end_at', fmtLocal(slide?.promo_end_at));
+  setChecked('slide_promo_enabled', slide.promo_enabled !== false);
+  setChecked('slide_home_fixed', !!slide.home_fixed);
+  setVal('slide_home_fixed_sort', slide.home_fixed_sort ?? 1000);
+  setVal('slide_promo_text', slide.promo_text || '');
+  setVal('slide_promo_image_url', slide.promo_image_url || '');
+  setVal('slide_video_url', slide.video_url || '');
+  setVal('slide_link_url', slide.link_url || '');
+  setVal('slide_start_at', fmtLocal(slide.promo_start_at));
+  setVal('slide_end_at', fmtLocal(slide.promo_end_at));
+  selectedSlideId = slide.id;
   selectedSlideBusinessId = businessId || null;
-  safeText('slideFormTitle', businessId ? `슬라이드 설정 #${businessId}` : '새 슬라이드');
+  const biz = businesses.find((b) => String(b.id) === String(businessId));
+  safeText('slideFormTitle', `슬라이드 수정 · ${biz?.name_ko || biz?.name_en || (businessId ? '연결 업소' : '업소 미연결')}`);
 }
 function filterSlides() {
   const q = val('slideSearchInput').trim().toLowerCase();
   const region = currentRegionScope();
-  const bizRows = businesses.filter((b) => region === 'all' || (b.region || 'colorado') === region);
-  return bizRows.filter((b) => {
-    const slide = slideByBusinessId(b.id);
+  return (slides || []).filter((slide) => {
+    if (region !== 'all' && (slide.region || 'dallas') !== region) return false;
+    const biz = businesses.find((b) => String(b.id) === String(slide.business_id || ''));
     if (!q) return true;
-    return [b.name_ko, b.name_en, slide?.promo_text, b.category_ko].join(' ').toLowerCase().includes(q);
-  }).sort((a, b) => {
-    const sa = slideByBusinessId(a.id);
-    const sb = slideByBusinessId(b.id);
-    const aActive = sa ? 0 : 1;
-    const bActive = sb ? 0 : 1;
-    return aActive - bActive || (sa?.home_fixed_sort ?? 1000) - (sb?.home_fixed_sort ?? 1000) || String(a.name_ko || '').localeCompare(String(b.name_ko || ''), 'ko');
-  });
+    return [slide.promo_text, slide.link_url, biz?.name_ko, biz?.name_en, biz?.category_ko]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  }).sort((a, b) =>
+    Number(a.home_fixed_sort ?? 1000) - Number(b.home_fixed_sort ?? 1000) ||
+    String(b.created_at || '').localeCompare(String(a.created_at || ''))
+  );
 }
 function renderSlideList(items) {
-  const activeCount = slides.filter((s) => currentRegionScope() === 'all' || (s.region || 'colorado') === currentRegionScope()).length;
-  safeText('slideCountText', `${activeCount}개`);
+  safeText('slideCountText', `${(items || []).length}개`);
   const listEl = qs('slideList');
   if (!listEl) return;
-  
-  const slideBusinessIds = new Set(
-  slides
-    .filter(s =>
-      s &&
-      s.business_id &&
-      (currentRegionScope() === 'all' || (s.region || 'colorado') === currentRegionScope())
-    )
-    .map(s => String(s.business_id))
-);
-
-items = (items || []).filter(biz => slideBusinessIds.has(String(biz.id)));
-
-  listEl.innerHTML = items.map((biz) => {
-    const slide = slideByBusinessId(biz.id);
-    const img = slide?.promo_image_url || biz.image_url || 'https://placehold.co/120x120?text=Slide';
-    const meta = slide ? (slide.promo_text || '슬라이드 문구 없음') : '슬라이드 미등록';
-    const state = slide ? `${slide.promo_enabled ? '프로모션' : '비활성'}${slide.home_fixed ? ' · 홈고정' : ''}` : '업소 선택 가능';
+  listEl.innerHTML = (items || []).map((slide) => {
+    const biz = businesses.find((b) => String(b.id) === String(slide.business_id || ''));
+    const img = slide.promo_image_url || biz?.image_url || 'https://placehold.co/120x120?text=Slide';
+    const title = slide.promo_text || biz?.name_ko || biz?.name_en || '독립 슬라이드';
+    const owner = biz ? `연결: ${biz.name_ko || biz.name_en}` : '업소 연결 없음';
+    const state = `${slide.promo_enabled ? '게시' : '비활성'}${slide.home_fixed ? ' · 홈고정' : ''} · 순서 ${slide.home_fixed_sort ?? 1000}`;
     return `
-      <button type="button" class="biz-item slide-row ${biz.id === selectedSlideBusinessId ? 'active' : ''}" data-id="${esc(biz.id)}">
+      <button type="button" class="biz-item slide-row ${String(slide.id) === String(selectedSlideId) ? 'active' : ''}" data-slide-id="${esc(slide.id)}">
         <img class="biz-thumb" src="${esc(img)}" alt="thumb" />
         <div>
-          <div class="biz-title">${esc(biz.name_ko || biz.name_en || `ID ${biz.id}`)}</div>
-          <div class="biz-meta">${esc(meta)}</div>
+          <div class="biz-title">${esc(title)}</div>
+          <div class="biz-meta">${esc(owner)}</div>
           <div class="biz-meta">${esc(state)}</div>
         </div>
       </button>
@@ -2243,56 +2655,56 @@ items = (items || []).filter(biz => slideBusinessIds.has(String(biz.id)));
 
   listEl.querySelectorAll('.slide-row').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const biz = businesses.find((b) => String(b.id) === String(btn.dataset.id));
-      if (biz) {
-        fillSlideForm(biz);
+      const slide = slideById(btn.dataset.slideId);
+      if (slide) {
+        fillSlideForm(slide);
         renderSlideList(filterSlides());
       }
     });
   });
 }
 async function saveSlide() {
-  const businessId = val('slide_business_select') || val('slide_business_id');
-  if (!businessId) return alert('업소를 선택하세요.');
-  const biz = businesses.find((b) => String(b.id) === String(businessId));
-  
-  console.log('slide_video_url raw =', val('slide_video_url'));
-  
-const payload = {
-  business_id: businessId,
-  region: getAppRegion(),
-  promo_enabled: checked('slide_promo_enabled'),
-  home_fixed: checked('slide_home_fixed'),
-  home_fixed_sort: Number(val('slide_home_fixed_sort') || 1000),
-  promo_text: val('slide_promo_text').trim() || null,
-  promo_image_url: val('slide_promo_image_url').trim() || null,
+  const slideId = val('slide_id') || selectedSlideId;
+  const businessId = val('slide_business_select') || null;
+  const payload = {
+    business_id: businessId,
+    region: getAppRegion(),
+    promo_enabled: checked('slide_promo_enabled'),
+    home_fixed: checked('slide_home_fixed'),
+    home_fixed_sort: Number(val('slide_home_fixed_sort') || 1000),
+    promo_text: val('slide_promo_text').trim() || null,
+    promo_image_url: val('slide_promo_image_url').trim() || null,
+    video_url: val('slide_video_url').trim() || null,
+    link_url: val('slide_link_url').trim() || null,
+    promo_start_at: fromLocal(val('slide_start_at')),
+    promo_end_at: fromLocal(val('slide_end_at')),
+    updated_at: new Date().toISOString()
+  };
 
-  // ⭐ 이거 추가
-  video_url: val('slide_video_url').trim() || null,
-  link_url: val('slide_link_url') || null,
-  promo_start_at: fromLocal(val('slide_start_at')),
-  promo_end_at: fromLocal(val('slide_end_at')),
-  updated_at: new Date().toISOString()
-};
-
-  console.log('SAVE PAYLOAD =', payload);
-
-  const { data, error } = await supabase.from('slides').upsert(payload, { onConflict: 'business_id' }).select().single();
+  let query;
+  if (slideId) {
+    query = supabase.from('slides').update(payload).eq('id', slideId).select().single();
+  } else {
+    query = supabase.from('slides').insert(payload).select().single();
+  }
+  const { data, error } = await query;
   if (error) return alert(`슬라이드 저장 실패: ${error.message}`);
 
   await loadSlides();
   if (data) fillSlideForm(data);
-  alert('슬라이드 저장 완료');
+  renderSlideList(filterSlides());
+  alert(slideId ? '슬라이드 수정 완료' : '새 슬라이드 추가 완료');
 }
 async function deleteSlide() {
-  const businessId = val('slide_business_select') || val('slide_business_id') || selectedSlideBusinessId;
-  if (!businessId) return alert('삭제할 슬라이드를 선택하세요.');
-  if (!confirm('선택한 슬라이드를 삭제할까요?')) return;
-  const { error } = await supabase.from('slides').delete().eq('business_id', businessId);
+  const slideId = val('slide_id') || selectedSlideId;
+  if (!slideId) return alert('삭제할 슬라이드를 선택하세요.');
+  if (!confirm('선택한 슬라이드 한 개만 삭제할까요?')) return;
+  const { error } = await supabase.from('slides').delete().eq('id', slideId);
   if (error) return alert(`슬라이드 삭제 실패: ${error.message}`);
   await loadSlides();
   clearSlideForm();
-  alert('슬라이드 삭제 완료');
+  renderSlideList(filterSlides());
+  alert('선택한 슬라이드가 삭제되었습니다.');
 }
 
 function parseImageUrls(v) {
@@ -2529,6 +2941,7 @@ function bindEvents() {
 
 on('refreshBtn','click', async () => {
   await Promise.all([loadBusinesses(), loadCoupons(), loadBoards(), loadSlides(), loadBusinessStats()]);
+  await loadDalpicks();
 
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
@@ -2560,15 +2973,33 @@ on('refreshBtn','click', async () => {
   on('couponSaveBtn', 'click', saveCoupon);
   on('couponDeleteBtn', 'click', deleteCoupon);
 
+  on('dalpickSearchInput','input',()=>renderDalpickList(filterDalpicks()));
+  on('dalpickCategoryFilter','change',()=>{const filter=val('dalpickCategoryFilter');renderDalpickList(filterDalpicks());if(!selectedDalpickId&&filter&&filter!=='all'){setVal('dalpick_category',filter);updateDalpickTypeUI();}});
+  on('dalpickNewBtn','click',clearDalpickForm);
+  on('dalpickSaveBtn','click',saveDalpick);
+  on('dalpickSaveBottomBtn','click',saveDalpick);
+  on('dalpickDeleteBtn','click',deleteDalpick);
+  on('dalpick_category','change',updateDalpickTypeUI);
+  on('dalpickAiBtn','click',generateDalpickDraft);
+  on('dalpickImageBtn','click',generateDalpickImage);
+  on('dalpickRegenerateImageBtn','click',generateDalpickImage);
+  on('dalpickUploadImageBtn','click',uploadDalpickImage);
+  on('dalpickClearImageBtn','click',clearDalpickImage);
+  on('dalpickAiSaveBtn','click',saveDalpick);
+  on('dalpick_image_url','input',updateDalpickImagePreview);
+  on('performanceRefreshBtn','click',loadPerformanceCenter);
   on('boardSearchInput', 'input', () => renderBoardList(filterBoards()));
   on('boardTypeFilter', 'change', () => renderBoardList(filterBoards()));
   on('board_type', 'change', () => updateBoardSubtypeOptions(''));
   on('boardNewBtn', 'click', clearBoardForm);
   on('boardSaveBtn', 'click', saveBoard);
   on('boardDeleteBtn', 'click', deleteBoard);
-  on('aiGuideDraftBtn', 'click', () => generateAiGuide({ publish: false }));
-  on('aiGuidePublishBtn', 'click', () => generateAiGuide({ publish: true }));
+  on('aiGuideSearchBtn', 'click', searchAiGuideCandidates);
+  on('aiGuideDraftBtn', 'click', generateAiGuide);
   
+  on('boardAiImageBtn','click',generateBoardImage);
+  on('boardAiRegenerateBtn','click',generateBoardImage);
+  on('board_image_url','input',updateBoardImagePreview);
   on('boardUploadImageBtn', 'click', uploadBoardImage);
   on('boardClearImageBtn', 'click', clearBoardImage);
   on('board_business_search', 'input', renderBoardBusinessOptions);
@@ -2622,6 +3053,100 @@ function ensureBannerExtrasUI() {
     bnImage.parentElement?.insertAdjacentElement('afterend', upWrap);
   }
 
+
+  if (!qs('bnDisplayType')) {
+    const typeWrap = document.createElement('div');
+    typeWrap.className = 'field';
+    typeWrap.innerHTML = `
+      <label>광고 표시 형식</label>
+      <select id="bnDisplayType">
+        <option value="banner">큰 이미지 배너</option>
+        <option value="card">일반 카드형</option>
+      </select>
+    `;
+    bnRegion.parentElement?.insertAdjacentElement('afterend', typeWrap);
+  }
+
+  if (!qs('bnPlacement')) {
+    const placeWrap = document.createElement('div');
+    placeWrap.className = 'field';
+    placeWrap.innerHTML = `
+      <label>노출 위치</label>
+      <select id="bnPlacement">
+        <option value="home">홈 배너만</option>
+        <option value="detail">연결 업소 상세만</option>
+        <option value="both">홈 + 업소 상세</option>
+      </select>
+    `;
+    qs('bnDisplayType')?.parentElement?.insertAdjacentElement('afterend', placeWrap);
+  }
+
+  if (!qs('bnDescription')) {
+    const descWrap = document.createElement('div');
+    descWrap.className = 'field full';
+    descWrap.innerHTML = `
+      <label>카드 설명 (선택)</label>
+      <textarea id="bnDescription" rows="3" placeholder="카드형 광고에 표시할 짧은 설명"></textarea>
+    `;
+    bnImage.parentElement?.insertAdjacentElement('beforebegin', descWrap);
+  }
+
+  if (!qs('bnButtonLabel')) {
+    const buttonWrap = document.createElement('div');
+    buttonWrap.className = 'field';
+    buttonWrap.innerHTML = `
+      <label>버튼 문구</label>
+      <input id="bnButtonLabel" type="text" placeholder="자세히 보기">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-weight:500">
+        <input id="bnShowButton" type="checkbox" checked>
+        배너에 버튼 표시
+      </label>
+      <div style="margin-top:5px;color:#666;font-size:12px">체크를 해제하면 제목과 설명만 표시됩니다. 배너 전체 클릭 연결은 그대로 사용할 수 있습니다.</div>
+    `;
+    qs('bnLink')?.parentElement?.insertAdjacentElement('afterend', buttonWrap);
+    qs('bnShowButton')?.addEventListener('change', () => {
+      const input = qs('bnButtonLabel');
+      if (!input) return;
+      input.disabled = !checked('bnShowButton');
+      input.style.opacity = checked('bnShowButton') ? '1' : '.55';
+    });
+  }
+
+
+  if (!qs('bnLinkType')) {
+    const linkWrap = document.createElement('div');
+    linkWrap.className = 'field full';
+    linkWrap.innerHTML = `
+      <label>클릭 연결 방식</label>
+      <select id="bnLinkType">
+        <option value="business">연결 업소 상세</option>
+        <option value="post">게시글</option>
+        <option value="dalpick">DalPick / 추천 테마</option>
+        <option value="coupon">쿠폰</option>
+        <option value="external">외부 링크</option>
+        <option value="phone">전화 걸기</option>
+        <option value="none">클릭 없음</option>
+      </select>
+      <select id="bnLinkTarget" style="margin-top:8px;width:100%"></select>
+      <input id="bnLinkCustom" type="text" style="margin-top:8px" placeholder="외부 URL 또는 전화번호">
+      <div id="bnLinkHelp" style="margin-top:6px;color:#666;font-size:12px"></div>
+    `;
+    qs('bnLink')?.parentElement?.insertAdjacentElement('afterend', linkWrap);
+  }
+
+  if (!qs('bnStartAt')) {
+    const dateWrap = document.createElement('div');
+    dateWrap.className = 'field full';
+    dateWrap.innerHTML = `
+      <label>노출 기간</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <input id="bnStartAt" type="datetime-local" aria-label="노출 시작">
+        <input id="bnEndAt" type="datetime-local" aria-label="노출 종료">
+      </div>
+    `;
+    qs('bnOrder')?.parentElement?.insertAdjacentElement('afterend', dateWrap);
+  }
+
   on('bnBusinessSearch', 'input', renderBannerBusinessOptions);
   on('bnBusinessSelect', 'change', () => {
     const bid = val('bnBusinessSelect');
@@ -2630,9 +3155,51 @@ function ensureBannerExtrasUI() {
     if (row) setVal('bnBusinessSearch', row.name_ko || row.name_en || row.name || '');
   });
   on('bnRegion', 'change', renderBannerBusinessOptions);
+  on('bnLinkType', 'change', renderBannerLinkOptions);
   on('bannerImageUploadBtn', 'click', uploadBannerImageToField);
 
   renderBannerBusinessOptions();
+  renderBannerLinkOptions();
+}
+
+function renderBannerLinkOptions() {
+  const type = val('bnLinkType') || 'business';
+  const target = qs('bnLinkTarget');
+  const custom = qs('bnLinkCustom');
+  const help = qs('bnLinkHelp');
+  if (!target || !custom) return;
+  target.hidden = ['external','phone','none'].includes(type);
+  custom.hidden = !['external','phone'].includes(type);
+  let rows = [];
+  if (type === 'business') rows = businesses.map(x => ({id:x.id,label:x.name_ko||x.name_en||x.name||x.id}));
+  if (type === 'post') rows = boards.map(x => ({id:x.id,label:x.title||`게시글 #${x.id}`}));
+  if (type === 'dalpick') rows = dalpicks.map(x => ({id:x.id,label:x.title||`DalPick #${x.id}`}));
+  if (type === 'coupon') rows = coupons.map(x => ({id:x.id,label:x.title||`쿠폰 #${x.id}`}));
+  const current = target.dataset.value || '';
+  target.innerHTML = '<option value="">대상을 선택하세요</option>' + rows.map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('');
+  if (current) target.value = current;
+  if (help) help.textContent = ({business:'배너 클릭 시 연결 업소 상세페이지를 엽니다.',post:'특정 게시글 상세로 이동합니다.',dalpick:'DalPick 또는 추천 테마 상세를 엽니다.',coupon:'선택한 쿠폰 상세를 엽니다.',external:'웹사이트나 예약 페이지 주소를 입력하세요.',phone:'전화번호를 입력하면 클릭 시 전화 앱이 열립니다.',none:'배너는 표시되지만 클릭 동작은 없습니다.'})[type] || '';
+}
+
+function parseBannerLink(linkUrl, businessId) {
+  const raw = String(linkUrl || '').trim();
+  if (!raw && businessId) return {type:'business', target:String(businessId), custom:''};
+  const m = raw.match(/^(post|dalpick|coupon|business):(.+)$/i);
+  if (m) return {type:m[1].toLowerCase(), target:m[2], custom:''};
+  if (/^tel:/i.test(raw)) return {type:'phone', target:'', custom:raw.replace(/^tel:/i,'')};
+  if (raw) return {type:'external', target:'', custom:raw};
+  return {type:'none', target:'', custom:''};
+}
+
+function buildBannerLink() {
+  const type = val('bnLinkType') || 'business';
+  const target = val('bnLinkTarget').trim();
+  const custom = val('bnLinkCustom').trim();
+  if (type === 'business') return target ? `business:${target}` : '';
+  if (['post','dalpick','coupon'].includes(type)) return target ? `${type}:${target}` : '';
+  if (type === 'phone') return custom ? `tel:${custom.replace(/[^0-9+]/g,'')}` : '';
+  if (type === 'external') return custom;
+  return '';
 }
 
 function renderBannerBusinessOptions() {
@@ -2703,7 +3270,8 @@ async function init() {
   clearSlideForm();
   switchSection('business');
 
-  await Promise.all([loadBusinesses(), loadCoupons(), loadBanners() ,loadBoards(), loadSlides(), loadBusinessStats()]);
+  await Promise.all([loadBusinesses(), loadCoupons(), loadBanners(), loadBoards(), loadSlides(), loadBusinessStats()]);
+  await loadDalpicks();
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
   
@@ -2866,12 +3434,24 @@ function clearBannerForm() {
   setVal('bnTitle', '');
   setVal('bnImage', '');
   setVal('bnLink', '');
+  setVal('bnLinkType', 'business');
+  const linkTarget = qs('bnLinkTarget'); if (linkTarget) { linkTarget.dataset.value=''; linkTarget.value=''; }
+  setVal('bnLinkCustom', '');
   setVal('bnRegion', currentRegionScope() === 'all' ? 'dallas' : currentRegionScope());
   setVal('bnOrder', '0');
   setChecked('bnActive', true);
   setVal('bnBusinessId', '');
   setVal('bnBusinessSearch', '');
+  setVal('bnDisplayType', 'banner');
+  setVal('bnPlacement', 'home');
+  setVal('bnDescription', '');
+  setVal('bnButtonLabel', '자세히 보기');
+  setChecked('bnShowButton', true);
+  const bnBtnInput = qs('bnButtonLabel'); if (bnBtnInput) { bnBtnInput.disabled = false; bnBtnInput.style.opacity = '1'; }
+  setVal('bnStartAt', '');
+  setVal('bnEndAt', '');
   const sel = qs('bnBusinessSelect'); if (sel) sel.innerHTML = '<option value="">업소를 검색하세요</option>';
+  renderBannerLinkOptions();
 }
 
 function fillBannerForm(row) {
@@ -2880,12 +3460,25 @@ function fillBannerForm(row) {
   setVal('bnTitle', row.title || '');
   setVal('bnImage', row.image_url || '');
   setVal('bnLink', row.link_url || '');
+  const parsedLink = parseBannerLink(row.link_url, row.business_id);
+  setVal('bnLinkType', parsedLink.type);
+  setVal('bnLinkCustom', parsedLink.custom);
+  const linkTarget = qs('bnLinkTarget'); if (linkTarget) linkTarget.dataset.value = parsedLink.target || '';
   setVal('bnRegion', row.region || '');
   setVal('bnOrder', row.sort_order == null ? '0' : String(row.sort_order));
   setChecked('bnActive', row.is_active !== false);
   setVal('bnBusinessId', row.business_id || '');
   setVal('bnBusinessSearch', '');
-  if (typeof renderBannerBusinessOptions === 'function') setTimeout(() => { renderBannerBusinessOptions(); const sel = qs('bnBusinessSelect'); if (sel && row.business_id) sel.value = String(row.business_id); }, 0);
+  setVal('bnDisplayType', row.display_type || 'banner');
+  setVal('bnPlacement', row.placement || (row.business_id ? 'both' : 'home'));
+  setVal('bnDescription', row.description || '');
+  const hasBannerButton = String(row.button_label || '').trim() !== '';
+  setChecked('bnShowButton', hasBannerButton);
+  setVal('bnButtonLabel', hasBannerButton ? row.button_label : '');
+  const bnBtnInput = qs('bnButtonLabel'); if (bnBtnInput) { bnBtnInput.disabled = !hasBannerButton; bnBtnInput.style.opacity = hasBannerButton ? '1' : '.55'; }
+  setVal('bnStartAt', fmtLocal(row.start_at));
+  setVal('bnEndAt', fmtLocal(row.end_at));
+  if (typeof renderBannerBusinessOptions === 'function') setTimeout(() => { renderBannerBusinessOptions(); const sel = qs('bnBusinessSelect'); if (sel && row.business_id) sel.value = String(row.business_id); renderBannerLinkOptions(); const target=qs('bnLinkTarget'); if(target && parsedLink.target) target.value=String(parsedLink.target); }, 0);
 }
 
 function bannerCardAdminHTML(b) {
@@ -2900,7 +3493,7 @@ function bannerCardAdminHTML(b) {
       <div class="biz-main">
         <div class="biz-title">${esc(b.title || '배너')}</div>
         <div class="biz-meta">${esc(b.region || '')}${b.sort_order != null ? ` · ${esc(String(b.sort_order))}` : ''}</div>
-        <div class="biz-meta">${b.is_active === false ? '비활성' : '활성'}</div>
+        <div class="biz-meta">${esc(b.display_type === 'card' ? '카드형' : '배너형')} · ${esc(b.placement || (b.business_id ? 'both' : 'home'))} · ${b.is_active === false ? '비활성' : '활성'}</div>
       </div>
       <div class="biz-actions">
         <button class="btn ghost banner-edit-btn" type="button" data-id="${esc(b.id)}">수정</button>
@@ -2929,6 +3522,9 @@ const { data, error } = await supabase
   }
 
   banners = Array.isArray(data) ? data : [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getBanners = () => [...banners];
+  window.dispatchEvent(new CustomEvent('kfocus:banners-loaded', {detail:[...banners]}));
 
   listEl.innerHTML = banners.length
     ? banners.map(bannerCardAdminHTML).join('')
@@ -2987,15 +3583,25 @@ async function saveBanner() {
   const payload = {
     title: val('bnTitle').trim(),
     image_url: val('bnImage').trim(),
-    link_url: val('bnLink').trim(),
+    link_url: buildBannerLink(),
     business_id: val('bnBusinessId').trim() || null,
     region: getAppRegion(),
+    display_type: val('bnDisplayType') || 'banner',
+    placement: val('bnPlacement') || 'home',
+    description: val('bnDescription').trim() || null,
+    button_label: checked('bnShowButton') ? (val('bnButtonLabel').trim() || '자세히 보기') : '',
+    start_at: fromLocal(val('bnStartAt')),
+    end_at: fromLocal(val('bnEndAt')),
     sort_order: Number(val('bnOrder') || 0),
     is_active: checked('bnActive')
   };
 
   if (!payload.title) return alert('배너 제목을 입력해 주세요.');
   if (!payload.image_url) return alert('배너 이미지 URL을 입력해 주세요.');
+  if (['detail','both'].includes(payload.placement) && !payload.business_id) return alert('업소 상세에 노출하려면 연결 업소를 선택해 주세요.');
+  const linkType = val('bnLinkType') || 'business';
+  if (['post','dalpick','coupon','business'].includes(linkType) && !val('bnLinkTarget').trim()) return alert('클릭 연결 대상을 선택해 주세요.');
+  if (['external','phone'].includes(linkType) && !val('bnLinkCustom').trim()) return alert('클릭 연결 주소 또는 전화번호를 입력해 주세요.');
 
   const id = val('bnId');
   let result;
@@ -3257,3 +3863,482 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+async function loadPerformanceCenter(){
+  const status=qs('performanceStatus');
+  try{
+    const since=new Date(Date.now()-30*86400000).toISOString();
+    const {data,error}=await supabase.from('content_events').select('event_type,business_id,content_id,created_at').gte('created_at',since);
+    if(error) throw error;
+    const rows=data||[]; const count=t=>rows.filter(r=>r.event_type===t).length;
+    safeText('metricArticleViews',count('article_view')); safeText('metricAiPickClicks',count('ai_pick_click'));
+    safeText('metricPhoneClicks',count('phone_click')); safeText('metricDirectionClicks',count('direction_click')); safeText('metricWebsiteClicks',count('website_click'));
+    const grouped={}; rows.forEach(r=>{const k=r.business_id||'unlinked'; grouped[k]??={total:0,views:0,actions:0}; grouped[k].total++; if(r.event_type==='article_view')grouped[k].views++; else grouped[k].actions++;});
+    const el=qs('performanceBusinessList'); if(el) el.innerHTML=Object.entries(grouped).map(([id,v])=>{const b=businesses.find(x=>String(x.id)===String(id)); return `<div class="performance-row"><strong>${esc(b?.name_ko||b?.name_en||'연결 업소 없음')}</strong><span>조회 ${v.views}</span><span>행동 ${v.actions}</span><span>총 ${v.total}</span></div>`}).join('')||'<div class="muted">최근 30일 데이터가 없습니다.</div>';
+    safeText('performanceStatus','최근 30일 기준 · 관리자만 볼 수 있습니다.');
+  }catch(e){ safeText('performanceStatus',`성과 테이블 연결 필요: ${e.message}`); }
+}
+
+console.log('[DalTownMap Admin] v9.0 unified image manager loaded');
+
+// ===== v21 DalPick-Centered AI Content Studio =====
+let contentStudioSuite = null;
+let contentStudioTypes = [];
+let contentStudioAnalysis = null;
+const CONTENT_STUDIO_HISTORY_KEY = 'daltownmap_content_studio_v21_history';
+
+function csEl(id){ return document.getElementById(id); }
+function csValue(id){ return csEl(id)?.value?.trim?.() || ''; }
+function csChecked(id){ return !!csEl(id)?.checked; }
+function csStatus(text, tone='normal'){
+  const el=csEl('csStatus'); if(!el)return;
+  el.textContent=text;
+  el.style.color=tone==='error'?'#b91c1c':tone==='success'?'#047857':'#475569';
+}
+function csBusinessOptions(){
+  const el=csEl('csBusiness'); if(!el)return;
+  const current=el.value;
+  el.innerHTML='<option value="">연결 업소 없음</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.id)}</option>`).join('');
+  el.value=current;
+}
+function csSelectedTypes(){
+  return ['dalpick','coupon','banner','social','push','video','image_prompt'].filter(x=>x==='dalpick'||csChecked(`csType_${x}`));
+}
+function csLoadHistory(){
+  try{return JSON.parse(localStorage.getItem(CONTENT_STUDIO_HISTORY_KEY)||'[]');}catch{return [];}
+}
+function csSaveHistory(entry){
+  const list=csLoadHistory(); list.unshift(entry);
+  localStorage.setItem(CONTENT_STUDIO_HISTORY_KEY,JSON.stringify(list.slice(0,20)));
+  csRenderHistory();
+}
+function csRenderHistory(){
+  const box=csEl('csHistory'); if(!box)return;
+  const list=csLoadHistory();
+  box.innerHTML=list.length?list.map((x,i)=>`<button type="button" class="cs-history-item" data-cs-history="${i}" style="width:100%;text-align:left;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:white;margin-bottom:8px"><strong>${esc(x.title||'캠페인')}</strong><div style="font-size:12px;color:#64748b;margin-top:3px">${esc(x.created_at||'')}</div></button>`).join(''):'<div style="font-size:13px;color:#64748b">아직 생성한 캠페인이 없습니다.</div>';
+}
+function csGetEditedSuite(){
+  if(!contentStudioSuite)return null;
+  const s=structuredClone(contentStudioSuite);
+  const get=(id,fallback='')=>csEl(id)?.value ?? fallback;
+  if(s.dalpick){s.dalpick.title=get('cs_dalpick_title',s.dalpick.title);s.dalpick.summary=get('cs_dalpick_summary',s.dalpick.summary);s.dalpick.content=get('cs_dalpick_content',s.dalpick.content);s.dalpick.image_prompt=get('cs_dalpick_prompt',s.dalpick.image_prompt);}
+  if(s.coupon){s.coupon.title=get('cs_coupon_title',s.coupon.title);s.coupon.discount_label=get('cs_coupon_discount',s.coupon.discount_label);s.coupon.description=get('cs_coupon_description',s.coupon.description);s.coupon.coupon_code=get('cs_coupon_code',s.coupon.coupon_code);}
+  if(s.banner){s.banner.title=get('cs_banner_title',s.banner.title);s.banner.description=get('cs_banner_description',s.banner.description);s.banner.button_label=get('cs_banner_button',s.banner.button_label);s.banner.image_prompt=get('cs_banner_prompt',s.banner.image_prompt);}
+  if(s.social){s.social.instagram=get('cs_social_instagram',s.social.instagram);s.social.facebook=get('cs_social_facebook',s.social.facebook);s.social.short_caption=get('cs_social_short',s.social.short_caption);}
+  if(s.push){s.push.title=get('cs_push_title',s.push.title);s.push.message=get('cs_push_message',s.push.message);}
+  if(s.video){s.video.hook=get('cs_video_hook',s.video.hook);s.video.script=get('cs_video_script',s.video.script);s.video.thumbnail_text=get('cs_video_thumb',s.video.thumbnail_text);}
+  return s;
+}
+function csCard(title,body,actions,type,badge='초안'){
+  return `<article class="cs-card" data-type="${type}" style="border:1px solid #dbe3ee;border-radius:16px;background:#fff;padding:16px;box-shadow:0 3px 12px rgba(15,23,42,.05)"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:17px">${title}</h3><span style="font-size:12px;padding:4px 8px;background:#f1f5f9;border-radius:999px">${badge}</span></div>${body}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">${actions}</div></article>`;
+}
+function csRecommendationLabel(type){
+  return ({coupon:'쿠폰',banner:'배너',social:'SNS',push:'푸시 알림',video:'숏폼 영상',image_prompt:'이미지'})[type]||type;
+}
+function csRenderRecommendations(suite){
+  const box=csEl('csRecommendations'); if(!box)return;
+  const list=Array.isArray(suite.recommendations)?suite.recommendations:[];
+  box.innerHTML=list.length?list.map(r=>`<label style="display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid ${r.recommended?'#bbf7d0':'#e2e8f0'};background:${r.recommended?'#f0fdf4':'#f8fafc'};border-radius:10px;margin-bottom:8px"><input type="checkbox" data-cs-rec-type="${esc(r.type)}" ${r.recommended?'checked':''} style="margin-top:3px"><span><strong>${r.recommended?'추천':'선택 사항'} · ${esc(csRecommendationLabel(r.type))}</strong><div style="font-size:12px;color:#64748b;margin-top:3px">${esc(r.reason||'')}</div></span></label>`).join(''):'<div class="muted">추천 결과가 없습니다.</div>';
+}
+function csChecklistHtml(items){
+  const icon={pass:'✓',warning:'!',info:'i'};
+  const bg={pass:'#ecfdf5',warning:'#fff7ed',info:'#eff6ff'};
+  const border={pass:'#a7f3d0',warning:'#fed7aa',info:'#bfdbfe'};
+  return (items||[]).map(x=>`<div style="display:flex;gap:10px;padding:10px;border:1px solid ${border[x.status]||'#e2e8f0'};background:${bg[x.status]||'#f8fafc'};border-radius:10px;margin-bottom:8px"><strong style="width:20px">${icon[x.status]||'•'}</strong><div><strong>${esc(x.label||'점검')}</strong><div style="font-size:12px;color:#64748b;margin-top:2px">${esc(x.message||'')}</div></div></div>`).join('');
+}
+function csRenderSuite(suite, selectedTypes=['dalpick']){
+  contentStudioSuite=suite;
+  contentStudioTypes=[...new Set(['dalpick',...selectedTypes])];
+  const box=csEl('csResults'); if(!box)return;
+  const cards=[];
+  const input=(id,label,value)=>`<label style="display:block;font-size:12px;font-weight:700;margin:9px 0 4px">${label}</label><input id="${id}" value="${esc(value||'')}" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:9px">`;
+  const area=(id,label,value,rows=5)=>`<label style="display:block;font-size:12px;font-weight:700;margin:9px 0 4px">${label}</label><textarea id="${id}" rows="${rows}" style="width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:9px;resize:vertical">${esc(value||'')}</textarea>`;
+  if(suite.dalpick)cards.push(csCard('1. DalPick 원본 기사',input('cs_dalpick_title','제목',suite.dalpick.title)+area('cs_dalpick_summary','요약',suite.dalpick.summary,3)+area('cs_dalpick_content','본문',suite.dalpick.content,11)+area('cs_dalpick_prompt','대표 이미지 프롬프트',suite.dalpick.image_prompt,4),'<button type="button" class="btn primary" data-cs-action="apply-dalpick">DalPick 입력란으로 보내기</button><button type="button" class="btn secondary" data-cs-action="copy-dalpick-prompt">이미지 프롬프트 복사</button>','dalpick','원본'));
+  if(contentStudioTypes.includes('coupon')&&suite.coupon)cards.push(csCard('쿠폰',input('cs_coupon_title','제목',suite.coupon.title)+input('cs_coupon_discount','혜택',suite.coupon.discount_label)+area('cs_coupon_description','설명',suite.coupon.description,4)+input('cs_coupon_code','쿠폰 코드',suite.coupon.coupon_code),'<button type="button" class="btn primary" data-cs-action="apply-coupon">쿠폰 입력란으로 보내기</button>','coupon'));
+  if(contentStudioTypes.includes('banner')&&suite.banner)cards.push(csCard('배너',input('cs_banner_title','제목',suite.banner.title)+area('cs_banner_description','설명',suite.banner.description,3)+input('cs_banner_button','버튼 문구',suite.banner.button_label)+area('cs_banner_prompt','이미지 프롬프트',suite.banner.image_prompt,4),'<button type="button" class="btn primary" data-cs-action="apply-banner">배너 입력란으로 보내기</button><button type="button" class="btn secondary" data-cs-action="copy-banner-prompt">이미지 프롬프트 복사</button>','banner'));
+  if(contentStudioTypes.includes('social')&&suite.social)cards.push(csCard('SNS 문구',area('cs_social_instagram','Instagram',suite.social.instagram,6)+area('cs_social_facebook','Facebook',suite.social.facebook,6)+area('cs_social_short','짧은 캡션',suite.social.short_caption,3),'<button type="button" class="btn secondary" data-cs-action="copy-social">전체 복사</button>','social'));
+  if(contentStudioTypes.includes('push')&&suite.push)cards.push(csCard('푸시 알림',input('cs_push_title','제목',suite.push.title)+area('cs_push_message','메시지',suite.push.message,3),'<button type="button" class="btn primary" data-cs-action="apply-push">푸시 입력란으로 보내기</button><button type="button" class="btn secondary" data-cs-action="copy-push">복사</button>','push'));
+  if(contentStudioTypes.includes('video')&&suite.video)cards.push(csCard('숏폼 영상',input('cs_video_hook','첫 문장',suite.video.hook)+area('cs_video_script','30~45초 대본',suite.video.script,8)+input('cs_video_thumb','썸네일 문구',suite.video.thumbnail_text),'<button type="button" class="btn secondary" data-cs-action="copy-video">대본 복사</button>','video'));
+  const strategy=`<div style="padding:14px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:14px;margin-bottom:14px"><strong>AI 캠페인 전략</strong><div style="font-size:13px;color:#475569;margin-top:6px;line-height:1.55">${esc(suite.strategy_summary||'')}</div></div>`;
+  const recommendation=`<div class="card" style="padding:16px;margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div><h3 style="margin:0">2. AI 파생 콘텐츠 추천</h3><div style="font-size:12px;color:#64748b;margin-top:4px">추천 항목을 수정한 뒤 카드 표시를 갱신할 수 있습니다.</div></div><button type="button" class="btn primary" data-cs-action="apply-recommendations">추천 항목 적용</button></div><div id="csRecommendations" style="margin-top:12px"></div></div>`;
+  const checklist=`<div class="card" style="padding:16px;margin-top:14px"><h3 style="margin-top:0">3. 발행 전 AI 체크리스트</h3>${csChecklistHtml(suite.checklist)}</div>`;
+  box.innerHTML=`${strategy}${recommendation}<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px"><div><h2 style="margin:0">${esc(suite.campaign_title||'생성 결과')}</h2><div style="font-size:13px;color:#64748b;margin-top:4px">DalPick을 원본으로 만들고 선택된 콘텐츠를 같은 메시지로 파생했습니다.</div></div><button type="button" class="btn secondary" data-cs-action="save-history">작업 보관</button></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px">${cards.join('')}</div>${checklist}`;
+  csRenderRecommendations(suite);
+}
+async function csCopy(text){
+  try{await navigator.clipboard.writeText(text);csStatus('클립보드에 복사했습니다.','success');}catch{prompt('아래 내용을 복사하세요.',text);}
+}
+function csApply(type){
+  const s=csGetEditedSuite(); if(!s)return;
+  const businessId=csValue('csBusiness');
+  if(type==='dalpick'){
+    setVal('dalpick_title',s.dalpick.title);setVal('dalpick_summary',s.dalpick.summary);setVal('dalpick_content',s.dalpick.content);setVal('dalpick_image_instruction',s.dalpick.image_prompt||'');setVal('dalpick_business_id',businessId);
+    switchSection('dalpick'); updateDalpickTypeUI(); csStatus('DalPick 입력란으로 이동했습니다. 내용을 확인하고 기존 저장 버튼을 누르세요.','success');
+  }else if(type==='coupon'){
+    setVal('coupon_title',s.coupon.title);setVal('coupon_discount_label',s.coupon.discount_label);setVal('coupon_description',s.coupon.description);setVal('coupon_code',s.coupon.coupon_code);setVal('coupon_business_id',businessId);
+    switchSection('coupon'); csStatus('쿠폰 입력란으로 이동했습니다. 기간과 활성 여부를 확인한 후 저장하세요.','success');
+  }else if(type==='banner'){
+    setVal('bnTitle',s.banner.title);setVal('bnDescription',s.banner.description);setVal('bnButtonLabel',s.banner.button_label);setVal('bnBusinessId',businessId);if(csEl('bnBusinessSelect'))setVal('bnBusinessSelect',businessId);
+    switchSection('banners'); csStatus('배너 입력란으로 이동했습니다. 이미지를 지정한 후 저장하세요.','success');
+  }else if(type==='push'){
+    setVal('pushTitle',s.push.title);setVal('pushMessage',s.push.message);switchSection('push');csStatus('푸시 입력란으로 이동했습니다. 대상 지역과 내용을 확인한 후 발송하세요.','success');
+  }
+}
+function csApplyRecommendations(){
+  const selected=['dalpick'];
+  document.querySelectorAll('[data-cs-rec-type]:checked').forEach(el=>selected.push(el.dataset.csRecType));
+  contentStudioTypes=[...new Set(selected)];
+  const checkboxMap={coupon:'csType_coupon',banner:'csType_banner',social:'csType_social',push:'csType_push',video:'csType_video',image_prompt:'csType_image_prompt'};
+  Object.entries(checkboxMap).forEach(([type,id])=>{if(csEl(id))csEl(id).checked=contentStudioTypes.includes(type);});
+  csRenderSuite(csGetEditedSuite()||contentStudioSuite,contentStudioTypes);
+  csStatus('AI 추천 항목을 카드에 적용했습니다.','success');
+}
+
+function csApplyAnalysis(analysis){
+  contentStudioAnalysis=analysis||null;
+  contentStudioAnalysisConfirmed=false;
+  const box=csEl('csAnalysisResult');
+  const details=csEl('csCampaignDetails');
+  if(details)details.hidden=true;
+  if(!analysis){
+    if(box){box.hidden=true;box.innerHTML='';}
+    return;
+  }
+  const req=analysis.business_requirement||'optional';
+  const reqText=req==='required'?'연결 업소 선택이 필요합니다.':req==='none'?'연결 업소 없이 진행하는 주제입니다.':'연결 업소는 선택 사항입니다.';
+  const type=analysis.intent_type||'information';
+  const typeOptions=[
+    ['information','생활정보형'],
+    ['business','업소 홍보형'],
+    ['mixed','혼합형']
+  ].map(([v,l])=>`<option value="${v}" ${v===type?'selected':''}>${l}</option>`).join('');
+  const recs=Array.isArray(analysis.recommended_types)?analysis.recommended_types:['dalpick'];
+  const labelMap={dalpick:'DalPick 기사',coupon:'쿠폰',banner:'배너',social:'SNS',push:'푸시 알림',video:'숏폼 영상',image_prompt:'대표 이미지'};
+  const recHtml=recs.map(x=>`<span style="display:inline-block;padding:5px 8px;border-radius:999px;background:#fff;border:1px solid #c7d2fe;font-size:12px;font-weight:700;margin:4px 4px 0 0">${esc(labelMap[x]||x)}</span>`).join('');
+  if(box){
+    box.hidden=false;
+    box.innerHTML=`<div style="padding:14px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div><div style="font-size:12px;font-weight:800;color:#4f46e5">2단계 · AI 추천 분류</div><div style="font-weight:800;font-size:16px;margin-top:4px">${esc(analysis.intent_label||analysis.intent_type||'분석 완료')}</div></div>
+        <select id="csIntentOverride" style="padding:8px 10px;border:1px solid #c7d2fe;border-radius:9px;background:white">${typeOptions}</select>
+      </div>
+      <div style="font-size:13px;color:#475569;line-height:1.55;margin-top:7px">${esc(analysis.explanation||'')}</div>
+      <div style="font-size:13px;font-weight:700;margin-top:9px">${esc(reqText)}</div>
+      <div style="font-size:12px;font-weight:800;color:#475569;margin-top:10px">추천 콘텐츠</div>
+      <div>${recHtml}</div>
+      <button type="button" id="csConfirmAnalysisBtn" class="btn primary" style="width:100%;margin-top:12px;padding:11px">이 분류로 다음 단계 진행</button>
+    </div>`;
+    csEl('csConfirmAnalysisBtn')?.addEventListener('click',csConfirmAnalysis);
+  }
+  csStatus('AI가 분류를 추천했습니다. 내용을 확인한 뒤 다음 단계로 진행하세요.','success');
+}
+function csConfirmAnalysis(){
+  if(!contentStudioAnalysis)return alert('먼저 주제를 분석하세요.');
+  const override=csValue('csIntentOverride');
+  if(override&&override!==contentStudioAnalysis.intent_type){
+    contentStudioAnalysis.intent_type=override;
+    contentStudioAnalysis.intent_label=override==='business'?'업소 홍보형':override==='mixed'?'혼합형':'생활정보형';
+    contentStudioAnalysis.business_requirement=override==='business'?'required':override==='mixed'?'optional':'none';
+  }
+  contentStudioAnalysisConfirmed=true;
+  const analysis=contentStudioAnalysis;
+  const req=analysis.business_requirement||'optional';
+  const details=csEl('csCampaignDetails');
+  if(details)details.hidden=false;
+  const businessWrap=csEl('csBusinessWrap');
+  const business=csEl('csBusiness');
+  if(businessWrap)businessWrap.hidden=req==='none';
+  if(req==='none'&&business)business.value='';
+  if(csEl('csBusinessRequirement'))csEl('csBusinessRequirement').textContent=req==='required'?'필수':req==='none'?'사용 안 함':'선택';
+  if(analysis.suggested_goal&&csEl('csGoal'))csEl('csGoal').value=analysis.suggested_goal;
+  if(analysis.suggested_audience&&csEl('csAudience')&&!csValue('csAudience'))csEl('csAudience').value=analysis.suggested_audience;
+  if(analysis.suggested_tone&&csEl('csTone')){
+    const tone=[...csEl('csTone').options].find(o=>o.value===analysis.suggested_tone||o.textContent===analysis.suggested_tone);
+    if(tone)csEl('csTone').value=tone.value;
+  }
+  const recommended=new Set(Array.isArray(analysis.recommended_types)?analysis.recommended_types:['dalpick']);
+  ['coupon','banner','social','push','video','image_prompt'].forEach(type=>{const el=csEl(`csType_${type}`);if(el)el.checked=recommended.has(type);});
+  csEl('csCampaignDetails')?.scrollIntoView({behavior:'smooth',block:'start'});
+  csStatus('분류가 확정되었습니다. 추천 설정을 확인하고 콘텐츠를 생성하세요.','success');
+}
+async function csAnalyzeTopic(){
+  const topic=csValue('csTopic');if(!topic)return alert('먼저 만들고 싶은 주제를 입력하세요.');
+  const btn=csEl('csAnalyzeBtn');const old=btn?.textContent||'주제 분석하기';
+  if(btn){btn.disabled=true;btn.textContent='주제 분석 중...';}
+  csStatus('AI가 기사 유형과 업소 연결 필요 여부를 판단하고 있습니다...');
+  try{
+    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analyze',topic})});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'주제 분석 실패');
+    csApplyAnalysis(j.analysis);
+  }catch(e){console.error(e);csStatus(`분석 오류: ${e.message}`,'error');alert(e.message);}finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+async function csGenerate(){
+  const topic=csValue('csTopic'); if(!topic)return alert('캠페인 주제를 입력하세요.');
+  if(!contentStudioAnalysis)return alert('먼저 AI로 주제를 분석하세요.');
+  if(!contentStudioAnalysisConfirmed)return alert('AI 추천 분류를 확인하고 ‘이 분류로 다음 단계 진행’을 눌러주세요.');
+  if(contentStudioAnalysis.business_requirement==='required'&&!csValue('csBusiness'))return alert('이 주제는 연결 업소 선택이 필요합니다.');
+  const types=csSelectedTypes();
+  const businessId=csValue('csBusiness'); const b=businesses.find(x=>String(x.id)===String(businessId));
+  const btn=csEl('csGenerateBtn'); const old=btn?.textContent||'DalPick 중심으로 생성';if(btn){btn.disabled=true;btn.textContent='DalPick 작성 및 분석 중...';}
+  csStatus('먼저 DalPick 원본 기사를 만들고 파생 콘텐츠를 설계하고 있습니다...');
+  try{
+    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,goal:csValue('csGoal'),audience:csValue('csAudience'),tone:csValue('csTone'),instructions:csValue('csInstructions'),content_types:types,business:b?{id:b.id,name:b.name_ko||b.name_en||'',category:b.category||b.category_ko||'',address:b.address||'',phone:b.phone||'',website:b.website||'',description:b.description||b.description_ko||''}:null})});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'통합 콘텐츠 생성 실패');
+    csRenderSuite(j.suite,types);csStatus('DalPick 원본과 파생 콘텐츠가 생성되었습니다. 추천과 체크리스트를 확인하세요.','success');
+  }catch(e){console.error(e);csStatus(`오류: ${e.message}`,'error');alert(e.message);}finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function initContentStudioV21(){
+  if(csEl('section-contentStudio'))return;
+  const nav=document.getElementById('adminNav');
+  if(nav){const btn=document.createElement('button');btn.type='button';btn.className='nav-item';btn.dataset.section='contentStudio';btn.innerHTML='<span>✦</span><span>AI 콘텐츠 스튜디오</span>';nav.appendChild(btn);btn.addEventListener('click',()=>switchSection('contentStudio'));}
+  const host=document.querySelector('.main-content, main, #adminMain, .content')||document.body;
+  const sec=document.createElement('section');sec.id='section-contentStudio';sec.className='admin-section';
+  sec.innerHTML=`<div style="display:grid;grid-template-columns:minmax(280px,390px) minmax(0,1fr);gap:18px;align-items:start" class="cs-layout"><div><div class="card" style="padding:18px"><div style="font-size:12px;font-weight:800;color:#4f46e5;margin-bottom:5px">3-STEP WORKFLOW</div><h2 style="margin-top:0">새 콘텐츠 캠페인</h2><div style="font-size:13px;color:#64748b;line-height:1.55;margin-bottom:12px">① 주제 입력 → ② AI 추천 분류 확인 → ③ 세부 설정 후 생성 순서로 진행합니다.</div><label style="display:block;font-weight:700;margin:10px 0 5px">1단계 · 주제를 입력하세요 *</label><input id="csTopic" placeholder="예: 텍사스 여름에 갈 만한 계곡 / 김치나라 여름 이벤트" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><button type="button" id="csAnalyzeBtn" class="btn secondary" style="width:100%;margin-top:10px;padding:11px">주제 분석하기</button><div id="csAnalysisResult" hidden></div><div id="csCampaignDetails" hidden><div style="font-size:12px;font-weight:800;color:#4f46e5;margin:16px 0 6px">3단계 · 추천 설정 확인</div><div id="csBusinessWrap"><label style="display:flex;justify-content:space-between;font-weight:700;margin:14px 0 5px"><span>연결 업소</span><span id="csBusinessRequirement" style="font-size:12px;color:#4f46e5">선택</span></label><select id="csBusiness" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"></select></div><label style="display:block;font-weight:700;margin:10px 0 5px">목표</label><select id="csGoal" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><option value="홍보와 방문 유도">홍보·방문 유도</option><option value="신규 업소 소개">신규 업소 소개</option><option value="쿠폰 사용 유도">쿠폰 사용 유도</option><option value="브랜드 신뢰도 향상">브랜드 신뢰도 향상</option><option value="정보 제공">정보 제공</option></select><label style="display:block;font-weight:700;margin:10px 0 5px">대상 고객</label><input id="csAudience" placeholder="예: 캐롤튼 거주 한인 가족" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><label style="display:block;font-weight:700;margin:10px 0 5px">문체</label><select id="csTone" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><option>친근하고 신뢰감 있게</option><option>고급스럽고 전문적으로</option><option>간결하고 활기차게</option><option>정보 중심으로 차분하게</option></select><label style="display:block;font-weight:700;margin:12px 0 7px">AI 추천 콘텐츠</label><div style="padding:10px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;margin-bottom:8px;font-size:14px"><strong>✓ DalPick 기사</strong> <span style="font-size:12px;color:#64748b">필수 원본</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px"><label><input type="checkbox" id="csType_coupon"> 쿠폰</label><label><input type="checkbox" id="csType_banner"> 배너</label><label><input type="checkbox" id="csType_social"> SNS</label><label><input type="checkbox" id="csType_push"> 푸시 알림</label><label><input type="checkbox" id="csType_video"> 숏폼 영상</label><label><input type="checkbox" id="csType_image_prompt" checked> 이미지 프롬프트</label></div><label style="display:block;font-weight:700;margin:12px 0 5px">추가 지시</label><textarea id="csInstructions" rows="4" placeholder="가격, 기간, 대표 메뉴 등 확인된 사실만 입력하세요." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;resize:vertical"></textarea><button type="button" id="csGenerateBtn" class="btn primary" style="width:100%;margin-top:14px;padding:12px">분석 결과로 콘텐츠 생성</button></div><div id="csStatus" style="font-size:13px;color:#475569;margin-top:10px">주제를 먼저 입력하세요.</div></div><div class="card" style="padding:16px;margin-top:14px"><h3 style="margin-top:0">최근 작업</h3><div id="csHistory"></div></div></div><div id="csResults"><div class="card" style="padding:30px;text-align:center;color:#64748b"><div style="font-size:34px;margin-bottom:10px">✦</div><strong>주제부터 시작합니다.</strong><div style="margin-top:6px;font-size:13px;line-height:1.55">주제를 입력하고 분석 버튼을 누른 뒤, AI 추천 분류를 확인해야 다음 설정과 생성 단계가 열립니다.</div></div></div></div><style>@media(max-width:900px){.cs-layout{grid-template-columns:1fr!important}}</style>`;
+  host.appendChild(sec);csBusinessOptions();csRenderHistory();
+  csEl('csAnalyzeBtn')?.addEventListener('click',csAnalyzeTopic);
+  csEl('csTopic')?.addEventListener('input',()=>{contentStudioAnalysis=null;contentStudioAnalysisConfirmed=false;const d=csEl('csCampaignDetails');if(d)d.hidden=true;const a=csEl('csAnalysisResult');if(a)a.hidden=true;csStatus('주제가 바뀌었습니다. 다시 분석하세요.');});
+  csEl('csGenerateBtn')?.addEventListener('click',csGenerate);
+  sec.addEventListener('click',async e=>{
+    const h=e.target.closest('[data-cs-history]');if(h){const x=csLoadHistory()[Number(h.dataset.csHistory)];if(x){contentStudioSuite=x.suite;csRenderSuite(x.suite,x.types);csStatus('보관된 작업을 불러왔습니다.','success');}return;}
+    const btn=e.target.closest('[data-cs-action]');if(!btn)return;const a=btn.dataset.csAction;const s=csGetEditedSuite();
+    if(a==='apply-dalpick')csApply('dalpick');else if(a==='apply-coupon')csApply('coupon');else if(a==='apply-banner')csApply('banner');else if(a==='apply-push')csApply('push');
+    else if(a==='apply-recommendations')csApplyRecommendations();
+    else if(a==='copy-dalpick-prompt')csCopy(csValue('cs_dalpick_prompt'));
+    else if(a==='copy-banner-prompt')csCopy(csValue('cs_banner_prompt'));
+    else if(a==='copy-social')csCopy(`Instagram\n${s.social.instagram}\n\nFacebook\n${s.social.facebook}\n\n짧은 캡션\n${s.social.short_caption}`);
+    else if(a==='copy-push')csCopy(`${s.push.title}\n${s.push.message}`);
+    else if(a==='copy-video')csCopy(`${s.video.hook}\n\n${s.video.script}\n\n썸네일: ${s.video.thumbnail_text}`);
+    else if(a==='save-history'){csSaveHistory({title:s.campaign_title,created_at:new Date().toLocaleString('ko-KR'),types:contentStudioTypes,suite:s});csStatus('현재 작업을 브라우저에 보관했습니다.','success');}
+  });
+  window.addEventListener('kfocus:businesses-loaded',csBusinessOptions);
+}
+const _v21SetPageMeta=setPageMeta;
+setPageMeta=function(){
+  if(currentSection==='contentStudio'){safeText('pageTitle','AI 콘텐츠 스튜디오');safeText('pageDesc','DalPick 원본 기사에서 쿠폰·배너·SNS·푸시·영상 콘텐츠를 파생하고 발행 전 점검합니다.');return;}
+  return _v21SetPageMeta();
+};
+
+
+// v21.3 — DalPick editor topic-first workflow
+let dalpickTopicAnalysis=null;
+function dpClosestField(el){return el?.closest?.('label.field, .field')||el?.parentElement||null;}
+function dpSetWorkflowReady(ready){
+  window.dalpickTopicFirstReady=!!ready;
+  const details=qs('dalpickTopicDetails');
+  const article=qs('dalpickArticleStep');
+  if(details)details.hidden=!ready;
+  if(article)article.hidden=!ready;
+}
+function dpResetTopicAnalysis(message='주제를 입력한 뒤 분석하세요.'){
+  dalpickTopicAnalysis=null;
+  dpSetWorkflowReady(false);
+  const result=qs('dalpickTopicAnalysisResult');
+  if(result){result.hidden=true;result.innerHTML='';}
+  safeText('dalpickTopicFirstStatus',message);
+}
+function dpCategoryLabel(category){
+  return {local_info:'지역 정보',lifestyle:'생활 정보',themed:'테마 추천',recommended:'추천 업소',new_business:'신규 업소',coupon:'쿠폰',event:'행사',business_story:'업소탐방 Premium'}[category]||category;
+}
+function dpRecommendedCategory(a,topic){
+  if(a?.suggested_dalpick_category)return a.suggested_dalpick_category;
+  const t=String(topic||'');
+  if(a?.intent_type==='business'){
+    if(/쿠폰|할인|프로모션|혜택/.test(t))return 'coupon';
+    if(/오픈|개업|신규/.test(t))return 'new_business';
+    if(/인터뷰|스토리|탐방/.test(t))return 'business_story';
+    return 'recommended';
+  }
+  if(a?.intent_type==='mixed')return 'themed';
+  if(/면허|보험|학교|세금|비자|생활|신청|등록|갱신/.test(t))return 'lifestyle';
+  if(/행사|축제|공연|박람회/.test(t))return 'event';
+  return 'local_info';
+}
+function dpRenderTopicAnalysis(a){
+  dalpickTopicAnalysis=a||{};
+  const result=qs('dalpickTopicAnalysisResult');
+  if(!result)return;
+  const req=a.business_requirement||'optional';
+  const reqText=req==='required'?'업소 연결 필수':req==='none'?'업소 연결 없음':'업소 연결 선택';
+  const category=dpRecommendedCategory(a,val('dalpick_topic'));
+  dalpickTopicAnalysis.suggested_dalpick_category=category;
+  const labels={dalpick:'DalPick 기사',coupon:'쿠폰',banner:'배너',social:'SNS',push:'푸시',video:'숏폼 영상',image_prompt:'대표 이미지'};
+  const recs=(Array.isArray(a.recommended_types)?a.recommended_types:['dalpick']).map(x=>`<span style="display:inline-block;margin:4px 4px 0 0;padding:5px 9px;border:1px solid #c7d2fe;border-radius:999px;background:white;font-size:12px;font-weight:700">${esc(labels[x]||x)}</span>`).join('');
+  result.hidden=false;
+  result.innerHTML=`<div style="margin-top:12px;padding:15px;border:1px solid #c7d2fe;border-radius:12px;background:#eef2ff">
+    <div style="font-size:12px;font-weight:800;color:#4f46e5">2단계 · AI 추천 분류</div>
+    <div style="font-size:17px;font-weight:800;margin-top:5px">${esc(a.intent_label||'분석 완료')}</div>
+    <div style="margin-top:7px;font-size:13px;line-height:1.55;color:#475569">${esc(a.explanation||'')}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <div style="padding:9px;border-radius:9px;background:white"><small style="color:#64748b">추천 콘텐츠 유형</small><div style="font-weight:800;margin-top:2px">${esc(dpCategoryLabel(category))}</div></div>
+      <div style="padding:9px;border-radius:9px;background:white"><small style="color:#64748b">업소 연결</small><div style="font-weight:800;margin-top:2px">${esc(reqText)}</div></div>
+    </div>
+    <div style="margin-top:10px"><small style="font-weight:800;color:#64748b">추천 생성 항목</small><div>${recs}</div></div>
+    <button type="button" id="dalpickConfirmTopicAnalysis" class="btn primary" style="width:100%;margin-top:13px;padding:11px">이 분류로 다음 단계 진행</button>
+  </div>`;
+  qs('dalpickConfirmTopicAnalysis')?.addEventListener('click',dpConfirmTopicAnalysis);
+  safeText('dalpickTopicFirstStatus','분석 결과를 확인하고 다음 단계로 진행하세요.');
+}
+async function dpAnalyzeTopic(){
+  const topic=val('dalpick_topic').trim();
+  if(!topic)return alert('먼저 주제를 입력하세요.');
+  const btn=qs('dalpickTopicAnalyzeBtn');const old=btn?.textContent||'주제 분석하기';
+  if(btn){btn.disabled=true;btn.textContent='분석 중...';}
+  safeText('dalpickTopicFirstStatus','AI가 기사 유형과 업소 연결 필요 여부를 분석하고 있습니다...');
+  try{
+    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analyze',topic})});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'주제 분석 실패');
+    dpRenderTopicAnalysis(j.analysis||{});
+  }catch(e){safeText('dalpickTopicFirstStatus',`분석 오류: ${e.message}`);alert(e.message);}finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function dpConfirmTopicAnalysis(){
+  if(!dalpickTopicAnalysis)return alert('먼저 주제를 분석하세요.');
+  const category=dpRecommendedCategory(dalpickTopicAnalysis,val('dalpick_topic'));
+  setVal('dalpick_category',category);
+  updateDalpickTypeUI();
+  const req=dalpickTopicAnalysis.business_requirement||'optional';
+  const businessField=dpClosestField(qs('dalpick_business_id'));
+  if(businessField)businessField.hidden=req==='none';
+  if(req==='none')setVal('dalpick_business_id','');
+  safeText('dalpickBusinessRequirement',req==='required'?'필수':req==='none'?'사용 안 함':'선택 사항');
+  dpSetWorkflowReady(true);
+  safeText('dalpickTopicFirstStatus',`분류 확정: ${dpCategoryLabel(category)} · ${req==='required'?'업소 연결 필수':req==='none'?'업소 연결 없음':'업소 연결 선택'}`);
+  qs('dalpickTopicDetails')?.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function initDalpickTopicFirstWorkflow(){
+  const form=qs('dalpickForm'), topic=qs('dalpick_topic');
+  if(!form||!topic||qs('dalpickTopicFirstPanel'))return;
+  const hidden=qs('dalpick_id');
+  const categoryField=dpClosestField(qs('dalpick_category'));
+  const regionField=dpClosestField(qs('dalpick_region'));
+  const businessField=dpClosestField(qs('dalpick_business_id'));
+  const aiBox=topic.closest('.dalpick-ai-box');
+  const topicField=dpClosestField(topic);
+  const instructionsField=dpClosestField(qs('dalpick_instructions'));
+  const sourcesField=dpClosestField(qs('dalpick_sources'));
+
+  const panel=document.createElement('div');panel.id='dalpickTopicFirstPanel';panel.className='field full';
+  panel.style.cssText='padding:18px;border:1px solid #93c5fd;border-radius:14px;background:#f8fbff;order:-100;';
+  panel.innerHTML=`<div style="font-size:12px;font-weight:800;color:#2563eb">1단계 · 주제부터 입력</div><h3 style="margin:5px 0 4px">무엇에 관한 콘텐츠를 만들까요?</h3><p class="muted" style="margin:0 0 12px">AI가 주제를 분석한 뒤 콘텐츠 유형과 업소 연결 필요 여부를 추천합니다.</p><div id="dalpickTopicInputHost"></div><button type="button" id="dalpickTopicAnalyzeBtn" class="btn primary" style="width:100%;margin-top:10px;padding:11px">주제 분석하기</button><div id="dalpickTopicAnalysisResult" hidden></div><div id="dalpickTopicFirstStatus" class="muted" style="margin-top:10px">주제를 입력한 뒤 분석하세요.</div>`;
+  if(hidden?.nextSibling)form.insertBefore(panel,hidden.nextSibling);else form.prepend(panel);
+  qs('dalpickTopicInputHost')?.appendChild(topicField);
+
+  const details=document.createElement('div');details.id='dalpickTopicDetails';details.className='field full';details.hidden=true;
+  details.style.cssText='padding:16px;border:1px solid #dbeafe;border-radius:12px;background:#fff;';
+  details.innerHTML='<div style="font-size:12px;font-weight:800;color:#2563eb;margin-bottom:10px">3단계 · 추천 분류와 연결 설정</div><div id="dalpickClassificationFields" class="form-grid"></div>';
+  panel.insertAdjacentElement('afterend',details);
+  const fields=qs('dalpickClassificationFields');
+  if(categoryField)fields.appendChild(categoryField);
+  if(regionField)fields.appendChild(regionField);
+  if(businessField)fields.appendChild(businessField);
+
+  const article=document.createElement('div');article.id='dalpickArticleStep';article.className='field full';article.hidden=true;
+  article.style.cssText='display:contents;';
+  details.insertAdjacentElement('afterend',article);
+  if(aiBox){
+    article.appendChild(aiBox);
+    const head=aiBox.querySelector('.dalpick-ai-head strong');if(head)head.textContent='✨ 4단계 · AI 기사 작성';
+    const grid=aiBox.querySelector('.dalpick-ai-grid');
+    if(grid){if(instructionsField)grid.appendChild(instructionsField);if(sourcesField)grid.appendChild(sourcesField);}
+  }
+
+  qs('dalpickTopicAnalyzeBtn')?.addEventListener('click',dpAnalyzeTopic);
+  topic.addEventListener('input',()=>dpResetTopicAnalysis('주제가 바뀌었습니다. 다시 분석하세요.'));
+  if(selectedDalpickId||val('dalpick_title')){
+    dpSetWorkflowReady(true);
+    safeText('dalpickTopicFirstStatus','기존 콘텐츠 수정 모드입니다. 필요하면 주제를 다시 분석할 수 있습니다.');
+  }else dpSetWorkflowReady(false);
+}
+
+document.addEventListener('DOMContentLoaded',()=>setTimeout(initContentStudioV21,500));
+document.addEventListener('DOMContentLoaded',()=>setTimeout(initDalpickTopicFirstWorkflow,650));
+window.initDalpickTopicFirstWorkflow=initDalpickTopicFirstWorkflow;
+window.initContentStudioV21=initContentStudioV21;
+
+
+// ADMIN 2.0 AI MARKETING PUBLISH BRIDGE
+async function publishAIMarketingDraft(draft, options = {}) {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  if (!draft?.businessId) throw new Error('연결 업소가 없습니다.');
+  if (!draft?.title) throw new Error('제목이 없습니다.');
+  if (!draft?.image) throw new Error('이미지 URL이 없습니다.');
+
+  const business = businesses.find((b) => String(b.id) === String(draft.businessId));
+  const region = business?.region || getAppRegion();
+
+  if (draft.type === 'coupon') {
+    const payload = {
+      business_id: draft.businessId,
+      title: draft.title,
+      description: draft.subtitle || null,
+      discount_label: draft.subtitle || null,
+      image_url: draft.image,
+      start_at: new Date().toISOString(),
+      end_at: null,
+      is_active: true,
+      is_today_coupon: options.today !== false,
+      sort_order: 1000,
+      coupon_code: null,
+      use_link_url: null,
+      notify_emails: null,
+      notify_phones: null
+    };
+
+    const { data: coupon, error } = await supabase.from('coupons').insert(payload).select().single();
+    if (error) throw error;
+
+    let dalpick = null;
+    if (options.dalpick) {
+      const dalpickPayload = {
+        region,
+        category: 'coupon',
+        business_id: draft.businessId,
+        title: draft.title,
+        summary: draft.subtitle || draft.title,
+        content: draft.subtitle || draft.title,
+        image_url: draft.image,
+        is_featured: true,
+        is_active: true,
+        priority: 0,
+        start_at: new Date().toISOString(),
+        end_at: null
+      };
+      const { data, error: dalpickError } = await supabase.from('dalpick').insert(dalpickPayload).select().single();
+      if (dalpickError) {
+        console.warn('Coupon was published, but DalPick insert failed:', dalpickError);
+        throw new Error(`쿠폰은 게시됐지만 DalPick 연결에 실패했습니다: ${dalpickError.message}`);
+      }
+      dalpick = data;
+    }
+
+    await loadCoupons();
+    if (options.dalpick) await loadDalpicks();
+    return { type: 'coupon', couponId: coupon?.id || null, dalpickId: dalpick?.id || null };
+  }
+
+  if (draft.type === 'banner') {
+    const placement = options.home ? 'both' : 'detail';
+    const payload = {
+      title: draft.title,
+      image_url: draft.image,
+      link_url: `business:${draft.businessId}`,
+      business_id: draft.businessId,
+      region,
+      display_type: 'banner',
+      placement,
+      description: draft.subtitle || null,
+      button_label: '자세히 보기',
+      start_at: new Date().toISOString(),
+      end_at: null,
+      sort_order: 0,
+      is_active: true
+    };
+    const { data: banner, error } = await supabase.from('banners').insert(payload).select().single();
+    if (error) throw error;
+    await loadBanners();
+    return { type: 'banner', bannerId: banner?.id || null, placement };
+  }
+
+  throw new Error('쿠폰 또는 배너 초안만 최종 게시할 수 있습니다.');
+}
+
+window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+window.KFocusAdminBridge.publishAIMarketingDraft = publishAIMarketingDraft;

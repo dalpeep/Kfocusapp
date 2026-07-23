@@ -1,0 +1,7 @@
+업소 상세 타깃 광고 적용
+
+1. Supabase SQL Editor에서 supabase-business-detail-promotions.sql 실행
+2. 관리자 > 배너 관리에서 연결 업소 선택
+3. 표시 형식: 큰 이미지 배너 또는 일반 카드형
+4. 노출 위치: 연결 업소 상세만 / 홈+업소 상세
+5. 연결 배너 우선, 없으면 쿠폰, 없으면 업소 AI Pick 표시

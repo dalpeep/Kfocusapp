@@ -532,3 +532,127 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .ai-guide-actions .tiny{flex:1;min-width:240px}
 .ai-guide-actions button[disabled]{opacity:.65;cursor:wait}
 @media(max-width:720px){.ai-guide-actions .btn{width:100%}.ai-guide-actions .tiny{min-width:100%}}
+
+/* DalPick Content Studio */
+.dalpick-ai-box{border:1px solid #cfe0ff;border-radius:16px;padding:16px;background:linear-gradient(180deg,#f7fbff 0%,#fff 100%)}
+.dalpick-ai-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px}
+.dalpick-ai-head p{margin:4px 0 0}
+.dalpick-ai-grid{margin-top:8px}
+#dalpickAiStatus{margin-top:10px;min-height:20px}
+@media(max-width:760px){.dalpick-ai-head{flex-direction:column}.dalpick-ai-head .btn{width:100%}}
+
+.nav-group-title{padding:18px 14px 7px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.62}.premium-story-box{border:1px solid #f1c879;background:#fffaf0;border-radius:14px;padding:16px}.performance-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0}.metric-card{background:#fff;border:1px solid #dfe6f2;border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:6px}.metric-card strong{font-size:28px}.metric-card small{color:#64748b}.performance-row{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:12px;padding:12px;border-bottom:1px solid #edf1f7}.performance-table{margin-top:10px}@media(max-width:900px){.performance-grid{grid-template-columns:repeat(2,1fr)}.performance-row{grid-template-columns:1fr 1fr}}
+
+.theme-target-box{padding:14px;border:1px solid #dbe6f7;border-radius:14px;background:#f8fbff}.theme-target-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:10px 0}.theme-target-grid label{display:flex;gap:7px;align-items:center}.form-bottom-actions{display:flex;justify-content:flex-end;padding-top:8px}.form-bottom-actions .btn{min-width:160px}@media(max-width:700px){.theme-target-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* DalPick theme/admin UI stabilization */
+.theme-target-grid{grid-template-columns:repeat(3,minmax(180px,1fr));gap:10px 18px;align-items:center}
+.theme-target-grid label{display:flex;align-items:center;gap:9px;min-width:0;white-space:nowrap;font-size:14px;color:#1e293b}
+.theme-target-grid input[type="checkbox"]{width:18px!important;height:18px!important;min-width:18px;padding:0!important;margin:0;flex:0 0 18px;border-radius:4px}
+.dalpick-ai-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid #dbe6f7}
+.dalpick-ai-actions .checkbox-line{padding-top:0;margin:0}
+.dalpick-ai-action-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.dalpick-image-preview-wrap{padding:10px 0}
+.dalpick-image-preview{display:block;width:min(420px,100%);max-height:240px;object-fit:cover;border:1px solid var(--line);border-radius:14px;background:#f8fafc}
+@media(max-width:900px){.theme-target-grid{grid-template-columns:repeat(2,minmax(150px,1fr))}}
+@media(max-width:600px){.theme-target-grid{grid-template-columns:1fr}.dalpick-ai-actions{align-items:flex-start;flex-direction:column}.dalpick-ai-action-buttons{width:100%}.dalpick-ai-action-buttons .btn{flex:1}}
+
+/* DalTownMap v3.1 AI Advertising Studio */
+.nav-badge{display:inline-flex;align-items:center;margin-left:6px;padding:2px 6px;border-radius:999px;font-size:10px;font-weight:800;background:#fff1c7;color:#8a5a00;vertical-align:middle}
+.ai-studio-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,#f5f7ff 55%,#eef8ff 100%)}
+.ai-studio-hero h2{margin:4px 0 8px;font-size:28px}.ai-studio-kicker{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#5267d8}.ai-studio-hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ai-studio-grid{display:grid;grid-template-columns:minmax(320px,.82fr) minmax(420px,1.18fr);gap:16px;align-items:start}.ai-studio-input-card,.ai-studio-output-card{min-width:0}.ai-season-box{margin-top:18px;padding-top:16px;border-top:1px solid var(--line,#e5e7eb)}.ai-chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ai-season-chip{border:1px solid #d9deef;background:#f8f9ff;border-radius:999px;padding:7px 11px;cursor:pointer;font-size:12px}.ai-season-chip:hover{background:#eef1ff}
+.ai-empty-state{min-height:260px;display:grid;place-items:center;text-align:center;border:1px dashed #ccd3e3;border-radius:14px;color:#7c8496;background:#fafbfe}.ai-result-stack{display:grid;gap:12px}.ai-result-card{border:1px solid #e2e6ef;border-radius:14px;padding:14px;background:#fff}.ai-result-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.ai-result-card textarea{width:100%;resize:vertical;line-height:1.55;background:#fafbfc}.full-btn{width:100%;margin-top:9px}.btn.secondary{background:#eef2ff;border-color:#d9e0ff;color:#3448a8}
+@media(max-width:980px){.ai-studio-grid{grid-template-columns:1fr}.ai-studio-hero{align-items:flex-start;flex-direction:column}.ai-studio-hero-actions{width:100%}.ai-studio-hero-actions .btn{flex:1}}
+
+/* DalTownMap v3.2 Campaign Library */
+.ai-campaign-library{margin-bottom:16px}.ai-library-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.ai-library-tools input{min-width:230px}.ai-library-tools input,.ai-library-tools select,.ai-detail-actions select{padding:9px 11px;border:1px solid #d9deea;border-radius:10px;background:#fff}.ai-campaign-list{display:grid;gap:9px}.ai-campaign-row{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(150px,1fr) 110px 130px auto;gap:12px;align-items:center;padding:13px;border:1px solid #e2e6ef;border-radius:13px;background:#fff}.ai-campaign-row:hover{border-color:#bfc9ef;background:#fbfcff}.ai-campaign-title{font-weight:800;color:#172033}.ai-campaign-meta{font-size:12px;color:#6b7280;margin-top:3px}.ai-status-pill{display:inline-flex;justify-content:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}.ai-status-draft{background:#fff5d6;color:#865b00}.ai-status-completed{background:#e8f7ee;color:#12693a}.ai-status-published{background:#e9efff;color:#304caa}.ai-row-actions{display:flex;gap:6px;justify-content:flex-end}.ai-row-actions .btn{padding:7px 10px}.ai-list-empty{padding:28px;text-align:center;color:#7c8496;border:1px dashed #ccd3e3;border-radius:13px;background:#fafbfe}.ai-detail-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.ai-detail-actions .danger{border:1px solid #fecaca}.ai-campaign-row.is-active{border-color:#6d7fe7;box-shadow:0 0 0 2px rgba(83,105,218,.12)}
+@media(max-width:920px){.ai-campaign-row{grid-template-columns:1fr 1fr}.ai-row-actions{justify-content:flex-start}.ai-library-tools{width:100%}.ai-library-tools input{flex:1;min-width:160px}.ai-detail-actions{width:100%}.ai-detail-actions .btn,.ai-detail-actions select{flex:1}}
+
+/* DalTownMap v3.3 campaign hub */
+#aiCampaignRegisterBannerBtn{box-shadow:0 6px 16px rgba(37,99,235,.22)}
+.ai-detail-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media (max-width:760px){#aiCampaignRegisterBannerBtn{width:100%}.ai-detail-actions{width:100%}}
+
+/* DalTownMap v3.4 campaign editor */
+.hidden{display:none!important}
+.ai-campaign-row{cursor:pointer}
+.ai-campaign-row:focus-visible{outline:3px solid rgba(37,99,235,.28);outline-offset:2px}
+.ai-row-actions .danger{border:1px solid #fecaca;background:#fff1f2;color:#b91c1c}
+.ai-detail-actions button:disabled,.ai-detail-actions select:disabled{opacity:.45;cursor:not-allowed}
+
+
+/* v3.7 DalPick row edit/delete actions */
+.dalpick-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;cursor:pointer}
+.dalpick-row-copy{min-width:0}
+.dalpick-row-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.dalpick-row-actions .btn{white-space:nowrap;padding:9px 14px}
+@media (max-width:700px){.dalpick-row{grid-template-columns:auto minmax(0,1fr)}.dalpick-row-actions{grid-column:1/-1;width:100%;justify-content:flex-end}.dalpick-row-actions .btn{flex:0 0 auto}}
+
+/* DalTownMap v4.0 AI coupon studio */
+#aiCouponToday{width:auto}.ai-studio-input-card .checkbox-line{align-items:center;gap:8px}
+
+/* DalTownMap v5.0 selectable production types */
+.ai-step-block{border:1px solid #dbe5ff;background:linear-gradient(180deg,#f8fbff,#fff);border-radius:16px;padding:15px;margin-bottom:16px}.ai-step-title{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px}.ai-step-title>span{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#2563eb;color:#fff;font-weight:900;flex:none}.ai-step-title p{margin:3px 0 0;font-size:12px}.ai-step-two{margin-top:4px}.ai-asset-selector{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ai-asset-card{position:relative;display:grid;grid-template-columns:36px 1fr;grid-template-rows:auto auto;column-gap:10px;padding:12px;border:1px solid #dfe5f2;border-radius:13px;background:#fff;cursor:pointer;transition:.15s}.ai-asset-card:hover{border-color:#8fa7ef;transform:translateY(-1px)}.ai-asset-card:has(input:checked){border-color:#2563eb;background:#eff6ff;box-shadow:0 0 0 2px rgba(37,99,235,.09)}.ai-asset-card input{position:absolute;right:9px;top:9px;width:auto}.ai-asset-icon{grid-row:1/3;font-size:25px;align-self:center}.ai-asset-card strong{padding-right:20px}.ai-asset-card small{color:#64748b;margin-top:3px}.ai-package-actions{display:flex;gap:7px;margin-top:10px}.ai-result-card.asset-hidden{display:none}@media(max-width:560px){.ai-asset-selector{grid-template-columns:1fr}}
+
+.ai-image-action-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.ai-image-action-row .btn{flex:1;min-width:180px}.ai-chatgpt-image-btn{background:linear-gradient(135deg,#2563eb,#7c3aed);color:#fff;border:none}
+
+.ai-direct-image-btn{background:linear-gradient(135deg,#0f766e,#2563eb);color:#fff;border:none}.ai-generated-preview{flex-basis:100%;margin-top:10px;border:1px solid #cbd5e1;border-radius:14px;overflow:hidden;background:#fff}.ai-generated-preview img{display:block;width:100%;max-height:420px;object-fit:contain;background:#e2e8f0}.ai-generated-meta{display:flex;justify-content:space-between;gap:12px;padding:10px 12px;font-size:13px;color:#166534}.ai-generated-meta a{color:#1d4ed8;font-weight:700}.ai-generated-preview.hidden{display:none}
+
+/* v9.0 unified image manager */
+.image-manager-box{border:1px solid #d8e3f8;border-radius:14px;padding:14px;background:#f8fbff}.image-manager-box>.field{margin-top:10px}.image-manager-box .upload-row{flex-wrap:wrap;gap:8px}.dalpick-image-preview{max-width:520px;width:100%;max-height:320px;object-fit:cover;border-radius:14px;border:1px solid #d7e0ef;background:#fff}
+
+
+/* Admin 2.0 preview / approval / final publishing */
+.am-actions .am-publish{background:#0f766e;color:#fff;border-color:#0f766e;font-weight:800}
+.am-actions button:disabled{opacity:.42;cursor:not-allowed}
+.am-published-note{margin-top:10px;padding:9px 12px;border-radius:10px;background:#ecfdf5;color:#047857;font-weight:700}
+.am-status.published{background:#d1fae5;color:#065f46}
+.am-modal[hidden]{display:none!important}
+.am-modal{position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,.72);display:flex;align-items:center;justify-content:center;padding:22px;overflow:auto}
+.am-modal-card{position:relative;width:min(820px,96vw);max-height:94vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.35);padding:24px}
+.am-modal-close{position:absolute;right:14px;top:12px;width:38px;height:38px;border:0;border-radius:50%;font-size:28px;line-height:1;background:#f1f5f9;cursor:pointer}
+.am-preview-shell{display:grid;gap:20px}
+.am-preview-title{display:flex;justify-content:space-between;gap:14px;align-items:center;padding-right:42px}
+.am-preview-title>div{display:grid;gap:4px}.am-preview-title strong{font-size:22px}.am-preview-title span{color:#64748b}
+.am-device{width:min(390px,100%);margin:auto;border:10px solid #111827;border-radius:32px;overflow:hidden;background:#f8fafc;box-shadow:0 18px 40px rgba(15,23,42,.22)}
+.am-device-bar{padding:16px 18px 12px;background:#fff;font-weight:900;text-align:center;border-bottom:1px solid #e2e8f0}
+.am-live-preview{position:relative;overflow:hidden;background:#e2e8f0}
+.am-live-preview.coupon{aspect-ratio:1/1}.am-live-preview.banner{aspect-ratio:16/7}
+.am-live-preview img{width:100%;height:100%;display:block;object-fit:cover}
+.am-live-preview .am-overlay{position:absolute;inset:auto 0 0;padding:42px 18px 18px;color:white;background:linear-gradient(transparent,rgba(0,0,0,.84));display:grid;gap:5px}
+.am-live-preview .am-overlay b{font-size:22px;line-height:1.2}.am-live-preview .am-overlay span{font-size:14px}
+.am-preview-location{padding:15px 16px;background:#fff;color:#475569;font-size:13px;text-align:center}
+.am-publish-options{border:1px solid #e2e8f0;border-radius:16px;padding:18px;display:grid;gap:12px;background:#f8fafc}
+.am-publish-options h4{margin:0 0 2px;font-size:17px}.am-publish-options label{display:flex;gap:9px;align-items:center;font-weight:650}
+.am-publish-options .btn{margin-top:8px;min-height:46px}
+@media(max-width:620px){.am-modal{padding:8px}.am-modal-card{padding:18px 12px;border-radius:14px}.am-preview-title strong{font-size:18px}.am-device{border-width:7px;border-radius:26px}}
+
+/* Admin 2.0.1: publish placement clarity */
+.am-placement-group{display:grid;gap:10px;padding:14px;border:1px solid #dbe3ee;border-radius:13px;background:#fff}
+.am-placement-group+.am-placement-group{margin-top:2px}
+.am-placement-fixed{background:#f8fafc}
+.am-placement-heading{display:flex;justify-content:space-between;gap:12px;align-items:center;padding-bottom:7px;border-bottom:1px solid #e5e7eb}
+.am-placement-heading strong{font-size:15px;color:#0f172a}
+.am-placement-heading span{font-size:12px;color:#64748b;font-weight:600}
+.am-placement-fixed input[disabled]{opacity:1;accent-color:#2563eb}
+.am-publish-summary{padding:14px 16px;border-radius:13px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+.am-publish-summary strong{display:block;margin-bottom:8px}
+.am-publish-summary ul{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-weight:700}
+@media(max-width:600px){.am-placement-heading{align-items:flex-start;flex-direction:column;gap:3px}}
+
+/* Admin 2.1 Marketing CRM */
+.crm-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;background:linear-gradient(135deg,#eff6ff,#fff);margin-bottom:16px}.crm-kicker{display:inline-block;font-size:12px;font-weight:900;color:#2563eb;margin-bottom:5px}.crm-hero h2{margin:0 0 6px}.crm-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}.crm-metrics article span,.crm-metrics article small{display:block;color:#64748b}.crm-metrics article strong{display:block;font-size:32px;margin:7px 0;color:#0f172a}.crm-layout{display:grid;grid-template-columns:1.35fr .65fr;gap:16px;margin-bottom:16px}.crm-task-list{display:grid;gap:8px}.crm-task{display:flex;justify-content:space-between;align-items:center;gap:12px;border:1px solid #e2e8f0;border-radius:12px;padding:11px}.crm-task div{display:grid;gap:3px}.crm-task span{font-size:13px;color:#64748b}.crm-rule-grid{display:grid;gap:9px;margin:12px 0}.crm-rule-grid label{display:grid;grid-template-columns:1fr 82px 20px;align-items:center;gap:8px;font-size:13px}.crm-toolbar{display:grid;grid-template-columns:1fr 180px 180px;gap:10px;margin-bottom:14px}.crm-business-list{display:grid;gap:12px}.crm-business-card{border:1px solid #e2e8f0;border-left:5px solid #94a3b8;border-radius:14px;padding:14px;background:#fff}.crm-business-card[data-status="good"]{border-left-color:#22c55e}.crm-business-card[data-status="warn"]{border-left-color:#f59e0b}.crm-business-card[data-status="risk"]{border-left-color:#ef4444}.crm-business-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.crm-business-head>div:first-child{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.crm-business-head small{grid-column:2;color:#64748b;margin-top:2px}.crm-dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;grid-row:1/3}.crm-dot.good{background:#22c55e}.crm-dot.warn{background:#f59e0b}.crm-dot.risk{background:#ef4444}.crm-score{display:flex;align-items:baseline;gap:4px}.crm-score b{font-size:25px}.crm-score span{font-size:12px;color:#64748b}.crm-score.good b{color:#15803d}.crm-score.warn b{color:#b45309}.crm-score.risk b{color:#b91c1c}.crm-content-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:13px 0}.crm-content-cell{border:1px solid #e2e8f0;border-radius:12px;padding:10px;display:grid;gap:3px}.crm-content-cell>div{display:flex;justify-content:space-between}.crm-content-cell span{font-weight:900}.crm-content-cell small{color:#64748b}.crm-content-cell.ok{background:#f0fdf4;border-color:#bbf7d0}.crm-content-cell.due{background:#fff7ed;border-color:#fed7aa}.crm-manual-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:9px 0;border-top:1px dashed #e2e8f0}.crm-manual-row>span{font-weight:800}.crm-card-actions{display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap}.btn.small{padding:7px 10px;font-size:12px}.crm-empty{padding:20px;text-align:center;color:#64748b;background:#f8fafc;border-radius:12px}@media(max-width:900px){.crm-metrics{grid-template-columns:repeat(2,1fr)}.crm-layout{grid-template-columns:1fr}.crm-toolbar{grid-template-columns:1fr}.crm-content-grid{grid-template-columns:1fr}.crm-hero{align-items:flex-start;flex-direction:column}}@media(max-width:520px){.crm-metrics{grid-template-columns:1fr}.crm-business-head{align-items:flex-start}.crm-card-actions{justify-content:flex-start}}
+
+
+/* Admin 24.2: actual home DalPick exposure inspector */
+.dalpick-exposure-panel{margin-bottom:18px}
+.dalpick-exposure-list{display:grid;gap:10px}
+.dalpick-exposure-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line,#e5e7eb);border-radius:14px;background:var(--panel,#fff)}
+.dalpick-exposure-source{min-width:66px;padding:6px 9px;border-radius:999px;text-align:center;font-size:12px;font-weight:800;background:#eef2ff;color:#3730a3}
+.dalpick-exposure-source.coupon{background:#fff7ed;color:#c2410c}
+.dalpick-exposure-copy{display:flex;min-width:0;flex-direction:column;gap:3px}
+.dalpick-exposure-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dalpick-exposure-copy span{font-size:12px;color:var(--muted,#6b7280)}
+.dalpick-exposure-empty{padding:18px;border:1px dashed var(--line,#d1d5db);border-radius:12px;text-align:center}
+@media(max-width:640px){.dalpick-exposure-item{grid-template-columns:auto minmax(0,1fr)}.dalpick-exposure-open{grid-column:1/-1;width:100%}}

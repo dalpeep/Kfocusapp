@@ -4312,3 +4312,219 @@ body,
 .guide-latest .section-head{padding:0 2px 8px}
 .guide-latest .section-head h3{margin:0;font-size:17px;color:#263e64}
 @media(min-width:760px){.guide-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+/* DalPick home */
+.dalpick-home-list{display:grid;gap:12px}.dalpick-card{width:100%;display:grid;grid-template-columns:112px 1fr;gap:14px;align-items:center;text-align:left;border:1px solid #e5e7eb;background:#fff;border-radius:18px;padding:10px;box-shadow:0 8px 22px rgba(15,23,42,.06)}.dalpick-card img{width:112px;height:88px;object-fit:cover;border-radius:13px}.dalpick-card strong{display:block;margin:5px 0;font-size:16px;color:#111827}.dalpick-card p{margin:0;color:#64748b;font-size:13px;line-height:1.4}.dalpick-badge{display:inline-flex;background:#eaf2ff;color:#1769e0;font-weight:800;font-size:10px;padding:4px 7px;border-radius:999px;letter-spacing:.04em}@media(max-width:520px){.dalpick-card{grid-template-columns:96px 1fr}.dalpick-card img{width:96px;height:82px}}
+
+/* Business detail AI Pick */
+#detailCard .business-ai-pick{
+  position:relative;
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin:-18px 16px 14px;
+  padding:16px;
+  border:1px solid rgba(35,105,220,.18);
+  border-radius:20px;
+  background:linear-gradient(135deg,#f7fbff 0%,#eef5ff 100%);
+  box-shadow:0 10px 26px rgba(28,82,165,.13);
+  z-index:3;
+  overflow:hidden;
+}
+#detailCard .business-ai-pick::after{
+  content:"";
+  position:absolute;
+  width:96px;
+  height:96px;
+  right:-36px;
+  top:-45px;
+  border-radius:50%;
+  background:rgba(52,120,246,.08);
+}
+#detailCard .business-ai-pick-image{
+  width:72px;
+  height:72px;
+  flex:0 0 72px;
+  object-fit:cover;
+  border-radius:16px;
+  box-shadow:0 5px 14px rgba(25,75,150,.16);
+}
+#detailCard .business-ai-pick-copy{min-width:0;position:relative;z-index:1;}
+#detailCard .business-ai-pick-label{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:5px;
+  color:#1466d8;
+  font-size:12px;
+  line-height:1;
+  font-weight:800;
+  letter-spacing:.06em;
+}
+#detailCard .business-ai-pick-dot{
+  width:9px;
+  height:9px;
+  border:3px solid #2f78e8;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 0 0 3px rgba(47,120,232,.12);
+}
+#detailCard .business-ai-pick h3{
+  margin:0 0 5px;
+  color:#102d59;
+  font-size:18px;
+  line-height:1.3;
+}
+#detailCard .business-ai-pick p{
+  margin:0;
+  color:#52657f;
+  font-size:14px;
+  line-height:1.55;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+@media (max-width:480px){
+  #detailCard .business-ai-pick{margin:-14px 12px 12px;padding:14px;border-radius:18px;}
+  #detailCard .business-ai-pick-image{width:62px;height:62px;flex-basis:62px;border-radius:14px;}
+  #detailCard .business-ai-pick h3{font-size:17px;}
+}
+
+/* Guide/Life split: center the two community tabs across the full row */
+#communityTabs.community-tabs{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  width:auto;
+}
+#communityTabs .community-tab{
+  width:100%;
+  text-align:center;
+  justify-content:center;
+}
+
+/* Business Story Premium public connection */
+#communityTabs.community-tabs{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}
+.board-detail-v3-badges .sponsored{background:#fff3cd;color:#7a5300;border:1px solid #f2d675;}
+.business-ai-pick-link{margin-top:10px;border:0;background:transparent;padding:0;font-weight:800;cursor:pointer;text-align:left;text-decoration:underline;}
+
+
+/* Business detail compact theme card */
+#detailCard .business-theme-card{width:calc(100% - 24px);margin:10px 12px 12px;padding:10px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #e4e7ec;border-radius:16px;background:#f7f7f8;text-align:left;box-shadow:0 5px 14px rgba(15,23,42,.06);cursor:pointer}
+#detailCard .business-theme-thumb{width:92px;height:78px;border-radius:12px;overflow:hidden;background:#eef2f7;display:grid;place-items:center;font-size:26px}
+#detailCard .business-theme-thumb img{width:100%;height:100%;object-fit:cover}
+#detailCard .business-theme-copy{min-width:0}
+#detailCard .business-theme-top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+#detailCard .business-theme-top span{font-size:11px;font-weight:900;color:#2865cf;background:#eaf2ff;padding:3px 7px;border-radius:999px}
+#detailCard .business-theme-top small{font-size:11px;color:#667085;white-space:nowrap}
+#detailCard .business-theme-card h3{margin:0 0 4px;font-size:16px;line-height:1.3;color:#20242c;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#detailCard .business-theme-card p{margin:0;color:#7a808b;font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:420px){#detailCard .business-theme-card{grid-template-columns:82px minmax(0,1fr)}#detailCard .business-theme-thumb{width:82px;height:72px}}
+
+
+/* 업소 탭 메인 추천 테마 */
+.business-theme-spot:empty{display:none}
+.business-theme-spot{margin:0 0 14px}
+.business-main-theme-card{width:100%;padding:10px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #dbe6ff;border-radius:18px;background:linear-gradient(135deg,#f8fbff,#eef4ff);text-align:left;box-shadow:0 6px 18px rgba(37,99,235,.08);cursor:pointer}
+.business-main-theme-thumb{width:92px;height:76px;border-radius:14px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px}
+.business-main-theme-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.business-main-theme-copy{min-width:0}
+.business-main-theme-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.business-main-theme-top span{font-size:11px;font-weight:900;color:#2563eb;background:#dbeafe;border-radius:999px;padding:4px 7px}
+.business-main-theme-top small{font-size:11px;color:#64748b;white-space:nowrap}
+.business-main-theme-card h3{margin:0 0 4px;font-size:16px;line-height:1.28;color:#172033;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.business-main-theme-card p{margin:0;font-size:12px;line-height:1.35;color:#64748b;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:420px){.business-main-theme-card{grid-template-columns:82px minmax(0,1fr)}.business-main-theme-thumb{width:82px;height:72px}}
+
+/* 개별 업소 상세 상단: 해당 업소 쿠폰/광고 */
+#detailCard .business-top-promo{width:calc(100% - 24px);margin:10px 12px 12px;padding:10px;display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #fee2e2;border-radius:16px;background:linear-gradient(135deg,#fff7ed,#fff1f2);text-align:left;box-shadow:0 5px 14px rgba(15,23,42,.06)}
+#detailCard button.business-top-promo{cursor:pointer}
+#detailCard .business-top-promo-thumb{width:92px;height:72px;border-radius:13px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px}
+#detailCard .business-top-promo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+#detailCard .business-top-promo-copy{min-width:0}
+#detailCard .business-top-promo-label{display:inline-block;margin-bottom:4px;padding:3px 7px;border-radius:999px;background:#ffedd5;color:#c2410c;font-size:11px;font-weight:900}
+#detailCard .business-top-promo h3{margin:0 0 4px;font-size:16px;line-height:1.3;color:#20242c;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#detailCard .business-top-promo p{margin:0;color:#7a808b;font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:420px){#detailCard .business-top-promo{grid-template-columns:82px minmax(0,1fr)}#detailCard .business-top-promo-thumb{width:82px;height:68px}}
+
+
+/* Business detail targeted advertising */
+#detailCard .business-detail-banner{position:relative;width:calc(100% - 24px);margin:10px 12px 12px;padding:0;border:0;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 6px 18px rgba(15,23,42,.10);cursor:pointer;display:block}
+#detailCard .business-detail-banner img{width:100%;max-height:180px;aspect-ratio:16/5;object-fit:cover;display:block}
+#detailCard .business-detail-banner-badge{position:absolute;right:10px;top:9px;padding:3px 8px;border:1px solid rgba(255,255,255,.75);border-radius:999px;background:rgba(15,23,42,.55);color:#fff;font-size:10px;font-weight:800;letter-spacing:.08em}
+#detailCard .business-detail-ad-card{width:calc(100% - 24px);margin:10px 12px 12px;padding:10px;display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #e2e8f0;border-radius:17px;background:#fff;text-align:left;box-shadow:0 5px 16px rgba(15,23,42,.07);cursor:pointer}
+#detailCard .business-detail-ad-thumb{width:96px;height:78px;border-radius:13px;overflow:hidden;background:#f1f5f9}
+#detailCard .business-detail-ad-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+#detailCard .business-detail-ad-copy{min-width:0}
+#detailCard .business-detail-ad-label{font-size:9px;font-weight:900;letter-spacing:.08em;color:#64748b;margin-bottom:3px}
+#detailCard .business-detail-ad-card h3{margin:0 0 4px;font-size:16px;line-height:1.25;color:#172033;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#detailCard .business-detail-ad-card p{margin:0 0 4px;color:#64748b;font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#detailCard .business-detail-ad-card span{font-size:11px;font-weight:800;color:#2563eb}
+@media(max-width:420px){#detailCard .business-detail-ad-card{grid-template-columns:84px minmax(0,1fr)}#detailCard .business-detail-ad-thumb{width:84px;height:72px}}
+
+
+/* Business detail: make a lone video preview match the hero image width */
+#detailCard .biz-gallery-strip.video-only{
+  display:block !important;
+  width:100% !important;
+  padding:0 !important;
+  margin:0 !important;
+  overflow:visible !important;
+}
+#detailCard .biz-gallery-strip.video-only .biz-gallery-thumb.video-thumb{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  aspect-ratio:16 / 9 !important;
+  margin:0 !important;
+  border-radius:24px !important;
+  background:#000 !important;
+}
+#detailCard .biz-gallery-strip.video-only .video-overlay{
+  width:100% !important;
+  height:100% !important;
+}
+
+
+/* v3.5 business detail banner copy overlay */
+#detailCard .business-detail-banner{min-height:150px;text-align:left;color:#fff}
+#detailCard .business-detail-banner img{max-height:220px;aspect-ratio:16/6}
+#detailCard .business-detail-banner-shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,12,28,.82) 0%,rgba(5,12,28,.52) 48%,rgba(5,12,28,.08) 100%);pointer-events:none}
+#detailCard .business-detail-banner-copy{position:absolute;left:18px;right:72px;bottom:16px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:5px;text-shadow:0 2px 8px rgba(0,0,0,.45)}
+#detailCard .business-detail-banner-copy strong{font-size:clamp(18px,4.8vw,25px);line-height:1.18;font-weight:900;color:#fff}
+#detailCard .business-detail-banner-copy small{font-size:13px;line-height:1.35;color:rgba(255,255,255,.92);font-style:normal}
+#detailCard .business-detail-banner-copy em{margin-top:3px;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.94);color:#173f91;font-size:12px;font-weight:900;font-style:normal;text-shadow:none}
+#detailCard .business-detail-banner-badge{z-index:3}
+@media (max-width:480px){#detailCard .business-detail-banner-copy{left:14px;right:58px;bottom:13px}#detailCard .business-detail-banner-copy small{font-size:12px}#detailCard .business-detail-banner img{min-height:155px}}
+
+/* DalTownMap v7.0 - DalPick adaptive carousel */
+.dalpick-home-list{display:block;min-width:0}
+.dalpick-carousel{width:100%;min-width:0}
+.dalpick-viewport{overflow:hidden;border-radius:18px;touch-action:pan-y}
+.dalpick-track{display:flex;width:100%;transition:transform .42s cubic-bezier(.22,.61,.36,1);will-change:transform}
+.dalpick-slide{flex:0 0 100%;min-width:0;padding:0 1px;box-sizing:border-box}
+.dalpick-slide .dalpick-card{height:100%;min-height:108px}
+.dalpick-dots{display:flex;justify-content:center;align-items:center;gap:7px;padding:10px 0 1px}
+.dalpick-dot{width:7px;height:7px;border:0;border-radius:999px;background:#cbd5e1;padding:0;transition:width .2s ease,background .2s ease}
+.dalpick-dot.active{width:25px;background:#5370f3}
+.dalpick-carousel.is-single .dalpick-viewport{overflow:visible}
+.dalpick-badge.badge-coupon{background:#fff1e7;color:#e96316}
+.dalpick-badge.badge-business_story{background:#eaf2ff;color:#1769e0}
+.dalpick-badge.badge-themed,.dalpick-badge.badge-recommended{background:#e9f8ef;color:#17834a}
+.dalpick-badge.badge-ai_pick{background:#f1eaff;color:#7545d6}
+.dalpick-badge.badge-event{background:#fff0f0;color:#df3b3b}
+.dalpick-badge.badge-promotion{background:#fff7dd;color:#9a6a00}
+@media(max-width:520px){.dalpick-slide .dalpick-card{min-height:102px}}
+
+
+/* v8.4 recommendation theme + main banner carousels */
+.business-theme-carousel,.main-banner-carousel{width:100%;overflow:hidden}
+.business-theme-viewport,.main-banner-viewport{overflow:hidden;width:100%;touch-action:pan-y}
+.business-theme-track,.main-banner-track{display:flex;width:100%;transition:transform .38s ease;will-change:transform}
+.business-theme-slide,.main-banner-slide{flex:0 0 100%;min-width:100%}
+.business-theme-slide .business-main-theme-card,.main-banner-slide .main-banner-card{width:100%}
+.business-theme-dots,.main-banner-dots{display:flex;justify-content:center;align-items:center;gap:7px;padding:8px 0 2px}
+.business-theme-dot,.main-banner-dot{width:8px;height:8px;border:0;border-radius:999px;background:#cbd5e1;padding:0;transition:width .2s ease,background .2s ease}
+.business-theme-dot.active,.main-banner-dot.active{width:24px;background:#5b6df8}
+.main-banner-carousel .main-banner-card{display:block;border:0;padding:0;background:transparent;border-radius:22px;overflow:hidden;cursor:pointer}
+.main-banner-carousel .main-banner-card img{display:block;width:100%;height:auto;aspect-ratio:16/7;object-fit:cover}
+.business-theme-carousel.is-single .business-theme-dots,.main-banner-carousel.is-single .main-banner-dots{display:none}
