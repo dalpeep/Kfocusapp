@@ -24,7 +24,7 @@ let currentUser = null;
 let authClient = null;
 let currentLocationMarker = null;
 let suppressMapUiChange = false;
-let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; 
+let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; let selectedMapBusinessId = ''; let mapVisibleCounts = { business:0, coupon:0, event:0 }; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
 const REGION_CENTER_MAP = { colorado: COLORADO_CENTER, dallas: DALLAS_CENTER, dfw: DALLAS_CENTER };
@@ -95,6 +95,8 @@ const mapCategoryRow = $('#mapCategoryRow');
 const mapSearchAreaBtn = $('#mapSearchAreaBtn');
 const mapLocateBtn = $('#mapLocateBtn');
 const mapBottomPanel = $('#mapBottomPanel');
+const mapBottomTitle = $('#mapBottomTitle');
+const mapBusinessPreview = $('#mapBusinessPreview');
 const mapBottomList = $('#mapBottomList');
 const mapBottomClose = $('#mapBottomClose');
 const searchOverlay = $('#searchOverlay');
@@ -842,13 +844,36 @@ function getMainCategoryLabel(cat=''){
 
   return '서비스';
 }
+function mapModeLabel(mode){
+  return mode === 'coupon' ? '쿠폰' : mode === 'event' ? '행사' : '업소';
+}
 function renderMapFilters(){
-  $$('.map-filter-chip').forEach(btn=>btn.classList.toggle('active', btn.dataset.mapFilter===mapMode));
+  $$('.map-filter-chip').forEach(btn=>{
+    const mode = btn.dataset.mapFilter;
+    const count = Number(mapVisibleCounts[mode] || 0);
+    btn.classList.toggle('active', mode===mapMode);
+    btn.classList.toggle('hidden', count < 1);
+    btn.textContent = `${mapModeLabel(mode)} ${count}`;
+  });
   const categories = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
   if(mapCategoryRow){
     mapCategoryRow.innerHTML = categories.map(c=>`<button class="map-category-chip ${c===mapCategory?'active':''}" data-map-cat="${esc(c)}">${esc(c)}</button>`).join('');
     mapCategoryRow.classList.toggle('hidden', mapMode!=='business');
   }
+}
+function updateMapFilterAvailability(baseList){
+  const rows = Array.isArray(baseList) ? baseList : [];
+  const couponIds = new Set(activeMapCoupons().map(c=>String(c.businessId)));
+  mapVisibleCounts = {
+    business: rows.length,
+    coupon: rows.filter(b=>couponIds.has(String(b.id))).length,
+    event: rows.filter(b=>Boolean(b.has_event)).length
+  };
+  if(!mapVisibleCounts[mapMode]){
+    mapMode = mapVisibleCounts.business ? 'business' : mapVisibleCounts.coupon ? 'coupon' : mapVisibleCounts.event ? 'event' : 'business';
+    if(mapMode !== 'business') mapCategory = '';
+  }
+  renderMapFilters();
 }
 
 async function loadRealData(){
@@ -1715,9 +1740,39 @@ function mapBottomItemHTML(b){
 function renderMapBottomList(list){
   if(!mapBottomList) return;
   const rows = list || [];
-  mapBottomList.innerHTML = rows.length ? rows.map(mapBottomItemHTML).join('') : '<div class="map-bottom-empty">표시할 업소가 없습니다.</div>';
-  mapBottomPanel?.classList.toggle('hidden', !rows.length);
-  if(rows.length && mapMode === 'business') mapBottomPanel?.classList.remove('collapsed');
+  selectedMapBusinessId = '';
+  mapBusinessPreview?.classList.add('hidden');
+  mapBottomList.classList.remove('hidden');
+  if(mapBottomTitle) mapBottomTitle.textContent = `주변 ${mapModeLabel(mapMode)} ${rows.length}곳`;
+  mapBottomList.innerHTML = rows.length ? rows.map(mapBottomItemHTML).join('') : '<div class="map-bottom-empty">이 지역에 표시할 정보가 없습니다.</div>';
+  mapBottomPanel?.classList.remove('hidden');
+}
+function mapBusinessPreviewHTML(b){
+  const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
+  const miles = currentCenter && Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
+    ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
+  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  if(Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
+  return `<div class="map-preview-card">
+    <div class="map-preview-main">
+      <img src="${esc(b.image || b.image_url || '/assets/kfocus-icon.png')}" alt="${esc(b.name)}">
+      <div><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span><p>${esc(b.address || '')}</p>${hasCoupon?'<em>🎟 사용 가능한 쿠폰</em>':''}</div>
+    </div>
+    <div class="map-preview-actions">
+      ${b.phone?`<a href="tel:${esc(b.phone)}" data-map-action="phone" data-map-id="${esc(b.id)}">전화</a>`:''}
+      <a href="https://www.google.com/maps/dir/?api=1&destination=${Number(b.lat)},${Number(b.lng)}" target="_blank" rel="noopener" data-map-action="direction" data-map-id="${esc(b.id)}">길찾기</a>
+      <button type="button" data-map-detail="${esc(b.id)}">상세정보</button>
+    </div>
+  </div>`;
+}
+function showMapBusinessPreview(b){
+  if(!b || !mapBusinessPreview || !mapBottomList) return;
+  selectedMapBusinessId = String(b.id || '');
+  mapBottomList.classList.add('hidden');
+  mapBusinessPreview.innerHTML = mapBusinessPreviewHTML(b);
+  mapBusinessPreview.classList.remove('hidden');
+  if(mapBottomTitle) mapBottomTitle.textContent = '업소 정보';
+  mapBottomPanel?.classList.remove('collapsed','hidden');
 }
 
 function nearbyBusinessItemHTML(b){
@@ -3774,7 +3829,7 @@ function getFilteredMapBusinesses(){
     const couponBizIds = new Set(activeMapCoupons().map(c=>String(c.businessId)));
     list = list.filter(b=>couponBizIds.has(String(b.id)));
   } else if(mapMode==='event'){
-    list = [];
+    list = list.filter(b=>Boolean(b.has_event));
   } else if(mapCategory){
     list = list.filter(b=>getMainCategoryLabel(b.category)===mapCategory);
   }
@@ -3891,14 +3946,25 @@ function getMarkerIconForBusiness(b){
   return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
 }
 
+function panMapAboveBottomPanel(lat, lng){
+  if(!map) return;
+  const panelHeight = Math.min(mapBottomPanel?.offsetHeight || 150, 260);
+  const offset = getMapVerticalOffsetLat(lat, Math.max(90, panelHeight * .55));
+  map.panTo({ lat:Number(lat) - offset, lng:Number(lng) });
+}
+
 function redrawMapMarkers(){
   if(!map || !window.google?.maps) return;
   if(markerCluster){ markerCluster.setMap(null); markerCluster = null; }
   markers.forEach(m=>m.setMap(null));
   markers = [];
-  const list = getFilteredMapBusinesses();
   const focus = currentCenter || getRegionCenter(currentRegion);
   const radiusMiles = String(mapRadius)==='all' ? null : Number(mapRadius || radiusByZoom(map?.getZoom?.() || 12));
+  let baseList = businesses.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)]));
+  const nearbyBase = !radiusMiles ? baseList : baseList.filter(b=>haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng)) <= radiusMiles);
+  updateMapFilterAvailability(nearbyBase.length ? nearbyBase : baseList);
+  const list = getFilteredMapBusinesses();
   const filtered = !radiusMiles ? list : list.filter(b=>{
     const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
     return miles <= radiusMiles;
@@ -3916,9 +3982,9 @@ function redrawMapMarkers(){
     const icon = getMarkerIconForBusiness(b);
     const marker = new google.maps.Marker({ position:{lat, lng}, title:b.name, icon });
     marker.addListener('click', ()=>{
-      panMapForVisibleInfo(lat, lng);
-      mapInfoWindow.setContent(createInfoWindowContent({...b, lat, lng}));
-      mapInfoWindow.open({ anchor: marker, map, shouldFocus:false });
+      panMapAboveBottomPanel(lat, lng);
+      showMapBusinessPreview({...b, lat, lng});
+      if(mapInfoWindow) mapInfoWindow.close();
     });
     markers.push(marker);
   });
@@ -4437,7 +4503,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-use-open'); if(!btn) return; e.preventDefault(); renderCouponUse(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-use'); });
   document.addEventListener('click', e=>{ const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call'); const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction'); });
-  mapFilterRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-filter-chip'); if(!btn) return; mapMode = btn.dataset.mapFilter || 'business'; if(mapMode!=='business') mapCategory=''; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
+  mapFilterRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-filter-chip'); if(!btn || btn.classList.contains('hidden')) return; mapMode = btn.dataset.mapFilter || 'business'; selectedMapBusinessId=''; if(mapMode!=='business') mapCategory=''; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
   mapCategoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-category-chip'); if(!btn) return; mapCategory = btn.dataset.mapCat || '전체'; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
 mapSearchAreaBtn?.addEventListener('click', () => {
   if (!mapReady || !map) return;
@@ -4471,6 +4537,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       mapRadius = radiusByZoom(zoom);
       showCurrentLocationMarker(currentCenter);
       redrawMapMarkers();
+      setTimeout(()=>panMapAboveBottomPanel(currentCenter.lat, currentCenter.lng), 120);
       google.maps.event.addListenerOnce(map, 'idle', ()=>{
         suppressMapUiChange = false;
         setMapUiState('current');
@@ -4481,9 +4548,17 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       }, 500);
     }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 });
   });
-  mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapForVisibleInfo(pos.lat, pos.lng); if(mapInfoWindow){ mapInfoWindow.setContent(createInfoWindowContent(biz)); mapInfoWindow.setPosition(pos); mapInfoWindow.open({ map, shouldFocus:false }); }
-  mapBottomPanel?.classList.add('collapsed'); });
-  mapBottomClose?.addEventListener('click', ()=> mapBottomPanel?.classList.add('collapsed'));
+  mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapAboveBottomPanel(pos.lat, pos.lng); showMapBusinessPreview(biz); if(mapInfoWindow) mapInfoWindow.close(); });
+  mapBusinessPreview?.addEventListener('click', e=>{
+    const detail = e.target.closest('[data-map-detail]');
+    if(detail){ const id=detail.dataset.mapDetail; selectedBizId=id; currentDetailVideoOverride=''; lastBasePage='map'; renderDetail(id); showPage('business-detail'); return; }
+    const action = e.target.closest('[data-map-action]');
+    if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction);
+  });
+  mapBottomClose?.addEventListener('click', ()=>{
+    if(selectedMapBusinessId){ redrawMapMarkers(); return; }
+    mapBottomPanel?.classList.toggle('collapsed');
+  });
   mapBottomPanel?.addEventListener('click', (e)=>{
     if(e.target === mapBottomPanel || e.target.closest('.map-bottom-head strong')) mapBottomPanel.classList.toggle('collapsed');
   });
