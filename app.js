@@ -858,11 +858,18 @@ function renderMapFilters(){
   });
 }
 
-function renderMapNameStrip(list=[]){
+function renderMapCategorySummary(list=[]){
   if(!mapCategoryRow) return;
-  const rows = (Array.isArray(list) ? list : []).slice(0, 14);
-  mapCategoryRow.innerHTML = rows.map(b=>`<button class="map-business-name-chip" data-map-name-biz="${esc(b.id)}">${esc(b.name || b.name_ko || b.name_en || '업소')}</button>`).join('');
-  mapCategoryRow.classList.toggle('hidden', rows.length < 1);
+  const rows = Array.isArray(list) ? list : [];
+  const counts = rows.reduce((acc,b)=>{
+    const label = getMainCategoryLabel(b.category);
+    if(label) acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  },{});
+  const order = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const items = order.filter(label=>counts[label] > 0);
+  mapCategoryRow.innerHTML = items.map(label=>`<button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]}</button>`).join('');
+  mapCategoryRow.classList.toggle('hidden', items.length < 1 || mapMode !== 'business');
 }
 function updateMapFilterAvailability(baseList){
   const rows = Array.isArray(baseList) ? baseList : [];
@@ -1763,6 +1770,7 @@ function renderMapBottomList(list){
   mapBottomPanel?.classList.remove('hidden','collapsed','preview-open');
   mapBottomPanel?.classList.add('counts-only');
   window.__mapCurrentRows = rows;
+  renderMapCategorySummary(rows);
 }
 function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
@@ -4039,7 +4047,9 @@ function setMapAreaButtonState(state = 'active') {
     mapSearchAreaBtn.textContent = '이 지역 보기';
   } else if (state === 'location') {
     mapSearchAreaBtn.disabled = false;
-    mapSearchAreaBtn.textContent = '현재 위치로 돌아가기';
+    mapSearchAreaBtn.textContent = '이 지역 보기';
+    mapSearchAreaBtn.classList.add('hidden');
+    mapSearchAreaBtn.setAttribute('hidden','');
   } else {
     mapSearchAreaBtn.disabled = false;
     mapSearchAreaBtn.textContent = '이 지역 보기';
@@ -4534,16 +4544,17 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     mapCategory='';
     renderMapFilters();
     if(mapReady) redrawMapMarkers();
-    setTimeout(()=>renderMapNameStrip(window.__mapCurrentRows || []), 0);
+    setTimeout(()=>renderMapCategorySummary(window.__mapCurrentRows || []), 0);
   });
   mapCategoryRow?.addEventListener('click', e=>{
-    const btn=e.target.closest('[data-map-name-biz]');
+    const btn=e.target.closest('[data-map-category]');
     if(!btn) return;
-    const biz=getBiz(btn.dataset.mapNameBiz);
-    if(!biz || !map) return;
-    const pos={lat:Number(biz.lat),lng:Number(biz.lng)};
-    map.setZoom(Math.max(map.getZoom() || 12, 14));
-    panMapAboveBottomPanel(pos.lat,pos.lng);
+    const next = btn.dataset.mapCategory || '';
+    mapMode = 'business';
+    mapCategory = mapCategory === next ? '' : next;
+    selectedMapBusinessId='';
+    renderMapFilters();
+    if(mapReady) redrawMapMarkers();
   });
 mapSearchAreaBtn?.addEventListener('click', () => {
   if (!mapReady || !map) return;

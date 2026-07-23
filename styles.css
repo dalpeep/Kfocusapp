@@ -4619,3 +4619,48 @@ body.map-page-open #page-map .map-bottom-status.hidden{display:none!important}
   body.map-page-open #page-map .map-bottom-panel{left:10px;right:10px;bottom:calc(80px + env(safe-area-inset-bottom));}
   .map-bottom-tabs .map-filter-chip{padding:10px 8px;font-size:13px;min-width:70px}
 }
+
+/* v24.7 Mobile map category summary */
+body.map-page-open #page-map .map-category-row{
+  top:76px;
+  display:flex;
+  gap:7px;
+  overflow-x:auto;
+  padding:0 2px 4px;
+  max-width:100%;
+  scrollbar-width:none;
+}
+body.map-page-open #page-map .map-category-row::-webkit-scrollbar{display:none}
+.map-category-summary-chip{
+  flex:0 0 auto;
+  border:1px solid #dfe7f5;
+  background:rgba(255,255,255,.96);
+  color:#24446f;
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:800;
+  white-space:nowrap;
+  box-shadow:0 3px 10px rgba(13,39,86,.10);
+}
+.map-category-summary-chip.active{
+  background:#2f7eea;
+  border-color:#2f7eea;
+  color:#fff;
+}
+body.map-page-open #page-map #mapLocateBtn{
+  position:absolute!important;
+  top:14px!important;
+  right:10px!important;
+  z-index:10030!important;
+}
+body.map-page-open #page-map #mapSearchAreaBtn.hidden{display:none!important}
+body.map-page-open #page-map .map-bottom-panel{
+  bottom:calc(86px + env(safe-area-inset-bottom))!important;
+}
+@media (max-width:480px){
+  body.map-page-open #page-map .map-bottom-panel{
+    bottom:calc(86px + env(safe-area-inset-bottom))!important;
+    max-height:calc(100dvh - 205px)!important;
+  }
+}
