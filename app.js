@@ -1,3 +1,6 @@
+console.log('[DalTownMap] v8.5 business visibility fix loaded');
+console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
+console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -667,7 +670,8 @@ function isPremiumBusiness(b){
   return true;
 }
 function boardPostsByType(type){
-  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
+  const hiddenThemeTitles=new Set((dalpicks||[]).filter(isThemeDalpick).map(d=>String(d.title||'').trim()).filter(Boolean));
+  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && !hiddenThemeTitles.has(String(p.title||'').trim()) && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
 }
 function getRecentSearches(){ try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function saveRecentSearch(query){
@@ -929,6 +933,8 @@ async function loadRealData(){
           review_count: row.review_count,
           google_maps_url: row.google_maps_url,
           google_review_url: row.google_review_url,
+          // 관리자에서 '목록 숨김'으로 저장한 업소는 모든 공개 업소 노출에서 제외합니다.
+          list_visible: row.list_visible !== false,
           monday: row.monday,
           tuesday: row.tuesday,
           wednesday: row.wednesday,
@@ -1022,6 +1028,12 @@ async function loadDalpicksFromSupabase(){
   }catch(e){console.warn('DalPick load skipped:',e);return false;}
 }
 function activeDalpicks(){const now=Date.now();return (dalpicks||[]).filter(d=>{const st=d.start_at||d.start_date,en=d.end_at||d.end_date;const status=String(d.status||'').toLowerCase();return d.is_active!==false&&status!=='draft'&&status!=='inactive'&&(!st||new Date(st).getTime()<=now)&&(!en||new Date(en).getTime()>=now);});}
+function isThemeDalpick(row){
+  if(!row)return false;
+  if(String(row.category||'').toLowerCase()==='themed')return true;
+  const targets=Array.isArray(row.target_categories)?row.target_categories:[];
+  return targets.length>0;
+}
 
 function syncBusinessStoriesToBoardPosts(){
   const existing=(boardPosts||[]).filter(p=>!String(p.id||'').startsWith('dalpick-story-'));
@@ -1079,7 +1091,102 @@ function openDalpickArticle(d){
   else boardPosts.unshift(post);
   openBoardPost(postId);
 }
-function renderDalpicks(){const box=document.getElementById('dalpickList');if(!box)return;let rows=activeDalpicks().slice(0,6);if(!rows.length){const fallback=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,3);box.innerHTML=fallback.length?fallback.map(c=>{const b=getBiz(c.businessId||c.business_id)||{};return `<button class="dalpick-card coupon-open" data-coupon="${esc(c.id)}"><img src="${esc(c.image_url||c.image||b.image||'/assets/kfocus-icon.png')}" alt=""><div><span class="dalpick-badge">COUPON</span><strong>${esc(c.title||'오늘의 쿠폰')}</strong><p>${esc(b.name||c.description||'')}</p></div></button>`}).join(''):'<div class="board-empty">등록된 DalPick이 없습니다.</div>';return;}box.innerHTML=rows.map(d=>{const b=getBiz(d.business_id)||{};const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';return `<button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}"><img src="${esc(img)}" alt="${esc(d.title||'DalPick')}"><div><span class="dalpick-badge">${esc(dalpickBadge(d.category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div></button>`}).join('');box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{const d=rows.find(x=>String(x.id)===String(btn.dataset.dalpickId));if(!d)return;if(String(d.category||'').toLowerCase()==='business_story'){openBoardPost(`dalpick-story-${d.id}`);}else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}else if(d.content||d.summary){openDalpickArticle(d);}}));if(window.lucide)window.lucide.createIcons();}
+let dalpickCarouselTimer = null;
+function renderDalpicks(){
+  const box=document.getElementById('dalpickList');
+  if(!box) return;
+  if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
+
+  const dalpickItems=activeDalpicks()
+    .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
+    .map(d=>({kind:'dalpick', id:String(d.id), data:d, date:d.created_at||d.start_at||''}));
+  const couponItems=(typeof todayCoupons==='function'?todayCoupons():[])
+    .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
+
+  // DalPick 콘텐츠와 '오늘의 쿠폰'을 하나의 슬라이드에 함께 노출합니다.
+  // 같은 쿠폰이 DalPick에도 등록된 경우 제목+업소 기준으로 한 번만 보여줍니다.
+  const seen=new Set();
+  const items=[...dalpickItems,...couponItems]
+    .filter(item=>{
+      const d=item.data||{};
+      const bizId=d.business_id||d.businessId||'';
+      const key=`${item.kind==='coupon'?'coupon':String(d.category||'dalpick').toLowerCase()}|${String(d.title||'').trim()}|${bizId}`;
+      if(seen.has(key)) return false;
+      seen.add(key); return true;
+    })
+    .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
+    .slice(0,8);
+
+  if(!items.length){
+    box.innerHTML='<div class="board-empty">등록된 DalPick 또는 오늘의 쿠폰이 없습니다.</div>';
+    return;
+  }
+
+  const slideHTML=items.map((item,index)=>{
+    const d=item.data||{};
+    if(item.kind==='coupon'){
+      const b=getBiz(d.businessId||d.business_id)||{};
+      const img=d.imageUrl||d.image_url||d.image||b.image||b.image_url||'/assets/kfocus-icon.png';
+      return `<div class="dalpick-slide" data-slide-index="${index}">
+        <button class="dalpick-card coupon-open" type="button" data-coupon="${esc(d.id)}">
+          <img src="${esc(img)}" alt="${esc(d.title||'오늘의 쿠폰')}">
+          <div><span class="dalpick-badge badge-coupon">🎟 쿠폰</span><strong>${esc(d.title||'오늘의 쿠폰')}</strong><p>${esc(d.discount_label||d.description||b.name||'')}</p></div>
+        </button>
+      </div>`;
+    }
+    const b=getBiz(d.business_id)||{};
+    const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';
+    const category=String(d.category||'').toLowerCase();
+    const badgeClass=`badge-${category.replace(/[^a-z0-9_-]/g,'')||'dalpick'}`;
+    return `<div class="dalpick-slide" data-slide-index="${index}">
+      <button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}">
+        <img src="${esc(img)}" alt="${esc(d.title||'DalPick')}">
+        <div><span class="dalpick-badge ${badgeClass}">${esc(dalpickBadge(category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div>
+      </button>
+    </div>`;
+  }).join('');
+
+  box.innerHTML=`<div class="dalpick-carousel ${items.length===1?'is-single':''}">
+    <div class="dalpick-viewport"><div class="dalpick-track">${slideHTML}</div></div>
+    ${items.length>1?`<div class="dalpick-dots" aria-label="DalPick 슬라이드">${items.map((_,i)=>`<button type="button" class="dalpick-dot ${i===0?'active':''}" data-dalpick-dot="${i}" aria-label="${i+1}번째 콘텐츠"></button>`).join('')}</div>`:''}
+  </div>`;
+
+  const carousel=box.querySelector('.dalpick-carousel');
+  const viewport=box.querySelector('.dalpick-viewport');
+  const track=box.querySelector('.dalpick-track');
+  const dots=[...box.querySelectorAll('.dalpick-dot')];
+  let current=0, touchStartX=0, touchDeltaX=0;
+  const moveTo=(idx)=>{
+    current=(idx+items.length)%items.length;
+    track.style.transform=`translateX(-${current*100}%)`;
+    dots.forEach((dot,i)=>dot.classList.toggle('active',i===current));
+  };
+  const restart=()=>{
+    if(items.length<2) return;
+    if(dalpickCarouselTimer) clearInterval(dalpickCarouselTimer);
+    dalpickCarouselTimer=setInterval(()=>moveTo(current+1),5500);
+  };
+  dots.forEach(dot=>dot.addEventListener('click',()=>{moveTo(Number(dot.dataset.dalpickDot)||0);restart();}));
+  if(viewport && items.length>1){
+    viewport.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;touchDeltaX=0;if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);},{passive:true});
+    viewport.addEventListener('touchmove',e=>{touchDeltaX=e.touches[0].clientX-touchStartX;},{passive:true});
+    viewport.addEventListener('touchend',()=>{if(Math.abs(touchDeltaX)>45) moveTo(current+(touchDeltaX<0?1:-1));restart();});
+    carousel.addEventListener('mouseenter',()=>{if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);});
+    carousel.addEventListener('mouseleave',restart);
+    restart();
+  }
+
+  box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{
+    const item=items.find(x=>x.kind==='dalpick'&&String(x.id)===String(btn.dataset.dalpickId));
+    const d=item?.data;if(!d)return;
+    if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
+    else if(isThemeDalpick(d)) openThemeArticle(d);
+    else if(String(d.category||'').toLowerCase()==='coupon' && d.coupon_id){ renderCouponDetail(d.coupon_id); lastBasePage=currentPage; showPage('coupon-detail'); }
+    else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}
+    else if(d.content||d.summary){openDalpickArticle(d);}
+  }));
+  if(window.lucide)window.lucide.createIcons();
+}
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
@@ -1090,25 +1197,36 @@ async function loadCouponsFromSupabase(){
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
     const rows = await res.json();
-    const bizIds = new Set(businesses.map(b=>String(b.id)));
-    coupons = (Array.isArray(rows)?rows:[]).filter(r=>bizIds.has(String(r.business_id))).map((row, idx)=>({
+    // 쿠폰은 연결 업소가 현재 지역 업소 목록에 없더라도 쿠폰 자체 데이터로 노출합니다.
+    // 이전 코드는 business_id가 businesses 배열에 없으면 정상 쿠폰까지 모두 제거했습니다.
+    coupons = (Array.isArray(rows)?rows:[]).map((row, idx)=>({
       id: row.id || `cp${idx+1}`,
-      businessId: row.business_id,
+      businessId: row.business_id || '',
+      business_id: row.business_id || '',
       title: row.title || '쿠폰',
       description: row.description || '',
       couponCode: row.coupon_code || '',
-	  use_link_url: row.use_link_url || '',
+      coupon_code: row.coupon_code || '',
+      use_link_url: row.use_link_url || '',
       imageUrl: row.image_url || '',
-	  discount_label: row.discount_label || '',
+      image_url: row.image_url || '',
+      discount_label: row.discount_label || '',
       startAt: row.start_at || '',
+      start_at: row.start_at || '',
       endAt: row.end_at || '',
+      end_at: row.end_at || '',
       isActive: row.is_active !== false,
-      isToday: !!row.is_today_coupon,
+      is_active: row.is_active !== false,
+      isToday: row.is_today_coupon === true,
+      is_today_coupon: row.is_today_coupon === true,
       sortOrder: row.sort_order == null ? 1000 : Number(row.sort_order),
+      sort_order: row.sort_order == null ? 1000 : Number(row.sort_order),
       createdAt: row.created_at || '',
+      created_at: row.created_at || '',
       notify_emails: row.notify_emails || '',
       notify_phones: row.notify_phones || ''
     }));
+    console.log('[COUPONS] loaded', coupons.length, coupons.map(c=>({id:c.id,title:c.title,isToday:c.isToday,businessId:c.businessId})));
     return true;
   } catch (e) {
     console.warn('Using fallback coupons', e);
@@ -1204,7 +1322,10 @@ return {
 
     title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
 
-    desc: `${b.category} · ${getRegionLabel(b.region || currentRegion)}`,
+    // 연결 업소를 찾지 못해도 undefined가 화면에 노출되지 않도록 안전하게 구성합니다.
+    desc: [b.category || b.category_ko || '', getRegionLabel(b.region || s.region || currentRegion)]
+      .filter(Boolean)
+      .join(' · '),
 
     slideDesc: s.description || s.promo_text || '',
 
@@ -1468,7 +1589,10 @@ function activeCoupons(list=coupons){
   }).sort((a,b)=> (a.sortOrder||1000)-(b.sortOrder||1000) || (new Date(a.endAt||'2999-01-01') - new Date(b.endAt||'2999-01-01')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }
 function todayCoupons(){
-  return activeCoupons(coupons).filter(c=>c.isToday);
+  const active = activeCoupons(coupons);
+  const today = active.filter(c=>c.isToday);
+  // 오늘의 쿠폰 표시값이 하나도 없으면 활성 쿠폰을 대신 보여 줍니다.
+  return today.length ? today : active;
 }
 function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
 function couponCardHTML(c, mode='all'){
@@ -1627,18 +1751,43 @@ function renderHomeBoardSection(type='notice'){
   if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
   if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
 }
-function renderGuidePosts(topic='') {
+const GUIDE_SUBTYPE_KEY = 'daltownmap_guide_subtype';
+const GUIDE_DEFAULT_SUBTYPE = '운전·차량';
+let selectedGuideSubtype = localStorage.getItem(GUIDE_SUBTYPE_KEY) || GUIDE_DEFAULT_SUBTYPE;
+
+function normalizeGuideSubtype(value='') {
+  return String(value || '')
+    .trim()
+    .replace(/[ㆍ・]/g, '·')
+    .replace(/\s+/g, '')
+    .toLowerCase();
+}
+
+function renderGuidePosts(subtype = selectedGuideSubtype) {
   const list = document.getElementById('guidePostList');
   if (!list) return;
-  const q = normalizeSearchText(topic);
+
+  selectedGuideSubtype = subtype || GUIDE_DEFAULT_SUBTYPE;
+  localStorage.setItem(GUIDE_SUBTYPE_KEY, selectedGuideSubtype);
+
+  document.querySelectorAll('[data-guide-subtype]').forEach(card => {
+    card.classList.toggle(
+      'active',
+      normalizeGuideSubtype(card.dataset.guideSubtype) === normalizeGuideSubtype(selectedGuideSubtype)
+    );
+  });
+
+  const selected = normalizeGuideSubtype(selectedGuideSubtype);
   const rows = boardPosts.filter(p => {
     const isGuide = normalizeBoardType(p.type) === 'guide';
     const visible = adminSession || !p.region || normalizeRegionKey(p.region) === currentRegion;
-    const text = normalizeSearchText([p.title, p.content, p.subtype].filter(Boolean).join(' '));
-    const keywords = q.split(/\s+/).filter(Boolean);
-    return isGuide && visible && (!keywords.length || keywords.some(word => text.includes(word)));
+    const exactSubtype = normalizeGuideSubtype(p.subtype) === selected;
+    return isGuide && visible && exactSubtype;
   }).slice(0, 12);
-  list.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : '<div class="board-empty">등록된 달라스 가이드가 없습니다.</div>';
+
+  list.innerHTML = rows.length
+    ? rows.map(boardListItemHTML).join('')
+    : `<div class="board-empty">${esc(selectedGuideSubtype)}에 등록된 생활정보가 없습니다.</div>`;
 }
 
 function renderHome(){
@@ -1711,9 +1860,109 @@ if (typeof renderHomeBusinessTabs === 'function') {
   }
 }
 
+
+
+// Global recommendation-theme helpers.
+// These must stay outside renderDetail(), because the business-list page uses them too.
+function normalizeThemeTarget(value){
+  const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
+  if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
+  if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
+  if(['law','legal','법률','변호'].some(v=>s.includes(v))) return 'law';
+  if(['church','교회','종교'].some(v=>s.includes(v))) return 'church';
+  if(['real_estate','realestate','부동산','주택'].some(v=>s.includes(v))) return 'real_estate';
+  if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
+  if(['all','전체','전체_업종'].includes(s)) return 'all';
+  return s;
+}
+function normalThemeTarget(value){ return normalizeThemeTarget(value); }
+function parseThemeTargets(value){
+  if(Array.isArray(value)) return value;
+  if(typeof value==='string'){
+    const text=value.trim();
+    if(!text) return [];
+    if(text.startsWith('{')&&text.endsWith('}')){
+      return text.slice(1,-1).split(',').map(v=>v.replace(/^"|"$/g,'').trim()).filter(Boolean);
+    }
+    try{ const parsed=JSON.parse(text); if(Array.isArray(parsed)) return parsed; }catch(e){}
+    return text.split(',').map(v=>v.trim()).filter(Boolean);
+  }
+  return [];
+}
+function themeReadingMinutes(content){
+  return Math.max(1,Math.ceil(String(content||'').replace(/\s+/g,' ').trim().length/500));
+}
+
+function getBusinessPageThemes(){
+  const selected = businessQuickFilter || '';
+  const selectedTarget = normalizeThemeTarget(selected);
+  const now = Date.now();
+  return (dalpicks || []).filter(row => {
+    if (!isThemeDalpick(row) || row.is_active === false) return false;
+    const status = String(row.status || '').toLowerCase();
+    if (status && !['published','active'].includes(status)) return false;
+    const start = row.start_at || row.start_date;
+    const end = row.end_at || row.end_date;
+    if (start && new Date(start).getTime() > now) return false;
+    if (end && new Date(end).getTime() < now) return false;
+    const targets = parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
+    if (!selectedTarget) return targets.includes('all') || targets.length > 0;
+    return targets.includes('all') || targets.includes(selectedTarget);
+  }).sort((a,b) => {
+    const at = parseThemeTargets(a.target_categories).map(normalizeThemeTarget);
+    const bt = parseThemeTargets(b.target_categories).map(normalizeThemeTarget);
+    if (!selectedTarget) {
+      const aAll = at.includes('all') ? 1 : 0;
+      const bAll = bt.includes('all') ? 1 : 0;
+      if (aAll !== bAll) return bAll - aAll;
+    }
+    return Number(b.is_featured)-Number(a.is_featured) || Number(b.priority||0)-Number(a.priority||0) || new Date(b.created_at||0)-new Date(a.created_at||0);
+  });
+}
+function getBusinessPageTheme(){ return getBusinessPageThemes()[0] || null; }
+let businessThemeCarouselTimer = null;
+function renderBusinessThemeSpot(){
+  const spot = document.getElementById('businessThemeSpot');
+  if (!spot) return;
+  if (businessThemeCarouselTimer) { clearInterval(businessThemeCarouselTimer); businessThemeCarouselTimer = null; }
+  const themes = getBusinessPageThemes();
+  if (!themes.length) { spot.innerHTML=''; spot.hidden=true; return; }
+  spot.hidden=false;
+  spot.innerHTML = `<div class="business-theme-carousel ${themes.length===1?'is-single':''}">
+    <div class="business-theme-viewport"><div class="business-theme-track">
+      ${themes.map(theme=>{
+        const summary=String(theme.summary||theme.content||'').trim();
+        const short=summary.length>92?summary.slice(0,92).trim()+'…':summary;
+        return `<div class="business-theme-slide"><button type="button" class="business-main-theme-card" data-theme-id="${esc(theme.id)}">
+          <div class="business-main-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
+          <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
+        </button></div>`;
+      }).join('')}
+    </div></div>
+    ${themes.length>1?`<div class="business-theme-dots">${themes.map((_,i)=>`<button type="button" class="business-theme-dot ${i===0?'active':''}" data-index="${i}" aria-label="추천 테마 ${i+1}"></button>`).join('')}</div>`:''}
+  </div>`;
+  if(themes.length<2) return;
+  const track=spot.querySelector('.business-theme-track');
+  const viewport=spot.querySelector('.business-theme-viewport');
+  const dots=[...spot.querySelectorAll('.business-theme-dot')];
+  let current=0, startX=0, deltaX=0;
+  const moveTo=(index)=>{ current=(index+themes.length)%themes.length; track.style.transform=`translateX(-${current*100}%)`; dots.forEach((d,i)=>d.classList.toggle('active',i===current)); };
+  const restart=()=>{ if(businessThemeCarouselTimer)clearInterval(businessThemeCarouselTimer); businessThemeCarouselTimer=setInterval(()=>moveTo(current+1),6000); };
+  dots.forEach(d=>d.addEventListener('click',()=>{moveTo(Number(d.dataset.index||0));restart();}));
+  viewport.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;deltaX=0;if(businessThemeCarouselTimer)clearInterval(businessThemeCarouselTimer);},{passive:true});
+  viewport.addEventListener('touchmove',e=>{deltaX=e.touches[0].clientX-startX;},{passive:true});
+  viewport.addEventListener('touchend',()=>{if(Math.abs(deltaX)>45)moveTo(current+(deltaX<0?1:-1));restart();});
+  spot.addEventListener('mouseenter',()=>{if(businessThemeCarouselTimer)clearInterval(businessThemeCarouselTimer);});
+  spot.addEventListener('mouseleave',restart);
+  restart();
+}
+
 function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
+  renderBusinessThemeSpot();
 
   const keyword = String(businessSearch?.value || '').trim().toLowerCase();
   let rows = Array.isArray(businesses) ? businesses.slice() : [];
@@ -1792,54 +2041,49 @@ function renderCategories() {
     >${esc(c)}</button>
   `).join('');
 }
+let mainBannerCarouselTimer = null;
 function renderMainBanners(){
-  console.log('[BANNERS] render start', mainBanners);
-
   const box = document.getElementById('mainBanners');
-  console.log('[BANNERS] box exists', !!box);
-
   if(!box) return;
-
-  const rows = Array.isArray(mainBanners) ? mainBanners : [];
-  console.log('[BANNERS] rows for render', rows);
-
-  if(!rows.length){
-    box.innerHTML = '';
-    return;
-  }
-
-  box.innerHTML = `
-    <div class="main-banner-list">
-      ${rows.map(b => `
-        <button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}">
-          <img src="${esc(b.image_url || '')}" alt="${esc(b.title || 'Sponsor banner')}">
-        </button>
-      `).join('')}
-    </div>
-  `;
-
-  console.log('[BANNERS] html inserted', box.innerHTML);
-
-  box.querySelectorAll('.main-banner-card').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.bannerId;
-      const banner = rows.find(x => String(x.id) === String(id));
-      if(!banner) return;
-
-      if(banner.business_id){
-        selectedBizId = banner.business_id;
-        currentDetailVideoOverride = '';
-        renderDetail(banner.business_id);
-        showPage('business-detail');
-        return;
-      }
-
-      if(banner.link_url){
-        window.open(normalizeUrl(banner.link_url), '_blank', 'noopener');
-      }
-    });
-  });
+  if(mainBannerCarouselTimer){ clearInterval(mainBannerCarouselTimer); mainBannerCarouselTimer=null; }
+  const now = Date.now();
+  const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
+    const placement = String(b.placement || (b.business_id ? 'both' : 'home')).toLowerCase();
+    if (!['home','both'].includes(placement)) return false;
+    if (b.start_at && new Date(b.start_at).getTime() > now) return false;
+    if (b.end_at && new Date(b.end_at).getTime() < now) return false;
+    return b.is_active !== false && !!b.image_url;
+  }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+  if(!rows.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="main-banner-carousel ${rows.length===1?'is-single':''}">
+    <div class="main-banner-viewport"><div class="main-banner-track">
+      ${rows.map(b=>`<div class="main-banner-slide"><button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}"><img src="${esc(b.image_url||'')}" alt="${esc(b.title||'Sponsor banner')}"></button></div>`).join('')}
+    </div></div>
+    ${rows.length>1?`<div class="main-banner-dots">${rows.map((_,i)=>`<button type="button" class="main-banner-dot ${i===0?'active':''}" data-index="${i}" aria-label="배너 ${i+1}"></button>`).join('')}</div>`:''}
+  </div>`;
+  const openBanner=(banner)=>{
+    if(!banner)return;
+    if(banner.business_id){ selectedBizId=banner.business_id; currentDetailVideoOverride=''; renderDetail(banner.business_id); showPage('business-detail'); return; }
+    const url=banner.link_url||banner.external_url;
+    if(url) window.open(normalizeUrl(url),'_blank','noopener');
+  };
+  box.querySelectorAll('.main-banner-card').forEach(btn=>btn.addEventListener('click',()=>openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)))));
+  if(rows.length<2)return;
+  const track=box.querySelector('.main-banner-track');
+  const viewport=box.querySelector('.main-banner-viewport');
+  const dots=[...box.querySelectorAll('.main-banner-dot')];
+  let current=0,startX=0,deltaX=0;
+  const moveTo=(index)=>{current=(index+rows.length)%rows.length;track.style.transform=`translateX(-${current*100}%)`;dots.forEach((d,i)=>d.classList.toggle('active',i===current));};
+  const restart=()=>{if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);mainBannerCarouselTimer=setInterval(()=>moveTo(current+1),5000);};
+  dots.forEach(d=>d.addEventListener('click',()=>{moveTo(Number(d.dataset.index||0));restart();}));
+  viewport.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;deltaX=0;if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);},{passive:true});
+  viewport.addEventListener('touchmove',e=>{deltaX=e.touches[0].clientX-startX;},{passive:true});
+  viewport.addEventListener('touchend',()=>{if(Math.abs(deltaX)>45)moveTo(current+(deltaX<0?1:-1));restart();});
+  box.addEventListener('mouseenter',()=>{if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);});
+  box.addEventListener('mouseleave',restart);
+  restart();
 }
+
 function renderCoupons(){
   if(!couponTodayList || !couponAllList) return;
   const today = todayCoupons();
@@ -1913,6 +2157,72 @@ const activeCoupon = coupons.find(c =>
   String(c.businessId || c.business_id) === String(b.id)
 );
 
+// 추천 테마: 업소 카테고리에 맞는 정보형 기사를 상세페이지 최상단에 표시합니다.
+function normalizeThemeTarget(value){
+  const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
+  if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
+  if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
+  if(['law','legal','법률','변호'].some(v=>s.includes(v))) return 'law';
+  if(['church','교회','종교'].some(v=>s.includes(v))) return 'church';
+  if(['real_estate','realestate','부동산','주택'].some(v=>s.includes(v))) return 'real_estate';
+  if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
+  return s;
+}
+// Backward-compatible alias for an earlier theme helper typo used by cached builds.
+function normalThemeTarget(value){
+  return normalizeThemeTarget(value);
+}
+function parseThemeTargets(value){
+  if(Array.isArray(value)) return value;
+  if(typeof value==='string'){
+    const text=value.trim();
+    if(!text) return [];
+    // PostgreSQL text[] can occasionally arrive as "{restaurant,shopping}".
+    if(text.startsWith('{')&&text.endsWith('}')) return text.slice(1,-1).split(',').map(v=>v.replace(/^"|"$/g,'').trim()).filter(Boolean);
+    try{const parsed=JSON.parse(text);if(Array.isArray(parsed))return parsed;}catch(e){}
+    return text.split(',').map(v=>v.trim()).filter(Boolean);
+  }
+  return [];
+}
+function getBusinessTheme(business){
+  // business.category may be a UUID/internal value. Build targets from every available
+  // category field plus the same normalized label used by the business list UI.
+  const businessTargets=new Set([
+    normalizeThemeTarget(business?.category),
+    normalizeThemeTarget(business?.category_ko),
+    normalizeThemeTarget(business?.subcategory),
+    normalizeThemeTarget(business?.subcategory_ko),
+    normalizeThemeTarget(getMainCategoryLabel(business?.category_ko||business?.category||business?.subcategory||''))
+  ].filter(Boolean));
+  const now=Date.now();
+  return (dalpicks||[]).filter(row=>{
+    if(!isThemeDalpick(row)||row.is_active===false) return false;
+    const status=String(row.status||'').toLowerCase(); if(status&& !['published','active'].includes(status)) return false;
+    const start=row.start_at||row.start_date, end=row.end_at||row.end_date;
+    if(start&&new Date(start).getTime()>now) return false; if(end&&new Date(end).getTime()<now) return false;
+    const targets=parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
+    return targets.includes('all')||targets.some(t=>businessTargets.has(t));
+  }).sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.priority||0)-Number(a.priority||0)||new Date(b.created_at||0)-new Date(a.created_at||0))[0]||null;
+}
+function themeReadingMinutes(content){return Math.max(1,Math.ceil(String(content||'').replace(/\s+/g,' ').trim().length/500));}
+function renderBusinessThemeCard(theme){
+  if(!theme)return '';
+  const summary=String(theme.summary||theme.content||'').trim();
+  const short=summary.length>105?summary.slice(0,105).trim()+'…':summary;
+  return `<button type="button" class="business-theme-card" data-theme-id="${esc(theme.id)}" aria-label="추천 테마 기사 열기">
+    <div class="business-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
+    <div class="business-theme-copy"><div class="business-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
+  </button>`;
+}
+function openThemeArticle(theme){
+  if(!theme)return;
+  const post={id:`theme-${theme.id}`,type:'life',title:theme.title||'추천 테마',content:theme.content||theme.summary||'',summary:theme.summary||'',image_url:theme.image_url||'',created_at:theme.created_at||new Date().toISOString(),author_name:'DalTownMap'};
+  const existing=boardPosts.findIndex(p=>String(p.id)===String(post.id)); if(existing>=0) boardPosts[existing]=post; else boardPosts.push(post);
+  renderBoardPage('life',post.id); lastBasePage=currentPage; showPage('board-detail');
+}
+
 // 업소 상세 상단 AI Pick: 게시판의 ai_pick 글 또는 연결된 DalPick AI 추천을 사용합니다.
 function getBusinessAiPick(businessId) {
   const now = Date.now();
@@ -1982,7 +2292,65 @@ function renderBusinessAiPick(pick) {
     </section>`;
 }
 
+
+function getBusinessPromotions(businessId){
+  const now = Date.now();
+  return (mainBanners || []).filter(row => {
+    if (String(row.business_id || '') !== String(businessId)) return false;
+    if (row.is_active === false) return false;
+    const placement = String(row.placement || 'both').toLowerCase();
+    if (!['detail','both'].includes(placement)) return false;
+    if (row.start_at && new Date(row.start_at).getTime() > now) return false;
+    if (row.end_at && new Date(row.end_at).getTime() < now) return false;
+    return true;
+  }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0) || new Date(b.created_at||0)-new Date(a.created_at||0));
+}
+
+function renderBusinessPromotion(promo){
+  if (!promo) return '';
+  const type = String(promo.display_type || 'banner').toLowerCase();
+  if (type === 'card') {
+    const desc = String(promo.description || '').trim();
+    return `<button type="button" class="business-detail-ad-card" data-business-promo="${esc(promo.id)}">
+      <div class="business-detail-ad-thumb"><img src="${esc(promo.image_url || '/assets/kfocus-icon.png')}" alt="${esc(promo.title || '업소 광고')}"></div>
+      <div class="business-detail-ad-copy"><div class="business-detail-ad-label">SPONSORED</div><h3>${esc(promo.title || '업소 소식')}</h3>${desc?`<p>${esc(desc.length>100?desc.slice(0,100)+'…':desc)}</p>`:''}${String(promo.button_label || '').trim() ? `<span>${esc(promo.button_label)} →</span>` : ''}</div>
+    </button>`;
+  }
+  const desc = String(promo.description || '').trim();
+  return `<button type="button" class="business-detail-banner" data-business-promo="${esc(promo.id)}" aria-label="${esc(promo.title || '업소 광고')}">
+    <img src="${esc(promo.image_url || '')}" alt="${esc(promo.title || '업소 광고')}">
+    <span class="business-detail-banner-shade"></span>
+    <span class="business-detail-banner-copy">
+      <strong>${esc(promo.title || '업소 소식')}</strong>
+      ${desc ? `<small>${esc(desc.length > 90 ? desc.slice(0,90)+'…' : desc)}</small>` : ''}
+      ${String(promo.button_label || '').trim() ? `<em>${esc(promo.button_label)} →</em>` : ''}
+    </span>
+    <span class="business-detail-banner-badge">AD</span>
+  </button>`;
+}
+
+function renderBusinessTopPromo(promotions, coupon, pick){
+  if (promotions && promotions.length) return promotions.slice(0,3).map(renderBusinessPromotion).join('');
+  if (coupon) {
+    const image = coupon.image_url || coupon.image || '';
+    const desc = String(coupon.description || coupon.summary || '').trim();
+    return `<button type="button" class="business-top-promo coupon-open" data-coupon="${esc(coupon.id)}">
+      <div class="business-top-promo-thumb">${image?`<img src="${esc(image)}" alt="${esc(coupon.title||'쿠폰')}">`:'<span>🎟️</span>'}</div>
+      <div class="business-top-promo-copy"><div class="business-top-promo-label">업소 쿠폰</div><h3>${esc(coupon.title||'사용 가능한 쿠폰')}</h3>${desc?`<p>${esc(desc.length>90?desc.slice(0,90)+'…':desc)}</p>`:''}</div>
+    </button>`;
+  }
+  if (pick) {
+    const body = String(pick.summary || pick.content || '').trim();
+    return `<section class="business-top-promo business-top-ad">
+      <div class="business-top-promo-thumb">${pick.image?`<img src="${esc(pick.image)}" alt="${esc(pick.title||'업소 소식')}">`:'<span>📣</span>'}</div>
+      <div class="business-top-promo-copy"><div class="business-top-promo-label">업소 소식</div><h3>${esc(pick.title||'오늘의 업소 소식')}</h3>${body?`<p>${esc(body.length>90?body.slice(0,90)+'…':body)}</p>`:''}</div>
+    </section>`;
+  }
+  return '';
+}
+
 const businessAiPick = getBusinessAiPick(b.id);
+const businessPromotions = getBusinessPromotions(b.id);
 function getDescriptionImages(b){
   if (Array.isArray(b.description_images)) return b.description_images;
 
@@ -1996,6 +2364,7 @@ function getDescriptionImages(b){
 detailCard.innerHTML = `
   <article class="biz-detail-v2">
 
+    ${renderBusinessTopPromo(businessPromotions, activeCoupon, businessAiPick)}
     <div class="biz-detail-hero">
       <img src="${esc(img)}" alt="${esc(bizName)}">
 
@@ -2007,10 +2376,9 @@ detailCard.innerHTML = `
       </div>
     </div>
 
-    ${renderBusinessAiPick(businessAiPick)}
 	
 ${((b.video_url || b.youtube_url) || (b.gallery_urls || b.galleryImages || []).length) ? `
-<div class="biz-gallery-strip">
+<div class="biz-gallery-strip ${(b.video_url || b.youtube_url) && !(b.gallery_urls || b.galleryImages || []).length ? 'video-only' : ''}">
 
 ${b.video_url || b.youtube_url ? `
 <button type="button"
@@ -2162,6 +2530,40 @@ ${getDescriptionImages(b).length ? `
 
   </article>
 `;
+
+detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
+    if (!promo) return;
+    const raw = String(promo.link_url || '').trim();
+    const match = raw.match(/^(business|post|dalpick|coupon):(.+)$/i);
+    if (match) {
+      const type = match[1].toLowerCase();
+      const target = match[2];
+      if (type === 'business') { selectedBizId = target; renderDetail(target); showPage('business-detail'); return; }
+      if (type === 'post') { openBoardPost(target); return; }
+      if (type === 'coupon') { renderCouponDetail(target); lastBasePage = currentPage; showPage('coupon-detail'); return; }
+      if (type === 'dalpick') {
+        const item = (dalpicks || []).find(x => String(x.id) === String(target));
+        if (!item) return alert('연결된 DalPick을 찾을 수 없습니다.');
+        if (String(item.category || '').toLowerCase() === 'business_story') openBoardPost(`dalpick-story-${item.id}`);
+        else if (isThemeDalpick(item)) openThemeArticle(item);
+        else if (item.business_id) { selectedBizId=item.business_id; renderDetail(item.business_id); showPage('business-detail'); }
+        else if (item.content) alert(`${item.title || 'DalPick'}\n\n${item.content}`);
+        return;
+      }
+    }
+    if (/^tel:/i.test(raw)) { window.location.href = raw; return; }
+    if (raw) { window.open(normalizeUrl(raw), '_blank', 'noopener'); return; }
+    if (promo.business_id) { selectedBizId=promo.business_id; renderDetail(promo.business_id); showPage('business-detail'); }
+
+  });
+});
+
+detailCard.querySelector('[data-theme-id]')?.addEventListener('click',()=>{
+  const theme=(dalpicks||[]).find(d=>String(d.id)===String(detailCard.querySelector('[data-theme-id]')?.dataset.themeId));
+  if(theme) openThemeArticle(theme);
+});
 
 detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2807,7 +3209,7 @@ function renderHero(){
         <div class="hero-slide-content">
           <span class="hero-chip">${esc(s.type || 'BANNER')}</span>
           <h2>${esc(s.title || '')}</h2>
-          <p>${esc(s.desc || '')}</p>
+          <p>${esc(s.desc || s.slideDesc || '')}</p>
          
         </div>
       </article>
@@ -3183,6 +3585,36 @@ function showPage(page, opts={}){
   closeSideMenu();
   window.scrollTo({top:0, behavior:'instant'});
 }
+
+
+// 추천 테마 기사 열기: 이 함수는 반드시 전역 범위에 있어야 업소 메인에서도 사용할 수 있습니다.
+window.openThemeArticle = function(theme){
+  if(!theme) return;
+  const post = {
+    id: `theme-${theme.id}`,
+    type: 'life',
+    title: theme.title || '추천 테마',
+    content: theme.content || theme.summary || '',
+    summary: theme.summary || '',
+    image_url: theme.image_url || '',
+    created_at: theme.created_at || new Date().toISOString(),
+    author_name: 'DalTownMap'
+  };
+  const existing = (boardPosts || []).findIndex(p=>String(p.id)===String(post.id));
+  if(existing >= 0) boardPosts[existing] = post;
+  else boardPosts.push(post);
+  renderBoardPage('life', post.id);
+  lastBasePage = currentPage;
+  showPage('board-detail');
+};
+
+// 추천 테마 카드 클릭
+ document.addEventListener('click',e=>{
+  const btn=e.target.closest('.business-main-theme-card, .business-theme-card');
+  if(!btn)return;
+  const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));
+  if(theme) window.openThemeArticle(theme);
+});
 
 function initPageSwipe(){
   let sx=0, sy=0, active=false, moved=false;
@@ -4271,10 +4703,9 @@ function setMapPageMode(isMap) {
 
 
 document.addEventListener('click', (e) => {
-  const guideCard = e.target.closest('[data-guide-topic]');
+  const guideCard = e.target.closest('[data-guide-subtype]');
   if (!guideCard) return;
-  document.querySelectorAll('.guide-card').forEach(card => card.classList.toggle('active', card === guideCard));
-  renderGuidePosts(guideCard.dataset.guideTopic || '');
+  renderGuidePosts(guideCard.dataset.guideSubtype || GUIDE_DEFAULT_SUBTYPE);
 });
 
 document.addEventListener('click', (e) => {
@@ -4601,3 +5032,4 @@ function initAndroidInstallBanner() {
     banner.classList.add('hidden');
   });
 }
+console.info('[DalTownMap] v8.7 guide subcategory fix loaded');
