@@ -8,7 +8,9 @@
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="assets/admin.js?v=22.0.0"></script>
-  <script type="module" src="assets/ai-studio.js?v=22.0.0"></script>
+  <script type="module" src="assets/ai-studio.js?v=23.0.0"></script>
+  <script src="assets/ai-manager.js?v=23.1.0" defer></script>
+  <script src="assets/admin-integration.js?v=23.1.0" defer></script>
 <style>
 .admin-card{
   background:#fff;
@@ -21,6 +23,17 @@
 
 .unified-studio-hero{display:flex;justify-content:space-between;gap:20px;align-items:center;background:linear-gradient(135deg,#f8fbff,#fff)}
 .ucs-step-card{margin-top:16px}.ucs-step-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}.ucs-step-head>span{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#2563eb;color:#fff;font-weight:800;flex:0 0 auto}.ucs-step-head h2{margin:0}.ucs-topic-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:stretch}.ucs-topic-row textarea{width:100%;min-height:92px}.ucs-topic-row .btn{min-width:140px}.ucs-plan-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(360px,1.2fr);gap:22px}.ucs-plan-summary{display:grid;gap:8px}.ucs-plan-label{font-size:12px;font-weight:800;color:#475569;margin-top:8px;text-transform:none}.ucs-chip-list{display:flex;gap:8px;flex-wrap:wrap}.ucs-chip{border:1px solid #cbd5e1;border-radius:999px;padding:7px 11px;background:#fff}.ucs-chip input{margin-right:5px}.ucs-assets-title{margin-top:20px}.ucs-asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ucs-asset-card{display:block;border:1px solid #dbe3ef;border-radius:14px;padding:13px;background:#fff;cursor:pointer}.ucs-asset-card.recommended{border-color:#93c5fd;background:#eff6ff}.ucs-asset-top{display:flex;gap:9px;align-items:center}.ucs-asset-card small{display:block;margin:7px 0 0 25px;color:#64748b;line-height:1.45}.ucs-selection-actions,.ucs-generate-row{display:flex;gap:8px;margin-top:14px}.ucs-generate-row{justify-content:flex-end}.ucs-results{display:grid;gap:14px}.ucs-result-card{border:1px solid #dbe3ef;border-radius:14px;padding:15px}.ucs-result-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.ucs-result-actions{display:flex;gap:8px;flex-wrap:wrap}.ucs-result-card textarea{width:100%;min-height:150px}.ucs-score-box{margin:0 0 15px;padding:14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0}.ucs-score-number{font-size:26px;font-weight:900}.ucs-checklist{display:grid;gap:5px;margin-top:8px}.ucs-check-pass{color:#15803d}.ucs-check-warning{color:#b45309}.hidden{display:none!important}@media(max-width:800px){.ucs-topic-row,.ucs-plan-grid{grid-template-columns:1fr}.ucs-asset-grid{grid-template-columns:1fr}.unified-studio-hero{align-items:flex-start;flex-direction:column}}
+</style>
+<style>
+.am-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:16px}.am-hero{margin-bottom:16px}.am-allowance{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.am-pill{padding:6px 10px;border-radius:999px;background:#eef4ff;font-size:12px;font-weight:800}.am-account-list{display:grid;gap:8px}.am-account-row{display:grid;grid-template-columns:2fr repeat(4,1fr);gap:8px;text-align:left;padding:10px;border:1px solid #e5e7eb;border-radius:12px;background:white}.am-new-draft{display:grid;grid-template-columns:1.2fr .7fr 1fr 1fr 1.2fr auto;gap:8px;margin:12px 0}.am-draft-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}.am-draft{border:1px solid #e5e7eb;border-radius:16px;padding:12px}.am-draft-head{display:flex;justify-content:space-between;margin-bottom:10px}.am-draft-head small{display:block;color:#64748b}.am-status{font-size:11px;font-weight:900}.am-preview{height:180px;border-radius:12px;overflow:hidden;position:relative;background:#e5e7eb;margin-bottom:10px}.am-preview img{width:100%;height:100%;object-fit:cover}.am-overlay{position:absolute;inset:auto 12px 12px;background:rgba(255,255,255,.9);padding:10px;border-radius:10px;display:grid}.am-draft label{display:grid;gap:4px;font-size:12px;margin-top:8px}.am-draft input,.am-draft textarea{width:100%}.am-actions{display:flex;gap:8px;margin-top:10px}.am-locked{opacity:.45;position:relative}.am-locked:after{content:'플랜 잠금';position:absolute;right:8px;top:8px;font-size:10px;font-weight:900}.am-studio-note{padding:10px 12px;background:#fff8db;border:1px solid #f1d978;border-radius:12px;margin-bottom:12px;font-weight:800}@media(max-width:900px){.am-grid{grid-template-columns:1fr}.am-new-draft{grid-template-columns:1fr}.am-account-row{grid-template-columns:1fr 1fr}}
+</style>
+
+<style>
+.integration-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;background:linear-gradient(135deg,#eff6ff,#fff)}
+.beta-badge{padding:10px 14px;border-radius:999px;background:#dcfce7;color:#166534;font-weight:900;white-space:nowrap}
+.integration-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:16px 0}.integration-metric{text-align:left;cursor:pointer}.integration-metric span,.integration-metric small{display:block;color:#64748b}.integration-metric strong{display:block;font-size:30px;margin:8px 0;color:#0f172a}.integration-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:16px;margin-bottom:16px}.integration-checklist{display:grid;gap:9px}.integration-check-item{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid #e2e8f0;border-radius:12px}.integration-check-item input{margin-top:3px}.integration-check-item.done{background:#f0fdf4;border-color:#bbf7d0}.integration-check-item strong{display:block}.integration-check-item small{display:block;color:#64748b;margin-top:3px}.integration-quick-actions{display:grid;gap:9px}.integration-quick-actions button{padding:12px;text-align:left;border:1px solid #dbe3ef;border-radius:12px;background:#fff;font-weight:800;cursor:pointer}.integration-issue-form{display:grid;grid-template-columns:1fr 2fr 140px auto;gap:10px;align-items:start}.integration-issue-list{display:grid;gap:8px;margin-top:14px}.integration-issue{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:11px;border:1px solid #e2e8f0;border-radius:12px}.integration-issue p{margin:4px 0 0;color:#64748b}.integration-severity{font-size:11px;font-weight:900;padding:5px 8px;border-radius:999px;background:#f1f5f9}.integration-issue button{border:0;background:transparent;cursor:pointer}.am-beta-notice{padding:12px;border-radius:12px;background:#ecfdf5;border:1px solid #a7f3d0;color:#166534;font-weight:800;margin:10px 0}
+@media(max-width:1000px){.integration-metrics{grid-template-columns:repeat(2,1fr)}.integration-grid{grid-template-columns:1fr}.integration-issue-form{grid-template-columns:1fr}}
+@media(max-width:600px){.integration-metrics{grid-template-columns:1fr}.integration-hero{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
@@ -35,12 +48,15 @@
       </div>
 
       <nav class="nav" id="adminNav">
+        <div class="nav-group-title">통합 운영</div>
+        <button class="nav-item active" data-section="dashboard">운영 대시보드 <span class="nav-badge">BETA</span></button>
+        <button class="nav-item" data-section="aiManager">AI 매니저 · 승인함</button>
         <div class="nav-group-title">콘텐츠 스튜디오</div>
         <button class="nav-item" data-section="aiStudio">AI 콘텐츠 스튜디오 <span class="nav-badge">NEW</span></button>
         <button class="nav-item" data-section="dalpick">DalPick 관리</button>
         <button class="nav-item" data-section="board">게시판·가이드 관리</button>
         <div class="nav-group-title">운영 관리</div>
-        <button class="nav-item active" data-section="business">업소 관리</button>
+        <button class="nav-item" data-section="business">업소 관리</button>
         <button class="nav-item" data-section="coupon">쿠폰 관리</button>
         <button class="nav-item" data-section="couponRedemptions">쿠폰 사용 내역</button>
         <button class="nav-item" data-section="slide">슬라이드 관리</button>
@@ -61,9 +77,9 @@
     <main class="content">
       <header class="topbar">
         <div>
-          <h1 id="pageTitle">업소 관리자</h1>
+          <h1 id="pageTitle">운영 대시보드</h1>
           <p class="muted" id="pageDesc">
-          지역 업소를 조회하고 수정/추가할 수 있습니다.
+          무료 베타 운영 현황과 안정화 테스트 항목을 한곳에서 확인합니다.
           </p>
         </div>
         <div class="topbar-actions">
@@ -77,6 +93,49 @@
         </div>
       </header>
 	  
+
+      <section id="section-dashboard" class="admin-section active-section">
+        <section class="card integration-hero">
+          <div>
+            <span class="ai-studio-kicker">DalTownMap Admin 2.0 · Free Beta</span>
+            <h2>통합 운영 대시보드</h2>
+            <p class="muted">올해 말까지 결제 없이 운영 안정화에 집중합니다. 업소 → AI 초안 → 품질 검토 → 승인 → 게시 흐름을 단계별로 테스트하세요.</p>
+          </div>
+          <div class="beta-badge">무료 베타 운영</div>
+        </section>
+
+        <section class="integration-metrics">
+          <button type="button" class="card integration-metric" data-go-section="business"><span>등록 업소</span><strong id="intBusinessCount">-</strong><small>업소 관리 열기</small></button>
+          <button type="button" class="card integration-metric" data-go-section="aiManager"><span>승인 대기</span><strong id="intDraftCount">0</strong><small>품질 검토 열기</small></button>
+          <button type="button" class="card integration-metric" data-go-section="coupon"><span>쿠폰</span><strong id="intCouponCount">-</strong><small>쿠폰 관리 열기</small></button>
+          <button type="button" class="card integration-metric" data-go-section="banners"><span>배너</span><strong id="intBannerCount">-</strong><small>배너 관리 열기</small></button>
+        </section>
+
+        <section class="integration-grid">
+          <div class="card">
+            <div class="panel-head"><div><h3>안정화 테스트 체크리스트</h3><p class="muted">체크 상태는 이 브라우저에 저장됩니다.</p></div><button id="intResetChecklist" class="btn ghost" type="button">초기화</button></div>
+            <div id="intChecklist" class="integration-checklist"></div>
+          </div>
+          <div class="card">
+            <div class="panel-head"><div><h3>빠른 작업</h3><p class="muted">운영 순서대로 이동합니다.</p></div></div>
+            <div class="integration-quick-actions">
+              <button type="button" data-go-section="business">1. 업소 확인·수정</button>
+              <button type="button" data-go-section="aiStudio">2. AI 콘텐츠 생성</button>
+              <button type="button" data-go-section="aiManager">3. 이미지·문구 검토</button>
+              <button type="button" data-go-section="coupon">4. 쿠폰 게시 확인</button>
+              <button type="button" data-go-section="banners">5. 배너 게시 확인</button>
+              <button type="button" data-go-section="performance">6. 성과·오류 확인</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="panel-head"><div><h3>테스트 메모·문제 기록</h3><p class="muted">발견한 문제와 재현 방법을 기록하세요.</p></div></div>
+          <div class="integration-issue-form"><input id="intIssueTitle" placeholder="문제 제목"><textarea id="intIssueDetail" rows="3" placeholder="어떤 화면에서 무엇을 했을 때 문제가 발생했는지 입력"></textarea><select id="intIssueSeverity"><option value="low">낮음</option><option value="medium">보통</option><option value="high">높음</option><option value="blocker">운영 중단</option></select><button id="intAddIssue" class="btn primary" type="button">문제 기록</button></div>
+          <div id="intIssueList" class="integration-issue-list"></div>
+        </section>
+      </section>
+
 <section id="section-requests" class="admin-section hidden">
   <h2>신청 관리</h2>
 
@@ -130,6 +189,25 @@
   </div>
 </section>
 
+
+      <section id="section-aiManager" class="admin-section">
+        <section class="card am-hero"><div><span class="ai-studio-kicker">DalTownMap v23</span><h2>AI 마케팅 매니저 · 무료 베타</h2><p class="muted">업소별 운영 방식과 승인 대기 콘텐츠를 관리합니다. 무료 베타 기간에는 모든 AI 제작 기능을 제한 없이 테스트합니다.</p></div></section>
+        <section class="am-grid">
+          <div class="card"><h3>업소 플랜 설정</h3><div class="form-grid">
+            <label class="field"><span>업소</span><select id="amBusiness"><option value="">업소 선택</option></select></label>
+            <label class="field"><span>향후 플랜 분류</span><select id="amPlan"><option value="free">무료 베타</option><option value="basic">향후 Basic</option><option value="business">향후 Business</option><option value="premier">향후 Premier</option></select></label>
+            <label class="field"><span>베타 운영 상태</span><select id="amStatus"><option value="onboarding">등록 준비</option><option value="beta_active">무료 베타 활성</option><option value="review_needed">정보 확인 필요</option><option value="paused">일시중지</option><option value="closed">운영 종료</option></select></label>
+            <label class="field"><span>AI 운영 방식</span><select id="amMode"><option value="manual">수동</option><option value="review">AI 생성 → 검토 후 승인</option><option value="auto">자동 게시</option></select></label>
+            <label class="field"><span>다음 검토일</span><input id="amRenewal" type="date"></label><label class="field"><span>담당자</span><input id="amManager" placeholder="담당자"></label>
+            <label class="field full"><span>영업·관리 메모</span><textarea id="amNotes" rows="3"></textarea></label>
+          </div><div class="am-beta-notice">무료 베타 기간: 모든 콘텐츠 기능 사용 가능 · 결제 및 월 사용량 제한 미적용</div><div id="amAllowance" class="am-allowance"></div><button id="amSaveAccount" class="btn primary" type="button">플랜 설정 저장</button></div>
+          <div class="card"><h3>계정 현황</h3><div id="amAccountList" class="am-account-list"></div></div>
+        </section>
+        <section class="card"><div class="panel-head"><div><h3>품질 검토 · 승인 대기함</h3><p class="muted">AI 이미지는 초안입니다. 문구를 수정하거나 직접 이미지를 교체한 후 승인할 수 있습니다.</p></div><select id="amDraftFilter"><option value="all">전체</option><option value="draft">검토 대기</option><option value="approved">승인됨</option><option value="rejected">보류</option></select></div>
+          <div class="am-new-draft"><select id="amDraftBusiness"><option value="">업소 선택</option></select><select id="amDraftType"><option value="coupon">쿠폰</option><option value="banner">배너</option></select><input id="amDraftTitle" placeholder="제목"><input id="amDraftSubtitle" placeholder="설명·혜택"><input id="amDraftImage" placeholder="이미지 URL"><button id="amAddDraft" class="btn secondary" type="button">검토 초안 추가</button></div>
+          <div id="amDraftList" class="am-draft-list"></div>
+        </section>
+      </section>
       <section id="section-aiStudio" class="admin-section">
         <section class="card unified-studio-hero">
           <div>
