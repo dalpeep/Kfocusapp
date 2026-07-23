@@ -2325,12 +2325,12 @@ async function deleteBoard() {
    AI Dallas Guide v13: evidence scoring -> review -> generate
 --------------------------- */
 const AI_GUIDE_CATEGORY_NAMES = {
-  driving: '운전면허 차량등록 자동차 운전·차량',
-  health: '병원 보험 건강 병원·보험',
-  education: '학교 교육 학군 학교·교육',
-  business: '세금 창업 비즈니스 세금·비즈니스',
-  housing: '주택 유틸리티 전기 인터넷 주거·생활',
-  immigration: '비자 여권 이민 비자·여권'
+  driving: '운전·차량',
+  health: '병원·보험',
+  education: '학교·교육',
+  business: '세금·비즈니스',
+  housing: '주거·생활',
+  immigration: '비자·여권'
 };
 let aiGuideSearchResult = null;
 
@@ -2366,15 +2366,15 @@ function renderAiGuideCandidates(result) {
     const place = c.place || {};
     const card = document.createElement('label');
     card.style.cssText = 'display:block;border:1px solid #d7dce5;border-radius:10px;padding:12px;background:#fff;cursor:pointer;';
-    const sourceLinks = (c.source_urls || []).slice(0, 3).map((url, n) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">근거 ${n + 1}</a>`).join(' · ');
+    const sourceLinks = (c.source_urls || []).slice(0, 3).map((url, n) => `<a href="${esc(url)}" target="_blank" rel="noopener">근거 ${n + 1}</a>`).join(' · ');
     card.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:9px;">
         <input id="aiGuideCandidate_${i}" type="checkbox" checked style="margin-top:4px;">
         <div style="min-width:0;flex:1;">
-          <div style="font-weight:700;">${escapeHtml(place.name || c.name || '')}</div>
-          <div class="tiny muted" style="margin-top:4px;">${escapeHtml(place.address || c.city || '')}</div>
-          ${place.phone ? `<div class="tiny">전화: ${escapeHtml(place.phone)}</div>` : ''}
-          <div class="tiny" style="margin-top:5px;"><b>한인·필수조건 근거:</b> ${escapeHtml(c.qualifier_evidence || '근거 설명 없음')}</div>
+          <div style="font-weight:700;">${esc(place.name || c.name || '')}</div>
+          <div class="tiny muted" style="margin-top:4px;">${esc(place.address || c.city || '')}</div>
+          ${place.phone ? `<div class="tiny">전화: ${esc(place.phone)}</div>` : ''}
+          <div class="tiny" style="margin-top:5px;"><b>한인·필수조건 근거:</b> ${esc(c.qualifier_evidence || '근거 설명 없음')}</div>
           <div class="tiny" style="margin-top:5px;"><b>종합점수 ${Number(c.final_score || c.confidence || 0)}점</b> · 근거 ${c.evidence_status === 'confirmed' ? '확인' : c.evidence_status === 'probable' ? '가능성 높음' : c.evidence_status === 'unconfirmed' ? '추가 확인 필요' : '해당 없음'} · Google Places ${c.place_verified ? '연락처 확인됨' : '미확인'}</div>
           ${sourceLinks ? `<div class="tiny" style="margin-top:5px;">${sourceLinks}</div>` : ''}
         </div>
