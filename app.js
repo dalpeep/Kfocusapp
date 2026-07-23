@@ -1155,7 +1155,7 @@ function renderDalpicks(){
   const viewport=box.querySelector('.dalpick-viewport');
   const track=box.querySelector('.dalpick-track');
   const dots=[...box.querySelectorAll('.dalpick-dot')];
-  let current=0, touchStartX=0, touchDeltaX=0;
+  let current=0, touchStartX=0, touchStartY=0, touchDeltaX=0, touchDeltaY=0, touchAxis='';
   const moveTo=(idx)=>{
     current=(idx+items.length)%items.length;
     track.style.transform=`translateX(-${current*100}%)`;
@@ -1168,9 +1168,30 @@ function renderDalpicks(){
   };
   dots.forEach(dot=>dot.addEventListener('click',()=>{moveTo(Number(dot.dataset.dalpickDot)||0);restart();}));
   if(viewport && items.length>1){
-    viewport.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX;touchDeltaX=0;if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);},{passive:true});
-    viewport.addEventListener('touchmove',e=>{touchDeltaX=e.touches[0].clientX-touchStartX;},{passive:true});
-    viewport.addEventListener('touchend',()=>{if(Math.abs(touchDeltaX)>45) moveTo(current+(touchDeltaX<0?1:-1));restart();});
+    // 세로 페이지 스크롤은 유지하되, DalPick에서 가로 스와이프가 시작되면
+    // 브라우저의 화면 전체 가로 이동/뒤로가기 제스처를 차단합니다.
+    viewport.style.touchAction='pan-y pinch-zoom';
+    viewport.style.overscrollBehaviorX='contain';
+    viewport.addEventListener('touchstart',e=>{
+      const t=e.touches[0];
+      touchStartX=t.clientX; touchStartY=t.clientY;
+      touchDeltaX=0; touchDeltaY=0; touchAxis='';
+      if(dalpickCarouselTimer) clearInterval(dalpickCarouselTimer);
+    },{passive:true});
+    viewport.addEventListener('touchmove',e=>{
+      const t=e.touches[0];
+      touchDeltaX=t.clientX-touchStartX;
+      touchDeltaY=t.clientY-touchStartY;
+      if(!touchAxis && (Math.abs(touchDeltaX)>8 || Math.abs(touchDeltaY)>8)){
+        touchAxis=Math.abs(touchDeltaX)>Math.abs(touchDeltaY)?'x':'y';
+      }
+      if(touchAxis==='x') e.preventDefault();
+    },{passive:false});
+    viewport.addEventListener('touchend',()=>{
+      if(touchAxis==='x' && Math.abs(touchDeltaX)>45) moveTo(current+(touchDeltaX<0?1:-1));
+      touchAxis=''; restart();
+    },{passive:true});
+    viewport.addEventListener('touchcancel',()=>{touchAxis='';restart();},{passive:true});
     carousel.addEventListener('mouseenter',()=>{if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);});
     carousel.addEventListener('mouseleave',restart);
     restart();
