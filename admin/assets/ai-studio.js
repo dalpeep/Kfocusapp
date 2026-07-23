@@ -173,6 +173,23 @@ function injectPreviewStyles(){
     .ucs-preview-chip{display:inline-flex;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:5px 10px;font-weight:700;font-size:12px;margin-bottom:10px}
     .ucs-preview-code{margin-top:12px;background:#f8fafc;border:1px dashed #94a3b8;border-radius:10px;padding:10px;font-weight:700}
     .ucs-preview-cta{display:inline-block;margin-top:14px;background:#2563eb;color:#fff;border-radius:10px;padding:10px 16px;font-weight:700}
+    .ucs-coupon-ticket{position:relative;background:#fff7e8;border:2px solid #f59e0b;border-radius:22px;overflow:visible;box-shadow:0 12px 30px rgba(120,53,15,.16);font-family:inherit}
+    .ucs-coupon-ticket:before,.ucs-coupon-ticket:after{content:'';position:absolute;top:58%;width:28px;height:28px;background:#eef3f9;border:2px solid #f59e0b;border-radius:50%;z-index:3}
+    .ucs-coupon-ticket:before{left:-16px}.ucs-coupon-ticket:after{right:-16px}
+    .ucs-coupon-hero{min-height:160px;padding:24px 26px 18px;background:radial-gradient(circle at 82% 18%,rgba(255,255,255,.45),transparent 28%),linear-gradient(135deg,#7c2d12,#c2410c 58%,#f59e0b);color:#fff;position:relative;overflow:hidden;border-radius:20px 20px 0 0}
+    .ucs-coupon-hero:after{content:'COUPON';position:absolute;right:-8px;bottom:-14px;font-size:52px;font-weight:900;letter-spacing:4px;opacity:.11}
+    .ucs-coupon-brand{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.95}
+    .ucs-coupon-hero h3{font-size:26px;line-height:1.2;margin:14px 0 10px;max-width:72%}
+    .ucs-coupon-benefit{display:inline-flex;align-items:center;background:#fff;color:#9a3412;border-radius:999px;padding:7px 12px;font-weight:900;font-size:14px}
+    .ucs-coupon-stamp{position:absolute;right:20px;top:22px;width:84px;height:84px;border-radius:50%;background:#fff7ed;color:#c2410c;border:3px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;text-align:center;font-weight:950;font-size:15px;line-height:1.05;transform:rotate(8deg);box-shadow:0 6px 18px rgba(67,20,7,.25)}
+    .ucs-coupon-main{padding:20px 24px 14px;background:#fffdf8}
+    .ucs-coupon-desc{margin:0;color:#475569;line-height:1.6;white-space:pre-wrap}
+    .ucs-coupon-cut{position:relative;margin:8px 0 0;border-top:2px dashed #f59e0b;text-align:center;height:16px}
+    .ucs-coupon-cut span{position:relative;top:-13px;background:#fffdf8;color:#b45309;padding:0 10px;font-size:16px}
+    .ucs-coupon-bottom{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:10px 24px 22px;background:#fffdf8;border-radius:0 0 20px 20px}
+    .ucs-coupon-codebox small{display:block;color:#92400e;font-weight:800;letter-spacing:.08em;margin-bottom:4px}.ucs-coupon-codebox strong{font-size:20px;letter-spacing:.08em;color:#7c2d12}
+    .ucs-coupon-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;background:#c2410c;color:#fff;font-weight:900;box-shadow:0 6px 14px rgba(194,65,12,.22)}
+    .ucs-preview-stage.mobile .ucs-coupon-ticket{border-radius:18px}.ucs-preview-stage.mobile .ucs-coupon-hero{padding:20px 18px 16px;min-height:145px}.ucs-preview-stage.mobile .ucs-coupon-hero h3{font-size:22px;max-width:68%}.ucs-preview-stage.mobile .ucs-coupon-stamp{width:68px;height:68px;right:14px;top:18px;font-size:13px}.ucs-preview-stage.mobile .ucs-coupon-bottom{grid-template-columns:1fr}.ucs-preview-stage.mobile .ucs-coupon-button{width:100%}
     .ucs-banner-preview{position:relative;min-height:230px;background:linear-gradient(120deg,#0f172a,#1e3a8a 55%,#0ea5e9);color:#fff;display:flex;align-items:flex-end;padding:28px;overflow:hidden}
     .ucs-banner-preview:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.62),rgba(0,0,0,.08))}
     .ucs-banner-copy{position:relative;z-index:1;max-width:72%}.ucs-banner-copy h3{font-size:28px;margin:0 0 8px}.ucs-banner-copy p{color:#e2e8f0;margin:0}
@@ -194,10 +211,22 @@ function previewHtml(type){
   const nonempty=lines.filter(Boolean);
   if(type==='coupon'){
     const title=esc(nonempty[0]||'쿠폰 제목');
-    const benefit=esc((lines.find(x=>x.startsWith('혜택:'))||'혜택: 특별 혜택').replace(/^혜택:\s*/,''));
-    const code=esc((lines.find(x=>x.startsWith('코드:'))||'코드: 업소 문의').replace(/^코드:\s*/,''));
+    const rawBenefit=(lines.find(x=>x.startsWith('혜택:'))||'혜택: 특별 혜택').replace(/^혜택:\s*/,'').trim();
+    const rawCode=(lines.find(x=>x.startsWith('코드:'))||'코드: 업소 문의').replace(/^코드:\s*/,'').trim();
+    const benefit=esc(rawBenefit||'특별 혜택');
+    const code=esc(rawCode||'업소 문의');
     const desc=esc(nonempty.filter(x=>!x.startsWith('혜택:')&&!x.startsWith('코드:')).slice(1).join('\n')||'쿠폰 설명이 여기에 표시됩니다.');
-    return `<div class="ucs-preview-card"><div class="ucs-preview-image">쿠폰 대표 이미지 미리보기<br><small>이미지를 등록하면 실제 이미지가 표시됩니다.</small></div><div class="ucs-preview-body"><span class="ucs-preview-chip">🎟️ ${benefit}</span><h3>${title}</h3><p>${name}</p><p>${desc}</p><div class="ucs-preview-code">쿠폰 코드 · ${code}</div><span class="ucs-preview-cta">쿠폰 사용하기</span></div></div>`;
+    const stamp=(rawBenefit||'SPECIAL').length>12?'SPECIAL':esc(rawBenefit||'SPECIAL');
+    return `<div class="ucs-coupon-ticket">
+      <div class="ucs-coupon-hero">
+        <div class="ucs-coupon-brand">🎟 ${name}</div>
+        <h3>${title}</h3>
+        <span class="ucs-coupon-benefit">${benefit}</span>
+        <div class="ucs-coupon-stamp">${stamp}<br>COUPON</div>
+      </div>
+      <div class="ucs-coupon-main"><p class="ucs-coupon-desc">${desc}</p><div class="ucs-coupon-cut"><span>✂</span></div></div>
+      <div class="ucs-coupon-bottom"><div class="ucs-coupon-codebox"><small>COUPON CODE</small><strong>${code}</strong></div><span class="ucs-coupon-button">쿠폰 사용하기</span></div>
+    </div>`;
   }
   if(type==='banner'){
     const title=esc(nonempty[0]||'배너 제목');
