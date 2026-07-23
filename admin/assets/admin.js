@@ -2325,12 +2325,12 @@ async function deleteBoard() {
    AI Dallas Guide v13: evidence scoring -> review -> generate
 --------------------------- */
 const AI_GUIDE_CATEGORY_NAMES = {
-  driving: '운전·차량',
-  health: '병원·보험',
-  education: '학교·교육',
-  business: '세금·비즈니스',
-  housing: '주거·생활',
-  immigration: '비자·여권'
+  driving: '운전면허 차량등록 자동차 운전·차량',
+  health: '병원 보험 건강 병원·보험',
+  education: '학교 교육 학군 학교·교육',
+  business: '세금 창업 비즈니스 세금·비즈니스',
+  housing: '주택 유틸리티 전기 인터넷 주거·생활',
+  immigration: '비자 여권 이민 비자·여권'
 };
 let aiGuideSearchResult = null;
 
@@ -2362,15 +2362,30 @@ function renderAiGuideCandidates(result) {
   const queries = (result.queries_used || []).join(' · ');
   safeText('aiGuideSearchSummary', `${result.interpreted_request || ''}${queries ? `\n검색어: ${queries}` : ''}`);
   list.innerHTML = '';
+  list.style.cssText = 'display:flex;flex-direction:column;gap:10px;width:100%;max-width:100%;min-width:0;box-sizing:border-box;';
   (result.candidates || []).forEach((c, i) => {
     const place = c.place || {};
     const card = document.createElement('label');
-    card.style.cssText = 'display:block;border:1px solid #d7dce5;border-radius:10px;padding:12px;background:#fff;cursor:pointer;';
+    card.style.cssText = [
+      'display:block',
+      'width:100%',
+      'max-width:100%',
+      'box-sizing:border-box',
+      'border:1px solid #d7dce5',
+      'border-radius:10px',
+      'padding:12px',
+      'margin:0',
+      'background:#fff',
+      'cursor:pointer',
+      'text-align:left',
+      'white-space:normal',
+      'overflow:hidden'
+    ].join(';');
     const sourceLinks = (c.source_urls || []).slice(0, 3).map((url, n) => `<a href="${esc(url)}" target="_blank" rel="noopener">근거 ${n + 1}</a>`).join(' · ');
     card.innerHTML = `
-      <div style="display:flex;align-items:flex-start;gap:9px;">
-        <input id="aiGuideCandidate_${i}" type="checkbox" checked style="margin-top:4px;">
-        <div style="min-width:0;flex:1;">
+      <div style="display:flex;align-items:flex-start;justify-content:flex-start;gap:10px;width:100%;min-width:0;box-sizing:border-box;text-align:left;">
+        <input id="aiGuideCandidate_${i}" type="checkbox" checked style="margin:4px 0 0 0;flex:0 0 auto;width:16px;height:16px;">
+        <div style="min-width:0;flex:1 1 auto;width:auto;max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal;text-align:left;">
           <div style="font-weight:700;">${esc(place.name || c.name || '')}</div>
           <div class="tiny muted" style="margin-top:4px;">${esc(place.address || c.city || '')}</div>
           ${place.phone ? `<div class="tiny">전화: ${esc(place.phone)}</div>` : ''}
