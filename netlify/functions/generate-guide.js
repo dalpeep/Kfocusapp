@@ -15,44 +15,60 @@ function outputText(json) {
 }
 
 async function callResponses(payload) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 45000);
-  try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    const json = await response.json();
-    if (!response.ok) throw new Error(json?.error?.message || `OpenAI 요청 실패 (${response.status})`);
-    return json;
-  } catch (error) {
-    if (error.name === 'AbortError') throw new Error('OpenAI 검색 시간이 초과되었습니다. 잠시 후 다시 시도해 주세요.');
-    throw error;
-  } finally {
-    clearTimeout(timer);
-  }
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const json = await response.json();
+  if (!response.ok) throw new Error(json?.error?.message || 'OpenAI 요청에 실패했습니다.');
+  return json;
 }
 
-async function askOpenAIJson({ name, schema, system, prompt, webSearch = false }) {
-  const payload = {
-    model: process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+async function askOpenAI({ name, schema, system, prompt }) {
+  const json = await callResponses({
+    model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
     input: [
       { role: 'system', content: [{ type: 'input_text', text: system }] },
       { role: 'user', content: [{ type: 'input_text', text: prompt }] }
     ],
     text: { format: { type: 'json_schema', name, strict: true, schema } }
-  };
-  if (webSearch) payload.tools = [{ type: 'web_search' }];
-  const json = await callResponses(payload);
+  });
   const text = outputText(json);
   if (!text) throw new Error('AI 응답 본문이 비어 있습니다.');
-  try { return JSON.parse(text); }
-  catch (_) { throw new Error('AI 검색 결과를 구조화하지 못했습니다.'); }
+  return JSON.parse(text);
+}
+
+async function askOpenAIWithWebSearch({ name, schema, system, prompt }) {
+  const model = process.env.OPENAI_SEARCH_MODEL || process.env.OPENAI_MODEL || 'gpt-4.1-mini';
+  let json;
+  try {
+    json = await callResponses({
+      model,
+      tools: [{ type: 'web_search_preview', search_context_size: 'high' }],
+      tool_choice: 'auto',
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: system }] },
+        { role: 'user', content: [{ type: 'input_text', text: prompt }] }
+      ],
+      text: { format: { type: 'json_schema', name, strict: true, schema } }
+    });
+  } catch (firstError) {
+    // Newer accounts may expose the tool as web_search rather than web_search_preview.
+    json = await callResponses({
+      model,
+      tools: [{ type: 'web_search' }],
+      tool_choice: 'auto',
+      input: [
+        { role: 'system', content: [{ type: 'input_text', text: system }] },
+        { role: 'user', content: [{ type: 'input_text', text: prompt }] }
+      ],
+      text: { format: { type: 'json_schema', name, strict: true, schema } }
+    });
+  }
+  const text = outputText(json);
+  if (!text) throw new Error('OpenAI 웹 검색 결과가 비어 있습니다.');
+  return JSON.parse(text);
 }
 
 function stripHtml(html = '') {
@@ -61,19 +77,13 @@ function stripHtml(html = '') {
     .replace(/<style[\s\S]*?<\/style>/gi, ' ')
     .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ').trim();
 }
 
 function isHttpUrl(value) {
-  try {
-    const u = new URL(value);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch (_) { return false; }
+  try { const u = new URL(value); return u.protocol === 'http:' || u.protocol === 'https:'; }
+  catch (_) { return false; }
 }
 
 async function fetchPageText(url) {
@@ -81,109 +91,115 @@ async function fetchPageText(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4500);
   try {
-    const res = await fetch(url, {
-      redirect: 'follow', signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DalTownMapBot/2.0)' }
-    });
+    const res = await fetch(url, { redirect: 'follow', signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DalTownMapBot/2.0)' } });
     if (!res.ok) return { url, ok: false, error: `HTTP ${res.status}`, text: '' };
-    const contentType = res.headers.get('content-type') || '';
-    if (!contentType.includes('text/html') && !contentType.includes('text/plain')) {
-      return { url, ok: false, error: `unsupported:${contentType}`, text: '' };
-    }
-    const raw = await res.text();
-    return { url: res.url || url, ok: true, text: stripHtml(raw).slice(0, 10000) };
+    const type = res.headers.get('content-type') || '';
+    if (!type.includes('text/html') && !type.includes('text/plain')) return { url, ok: false, error: `unsupported:${type}`, text: '' };
+    return { url: res.url || url, ok: true, text: stripHtml(await res.text()).slice(0, 9000) };
   } catch (error) {
     return { url, ok: false, error: error.name === 'AbortError' ? 'timeout' : error.message, text: '' };
   } finally { clearTimeout(timer); }
 }
 
-async function searchGooglePlaces(query, count = 3) {
+function normalize(value = '') {
+  return String(value).toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+}
+
+function extractHardQualifiers(topic) {
+  const t = String(topic || '');
+  const rules = [
+    { key: 'korean', re: /(한인|한국인|한국어|한글|korean(?:[- ]?speaking)?)/i, terms: ['한인', '한국어', 'Korean', 'Korean-speaking'] },
+    { key: 'female', re: /(여의사|여성 의사|여자 의사|female doctor|woman doctor)/i, terms: ['여의사', 'female doctor'] },
+    { key: 'pediatric', re: /(소아과|소아청소년과|pediatric)/i, terms: ['소아과', 'pediatric'] },
+    { key: 'internal_medicine', re: /(내과|internal medicine)/i, terms: ['내과', 'internal medicine'] },
+    { key: 'dental', re: /(치과|dentist|dental)/i, terms: ['치과', 'dentist'] }
+  ];
+  return rules.filter(r => r.re.test(t));
+}
+
+function extractRequestedCity(topic) {
+  const pairs = [
+    ['캐롤튼', 'Carrollton'], ['캐롤톤', 'Carrollton'], ['플레이노', 'Plano'], ['프리스코', 'Frisco'],
+    ['리차드슨', 'Richardson'], ['리처드슨', 'Richardson'], ['달라스', 'Dallas'], ['알렌', 'Allen'],
+    ['루이스빌', 'Lewisville'], ['코펠', 'Coppell'], ['포트워스', 'Fort Worth'], ['리틀엘름', 'Little Elm']
+  ];
+  const lower = String(topic || '').toLowerCase();
+  for (const [ko, en] of pairs) if (lower.includes(ko.toLowerCase()) || lower.includes(en.toLowerCase())) return en;
+  return '';
+}
+
+async function searchGooglePlaces(query, count = 5) {
   const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return [];
+  if (!key) throw new Error('Netlify 환경변수 GOOGLE_MAPS_API_KEY가 필요합니다.');
   const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': key,
-      'X-Goog-FieldMask': [
-        'places.id','places.displayName','places.formattedAddress','places.nationalPhoneNumber',
-        'places.websiteUri','places.googleMapsUri','places.rating','places.userRatingCount',
-        'places.businessStatus','places.primaryType','places.types'
-      ].join(',')
+      'Content-Type': 'application/json', 'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount,places.businessStatus,places.primaryType,places.types'
     },
-    body: JSON.stringify({
-      textQuery: query,
-      pageSize: Math.min(Math.max(count, 1), 5),
-      languageCode: 'en', regionCode: 'US'
-    })
+    body: JSON.stringify({ textQuery: query, pageSize: Math.min(Math.max(count, 1), 10), languageCode: 'en', regionCode: 'US' })
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json?.error?.message || `Google Places API 오류 ${res.status}`);
-  return (json.places || []).map(place => ({
-    id: place.id || '', name: place.displayName?.text || '', address: place.formattedAddress || '',
-    phone: place.nationalPhoneNumber || '', website: place.websiteUri || '',
-    google_maps_url: place.googleMapsUri || '', rating: Number.isFinite(place.rating) ? place.rating : null,
-    review_count: Number.isFinite(place.userRatingCount) ? place.userRatingCount : null,
-    business_status: place.businessStatus || '', primary_type: place.primaryType || '', types: place.types || [], query
+  return (json.places || []).map(p => ({
+    id: p.id || '', name: p.displayName?.text || '', address: p.formattedAddress || '', phone: p.nationalPhoneNumber || '',
+    website: p.websiteUri || '', google_maps_url: p.googleMapsUri || '', rating: p.rating ?? null,
+    review_count: p.userRatingCount ?? null, business_status: p.businessStatus || '', primary_type: p.primaryType || '', types: p.types || [], query
   }));
 }
 
-function isPlaceBasedTopic(category, topic) {
-  if (['health', 'business'].includes(category)) return true;
-  return /(병원|의원|클리닉|의사|치과|약국|학교|학원|대학|식당|업소|가게|매장|변호사|회계사|목록|리스트|추천|가까운|주소|전화번호)/i.test(topic);
+function uniquePlaces(items) {
+  const seen = new Set();
+  return items.filter(p => { const k = p.id || `${normalize(p.name)}|${normalize(p.address)}`; if (!k || seen.has(k)) return false; seen.add(k); return true; });
 }
 
-function extractTargetCity(text) {
-  const known = [
-    ['캐롤튼', 'Carrollton'], ['캐럴턴', 'Carrollton'], ['프리스코', 'Frisco'], ['플레이노', 'Plano'],
-    ['리처드슨', 'Richardson'], ['달라스', 'Dallas'], ['알렌', 'Allen'], ['맥키니', 'McKinney'],
-    ['루이스빌', 'Lewisville'], ['코펠', 'Coppell'], ['그레이프바인', 'Grapevine'],
-    ['Carrollton', 'Carrollton'], ['Frisco', 'Frisco'], ['Plano', 'Plano'], ['Richardson', 'Richardson'],
-    ['Dallas', 'Dallas'], ['Allen', 'Allen'], ['McKinney', 'McKinney'], ['Lewisville', 'Lewisville']
-  ];
-  const hit = known.find(([needle]) => text.toLowerCase().includes(needle.toLowerCase()));
-  return hit ? hit[1] : '';
+function placeMatchesCandidate(place, candidate) {
+  const a = normalize(place.name); const b = normalize(candidate.name);
+  return a && b && (a.includes(b) || b.includes(a) || (candidate.aliases || []).some(x => a.includes(normalize(x))));
 }
+
+const planSchema = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    intent_type: { type: 'string' }, user_goal: { type: 'string' },
+    must_cover: { type: 'array', items: { type: 'string' } }, must_avoid: { type: 'array', items: { type: 'string' } },
+    search_queries: { type: 'array', items: { type: 'string' } }, outline: { type: 'array', items: { type: 'string' } }
+  }, required: ['intent_type','user_goal','must_cover','must_avoid','search_queries','outline']
+};
 
 const researchSchema = {
   type: 'object', additionalProperties: false,
   properties: {
-    intent_type: { type: 'string' }, user_goal: { type: 'string' }, target_city: { type: 'string' },
-    hard_qualifiers: { type: 'array', items: { type: 'string' } },
-    must_cover: { type: 'array', items: { type: 'string' } },
-    must_avoid: { type: 'array', items: { type: 'string' } },
-    outline: { type: 'array', items: { type: 'string' } },
-    facts: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
-      claim: { type: 'string' }, source_title: { type: 'string' }, source_url: { type: 'string' }, confidence: { type: 'integer' }
-    }, required: ['claim','source_title','source_url','confidence'] } },
-    place_candidates: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
-      name: { type: 'string' }, city: { type: 'string' }, reason_matches: { type: 'string' },
-      source_title: { type: 'string' }, source_url: { type: 'string' }, confidence: { type: 'integer' }
-    }, required: ['name','city','reason_matches','source_title','source_url','confidence'] } },
-    sources: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
-      title: { type: 'string' }, url: { type: 'string' }, source_type: { type: 'string' }
-    }, required: ['title','url','source_type'] } }
-  },
-  required: ['intent_type','user_goal','target_city','hard_qualifiers','must_cover','must_avoid','outline','facts','place_candidates','sources']
+    search_summary: { type: 'string' },
+    queries_used: { type: 'array', items: { type: 'string' } },
+    candidates: { type: 'array', items: {
+      type: 'object', additionalProperties: false,
+      properties: {
+        name: { type: 'string' }, aliases: { type: 'array', items: { type: 'string' } }, city: { type: 'string' },
+        qualifier_evidence: { type: 'string' }, qualifier_confirmed: { type: 'boolean' },
+        source_urls: { type: 'array', items: { type: 'string' } }, source_titles: { type: 'array', items: { type: 'string' } }
+      }, required: ['name','aliases','city','qualifier_evidence','qualifier_confirmed','source_urls','source_titles']
+    } }
+  }, required: ['search_summary','queries_used','candidates']
 };
 
-const finalSchema = {
+const articleSchema = {
+  type: 'object', additionalProperties: false,
+  properties: { title: { type: 'string' }, summary: { type: 'string' }, content: { type: 'string' }, author_name: { type: 'string' }, link_label: { type: 'string' }, source_url: { type: 'string' } },
+  required: ['title','summary','content','author_name','link_label','source_url']
+};
+
+const reviewSchema = {
   type: 'object', additionalProperties: false,
   properties: {
-    article: { type: 'object', additionalProperties: false, properties: {
-      title: { type: 'string' }, summary: { type: 'string' }, content: { type: 'string' },
-      author_name: { type: 'string' }, link_label: { type: 'string' }, source_url: { type: 'string' }
-    }, required: ['title','summary','content','author_name','link_label','source_url'] },
-    score: { type: 'integer' }, intent_match: { type: 'integer' }, relevance: { type: 'integer' },
-    unsupported_claim_risk: { type: 'integer' }, problems: { type: 'array', items: { type: 'string' } }
-  },
-  required: ['article','score','intent_match','relevance','unsupported_claim_risk','problems']
+    score: { type: 'integer' }, intent_match: { type: 'integer' }, relevance: { type: 'integer' }, unsupported_claim_risk: { type: 'integer' },
+    problems: { type: 'array', items: { type: 'string' } }, revised_article: articleSchema
+  }, required: ['score','intent_match','relevance','unsupported_claim_risk','problems','revised_article']
 };
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'POST only' }) };
-
   try {
     if (!process.env.OPENAI_API_KEY) throw new Error('Netlify 환경변수 OPENAI_API_KEY가 설정되지 않았습니다.');
     const body = JSON.parse(event.body || '{}');
@@ -193,98 +209,92 @@ exports.handler = async (event) => {
     const instructions = String(body.instructions || '').trim();
     if (!topic) return { statusCode: 400, headers, body: JSON.stringify({ error: '작성 주제를 입력하세요.' }) };
 
-    const readableProvided = (await Promise.all(sources.slice(0, 4).map(fetchPageText))).filter(p => p.ok && p.text);
-    if (sources.length && readableProvided.length === 0) {
-      throw new Error('입력한 참고 URL의 내용을 읽지 못했습니다. 공개 웹페이지 주소인지 확인해 주세요.');
+    const hardQualifiers = extractHardQualifiers(topic);
+    const requestedCity = extractRequestedCity(topic);
+    const qualifierText = hardQualifiers.flatMap(q => q.terms).join(', ');
+
+    const plan = await askOpenAI({
+      name: 'guide_intent_plan_v11', schema: planSchema,
+      system: '당신은 사용자의 원문 조건을 절대 삭제하지 않는 검색 기획자입니다.',
+      prompt: `주제: ${topic}\n분야: ${categoryNames[category] || category}\n추가 지시: ${instructions || '없음'}\n고정 지역: ${requestedCity || '원문에서 판단'}\n절대 유지 조건: ${qualifierText || '없음'}\n\n한국어 검색어와 영어 검색어를 각각 최소 4개씩, 총 8~12개 만드세요. 모든 검색어에 지역과 절대 유지 조건을 반복해 넣으세요. '한인'은 단순한 병원 종류가 아니라 필수 자격 조건입니다. 일반 병원으로 대체하지 마세요.`
+    });
+
+    const research = await askOpenAIWithWebSearch({
+      name: 'guide_web_research_v11', schema: researchSchema,
+      system: '당신은 한국어 지역 커뮤니티 검색 전문가입니다. 웹 검색을 실제로 사용하고, 사용자가 명시한 지역·민족·언어·전문과 조건을 모두 만족하는 후보만 반환합니다.',
+      prompt: `다음 요청을 실시간 웹 검색으로 조사하세요.\n\n원문: ${topic}\n지역: ${requestedCity || '원문 그대로'}\n필수 조건: ${qualifierText || '없음'}\n검색어 후보:\n${plan.search_queries.join('\n')}\n사용자 참고 URL:\n${sources.join('\n') || '없음'}\n\n필수 규칙:\n1. 한국어 검색을 먼저 수행하고 영어 검색으로 교차검증하세요.\n2. '한인/한국어/Korean-speaking' 조건이 있으면 그 근거를 웹페이지, 디렉터리, 의료진 소개, 지역 한인 매체 등에서 명시적으로 찾아야 합니다.\n3. 지역이 Carrollton이면 Little Elm, Plano, Dallas의 일반 병원을 대체 후보로 넣지 마세요.\n4. 조건 근거가 없는 일반 병원은 candidates에서 제외하세요.\n5. 후보마다 실제 근거 URL과 근거 설명을 반환하세요.\n6. 사용자가 준 Google 검색 URL은 검색어와 검색 결과 방향을 파악하는 우선 단서로 사용하세요.`
+    });
+
+    let candidates = research.candidates.filter(c => c.name && c.qualifier_confirmed !== false);
+    if (requestedCity) candidates = candidates.filter(c => !c.city || normalize(c.city).includes(normalize(requestedCity)) || normalize(requestedCity).includes(normalize(c.city)));
+    if (hardQualifiers.length && !candidates.length) {
+      throw new Error(`웹 검색에서 '${qualifierText}' 조건과 ${requestedCity || '요청 지역'}을 함께 확인할 수 있는 후보를 찾지 못했습니다. 일반 장소로 대체하지 않고 생성을 중단했습니다.`);
     }
 
-    const explicitCity = extractTargetCity(`${topic} ${instructions}`);
-    const providedEvidence = readableProvided.map((p, i) => `[사용자 제공 URL ${i + 1}]\n${p.url}\n${p.text}`).join('\n\n').slice(0, 28000);
-
-    let research;
-    try {
-      research = await askOpenAIJson({
-        name: 'daltown_web_research', schema: researchSchema, webSearch: true,
-        system: '당신은 실시간 웹 검색을 사용하는 달라스 한인 지역 미디어 리서처입니다. 질문의 한국어 지역명과 한인·한국어 같은 필수 조건을 절대 약화하지 않습니다. 검색 결과에 없는 장소나 사실을 만들지 않습니다.',
-        prompt: `다음 주제를 실시간 웹 검색으로 조사하세요. 한국어 검색과 영어 검색을 모두 수행하고, 공식 사이트·Google 지도/비즈니스 페이지·지역 한인 매체·신뢰할 수 있는 디렉터리를 교차 확인하세요.\n\n주제: ${topic}\n분야: ${categoryNames[category] || category}\n추가 지시: ${instructions || '없음'}\n사용자가 명시한 도시: ${explicitCity || '자동 판별'}\n\n${providedEvidence ? `[사용자 제공 URL 본문 — 최우선 근거]\n${providedEvidence}` : ''}\n\n필수 규칙:\n- '캐롤튼 한인 내과'처럼 도시+한인+진료과가 있으면 세 조건을 모두 만족하는 후보만 place_candidates에 넣으세요.\n- 검색 결과가 풍부하다는 이유로 다른 도시나 일반 영어권 업소를 대신 선택하지 마세요.\n- 한국어 이름, 영문 이름, 별칭을 함께 검색하세요.\n- 각 사실과 후보에는 실제로 확인한 source_url을 넣으세요.\n- 전화번호·주소·운영시간은 검색 요약만으로 단정하지 말고 이후 Places/공식 사이트 검증 대상으로 남기세요.\n- 확실하지 않으면 후보를 적게 반환하세요. 0개도 허용됩니다.\n- 입학/등록 절차를 묻지 않았는데 절차형 기사로 바꾸지 마세요.`
-      });
-    } catch (error) {
-      if (/web_search|tool|unsupported|not available/i.test(error.message)) {
-        throw new Error('현재 OPENAI_API_KEY 또는 모델에서 OpenAI 웹 검색 도구를 사용할 수 없습니다. Netlify의 OPENAI_MODEL을 웹 검색 지원 모델로 설정해 주세요.');
-      }
-      throw error;
+    const placeQueries = candidates.slice(0, 8).map(c => `${c.name} ${requestedCity || c.city || 'Texas'}`);
+    const placeGroups = await Promise.all(placeQueries.map(q => searchGooglePlaces(q, 3).catch(() => [])));
+    const allPlaces = uniquePlaces(placeGroups.flat());
+    const verified = [];
+    for (const candidate of candidates) {
+      const matches = allPlaces.filter(p => placeMatchesCandidate(p, candidate));
+      const cityMatches = requestedCity ? matches.filter(p => normalize(p.address).includes(normalize(requestedCity))) : matches;
+      const best = cityMatches[0] || null;
+      if (best) verified.push({ candidate, place: best });
     }
 
-    const placeBased = isPlaceBasedTopic(category, topic);
-    const targetCity = explicitCity || research.target_city || '';
-    let verifiedPlaces = [];
-
-    if (placeBased && research.place_candidates.length) {
-      const searches = research.place_candidates.slice(0, 8).map(async candidate => {
-        const q = `${candidate.name} ${candidate.city || targetCity || 'Texas'}`;
-        const results = await searchGooglePlaces(q, 3);
-        const exact = results.find(p => {
-          const cityOk = !targetCity || p.address.toLowerCase().includes(targetCity.toLowerCase());
-          const nameWords = candidate.name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-          const nameOk = nameWords.length === 0 || nameWords.some(w => p.name.toLowerCase().includes(w));
-          return cityOk && nameOk;
-        });
-        return exact ? { ...exact, web_reason: candidate.reason_matches, web_source_url: candidate.source_url, web_confidence: candidate.confidence } : null;
-      });
-      verifiedPlaces = (await Promise.all(searches)).filter(Boolean);
+    if (candidates.length && !verified.length && process.env.GOOGLE_MAPS_API_KEY) {
+      throw new Error('웹 검색 후보는 찾았지만 Google Places에서 같은 이름과 요청 지역의 실제 장소를 확인하지 못했습니다. 잘못된 장소를 대신 넣지 않고 생성을 중단했습니다.');
     }
 
-    if (placeBased && research.place_candidates.length && verifiedPlaces.length === 0) {
-      throw new Error(`웹 검색 후보를 찾았지만 Google Places에서 ${targetCity || '요청 지역'}의 실제 장소로 확인하지 못했습니다. 다른 지역의 일반 장소로 대체하지 않고 생성을 중단했습니다.`);
-    }
-
-    const officialUrls = [...new Set(verifiedPlaces.map(p => p.website).filter(isHttpUrl))].slice(0, readableProvided.length ? 1 : 3);
-    const officialPages = (await Promise.all(officialUrls.map(fetchPageText))).filter(p => p.ok && p.text);
+    const providedPages = await Promise.all(sources.slice(0, 4).map(fetchPageText));
+    const readableProvided = providedPages.filter(p => p.ok && p.text);
+    const evidenceUrls = [...new Set(candidates.flatMap(c => c.source_urls || []).filter(isHttpUrl))].slice(0, 5);
+    const researchPages = await Promise.all(evidenceUrls.map(fetchPageText));
+    const readableResearch = researchPages.filter(p => p.ok && p.text);
+    const officialUrls = [...new Set(verified.map(v => v.place.website).filter(isHttpUrl))].slice(0, 3);
+    const officialPages = await Promise.all(officialUrls.map(fetchPageText));
+    const readableOfficial = officialPages.filter(p => p.ok && p.text);
 
     const evidence = [
-      ...research.facts.map((f, i) => `[웹 검색 사실 ${i + 1}]\n주장: ${f.claim}\n출처: ${f.source_title}\nURL: ${f.source_url}\n신뢰도: ${f.confidence}`),
-      ...readableProvided.map((p, i) => `[사용자 제공 출처 ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`),
-      ...verifiedPlaces.map((p, i) => `[Google Places 검증 ${i + 1}]\n이름: ${p.name}\n주소: ${p.address}\n전화: ${p.phone || '미제공'}\n웹사이트: ${p.website || '미제공'}\n지도: ${p.google_maps_url || '미제공'}\n웹 검색 일치 근거: ${p.web_reason}\n웹 출처: ${p.web_source_url}`),
-      ...officialPages.map((p, i) => `[공식 홈페이지 ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`)
-    ].join('\n\n').slice(0, 78000);
+      `[사용자 원문]\n${topic}\n요청 지역: ${requestedCity || '미지정'}\n필수 조건: ${qualifierText || '없음'}`,
+      `[실시간 웹 검색 요약]\n${research.search_summary}\n사용 검색어: ${research.queries_used.join(' | ')}`,
+      ...candidates.map((c, i) => `[웹 검색 후보 ${i + 1}]\n이름: ${c.name}\n별칭: ${(c.aliases || []).join(', ')}\n도시: ${c.city}\n필수조건 확인: ${c.qualifier_confirmed}\n근거: ${c.qualifier_evidence}\n출처: ${(c.source_urls || []).join(', ')}`),
+      ...verified.map((v, i) => `[Google Places 확인 ${i + 1}]\n이름: ${v.place.name}\n주소: ${v.place.address}\n전화: ${v.place.phone || '미제공'}\n웹사이트: ${v.place.website || '미제공'}\n지도: ${v.place.google_maps_url || '미제공'}\n평점: ${v.place.rating ?? '미제공'}\n리뷰 수: ${v.place.review_count ?? '미제공'}\n웹 검색의 필수조건 근거: ${v.candidate.qualifier_evidence}`),
+      ...readableProvided.map((p, i) => `[사용자 참고 URL ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`),
+      ...readableResearch.map((p, i) => `[웹 검색 근거 페이지 ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`),
+      ...readableOfficial.map((p, i) => `[공식 홈페이지 ${i + 1}]\nURL: ${p.url}\n본문: ${p.text}`)
+    ].join('\n\n').slice(0, 85000);
 
-    if (!evidence.trim()) throw new Error('웹 검색에서 기사 작성에 사용할 신뢰할 수 있는 근거를 확보하지 못했습니다.');
+    const draft = await askOpenAI({
+      name: 'daltown_guide_draft_v11', schema: articleSchema,
+      system: '당신은 달라스 한인 미디어의 엄격한 사실 검증 편집자입니다. 사용자 원문의 필수 조건을 만족하는 검증 후보만 기사에 포함합니다.',
+      prompt: `[기획]\n목표: ${plan.user_goal}\n포함: ${plan.must_cover.join(' / ')}\n제외: ${plan.must_avoid.join(' / ')}\n개요: ${plan.outline.join(' > ')}\n\n[검증 근거]\n${evidence}\n\n절대 규칙:\n- '${qualifierText || '사용자 조건'}'을 충족하지 않는 일반 장소는 넣지 마세요.\n- ${requestedCity ? `${requestedCity} 이외 지역은 넣지 마세요.` : ''}\n- 이름·주소·전화는 Google Places 확인값을 사용하세요.\n- '한인/한국어 진료' 표시는 웹 검색 근거가 명시된 후보에만 사용하세요.\n- 근거 없는 의사명, 운영시간, 진료과목, 후기, 순위는 만들지 마세요.\n- 빈칸을 555 번호나 예시 주소로 채우지 마세요.\n- 후보 수가 적으면 적은 수만 정확히 소개하세요.\n- source_url은 가장 핵심적인 실제 출처 URL을 넣으세요.`
+    });
 
-    const result = await askOpenAIJson({
-      name: 'daltown_verified_article', schema: finalSchema,
-      system: '당신은 달라스 한인 미디어의 엄격한 한국어 편집장입니다. 제공된 실시간 웹 검색, Google Places 검증, 공식 URL 본문에 있는 사실만 사용합니다.',
-      prompt: `아래 근거만으로 최종 기사를 작성하고 동시에 자체 검수하세요.\n\n[사용자 요청]\n${topic}\n\n[검색 의도]\n유형: ${research.intent_type}\n목표: ${research.user_goal}\n대상 도시: ${targetCity || '문맥에 따름'}\n필수 조건: ${research.hard_qualifiers.join(' / ') || '없음'}\n반드시 포함: ${research.must_cover.join(' / ')}\n반드시 제외: ${research.must_avoid.join(' / ')}\n개요: ${research.outline.join(' > ')}\n\n[검증 근거]\n${evidence}\n\n절대 규칙:\n- 장소 기반 기사에서는 Google Places로 검증된 장소만 이름·주소·전화번호와 함께 소개하세요.\n- 웹 검색에서 '한인/한국어' 근거가 있고 Google Places에서 같은 장소로 확인된 후보만 한인 업소로 표현하세요.\n- 요청 도시가 ${targetCity || '특정 도시'}이면 다른 도시 장소로 대체하지 마세요.\n- 근거에 없는 의사명, 후기, 운영시간, 비용, 순위, 특징을 만들지 마세요.\n- 555 전화번호와 예시 주소를 절대 쓰지 마세요.\n- 사용자 제공 URL과 다른 근거가 충돌하면 공식 홈페이지/Places의 최신 고유정보를 우선하고 충돌 사실은 생략하세요.\n- 근거가 부족하면 항목 수를 줄이세요. 내용을 채우기 위해 추측하지 마세요.\n- source_url에는 가장 핵심적인 실제 출처 URL 하나를 넣으세요.\n- score는 의도 일치 35, 근거 일치 40, 고유정보 검증 20, 표현 5 기준으로 채점하세요.\n- unsupported_claim_risk가 15를 넘지 않도록 근거 없는 문장을 제거한 최종본만 반환하세요.`
+    const review = await askOpenAI({
+      name: 'guide_quality_review_v11', schema: reviewSchema,
+      system: '당신은 원문의 필수 조건 누락과 엉뚱한 장소 대체를 가장 엄격하게 검사하는 팩트체커입니다.',
+      prompt: `원문: ${topic}\n지역: ${requestedCity || '미지정'}\n필수 조건: ${qualifierText || '없음'}\n\n[근거]\n${evidence}\n\n[초안]\n${JSON.stringify(draft)}\n\n검수 규칙:\n- 필수 조건을 충족한다는 근거가 없는 장소는 삭제하세요.\n- 요청 도시 밖 장소는 삭제하세요.\n- Places 검증 없는 주소·전화는 삭제하세요.\n- 일반 병원을 한인 병원으로 표현하면 score를 0으로 하고 삭제하세요.\n- 수정된 완성 기사 전체를 revised_article에 반환하세요.`
     });
 
     const usedSources = [
-      ...research.sources.filter(s => isHttpUrl(s.url)).map(s => ({ title: s.title, url: s.url, type: s.source_type })),
-      ...readableProvided.map(p => ({ title: '사용자 제공 참고 URL', url: p.url, type: 'provided_url' })),
-      ...verifiedPlaces.map(p => ({ title: p.name, url: p.google_maps_url || p.website, type: 'google_place', address: p.address })),
-      ...officialPages.map(p => ({ title: '공식 웹사이트', url: p.url, type: 'official_website' }))
-    ].filter((s, i, arr) => s.url && arr.findIndex(x => x.url === s.url) === i).slice(0, 20);
+      ...candidates.flatMap(c => (c.source_urls || []).map(url => ({ title: c.name, url, type: 'web_search_evidence' }))),
+      ...verified.map(v => ({ title: v.place.name, url: v.place.google_maps_url || v.place.website, type: 'google_place', address: v.place.address })),
+      ...readableProvided.map(p => ({ title: '사용자 제공 참고 URL', url: p.url, type: 'provided_url' }))
+    ];
 
-    return {
-      statusCode: 200, headers,
-      body: JSON.stringify({
-        article: result.article,
-        category, category_name: categoryNames[category] || category,
-        quality: {
-          score: result.score, intent_match: result.intent_match, relevance: result.relevance,
-          unsupported_claim_risk: result.unsupported_claim_risk, problems: result.problems,
-          intent_type: research.intent_type,
-          web_search_used: true,
-          web_facts_count: research.facts.length,
-          web_candidates_count: research.place_candidates.length,
-          google_places_used: placeBased,
-          google_places_count: verifiedPlaces.length,
-          target_city: targetCity,
-          hard_qualifiers: research.hard_qualifiers,
-          provided_urls_read: readableProvided.length,
-          official_pages_read: officialPages.length,
-          sources: usedSources
-        }
-      })
-    };
+    return { statusCode: 200, headers, body: JSON.stringify({
+      article: review.revised_article, category, category_name: categoryNames[category] || category,
+      quality: {
+        score: review.score, intent_match: review.intent_match, relevance: review.relevance,
+        unsupported_claim_risk: review.unsupported_claim_risk, problems: review.problems,
+        intent_type: plan.intent_type, search_queries: research.queries_used,
+        google_search_used: true, openai_web_search_used: true,
+        hard_qualifiers: hardQualifiers.map(q => q.key), requested_city: requestedCity,
+        web_candidates_count: candidates.length, google_places_used: true, google_places_count: verified.length,
+        provided_urls_read: readableProvided.length, official_pages_read: readableOfficial.length, sources: usedSources
+      }
+    }) };
   } catch (error) {
     console.error('generate-guide error', error);
     return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || 'AI 글 생성 오류' }) };
