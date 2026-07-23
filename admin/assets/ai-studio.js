@@ -151,17 +151,95 @@ function stringifyAsset(type,s){
   return '';
 }
 
+function injectPreviewStyles(){
+  if(document.getElementById('ucsPreviewStyles')) return;
+  const style=document.createElement('style');
+  style.id='ucsPreviewStyles';
+  style.textContent=`
+    .ucs-result-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.9fr);gap:18px;align-items:start}
+    .ucs-result-editor textarea{width:100%;min-height:210px;resize:vertical}
+    .ucs-preview-wrap{position:sticky;top:16px}
+    .ucs-preview-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:13px;color:#64748b}
+    .ucs-preview-device{display:flex;gap:6px}
+    .ucs-preview-device button{border:1px solid #dbe3ef;background:#fff;border-radius:999px;padding:5px 9px;font-size:12px;cursor:pointer}
+    .ucs-preview-device button.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+    .ucs-preview-stage{background:#eef3f9;border:1px solid #dbe3ef;border-radius:16px;padding:18px;overflow:hidden}
+    .ucs-preview-stage.mobile{max-width:390px;margin:0 auto;padding:12px;border-radius:26px}
+    .ucs-preview-card{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(15,23,42,.10);border:1px solid #e5e7eb}
+    .ucs-preview-image{min-height:155px;background:linear-gradient(135deg,#dbeafe,#eef2ff 55%,#fef3c7);display:flex;align-items:center;justify-content:center;padding:20px;text-align:center;color:#475569;font-size:13px}
+    .ucs-preview-body{padding:18px}
+    .ucs-preview-body h3{margin:0 0 8px;font-size:22px;line-height:1.25}
+    .ucs-preview-body p{margin:6px 0;color:#475569;line-height:1.55;white-space:pre-wrap}
+    .ucs-preview-chip{display:inline-flex;background:#eff6ff;color:#1d4ed8;border-radius:999px;padding:5px 10px;font-weight:700;font-size:12px;margin-bottom:10px}
+    .ucs-preview-code{margin-top:12px;background:#f8fafc;border:1px dashed #94a3b8;border-radius:10px;padding:10px;font-weight:700}
+    .ucs-preview-cta{display:inline-block;margin-top:14px;background:#2563eb;color:#fff;border-radius:10px;padding:10px 16px;font-weight:700}
+    .ucs-banner-preview{position:relative;min-height:230px;background:linear-gradient(120deg,#0f172a,#1e3a8a 55%,#0ea5e9);color:#fff;display:flex;align-items:flex-end;padding:28px;overflow:hidden}
+    .ucs-banner-preview:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.62),rgba(0,0,0,.08))}
+    .ucs-banner-copy{position:relative;z-index:1;max-width:72%}.ucs-banner-copy h3{font-size:28px;margin:0 0 8px}.ucs-banner-copy p{color:#e2e8f0;margin:0}
+    .ucs-article-preview .ucs-preview-body h3{font-size:24px}.ucs-article-summary{font-weight:600;color:#334155!important}
+    .ucs-social-preview{padding:18px}.ucs-social-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}.ucs-social-avatar{width:38px;height:38px;border-radius:50%;background:#dbeafe}.ucs-social-text{white-space:pre-wrap;line-height:1.55}
+    .ucs-push-preview{padding:14px 16px;display:flex;gap:12px;align-items:flex-start}.ucs-push-icon{font-size:26px}.ucs-push-preview h4{margin:0 0 3px}.ucs-push-preview p{margin:0;color:#475569}
+    @media(max-width:900px){.ucs-result-layout{grid-template-columns:1fr}.ucs-preview-wrap{position:static}}
+  `;
+  document.head.appendChild(style);
+}
+function textLines(type){
+  const raw=$(`ucsResult_${type}`)?.value||'';
+  return raw.split(/\n/).map(x=>x.trim());
+}
+function previewHtml(type){
+  const b=businessPayload();
+  const name=esc(b?.name||'연결 업소');
+  const lines=textLines(type);
+  const nonempty=lines.filter(Boolean);
+  if(type==='coupon'){
+    const title=esc(nonempty[0]||'쿠폰 제목');
+    const benefit=esc((lines.find(x=>x.startsWith('혜택:'))||'혜택: 특별 혜택').replace(/^혜택:\s*/,''));
+    const code=esc((lines.find(x=>x.startsWith('코드:'))||'코드: 업소 문의').replace(/^코드:\s*/,''));
+    const desc=esc(nonempty.filter(x=>!x.startsWith('혜택:')&&!x.startsWith('코드:')).slice(1).join('\n')||'쿠폰 설명이 여기에 표시됩니다.');
+    return `<div class="ucs-preview-card"><div class="ucs-preview-image">쿠폰 대표 이미지 미리보기<br><small>이미지를 등록하면 실제 이미지가 표시됩니다.</small></div><div class="ucs-preview-body"><span class="ucs-preview-chip">🎟️ ${benefit}</span><h3>${title}</h3><p>${name}</p><p>${desc}</p><div class="ucs-preview-code">쿠폰 코드 · ${code}</div><span class="ucs-preview-cta">쿠폰 사용하기</span></div></div>`;
+  }
+  if(type==='banner'){
+    const title=esc(nonempty[0]||'배너 제목');
+    const cta=esc((lines.find(x=>x.startsWith('CTA:'))||'CTA: 자세히 보기').replace(/^CTA:\s*/,''));
+    const desc=esc(nonempty.filter(x=>!x.startsWith('CTA:')&&!x.startsWith('이미지 프롬프트:')).slice(1).filter(x=>!x.includes('프롬프트')).join(' ')||'배너 설명');
+    return `<div class="ucs-preview-card ucs-banner-preview"><div class="ucs-banner-copy"><span class="ucs-preview-chip">${name}</span><h3>${title}</h3><p>${desc}</p><span class="ucs-preview-cta">${cta}</span></div></div>`;
+  }
+  if(type==='dalpick'||type==='guide'){
+    const title=esc(nonempty[0]||'콘텐츠 제목');
+    const summary=esc(nonempty[1]||'요약 문구가 여기에 표시됩니다.');
+    const body=esc(nonempty.slice(2).join('\n')||'본문 미리보기');
+    return `<div class="ucs-preview-card ucs-article-preview"><div class="ucs-preview-image">대표 이미지 미리보기</div><div class="ucs-preview-body"><span class="ucs-preview-chip">${type==='dalpick'?'DalPick':'AI Guide'}</span><h3>${title}</h3><p class="ucs-article-summary">${summary}</p><p>${body.slice(0,500)}${body.length>500?'…':''}</p></div></div>`;
+  }
+  if(type==='social') return `<div class="ucs-preview-card ucs-social-preview"><div class="ucs-social-head"><div class="ucs-social-avatar"></div><div><strong>${name}</strong><br><small>Sponsored</small></div></div><div class="ucs-preview-image">SNS 이미지 미리보기</div><p class="ucs-social-text">${esc(nonempty.slice(1).join('\n')||'SNS 문안 미리보기')}</p></div>`;
+  if(type==='push') return `<div class="ucs-preview-card ucs-push-preview"><div class="ucs-push-icon">🔔</div><div><h4>${esc(nonempty[0]||'푸시 제목')}</h4><p>${esc(nonempty.slice(1).join(' ')||'푸시 메시지가 여기에 표시됩니다.')}</p></div></div>`;
+  if(type==='video') return `<div class="ucs-preview-card"><div class="ucs-preview-image" style="aspect-ratio:9/16;min-height:360px">🎬 숏폼 영상 미리보기<br><small>${esc(nonempty[1]||'영상 훅과 대본')}</small></div></div>`;
+  return `<div class="ucs-preview-card"><div class="ucs-preview-image">✨ 이미지 생성 프롬프트</div><div class="ucs-preview-body"><p>${esc(nonempty.join('\n')||'프롬프트가 여기에 표시됩니다.')}</p></div></div>`;
+}
+function updatePreview(type){
+  const box=$(`ucsPreview_${type}`); if(box) box.innerHTML=previewHtml(type);
+}
 function renderResults(types,s){
+  injectPreviewStyles();
   const score=Number(s.marketing_score||0);
   const checks=s.checklist||[];
   $('ucsScoreBox').innerHTML=`<div><span class="ucs-score-number">${score||'-'}점</span> <strong>AI 마케팅 점수</strong></div><div class="muted">${esc(s.strategy_summary||'')}</div><div class="ucs-checklist">${checks.map(c=>`<div class="ucs-check-${c.status}">${c.status==='pass'?'✓':c.status==='warning'?'⚠':'ℹ'} <b>${esc(c.label)}</b> · ${esc(c.message)}</div>`).join('')}</div>`;
-  $('ucsResultStatus').textContent=`${types.length}개 콘텐츠 생성 완료 · 내용을 수정하거나 각 관리 화면으로 보내세요.`;
+  $('ucsResultStatus').textContent=`${types.length}개 콘텐츠 생성 완료 · 왼쪽에서 수정하면 오른쪽 미리보기에 바로 반영됩니다.`;
   $('ucsResults').innerHTML=types.map(type=>{
     const meta=ASSETS.find(x=>x[0]===type)||[type,'','콘텐츠',''];
-    return `<article class="ucs-result-card" data-result="${type}"><div class="ucs-result-head"><strong>${meta[1]} ${meta[2]}</strong><div class="ucs-result-actions"><button class="btn ghost ucs-copy" data-type="${type}" type="button">복사</button>${actionButton(type)}</div></div><textarea id="ucsResult_${type}">${esc(stringifyAsset(type,s))}</textarea></article>`;
+    return `<article class="ucs-result-card" data-result="${type}"><div class="ucs-result-head"><strong>${meta[1]} ${meta[2]}</strong><div class="ucs-result-actions"><button class="btn ghost ucs-copy" data-type="${type}" type="button">복사</button>${actionButton(type)}</div></div><div class="ucs-result-layout"><div class="ucs-result-editor"><textarea id="ucsResult_${type}">${esc(stringifyAsset(type,s))}</textarea></div><div class="ucs-preview-wrap"><div class="ucs-preview-title"><strong>실시간 미리보기</strong><div class="ucs-preview-device"><button type="button" class="active" data-preview-mode="desktop" data-type="${type}">PC</button><button type="button" data-preview-mode="mobile" data-type="${type}">모바일</button></div></div><div class="ucs-preview-stage" id="ucsPreviewStage_${type}"><div id="ucsPreview_${type}"></div></div></div></div></article>`;
   }).join('');
   document.querySelectorAll('.ucs-copy').forEach(b=>b.addEventListener('click',()=>navigator.clipboard.writeText($(`ucsResult_${b.dataset.type}`)?.value||'').then(()=>notify('복사했습니다.'))));
   document.querySelectorAll('[data-send-asset]').forEach(b=>b.addEventListener('click',()=>sendAsset(b.dataset.sendAsset)));
+  types.forEach(type=>{
+    updatePreview(type);
+    $(`ucsResult_${type}`)?.addEventListener('input',()=>updatePreview(type));
+  });
+  document.querySelectorAll('[data-preview-mode]').forEach(btn=>btn.addEventListener('click',()=>{
+    const type=btn.dataset.type;
+    btn.closest('.ucs-preview-device')?.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===btn));
+    $(`ucsPreviewStage_${type}`)?.classList.toggle('mobile',btn.dataset.previewMode==='mobile');
+  }));
 }
 function actionButton(type){
   const labels={dalpick:'DalPick 관리로 보내기',guide:'가이드 관리로 보내기',coupon:'쿠폰으로 등록',banner:'배너 관리로 보내기',push:'푸시 발송으로 보내기'};
