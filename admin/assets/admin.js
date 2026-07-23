@@ -236,6 +236,7 @@ function switchSection(section) {
 function setPageMeta() {
   const titleMap = {
     business: ['업소 관리자', 'Dallas와 지역 업소를 조회하고 수정/추가할 수 있습니다.'],
+    businessCrm: ['업소 마케팅 CRM', '업소별 홍보 상태, 다음 권장 일정과 오늘 해야 할 일을 관리합니다.'],
     coupon: ['쿠폰 관리자', '쿠폰을 생성하고 기간 / 정렬 / 지역 노출을 관리합니다.'],
     couponRedemptions: ['쿠폰 사용 내역', '사용자가 확인한 쿠폰 기록을 조회합니다.'],
     slide: ['슬라이드 관리자', '홈 상단 통합 슬라이더에 노출할 프로모션을 관리합니다.'],
@@ -1646,6 +1647,9 @@ async function loadCoupons() {
     return;
   }
   coupons = data || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getCoupons = () => [...coupons];
+  window.dispatchEvent(new CustomEvent('kfocus:coupons-loaded', {detail:[...coupons]}));
   renderCouponList(filterCoupons());
   renderBusinessList(filterBusinesses());
 }
@@ -1845,7 +1849,7 @@ const DALPICK_BUSINESS_REQUIRED=new Set(['recommended','new_business','business_
 const DALPICK_TYPE_HELP={local_info:'지역 명소, 여행지, 계절 정보를 업소 연결 없이 작성할 수 있습니다.',lifestyle:'텍사스 생활 팁과 실용 정보를 특정 업체 홍보 없이 작성합니다.',themed:'하나의 주제로 정보형 기사를 만들고 필요할 때만 업소를 연결합니다.',recommended:'선택한 업소를 중심으로 추천 콘텐츠를 작성합니다.',new_business:'새로 등록된 업소의 특징을 소개합니다.',coupon:'쿠폰이나 프로모션 내용을 소개합니다. 업소 연결을 권장합니다.',event:'지역 행사나 이벤트를 소개합니다. 업소 연결은 선택 사항입니다.',business_story:'선택한 업소를 중심으로 업소탐방 기사를 작성합니다. 연결 업소가 반드시 필요합니다.'};
 function dalpickLabel(v){return DALPICK_LABELS[v]||v||'DalPick';}
 function renderDalpickBusinessOptions(){const el=qs('dalpick_business_id');if(!el)return;const cur=el.value;el.innerHTML='<option value="">연결 안 함</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.id)}</option>`).join('');el.value=cur;}
-async function loadDalpicks(){if(!supabase)return;const {data,error}=await supabase.from('dalpick').select('*').eq('region',getAppRegion()).order('is_featured',{ascending:false}).order('priority',{ascending:false}).order('created_at',{ascending:false});if(error){console.warn('DalPick load:',error.message);safeText('dalpickCountText','테이블 필요');return;}dalpicks=data||[];renderDalpickBusinessOptions();renderDalpickList(filterDalpicks());}
+async function loadDalpicks(){if(!supabase)return;const {data,error}=await supabase.from('dalpick').select('*').eq('region',getAppRegion()).order('is_featured',{ascending:false}).order('priority',{ascending:false}).order('created_at',{ascending:false});if(error){console.warn('DalPick load:',error.message);safeText('dalpickCountText','테이블 필요');return;}dalpicks=data||[];window.KFocusAdminBridge=window.KFocusAdminBridge||{};window.KFocusAdminBridge.getDalpicks=()=>[...dalpicks];window.dispatchEvent(new CustomEvent('kfocus:dalpicks-loaded',{detail:[...dalpicks]}));renderDalpickBusinessOptions();renderDalpickList(filterDalpicks());}
 function filterDalpicks(){const q=val('dalpickSearchInput').trim().toLowerCase(),cat=val('dalpickCategoryFilter')||'all';return dalpicks.filter(d=>{if(cat!=='all'&&d.category!==cat)return false;if(!q)return true;const b=businesses.find(x=>String(x.id)===String(d.business_id));return [d.title,d.summary,d.content,b?.name_ko,b?.name_en].join(' ').toLowerCase().includes(q);});}
 function renderDalpickList(items){
   safeText('dalpickCountText',`${items.length}개`);
@@ -3456,6 +3460,9 @@ const { data, error } = await supabase
   }
 
   banners = Array.isArray(data) ? data : [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getBanners = () => [...banners];
+  window.dispatchEvent(new CustomEvent('kfocus:banners-loaded', {detail:[...banners]}));
 
   listEl.innerHTML = banners.length
     ? banners.map(bannerCardAdminHTML).join('')
