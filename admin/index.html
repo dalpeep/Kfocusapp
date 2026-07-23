@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="assets/admin.css?v=8.3.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=8.6.0"></script>
-  <script type="module" src="assets/ai-studio.js?v=6.0.0"></script>
+  <script type="module" src="assets/admin.js?v=22.0.0"></script>
+  <script type="module" src="assets/ai-studio.js?v=22.0.0"></script>
 <style>
 .admin-card{
   background:#fff;
@@ -18,6 +18,9 @@
   box-shadow:0 4px 16px rgba(15,23,42,.05);
   max-width:900px;
 }
+
+.unified-studio-hero{display:flex;justify-content:space-between;gap:20px;align-items:center;background:linear-gradient(135deg,#f8fbff,#fff)}
+.ucs-step-card{margin-top:16px}.ucs-step-head{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}.ucs-step-head>span{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#2563eb;color:#fff;font-weight:800;flex:0 0 auto}.ucs-step-head h2{margin:0}.ucs-topic-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:stretch}.ucs-topic-row textarea{width:100%;min-height:92px}.ucs-topic-row .btn{min-width:140px}.ucs-plan-grid{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(360px,1.2fr);gap:22px}.ucs-plan-summary{display:grid;gap:8px}.ucs-plan-label{font-size:12px;font-weight:800;color:#475569;margin-top:8px;text-transform:none}.ucs-chip-list{display:flex;gap:8px;flex-wrap:wrap}.ucs-chip{border:1px solid #cbd5e1;border-radius:999px;padding:7px 11px;background:#fff}.ucs-chip input{margin-right:5px}.ucs-assets-title{margin-top:20px}.ucs-asset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.ucs-asset-card{display:block;border:1px solid #dbe3ef;border-radius:14px;padding:13px;background:#fff;cursor:pointer}.ucs-asset-card.recommended{border-color:#93c5fd;background:#eff6ff}.ucs-asset-top{display:flex;gap:9px;align-items:center}.ucs-asset-card small{display:block;margin:7px 0 0 25px;color:#64748b;line-height:1.45}.ucs-selection-actions,.ucs-generate-row{display:flex;gap:8px;margin-top:14px}.ucs-generate-row{justify-content:flex-end}.ucs-results{display:grid;gap:14px}.ucs-result-card{border:1px solid #dbe3ef;border-radius:14px;padding:15px}.ucs-result-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.ucs-result-actions{display:flex;gap:8px;flex-wrap:wrap}.ucs-result-card textarea{width:100%;min-height:150px}.ucs-score-box{margin:0 0 15px;padding:14px;border-radius:14px;background:#f8fafc;border:1px solid #e2e8f0}.ucs-score-number{font-size:26px;font-weight:900}.ucs-checklist{display:grid;gap:5px;margin-top:8px}.ucs-check-pass{color:#15803d}.ucs-check-warning{color:#b45309}.hidden{display:none!important}@media(max-width:800px){.ucs-topic-row,.ucs-plan-grid{grid-template-columns:1fr}.ucs-asset-grid{grid-template-columns:1fr}.unified-studio-hero{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
@@ -33,8 +36,8 @@
 
       <nav class="nav" id="adminNav">
         <div class="nav-group-title">콘텐츠 스튜디오</div>
-        <button class="nav-item" data-section="aiStudio">AI 광고 스튜디오 <span class="nav-badge">NEW</span></button>
-        <button class="nav-item" data-section="dalpick">AI 콘텐츠 스튜디오</button>
+        <button class="nav-item" data-section="aiStudio">AI 콘텐츠 스튜디오 <span class="nav-badge">NEW</span></button>
+        <button class="nav-item" data-section="dalpick">DalPick 관리</button>
         <button class="nav-item" data-section="board">게시판·가이드 관리</button>
         <div class="nav-group-title">운영 관리</div>
         <button class="nav-item active" data-section="business">업소 관리</button>
@@ -128,90 +131,53 @@
 </section>
 
       <section id="section-aiStudio" class="admin-section">
-        <section class="card ai-studio-hero">
+        <section class="card unified-studio-hero">
           <div>
-            <span class="ai-studio-kicker">DalTownMap v6.0</span>
-            <h2>AI 광고 스튜디오</h2>
-            <p class="muted">먼저 만들 제작물을 선택한 뒤 업소와 행사 정보를 입력하세요. 배너·쿠폰·포스터·SNS·썸네일은 ChatGPT 이미지 생성용 버튼으로 바로 이어집니다.</p>
+            <span class="ai-studio-kicker">DalTownMap v22</span>
+            <h2>AI 콘텐츠 스튜디오</h2>
+            <p class="muted">주제 하나를 입력하면 AI가 콘텐츠 성격, 추천 테마, 필요한 제작물과 추천 이유를 먼저 제안합니다. 선택한 항목만 한 번에 생성하고 각 관리 화면으로 보낼 수 있습니다.</p>
           </div>
-          <div class="ai-studio-hero-actions">
-            <button id="aiCampaignResetBtn" class="btn ghost" type="button">새 캠페인</button>
-            <button id="aiCampaignGenerateBtn" class="btn primary" type="button">✨ 캠페인 생성</button>
-          </div>
+          <button id="ucsResetBtn" class="btn ghost" type="button">새 기획</button>
         </section>
 
-        <section class="card ai-campaign-library">
-          <div class="panel-head">
+        <section class="card ucs-step-card">
+          <div class="ucs-step-head"><span>1</span><div><h2>무엇에 관한 콘텐츠를 만들까요?</h2><p class="muted">업소 선택이나 제작물 선택보다 먼저 주제를 입력합니다.</p></div></div>
+          <div class="ucs-topic-row">
+            <textarea id="ucsTopic" rows="3" placeholder="예: 청기와 여름 보양식 이벤트 / 텍사스 운전면허 갱신 / 캐롤튼 한인 내과 추천"></textarea>
+            <button id="ucsAnalyzeBtn" class="btn primary" type="button">✨ AI 분석</button>
+          </div>
+          <div id="ucsAnalyzeStatus" class="muted">주제를 입력하면 AI가 기획안을 제안합니다.</div>
+        </section>
+
+        <section id="ucsPlanSection" class="card ucs-step-card hidden">
+          <div class="ucs-step-head"><span>2</span><div><h2>AI 기획 결과</h2><p class="muted">추천 내용을 확인하고 필요한 항목만 체크하세요.</p></div></div>
+          <div class="ucs-plan-grid">
+            <div class="ucs-plan-summary">
+              <div class="ucs-plan-label">콘텐츠 성격</div><strong id="ucsIntentLabel">-</strong>
+              <p id="ucsExplanation" class="muted"></p>
+              <div class="ucs-plan-label">추천 목표</div><input id="ucsGoal" type="text">
+              <div class="ucs-plan-label">대상 고객</div><input id="ucsAudience" type="text">
+              <div class="ucs-plan-label">문체</div><input id="ucsTone" type="text">
+              <div class="ucs-plan-label">연결 업소</div>
+              <select id="ucsBusiness"><option value="">연결 안 함</option></select>
+              <div id="ucsBusinessHelp" class="tiny muted"></div>
+              <div class="ucs-plan-label">추가 지시</div><textarea id="ucsInstructions" rows="3" placeholder="가격, 기간, 혜택, 꼭 포함할 내용 등 확인된 사실을 입력하세요."></textarea>
+            </div>
             <div>
-              <h2>캠페인 목록</h2>
-              <p class="muted">캠페인 행이나 수정 버튼을 누르면 내용을 불러올 수 있습니다. 수정 저장, 복제, 삭제가 실제로 적용됩니다.</p>
-            </div>
-            <div class="ai-library-tools">
-              <input id="aiCampaignSearch" type="search" placeholder="업소명 또는 캠페인 검색">
-              <select id="aiCampaignStatusFilter">
-                <option value="all">전체 상태</option>
-                <option value="draft">작성중</option>
-                <option value="completed">완료</option>
-                <option value="published">게시</option>
-              </select>
+              <div class="ucs-plan-label">추천 테마</div>
+              <div id="ucsThemes" class="ucs-chip-list"></div>
+              <div class="ucs-plan-label ucs-assets-title">무엇을 만들까요?</div>
+              <div id="ucsAssetSelector" class="ucs-asset-grid"></div>
+              <div class="ucs-selection-actions"><button id="ucsSelectAll" class="btn ghost" type="button">전체 선택</button><button id="ucsClearAll" class="btn ghost" type="button">선택 해제</button></div>
             </div>
           </div>
-          <div id="aiCampaignList" class="ai-campaign-list"></div>
-          <div id="aiCampaignListEmpty" class="ai-list-empty">저장된 캠페인이 없습니다. 위에서 새 캠페인을 생성하세요.</div>
+          <div class="ucs-generate-row"><button id="ucsGenerateBtn" class="btn primary" type="button">선택한 콘텐츠 생성</button></div>
         </section>
 
-        <section class="ai-studio-grid">
-          <div class="card ai-studio-input-card">
-            <div class="panel-head"><div><h2>캠페인 정보</h2><p class="muted">확인된 정보만 입력하세요.</p></div></div>
-            <div class="ai-step-block">
-              <div class="ai-step-title"><span>1</span><div><strong>무엇을 만들까요?</strong><p class="muted">여러 항목을 동시에 선택할 수 있습니다.</p></div></div>
-              <div id="aiAssetSelector" class="ai-asset-selector">
-                <label class="ai-asset-card"><input type="checkbox" value="article" checked><span class="ai-asset-icon">📰</span><strong>기사·DalPick</strong><small>게시글과 DalPick 문안</small></label>
-                <label class="ai-asset-card"><input type="checkbox" value="banner" checked><span class="ai-asset-icon">🖼️</span><strong>배너</strong><small>홈·업소 상세 배너</small></label>
-                <label class="ai-asset-card"><input type="checkbox" value="coupon" checked><span class="ai-asset-icon">🎟️</span><strong>쿠폰</strong><small>혜택·코드·사용 조건</small></label>
-                <label class="ai-asset-card"><input type="checkbox" value="poster"><span class="ai-asset-icon">📄</span><strong>포스터</strong><small>A4·행사 홍보물</small></label>
-                <label class="ai-asset-card"><input type="checkbox" value="social" checked><span class="ai-asset-icon">📱</span><strong>SNS 이미지</strong><small>1:1·4:5·스토리</small></label>
-                <label class="ai-asset-card"><input type="checkbox" value="thumbnail"><span class="ai-asset-icon">▶️</span><strong>썸네일</strong><small>YouTube·숏폼 표지</small></label>
-                <label class="ai-asset-card"><input type="checkbox" value="video"><span class="ai-asset-icon">🎬</span><strong>영상 프롬프트</strong><small>Grok·Runway 구성안</small></label>
-              </div>
-              <div class="ai-package-actions"><button id="aiSelectAllAssets" class="btn ghost" type="button">전체 선택</button><button id="aiClearAssets" class="btn ghost" type="button">선택 해제</button></div>
-            </div>
-            <div class="ai-step-title ai-step-two"><span>2</span><div><strong>캠페인 정보를 입력하세요</strong><p class="muted">선택한 제작물에 필요한 내용을 만듭니다.</p></div></div>
-            <form id="aiCampaignForm" class="form-grid">
-              <label class="field full"><span>업소</span><select id="aiCampaignBusiness"><option value="">업소를 선택하세요</option></select></label>
-              <label class="field full"><span>캠페인·행사명</span><input id="aiCampaignName" type="text" placeholder="예: 여름 건강 체험 이벤트"></label>
-              <label class="field full"><span>혜택</span><input id="aiCampaignBenefit" type="text" placeholder="예: 무료 체험 및 상담"></label>
-              <label class="field"><span>시작일</span><input id="aiCampaignStart" type="date"></label>
-              <label class="field"><span>종료일</span><input id="aiCampaignEnd" type="date"></label>
-              <label class="field"><span>스타일</span><select id="aiCampaignStyle"><option value="premium">Premium</option><option value="modern">Modern</option><option value="minimal">Minimal</option><option value="warm">Warm</option><option value="energetic">Energetic</option></select></label>
-              <label class="field"><span>주요 행동</span><select id="aiCampaignCta"><option value="예약하기">예약하기</option><option value="전화하기">전화하기</option><option value="자세히 보기">자세히 보기</option><option value="쿠폰 받기">쿠폰 받기</option><option value="방문하기">방문하기</option></select></label>
-              <label class="field"><span>쿠폰 유형</span><select id="aiCouponType"><option value="discount">할인</option><option value="free">무료</option><option value="gift">사은품</option><option value="event">이벤트</option><option value="reservation">예약</option><option value="limited">기간 한정</option></select></label>
-              <label class="field"><span>쿠폰 디자인</span><select id="aiCouponStyle"><option value="premium">Premium</option><option value="modern">Modern</option><option value="luxury">Luxury</option><option value="minimal">Minimal</option></select></label>
-              <label class="field"><span>쿠폰 코드</span><input id="aiCouponCode" type="text" placeholder="비워두면 자동 생성"></label>
-              <label class="field"><span>사용 방법</span><input id="aiCouponUsage" type="text" placeholder="예: 직원에게 쿠폰 화면 제시"></label>
-              <label class="field full checkbox-line"><input id="aiCouponToday" type="checkbox"><span>메인 ‘오늘의 쿠폰’에도 표시</span></label>
-              <label class="field full"><span>핵심 내용·주의사항</span><textarea id="aiCampaignNotes" rows="5" placeholder="가격, 조건, 대상, 예약 방법 등 사실 확인된 내용만 입력하세요."></textarea></label>
-            </form>
-            <div class="ai-season-box">
-              <strong>이번 달 아이디어</strong>
-              <div id="aiSeasonIdeas" class="ai-chip-row"></div>
-            </div>
-          </div>
-
-          <div class="card ai-studio-output-card">
-            <div class="panel-head"><div><h2>캠페인 상세</h2><p id="aiCampaignStatus" class="muted">정보를 입력하고 캠페인 생성 버튼을 누르세요.</p></div><div class="ai-detail-actions"><select id="aiCampaignWorkflowStatus" title="캠페인 상태"><option value="draft">작성중</option><option value="completed">완료</option><option value="published">게시</option></select><button id="aiCampaignRegisterBannerBtn" class="btn primary" type="button">🖼 배너로 등록</button><button id="aiCampaignSaveBtn" class="btn secondary" type="button">수정 저장</button><button id="aiCampaignDeleteBtn" class="btn danger" type="button">삭제</button><button id="aiCopyAllBtn" class="btn ghost" type="button">전체 복사</button></div></div>
-            <div id="aiCampaignEmpty" class="ai-empty-state">✨ 캠페인 패키지가 여기에 표시됩니다.</div>
-            <div id="aiCampaignResults" class="ai-result-stack hidden">
-              <article class="ai-result-card" data-asset-result="article"><div class="ai-result-head"><strong>기사·DalPick</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiArticleResult" type="button">복사</button></div><textarea id="aiArticleResult" rows="10" readonly></textarea><button id="aiSendDalpickBtn" class="btn secondary full-btn" type="button">AI 콘텐츠 스튜디오로 보내기</button></article>
-              <article class="ai-result-card" data-asset-result="banner"><div class="ai-result-head"><strong>배너 광고안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiBannerResult" type="button">복사</button></div><textarea id="aiBannerResult" rows="7" readonly></textarea><div class="ai-image-action-row"><button class="btn primary ai-direct-image-btn" data-direct-asset="banner" type="button">✨ 앱에서 배너 바로 생성</button><button class="btn ghost ai-chatgpt-image-btn" data-chatgpt-asset="banner" type="button">프롬프트 복사</button><div class="ai-generated-preview hidden" data-generated-preview="banner"></div><button id="aiSendBannerBtn" class="btn secondary" type="button">배너 관리로 보내기</button></div></article>
-              <article class="ai-result-card" data-asset-result="coupon"><div class="ai-result-head"><strong>AI 쿠폰 제작안 · 4가지 디자인 프롬프트</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiCouponResult" type="button">복사</button></div><textarea id="aiCouponResult" rows="7" readonly></textarea><div class="ai-image-action-row"><button class="btn primary ai-direct-image-btn" data-direct-asset="coupon" type="button">✨ 앱에서 쿠폰 바로 생성</button><button class="btn ghost ai-chatgpt-image-btn" data-chatgpt-asset="coupon" type="button">프롬프트 복사</button><div class="ai-generated-preview hidden" data-generated-preview="coupon"></div><button id="aiSendCouponBtn" class="btn secondary" type="button">쿠폰으로 등록</button></div></article>
-              <article class="ai-result-card" data-asset-result="poster"><div class="ai-result-head"><strong>포스터 제작안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiPosterResult" type="button">복사</button></div><textarea id="aiPosterResult" rows="8" readonly></textarea><div class="ai-image-action-row"><button class="btn primary ai-direct-image-btn" data-direct-asset="poster" type="button">✨ 앱에서 포스터 바로 생성</button><button class="btn ghost ai-chatgpt-image-btn" data-chatgpt-asset="poster" type="button">프롬프트 복사</button><div class="ai-generated-preview hidden" data-generated-preview="poster"></div></div></article>
-              <article class="ai-result-card" data-asset-result="social"><div class="ai-result-head"><strong>SNS 이미지·게시안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiSocialResult" type="button">복사</button></div><textarea id="aiSocialResult" rows="8" readonly></textarea><div class="ai-image-action-row"><button class="btn primary ai-direct-image-btn" data-direct-asset="social" type="button">✨ 앱에서 SNS 이미지 바로 생성</button><button class="btn ghost ai-chatgpt-image-btn" data-chatgpt-asset="social" type="button">프롬프트 복사</button><div class="ai-generated-preview hidden" data-generated-preview="social"></div></div></article>
-              <article class="ai-result-card" data-asset-result="thumbnail"><div class="ai-result-head"><strong>유튜브·숏폼 썸네일 제작안</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiThumbnailResult" type="button">복사</button></div><textarea id="aiThumbnailResult" rows="8" readonly></textarea><div class="ai-image-action-row"><button class="btn primary ai-direct-image-btn" data-direct-asset="thumbnail" type="button">✨ 앱에서 썸네일 바로 생성</button><button class="btn ghost ai-chatgpt-image-btn" data-chatgpt-asset="thumbnail" type="button">프롬프트 복사</button><div class="ai-generated-preview hidden" data-generated-preview="thumbnail"></div></div></article>
-              <article class="ai-result-card" data-asset-result="video"><div class="ai-result-head"><strong>Grok 영상 프롬프트</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiGrokResult" type="button">복사</button></div><textarea id="aiGrokResult" rows="12" readonly></textarea></article>
-              <article class="ai-result-card" data-asset-result="video"><div class="ai-result-head"><strong>Runway 선택 프롬프트</strong><button class="btn ghost ai-copy-btn" data-copy-target="aiRunwayResult" type="button">복사</button></div><textarea id="aiRunwayResult" rows="9" readonly></textarea></article>
-            </div>
-          </div>
+        <section id="ucsResultsSection" class="card ucs-step-card hidden">
+          <div class="ucs-step-head"><span>3</span><div><h2>생성 결과 검토·발행</h2><p id="ucsResultStatus" class="muted">선택한 콘텐츠가 카드로 표시됩니다.</p></div></div>
+          <div id="ucsScoreBox" class="ucs-score-box"></div>
+          <div id="ucsResults" class="ucs-results"></div>
         </section>
       </section>
 
