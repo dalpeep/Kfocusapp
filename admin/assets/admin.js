@@ -2322,7 +2322,7 @@ async function deleteBoard() {
 }
 
 /* ---------------------------
-   AI Dallas Guide
+   AI Dallas Guide v12: search -> review -> generate
 --------------------------- */
 const AI_GUIDE_CATEGORY_NAMES = {
   driving: '운전면허 차량등록 자동차 운전·차량',
@@ -2332,77 +2332,120 @@ const AI_GUIDE_CATEGORY_NAMES = {
   housing: '주택 유틸리티 전기 인터넷 주거·생활',
   immigration: '비자 여권 이민 비자·여권'
 };
+let aiGuideSearchResult = null;
 
-function setAiGuideBusy(busy, message='') {
-  const draftBtn = qs('aiGuideDraftBtn');
-  const publishBtn = qs('aiGuidePublishBtn');
-  if (draftBtn) draftBtn.disabled = busy;
-  if (publishBtn) publishBtn.disabled = busy;
-  safeText('aiGuideStatus', message || (busy ? 'AI가 글을 작성하고 있습니다...' : '준비됨'));
+function getAiGuideInput() {
+  return {
+    topic: val('aiGuideTopic').trim(),
+    category: val('aiGuideCategory') || 'driving',
+    boardType: val('aiGuideBoardType') || 'guide',
+    sources: String(val('aiGuideSources') || '').split(/\r?\n|,/).map(v => v.trim()).filter(Boolean),
+    instructions: val('aiGuideInstructions').trim()
+  };
 }
-
-async function generateAiGuide({ publish = false } = {}) {
-  const topic = val('aiGuideTopic').trim();
-  const category = val('aiGuideCategory') || 'driving';
-  const boardType = val('aiGuideBoardType') || 'guide';
-  const sources = String(val('aiGuideSources') || '')
-    .split(/\r?\n|,/)
-    .map(v => v.trim())
-    .filter(Boolean);
-  const instructions = val('aiGuideInstructions').trim();
-
-  if (!topic) return alert('AI가 작성할 주제를 입력하세요.');
-  if (publish && !confirm(`AI가 작성한 글을 바로 게시할까요?\n\n주제: ${topic}\n\n게시 전 검토가 필요한 정보일 수 있습니다.`)) return;
-
-  const originalDraftText = qs('aiGuideDraftBtn')?.textContent || 'AI 초안 만들기';
-  const originalPublishText = qs('aiGuidePublishBtn')?.textContent || 'AI 작성 후 바로 게시';
-  setAiGuideBusy(true, 'AI가 글을 작성하고 있습니다. 잠시 기다려 주세요...');
-  if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = '작성 중...';
-  if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = '작성 중...';
-
+function setAiGuideBusy(busy, message='') {
+  const searchBtn = qs('aiGuideSearchBtn');
+  const draftBtn = qs('aiGuideDraftBtn');
+  if (searchBtn) searchBtn.disabled = busy;
+  if (draftBtn) draftBtn.disabled = busy || !aiGuideSearchResult?.candidates?.length;
+  safeText('aiGuideStatus', message || (busy ? '처리 중...' : '준비됨'));
+}
+function selectedAiGuideCandidates() {
+  if (!aiGuideSearchResult?.candidates) return [];
+  return aiGuideSearchResult.candidates.filter((_, i) => qs(`aiGuideCandidate_${i}`)?.checked);
+}
+function renderAiGuideCandidates(result) {
+  const panel = qs('aiGuideSearchPanel');
+  const list = qs('aiGuideCandidateList');
+  if (!panel || !list) return;
+  panel.style.display = 'block';
+  const queries = (result.queries_used || []).join(' · ');
+  safeText('aiGuideSearchSummary', `${result.interpreted_request || ''}${queries ? `\n검색어: ${queries}` : ''}`);
+  list.innerHTML = '';
+  (result.candidates || []).forEach((c, i) => {
+    const place = c.place || {};
+    const card = document.createElement('label');
+    card.style.cssText = 'display:block;border:1px solid #d7dce5;border-radius:10px;padding:12px;background:#fff;cursor:pointer;';
+    const sourceLinks = (c.source_urls || []).slice(0, 3).map((url, n) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">근거 ${n + 1}</a>`).join(' · ');
+    card.innerHTML = `
+      <div style="display:flex;align-items:flex-start;gap:9px;">
+        <input id="aiGuideCandidate_${i}" type="checkbox" checked style="margin-top:4px;">
+        <div style="min-width:0;flex:1;">
+          <div style="font-weight:700;">${escapeHtml(place.name || c.name || '')}</div>
+          <div class="tiny muted" style="margin-top:4px;">${escapeHtml(place.address || c.city || '')}</div>
+          ${place.phone ? `<div class="tiny">전화: ${escapeHtml(place.phone)}</div>` : ''}
+          <div class="tiny" style="margin-top:5px;"><b>필수조건 근거:</b> ${escapeHtml(c.qualifier_evidence || '근거 설명 없음')}</div>
+          <div class="tiny" style="margin-top:5px;">신뢰도 ${Number(c.confidence || 0)}점 · Google Places ${c.place_verified ? '확인됨' : '미확인'}</div>
+          ${sourceLinks ? `<div class="tiny" style="margin-top:5px;">${sourceLinks}</div>` : ''}
+        </div>
+      </div>`;
+    list.appendChild(card);
+  });
+  if (!(result.candidates || []).length) list.innerHTML = '<div class="tiny muted">필수 조건과 지역을 함께 충족하는 후보를 찾지 못했습니다.</div>';
+}
+async function searchAiGuideCandidates() {
+  const input = getAiGuideInput();
+  if (!input.topic) return alert('검색할 주제를 입력하세요.');
+  aiGuideSearchResult = null;
+  setAiGuideBusy(true, '실시간 웹 검색과 Google Places 검증 중입니다...');
   try {
-    const response = await fetch('/.netlify/functions/generate-guide', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, category, sources, instructions })
+    const response = await fetch('/.netlify/functions/search-guide', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({topic: input.topic, category: input.category, sources: input.sources, instructions: input.instructions})
     });
     const text = await response.text();
-    let result = {};
-    try { result = JSON.parse(text); } catch (_) {}
+    let result = {}; try { result = JSON.parse(text); } catch (_) {}
+    if (!response.ok) throw new Error(result.error || text || '검색에 실패했습니다.');
+    aiGuideSearchResult = result;
+    renderAiGuideCandidates(result);
+    const count = result.candidates?.length || 0;
+    safeText('aiGuideStatus', count ? `${count}개 후보를 찾았습니다. 기사에 사용할 후보를 체크한 뒤 2단계를 누르세요.` : result.message || '검증 후보가 없습니다.');
+  } catch (error) {
+    console.error('searchAiGuideCandidates error:', error);
+    safeText('aiGuideStatus', `검색 오류: ${error.message}`);
+    alert(`AI 검색 실패: ${error.message}`);
+  } finally {
+    setAiGuideBusy(false, qs('aiGuideStatus')?.textContent || '');
+  }
+}
+async function generateAiGuide() {
+  const input = getAiGuideInput();
+  const selected = selectedAiGuideCandidates();
+  if (!input.topic) return alert('AI가 작성할 주제를 입력하세요.');
+  if (!aiGuideSearchResult) return alert('먼저 1단계에서 검색 후보를 찾아 주세요.');
+  if (!selected.length) return alert('기사에 사용할 후보를 한 곳 이상 선택하세요.');
+  setAiGuideBusy(true, `선택한 ${selected.length}개 후보로 기사를 작성하고 있습니다...`);
+  try {
+    const response = await fetch('/.netlify/functions/generate-guide', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({topic: input.topic, category: input.category, sources: input.sources, instructions: input.instructions, selected_candidates: selected})
+    });
+    const text = await response.text();
+    let result = {}; try { result = JSON.parse(text); } catch (_) {}
     if (!response.ok) throw new Error(result.error || text || 'AI 글 생성에 실패했습니다.');
-
     const article = result.article || {};
     clearBoardForm();
     setVal('board_type', 'guide');
     updateBoardSubtypeOptions('');
-    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[category] || result.category_name || category;
+    const guideSubtype = AI_GUIDE_CATEGORY_NAMES[input.category] || result.category_name || input.category;
     updateBoardSubtypeOptions(guideSubtype);
     setVal('board_region', getAppRegion());
-    setVal('board_title', article.title || topic);
-    const sourceBlock = sources.length ? `\n\n[공식 확인처]\n${sources.join('\n')}` : '';
+    setVal('board_title', article.title || input.topic);
+    const evidenceBlock = selected.flatMap(c => c.source_urls || []).filter(Boolean);
+    const sourceBlock = evidenceBlock.length ? `\n\n[확인 근거]\n${[...new Set(evidenceBlock)].join('\n')}` : '';
     setVal('board_content', `${article.summary ? article.summary + '\n\n' : ''}${article.content || ''}${sourceBlock}`.trim());
     setVal('board_author_name', article.author_name || '달타운맵 편집부');
-    setVal('board_external_url', article.source_url || sources[0] || '');
-    setVal('board_link_label', article.link_label || (sources.length ? '공식 정보 확인' : ''));
-    setChecked('board_is_active', publish);
-
-    if (publish) {
-      safeText('aiGuideStatus', 'AI 글 작성 완료. 게시판에 저장 중...');
-      await saveBoard();
-      safeText('aiGuideStatus', 'AI 가이드가 게시되었습니다.');
-    } else {
-      const q=result.quality||{}; safeText('aiGuideStatus', `초안 완료${q.score?` · 품질 ${q.score}점`:''}${q.intent_type?` · ${q.intent_type}`:''}${q.google_places_used?` · Google 장소 ${q.google_places_count||0}곳 확인`:''}${q.provided_urls_read?` · 참고 URL ${q.provided_urls_read}건 읽음`:''}${q.official_pages_read?` · 공식 사이트 ${q.official_pages_read}건 읽음`:''}${q.places_checked?' · 장소 검증':''}. 아래 양식을 검토 후 저장하세요.`);
-      alert('AI 초안이 생성되었습니다.\n\n아래 제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
-    }
+    setVal('board_external_url', article.source_url || evidenceBlock[0] || '');
+    setVal('board_link_label', article.link_label || (evidenceBlock.length ? '공식 정보 확인' : ''));
+    setChecked('board_is_active', false);
+    safeText('aiGuideStatus', `초안 완료 · 선택 후보 ${selected.length}곳. 아래 내용을 검토한 뒤 저장하세요.`);
+    alert('AI 초안이 생성되었습니다.\n\n제목과 내용을 검토한 뒤 저장 버튼을 눌러 게시하세요.');
   } catch (error) {
     console.error('generateAiGuide error:', error);
-    safeText('aiGuideStatus', `오류: ${error.message}`);
+    safeText('aiGuideStatus', `작성 오류: ${error.message}`);
     alert(`AI 가이드 생성 실패: ${error.message}`);
   } finally {
-    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').textContent = originalDraftText;
-    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').textContent = originalPublishText;
-    if (qs('aiGuideDraftBtn')) qs('aiGuideDraftBtn').disabled = false;
-    if (qs('aiGuidePublishBtn')) qs('aiGuidePublishBtn').disabled = false;
+    setAiGuideBusy(false, qs('aiGuideStatus')?.textContent || '');
   }
 }
 
@@ -2867,8 +2910,8 @@ on('refreshBtn','click', async () => {
   on('boardNewBtn', 'click', clearBoardForm);
   on('boardSaveBtn', 'click', saveBoard);
   on('boardDeleteBtn', 'click', deleteBoard);
-  on('aiGuideDraftBtn', 'click', () => generateAiGuide({ publish: false }));
-  on('aiGuidePublishBtn', 'click', () => generateAiGuide({ publish: true }));
+  on('aiGuideSearchBtn', 'click', searchAiGuideCandidates);
+  on('aiGuideDraftBtn', 'click', generateAiGuide);
   
   on('boardAiImageBtn','click',generateBoardImage);
   on('boardAiRegenerateBtn','click',generateBoardImage);

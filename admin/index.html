@@ -963,9 +963,14 @@
             <label class="field full"><span>참고할 공식 출처 URL (선택)</span><textarea id="aiGuideSources" rows="3" placeholder="한 줄에 하나씩 입력하세요. AI가 출처를 임의로 만들지 않도록 공식 링크를 넣는 것이 좋습니다."></textarea></label>
             <label class="field full"><span>추가 지시사항 (선택)</span><textarea id="aiGuideInstructions" rows="3" placeholder="예: 달라스 한인 독자를 대상으로 쉽게 작성, 1,200자 내외"></textarea></label>
             <div class="field full ai-guide-actions">
-              <button id="aiGuideDraftBtn" class="btn ghost" type="button">AI 초안 만들기</button>
-              <button id="aiGuidePublishBtn" class="btn primary" type="button">AI 작성 후 바로 게시</button>
-              <span id="aiGuideStatus" class="tiny muted">OPENAI_API_KEY가 Netlify 환경변수에 필요합니다.</span>
+              <button id="aiGuideSearchBtn" class="btn ghost" type="button">1. 검색 후보 찾기</button>
+              <button id="aiGuideDraftBtn" class="btn primary" type="button" disabled>2. 선택 결과로 초안 만들기</button>
+              <span id="aiGuideStatus" class="tiny muted">먼저 검색 후보를 확인한 뒤 초안을 만드세요.</span>
+            </div>
+            <div id="aiGuideSearchPanel" class="field full" style="display:none; margin-top:12px;">
+              <span>검색·검증 후보</span>
+              <div id="aiGuideSearchSummary" class="tiny muted" style="margin:6px 0 10px; white-space:pre-line;"></div>
+              <div id="aiGuideCandidateList" style="display:grid; gap:10px;"></div>
             </div>
           </div>
         </section>
