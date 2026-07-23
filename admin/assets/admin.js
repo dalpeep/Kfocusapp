@@ -3925,19 +3925,54 @@ function csApplyRecommendations(){
 
 function csApplyAnalysis(analysis){
   contentStudioAnalysis=analysis||null;
+  contentStudioAnalysisConfirmed=false;
   const box=csEl('csAnalysisResult');
   const details=csEl('csCampaignDetails');
+  if(details)details.hidden=true;
   if(!analysis){
     if(box){box.hidden=true;box.innerHTML='';}
-    if(details)details.hidden=true;
     return;
   }
   const req=analysis.business_requirement||'optional';
-  const reqText=req==='required'?'연결 업소가 필요합니다.':req==='none'?'연결 업소 없이 진행합니다.':'연결 업소는 선택 사항입니다.';
+  const reqText=req==='required'?'연결 업소 선택이 필요합니다.':req==='none'?'연결 업소 없이 진행하는 주제입니다.':'연결 업소는 선택 사항입니다.';
+  const type=analysis.intent_type||'information';
+  const typeOptions=[
+    ['information','생활정보형'],
+    ['business','업소 홍보형'],
+    ['mixed','혼합형']
+  ].map(([v,l])=>`<option value="${v}" ${v===type?'selected':''}>${l}</option>`).join('');
+  const recs=Array.isArray(analysis.recommended_types)?analysis.recommended_types:['dalpick'];
+  const labelMap={dalpick:'DalPick 기사',coupon:'쿠폰',banner:'배너',social:'SNS',push:'푸시 알림',video:'숏폼 영상',image_prompt:'대표 이미지'};
+  const recHtml=recs.map(x=>`<span style="display:inline-block;padding:5px 8px;border-radius:999px;background:#fff;border:1px solid #c7d2fe;font-size:12px;font-weight:700;margin:4px 4px 0 0">${esc(labelMap[x]||x)}</span>`).join('');
   if(box){
     box.hidden=false;
-    box.innerHTML=`<div style="padding:13px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:12px;margin-top:12px"><div style="font-size:12px;font-weight:800;color:#4f46e5">AI 주제 분석</div><div style="font-weight:800;font-size:16px;margin-top:4px">${esc(analysis.intent_label||analysis.intent_type||'분석 완료')}</div><div style="font-size:13px;color:#475569;line-height:1.55;margin-top:5px">${esc(analysis.explanation||'')}</div><div style="font-size:13px;font-weight:700;margin-top:8px">${esc(reqText)}</div></div>`;
+    box.innerHTML=`<div style="padding:14px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:12px;margin-top:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div><div style="font-size:12px;font-weight:800;color:#4f46e5">2단계 · AI 추천 분류</div><div style="font-weight:800;font-size:16px;margin-top:4px">${esc(analysis.intent_label||analysis.intent_type||'분석 완료')}</div></div>
+        <select id="csIntentOverride" style="padding:8px 10px;border:1px solid #c7d2fe;border-radius:9px;background:white">${typeOptions}</select>
+      </div>
+      <div style="font-size:13px;color:#475569;line-height:1.55;margin-top:7px">${esc(analysis.explanation||'')}</div>
+      <div style="font-size:13px;font-weight:700;margin-top:9px">${esc(reqText)}</div>
+      <div style="font-size:12px;font-weight:800;color:#475569;margin-top:10px">추천 콘텐츠</div>
+      <div>${recHtml}</div>
+      <button type="button" id="csConfirmAnalysisBtn" class="btn primary" style="width:100%;margin-top:12px;padding:11px">이 분류로 다음 단계 진행</button>
+    </div>`;
+    csEl('csConfirmAnalysisBtn')?.addEventListener('click',csConfirmAnalysis);
   }
+  csStatus('AI가 분류를 추천했습니다. 내용을 확인한 뒤 다음 단계로 진행하세요.','success');
+}
+function csConfirmAnalysis(){
+  if(!contentStudioAnalysis)return alert('먼저 주제를 분석하세요.');
+  const override=csValue('csIntentOverride');
+  if(override&&override!==contentStudioAnalysis.intent_type){
+    contentStudioAnalysis.intent_type=override;
+    contentStudioAnalysis.intent_label=override==='business'?'업소 홍보형':override==='mixed'?'혼합형':'생활정보형';
+    contentStudioAnalysis.business_requirement=override==='business'?'required':override==='mixed'?'optional':'none';
+  }
+  contentStudioAnalysisConfirmed=true;
+  const analysis=contentStudioAnalysis;
+  const req=analysis.business_requirement||'optional';
+  const details=csEl('csCampaignDetails');
   if(details)details.hidden=false;
   const businessWrap=csEl('csBusinessWrap');
   const business=csEl('csBusiness');
@@ -3952,11 +3987,12 @@ function csApplyAnalysis(analysis){
   }
   const recommended=new Set(Array.isArray(analysis.recommended_types)?analysis.recommended_types:['dalpick']);
   ['coupon','banner','social','push','video','image_prompt'].forEach(type=>{const el=csEl(`csType_${type}`);if(el)el.checked=recommended.has(type);});
-  csStatus('분석이 끝났습니다. 설정을 확인한 뒤 콘텐츠를 생성하세요.','success');
+  csEl('csCampaignDetails')?.scrollIntoView({behavior:'smooth',block:'start'});
+  csStatus('분류가 확정되었습니다. 추천 설정을 확인하고 콘텐츠를 생성하세요.','success');
 }
 async function csAnalyzeTopic(){
   const topic=csValue('csTopic');if(!topic)return alert('먼저 만들고 싶은 주제를 입력하세요.');
-  const btn=csEl('csAnalyzeBtn');const old=btn?.textContent||'AI로 주제 분석';
+  const btn=csEl('csAnalyzeBtn');const old=btn?.textContent||'주제 분석하기';
   if(btn){btn.disabled=true;btn.textContent='주제 분석 중...';}
   csStatus('AI가 기사 유형과 업소 연결 필요 여부를 판단하고 있습니다...');
   try{
@@ -3968,6 +4004,7 @@ async function csAnalyzeTopic(){
 async function csGenerate(){
   const topic=csValue('csTopic'); if(!topic)return alert('캠페인 주제를 입력하세요.');
   if(!contentStudioAnalysis)return alert('먼저 AI로 주제를 분석하세요.');
+  if(!contentStudioAnalysisConfirmed)return alert('AI 추천 분류를 확인하고 ‘이 분류로 다음 단계 진행’을 눌러주세요.');
   if(contentStudioAnalysis.business_requirement==='required'&&!csValue('csBusiness'))return alert('이 주제는 연결 업소 선택이 필요합니다.');
   const types=csSelectedTypes();
   const businessId=csValue('csBusiness'); const b=businesses.find(x=>String(x.id)===String(businessId));
@@ -3985,10 +4022,10 @@ function initContentStudioV21(){
   if(nav){const btn=document.createElement('button');btn.type='button';btn.className='nav-item';btn.dataset.section='contentStudio';btn.innerHTML='<span>✦</span><span>AI 콘텐츠 스튜디오</span>';nav.appendChild(btn);btn.addEventListener('click',()=>switchSection('contentStudio'));}
   const host=document.querySelector('.main-content, main, #adminMain, .content')||document.body;
   const sec=document.createElement('section');sec.id='section-contentStudio';sec.className='admin-section';
-  sec.innerHTML=`<div style="display:grid;grid-template-columns:minmax(280px,390px) minmax(0,1fr);gap:18px;align-items:start" class="cs-layout"><div><div class="card" style="padding:18px"><div style="font-size:12px;font-weight:800;color:#4f46e5;margin-bottom:5px">TOPIC-FIRST WORKFLOW</div><h2 style="margin-top:0">새 콘텐츠 캠페인</h2><div style="font-size:13px;color:#64748b;line-height:1.55;margin-bottom:12px">주제를 먼저 입력하면 AI가 생활정보·업소 홍보·혼합형을 판단하고 필요한 설정을 보여줍니다.</div><label style="display:block;font-weight:700;margin:10px 0 5px">무엇을 만들까요? *</label><input id="csTopic" placeholder="예: 텍사스 여름에 갈 만한 계곡 / 김치나라 여름 이벤트" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><button type="button" id="csAnalyzeBtn" class="btn secondary" style="width:100%;margin-top:10px;padding:11px">AI로 주제 분석</button><div id="csAnalysisResult" hidden></div><div id="csCampaignDetails" hidden><div id="csBusinessWrap"><label style="display:flex;justify-content:space-between;font-weight:700;margin:14px 0 5px"><span>연결 업소</span><span id="csBusinessRequirement" style="font-size:12px;color:#4f46e5">선택</span></label><select id="csBusiness" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"></select></div><label style="display:block;font-weight:700;margin:10px 0 5px">목표</label><select id="csGoal" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><option value="홍보와 방문 유도">홍보·방문 유도</option><option value="신규 업소 소개">신규 업소 소개</option><option value="쿠폰 사용 유도">쿠폰 사용 유도</option><option value="브랜드 신뢰도 향상">브랜드 신뢰도 향상</option><option value="정보 제공">정보 제공</option></select><label style="display:block;font-weight:700;margin:10px 0 5px">대상 고객</label><input id="csAudience" placeholder="예: 캐롤튼 거주 한인 가족" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><label style="display:block;font-weight:700;margin:10px 0 5px">문체</label><select id="csTone" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><option>친근하고 신뢰감 있게</option><option>고급스럽고 전문적으로</option><option>간결하고 활기차게</option><option>정보 중심으로 차분하게</option></select><label style="display:block;font-weight:700;margin:12px 0 7px">AI 추천 콘텐츠</label><div style="padding:10px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;margin-bottom:8px;font-size:14px"><strong>✓ DalPick 기사</strong> <span style="font-size:12px;color:#64748b">필수 원본</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px"><label><input type="checkbox" id="csType_coupon"> 쿠폰</label><label><input type="checkbox" id="csType_banner"> 배너</label><label><input type="checkbox" id="csType_social"> SNS</label><label><input type="checkbox" id="csType_push"> 푸시 알림</label><label><input type="checkbox" id="csType_video"> 숏폼 영상</label><label><input type="checkbox" id="csType_image_prompt" checked> 이미지 프롬프트</label></div><label style="display:block;font-weight:700;margin:12px 0 5px">추가 지시</label><textarea id="csInstructions" rows="4" placeholder="가격, 기간, 대표 메뉴 등 확인된 사실만 입력하세요." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;resize:vertical"></textarea><button type="button" id="csGenerateBtn" class="btn primary" style="width:100%;margin-top:14px;padding:12px">분석 결과로 콘텐츠 생성</button></div><div id="csStatus" style="font-size:13px;color:#475569;margin-top:10px">주제를 먼저 입력하세요.</div></div><div class="card" style="padding:16px;margin-top:14px"><h3 style="margin-top:0">최근 작업</h3><div id="csHistory"></div></div></div><div id="csResults"><div class="card" style="padding:30px;text-align:center;color:#64748b"><div style="font-size:34px;margin-bottom:10px">✦</div><strong>주제부터 시작합니다.</strong><div style="margin-top:6px;font-size:13px;line-height:1.55">주제 입력 → AI 유형 분석 → 필요할 때 업소 선택 → DalPick 및 파생 콘텐츠 생성 순서입니다.</div></div></div></div><style>@media(max-width:900px){.cs-layout{grid-template-columns:1fr!important}}</style>`;
+  sec.innerHTML=`<div style="display:grid;grid-template-columns:minmax(280px,390px) minmax(0,1fr);gap:18px;align-items:start" class="cs-layout"><div><div class="card" style="padding:18px"><div style="font-size:12px;font-weight:800;color:#4f46e5;margin-bottom:5px">3-STEP WORKFLOW</div><h2 style="margin-top:0">새 콘텐츠 캠페인</h2><div style="font-size:13px;color:#64748b;line-height:1.55;margin-bottom:12px">① 주제 입력 → ② AI 추천 분류 확인 → ③ 세부 설정 후 생성 순서로 진행합니다.</div><label style="display:block;font-weight:700;margin:10px 0 5px">1단계 · 주제를 입력하세요 *</label><input id="csTopic" placeholder="예: 텍사스 여름에 갈 만한 계곡 / 김치나라 여름 이벤트" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><button type="button" id="csAnalyzeBtn" class="btn secondary" style="width:100%;margin-top:10px;padding:11px">주제 분석하기</button><div id="csAnalysisResult" hidden></div><div id="csCampaignDetails" hidden><div style="font-size:12px;font-weight:800;color:#4f46e5;margin:16px 0 6px">3단계 · 추천 설정 확인</div><div id="csBusinessWrap"><label style="display:flex;justify-content:space-between;font-weight:700;margin:14px 0 5px"><span>연결 업소</span><span id="csBusinessRequirement" style="font-size:12px;color:#4f46e5">선택</span></label><select id="csBusiness" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"></select></div><label style="display:block;font-weight:700;margin:10px 0 5px">목표</label><select id="csGoal" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><option value="홍보와 방문 유도">홍보·방문 유도</option><option value="신규 업소 소개">신규 업소 소개</option><option value="쿠폰 사용 유도">쿠폰 사용 유도</option><option value="브랜드 신뢰도 향상">브랜드 신뢰도 향상</option><option value="정보 제공">정보 제공</option></select><label style="display:block;font-weight:700;margin:10px 0 5px">대상 고객</label><input id="csAudience" placeholder="예: 캐롤튼 거주 한인 가족" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><label style="display:block;font-weight:700;margin:10px 0 5px">문체</label><select id="csTone" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px"><option>친근하고 신뢰감 있게</option><option>고급스럽고 전문적으로</option><option>간결하고 활기차게</option><option>정보 중심으로 차분하게</option></select><label style="display:block;font-weight:700;margin:12px 0 7px">AI 추천 콘텐츠</label><div style="padding:10px;border:1px solid #c7d2fe;background:#eef2ff;border-radius:10px;margin-bottom:8px;font-size:14px"><strong>✓ DalPick 기사</strong> <span style="font-size:12px;color:#64748b">필수 원본</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px"><label><input type="checkbox" id="csType_coupon"> 쿠폰</label><label><input type="checkbox" id="csType_banner"> 배너</label><label><input type="checkbox" id="csType_social"> SNS</label><label><input type="checkbox" id="csType_push"> 푸시 알림</label><label><input type="checkbox" id="csType_video"> 숏폼 영상</label><label><input type="checkbox" id="csType_image_prompt" checked> 이미지 프롬프트</label></div><label style="display:block;font-weight:700;margin:12px 0 5px">추가 지시</label><textarea id="csInstructions" rows="4" placeholder="가격, 기간, 대표 메뉴 등 확인된 사실만 입력하세요." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:9px;resize:vertical"></textarea><button type="button" id="csGenerateBtn" class="btn primary" style="width:100%;margin-top:14px;padding:12px">분석 결과로 콘텐츠 생성</button></div><div id="csStatus" style="font-size:13px;color:#475569;margin-top:10px">주제를 먼저 입력하세요.</div></div><div class="card" style="padding:16px;margin-top:14px"><h3 style="margin-top:0">최근 작업</h3><div id="csHistory"></div></div></div><div id="csResults"><div class="card" style="padding:30px;text-align:center;color:#64748b"><div style="font-size:34px;margin-bottom:10px">✦</div><strong>주제부터 시작합니다.</strong><div style="margin-top:6px;font-size:13px;line-height:1.55">주제를 입력하고 분석 버튼을 누른 뒤, AI 추천 분류를 확인해야 다음 설정과 생성 단계가 열립니다.</div></div></div></div><style>@media(max-width:900px){.cs-layout{grid-template-columns:1fr!important}}</style>`;
   host.appendChild(sec);csBusinessOptions();csRenderHistory();
   csEl('csAnalyzeBtn')?.addEventListener('click',csAnalyzeTopic);
-  csEl('csTopic')?.addEventListener('input',()=>{contentStudioAnalysis=null;const d=csEl('csCampaignDetails');if(d)d.hidden=true;const a=csEl('csAnalysisResult');if(a)a.hidden=true;csStatus('주제가 바뀌었습니다. 다시 분석하세요.');});
+  csEl('csTopic')?.addEventListener('input',()=>{contentStudioAnalysis=null;contentStudioAnalysisConfirmed=false;const d=csEl('csCampaignDetails');if(d)d.hidden=true;const a=csEl('csAnalysisResult');if(a)a.hidden=true;csStatus('주제가 바뀌었습니다. 다시 분석하세요.');});
   csEl('csGenerateBtn')?.addEventListener('click',csGenerate);
   sec.addEventListener('click',async e=>{
     const h=e.target.closest('[data-cs-history]');if(h){const x=csLoadHistory()[Number(h.dataset.csHistory)];if(x){contentStudioSuite=x.suite;csRenderSuite(x.suite,x.types);csStatus('보관된 작업을 불러왔습니다.','success');}return;}
