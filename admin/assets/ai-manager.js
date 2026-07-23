@@ -125,12 +125,49 @@ function amPreview(d,publishMode=false){
     <div class="am-device"><div class="am-device-bar">DalTownMap</div><div class="am-live-preview ${isCoupon?'coupon':'banner'}"><img src="${amEscape(d.image||'')}" alt=""><div class="am-overlay"><b>${amEscape(d.title||'제목')}</b><span>${amEscape(d.subtitle||'')}</span></div></div><div class="am-preview-location">${isCoupon?'오늘의 쿠폰 / 쿠폰 페이지 / 연결 업소 상세':'연결 업소의 상세 페이지 전용 배너'}</div></div>
     ${publishMode?`<div class="am-publish-options">
       <h4>최종 게시 위치</h4>
-      ${isCoupon?`<label><input type="checkbox" id="amPubToday" ${opts.today!==false?'checked':''}> 메인 오늘의 쿠폰</label><label><input type="checkbox" checked disabled> 쿠폰 페이지</label><label><input type="checkbox" checked disabled> 해당 업소 상세</label><label><input type="checkbox" id="amPubDalpick" ${opts.dalpick?'checked':''}> 메인 DalPick 추천에도 표시</label>`:`<label><input type="checkbox" checked disabled> 해당 업소 상세에 표시</label><label><input type="checkbox" id="amPubHome" ${opts.home?'checked':''}> 메인 배너에도 표시</label><p class="muted">기본값은 카테고리가 아닌 연결 업소 상세 전용입니다.</p>`}
+      ${isCoupon?`
+        <div class="am-placement-group am-placement-fixed">
+          <div class="am-placement-heading"><strong>기본 게시 위치</strong><span>자동 적용 · 해제할 수 없음</span></div>
+          <label><input type="checkbox" checked disabled> 쿠폰 페이지</label>
+          <label><input type="checkbox" checked disabled> ${amEscape(amName(d.businessId))} 업소 상세</label>
+        </div>
+        <div class="am-placement-group">
+          <div class="am-placement-heading"><strong>추가 노출</strong><span>필요한 경우에만 선택</span></div>
+          <label><input type="checkbox" id="amPubToday" ${opts.today?'checked':''}> 메인 오늘의 쿠폰</label>
+          <label><input type="checkbox" id="amPubDalpick" ${opts.dalpick?'checked':''}> 메인 DalPick 추천에도 표시</label>
+        </div>
+        <div id="amPublishSummary" class="am-publish-summary"></div>`:`
+        <div class="am-placement-group am-placement-fixed">
+          <div class="am-placement-heading"><strong>기본 게시 위치</strong><span>자동 적용 · 해제할 수 없음</span></div>
+          <label><input type="checkbox" checked disabled> ${amEscape(amName(d.businessId))} 업소 상세</label>
+        </div>
+        <div class="am-placement-group">
+          <div class="am-placement-heading"><strong>추가 노출</strong><span>필요한 경우에만 선택</span></div>
+          <label><input type="checkbox" id="amPubHome" ${opts.home?'checked':''}> 메인 배너에도 표시</label>
+        </div>
+        <div id="amPublishSummary" class="am-publish-summary"></div>
+        <p class="muted">카테고리 페이지에는 자동 게시되지 않습니다.</p>`}
       <button type="button" id="amConfirmPublish" class="btn primary">확인 후 실제 게시</button>
     </div>`:''}
   </div>`;
   $am('amPreviewModal').hidden=false;
-  if(publishMode)$am('amConfirmPublish').onclick=()=>amDoPublish(d);
+  if(publishMode){
+    const updateSummary=()=>{
+      const summary=$am('amPublishSummary');
+      if(!summary)return;
+      if(isCoupon){
+        const today=!!$am('amPubToday')?.checked;
+        const dalpick=!!$am('amPubDalpick')?.checked;
+        summary.innerHTML=`<strong>이 쿠폰은 다음 위치에 게시됩니다.</strong><ul><li>✓ 쿠폰 페이지</li><li>✓ ${amEscape(amName(d.businessId))} 업소 상세</li><li>${today?'✓':'✕'} 메인 오늘의 쿠폰</li><li>${dalpick?'✓':'✕'} 메인 DalPick 추천</li></ul>`;
+      }else{
+        const home=!!$am('amPubHome')?.checked;
+        summary.innerHTML=`<strong>이 배너는 다음 위치에 게시됩니다.</strong><ul><li>✓ ${amEscape(amName(d.businessId))} 업소 상세</li><li>${home?'✓':'✕'} 메인 배너</li><li>✕ 카테고리 페이지</li></ul>`;
+      }
+    };
+    ['amPubToday','amPubDalpick','amPubHome'].forEach(id=>$am(id)?.addEventListener('change',updateSummary));
+    updateSummary();
+    $am('amConfirmPublish').onclick=()=>amDoPublish(d);
+  }
 }
 
 async function amDataUrlToBlob(dataUrl){ const res=await fetch(dataUrl); return res.blob(); }
