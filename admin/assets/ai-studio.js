@@ -259,7 +259,7 @@ function renderResults(types,s){
     return `<article class="ucs-result-card" data-result="${type}"><div class="ucs-result-head"><strong>${meta[1]} ${meta[2]}</strong><div class="ucs-result-actions"><button class="btn ghost ucs-copy" data-type="${type}" type="button">복사</button>${actionButton(type)}</div></div><div class="ucs-result-layout"><div class="ucs-result-editor"><textarea id="ucsResult_${type}">${esc(stringifyAsset(type,s))}</textarea></div><div class="ucs-preview-wrap"><div class="ucs-preview-title"><strong>실시간 미리보기</strong><div class="ucs-preview-device"><button type="button" class="active" data-preview-mode="desktop" data-type="${type}">PC</button><button type="button" data-preview-mode="mobile" data-type="${type}">모바일</button></div></div><div class="ucs-preview-stage" id="ucsPreviewStage_${type}"><div id="ucsPreview_${type}"></div></div></div></div></article>`;
   }).join('');
   document.querySelectorAll('.ucs-copy').forEach(b=>b.addEventListener('click',()=>navigator.clipboard.writeText($(`ucsResult_${b.dataset.type}`)?.value||'').then(()=>notify('복사했습니다.'))));
-  document.querySelectorAll('[data-send-asset]').forEach(b=>b.addEventListener('click',()=>sendAsset(b.dataset.sendAsset)));
+  document.querySelectorAll('[data-send-asset]').forEach(b=>b.addEventListener('click',()=>sendAsset(b.dataset.sendAsset,b)));
   types.forEach(type=>{
     updatePreview(type);
     $(`ucsResult_${type}`)?.addEventListener('input',()=>updatePreview(type));
@@ -275,7 +275,74 @@ function actionButton(type){
   return labels[type]?`<button class="btn secondary" data-send-asset="${type}" type="button">${labels[type]}</button>`:'';
 }
 
-function sendAsset(type){
+let html2CanvasPromise=null;
+function ensureHtml2Canvas(){
+  if(window.html2canvas) return Promise.resolve(window.html2canvas);
+  if(html2CanvasPromise) return html2CanvasPromise;
+  html2CanvasPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    script.async=true;
+    script.onload=()=>window.html2canvas?resolve(window.html2canvas):reject(new Error('이미지 변환 도구를 불러오지 못했습니다.'));
+    script.onerror=()=>reject(new Error('이미지 변환 도구 다운로드에 실패했습니다. 인터넷 연결을 확인하세요.'));
+    document.head.appendChild(script);
+  });
+  return html2CanvasPromise;
+}
+function couponDataFromEditor(){
+  const lines=textLines('coupon');
+  const nonempty=lines.filter(Boolean);
+  const benefit=(lines.find(x=>x.startsWith('혜택:'))||'').replace(/^혜택:\s*/,'').trim();
+  const code=(lines.find(x=>x.startsWith('코드:'))||'').replace(/^코드:\s*/,'').trim();
+  const description=nonempty.filter(x=>!x.startsWith('혜택:')&&!x.startsWith('코드:')).slice(1).join('\n').trim();
+  return {
+    title:nonempty[0]||suite?.coupon?.title||'',
+    discount_label:benefit||suite?.coupon?.discount_label||'',
+    coupon_code:code||suite?.coupon?.coupon_code||'',
+    description:description||suite?.coupon?.description||''
+  };
+}
+async function captureCouponPreviewBlob(){
+  updatePreview('coupon');
+  const source=$('ucsPreview_coupon')?.querySelector('.ucs-coupon-ticket');
+  if(!source) throw new Error('쿠폰 미리보기를 찾을 수 없습니다.');
+
+  const html2canvas=await ensureHtml2Canvas();
+  const exportWrap=document.createElement('div');
+  exportWrap.setAttribute('aria-hidden','true');
+  Object.assign(exportWrap.style,{
+    position:'fixed',left:'-10000px',top:'0',width:'760px',padding:'44px',
+    background:'#eef3f9',boxSizing:'border-box',zIndex:'-1'
+  });
+  const clone=source.cloneNode(true);
+  clone.style.width='100%';
+  clone.style.boxSizing='border-box';
+  exportWrap.appendChild(clone);
+  document.body.appendChild(exportWrap);
+
+  try{
+    if(document.fonts?.ready) await document.fonts.ready;
+    const canvas=await html2canvas(exportWrap,{
+      backgroundColor:'#eef3f9',scale:2,useCORS:true,allowTaint:false,
+      logging:false,scrollX:0,scrollY:0,windowWidth:900
+    });
+    return await new Promise((resolve,reject)=>canvas.toBlob(
+      blob=>blob?resolve(blob):reject(new Error('PNG 이미지 생성에 실패했습니다.')),
+      'image/png',0.95
+    ));
+  } finally {
+    exportWrap.remove();
+  }
+}
+async function createAndUploadCouponImage(){
+  const upload=bridge().uploadGeneratedImage;
+  if(typeof upload!=='function') throw new Error('이미지 업로드 기능이 아직 준비되지 않았습니다. 잠시 후 다시 시도하세요.');
+  const blob=await captureCouponPreviewBlob();
+  const safeTitle=(couponDataFromEditor().title||'coupon').replace(/[^a-zA-Z0-9가-힣_-]+/g,'-').slice(0,50);
+  return upload(blob,`${safeTitle||'coupon'}-${Date.now()}.png`);
+}
+
+async function sendAsset(type,actionBtn=null){
   if(!suite)return;
   const b=businessPayload();
   const sourceContext=workflowContext;
@@ -287,7 +354,35 @@ function sendAsset(type){
   } else if(type==='guide'){
     switchSection('board'); setValue('board_type','guide'); setValue('board_title',suite.guide?.title); setValue('board_content',`${suite.guide?.summary||''}\n\n${suite.guide?.content||''}`.trim()); setValue('board_business_id',b?.id||''); setValue('board_business_select',b?.id||''); setChecked('board_is_active',false); notify('가이드 관리 화면에 초안을 채웠습니다. 검토 후 저장하세요.');
   } else if(type==='coupon'){
-    switchSection('coupon'); setValue('coupon_business_id',b?.id||''); setValue('coupon_title',suite.coupon?.title); setValue('coupon_discount_label',suite.coupon?.discount_label); setValue('coupon_description',suite.coupon?.description); setValue('coupon_code',suite.coupon?.coupon_code); notify('쿠폰 입력 화면에 내용을 채웠습니다. 기간과 이미지를 확인한 뒤 저장하세요.');
+    const data=couponDataFromEditor();
+    const status=$('ucsResultStatus');
+    const oldStatus=status?.textContent||'';
+    setBusy(actionBtn,true,'이미지 생성 중...');
+    if(status) status.textContent='쿠폰 미리보기를 PNG로 만들고 있습니다...';
+    try{
+      const imageUrl=await createAndUploadCouponImage();
+      if(status) status.textContent='쿠폰 이미지 업로드 완료 · 등록 화면으로 이동합니다.';
+      switchSection('coupon');
+      setValue('coupon_business_id',b?.id||'');
+      setValue('coupon_title',data.title);
+      setValue('coupon_discount_label',data.discount_label);
+      setValue('coupon_description',data.description);
+      setValue('coupon_code',data.coupon_code);
+      setValue('coupon_image_url',imageUrl);
+      notify('쿠폰 내용과 생성된 이미지를 입력 화면에 함께 채웠습니다. 기간을 확인한 뒤 저장하세요.');
+    }catch(e){
+      console.error('[AI Studio Coupon Export]',e);
+      if(status) status.textContent=`쿠폰 이미지 처리 실패: ${e.message}`;
+      notify(`쿠폰 이미지 처리에 실패했습니다.
+
+${e.message}
+
+버튼을 눌러 다시 시도할 수 있습니다.`);
+      return;
+    }finally{
+      setBusy(actionBtn,false);
+      if(status && status.textContent===oldStatus) status.textContent=oldStatus;
+    }
   } else if(type==='banner'){
     switchSection('banners'); setValue('bnTitle',suite.banner?.title); setValue('bnDescription',suite.banner?.description); setValue('bnButtonLabel',suite.banner?.button_label); setValue('bnBusinessId',b?.id||''); notify('배너 입력 화면에 문구를 채웠습니다. 이미지를 만든 뒤 저장하세요.');
   } else if(type==='push'){

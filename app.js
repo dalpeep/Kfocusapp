@@ -1360,6 +1360,9 @@ return {
 
     link_url: s.link_url || '',
 
+    // 영상 슬라이드는 실제 URL도 heroSlides에 보존해야 렌더링 단계에서 재생할 수 있습니다.
+    video_url: s.video_url || '',
+
     bizId: String(b.id || s.business_id || '')
 };
   }).filter((s) => !!(s.bg || s.video_url));
@@ -1405,19 +1408,8 @@ function isVerticalVideo(url){
 }
 
 function getYouTubeEmbed(url){
-  const v = String(url || '').trim();
-  if(!v) return '';
-
-  let m = v.match(/youtube\.com\/shorts\/([^?&/]+)/i);
-  if(m) return `https://www.youtube.com/embed/${m[1]}`;
-
-  m = v.match(/[?&]v=([^?&/]+)/i);
-  if(m) return `https://www.youtube.com/embed/${m[1]}`;
-
-  m = v.match(/youtu\.be\/([^?&/]+)/i);
-  if(m) return `https://www.youtube.com/embed/${m[1]}`;
-
-  return '';
+  const id = getYouTubeId(url);
+  return id ? `https://www.youtube.com/embed/${id}?playsinline=1&rel=0` : '';
 }
 
 function getYouTubeEmbedUrl(url){
@@ -3174,10 +3166,27 @@ function renderCouponUse(id){
 }
 window.confirmCouponUse = confirmCouponUse;
 function getYouTubeId(url) {
-  if (!url) return '';
-  const m = String(url).match(
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([^&?/]+)/
-  );
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+
+  // URL 파싱이 가능한 형식은 먼저 안전하게 처리합니다.
+  try {
+    const u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const host = u.hostname.replace(/^www\.|^m\./i, '').toLowerCase();
+
+    if (host === 'youtu.be') return (u.pathname.split('/').filter(Boolean)[0] || '').trim();
+
+    if (host === 'youtube.com' || host.endsWith('.youtube.com')) {
+      const watchId = u.searchParams.get('v');
+      if (watchId) return watchId.trim();
+
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (['shorts', 'embed', 'live'].includes(parts[0])) return (parts[1] || '').trim();
+    }
+  } catch (_) {}
+
+  // 복사된 문자열이나 매개변수가 섞인 주소에 대한 최종 보완 처리입니다.
+  const m = raw.match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/i);
   return m ? m[1] : '';
 }
 
@@ -4954,20 +4963,10 @@ window.addEventListener('appinstalled', () => {
 });
 
 function toYouTubeEmbedUrl(url){
-  if(!url) return '';
-
-  const s = String(url).trim();
-
-  const shortMatch = s.match(/youtu\.be\/([^?&]+)/);
-  if(shortMatch) return `https://www.youtube.com/embed/${shortMatch[1]}?autoplay=1`;
-
-  const watchMatch = s.match(/[?&]v=([^?&]+)/);
-  if(watchMatch) return `https://www.youtube.com/embed/${watchMatch[1]}?autoplay=1`;
-
-  const embedMatch = s.match(/youtube\.com\/embed\/([^?&]+)/);
-  if(embedMatch) return `${s}${s.includes('?') ? '&' : '?'}autoplay=1`;
-
-  return '';
+  const id = getYouTubeId(url);
+  return id
+    ? `https://www.youtube.com/embed/${id}?autoplay=1&playsinline=1&rel=0`
+    : '';
 }
 
 function openBusinessVideo(url){
