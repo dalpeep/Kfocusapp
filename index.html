@@ -2,15 +2,6 @@
 <!-- DalTownMap v8.1 deployment-fixed -->
 <html lang="ko">
 <head>
-	<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-8RXPTSNPBV"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-8RXPTSNPBV');
-</script>
 <meta charset="UTF-8">
 <meta
   name="viewport"
@@ -99,7 +90,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="styles.css?v=community-tabs-center-1" />
+  <link rel="stylesheet" href="styles.css?v=24.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -351,20 +342,25 @@ onclick="showPage('contact');closeMenu();">
       <section class="page" id="page-map">
         <section class="map-fullscreen-wrap card">
           <div class="map-top-controls">
-            <div class="map-filter-row" id="mapFilterRow">
-              <button class="map-filter-chip" data-map-filter="event">행사</button>
-              <button class="map-filter-chip" data-map-filter="coupon">쿠폰</button>
-              <button class="map-filter-chip active" data-map-filter="business">업소</button>
+            <div class="map-search-row">
+              <input type="search" id="mapSearchInput" class="map-search-input" placeholder="업소 검색 (식당, 교회, 병원, 코바)" />
               <button class="map-ghost-btn hidden map-inline-action" id="mapSearchAreaBtn">이 지역 보기</button>
+              <button class="map-location-btn" id="mapLocateBtn" aria-label="내 위치">📍</button>
             </div>
-            <div class="map-search-row"><input type="search" id="mapSearchInput" class="map-search-input" placeholder="업소 검색 (식당, 교회, 병원, 코바)" /><button class="map-location-btn" id="mapLocateBtn" aria-label="내 위치">📍</button></div>
             <div class="map-category-row hidden" id="mapCategoryRow"></div>
           </div>
           <div id="mapNotice" class="map-notice hidden"></div>
           <div id="googleMap" class="google-map fullscreen-map"></div>
           <div class="map-bottom-panel" id="mapBottomPanel">
-            <div class="map-bottom-head"><strong>주변 업소</strong><button class="map-bottom-close" id="mapBottomClose" type="button" aria-label="주변 업소 닫기">✕</button></div>
+            <div class="map-bottom-tabs" id="mapFilterRow" aria-label="지도 콘텐츠 선택">
+              <button class="map-filter-chip active" data-map-filter="business">업소</button>
+              <button class="map-filter-chip" data-map-filter="coupon">쿠폰</button>
+              <button class="map-filter-chip" data-map-filter="event">행사</button>
+            </div>
+            <div id="mapBottomStatus" class="map-bottom-status hidden" role="status" aria-live="polite"></div>
+            <div class="map-bottom-head"><strong id="mapBottomTitle">주변 업소</strong><button class="map-bottom-close" id="mapBottomClose" type="button" aria-label="지도 정보 닫기">✕</button></div>
             <div class="map-bottom-list" id="mapBottomList"></div>
+            <div class="map-business-preview hidden" id="mapBusinessPreview"></div>
           </div>
         </section>
       </section>
@@ -586,7 +582,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app.js?v=24.2.0"></script>
+<script src="app.js?v=24.5.0"></script>
 <script src="main-banners.js?v=v8.2-coupon-banner-fix-20260722"></script>
 
 <div id="videoModal" class="video-modal hidden">
