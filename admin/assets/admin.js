@@ -1130,6 +1130,7 @@ async function loadBusinesses() {
   businesses = data || [];
   window.KFocusAdminBridge = window.KFocusAdminBridge || {};
   window.KFocusAdminBridge.getBusinesses = () => [...businesses];
+  window.KFocusAdminBridge.getRegion = () => getAppRegion();
   window.KFocusAdminBridge.switchSection = switchSection;
   window.KFocusAdminBridge.uploadGeneratedImage = async (blob, filename = 'ai-generated.png') => {
     if (!supabase) throw new Error('Supabase가 아직 연결되지 않았습니다.');
@@ -2174,6 +2175,9 @@ async function loadBoards() {
   }
   boardTable = 'posts';
   boards = loaded || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getBoards = () => [...boards];
+  window.dispatchEvent(new CustomEvent('kfocus:boards-loaded', {detail:[...boards]}));
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
@@ -2550,6 +2554,9 @@ async function loadSlides() {
     return;
   }
   slides = data || [];
+  window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+  window.KFocusAdminBridge.getSlides = () => [...slides];
+  window.dispatchEvent(new CustomEvent('kfocus:slides-loaded', {detail:[...slides]}));
   renderSlideList(filterSlides());
   renderBusinessList(filterBusinesses());
 }

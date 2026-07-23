@@ -67,16 +67,110 @@
     state.issues.unshift({id: crypto.randomUUID(), title, detail:$('intIssueDetail')?.value.trim() || '', severity:$('intIssueSeverity')?.value || 'medium', createdAt:new Date().toISOString()});
     save(); $('intIssueTitle').value=''; $('intIssueDetail').value=''; renderIssues();
   }
+  function rows(name, fallback = []) {
+    const getter = window.KFocusAdminBridge?.[`get${name}`];
+    try { return typeof getter === 'function' ? (getter() || []) : fallback; } catch { return fallback; }
+  }
+  function currentRegion() {
+    try { return String(window.KFocusAdminBridge?.getRegion?.() || localStorage.getItem('admin_region') || 'dallas').toLowerCase(); }
+    catch { return 'dallas'; }
+  }
+  function businessMap(businesses) { return new Map(businesses.map(b => [String(b.id), b])); }
+  function inRegion(row, region, businessesById) {
+    const own = String(row?.region || '').toLowerCase();
+    if (own) return own === region;
+    const linked = businessesById.get(String(row?.business_id || ''));
+    return !linked?.region || String(linked.region).toLowerCase() === region;
+  }
+  function rangeState(row, startKey='start_at', endKey='end_at', enabled=true) {
+    if (!enabled) return 'inactive';
+    const now = Date.now();
+    const start = row?.[startKey] || row?.start_date;
+    const end = row?.[endKey] || row?.end_date;
+    const sm = start ? new Date(start).getTime() : NaN;
+    const em = end ? new Date(end).getTime() : NaN;
+    if (Number.isFinite(sm) && sm > now) return 'scheduled';
+    if (Number.isFinite(em) && em < now) return 'expired';
+    return 'live';
+  }
+  function setText(id, value) { if ($(id)) $(id).textContent = String(value); }
+  function escape(v='') { return escapeHtml(v); }
+  function exposureItem(title, subtitle, source, rank) {
+    return `<div class="dashboard-exposure-item"><span class="dashboard-exposure-rank">${rank}</span><div class="dashboard-exposure-copy"><strong>${escape(title || '제목 없음')}</strong><span>${escape(subtitle || '')}</span></div><span class="dashboard-source">${escape(source)}</span></div>`;
+  }
+  function renderExposure(id, items, emptyText) {
+    const box = $(id); if (!box) return;
+    box.innerHTML = items.length ? items.slice(0, 8).map((x,i)=>exposureItem(x.title,x.subtitle,x.source,i+1)).join('') : `<div class="dashboard-empty">${escape(emptyText)}</div>`;
+  }
+  function summarizeStates(items, stateFn) {
+    const counts = {live:0, scheduled:0, expired:0, inactive:0};
+    items.forEach(x => counts[stateFn(x)] = (counts[stateFn(x)] || 0) + 1);
+    return counts;
+  }
   function updateMetrics() {
-    const businesses = window.KFocusAdminBridge?.getBusinesses?.() || window.businesses || [];
-    const coupons = window.coupons || [];
-    const banners = window.banners || window.bannerRows || [];
+    const businesses = rows('Businesses', window.businesses || []);
+    const coupons = rows('Coupons');
+    const banners = rows('Banners');
+    const slides = rows('Slides');
+    const dalpicks = rows('Dalpicks');
+    const boards = rows('Boards');
+    const region = currentRegion();
+    const bizMap = businessMap(businesses);
+    const regionalBusinesses = businesses.filter(b => !b.region || String(b.region).toLowerCase() === region);
+    const regionalCoupons = coupons.filter(c => inRegion(c, region, bizMap));
+    const regionalBanners = banners.filter(b => inRegion(b, region, bizMap));
+    const regionalSlides = slides.filter(s => inRegion(s, region, bizMap));
+    const regionalDalpicks = dalpicks.filter(d => inRegion(d, region, bizMap));
+    const regionalBoards = boards.filter(b => inRegion(b, region, bizMap));
+
+    const couponStates = summarizeStates(regionalCoupons, c => rangeState(c,'start_at','end_at',c.is_active !== false));
+    const bannerStates = summarizeStates(regionalBanners, b => rangeState(b,'start_at','end_at',b.is_active !== false));
+    const slideStates = summarizeStates(regionalSlides, s => rangeState(s,'promo_start_at','promo_end_at',s.promo_enabled === true));
+    const dalpickStates = summarizeStates(regionalDalpicks, d => {
+      const status = String(d.status || '').toLowerCase();
+      return rangeState(d,'start_at','end_at',d.is_active !== false && status !== 'draft' && status !== 'inactive');
+    });
+
+    const liveTodayCoupons = regionalCoupons.filter(c => c.is_today_coupon === true && rangeState(c,'start_at','end_at',c.is_active !== false) === 'live');
+    const liveSlides = regionalSlides.filter(s => s.home_fixed === true && rangeState(s,'promo_start_at','promo_end_at',s.promo_enabled === true) === 'live').sort((a,b)=>(a.home_fixed_sort ?? 1000)-(b.home_fixed_sort ?? 1000));
+    const liveDalpicks = regionalDalpicks.filter(d => {
+      const status = String(d.status || '').toLowerCase();
+      if (rangeState(d,'start_at','end_at',d.is_active !== false && status !== 'draft' && status !== 'inactive') !== 'live') return false;
+      const themed = String(d.category || '').toLowerCase() === 'themed' || (Array.isArray(d.target_categories) && d.target_categories.length > 0);
+      return !themed || d.show_in_dalpick === true;
+    }).sort((a,b)=>(b.is_featured===true)-(a.is_featured===true) || (b.priority||0)-(a.priority||0));
+
     let manager = {drafts:[]};
     try { manager = JSON.parse(localStorage.getItem(MANAGER_KEY) || '{"drafts":[]}'); } catch {}
-    if ($('intBusinessCount')) $('intBusinessCount').textContent = businesses.length || '0';
-    if ($('intCouponCount')) $('intCouponCount').textContent = coupons.length || '0';
-    if ($('intBannerCount')) $('intBannerCount').textContent = banners.length || '0';
-    if ($('intDraftCount')) $('intDraftCount').textContent = (manager.drafts || []).filter(x => x.status === 'draft').length;
+    setText('intBusinessCount', regionalBusinesses.length);
+    setText('intCouponCount', regionalCoupons.length);
+    setText('intBannerCount', regionalBanners.length);
+    setText('intSlideCount', regionalSlides.length);
+    setText('intDalpickCount', regionalDalpicks.length);
+    setText('intTodayCouponCount', liveTodayCoupons.length);
+    setText('intBoardCount', regionalBoards.length);
+    setText('intDraftCount', (manager.drafts || []).filter(x => x.status === 'draft').length);
+    setText('intCouponSummary', `게시 ${couponStates.live} · 예약 ${couponStates.scheduled} · 만료 ${couponStates.expired}`);
+    setText('intBannerSummary', `게시 ${bannerStates.live} · 예약 ${bannerStates.scheduled} · 만료 ${bannerStates.expired}`);
+    setText('intSlideSummary', `노출 ${liveSlides.length} · 숨김/종료 ${Math.max(0, regionalSlides.length-liveSlides.length)}`);
+    setText('intDalpickSummary', `홈 노출 ${liveDalpicks.length} · 비노출 ${Math.max(0, regionalDalpicks.length-liveDalpicks.length)}`);
+    setText('intSlideExposureNote', `현재 ${liveSlides.length}개 노출`);
+    setText('intCouponExposureNote', `현재 ${liveTodayCoupons.length}개 노출`);
+    setText('intDalpickExposureNote', `DalPick ${liveDalpicks.length}개 + 쿠폰 ${liveTodayCoupons.length}개`);
+
+    renderExposure('intSlideExposure', liveSlides.map(s => {
+      const b = bizMap.get(String(s.business_id || ''));
+      return {title:s.promo_text || b?.name_ko || b?.name_en || '독립 슬라이드', subtitle:b ? `연결 업소 · ${b.name_ko || b.name_en}` : '업소 연결 없음', source:s.video_url ? '영상' : '슬라이드'};
+    }), '현재 노출 중인 메인 슬라이드가 없습니다.');
+    renderExposure('intCouponExposure', liveTodayCoupons.map(c => {
+      const b = bizMap.get(String(c.business_id || ''));
+      return {title:c.title || '쿠폰', subtitle:b?.name_ko || b?.name_en || '연결 업소 없음', source:'쿠폰'};
+    }), '오늘의 쿠폰으로 노출 중인 항목이 없습니다.');
+    const combined = [
+      ...liveDalpicks.map(d => ({title:d.title || 'DalPick', subtitle:d.is_featured ? '대표 노출' : (d.category || 'DalPick'), source:'DalPick', date:d.created_at || d.start_at || ''})),
+      ...liveTodayCoupons.map(c => { const b=bizMap.get(String(c.business_id||'')); return {title:c.title || '쿠폰', subtitle:b?.name_ko || b?.name_en || '오늘의 쿠폰', source:'쿠폰', date:c.created_at || c.start_at || ''}; })
+    ].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,8);
+    renderExposure('intDalpickExposure', combined, '현재 홈 DalPick에 노출되는 항목이 없습니다.');
   }
 
   function selectedBusinessId(type) {
@@ -116,7 +210,7 @@
     bindNavigation(); renderChecks(); renderIssues(); updateMetrics(); injectAIButtons();
     $('intAddIssue')?.addEventListener('click', addIssue);
     $('intResetChecklist')?.addEventListener('click', () => { if (confirm('테스트 체크 상태를 모두 초기화할까요?')) { state.checks={}; save(); renderChecks(); } });
-    window.addEventListener('kfocus:businesses-loaded', updateMetrics);
+    ['kfocus:businesses-loaded','kfocus:coupons-loaded','kfocus:banners-loaded','kfocus:slides-loaded','kfocus:dalpicks-loaded','kfocus:boards-loaded'].forEach(name => window.addEventListener(name, updateMetrics));
     window.addEventListener('storage', updateMetrics);
     setInterval(()=>{ updateMetrics(); injectAIButtons(); }, 3000);
   }
