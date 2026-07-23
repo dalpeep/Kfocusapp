@@ -7,9 +7,9 @@
   <link rel="stylesheet" href="assets/admin.css?v=8.3.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=22.0.0"></script>
+  <script type="module" src="assets/admin.js?v=24.0.0"></script>
   <script type="module" src="assets/ai-studio.js?v=23.0.0"></script>
-  <script src="assets/ai-manager.js?v=23.1.0" defer></script>
+  <script src="assets/ai-manager.js?v=24.0.0" defer></script>
   <script src="assets/admin-integration.js?v=23.1.0" defer></script>
 <style>
 .admin-card{
@@ -203,7 +203,7 @@
           </div><div class="am-beta-notice">무료 베타 기간: 모든 콘텐츠 기능 사용 가능 · 결제 및 월 사용량 제한 미적용</div><div id="amAllowance" class="am-allowance"></div><button id="amSaveAccount" class="btn primary" type="button">플랜 설정 저장</button></div>
           <div class="card"><h3>계정 현황</h3><div id="amAccountList" class="am-account-list"></div></div>
         </section>
-        <section class="card"><div class="panel-head"><div><h3>품질 검토 · 승인 대기함</h3><p class="muted">AI 이미지는 초안입니다. 문구를 수정하거나 직접 이미지를 교체한 후 승인할 수 있습니다.</p></div><select id="amDraftFilter"><option value="all">전체</option><option value="draft">검토 대기</option><option value="approved">승인됨</option><option value="rejected">보류</option></select></div>
+        <section class="card"><div class="panel-head"><div><h3>품질 검토 · 승인 대기함</h3><p class="muted">AI 이미지는 초안입니다. 문구를 수정하거나 직접 이미지를 교체한 후 승인할 수 있습니다.</p></div><select id="amDraftFilter"><option value="all">전체</option><option value="draft">검토 대기</option><option value="approved">승인됨</option><option value="published">게시됨</option><option value="rejected">보류</option></select></div>
           <div class="am-new-draft"><select id="amDraftBusiness"><option value="">업소 선택</option></select><select id="amDraftType"><option value="coupon">쿠폰</option><option value="banner">배너</option></select><select id="amDraftStyle"><option value="auto">업종 자동</option><option value="premium">Premium</option><option value="modern">Modern</option><option value="luxury">Luxury</option><option value="food">Food</option><option value="medical">Medical</option><option value="beauty">Beauty</option><option value="kids">Kids</option></select><input id="amDraftTitle" placeholder="제목"><input id="amDraftSubtitle" placeholder="설명·혜택"><input id="amDraftImage" placeholder="이미지 URL"><button id="amAddDraft" class="btn secondary" type="button">검토 초안 추가</button></div>
           <div id="amDraftList" class="am-draft-list"></div>
         </section>

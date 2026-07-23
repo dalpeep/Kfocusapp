@@ -4183,3 +4183,93 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(initContentStudioV21
 document.addEventListener('DOMContentLoaded',()=>setTimeout(initDalpickTopicFirstWorkflow,650));
 window.initDalpickTopicFirstWorkflow=initDalpickTopicFirstWorkflow;
 window.initContentStudioV21=initContentStudioV21;
+
+
+// ADMIN 2.0 AI MARKETING PUBLISH BRIDGE
+async function publishAIMarketingDraft(draft, options = {}) {
+  if (!supabase) throw new Error('Supabase가 연결되지 않았습니다.');
+  if (!draft?.businessId) throw new Error('연결 업소가 없습니다.');
+  if (!draft?.title) throw new Error('제목이 없습니다.');
+  if (!draft?.image) throw new Error('이미지 URL이 없습니다.');
+
+  const business = businesses.find((b) => String(b.id) === String(draft.businessId));
+  const region = business?.region || getAppRegion();
+
+  if (draft.type === 'coupon') {
+    const payload = {
+      business_id: draft.businessId,
+      title: draft.title,
+      description: draft.subtitle || null,
+      discount_label: draft.subtitle || null,
+      image_url: draft.image,
+      start_at: new Date().toISOString(),
+      end_at: null,
+      is_active: true,
+      is_today_coupon: options.today !== false,
+      sort_order: 1000,
+      coupon_code: null,
+      use_link_url: null,
+      notify_emails: null,
+      notify_phones: null
+    };
+
+    const { data: coupon, error } = await supabase.from('coupons').insert(payload).select().single();
+    if (error) throw error;
+
+    let dalpick = null;
+    if (options.dalpick) {
+      const dalpickPayload = {
+        region,
+        category: 'coupon',
+        business_id: draft.businessId,
+        title: draft.title,
+        summary: draft.subtitle || draft.title,
+        content: draft.subtitle || draft.title,
+        image_url: draft.image,
+        is_featured: true,
+        is_active: true,
+        priority: 0,
+        start_at: new Date().toISOString(),
+        end_at: null
+      };
+      const { data, error: dalpickError } = await supabase.from('dalpick').insert(dalpickPayload).select().single();
+      if (dalpickError) {
+        console.warn('Coupon was published, but DalPick insert failed:', dalpickError);
+        throw new Error(`쿠폰은 게시됐지만 DalPick 연결에 실패했습니다: ${dalpickError.message}`);
+      }
+      dalpick = data;
+    }
+
+    await loadCoupons();
+    if (options.dalpick) await loadDalpicks();
+    return { type: 'coupon', couponId: coupon?.id || null, dalpickId: dalpick?.id || null };
+  }
+
+  if (draft.type === 'banner') {
+    const placement = options.home ? 'both' : 'detail';
+    const payload = {
+      title: draft.title,
+      image_url: draft.image,
+      link_url: `business:${draft.businessId}`,
+      business_id: draft.businessId,
+      region,
+      display_type: 'banner',
+      placement,
+      description: draft.subtitle || null,
+      button_label: '자세히 보기',
+      start_at: new Date().toISOString(),
+      end_at: null,
+      sort_order: 0,
+      is_active: true
+    };
+    const { data: banner, error } = await supabase.from('banners').insert(payload).select().single();
+    if (error) throw error;
+    await loadBanners();
+    return { type: 'banner', bannerId: banner?.id || null, placement };
+  }
+
+  throw new Error('쿠폰 또는 배너 초안만 최종 게시할 수 있습니다.');
+}
+
+window.KFocusAdminBridge = window.KFocusAdminBridge || {};
+window.KFocusAdminBridge.publishAIMarketingDraft = publishAIMarketingDraft;
