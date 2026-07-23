@@ -2391,6 +2391,7 @@ function renderAiGuideCandidates(result) {
           ${place.phone ? `<div class="tiny">전화: ${esc(place.phone)}</div>` : ''}
           <div class="tiny" style="margin-top:5px;"><b>한인·필수조건 근거:</b> ${esc(c.qualifier_evidence || '근거 설명 없음')}</div>
           <div class="tiny" style="margin-top:5px;"><b>종합점수 ${Number(c.final_score || c.confidence || 0)}점</b> · 근거 ${c.evidence_status === 'confirmed' ? '확인' : c.evidence_status === 'probable' ? '가능성 높음' : c.evidence_status === 'unconfirmed' ? '추가 확인 필요' : '해당 없음'} · Google Places ${c.place_verified ? '연락처 확인됨' : '미확인'}</div>
+          ${(c.community_sources || []).length ? `<div class="tiny" style="margin-top:5px;"><b>한인 매체 근거:</b> ${(c.community_sources || []).map(s => esc(s.label || s.key || '')).join(' · ')}${c.community_source_bonus ? ` · 가중치 +${Number(c.community_source_bonus)}` : ''}</div>` : ''}
           ${sourceLinks ? `<div class="tiny" style="margin-top:5px;">${sourceLinks}</div>` : ''}
         </div>
       </div>`;

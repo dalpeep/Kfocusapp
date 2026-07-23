@@ -17,6 +17,25 @@ function clamp(n, min, max) {
 function uniqueStrings(values = []) {
   return [...new Set(values.map(v => String(v || '').trim()).filter(Boolean))];
 }
+
+const KOREAN_COMMUNITY_SOURCES = [
+  { key: 'dalsaram', label: '달사람 업소록', domains: ['dalsaram.com'], weight: 15 },
+  { key: 'ktn', label: 'KTN 업소록', domains: ['ktnusa.com'], weight: 14 },
+  { key: 'weeklyfocus', label: '주간포커스', domains: ['weeklyfocustx.com'], weight: 14 },
+  { key: 'koreadaily_yp', label: '중앙일보 업소록', domains: ['yp.koreadaily.com'], weight: 15 },
+  { key: 'koreadaily', label: '미주중앙일보', domains: ['koreadaily.com'], weight: 11 }
+];
+function sourceMeta(urls = []) {
+  const found = [];
+  for (const source of KOREAN_COMMUNITY_SOURCES) {
+    if (urls.some(url => source.domains.some(domain => String(url || '').toLowerCase().includes(domain)))) {
+      found.push({ key: source.key, label: source.label, weight: source.weight });
+    }
+  }
+  const bonus = Math.min(18, found.reduce((sum, item) => sum + item.weight, 0));
+  return { found, bonus };
+}
+
 function extractRequestedCity(topic = '') {
   const pairs = [
     ['캐롤튼', 'Carrollton'], ['캐롤톤', 'Carrollton'], ['플레이노', 'Plano'],
@@ -135,13 +154,13 @@ function cityScore(candidate, place, requestedCity) {
   if (candidateCity === requested || candidateCity.includes(requested) || requested.includes(candidateCity)) return 20;
   return 0;
 }
-function computeScore(candidate, place, requestedCity, qualifiers) {
+function computeScore(candidate, place, requestedCity, qualifiers, communityBonus = 0) {
   const evidence = clamp(candidate.qualifier_evidence_score, 0, 40);
   const specialty = clamp(candidate.specialty_score, 0, 25);
   const locality = cityScore(candidate, place, requestedCity);
   const placeScore = place ? 10 : 0;
   const researchConfidence = clamp(candidate.confidence, 0, 100) * 0.1;
-  let total = Math.round(evidence + specialty + locality + placeScore + researchConfidence);
+  let total = Math.round(evidence + specialty + locality + placeScore + researchConfidence + communityBonus);
 
   const koreanRequired = qualifiers.some(q => q.key === 'korean');
   const specialtyRequired = qualifiers.some(q => q.key !== 'korean' && q.key !== 'female');
@@ -216,11 +235,17 @@ exports.handler = async event => {
           role: 'user',
           content: [{
             type: 'input_text',
-            text: `요청: ${topic}\n분야: ${category || '원문 기준'}\n요청 도시: ${city || '원문에서 판단'}\n필수 조건: ${qualifierLabels.join(', ') || '없음'}\n추가 지시: ${instructions || '없음'}\n사용자 참고 URL:\n${sources.join('\n') || '없음'}\n\n조사 규칙:\n1) 검색어를 먼저 6~10개 설계하고 실제 검색에 사용하세요. 원문 한국어, 정확한 영어 번역, Korean-speaking, Korean doctor, Korean directory, 한국어 진료, 한인 업소록 표현을 포함하세요.\n2) 예: “캐롤튼 한인 내과”라면 “Carrollton Korean internal medicine”, “Korean-speaking internist Carrollton TX”, “캐롤튼 한인 내과”, “Carrollton Korean doctor directory”처럼 지역·한인·전문과목을 모든 핵심 검색어에 유지하세요.\n3) 같은 병원이나 의사의 중복 표기를 하나의 후보로 합치고 aliases에 넣으세요.\n4) 한인·한국어 근거 점수 0~40: 공식 사이트/의료진 프로필에 Korean 또는 한국어 명시 35~40, 신뢰 가능한 한인 업소록·지역 언론의 직접 소개 25~34, 서로 독립적인 복수 디렉터리에서 일관된 표시 15~24, 이름·사진·추측뿐이면 0.\n5) 전문분야 점수 0~25: 요청 전문과목이 공식 병원/의사 프로필에 명시 20~25, 관련 진료 분야가 확인 10~19, 불명확 0~9.\n6) 요청 도시와 정확히 일치하는 후보를 우선하세요. 인접 도시는 요청 도시 후보가 부족할 때만 포함하되 city에 실제 도시를 명시하고 근거 설명에 인접 도시임을 밝히세요.\n7) 후보를 0개로 만들기보다 weak 후보도 반환하되, 근거가 약하다는 점을 명확히 쓰세요. 단 source_urls가 없는 후보는 반환하지 마세요.\n8) source_urls에는 실제로 후보와 근거를 확인할 수 있는 URL만 넣고 최대 4개로 제한하세요. 검색결과 페이지 URL은 피하세요.\n9) 후보는 최대 10개 반환하세요.`
+            text: `요청: ${topic}\n분야: ${category || '원문 기준'}\n요청 도시: ${city || '원문에서 판단'}\n필수 조건: ${qualifierLabels.join(', ') || '없음'}\n추가 지시: ${instructions || '없음'}\n사용자 참고 URL:\n${sources.join('\n') || '없음'}\n\n조사 규칙:\n1) 검색어를 먼저 10~14개 설계하고 실제 검색에 사용하세요. 원문 한국어, 정확한 영어 번역, Korean-speaking, Korean doctor, Korean directory, 한국어 진료, 한인 업소록 표현을 포함하세요.
+1-1) 아래 한국 언론·한인 업소록을 반드시 별도 site 검색하세요. 각 사이트마다 한국어 검색어와 영어 검색어를 최소 1개씩 사용하세요.
+- site:dalsaram.com (달사람 업소록)
+- site:ktnusa.com (KTN 업소록)
+- site:weeklyfocustx.com (주간포커스 텍사스)
+- site:yp.koreadaily.com (중앙일보 업소록)
+- site:koreadaily.com (미주중앙일보 기사·업소 정보)\n2) 예: “캐롤튼 한인 내과”라면 “Carrollton Korean internal medicine”, “Korean-speaking internist Carrollton TX”, “캐롤튼 한인 내과”, “Carrollton Korean doctor directory”와 함께 “site:dalsaram.com 캐롤튼 내과”, “site:ktnusa.com 캐롤튼 내과”, “site:weeklyfocustx.com 캐롤튼 내과”, “site:yp.koreadaily.com Carrollton internal medicine”를 사용하세요. 지역·한인·전문과목을 핵심 검색어에서 유지하세요.\n3) 같은 병원이나 의사의 중복 표기를 하나의 후보로 합치고 aliases에 넣으세요.\n4) 한인·한국어 근거 점수 0~40: 공식 사이트/의료진 프로필에 Korean 또는 한국어 명시 35~40, 달사람·KTN·주간포커스·중앙일보 업소록/기사의 직접 소개 25~34, 서로 독립적인 복수 한인 매체·디렉터리에서 일관된 표시 20~30, 일반 디렉터리 한 곳만 있으면 10~19, 이름·사진·추측뿐이면 0. 한인 업소록 등록은 한인 커뮤니티 관련성을 입증하는 근거로 사용하되 주소·전화는 Google Places 또는 공식 사이트로 다시 검증하세요.\n5) 전문분야 점수 0~25: 요청 전문과목이 공식 병원/의사 프로필에 명시 20~25, 관련 진료 분야가 확인 10~19, 불명확 0~9.\n6) 요청 도시와 정확히 일치하는 후보를 우선하세요. 인접 도시는 요청 도시 후보가 부족할 때만 포함하되 city에 실제 도시를 명시하고 근거 설명에 인접 도시임을 밝히세요.\n7) 후보를 0개로 만들기보다 weak 후보도 반환하되, 근거가 약하다는 점을 명확히 쓰세요. 단 source_urls가 없는 후보는 반환하지 마세요.\n8) source_urls에는 실제로 후보와 근거를 확인할 수 있는 URL만 넣고 최대 6개로 제한하세요. 가능하면 한인 업소록/언론 URL 1개 이상과 공식 사이트 또는 Google 검증에 도움이 되는 URL을 함께 포함하세요. 검색결과 페이지 URL은 피하세요.\n9) 후보는 최대 10개 반환하세요.`
           }]
         }
       ],
-      text: { format: { type: 'json_schema', name: 'guide_search_results_v14', strict: true, schema } }
+      text: { format: { type: 'json_schema', name: 'guide_search_results_v15', strict: true, schema } }
     });
 
     const text = outputText(response);
@@ -230,8 +255,8 @@ exports.handler = async event => {
       .filter(c => c.name && (c.source_urls || []).length)
       .map(c => ({
         ...c,
-        source_urls: uniqueStrings(c.source_urls).slice(0, 4),
-        source_titles: uniqueStrings(c.source_titles).slice(0, 4)
+        source_urls: uniqueStrings(c.source_urls).slice(0, 6),
+        source_titles: uniqueStrings(c.source_titles).slice(0, 6)
       }))
       .slice(0, 10);
 
@@ -242,7 +267,8 @@ exports.handler = async event => {
 
     const ranked = raw.map((c, i) => {
       const place = bestPlace(c, placeGroups[i] || [], city);
-      const finalScore = computeScore(c, place, city, qualifiers);
+      const community = sourceMeta(c.source_urls || []);
+      const finalScore = computeScore(c, place, city, qualifiers, community.bonus);
       const koreanRequested = qualifiers.some(q => q.key === 'korean');
       const evidenceScore = clamp(c.qualifier_evidence_score, 0, 40);
       const evidenceStatus = !koreanRequested
@@ -257,6 +283,8 @@ exports.handler = async event => {
         place_verified: Boolean(place),
         place: place || null,
         final_score: finalScore,
+        community_source_bonus: community.bonus,
+        community_sources: community.found,
         evidence_status: evidenceStatus,
         city_match: cityScore(c, place, city) > 0
       };
