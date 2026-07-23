@@ -24,7 +24,7 @@ let currentUser = null;
 let authClient = null;
 let currentLocationMarker = null;
 let suppressMapUiChange = false;
-let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; let selectedMapBusinessId = ''; let mapVisibleCounts = { business:0, coupon:0, event:0 }; 
+let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; let selectedMapBusinessId = ''; let mapVisibleCounts = { business:0, coupon:0, event:0 }; let mapVisibleCategoryCounts = {}; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
 const DALLAS_CENTER = { lat: 32.7767, lng: -96.7970 };
 const REGION_CENTER_MAP = { colorado: COLORADO_CENTER, dallas: DALLAS_CENTER, dfw: DALLAS_CENTER };
@@ -96,6 +96,7 @@ const mapSearchAreaBtn = $('#mapSearchAreaBtn');
 const mapLocateBtn = $('#mapLocateBtn');
 const mapBottomPanel = $('#mapBottomPanel');
 const mapBottomTitle = $('#mapBottomTitle');
+const mapBottomStatus = $('#mapBottomStatus');
 const mapBusinessPreview = $('#mapBusinessPreview');
 const mapBottomList = $('#mapBottomList');
 const mapBottomClose = $('#mapBottomClose');
@@ -855,10 +856,11 @@ function renderMapFilters(){
     btn.classList.toggle('hidden', count < 1);
     btn.textContent = `${mapModeLabel(mode)} ${count}`;
   });
-  const categories = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const categories = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산']
+    .filter(c=>Number(mapVisibleCategoryCounts[c] || 0) > 0);
   if(mapCategoryRow){
-    mapCategoryRow.innerHTML = categories.map(c=>`<button class="map-category-chip ${c===mapCategory?'active':''}" data-map-cat="${esc(c)}">${esc(c)}</button>`).join('');
-    mapCategoryRow.classList.toggle('hidden', mapMode!=='business');
+    mapCategoryRow.innerHTML = categories.map(c=>`<button class="map-category-chip ${c===mapCategory?'active':''}" data-map-cat="${esc(c)}">${esc(c)} ${Number(mapVisibleCategoryCounts[c] || 0)}</button>`).join('');
+    mapCategoryRow.classList.toggle('hidden', mapMode!=='business' || categories.length < 1);
   }
 }
 function updateMapFilterAvailability(baseList){
@@ -869,11 +871,22 @@ function updateMapFilterAvailability(baseList){
     coupon: rows.filter(b=>couponIds.has(String(b.id))).length,
     event: rows.filter(b=>Boolean(b.has_event)).length
   };
+  mapVisibleCategoryCounts = rows.reduce((acc,b)=>{
+    const label = getMainCategoryLabel(b.category);
+    if(label) acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  },{});
+  if(mapCategory && !mapVisibleCategoryCounts[mapCategory]) mapCategory = '';
   if(!mapVisibleCounts[mapMode]){
     mapMode = mapVisibleCounts.business ? 'business' : mapVisibleCounts.coupon ? 'coupon' : mapVisibleCounts.event ? 'event' : 'business';
     if(mapMode !== 'business') mapCategory = '';
   }
   renderMapFilters();
+}
+function setMapBottomStatus(message=''){
+  if(!mapBottomStatus) return;
+  mapBottomStatus.textContent = message;
+  mapBottomStatus.classList.toggle('hidden', !message);
 }
 
 async function loadRealData(){
@@ -3998,11 +4011,15 @@ function redrawMapMarkers(){
   }
   const sortedFinalList = sortBusinessesByDistance(nearbyList);
   renderMapBottomList(sortedFinalList);
-  if(mapNotice){
-    if(mapMode==='event') mapNotice.textContent = ''; //등록된 행사 지도가 아직 없습니다.
-    else if(mapSearchQuery && finalList.length) mapNotice.textContent = `검색 결과 ${finalList.length}곳`;
-    else mapNotice.textContent = finalList.length ? '' : (mapSearchQuery ? '검색 결과가 없습니다.' : '이 반경에 표시할 업소가 없습니다.');
-    mapNotice.classList.toggle('hidden', !mapNotice.textContent);
+  if(mapNotice) mapNotice.classList.add('hidden');
+  if(mapSearchQuery && finalList.length){
+    setMapBottomStatus(`검색 결과 ${finalList.length}곳`);
+  } else if(!finalList.length){
+    setMapBottomStatus(mapSearchQuery ? '검색 결과가 없습니다.' : `현재 지도에 표시할 ${mapModeLabel(mapMode)}가 없습니다.`);
+  } else if(!filtered.length && radiusMiles){
+    setMapBottomStatus(`현재 반경 안에는 ${mapModeLabel(mapMode)}가 없습니다. 지도에는 전체 ${finalList.length}곳을 표시합니다.`);
+  } else {
+    setMapBottomStatus('');
   }
 }
 function setMapAreaButtonState(state = 'active') {
