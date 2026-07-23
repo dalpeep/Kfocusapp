@@ -28,7 +28,7 @@ function extractHardQualifiers(topic='') {
 }
 async function callResponses(payload) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 24000);
+  const timer = setTimeout(() => controller.abort(), 25000);
   try {
     const res = await fetch('https://api.openai.com/v1/responses', {
       method:'POST', signal:controller.signal,
@@ -39,39 +39,67 @@ async function callResponses(payload) {
     if(!res.ok) throw new Error(json?.error?.message || `OpenAI 오류 ${res.status}`);
     return json;
   } catch(e) {
-    if(e.name==='AbortError') throw new Error('웹 검색이 24초 안에 끝나지 않았습니다. 검색어를 더 구체적으로 입력해 주세요.');
+    if(e.name==='AbortError') throw new Error('웹 검색이 제한 시간 안에 끝나지 않았습니다. 잠시 후 다시 검색해 주세요.');
     throw e;
   } finally { clearTimeout(timer); }
 }
-async function searchGooglePlaces(query,count=3) {
+async function searchGooglePlaces(query,count=5) {
   const key=process.env.GOOGLE_MAPS_API_KEY;
   if(!key) return [];
-  const res=await fetch('https://places.googleapis.com/v1/places:searchText',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount,places.businessStatus'},
-    body:JSON.stringify({textQuery:query,pageSize:count,languageCode:'en',regionCode:'US'})
-  });
-  const json=await res.json();
-  if(!res.ok) return [];
-  return (json.places||[]).map(p=>({id:p.id||'',name:p.displayName?.text||'',address:p.formattedAddress||'',phone:p.nationalPhoneNumber||'',website:p.websiteUri||'',google_maps_url:p.googleMapsUri||'',rating:p.rating??null,review_count:p.userRatingCount??null,business_status:p.businessStatus||''}));
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  try {
+    const res=await fetch('https://places.googleapis.com/v1/places:searchText',{
+      method:'POST',signal:controller.signal,
+      headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount,places.businessStatus'},
+      body:JSON.stringify({textQuery:query,pageSize:count,languageCode:'en',regionCode:'US'})
+    });
+    const json=await res.json();
+    if(!res.ok) return [];
+    return (json.places||[]).map(p=>({id:p.id||'',name:p.displayName?.text||'',address:p.formattedAddress||'',phone:p.nationalPhoneNumber||'',website:p.websiteUri||'',google_maps_url:p.googleMapsUri||'',rating:p.rating??null,review_count:p.userRatingCount??null,business_status:p.businessStatus||''}));
+  } catch (_) { return []; }
+  finally { clearTimeout(timer); }
+}
+function nameSimilarity(candidate, place) {
+  const names=[candidate.name,...(candidate.aliases||[])].map(normalize).filter(Boolean);
+  const pn=normalize(place.name);
+  if(!pn) return 0;
+  if(names.some(n=>n===pn)) return 100;
+  if(names.some(n=>pn.includes(n)||n.includes(pn))) return 80;
+  const tokens=names.flatMap(n=>n.match(/[a-z0-9가-힣]{3,}/g)||[]);
+  const hits=tokens.filter(t=>pn.includes(t)).length;
+  return tokens.length ? Math.round((hits/tokens.length)*60) : 0;
 }
 function bestPlace(candidate, places, city) {
-  const cn=normalize(candidate.name);
-  return places.find(p=>{
-    const pn=normalize(p.name);
-    const nameOk = pn && cn && (pn.includes(cn)||cn.includes(pn)||(candidate.aliases||[]).some(a=>pn.includes(normalize(a))));
-    const cityOk = !city || normalize(p.address).includes(normalize(city));
-    return nameOk && cityOk;
-  }) || null;
+  let best=null, bestScore=-1;
+  for(const p of places){
+    let score=nameSimilarity(candidate,p);
+    if(city && normalize(p.address).includes(normalize(city))) score+=35;
+    if(p.business_status==='OPERATIONAL') score+=5;
+    if(score>bestScore){best=p;bestScore=score;}
+  }
+  return bestScore>=55 ? {...best,_match_score:bestScore} : null;
 }
+function computeScore(c, place, city, qualifiers) {
+  const ai=Math.max(0,Math.min(100,Number(c.confidence)||0));
+  const evidence=Math.max(0,Math.min(40,Number(c.qualifier_evidence_score)||0));
+  const specialty=Math.max(0,Math.min(25,Number(c.specialty_score)||0));
+  const locality=place && (!city || normalize(place.address).includes(normalize(city))) ? 25 : (c.city && (!city || normalize(c.city).includes(normalize(city))) ? 15 : 0);
+  const placeScore=place ? 10 : 0;
+  let total=Math.round(evidence+specialty+locality+placeScore+(ai*0.15));
+  if(qualifiers.some(q=>q.key==='korean') && evidence===0) total-=25;
+  return Math.max(0,Math.min(100,total));
+}
+
 const schema={type:'object',additionalProperties:false,properties:{
   interpreted_request:{type:'string'},
   queries_used:{type:'array',items:{type:'string'}},
   candidates:{type:'array',items:{type:'object',additionalProperties:false,properties:{
     name:{type:'string'},aliases:{type:'array',items:{type:'string'}},city:{type:'string'},specialty:{type:'string'},
-    qualifier_evidence:{type:'string'},qualifier_confirmed:{type:'boolean'},confidence:{type:'integer'},
+    qualifier_evidence:{type:'string'},qualifier_evidence_score:{type:'integer'},specialty_score:{type:'integer'},
+    evidence_level:{type:'string',enum:['strong','moderate','weak','none']},confidence:{type:'integer'},
     source_urls:{type:'array',items:{type:'string'}},source_titles:{type:'array',items:{type:'string'}}
-  },required:['name','aliases','city','specialty','qualifier_evidence','qualifier_confirmed','confidence','source_urls','source_titles']}}
+  },required:['name','aliases','city','specialty','qualifier_evidence','qualifier_evidence_score','specialty_score','evidence_level','confidence','source_urls','source_titles']}}
 },required:['interpreted_request','queries_used','candidates']};
 
 exports.handler=async(event)=>{
@@ -92,27 +120,33 @@ exports.handler=async(event)=>{
       tools:[{type:'web_search',search_context_size:'medium'}],
       tool_choice:'auto',
       input:[
-        {role:'system',content:[{type:'input_text',text:'당신은 달라스 한인 지역정보 검색 편집자입니다. 사용자의 지역, 언어/민족, 전문분야 조건을 절대 약화하거나 삭제하지 않습니다. 실제 웹 검색 근거가 있는 후보만 구조화해 반환합니다.'}]},
-        {role:'user',content:[{type:'input_text',text:`요청: ${topic}\n고정 도시: ${city||'원문에서 판단'}\n필수 조건: ${qualifierLabels.join(', ')||'없음'}\n참고 URL: ${sources.join('\n')||'없음'}\n\n검색 지침:\n1) 원문 그대로의 한국어 검색, 영어 번역 검색, 동의어 검색을 합쳐 6~10개 검색어를 실제로 사용하세요.\n2) '한인/한국어'가 있으면 Korean, Korean-speaking, 한국어 진료, 한인 의사 등의 명시적 근거가 있는 후보만 qualifier_confirmed=true로 표시하세요. 이름만 한국계처럼 보여서 추정하지 마세요.\n3) 요청 도시 밖 일반 업소를 대체하지 마세요.\n4) 후보마다 근거 URL을 최소 1개 포함하세요.\n5) 광고성 목록만으로 단정하지 말고 공식 소개, 의료진 프로필, 신뢰할 수 있는 지역 디렉터리를 교차 확인하세요.\n6) 결과가 적으면 억지로 채우지 말고 정확한 후보만 반환하세요.`}]}
+        {role:'system',content:[{type:'input_text',text:'당신은 달라스 한인 지역정보 조사 편집자입니다. 공식 홈페이지만 고집하지 않고, 공식 사이트·의료진 프로필·한인 업소록·지역 언론·신뢰할 수 있는 디렉터리의 증거를 합쳐 후보를 평가합니다. 한국계 이름만 보고 한인이라고 추정해서는 안 됩니다.'}]},
+        {role:'user',content:[{type:'input_text',text:`요청: ${topic}\n요청 도시: ${city||'원문에서 판단'}\n중요 조건: ${qualifierLabels.join(', ')||'없음'}\n사용자 참고 URL: ${sources.join('\n')||'없음'}\n\n검색 지침:\n1) 원문 한국어, 영어 번역, 동의어, 업소록형 검색을 포함해 6~10개의 검색어를 실제로 사용하세요. 특히 '한인'을 Korean, Korean-speaking, 한국어 진료, 한인 의사, Korean directory 등으로 반드시 유지하세요.\n2) 후보를 0개로 만들기 전에 약한 근거 후보도 반환하세요. 단, 근거 강도를 strong/moderate/weak/none으로 명확히 구분하세요.\n3) 한인·한국어 근거 점수(0~40): 공식 프로필/홈페이지 명시 35~40, 신뢰 가능한 지역 언론·한인 업소록의 직접 소개 25~34, 복수 디렉터리의 일관된 표시 15~24, 이름이나 추정뿐이면 0.\n4) 전문분야 점수(0~25): 내과·가정의학 등 요청 분야가 공식 자료에 명확하면 20~25, 관련성만 있으면 10~19, 불명확하면 0~9.\n5) 요청 도시를 우선하되 인접 도시 후보를 섞지 마세요. 도시가 불확실하면 city에 실제 확인된 도시를 쓰세요.\n6) 각 후보에 실제 근거 URL을 넣고, 근거 문장에는 무엇이 확인됐고 무엇은 추가 확인이 필요한지 써 주세요.\n7) 광고성 목록 한 곳만으로 strong 판정을 하지 마세요.\n8) 후보는 최대 8개만 반환하세요.`}]}
       ],
-      text:{format:{type:'json_schema',name:'guide_search_results_v12',strict:true,schema}}
+      text:{format:{type:'json_schema',name:'guide_search_results_v13',strict:true,schema}}
     });
     const text=outputText(response);
     if(!text) throw new Error('웹 검색 결과가 비어 있습니다.');
     const research=JSON.parse(text);
-    let candidates=(research.candidates||[]).filter(c=>c.name&&c.qualifier_confirmed!==false&&Number(c.confidence)>=45);
-    if(city) candidates=candidates.filter(c=>!c.city||normalize(c.city).includes(normalize(city))||normalize(city).includes(normalize(c.city)));
+    let raw=(research.candidates||[]).filter(c=>c.name && (c.source_urls||[]).length);
+    if(city) raw=raw.filter(c=>!c.city || normalize(c.city).includes(normalize(city)) || normalize(city).includes(normalize(c.city)));
 
-    const placeGroups=await Promise.all(candidates.slice(0,8).map(c=>searchGooglePlaces(`${c.name} ${city||c.city||'Texas'}`,3).catch(()=>[])));
-    const verified=candidates.map((c,i)=>{
+    const placeGroups=await Promise.all(raw.slice(0,8).map(c=>searchGooglePlaces(`${c.name} ${city||c.city||'Texas'}`,5)));
+    const ranked=raw.slice(0,8).map((c,i)=>{
       const place=bestPlace(c,placeGroups[i]||[],city);
-      return {...c,place_verified:!!place,place:place||null};
-    }).filter(c=>c.place_verified || !process.env.GOOGLE_MAPS_API_KEY);
+      const score=computeScore(c,place,city,qualifiers);
+      const koreanRequested=qualifiers.some(q=>q.key==='korean');
+      const evidenceStatus = !koreanRequested ? 'not_required' : Number(c.qualifier_evidence_score)>=25 ? 'confirmed' : Number(c.qualifier_evidence_score)>=15 ? 'probable' : 'unconfirmed';
+      return {...c,place_verified:!!place,place:place||null,final_score:score,evidence_status:evidenceStatus};
+    }).filter(c=>c.final_score>=35).sort((a,b)=>b.final_score-a.final_score);
 
+    // 장소 검증 실패만으로 후보를 전부 없애지 않는다. Places는 연락처 검증용이지 한인 여부 판정용이 아니다.
+    const candidates=ranked.slice(0,6);
+    const confirmedCount=candidates.filter(c=>c.evidence_status==='confirmed').length;
     return {statusCode:200,headers,body:JSON.stringify({
       topic,requested_city:city,hard_qualifiers:qualifiers.map(q=>q.key),interpreted_request:research.interpreted_request,
-      queries_used:research.queries_used,candidates:verified,
-      message:verified.length?`${verified.length}개의 검증 후보를 찾았습니다.`:'필수 조건과 지역을 함께 충족하는 검증 후보를 찾지 못했습니다.'
+      queries_used:research.queries_used,candidates,
+      message:candidates.length?`${candidates.length}개의 후보를 점수순으로 찾았습니다. 강한 근거 ${confirmedCount}개입니다.`:'관련 후보를 찾지 못했습니다. 참고 URL이나 업소명을 추가해 다시 검색해 주세요.'
     })};
   } catch(error) {
     console.error('search-guide error',error);

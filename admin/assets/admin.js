@@ -2322,7 +2322,7 @@ async function deleteBoard() {
 }
 
 /* ---------------------------
-   AI Dallas Guide v12: search -> review -> generate
+   AI Dallas Guide v13: evidence scoring -> review -> generate
 --------------------------- */
 const AI_GUIDE_CATEGORY_NAMES = {
   driving: '운전면허 차량등록 자동차 운전·차량',
@@ -2374,20 +2374,20 @@ function renderAiGuideCandidates(result) {
           <div style="font-weight:700;">${escapeHtml(place.name || c.name || '')}</div>
           <div class="tiny muted" style="margin-top:4px;">${escapeHtml(place.address || c.city || '')}</div>
           ${place.phone ? `<div class="tiny">전화: ${escapeHtml(place.phone)}</div>` : ''}
-          <div class="tiny" style="margin-top:5px;"><b>필수조건 근거:</b> ${escapeHtml(c.qualifier_evidence || '근거 설명 없음')}</div>
-          <div class="tiny" style="margin-top:5px;">신뢰도 ${Number(c.confidence || 0)}점 · Google Places ${c.place_verified ? '확인됨' : '미확인'}</div>
+          <div class="tiny" style="margin-top:5px;"><b>한인·필수조건 근거:</b> ${escapeHtml(c.qualifier_evidence || '근거 설명 없음')}</div>
+          <div class="tiny" style="margin-top:5px;"><b>종합점수 ${Number(c.final_score || c.confidence || 0)}점</b> · 근거 ${c.evidence_status === 'confirmed' ? '확인' : c.evidence_status === 'probable' ? '가능성 높음' : c.evidence_status === 'unconfirmed' ? '추가 확인 필요' : '해당 없음'} · Google Places ${c.place_verified ? '연락처 확인됨' : '미확인'}</div>
           ${sourceLinks ? `<div class="tiny" style="margin-top:5px;">${sourceLinks}</div>` : ''}
         </div>
       </div>`;
     list.appendChild(card);
   });
-  if (!(result.candidates || []).length) list.innerHTML = '<div class="tiny muted">필수 조건과 지역을 함께 충족하는 후보를 찾지 못했습니다.</div>';
+  if (!(result.candidates || []).length) list.innerHTML = '<div class="tiny muted">관련 후보를 찾지 못했습니다. 참고 URL이나 알고 있는 업소명을 추가해 다시 검색해 주세요.</div>';
 }
 async function searchAiGuideCandidates() {
   const input = getAiGuideInput();
   if (!input.topic) return alert('검색할 주제를 입력하세요.');
   aiGuideSearchResult = null;
-  setAiGuideBusy(true, '실시간 웹 검색과 Google Places 검증 중입니다...');
+  setAiGuideBusy(true, '웹 근거 수집, 증거 점수 계산, Google Places 연락처 확인 중입니다...');
   try {
     const response = await fetch('/.netlify/functions/search-guide', {
       method: 'POST', headers: {'Content-Type':'application/json'},
