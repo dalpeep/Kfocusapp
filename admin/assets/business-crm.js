@@ -50,6 +50,23 @@
   }
   function statusOf(score){ return score>=80?'good':score>=50?'warn':'risk'; }
   function statusLabel(s){ return s==='good'?'정상':s==='warn'?'주의':'관리 필요'; }
+  function openAIStudio(assetType, x){
+    const latestRow = assetType==='coupon' ? x.coupon : assetType==='banner' ? x.banner : x.dalpick;
+    const ctx={
+      businessId:x.id,
+      businessName:x.name,
+      assetType,
+      mode:latestRow?'refresh':'create',
+      topic:`${x.name} ${assetType==='coupon'?'쿠폰':assetType==='banner'?'배너':'DalPick'} ${latestRow?'갱신':'신규 제작'}`,
+      instructions:latestRow?'기존 콘텐츠와 겹치지 않게 새로운 홍보 포인트로 갱신해 주세요.':'업소 정보를 바탕으로 첫 콘텐츠 초안을 만들어 주세요.',
+      returnSection:assetType==='banner'?'banners':assetType
+    };
+    if(window.DalTownAIStudio?.open) window.DalTownAIStudio.open(ctx);
+    else {
+      localStorage.setItem('daltownmap_ai_studio_workflow_v1',JSON.stringify(ctx));
+      openSection('aiStudio',x.id);
+    }
+  }
   function openSection(section,businessId){
     const btn=document.querySelector(`#adminNav [data-section="${section}"]`); if(btn) btn.click();
     if(businessId){
@@ -64,14 +81,14 @@
     const all=data.businesses.filter(b=>b.is_active!==false).map(b=>buildBusiness(b,data));
     const q=($('crmSearch')?.value||'').trim().toLowerCase(); const filter=$('crmStatusFilter')?.value||'all'; const sort=$('crmSort')?.value||'scoreAsc';
     let rows=all.filter(x=>(!q||`${x.name} ${x.category}`.toLowerCase().includes(q))&&(filter==='all'||statusOf(x.score)===filter));
-    rows.sort(sort==='name'?(a,b)=>a.name.localeCompare(b.name,'ko'):sort==='taskDesc'?(a,b)=>b.tasks.length-a.tasks.length:(a,b)=>a.score-b.score);
+    rows.sort(sort==='name'?(a,b)=>a.name.localeCompare(b.name,'ko'):sort==='taskDesc'?(a,b)=>b.tasks.length-a.tasks.length:a.score-b.score);
     $('crmBusinessCount') && ($('crmBusinessCount').textContent=all.length);
     $('crmGoodCount') && ($('crmGoodCount').textContent=all.filter(x=>statusOf(x.score)==='good').length);
     $('crmWarnCount') && ($('crmWarnCount').textContent=all.filter(x=>statusOf(x.score)==='warn').length);
     $('crmRiskCount') && ($('crmRiskCount').textContent=all.filter(x=>statusOf(x.score)==='risk').length);
     const tasks=all.flatMap(x=>x.tasks.filter(t=>!t.type.startsWith('manual:')).map(t=>({...t,business:x}))).slice(0,30);
     $('crmTaskCount') && ($('crmTaskCount').textContent=`${tasks.length}건`);
-    if($('crmTaskList')) $('crmTaskList').innerHTML=tasks.length?tasks.map(t=>`<article class="crm-task"><div><strong>${esc(t.business.name)}</strong><span>${esc(t.label)}</span></div><button class="btn small" data-crm-go="${esc(t.type)}" data-business="${esc(t.business.id)}">바로가기</button></article>`).join(''):'<p class="crm-empty">오늘 마감된 필수 작업이 없습니다.</p>';
+    if($('crmTaskList')) $('crmTaskList').innerHTML=tasks.length?tasks.map(t=>`<article class="crm-task"><div><strong>${esc(t.business.name)}</strong><span>${esc(t.label)}</span></div><button class="btn small" data-crm-task="${esc(t.type)}" data-business="${esc(t.business.id)}">바로가기</button></article>`).join(''):'<p class="crm-empty">오늘 마감된 필수 작업이 없습니다.</p>';
     if($('crmBusinessList')) $('crmBusinessList').innerHTML=rows.length?rows.map(cardHtml).join(''):'<p class="crm-empty">조건에 맞는 업소가 없습니다.</p>';
     bindDynamic();
   }
@@ -83,10 +100,28 @@
     <div class="crm-business-head"><div><span class="crm-dot ${s}"></span><strong>${esc(x.name)}</strong><small>${esc(x.category||'카테고리 없음')}</small></div><div class="crm-score ${s}"><b>${x.score}</b><span>점 · ${statusLabel(s)}</span></div></div>
     <div class="crm-content-grid">${statusCell('coupon','쿠폰',x.coupon,x.checks.coupon,x.id)}${statusCell('banner','배너',x.banner,x.checks.banner,x.id)}${statusCell('dalpick','DalPick',x.dalpick,x.checks.dalpick,x.id)}</div>
     <div class="crm-manual-row"><span>운영 체크</span>${['sns','push','video'].map(k=>`<label><input type="checkbox" data-crm-manual="${k}" data-business="${esc(x.id)}" ${x.manual[k]?'checked':''}> ${k==='sns'?'SNS':k==='push'?'Push':'영상'}</label>`).join('')}</div>
-    <div class="crm-card-actions"><button class="btn ghost small" data-crm-go="coupon" data-business="${esc(x.id)}">쿠폰</button><button class="btn ghost small" data-crm-go="banners" data-business="${esc(x.id)}">배너</button><button class="btn ghost small" data-crm-go="dalpick" data-business="${esc(x.id)}">DalPick</button><button class="btn primary small" data-crm-go="aiStudio" data-business="${esc(x.id)}">AI 제작</button></div>
+    <div class="crm-card-actions">
+      <button class="btn ghost small" data-crm-content="coupon" data-business="${esc(x.id)}">${x.checks.coupon.due?(x.coupon?'쿠폰 갱신':'쿠폰 만들기'):'쿠폰 관리'}</button>
+      <button class="btn ghost small" data-crm-content="banner" data-business="${esc(x.id)}">${x.checks.banner.due?(x.banner?'배너 갱신':'배너 만들기'):'배너 관리'}</button>
+      <button class="btn ghost small" data-crm-content="dalpick" data-business="${esc(x.id)}">${x.checks.dalpick.due?(x.dalpick?'DalPick 갱신':'DalPick 만들기'):'DalPick 관리'}</button>
+      <button class="btn primary small" data-crm-ai-all data-business="${esc(x.id)}">AI 캠페인 제작</button>
+    </div>
   </article>`; }
   function bindDynamic(){
-    document.querySelectorAll('[data-crm-go]').forEach(btn=>btn.onclick=()=>openSection(btn.dataset.crmGo,btn.dataset.business));
+    const data=snapshot();
+    const findBusiness=id=>{ const b=data.businesses.find(v=>String(v.id)===String(id)); return b?buildBusiness(b,data):null; };
+    document.querySelectorAll('[data-crm-content]').forEach(btn=>btn.onclick=()=>{
+      const x=findBusiness(btn.dataset.business); if(!x)return;
+      const type=btn.dataset.crmContent;
+      const due=type==='coupon'?x.checks.coupon.due:type==='banner'?x.checks.banner.due:x.checks.dalpick.due;
+      if(due) openAIStudio(type,x); else openSection(type==='banner'?'banners':type,x.id);
+    });
+    document.querySelectorAll('[data-crm-task]').forEach(btn=>btn.onclick=()=>{ const x=findBusiness(btn.dataset.business); if(x) openAIStudio(btn.dataset.crmTask==='banners'?'banner':btn.dataset.crmTask,x); });
+    document.querySelectorAll('[data-crm-ai-all]').forEach(btn=>btn.onclick=()=>{
+      const x=findBusiness(btn.dataset.business); if(!x)return;
+      const ctx={businessId:x.id,businessName:x.name,assetType:null,mode:'campaign',topic:`${x.name} 통합 마케팅 캠페인`,instructions:'쿠폰, 배너, DalPick을 함께 검토하고 필요한 콘텐츠를 선택해 생성해 주세요.'};
+      if(window.DalTownAIStudio?.open) window.DalTownAIStudio.open(ctx); else { localStorage.setItem('daltownmap_ai_studio_workflow_v1',JSON.stringify(ctx)); openSection('aiStudio',x.id); }
+    });
     document.querySelectorAll('[data-crm-manual]').forEach(input=>input.onchange=()=>{const id=input.dataset.business;state.manual[id]||={};state.manual[id][input.dataset.crmManual]=input.checked;save();render();});
   }
   function loadRules(){ if($('crmCouponDays')) $('crmCouponDays').value=state.rules.couponDays;if($('crmBannerDays')) $('crmBannerDays').value=state.rules.bannerDays;if($('crmDalpickDays')) $('crmDalpickDays').value=state.rules.dalpickDays; }

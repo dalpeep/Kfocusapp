@@ -78,13 +78,47 @@
     if ($('intBannerCount')) $('intBannerCount').textContent = banners.length || '0';
     if ($('intDraftCount')) $('intDraftCount').textContent = (manager.drafts || []).filter(x => x.status === 'draft').length;
   }
+
+  function selectedBusinessId(type) {
+    const ids = type === 'coupon'
+      ? ['coupon_business_id','couponBusinessFilter']
+      : type === 'banner'
+        ? ['bnBusinessId','banner_business_id','slide_business_select']
+        : ['dalpick_business_id'];
+    for (const id of ids) { const value=$(id)?.value; if (value && value !== 'all') return value; }
+    return '';
+  }
+  function businessNameById(id) {
+    const rows=window.KFocusAdminBridge?.getBusinesses?.() || [];
+    const b=rows.find(x=>String(x.id)===String(id));
+    return b?.name_ko || b?.name_en || b?.name || '';
+  }
+  function launchAI(type) {
+    const businessId=selectedBusinessId(type);
+    const businessName=businessNameById(businessId);
+    const ctx={businessId,businessName,assetType:type,mode:'create',topic:businessName?`${businessName} ${type==='coupon'?'쿠폰':type==='banner'?'배너':'DalPick'} 제작`:'',returnSection:type==='banner'?'banners':type};
+    if(window.DalTownAIStudio?.open) window.DalTownAIStudio.open(ctx);
+    else { localStorage.setItem('daltownmap_ai_studio_workflow_v1',JSON.stringify(ctx)); openSection('aiStudio'); }
+  }
+  function injectAIButtons() {
+    const targets=[
+      ['couponNewBtn','coupon','✨ AI로 쿠폰 만들기'],
+      ['bannerNewBtn','banner','✨ AI로 배너 만들기']
+    ];
+    targets.forEach(([anchorId,type,label])=>{
+      const anchor=$(anchorId); if(!anchor || document.querySelector(`[data-ai-create="${type}"]`)) return;
+      const btn=document.createElement('button'); btn.type='button'; btn.className='btn secondary inline-btn'; btn.dataset.aiCreate=type; btn.textContent=label;
+      btn.addEventListener('click',()=>launchAI(type)); anchor.insertAdjacentElement('afterend',btn);
+    });
+  }
+
   function bind() {
-    bindNavigation(); renderChecks(); renderIssues(); updateMetrics();
+    bindNavigation(); renderChecks(); renderIssues(); updateMetrics(); injectAIButtons();
     $('intAddIssue')?.addEventListener('click', addIssue);
     $('intResetChecklist')?.addEventListener('click', () => { if (confirm('테스트 체크 상태를 모두 초기화할까요?')) { state.checks={}; save(); renderChecks(); } });
     window.addEventListener('kfocus:businesses-loaded', updateMetrics);
     window.addEventListener('storage', updateMetrics);
-    setInterval(updateMetrics, 3000);
+    setInterval(()=>{ updateMetrics(); injectAIButtons(); }, 3000);
   }
   document.addEventListener('DOMContentLoaded', bind);
 })();

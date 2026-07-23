@@ -13,6 +13,47 @@ const ASSETS = [
 ];
 let analysis = null;
 let suite = null;
+const WORKFLOW_KEY = 'daltownmap_ai_studio_workflow_v1';
+const ASSET_LABELS = {dalpick:'DalPick', guide:'AI Guide', coupon:'쿠폰', banner:'배너', social:'SNS', push:'푸시', video:'숏폼 영상', image_prompt:'대표 이미지'};
+let workflowContext = null;
+
+function saveWorkflowContext(ctx){
+  workflowContext = ctx || null;
+  if(workflowContext) localStorage.setItem(WORKFLOW_KEY, JSON.stringify(workflowContext));
+  else localStorage.removeItem(WORKFLOW_KEY);
+}
+function readWorkflowContext(){
+  try { return JSON.parse(localStorage.getItem(WORKFLOW_KEY) || 'null'); } catch { return null; }
+}
+function selectOnlyAsset(type){
+  document.querySelectorAll('#ucsAssetSelector input').forEach(input => { input.checked = input.value === type; });
+}
+function waitForBusiness(businessId, attempt=0){
+  populateBusinesses();
+  const el=$('ucsBusiness');
+  if(el && [...el.options].some(o=>String(o.value)===String(businessId))){
+    el.value=String(businessId); el.dispatchEvent(new Event('change',{bubbles:true})); return;
+  }
+  if(attempt<20) setTimeout(()=>waitForBusiness(businessId,attempt+1),150);
+}
+function applyWorkflowContext(ctx){
+  if(!ctx) return;
+  workflowContext=ctx;
+  if(ctx.businessId) waitForBusiness(ctx.businessId);
+  if(ctx.topic) setValue('ucsTopic',ctx.topic);
+  else if(ctx.businessName && !$('ucsTopic')?.value) setValue('ucsTopic',`${ctx.businessName} ${ASSET_LABELS[ctx.assetType]||'마케팅 콘텐츠'} 제작`);
+  if(ctx.instructions) setValue('ucsInstructions',ctx.instructions);
+  const status=$('ucsAnalyzeStatus');
+  if(status) status.textContent=`${ctx.businessName||'선택 업소'}의 ${ASSET_LABELS[ctx.assetType]||'콘텐츠'} ${ctx.mode==='refresh'?'갱신':'신규 제작'} 요청이 연결되었습니다. AI 분석을 실행하세요.`;
+  // Analysis has not rendered the selector yet; preserve desired type and apply after renderAnalysis.
+}
+function openFromWorkflow(ctx={}){
+  saveWorkflowContext({...ctx, openedAt:new Date().toISOString()});
+  switchSection('aiStudio');
+  setTimeout(()=>applyWorkflowContext(workflowContext),120);
+}
+window.DalTownAIStudio = { open: openFromWorkflow, getContext:()=>workflowContext, clearContext:()=>saveWorkflowContext(null) };
+window.addEventListener('daltown:open-ai-studio',e=>openFromWorkflow(e.detail||{}));
 
 function bridge(){ return window.KFocusAdminBridge || {}; }
 function switchSection(name){
@@ -55,6 +96,7 @@ function renderAnalysis(a){
     const reason=(a.asset_reasons||[]).find(x=>x.type===key)?.reason || desc;
     return `<label class="ucs-asset-card ${on?'recommended':''}"><div class="ucs-asset-top"><input type="checkbox" value="${key}" ${on?'checked':''}><span>${icon}</span><strong>${label}</strong></div><small>${esc(reason)}</small></label>`;
   }).join('');
+  if(workflowContext?.assetType) selectOnlyAsset(workflowContext.assetType);
   $('ucsPlanSection').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
@@ -129,6 +171,7 @@ function actionButton(type){
 function sendAsset(type){
   if(!suite)return;
   const b=businessPayload();
+  const sourceContext=workflowContext;
   if(type==='dalpick'){
     switchSection('dalpick');
     setValue('dalpick_topic',$('ucsTopic')?.value||''); setValue('dalpick_category',suite.dalpick?.category||analysis?.suggested_dalpick_category||'themed');
@@ -143,15 +186,16 @@ function sendAsset(type){
   } else if(type==='push'){
     switchSection('push'); setValue('pushTitle',suite.push?.title); setValue('pushMessage',suite.push?.message); notify('푸시 발송 화면에 내용을 채웠습니다. 대상과 링크를 확인하세요.');
   }
+  if(sourceContext?.assetType===type) saveWorkflowContext(null);
 }
 
 function reset(){
-  analysis=null;suite=null;setValue('ucsTopic','');setValue('ucsInstructions','');$('ucsPlanSection')?.classList.add('hidden');$('ucsResultsSection')?.classList.add('hidden');$('ucsAnalyzeStatus').textContent='주제를 입력하면 AI가 기획안을 제안합니다.';
+  analysis=null;suite=null;saveWorkflowContext(null);setValue('ucsTopic','');setValue('ucsInstructions','');$('ucsPlanSection')?.classList.add('hidden');$('ucsResultsSection')?.classList.add('hidden');$('ucsAnalyzeStatus').textContent='주제를 입력하면 AI가 기획안을 제안합니다.';
 }
 function bind(){
   $('ucsAnalyzeBtn')?.addEventListener('click',analyzeTopic); $('ucsGenerateBtn')?.addEventListener('click',generateSuite); $('ucsResetBtn')?.addEventListener('click',reset);
   $('ucsSelectAll')?.addEventListener('click',()=>document.querySelectorAll('#ucsAssetSelector input').forEach(x=>x.checked=true));
   $('ucsClearAll')?.addEventListener('click',()=>document.querySelectorAll('#ucsAssetSelector input').forEach(x=>x.checked=false));
-  window.addEventListener('kfocus:businesses-loaded',populateBusinesses); populateBusinesses();
+  window.addEventListener('kfocus:businesses-loaded',()=>{ populateBusinesses(); if(workflowContext?.businessId) waitForBusiness(workflowContext.businessId); }); populateBusinesses(); workflowContext=readWorkflowContext(); if(workflowContext) setTimeout(()=>applyWorkflowContext(workflowContext),100);
 }
 document.addEventListener('DOMContentLoaded',bind);
