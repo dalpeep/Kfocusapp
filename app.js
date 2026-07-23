@@ -1602,10 +1602,10 @@ function activeCoupons(list=coupons){
   }).sort((a,b)=> (a.sortOrder||1000)-(b.sortOrder||1000) || (new Date(a.endAt||'2999-01-01') - new Date(b.endAt||'2999-01-01')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }
 function todayCoupons(){
-  const active = activeCoupons(coupons);
-  const today = active.filter(c=>c.isToday);
-  // 오늘의 쿠폰 표시값이 하나도 없으면 활성 쿠폰을 대신 보여 줍니다.
-  return today.length ? today : active;
+  // '오늘의 쿠폰'으로 명시적으로 지정된 활성 쿠폰만 반환합니다.
+  // 과거에는 지정된 쿠폰이 하나도 없을 때 모든 활성 쿠폰을 대신 노출했기 때문에
+  // 관리자 화면과 실제 홈 DalPick/오늘의 쿠폰 노출이 서로 다르게 보일 수 있었습니다.
+  return activeCoupons(coupons).filter(c=>c.isToday === true);
 }
 function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
 function couponCardHTML(c, mode='all'){

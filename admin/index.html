@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
-  <link rel="stylesheet" href="assets/admin.css?v=8.3.0" />
+  <link rel="stylesheet" href="assets/admin.css?v=8.4.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=24.1.0"></script>
+  <script type="module" src="assets/admin.js?v=24.2.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=24.1.0" defer></script>
@@ -907,6 +907,16 @@
 </div>
 
       <section id="section-dalpick" class="admin-section">
+        <div class="panel dalpick-exposure-panel">
+          <div class="panel-head">
+            <div>
+              <h2>현재 홈 DalPick 노출</h2>
+              <p class="muted">홈 DalPick에는 게시 중인 DalPick과 ‘오늘의 쿠폰’으로 지정된 쿠폰이 함께 표시됩니다. 아래 목록은 현재 시각 기준 실제 노출 대상을 보여줍니다.</p>
+            </div>
+            <span id="dalpickExposureCount" class="pill">0개</span>
+          </div>
+          <div id="dalpickExposureList" class="dalpick-exposure-list"><div class="muted">데이터를 불러오는 중입니다.</div></div>
+        </div>
         <div class="admin-grid two-col">
           <div class="panel">
             <div class="panel-head"><h2>DalPick 목록</h2><span id="dalpickCountText" class="muted">0개</span></div>
