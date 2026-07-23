@@ -44,12 +44,13 @@ const analysisSchema = {
     suggested_goal: { type: 'string' },
     suggested_audience: { type: 'string' },
     suggested_tone: { type: 'string' },
+    suggested_dalpick_category: { type: 'string', enum: ['local_info', 'lifestyle', 'themed', 'recommended', 'new_business', 'coupon', 'event', 'business_story'] },
     recommended_types: {
       type: 'array',
       items: { type: 'string', enum: ['dalpick', 'coupon', 'banner', 'social', 'push', 'video', 'image_prompt'] }
     }
   },
-  required: ['intent_type', 'intent_label', 'business_requirement', 'explanation', 'suggested_goal', 'suggested_audience', 'suggested_tone', 'recommended_types']
+  required: ['intent_type', 'intent_label', 'business_requirement', 'explanation', 'suggested_goal', 'suggested_audience', 'suggested_tone', 'suggested_dalpick_category', 'recommended_types']
 };
 
 const schema = {
@@ -151,6 +152,7 @@ exports.handler = async (event) => {
 반환 규칙:
 - business_requirement는 none, optional, required 중 하나
 - 생활정보라면 none, 혼합형이면 optional, 특정 업소 홍보라면 required를 우선
+- suggested_dalpick_category는 실제 DalPick 저장 분류로 추천: 여행·명소는 local_info, 행정·교육·보험·생활 절차는 lifestyle, 여러 업소 비교는 themed, 특정 업소 추천은 recommended, 신규 오픈은 new_business, 할인 혜택은 coupon, 지역 행사는 event, 인터뷰는 business_story
 - recommended_types에는 dalpick을 반드시 포함
 - 쿠폰은 실제 할인이나 혜택 주제가 아니면 추천하지 말 것
 - 배너와 푸시는 중요한 행사, 신규 오픈, 강한 홍보 목적일 때만 추천
