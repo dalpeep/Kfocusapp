@@ -32,6 +32,26 @@ const checklistItem = {
   required: ['key', 'label', 'status', 'message']
 };
 
+
+const analysisSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    intent_type: { type: 'string', enum: ['information', 'business', 'mixed'] },
+    intent_label: { type: 'string' },
+    business_requirement: { type: 'string', enum: ['none', 'optional', 'required'] },
+    explanation: { type: 'string' },
+    suggested_goal: { type: 'string' },
+    suggested_audience: { type: 'string' },
+    suggested_tone: { type: 'string' },
+    recommended_types: {
+      type: 'array',
+      items: { type: 'string', enum: ['dalpick', 'coupon', 'banner', 'social', 'push', 'video', 'image_prompt'] }
+    }
+  },
+  required: ['intent_type', 'intent_label', 'business_requirement', 'explanation', 'suggested_goal', 'suggested_audience', 'suggested_tone', 'recommended_types']
+};
+
 const schema = {
   type: 'object',
   additionalProperties: false,
@@ -117,6 +137,42 @@ exports.handler = async (event) => {
     const b = JSON.parse(event.body || '{}');
     const topic = String(b.topic || '').trim();
     if (!topic) return { statusCode: 400, headers, body: JSON.stringify({ error: '주제를 입력하세요.' }) };
+
+    if (b.action === 'analyze') {
+      const analysisPrompt = `DalTownMap 관리자용 콘텐츠 주제를 분석하세요.
+
+주제: ${topic}
+
+판단 기준:
+- information: 생활정보, 여행, 교육, 행정, 행사, 계절 정보처럼 특정 업소 홍보가 중심이 아님
+- business: 특정 업소, 프로모션, 신메뉴, 오픈, 인터뷰처럼 업소 연결이 핵심
+- mixed: 정보 제공과 관련 업소 소개가 함께 필요한 주제
+
+반환 규칙:
+- business_requirement는 none, optional, required 중 하나
+- 생활정보라면 none, 혼합형이면 optional, 특정 업소 홍보라면 required를 우선
+- recommended_types에는 dalpick을 반드시 포함
+- 쿠폰은 실제 할인이나 혜택 주제가 아니면 추천하지 말 것
+- 배너와 푸시는 중요한 행사, 신규 오픈, 강한 홍보 목적일 때만 추천
+- 자연스러운 한국어로 간결하게 작성`;
+      const ar = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+          input: [
+            { role: 'system', content: [{ type: 'input_text', text: '당신은 DalTownMap의 콘텐츠 기획 분류기입니다.' }] },
+            { role: 'user', content: [{ type: 'input_text', text: analysisPrompt }] }
+          ],
+          text: { format: { type: 'json_schema', name: 'content_topic_analysis', strict: true, schema: analysisSchema } }
+        })
+      });
+      const aj = await ar.json();
+      if (!ar.ok) throw new Error(aj?.error?.message || '주제 분석 실패');
+      const at = outputText(aj);
+      if (!at) throw new Error('주제 분석 응답이 비어 있습니다.');
+      return { statusCode: 200, headers, body: JSON.stringify({ analysis: JSON.parse(at) }) };
+    }
 
     const business = b.business && typeof b.business === 'object' ? b.business : null;
     const requestedTypes = Array.isArray(b.content_types) && b.content_types.length
