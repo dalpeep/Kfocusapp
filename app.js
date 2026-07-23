@@ -856,12 +856,13 @@ function renderMapFilters(){
     btn.classList.toggle('hidden', count < 1);
     btn.textContent = `${mapModeLabel(mode)} ${count}`;
   });
-  const categories = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산']
-    .filter(c=>Number(mapVisibleCategoryCounts[c] || 0) > 0);
-  if(mapCategoryRow){
-    mapCategoryRow.innerHTML = categories.map(c=>`<button class="map-category-chip ${c===mapCategory?'active':''}" data-map-cat="${esc(c)}">${esc(c)} ${Number(mapVisibleCategoryCounts[c] || 0)}</button>`).join('');
-    mapCategoryRow.classList.toggle('hidden', mapMode!=='business' || categories.length < 1);
-  }
+}
+
+function renderMapNameStrip(list=[]){
+  if(!mapCategoryRow) return;
+  const rows = (Array.isArray(list) ? list : []).slice(0, 14);
+  mapCategoryRow.innerHTML = rows.map(b=>`<button class="map-business-name-chip" data-map-name-biz="${esc(b.id)}">${esc(b.name || b.name_ko || b.name_en || '업소')}</button>`).join('');
+  mapCategoryRow.classList.toggle('hidden', rows.length < 1);
 }
 function updateMapFilterAvailability(baseList){
   const rows = Array.isArray(baseList) ? baseList : [];
@@ -1755,10 +1756,13 @@ function renderMapBottomList(list){
   const rows = list || [];
   selectedMapBusinessId = '';
   mapBusinessPreview?.classList.add('hidden');
-  mapBottomList.classList.remove('hidden');
-  if(mapBottomTitle) mapBottomTitle.textContent = `주변 ${mapModeLabel(mapMode)} ${rows.length}곳`;
-  mapBottomList.innerHTML = rows.length ? rows.map(mapBottomItemHTML).join('') : '<div class="map-bottom-empty">이 지역에 표시할 정보가 없습니다.</div>';
-  mapBottomPanel?.classList.remove('hidden');
+  mapBottomList.classList.add('hidden');
+  mapBottomList.innerHTML = '';
+  mapBottomTitle?.parentElement?.classList.add('hidden');
+  setMapBottomStatus('');
+  mapBottomPanel?.classList.remove('hidden','collapsed','preview-open');
+  mapBottomPanel?.classList.add('counts-only');
+  window.__mapCurrentRows = rows;
 }
 function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
@@ -1784,8 +1788,10 @@ function showMapBusinessPreview(b){
   mapBottomList.classList.add('hidden');
   mapBusinessPreview.innerHTML = mapBusinessPreviewHTML(b);
   mapBusinessPreview.classList.remove('hidden');
+  mapBottomTitle?.parentElement?.classList.remove('hidden');
   if(mapBottomTitle) mapBottomTitle.textContent = '업소 정보';
-  mapBottomPanel?.classList.remove('collapsed','hidden');
+  mapBottomPanel?.classList.remove('collapsed','hidden','counts-only');
+  mapBottomPanel?.classList.add('preview-open');
 }
 
 function nearbyBusinessItemHTML(b){
@@ -4520,8 +4526,25 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-use-open'); if(!btn) return; e.preventDefault(); renderCouponUse(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-use'); });
   document.addEventListener('click', e=>{ const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call'); const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction'); });
-  mapFilterRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-filter-chip'); if(!btn || btn.classList.contains('hidden')) return; mapMode = btn.dataset.mapFilter || 'business'; selectedMapBusinessId=''; if(mapMode!=='business') mapCategory=''; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
-  mapCategoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.map-category-chip'); if(!btn) return; mapCategory = btn.dataset.mapCat || '전체'; renderMapFilters(); if(mapReady) redrawMapMarkers(); });
+  mapFilterRow?.addEventListener('click', e=>{
+    const btn=e.target.closest('.map-filter-chip');
+    if(!btn || btn.classList.contains('hidden')) return;
+    mapMode = btn.dataset.mapFilter || 'business';
+    selectedMapBusinessId='';
+    mapCategory='';
+    renderMapFilters();
+    if(mapReady) redrawMapMarkers();
+    setTimeout(()=>renderMapNameStrip(window.__mapCurrentRows || []), 0);
+  });
+  mapCategoryRow?.addEventListener('click', e=>{
+    const btn=e.target.closest('[data-map-name-biz]');
+    if(!btn) return;
+    const biz=getBiz(btn.dataset.mapNameBiz);
+    if(!biz || !map) return;
+    const pos={lat:Number(biz.lat),lng:Number(biz.lng)};
+    map.setZoom(Math.max(map.getZoom() || 12, 14));
+    panMapAboveBottomPanel(pos.lat,pos.lng);
+  });
 mapSearchAreaBtn?.addEventListener('click', () => {
   if (!mapReady || !map) return;
 
@@ -4573,11 +4596,14 @@ mapSearchAreaBtn?.addEventListener('click', () => {
     if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction);
   });
   mapBottomClose?.addEventListener('click', ()=>{
-    if(selectedMapBusinessId){ redrawMapMarkers(); return; }
-    mapBottomPanel?.classList.toggle('collapsed');
-  });
-  mapBottomPanel?.addEventListener('click', (e)=>{
-    if(e.target === mapBottomPanel || e.target.closest('.map-bottom-head strong')) mapBottomPanel.classList.toggle('collapsed');
+    if(selectedMapBusinessId){
+      selectedMapBusinessId='';
+      mapBusinessPreview?.classList.add('hidden');
+      mapBottomTitle?.parentElement?.classList.add('hidden');
+      mapBottomPanel?.classList.remove('preview-open');
+      mapBottomPanel?.classList.add('counts-only');
+      return;
+    }
   });
   window.addEventListener('hashchange', ()=>showPage(getRoute()));
 }
