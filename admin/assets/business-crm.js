@@ -64,7 +64,7 @@
     const all=data.businesses.filter(b=>b.is_active!==false).map(b=>buildBusiness(b,data));
     const q=($('crmSearch')?.value||'').trim().toLowerCase(); const filter=$('crmStatusFilter')?.value||'all'; const sort=$('crmSort')?.value||'scoreAsc';
     let rows=all.filter(x=>(!q||`${x.name} ${x.category}`.toLowerCase().includes(q))&&(filter==='all'||statusOf(x.score)===filter));
-    rows.sort(sort==='name'?(a,b)=>a.name.localeCompare(b.name,'ko'):sort==='taskDesc'?(a,b)=>b.tasks.length-a.tasks.length:a.score-b.score);
+    rows.sort(sort==='name'?(a,b)=>a.name.localeCompare(b.name,'ko'):sort==='taskDesc'?(a,b)=>b.tasks.length-a.tasks.length:(a,b)=>a.score-b.score);
     $('crmBusinessCount') && ($('crmBusinessCount').textContent=all.length);
     $('crmGoodCount') && ($('crmGoodCount').textContent=all.filter(x=>statusOf(x.score)==='good').length);
     $('crmWarnCount') && ($('crmWarnCount').textContent=all.filter(x=>statusOf(x.score)==='warn').length);
