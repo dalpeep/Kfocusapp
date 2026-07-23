@@ -4664,3 +4664,41 @@ body.map-page-open #page-map .map-bottom-panel{
     max-height:calc(100dvh - 205px)!important;
   }
 }
+
+/* ===== v24.8 Mobile map bottom spacing + lower navigation alignment ===== */
+@media (max-width: 480px){
+  /* Keep the map counter card visually separate from the fixed app navigation. */
+  body.map-page-open #page-map .map-bottom-panel{
+    bottom:calc(96px + env(safe-area-inset-bottom))!important;
+    left:12px!important;
+    right:12px!important;
+    border-radius:20px!important;
+    box-shadow:0 10px 26px rgba(13,39,86,.18)!important;
+  }
+
+  /* Make the fixed navigation feel lower and less intrusive on the map. */
+  .bottom-nav{
+    min-height:74px;
+    padding:12px 8px calc(2px + env(safe-area-inset-bottom))!important;
+    align-items:end;
+  }
+  .bottom-nav .nav-item{
+    min-height:54px;
+    padding:2px 6px 0!important;
+    gap:4px!important;
+    justify-content:flex-end!important;
+  }
+  .bottom-nav .nav-item svg{
+    width:23px;
+    height:23px;
+  }
+  .bottom-nav .nav-item strong{
+    line-height:1.1;
+    padding-bottom:1px;
+  }
+  .bottom-nav .nav-item.active::before{
+    top:0!important;
+    width:40px!important;
+    height:40px!important;
+  }
+}
