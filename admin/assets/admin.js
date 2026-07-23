@@ -3809,3 +3809,38 @@ async function loadPerformanceCenter(){
 }
 
 console.log('[DalTownMap Admin] v9.0 unified image manager loaded');
+
+// ===== v19 Unified Content Studio =====
+let unifiedContentSuite=null;
+function setUnifiedSuiteStatus(text){const el=document.getElementById('unifiedSuiteStatus');if(el)el.textContent=text;}
+function applyUnifiedSuiteToForms(){
+  if(!unifiedContentSuite)return alert('먼저 통합 콘텐츠를 생성하세요.');
+  const s=unifiedContentSuite;
+  setVal('dalpick_title',s.dalpick?.title||''); setVal('dalpick_summary',s.dalpick?.summary||''); setVal('dalpick_content',s.dalpick?.content||''); setVal('dalpick_image_instruction',s.dalpick?.image_prompt||'');
+  if(s.dalpick?.category&&qs('dalpick_category')){setVal('dalpick_category',s.dalpick.category);updateDalpickTypeUI();}
+  setVal('coupon_title',s.coupon?.title||''); setVal('coupon_discount_label',s.coupon?.discount_label||''); setVal('coupon_description',s.coupon?.description||''); setVal('coupon_code',s.coupon?.coupon_code||'');
+  setVal('bnTitle',s.banner?.title||''); setVal('bnDescription',s.banner?.description||''); setVal('bnButtonLabel',s.banner?.button_label||'자세히 보기');
+  setUnifiedSuiteStatus('DalPick·쿠폰·배너 입력란에 초안을 반영했습니다. 저장 전에 검토하세요.');
+}
+async function generateUnifiedContentSuite(){
+  const topic=val('dalpick_topic').trim(); if(!topic)return alert('AI로 작성할 주제를 입력하세요.');
+  const businessId=val('dalpick_business_id')||''; const b=businesses.find(x=>String(x.id)===String(businessId));
+  const btn=document.getElementById('generateUnifiedSuiteBtn'); const old=btn?.textContent||''; if(btn){btn.disabled=true;btn.textContent='통합 생성 중...';}
+  setUnifiedSuiteStatus('DalPick, 쿠폰, 배너, SNS, 영상 문구를 한 번에 작성하고 있습니다...');
+  try{
+    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,instructions:val('dalpick_instructions').trim(),business:b?{id:b.id,name:b.name_ko||b.name_en||'',category:b.category||b.category_ko||'',address:b.address||'',phone:b.phone||'',website:b.website||'',description:b.description||b.description_ko||''}:null})});
+    const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'통합 콘텐츠 생성 실패'); unifiedContentSuite=j.suite;
+    const out=document.getElementById('unifiedSuitePreview'); if(out)out.textContent=JSON.stringify(unifiedContentSuite,null,2);
+    applyUnifiedSuiteToForms();
+  }catch(e){console.error(e);setUnifiedSuiteStatus(`오류: ${e.message}`);alert(e.message);}finally{if(btn){btn.disabled=false;btn.textContent=old||'통합 콘텐츠 만들기';}}
+}
+function initUnifiedContentStudio(){
+  if(document.getElementById('unifiedContentStudio'))return;
+  const anchor=document.getElementById('dalpickAiBtn')?.closest('.form-card, .card, section')||document.getElementById('dalpickAiBtn')?.parentElement;
+  if(!anchor)return;
+  const box=document.createElement('div');box.id='unifiedContentStudio';box.style.cssText='margin-top:16px;padding:16px;border:1px solid #dbe3ee;border-radius:14px;background:#f8fafc';
+  box.innerHTML='<div style="font-weight:800;margin-bottom:6px">통합 콘텐츠 캠페인</div><div style="font-size:13px;color:#64748b;margin-bottom:12px">같은 주제로 DalPick·쿠폰·배너·SNS·숏폼 초안을 한 번에 만듭니다.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="generateUnifiedSuiteBtn" class="btn primary">통합 콘텐츠 만들기</button><button type="button" id="applyUnifiedSuiteBtn" class="btn secondary">입력란에 다시 반영</button></div><div id="unifiedSuiteStatus" style="margin-top:10px;font-size:13px;color:#475569">준비됨</div><details style="margin-top:10px"><summary>전체 생성 결과 보기</summary><pre id="unifiedSuitePreview" style="white-space:pre-wrap;max-height:360px;overflow:auto;font-size:12px"></pre></details>';
+  anchor.appendChild(box); document.getElementById('generateUnifiedSuiteBtn')?.addEventListener('click',generateUnifiedContentSuite);document.getElementById('applyUnifiedSuiteBtn')?.addEventListener('click',applyUnifiedSuiteToForms);
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(initUnifiedContentStudio,400));
+window.generateUnifiedContentSuite=generateUnifiedContentSuite;
