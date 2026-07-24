@@ -4788,3 +4788,7 @@ body.map-page-open #page-map .map-search-input{
 .banner-media-fallback em{margin-top:4px;padding:8px 12px;border-radius:9px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800;font-style:normal}
 .main-banner-card.has-media-fallback{background:transparent}
 @media(max-width:768px){.banner-media-fallback{aspect-ratio:16/7;padding:16px 18px}.banner-media-fallback>div{max-width:92%}.banner-media-fallback strong{font-size:20px}.banner-media-fallback small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
+
+
+/* v30.6: fully collapse the category banner slot when no active banner exists */
+.home-category-banner-slot[hidden],.home-category-banner-slot.is-empty{display:none!important;margin:0!important;padding:0!important;height:0!important;min-height:0!important;overflow:hidden!important}

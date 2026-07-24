@@ -2251,7 +2251,14 @@ function renderMainBanners(){
     if (b.end_at && new Date(b.end_at).getTime() < now) return false;
     return b.is_active !== false && !!(b.image_url || b.video_url);
   }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
-  if(!rows.length){ box.innerHTML=''; return; }
+  if(!rows.length){
+    box.innerHTML='';
+    box.hidden = true;
+    box.classList.add('is-empty');
+    return;
+  }
+  box.hidden = false;
+  box.classList.remove('is-empty');
   box.innerHTML=`<div class="main-banner-carousel ${rows.length===1?'is-single':''}">
     <div class="main-banner-viewport"><div class="main-banner-track">
       ${rows.map(b=>`<div class="main-banner-slide"><div class="main-banner-card" role="button" tabindex="0" data-banner-id="${esc(b.id)}">${bannerMediaHTML(b,'main-banner-media')}</div></div>`).join('')}
