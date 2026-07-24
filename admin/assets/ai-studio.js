@@ -67,6 +67,32 @@ function selectedThemes(){ return [...document.querySelectorAll('#ucsThemes inpu
 function setBusy(btn,busy,text){ if(!btn)return; if(!btn.dataset.original) btn.dataset.original=btn.textContent; btn.disabled=busy; btn.textContent=busy?text:btn.dataset.original; }
 function notify(msg){ alert(msg); }
 
+function truncateText(value,max=900){const t=String(value||'').trim();return t.length>max?t.slice(0,max)+'…':t;}
+async function fetchJsonDetailed(url,options={},label='요청'){
+  let response;
+  try{response=await fetch(url,options);}catch(error){
+    const e=new Error(`${label} 연결 실패: ${error.message||'네트워크 오류'}`);e.stage='network';throw e;
+  }
+  const raw=await response.text();
+  let data={};
+  try{data=raw?JSON.parse(raw):{};}catch(_){
+    const e=new Error(`${label} 응답을 해석하지 못했습니다. HTTP ${response.status}\n${truncateText(raw)||'응답 본문 없음'}`);e.status=response.status;e.stage='parse';throw e;
+  }
+  if(!response.ok){
+    const message=data.error||data.message||`${label} 실패`;
+    const detail=[data.stage&&`단계: ${data.stage}`,data.code&&`코드: ${data.code}`,data.detail&&`상세: ${data.detail}`,`HTTP: ${response.status}`].filter(Boolean).join('\n');
+    const e=new Error(`${message}${detail?'\n'+detail:''}`);e.status=response.status;e.stage=data.stage||'server';e.payload=data;throw e;
+  }
+  return data;
+}
+function showStudioError(title,error,statusEl){
+  console.error(`[AI Studio] ${title}`,error);
+  const message=error?.message||String(error||'알 수 없는 오류');
+  if(statusEl)statusEl.textContent=`${title}: ${message.replace(/\n/g,' · ')}`;
+  notify(`${title}\n\n${message}\n\nNetlify Functions 로그에서도 같은 시간의 오류를 확인할 수 있습니다.`);
+}
+
+
 function populateBusinesses(){
   const rows = typeof bridge().getBusinesses === 'function' ? bridge().getBusinesses() : [];
   const el=$('ucsBusiness'); if(!el)return;
@@ -106,12 +132,10 @@ async function analyzeTopic(){
   const btn=$('ucsAnalyzeBtn'); setBusy(btn,true,'분석 중...');
   $('ucsAnalyzeStatus').textContent='AI가 콘텐츠 성격, 추천 테마와 제작물을 분석하고 있습니다...';
   try{
-    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analyze',topic})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||'주제 분석 실패');
+    const j=await fetchJsonDetailed('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analyze',topic})},'주제 분석');
     renderAnalysis(j.analysis||{});
     $('ucsAnalyzeStatus').textContent='분석 완료 · 추천안을 확인하고 필요한 항목을 선택하세요.';
-  }catch(e){ $('ucsAnalyzeStatus').textContent=`오류: ${e.message}`; notify(e.message); }
+  }catch(e){ showStudioError('주제 분석 실패',e,$('ucsAnalyzeStatus')); }
   finally{ setBusy(btn,false); }
 }
 
@@ -130,13 +154,20 @@ async function generateSuite(){
   if(!analysis)return notify('먼저 AI 분석을 실행하세요.');
   if(!types.length)return notify('생성할 콘텐츠를 하나 이상 선택하세요.');
   if(analysis.business_requirement==='required'&&!$('ucsBusiness')?.value)return notify('이 주제는 연결 업소를 선택해야 합니다.');
-  const btn=$('ucsGenerateBtn'); setBusy(btn,true,'생성 중...');
+  const btn=$('ucsGenerateBtn'); setBusy(btn,true,'1/3 문구 생성 중...');
+  const progress=$('ucsAnalyzeStatus');
   try{
+    if(progress)progress.textContent='1/3 · AI가 캠페인 문구와 이미지 프롬프트를 생성하고 있습니다...';
     const payload={topic,goal:$('ucsGoal')?.value.trim(),audience:$('ucsAudience')?.value.trim(),tone:$('ucsTone')?.value.trim(),instructions:[`선택 테마: ${selectedThemes().join(', ')}`,$('ucsInstructions')?.value.trim()].filter(Boolean).join('\n'),content_types:types,business:businessPayload(),analysis};
-    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'콘텐츠 생성 실패');
-    suite=j.suite||{}; renderResults(types,suite); $('ucsResultsSection')?.classList.remove('hidden'); $('ucsResultsSection').scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(e){notify(e.message);}finally{setBusy(btn,false);}
+    const j=await fetchJsonDetailed('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},'콘텐츠 문구 생성');
+    suite=j.suite||{};
+    if(!Object.keys(suite).length)throw new Error('서버 응답에 생성 결과(suite)가 없습니다.');
+    if(progress)progress.textContent=types.includes('banner')?'2/3 · 문구 생성 완료. 1차 배너 이미지 준비 중...':'2/3 · 문구 생성 완료. 미리보기 준비 중...';
+    renderResults(types,suite);
+    $('ucsResultsSection')?.classList.remove('hidden');
+    $('ucsResultsSection').scrollIntoView({behavior:'smooth',block:'start'});
+    if(progress)progress.textContent=types.includes('banner')?'3/3 · 문구 미리보기 완료. 배너 이미지는 아래 생성 상태를 확인하세요.':'3/3 · 콘텐츠 생성과 미리보기 완료.';
+  }catch(e){showStudioError('콘텐츠 생성 실패',e,progress);}finally{setBusy(btn,false);}
 }
 
 function stringifyAsset(type,s){
@@ -303,8 +334,7 @@ async function generateBannerStudioImage(auto=false){
   if(status)status.textContent=auto?'AI가 1차 배너 이미지를 생성하고 있습니다.':'수정된 프롬프트로 새 이미지를 생성하고 있습니다.';
   try{
     const b=businessPayload();
-    const res=await fetch('/.netlify/functions/generate-campaign-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({asset:'banner',businessName:b?.name||'DalTownMap local business',campaignName:data.title,benefit:data.description,category:b?.category||'',style:'premium',notes:data.image_prompt})});
-    const j=await res.json().catch(()=>({})); if(!res.ok)throw new Error(j.error||'이미지 생성 실패');
+    const j=await fetchJsonDetailed('/.netlify/functions/generate-campaign-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({asset:'banner',businessName:b?.name||'DalTownMap local business',campaignName:data.title,benefit:data.description,category:b?.category||'',style:'premium',notes:data.image_prompt})},'배너 이미지 생성');
     const blob=dataUrlToBlobUcs(`data:image/png;base64,${j.b64_json}`);
     const upload=bridge().uploadGeneratedImage;
     if(typeof upload!=='function')throw new Error('이미지 업로드 기능이 준비되지 않았습니다.');
@@ -314,7 +344,7 @@ async function generateBannerStudioImage(auto=false){
     suite.banner.image_prompt=data.image_prompt;
     updatePreview('banner');
     if(status)status.textContent='이미지 생성 완료 · 문구나 프롬프트를 수정한 뒤 다시 생성할 수 있습니다.';
-  }catch(e){console.error('[AI Studio Banner Image]',e);if(status)status.textContent=`이미지 생성 실패: ${e.message}`;if(!auto)notify(`AI 배너 이미지 생성에 실패했습니다.\n\n${e.message}`);}
+  }catch(e){console.error('[AI Studio Banner Image]',e);if(status)status.textContent=`이미지 생성 실패: ${e.message.replace(/\n/g,' · ')}`;notify(`${auto?'1차 배너 이미지 자동 생성 실패':'AI 배너 이미지 생성 실패'}\n\n${e.message}\n\n문구와 프롬프트는 보존되었습니다. 아래 ‘이미지 다시 생성’ 버튼으로 재시도할 수 있습니다.`);}
   finally{if(btn){btn.disabled=false;btn.textContent='이미지 다시 생성';}}
 }
 
