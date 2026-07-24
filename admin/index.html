@@ -55,7 +55,7 @@
         <button class="nav-item" data-section="businessCrm">업소 마케팅 CRM <span class="nav-badge">NEW</span></button>
         <div class="nav-group-title">콘텐츠 스튜디오</div>
         <button class="nav-item" data-section="aiStudio">AI 콘텐츠 스튜디오 <span class="nav-badge">NEW</span></button>
-        <button class="nav-item" data-section="dalpick">DalPick 관리</button>
+        <button class="nav-item" data-section="dalpick">한 줄 광고·콘텐츠</button>
         <button class="nav-item" data-section="board">게시판·가이드 관리</button>
         <div class="nav-group-title">운영 관리</div>
         <button class="nav-item" data-section="business">업소 관리</button>
@@ -111,7 +111,7 @@
           <button type="button" class="card integration-metric" data-go-section="coupon"><span>쿠폰</span><strong id="intCouponCount">-</strong><small id="intCouponSummary">현황 불러오는 중</small></button>
           <button type="button" class="card integration-metric" data-go-section="banners"><span>배너</span><strong id="intBannerCount">-</strong><small id="intBannerSummary">현황 불러오는 중</small></button>
           <button type="button" class="card integration-metric" data-go-section="slide"><span>메인 슬라이드</span><strong id="intSlideCount">-</strong><small id="intSlideSummary">현황 불러오는 중</small></button>
-          <button type="button" class="card integration-metric" data-go-section="dalpick"><span>DalPick</span><strong id="intDalpickCount">-</strong><small id="intDalpickSummary">현황 불러오는 중</small></button>
+          <button type="button" class="card integration-metric" data-go-section="dalpick"><span>한 줄 광고</span><strong id="intDalpickCount">-</strong><small id="intDalpickSummary">현황 불러오는 중</small></button>
           <button type="button" class="card integration-metric" data-go-section="coupon"><span>오늘의 쿠폰</span><strong id="intTodayCouponCount">-</strong><small>현재 홈 DalPick 연동</small></button>
           <button type="button" class="card integration-metric" data-go-section="aiManager"><span>승인 대기</span><strong id="intDraftCount">0</strong><small>품질 검토 열기</small></button>
           <button type="button" class="card integration-metric" data-go-section="board"><span>게시글</span><strong id="intBoardCount">-</strong><small>게시판·가이드 관리</small></button>
@@ -128,7 +128,7 @@
             <div id="intCouponExposure" class="dashboard-exposure-list"><div class="dashboard-empty">불러오는 중...</div></div>
           </article>
           <article class="card dashboard-exposure-card">
-            <div class="panel-head"><div><h3>현재 홈 DalPick</h3><p class="muted" id="intDalpickExposureNote">DalPick + 오늘의 쿠폰</p></div><button type="button" class="btn ghost" data-go-section="dalpick">관리</button></div>
+            <div class="panel-head"><div><h3>현재 홈 한 줄 광고</h3><p class="muted" id="intDalpickExposureNote">DalPick + 오늘의 쿠폰</p></div><button type="button" class="btn ghost" data-go-section="dalpick">관리</button></div>
             <div id="intDalpickExposure" class="dashboard-exposure-list"><div class="dashboard-empty">불러오는 중...</div></div>
           </article>
           <article class="card dashboard-exposure-card">
@@ -1001,8 +1001,8 @@
         <div class="panel dalpick-exposure-panel">
           <div class="panel-head">
             <div>
-              <h2>현재 홈 DalPick 노출</h2>
-              <p class="muted">홈 DalPick에는 게시 중인 DalPick과 ‘오늘의 쿠폰’으로 지정된 쿠폰이 함께 표시됩니다. 아래 목록은 현재 시각 기준 실제 노출 대상을 보여줍니다.</p>
+              <h2>현재 홈 한 줄 광고 노출</h2>
+              <p class="muted">메인 한 줄 광고에는 게시 중인 콘텐츠와 ‘오늘의 쿠폰’이 함께 흐릅니다. 아래 목록은 현재 시각 기준 실제 노출 대상을 보여줍니다.</p>
             </div>
             <span id="dalpickExposureCount" class="pill">0개</span>
           </div>
@@ -1010,18 +1010,18 @@
         </div>
         <div class="admin-grid two-col">
           <div class="panel">
-            <div class="panel-head"><h2>DalPick 목록</h2><span id="dalpickCountText" class="muted">0개</span></div>
+            <div class="panel-head"><h2>한 줄 광고·추천 콘텐츠 목록</h2><span id="dalpickCountText" class="muted">0개</span></div>
             <div class="toolbar-row">
               <label class="field compact"><span>검색</span><input id="dalpickSearchInput" type="text" placeholder="제목, 요약, 업소명" /></label>
               <label class="field compact"><span>콘텐츠 유형</span><select id="dalpickCategoryFilter">
                 <option value="all">전체</option><option value="local_info">지역 정보</option><option value="lifestyle">생활 정보</option><option value="themed">테마 추천</option><option value="recommended">추천 업소</option><option value="new_business">신규 업소</option><option value="coupon">쿠폰</option><option value="event">행사</option><option value="business_story">업소탐방 Premium</option>
               </select></label>
-              <button id="dalpickNewBtn" class="btn primary inline-btn" type="button">새 DalPick</button>
+              <button id="dalpickNewBtn" class="btn primary inline-btn" type="button">새 광고/콘텐츠</button>
             </div>
             <div id="dalpickList" class="business-list"></div>
           </div>
           <div class="panel">
-            <div class="panel-head"><div><h2 id="dalpickFormTitle">DalPick 콘텐츠 스튜디오</h2><p class="muted">주제와 핵심 내용만 입력하고 AI로 초안을 만든 뒤 검토하여 게시하세요.</p></div><div><button id="dalpickDeleteBtn" class="btn danger" type="button">삭제</button> <button id="dalpickSaveBtn" class="btn primary" type="button">저장</button></div></div>
+            <div class="panel-head"><div><h2 id="dalpickFormTitle">한 줄 광고·콘텐츠 스튜디오</h2><p class="muted">주제와 핵심 내용만 입력하고 AI로 초안을 만든 뒤 검토하여 게시하세요.</p></div><div><button id="dalpickDeleteBtn" class="btn danger" type="button">삭제</button> <button id="dalpickSaveBtn" class="btn primary" type="button">저장</button></div></div>
             <form id="dalpickForm" class="form-grid">
               <input type="hidden" id="dalpick_id" />
               <label class="field"><span>콘텐츠 유형</span><select id="dalpick_category">
@@ -1079,7 +1079,7 @@
                   <label><input type="checkbox" name="dalpick_target_category" value="service"> 서비스·자동차</label>
                   <label><input type="checkbox" name="dalpick_target_category" value="real_estate"> 부동산</label>
                 </div>
-                <label class="field checkbox-line"><input id="dalpick_show_in_dalpick" type="checkbox"><span>홈 DalPick에도 표시</span></label>
+                <label class="field checkbox-line"><input id="dalpick_show_in_dalpick" type="checkbox"><span>메인 한 줄 광고에도 표시</span></label>
               </div>
               <label class="field full"><span>연결 업소 <small id="dalpickBusinessRequirement" class="muted">여러 지점 선택 가능</small></span><select id="dalpick_business_id"><option value="">연결 안 함</option></select></label>
               <label class="field full"><span>제목</span><input id="dalpick_title" type="text" /></label>
