@@ -2252,13 +2252,25 @@ function renderMainBanners(){
     return b.is_active !== false && !!(b.image_url || b.video_url);
   }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
   if(!rows.length){
+    // Completely remove the banner slot from layout. `hidden` alone can be
+    // overridden by stale/cached CSS, which previously left a large blank gap.
     box.innerHTML='';
     box.hidden = true;
     box.classList.add('is-empty');
+    box.style.setProperty('display','none','important');
+    box.style.setProperty('margin','0','important');
+    box.style.setProperty('padding','0','important');
+    box.style.setProperty('height','0','important');
+    box.style.setProperty('min-height','0','important');
     return;
   }
   box.hidden = false;
   box.classList.remove('is-empty');
+  box.style.removeProperty('display');
+  box.style.removeProperty('margin');
+  box.style.removeProperty('padding');
+  box.style.removeProperty('height');
+  box.style.removeProperty('min-height');
   box.innerHTML=`<div class="main-banner-carousel ${rows.length===1?'is-single':''}">
     <div class="main-banner-viewport"><div class="main-banner-track">
       ${rows.map(b=>`<div class="main-banner-slide"><div class="main-banner-card" role="button" tabindex="0" data-banner-id="${esc(b.id)}">${bannerMediaHTML(b,'main-banner-media')}</div></div>`).join('')}
