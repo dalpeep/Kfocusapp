@@ -1105,6 +1105,10 @@ async function loadDalpicksFromSupabase(){
     return true;
   }catch(e){console.warn('DalPick load skipped:',e);return false;}
 }
+
+function linkedBusinessIds(row){const ids=Array.isArray(row?.business_ids)?row.business_ids.map(String).filter(Boolean):[];if(row?.business_id&&!ids.includes(String(row.business_id)))ids.unshift(String(row.business_id));return [...new Set(ids)];}
+function rowLinksBusiness(row,id){return linkedBusinessIds(row).includes(String(id));}
+
 function activeDalpicks(){const now=Date.now();return (dalpicks||[]).filter(d=>{const st=d.start_at||d.start_date,en=d.end_at||d.end_date;const status=String(d.status||'').toLowerCase();return d.is_active!==false&&status!=='draft'&&status!=='inactive'&&(!st||new Date(st).getTime()<=now)&&(!en||new Date(en).getTime()>=now);});}
 function isThemeDalpick(row){
   if(!row)return false;
@@ -1291,7 +1295,7 @@ async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
-    const select = 'id,business_id,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones';
+    const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones';
     const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
@@ -1302,6 +1306,7 @@ async function loadCouponsFromSupabase(){
       id: row.id || `cp${idx+1}`,
       businessId: row.business_id || '',
       business_id: row.business_id || '',
+      business_ids: Array.isArray(row.business_ids)?row.business_ids:[],
       title: row.title || '쿠폰',
       description: row.description || '',
       couponCode: row.coupon_code || '',
@@ -2175,7 +2180,7 @@ function renderMainBanners(){
   if(mainBannerCarouselTimer){ clearInterval(mainBannerCarouselTimer); mainBannerCarouselTimer=null; }
   const now = Date.now();
   const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
-    const placement = String(b.placement || (b.business_id ? 'both' : 'home')).toLowerCase();
+    const placement = String(b.placement || (linkedBusinessIds(b).length ? 'both' : 'home')).toLowerCase();
     if (!['home','both'].includes(placement)) return false;
     if (b.start_at && new Date(b.start_at).getTime() > now) return false;
     if (b.end_at && new Date(b.end_at).getTime() < now) return false;
@@ -2190,8 +2195,9 @@ function renderMainBanners(){
   </div>`;
   const openBanner=(banner)=>{
     if(!banner)return;
-    if(banner.business_id){ selectedBizId=banner.business_id; currentDetailVideoOverride=''; renderDetail(banner.business_id); showPage('business-detail'); return; }
     const url=banner.link_url||banner.external_url;
+    if(url){ window.open(normalizeUrl(url),'_blank','noopener'); return; }
+    const primary=linkedBusinessIds(banner)[0]; if(primary){ selectedBizId=primary; currentDetailVideoOverride=''; renderDetail(primary); showPage('business-detail'); return; }
     if(url) window.open(normalizeUrl(url),'_blank','noopener');
   };
   box.querySelectorAll('.main-banner-card').forEach(btn=>btn.addEventListener('click',()=>openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)))));
@@ -2281,7 +2287,7 @@ const phone = b.phone || b.phone_number || '';
 const website = b.website || b.url || '';
 
 const activeCoupon = coupons.find(c =>
-  String(c.businessId || c.business_id) === String(b.id)
+  rowLinksBusiness(c,b.id)
 );
 
 // 추천 테마: 업소 카테고리에 맞는 정보형 기사를 상세페이지 최상단에 표시합니다.
@@ -2385,7 +2391,7 @@ function getBusinessAiPick(businessId) {
 
   const dalpickPick = (dalpicks || [])
     .filter(row =>
-      String(row.business_id || '') === String(businessId) &&
+      rowLinksBusiness(row,businessId) &&
       ['ai_pick', 'recommended', 'business_story'].includes(String(row.category || '').toLowerCase()) &&
       isVisible(row)
     )
@@ -2423,7 +2429,7 @@ function renderBusinessAiPick(pick) {
 function getBusinessPromotions(businessId){
   const now = Date.now();
   return (mainBanners || []).filter(row => {
-    if (String(row.business_id || '') !== String(businessId)) return false;
+    if (!rowLinksBusiness(row,businessId)) return false;
     if (row.is_active === false) return false;
     const placement = String(row.placement || 'both').toLowerCase();
     if (!['detail','both'].includes(placement)) return false;
