@@ -123,6 +123,27 @@
     const regionalDalpicks = dalpicks.filter(d => inRegion(d, region, bizMap));
     const regionalBoards = boards.filter(b => inRegion(b, region, bizMap));
 
+    const slideVideos = regionalSlides.filter(s => String(s.video_url || '').trim()).map(s => ({
+      title: s.promo_text || bizMap.get(String(s.business_id || ''))?.name_ko || bizMap.get(String(s.business_id || ''))?.name_en || '슬라이드 영상',
+      url: String(s.video_url || '').trim(),
+      date: s.created_at || s.updated_at || s.promo_start_at || '',
+      source: '슬라이드',
+      active: s.promo_enabled === true
+    }));
+    const boardVideos = regionalBoards.filter(b => String(b.video_url || '').trim()).map(b => ({
+      title: b.title || '게시판 영상',
+      url: String(b.video_url || '').trim(),
+      date: b.created_at || b.updated_at || b.start_at || '',
+      source: '게시글',
+      active: b.is_active !== false
+    }));
+    const allVideos = [...slideVideos, ...boardVideos];
+    const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.url, v])).values());
+    const shortVideos = uniqueVideos.filter(v => /(?:youtube\.com\/shorts\/|youtu\.be\/)/i.test(v.url));
+    const regularVideos = uniqueVideos.filter(v => !shortVideos.includes(v));
+    const activeVideos = uniqueVideos.filter(v => v.active);
+    const recentVideos = [...uniqueVideos].sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0,6);
+
     const couponStates = summarizeStates(regionalCoupons, c => rangeState(c,'start_at','end_at',c.is_active !== false));
     const bannerStates = summarizeStates(regionalBanners, b => rangeState(b,'start_at','end_at',b.is_active !== false));
     const slideStates = summarizeStates(regionalSlides, s => rangeState(s,'promo_start_at','promo_end_at',s.promo_enabled === true));
@@ -149,11 +170,14 @@
     setText('intDalpickCount', regionalDalpicks.length);
     setText('intTodayCouponCount', liveTodayCoupons.length);
     setText('intBoardCount', regionalBoards.length);
+    setText('intVideoCount', uniqueVideos.length);
     setText('intDraftCount', (manager.drafts || []).filter(x => x.status === 'draft').length);
     setText('intCouponSummary', `게시 ${couponStates.live} · 예약 ${couponStates.scheduled} · 만료 ${couponStates.expired}`);
     setText('intBannerSummary', `게시 ${bannerStates.live} · 예약 ${bannerStates.scheduled} · 만료 ${bannerStates.expired}`);
     setText('intSlideSummary', `노출 ${liveSlides.length} · 숨김/종료 ${Math.max(0, regionalSlides.length-liveSlides.length)}`);
     setText('intDalpickSummary', `홈 노출 ${liveDalpicks.length} · 비노출 ${Math.max(0, regionalDalpicks.length-liveDalpicks.length)}`);
+    setText('intVideoSummary', `활성 ${activeVideos.length} · Shorts ${shortVideos.length} · 일반 ${regularVideos.length}`);
+    setText('intVideoExposureNote', `최근 등록 ${recentVideos.length}개 · 조회수 API 연동 전`);
     setText('intSlideExposureNote', `현재 ${liveSlides.length}개 노출`);
     setText('intCouponExposureNote', `현재 ${liveTodayCoupons.length}개 노출`);
     setText('intDalpickExposureNote', `DalPick ${liveDalpicks.length}개 + 쿠폰 ${liveTodayCoupons.length}개`);
@@ -171,6 +195,11 @@
       ...liveTodayCoupons.map(c => { const b=bizMap.get(String(c.business_id||'')); return {title:c.title || '쿠폰', subtitle:b?.name_ko || b?.name_en || '오늘의 쿠폰', source:'쿠폰', date:c.created_at || c.start_at || ''}; })
     ].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,8);
     renderExposure('intDalpickExposure', combined, '현재 홈 DalPick에 노출되는 항목이 없습니다.');
+    renderExposure('intVideoExposure', recentVideos.map(v => ({
+      title: v.title,
+      subtitle: /youtube\.com\/shorts\//i.test(v.url) ? 'YouTube Shorts' : '등록 영상 · 조회수 API 연동 전',
+      source: v.source
+    })), '등록된 영상이 없습니다.');
   }
 
   function selectedBusinessId(type) {
