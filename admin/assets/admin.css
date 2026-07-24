@@ -728,3 +728,10 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .bn-preview-overlay span{margin-top:14px;padding:9px 15px;border-radius:10px;background:#2563eb;font-weight:700}
 .bn-preview-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.68);color:white;font-size:24px;padding-left:4px}
 @media(max-width:700px){.bn-preview-card{aspect-ratio:16/7}.bn-preview-overlay{padding:16px}.bn-preview-overlay p{display:none}.bn-preview-overlay strong{max-width:90%}}
+
+
+/* v30.5 category-specific home banners */
+.banner-category-picker{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.banner-category-picker label{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #d8e1f4;border-radius:999px;background:#f8faff;font-weight:600;cursor:pointer}
+.banner-category-picker input{width:auto;margin:0}
+.banner-category-picker label:has(input:checked){border-color:#2f6fed;background:#edf4ff;color:#174fc7}

@@ -3407,6 +3407,19 @@ function ensureBannerExtrasUI() {
     qs('bnDisplayType')?.parentElement?.insertAdjacentElement('afterend', placeWrap);
   }
 
+  if (!qs('bnHomeCategories')) {
+    const categoryWrap = document.createElement('div');
+    categoryWrap.className = 'field full';
+    categoryWrap.innerHTML = `
+      <label>홈 배너 카테고리</label>
+      <div id="bnHomeCategories" class="banner-category-picker">
+        ${['all','식당','쇼핑','병원','금융','법률','교회','서비스','부동산'].map((c,i)=>`<label><input type="checkbox" value="${c}" ${i===0?'checked':''}> ${c==='all'?'전체 홈':c}</label>`).join('')}
+      </div>
+      <div class="muted" style="margin-top:6px">‘전체 홈’은 카테고리를 선택하지 않은 기본 화면에 표시됩니다. 특정 카테고리를 선택하면 해당 카테고리에서만 표시됩니다. 여러 카테고리도 선택할 수 있습니다.</div>
+    `;
+    qs('bnPlacement')?.parentElement?.insertAdjacentElement('afterend', categoryWrap);
+  }
+
   if (!qs('bnDescription')) {
     const descWrap = document.createElement('div');
     descWrap.className = 'field full';
@@ -3554,6 +3567,19 @@ function ensureBannerExtrasUI() {
   on('bnLinkType', 'change', renderBannerLinkOptions);
   on('bannerImageUploadBtn', 'click', uploadBannerImageToField);
   on('bnAiGenerateBtn', 'click', generateBannerAiImage);
+  qs('bnHomeCategories')?.addEventListener('change', (e)=>{
+    const target=e.target;
+    if(!(target instanceof HTMLInputElement)) return;
+    if(target.value==='all' && target.checked){
+      document.querySelectorAll('#bnHomeCategories input:not([value="all"])').forEach(x=>x.checked=false);
+    }else if(target.value!=='all' && target.checked){
+      const all=qs('bnHomeCategories')?.querySelector('input[value="all"]'); if(all)all.checked=false;
+    }
+    if(!document.querySelector('#bnHomeCategories input:checked')){
+      const all=qs('bnHomeCategories')?.querySelector('input[value="all"]'); if(all)all.checked=true;
+    }
+  });
+  qs('bnPlacement')?.addEventListener('change', updateBannerCategoryPickerState);
   document.querySelectorAll('input[name="bnMediaType"]').forEach(r=>r.addEventListener('change', () => { updateBannerMediaUI(); renderBannerLivePreview(); }));
   ['bnTitle','bnImage','bnVideoUrl','bnDescription','bnButtonLabel','bnPlacement','bnShowButton','bnAutoplay','bnMuted','bnLoop','bnMobileTap'].forEach(id => {
     const el=qs(id); if(el){ el.addEventListener('input', renderBannerLivePreview); el.addEventListener('change', renderBannerLivePreview); }
@@ -3563,6 +3589,7 @@ function ensureBannerExtrasUI() {
   renderBusinessMultiPicker('bnBusinessId');
   renderBannerLinkOptions();
   updateBannerMediaUI();
+  updateBannerCategoryPickerState();
   renderBannerLivePreview();
 }
 
@@ -3909,6 +3936,29 @@ async function generateBannerAiImage(){
   }catch(e){console.error(e);if(status)status.textContent=`생성 실패: ${e.message}`;alert(`AI 이미지 생성 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent=old||'AI 배너 이미지 생성';}}
 }
 
+function getBannerHomeCategories(){
+  const checkedRows=[...document.querySelectorAll('#bnHomeCategories input[type="checkbox"]:checked')].map(x=>x.value);
+  return checkedRows.length ? checkedRows : ['all'];
+}
+function setBannerHomeCategories(values){
+  const rows=Array.isArray(values)?values.map(String):[];
+  const selected=new Set(rows.length?rows:['all']);
+  document.querySelectorAll('#bnHomeCategories input[type="checkbox"]').forEach(x=>{x.checked=selected.has(x.value);});
+  updateBannerCategoryPickerState();
+}
+function updateBannerCategoryPickerState(){
+  const all=qs('bnHomeCategories')?.querySelector('input[value="all"]');
+  const specifics=[...document.querySelectorAll('#bnHomeCategories input[type="checkbox"]:not([value="all"])')];
+  if(all?.checked) specifics.forEach(x=>x.checked=false);
+  const placement=val('bnPlacement')||'home';
+  const picker=qs('bnHomeCategories');
+  if(picker){
+    const disabled=placement==='detail';
+    picker.style.opacity=disabled?'.5':'1';
+    picker.querySelectorAll('input').forEach(x=>x.disabled=disabled);
+  }
+}
+
 // =============================
 // BANNER MANAGEMENT
 // =============================
@@ -3931,6 +3981,7 @@ function clearBannerForm() {
   setVal('bnBusinessSearch', '');
   setVal('bnDisplayType', 'banner');
   setVal('bnPlacement', 'home');
+  setBannerHomeCategories(['all']);
   setVal('bnDescription', '');
   setVal('bnButtonLabel', '자세히 보기');
   setChecked('bnShowButton', true);
@@ -3963,6 +4014,7 @@ function fillBannerForm(row) {
   setVal('bnBusinessSearch', '');
   setVal('bnDisplayType', row.display_type || 'banner');
   setVal('bnPlacement', row.placement || (row.business_id ? 'both' : 'home'));
+  setBannerHomeCategories(row.home_categories || row.categories || ['all']);
   setVal('bnDescription', row.description || '');
   const hasBannerButton = String(row.button_label || '').trim() !== '';
   setChecked('bnShowButton', hasBannerButton);
@@ -3986,6 +4038,7 @@ function bannerCardAdminHTML(b) {
         <div class="biz-title">${esc(b.title || '배너')}</div>
         <div class="biz-meta">${esc(b.region || '')}${b.sort_order != null ? ` · ${esc(String(b.sort_order))}` : ''}</div>
         <div class="biz-meta">${esc(b.display_type === 'card' ? '카드형' : '배너형')} · ${esc(b.media_type==='youtube'?'YouTube':b.media_type==='mp4'?'MP4':'이미지')} · ${esc(b.placement || (b.business_id ? 'both' : 'home'))} · ${b.is_active === false ? '비활성' : '활성'}</div>
+        <div class="biz-meta">홈 카테고리: ${esc((Array.isArray(b.home_categories)&&b.home_categories.length?b.home_categories:['all']).map(x=>x==='all'?'전체 홈':x).join(', '))}</div>
         <div class="biz-meta">연결 업소 ${normalizeLinkedBusinessIds(b).length}개</div>
       </div>
       <div class="biz-actions">
@@ -4087,6 +4140,7 @@ async function saveBanner() {
     region: getAppRegion(),
     display_type: val('bnDisplayType') || 'banner',
     placement: val('bnPlacement') || 'home',
+    home_categories: getBannerHomeCategories(),
     description: val('bnDescription').trim() || null,
     button_label: checked('bnShowButton') ? (val('bnButtonLabel').trim() || '자세히 보기') : '',
     start_at: fromLocal(val('bnStartAt')),

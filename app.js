@@ -2222,6 +2222,22 @@ function renderCategories() {
   `).join('');
 }
 let mainBannerCarouselTimer = null;
+function normalizedBannerHomeCategories(banner){
+  const raw=banner?.home_categories ?? banner?.categories ?? ['all'];
+  if(Array.isArray(raw)) return raw.length ? raw.map(String) : ['all'];
+  if(typeof raw==='string'){
+    const parsed=raw.replace(/[{}]/g,'').split(',').map(x=>x.trim().replace(/^"|"$/g,'')).filter(Boolean);
+    return parsed.length?parsed:['all'];
+  }
+  return ['all'];
+}
+function bannerMatchesCurrentHomeCategory(banner){
+  const categories=normalizedBannerHomeCategories(banner);
+  const selected=String(businessQuickFilter||'').trim();
+  if(!selected) return categories.includes('all') || categories.includes('전체');
+  return categories.includes(selected);
+}
+
 function renderMainBanners(){
   const box = document.getElementById('mainBanners');
   if(!box) return;
@@ -2230,6 +2246,7 @@ function renderMainBanners(){
   const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
     const placement = String(b.placement || (linkedBusinessIds(b).length ? 'both' : 'home')).toLowerCase();
     if (!['home','both'].includes(placement)) return false;
+    if (!bannerMatchesCurrentHomeCategory(b)) return false;
     if (b.start_at && new Date(b.start_at).getTime() > now) return false;
     if (b.end_at && new Date(b.end_at).getTime() < now) return false;
     return b.is_active !== false && !!(b.image_url || b.video_url);
@@ -4616,7 +4633,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', () => {
 document.getElementById('userLoginClose')?.addEventListener('click', closeUserLoginModal);
   document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
   document.addEventListener('click', e=>{ const storyBtn=e.target.closest('[data-story-post]'); if(!storyBtn)return; openBoardPost(storyBtn.dataset.storyPost); });
-  categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
+  categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderMainBanners(); renderBusinessList(); });
   businessSearch?.addEventListener('input', renderBusinessList);
   globalSearchInput?.addEventListener('input', ()=>{ clearTimeout(searchDebounce); searchDebounce = setTimeout(()=>renderSearchResults(globalSearchInput.value), 220); });
   searchCloseBtn?.addEventListener('click', closeSearchOverlay);
