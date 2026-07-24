@@ -448,6 +448,8 @@ function pickRotation(list, section, limit=6, dateValue=todayKey()){
 
 let adsOpsRows = [];
 let adsSelectedIds = new Set();
+let adsCategoryKey = 'all';
+let adsQuickSavingId = null;
 
 function adsGroupOf(b){
   if(b.is_featured) return 'featured';
@@ -470,8 +472,36 @@ function adsFilteredRows(){
   const status=document.querySelector('#adsStatusFilter')?.value||'all';
   return adsOpsRows.filter(b=>{
     const hay=[b.name_ko,b.name_en,b.area,b.category_ko].filter(Boolean).join(' ').toLowerCase();
-    return (!q||hay.includes(q)) && (group==='all'||adsGroupOf(b)===group) && (status==='all'||adsStatusOf(b)===status);
+    const category=String(b.category_ko||'미분류').trim()||'미분류';
+    return (!q||hay.includes(q)) && (group==='all'||adsGroupOf(b)===group) && (status==='all'||adsStatusOf(b)===status) && (adsCategoryKey==='all'||category===adsCategoryKey);
   });
+}
+function showAdsToast(message,isError=false){
+  let el=document.querySelector('#adsQuickToast');
+  if(!el){el=document.createElement('div');el.id='adsQuickToast';el.className='ads-quick-toast';document.body.appendChild(el);}
+  el.textContent=message;el.classList.toggle('error',!!isError);el.classList.add('show');
+  clearTimeout(showAdsToast._timer);showAdsToast._timer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+function renderAdsCategoryChips(){
+  const host=document.querySelector('#adsCategoryChips');if(!host)return;
+  const counts=new Map();
+  adsOpsRows.forEach(b=>{const c=String(b.category_ko||'미분류').trim()||'미분류';counts.set(c,(counts.get(c)||0)+1);});
+  const entries=[...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'));
+  host.innerHTML=`<button type="button" class="ads-category-chip ${adsCategoryKey==='all'?'active':''}" data-category="all">전체 <b>${adsOpsRows.length}</b></button>${entries.map(([name,count])=>`<button type="button" class="ads-category-chip ${adsCategoryKey===name?'active':''}" data-category="${esc(name)}">${esc(name)} <b>${count}</b></button>`).join('')}`;
+  host.querySelectorAll('.ads-category-chip').forEach(btn=>btn.onclick=()=>{adsCategoryKey=btn.dataset.category||'all';renderAdsCategoryChips();renderAdsOpsList();});
+}
+async function setAdsGroupQuick(id,group){
+  const row=adsOpsRows.find(b=>String(b.id)===String(id));if(!row||adsQuickSavingId)return;
+  if(adsGroupOf(row)===group)return;
+  adsQuickSavingId=String(id);renderAdsOpsList();
+  const payload={is_featured:group==='featured',is_new:group==='new',is_popular:group==='popular'};
+  const {error}=await supabase.from('businesses').update(payload).eq('id',id);
+  adsQuickSavingId=null;
+  if(error){renderAdsOpsList();showAdsToast(`변경 실패: ${error.message}`,true);return;}
+  Object.assign(row,payload);
+  renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();
+  const preview=document.querySelector('#rotationPreview');if(preview?.innerHTML)previewRotation();
+  showAdsToast(`${row.name_ko||row.name_en||'업소'} → ${adsGroupLabel(group)}로 변경했습니다.`);
 }
 function setAdsCenterTab(tab){
   const target = ['overview','schedule','rotation','ending'].includes(tab) ? tab : 'overview';
@@ -524,8 +554,9 @@ function renderAdsOpsList(){
   const rows=adsFilteredRows();
   const host=document.querySelector('#adsOpsList');
   if(!host)return;
-  host.innerHTML=`<div class="ads-table-wrap"><table class="request-table ads-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹</th><th>유료</th><th>상품</th><th>가중치</th><th>기간</th><th>로테이션</th><th>상태</th></tr></thead><tbody>${rows.map(b=>`<tr><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small></td><td><span class="ads-group-tag ${adsGroupOf(b)}">${adsGroupLabel(adsGroupOf(b))}</span></td><td>${b.paid_active?'예':'아니오'}</td><td>${esc(b.paid_product||'없음')}</td><td>${esc(b.paid_weight||1)}</td><td>${esc(b.paid_start_at||'—')} ~ ${esc(b.paid_end_at||'—')}</td><td>${b.rotation_enabled===false?'OFF':'ON'}</td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td></tr>`).join('')}</tbody></table></div>`;
+  host.innerHTML=`<div class="ads-list-caption"><b>${adsCategoryKey==='all'?'전체 업소':esc(adsCategoryKey)}</b><span>${rows.length}개 표시</span></div><div class="ads-table-wrap"><table class="request-table ads-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹 바로 변경</th><th>유료</th><th>상품</th><th>가중치</th><th>기간</th><th>로테이션</th><th>상태</th></tr></thead><tbody>${rows.map(b=>{const current=adsGroupOf(b),saving=adsQuickSavingId===String(b.id);return `<tr class="${saving?'is-saving':''}"><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small></td><td><div class="ads-group-switch" aria-label="광고 그룹 변경">${[['featured','추천'],['new','신규'],['popular','인기'],['none','해제']].map(([g,label])=>`<button type="button" class="ads-group-choice ${current===g?'active '+g:''}" data-id="${esc(b.id)}" data-group="${g}" ${saving?'disabled':''}>${saving&&current===g?'저장 중':label}</button>`).join('')}</div></td><td>${b.paid_active?'예':'아니오'}</td><td>${esc(b.paid_product||'없음')}</td><td>${esc(b.paid_weight||1)}</td><td>${esc(b.paid_start_at||'—')} ~ ${esc(b.paid_end_at||'—')}</td><td>${b.rotation_enabled===false?'OFF':'ON'}</td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td></tr>`}).join('')}</tbody></table></div>`;
   host.querySelectorAll('.ads-row-check').forEach(ch=>ch.onchange=()=>{const id=String(ch.dataset.id);ch.checked?adsSelectedIds.add(id):adsSelectedIds.delete(id);updateAdsSelectedCount();});
+  host.querySelectorAll('.ads-group-choice').forEach(btn=>btn.onclick=()=>setAdsGroupQuick(btn.dataset.id,btn.dataset.group));
   const all=host.querySelector('#adsToggleAll');if(all)all.onchange=()=>{rows.forEach(b=>all.checked?adsSelectedIds.add(String(b.id)):adsSelectedIds.delete(String(b.id)));renderAdsOpsList();updateAdsSelectedCount();};
   updateAdsSelectedCount();
 }
@@ -533,7 +564,7 @@ function updateAdsSelectedCount(){safeText('adsSelectedCount',`${adsSelectedIds.
 async function loadAdsOps(){
   const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,created_at').eq('region',getAppRegion()).order('name_ko',{ascending:true});
   if(error)return alert(error.message);
-  adsOpsRows=data||[];renderAdsSummary();renderAdsOverviewGroups();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
+  adsOpsRows=data||[];renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
 }
 async function applyAdsBulk(){
   if(!adsSelectedIds.size)return alert('변경할 업소를 선택하세요.');
