@@ -1111,20 +1111,29 @@ function bannerYoutubeEmbed(url){
   const raw=String(url||'').trim(); if(!raw)return '';
   try{const u=new URL(raw,location.origin);let id='';if(u.hostname.includes('youtu.be'))id=u.pathname.split('/').filter(Boolean)[0]||'';else if(u.hostname.includes('youtube.com')){id=u.searchParams.get('v')||'';const parts=u.pathname.split('/').filter(Boolean);if(!id&&['shorts','embed','live'].includes(parts[0]))id=parts[1]||'';}return id?`https://www.youtube.com/embed/${encodeURIComponent(id)}?playsinline=1&rel=0&modestbranding=1`:'';}catch{return '';}
 }
+function bannerFallbackHTML(b,cls=''){
+  const title=esc(b?.title||'광고');
+  const desc=esc(String(b?.description||'').trim());
+  const cta=esc(String(b?.button_label||'자세히 보기').trim()||'자세히 보기');
+  return `<div class="banner-media-fallback ${cls}"><div><span>SPONSORED</span><strong>${title}</strong>${desc?`<small>${desc.length>90?desc.slice(0,90)+'…':desc}</small>`:''}<em>${cta} →</em></div></div>`;
+}
 function bannerMediaHTML(b,cls=''){
   const type=String(b?.media_type|| (b?.video_url?'youtube':'image')).toLowerCase();
-  const poster=esc(b?.image_url||''); const title=esc(b?.title||'광고');
+  const rawPoster=String(b?.image_url||'').trim();
+  const poster=esc(rawPoster); const title=esc(b?.title||'광고');
   if(type==='youtube'){
-    const embed=bannerYoutubeEmbed(b.video_url); if(!embed)return `<img class="${cls}" src="${poster}" alt="${title}">`;
+    const embed=bannerYoutubeEmbed(b.video_url); if(!embed)return rawPoster?`<img class="${cls}" src="${poster}" alt="${title}" data-banner-media-image>`:bannerFallbackHTML(b,cls);
     const autoplay=b.autoplay===true&&(!isMobileViewport()||b.mobile_tap===false);
     const src=embed+`&autoplay=${autoplay?1:0}&mute=${b.muted!==false?1:0}&loop=${b.loop!==false?1:0}`;
     return `<div class="banner-video-wrap ${cls}"><iframe src="${esc(src)}" title="${title}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
   }
   if(type==='mp4'){
+    const video=String(b?.video_url||'').trim();
+    if(!video) return rawPoster?`<img class="${cls}" src="${poster}" alt="${title}" data-banner-media-image>`:bannerFallbackHTML(b,cls);
     const autoplay=b.autoplay===true&&(!isMobileViewport()||b.mobile_tap===false);
-    return `<div class="banner-video-wrap ${cls}"><video ${autoplay?'autoplay':''} ${b.muted!==false?'muted':''} ${b.loop!==false?'loop':''} playsinline controls poster="${poster}" preload="metadata"><source src="${esc(b.video_url||'')}" type="video/mp4"></video></div>`;
+    return `<div class="banner-video-wrap ${cls}"><video ${autoplay?'autoplay':''} ${b.muted!==false?'muted':''} ${b.loop!==false?'loop':''} playsinline controls poster="${poster}" preload="metadata"><source src="${esc(video)}" type="video/mp4"></video></div>`;
   }
-  return `<img class="${cls}" src="${poster}" alt="${title}">`;
+  return rawPoster?`<img class="${cls}" src="${poster}" alt="${title}" data-banner-media-image>`:bannerFallbackHTML(b,cls);
 }
 function isMobileViewport(){return matchMedia('(max-width: 768px)').matches;}
 function openBusinessChooser(ids,title='지점을 선택하세요'){
@@ -2238,6 +2247,16 @@ function renderMainBanners(){
     if(url){ window.open(normalizeUrl(url),'_blank','noopener'); return; }
     if(openMultiBusinessBanner(banner)) return;
   };
+  box.querySelectorAll('[data-banner-media-image]').forEach(img=>{
+    img.addEventListener('error',()=>{
+      const card=img.closest('.main-banner-card');
+      const banner=rows.find(x=>String(x.id)===String(card?.dataset.bannerId));
+      if(card&&banner){
+        card.innerHTML=bannerFallbackHTML(banner,'main-banner-media');
+        card.classList.add('has-media-fallback');
+      }
+    },{once:true});
+  });
   box.querySelectorAll('.main-banner-card').forEach(btn=>{
     btn.addEventListener('click',(e)=>{if(e.target.closest('video,iframe'))return;openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)));});
     btn.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)));}});

@@ -4777,3 +4777,14 @@ body.map-page-open #page-map .map-search-input{
 .home-category-banner-slot:empty{display:none}
 .home-category-banner-slot .main-banner-carousel{border-radius:16px}
 @media(max-width:768px){.home-category-banner-slot{margin:12px 0 14px}}
+
+
+/* v30.4 Prevent empty home-banner gaps when generated media is unavailable */
+.banner-media-fallback{display:flex!important;align-items:center;width:100%;aspect-ratio:16/6;padding:22px 26px;box-sizing:border-box;background:linear-gradient(120deg,#0b1736,#1165a7 58%,#11a4d8);color:#fff;text-align:left}
+.banner-media-fallback>div{display:flex;flex-direction:column;align-items:flex-start;gap:7px;max-width:82%}
+.banner-media-fallback span{font-size:10px;font-weight:800;letter-spacing:.08em;opacity:.78}
+.banner-media-fallback strong{font-size:clamp(20px,4vw,32px);line-height:1.16}
+.banner-media-fallback small{font-size:13px;line-height:1.45;opacity:.9;font-style:normal}
+.banner-media-fallback em{margin-top:4px;padding:8px 12px;border-radius:9px;background:#fff;color:#1d4ed8;font-size:12px;font-weight:800;font-style:normal}
+.main-banner-card.has-media-fallback{background:transparent}
+@media(max-width:768px){.banner-media-fallback{aspect-ratio:16/7;padding:16px 18px}.banner-media-fallback>div{max-width:92%}.banner-media-fallback strong{font-size:20px}.banner-media-fallback small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}
