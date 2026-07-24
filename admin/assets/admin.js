@@ -551,25 +551,31 @@ function renderAdsSummary(){
   document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 유료 광고</span><strong>${paid}</strong><small>오늘 종료 ${ending}개</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
   document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{document.querySelector('#adsGroupFilter').value=btn.dataset.adsGroup;setAdsCenterTab('schedule');renderAdsOpsList();});
 }
-async function saveAdsRowSettings(id){
-  const row=adsOpsRows.find(b=>String(b.id)===String(id));
+function readAdsInlinePayload(id){
   const tr=document.querySelector(`tr[data-ads-row-id="${CSS.escape(String(id))}"]`);
-  if(!row||!tr||adsQuickSavingId)return;
+  if(!tr)return {error:'현재 화면에 표시되지 않은 업소입니다.'};
   const paid=tr.querySelector('.ads-inline-paid')?.checked||false;
   const product=tr.querySelector('.ads-inline-product')?.value||'none';
   const weight=Math.max(1,Number(tr.querySelector('.ads-inline-weight')?.value||1));
   const start=tr.querySelector('.ads-inline-start')?.value||null;
   const end=tr.querySelector('.ads-inline-end')?.value||null;
   const rotation=tr.querySelector('.ads-inline-rotation')?.checked||false;
-  if(start&&end&&start>end){showAdsToast('종료일은 시작일보다 빠를 수 없습니다.',true);return;}
-  const payload={
+  if(start&&end&&start>end)return {error:'종료일은 시작일보다 빠를 수 없습니다.'};
+  return {payload:{
     paid_active:paid,
     paid_product:product==='none'?null:product,
     paid_weight:weight,
     paid_start_at:start,
     paid_end_at:end,
     rotation_enabled:rotation
-  };
+  }};
+}
+async function saveAdsRowSettings(id){
+  const row=adsOpsRows.find(b=>String(b.id)===String(id));
+  if(!row||adsQuickSavingId)return;
+  const result=readAdsInlinePayload(id);
+  if(result.error){showAdsToast(result.error,true);return;}
+  const payload=result.payload;
   adsQuickSavingId=String(id);renderAdsOpsList();
   const {error}=await supabase.from('businesses').update(payload).eq('id',id);
   adsQuickSavingId=null;
@@ -579,14 +585,55 @@ async function saveAdsRowSettings(id){
   const preview=document.querySelector('#rotationPreview');if(preview?.innerHTML)previewRotation();
   showAdsToast(`${row.name_ko||row.name_en||'업소'} 광고 설정을 저장했습니다.`);
 }
+
+let adsSelectedRowsSaving=false;
+async function saveSelectedAdsRows(){
+  if(adsSelectedRowsSaving)return;
+  if(!adsSelectedIds.size){showAdsToast('저장할 업소를 먼저 체크하세요.',true);return;}
+  const visibleIds=[...adsSelectedIds].filter(id=>document.querySelector(`tr[data-ads-row-id="${CSS.escape(String(id))}"]`));
+  const hiddenCount=adsSelectedIds.size-visibleIds.length;
+  if(!visibleIds.length){showAdsToast('현재 화면에 표시된 선택 업소가 없습니다.',true);return;}
+  const jobs=[];
+  for(const id of visibleIds){
+    const result=readAdsInlinePayload(id);
+    if(result.error){
+      const row=adsOpsRows.find(b=>String(b.id)===String(id));
+      showAdsToast(`${row?.name_ko||row?.name_en||'업소'}: ${result.error}`,true);
+      return;
+    }
+    jobs.push({id,payload:result.payload});
+  }
+  const extra=hiddenCount?` (다른 필터에 숨겨진 ${hiddenCount}개는 제외)`:'';
+  if(!confirm(`${jobs.length}개 업소의 현재 행 설정을 일괄 저장합니다.${extra}`))return;
+  adsSelectedRowsSaving=true;
+  const btn=document.querySelector('#adsSaveSelectedRowsBtn');
+  if(btn){btn.disabled=true;btn.textContent='저장 중...';}
+  const failed=[];
+  let saved=0;
+  for(const job of jobs){
+    const {error}=await supabase.from('businesses').update(job.payload).eq('id',job.id);
+    if(error){failed.push({id:job.id,message:error.message});continue;}
+    const row=adsOpsRows.find(b=>String(b.id)===String(job.id));
+    if(row)Object.assign(row,job.payload);
+    saved++;
+  }
+  adsSelectedRowsSaving=false;
+  if(btn){btn.disabled=false;btn.textContent='선택 행 일괄 저장';}
+  renderAdsSummary();renderAdsOverviewGroups();renderAdsOpsList();renderAdsEndingList();
+  const preview=document.querySelector('#rotationPreview');if(preview?.innerHTML)previewRotation();
+  if(failed.length){showAdsToast(`${saved}개 저장, ${failed.length}개 실패: ${failed[0].message}`,true);return;}
+  showAdsToast(`${saved}개 업소의 광고 설정을 일괄 저장했습니다.`);
+}
+
 function renderAdsOpsList(){
   const rows=adsFilteredRows();
   const host=document.querySelector('#adsOpsList');
   if(!host)return;
-  host.innerHTML=`<div class="ads-status-legend"><b>광고 상태</b><span><i class="ads-status unpaid">일반</i> 유료 광고 꺼짐</span><span><i class="ads-status active">게시 중</i> 유료 광고 켜짐·기간 내</span><span><i class="ads-status scheduled">예약</i> 시작일 전</span><span><i class="ads-status expired">종료</i> 종료일 지남</span><span><i class="ads-status inactive">비활성</i> 업소 자체 비활성</span></div><div class="ads-list-caption"><b>${adsCategoryKey==='all'?'전체 업소':esc(adsCategoryKey)}</b><span>${rows.length}개 표시</span></div><div class="ads-table-wrap"><table class="request-table ads-table ads-inline-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹 바로 변경</th><th>유료</th><th>상품</th><th>가중치</th><th>시작일</th><th>종료일</th><th>로테이션</th><th>광고 상태</th><th>저장</th></tr></thead><tbody>${rows.map(b=>{const current=adsGroupOf(b),saving=adsQuickSavingId===String(b.id);return `<tr data-ads-row-id="${esc(b.id)}" class="${saving?'is-saving':''}"><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small></td><td><div class="ads-group-switch" aria-label="광고 그룹 변경">${[['featured','추천'],['new','신규'],['popular','인기'],['none','해제']].map(([g,label])=>`<button type="button" class="ads-group-choice ${current===g?'active '+g:''}" data-id="${esc(b.id)}" data-group="${g}" ${saving?'disabled':''}>${saving&&current===g?'저장 중':label}</button>`).join('')}</div></td><td><label class="ads-inline-toggle"><input class="ads-inline-paid" type="checkbox" ${b.paid_active?'checked':''} ${saving?'disabled':''}><span>${b.paid_active?'ON':'OFF'}</span></label></td><td><select class="ads-inline-control ads-inline-product" ${saving?'disabled':''}><option value="none" ${!b.paid_product||b.paid_product==='none'?'selected':''}>없음</option><option value="basic" ${b.paid_product==='basic'?'selected':''}>Basic</option><option value="premium" ${b.paid_product==='premium'?'selected':''}>Premium</option></select></td><td><input class="ads-inline-control ads-inline-weight" type="number" min="1" value="${esc(b.paid_weight||1)}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-start" type="date" value="${esc(String(b.paid_start_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-end" type="date" value="${esc(String(b.paid_end_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><label class="ads-inline-toggle"><input class="ads-inline-rotation" type="checkbox" ${b.rotation_enabled===false?'':'checked'} ${saving?'disabled':''}><span>${b.rotation_enabled===false?'OFF':'ON'}</span></label></td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td><td><button type="button" class="btn primary ads-row-save" data-id="${esc(b.id)}" ${saving?'disabled':''}>${saving?'저장 중':'저장'}</button></td></tr>`}).join('')}</tbody></table></div>`;
+  host.innerHTML=`<div class="ads-status-legend"><b>광고 상태</b><span><i class="ads-status unpaid">일반</i> 유료 광고 꺼짐</span><span><i class="ads-status active">게시 중</i> 유료 광고 켜짐·기간 내</span><span><i class="ads-status scheduled">예약</i> 시작일 전</span><span><i class="ads-status expired">종료</i> 종료일 지남</span><span><i class="ads-status inactive">비활성</i> 업소 자체 비활성</span></div><div class="ads-list-caption"><b>${adsCategoryKey==='all'?'전체 업소':esc(adsCategoryKey)}</b><div class="ads-list-caption-actions"><span>${rows.length}개 표시</span><button id="adsSaveSelectedRowsBtn" class="btn primary" type="button" ${adsSelectedRowsSaving?'disabled':''}>${adsSelectedRowsSaving?'저장 중...':'선택 행 일괄 저장'}</button></div></div><div class="ads-table-wrap"><table class="request-table ads-table ads-inline-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹 바로 변경</th><th>유료</th><th>상품</th><th>가중치</th><th>시작일</th><th>종료일</th><th>로테이션</th><th>광고 상태</th><th>저장</th></tr></thead><tbody>${rows.map(b=>{const current=adsGroupOf(b),saving=adsQuickSavingId===String(b.id);return `<tr data-ads-row-id="${esc(b.id)}" class="${saving?'is-saving':''}"><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small></td><td><div class="ads-group-switch" aria-label="광고 그룹 변경">${[['featured','추천'],['new','신규'],['popular','인기'],['none','해제']].map(([g,label])=>`<button type="button" class="ads-group-choice ${current===g?'active '+g:''}" data-id="${esc(b.id)}" data-group="${g}" ${saving?'disabled':''}>${saving&&current===g?'저장 중':label}</button>`).join('')}</div></td><td><label class="ads-inline-toggle"><input class="ads-inline-paid" type="checkbox" ${b.paid_active?'checked':''} ${saving?'disabled':''}><span>${b.paid_active?'ON':'OFF'}</span></label></td><td><select class="ads-inline-control ads-inline-product" ${saving?'disabled':''}><option value="none" ${!b.paid_product||b.paid_product==='none'?'selected':''}>없음</option><option value="basic" ${b.paid_product==='basic'?'selected':''}>Basic</option><option value="premium" ${b.paid_product==='premium'?'selected':''}>Premium</option></select></td><td><input class="ads-inline-control ads-inline-weight" type="number" min="1" value="${esc(b.paid_weight||1)}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-start" type="date" value="${esc(String(b.paid_start_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-end" type="date" value="${esc(String(b.paid_end_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><label class="ads-inline-toggle"><input class="ads-inline-rotation" type="checkbox" ${b.rotation_enabled===false?'':'checked'} ${saving?'disabled':''}><span>${b.rotation_enabled===false?'OFF':'ON'}</span></label></td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td><td><button type="button" class="btn primary ads-row-save" data-id="${esc(b.id)}" ${saving?'disabled':''}>${saving?'저장 중':'저장'}</button></td></tr>`}).join('')}</tbody></table></div>`;
   host.querySelectorAll('.ads-row-check').forEach(ch=>ch.onchange=()=>{const id=String(ch.dataset.id);ch.checked?adsSelectedIds.add(id):adsSelectedIds.delete(id);updateAdsSelectedCount();});
   host.querySelectorAll('.ads-group-choice').forEach(btn=>btn.onclick=()=>setAdsGroupQuick(btn.dataset.id,btn.dataset.group));
   host.querySelectorAll('.ads-row-save').forEach(btn=>btn.onclick=()=>saveAdsRowSettings(btn.dataset.id));
+  host.querySelector('#adsSaveSelectedRowsBtn')?.addEventListener('click',saveSelectedAdsRows);
   host.querySelectorAll('.ads-inline-paid,.ads-inline-rotation').forEach(ch=>ch.onchange=()=>{const span=ch.closest('label')?.querySelector('span');if(span)span.textContent=ch.checked?'ON':'OFF';});
   const all=host.querySelector('#adsToggleAll');if(all)all.onchange=()=>{rows.forEach(b=>all.checked?adsSelectedIds.add(String(b.id)):adsSelectedIds.delete(String(b.id)));renderAdsOpsList();updateAdsSelectedCount();};
   updateAdsSelectedCount();
@@ -655,7 +702,7 @@ function initAdsOpsCenter(){
   document.querySelector('#adsSelectVisibleBtn')?.addEventListener('click',()=>{adsFilteredRows().forEach(b=>adsSelectedIds.add(String(b.id)));renderAdsOpsList();});
   document.querySelector('#adsClearSelectionBtn')?.addEventListener('click',()=>{adsSelectedIds.clear();renderAdsOpsList();});
 }
-window.loadAdsOps=loadAdsOps;window.previewRotation=previewRotation;window.setAdsCenterTab=setAdsCenterTab;
+window.loadAdsOps=loadAdsOps;window.previewRotation=previewRotation;window.setAdsCenterTab=setAdsCenterTab;window.saveSelectedAdsRows=saveSelectedAdsRows;
 document.addEventListener('DOMContentLoaded',initAdsOpsCenter);
 
 async function uploadDescriptionImage(){
