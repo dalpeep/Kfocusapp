@@ -465,10 +465,9 @@ function setAdsCenterTab(tab){
 function renderAdsOverviewGroups(){
   const host=document.querySelector('#adsOverviewGroups');
   if(!host)return;
-  const active=adsOpsRows.filter(b=>adsStatusOf(b)==='active');
   host.innerHTML=['featured','new','popular'].map(group=>{
-    const rows=active.filter(b=>adsGroupOf(b)===group);
-    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">현재 ${rows.length}개 업체</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>`<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small>가중치 ${esc(b.paid_weight||1)} · ${b.rotation_enabled===false?'고정':'자동 로테이션'}</small></div>`).join('')}</div>`:'<p class="dashboard-empty">편성된 업체가 없습니다.</p>'}</article>`;
+    const rows=adsOpsRows.filter(b=>adsGroupOf(b)===group);
+    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">편성 ${rows.length}개 · 유료 운영 ${rows.filter(b=>adsStatusOf(b)==='active').length}개</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>`<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small>${adsStatusLabel(adsStatusOf(b))} · 가중치 ${esc(b.paid_weight||1)} · ${b.rotation_enabled===false?'고정':'자동 로테이션'}</small></div>`).join('')}</div>`:'<p class="dashboard-empty">편성된 업체가 없습니다.</p>'}</article>`;
   }).join('');
   host.querySelectorAll('.ads-overview-edit').forEach(btn=>btn.onclick=()=>{
     const filter=document.querySelector('#adsGroupFilter'); if(filter)filter.value=btn.dataset.group;
@@ -494,9 +493,10 @@ function renderAdsSummary(){
   const active=adsOpsRows.filter(b=>adsStatusOf(b)==='active');
   const groups=['featured','new','popular'];
   const cards=groups.map(g=>{
-    const rows=active.filter(b=>adsGroupOf(b)===g);
+    const rows=adsOpsRows.filter(b=>adsGroupOf(b)===g);
+    const paidRows=rows.filter(b=>adsStatusOf(b)==='active');
     const names=rows.slice(0,5).map(b=>esc(b.name_ko||b.name_en||'')).join(' · ');
-    return `<article class="card ads-summary-card"><span>${adsGroupLabel(g)} 광고</span><strong>${rows.length}</strong><small>${names||'편성된 업소 없음'}</small><button class="ads-summary-filter" data-ads-group="${g}" type="button">목록 보기</button></article>`;
+    return `<article class="card ads-summary-card"><span>${adsGroupLabel(g)} 광고</span><strong>${rows.length}</strong><small>${names||'편성된 업소 없음'}${rows.length?` · 유료 운영 ${paidRows.length}개`:''}</small><button class="ads-summary-filter" data-ads-group="${g}" type="button">목록 보기</button></article>`;
   }).join('');
   const paid=active.length, ending=active.filter(b=>b.paid_end_at&&String(b.paid_end_at).slice(0,10)<=todayKey()).length;
   document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 유료 광고</span><strong>${paid}</strong><small>오늘 종료 ${ending}개</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
