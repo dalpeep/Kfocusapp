@@ -2198,6 +2198,13 @@ function updateDalpickImagePreview(){
   img.src=url;
 }
 function clearDalpickForm(){window.dalpickTopicFirstReady=false;selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_image_instruction','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setMultiBusinessIds('dalpick_business_id',[]);setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_is_active',true);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_auto_image',true);document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=false);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();updateDalpickImagePreview();renderDalpickList(filterDalpicks());}
+function startNewDalpick(){
+  clearDalpickForm();
+  safeText('dalpickFormTitle','새 한 줄 광고·콘텐츠 등록');
+  const target=qs('dalpickFormTitle')||qs('dalpickForm');
+  target?.scrollIntoView({behavior:'smooth',block:'start'});
+  window.setTimeout(()=>qs('dalpick_category')?.focus(),350);
+}
 function fillDalpickForm(d){window.dalpickTopicFirstReady=true;selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'local_info');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setMultiBusinessIds('dalpick_business_id',normalizeLinkedBusinessIds(d));renderBusinessMultiPicker('dalpick_business_id');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_is_active',d.is_active!==false);setChecked('dalpick_show_in_dalpick',!!d.show_in_dalpick);{const targets=Array.isArray(d.target_categories)?d.target_categories:[];document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=targets.includes(x.value));}safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);updateDalpickTypeUI();updateDalpickImagePreview();}
 async function saveDalpick(){
   const selectedCategory=val('dalpick_category')||'local_info';
@@ -3281,7 +3288,7 @@ on('refreshBtn','click', async () => {
 
   on('dalpickSearchInput','input',()=>renderDalpickList(filterDalpicks()));
   on('dalpickCategoryFilter','change',()=>{const filter=val('dalpickCategoryFilter');renderDalpickList(filterDalpicks());if(!selectedDalpickId&&filter&&filter!=='all'){setVal('dalpick_category',filter);updateDalpickTypeUI();}});
-  on('dalpickNewBtn','click',clearDalpickForm);
+  on('dalpickNewBtn','click',startNewDalpick);
   on('dalpickSaveBtn','click',saveDalpick);
   on('dalpickSaveBottomBtn','click',saveDalpick);
   on('dalpickDeleteBtn','click',deleteDalpick);
