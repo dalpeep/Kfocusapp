@@ -544,37 +544,7 @@ async function uploadDescriptionImage(){
 }
 
 window.uploadDescriptionImage = uploadDescriptionImage;
-async function previewRotation(){
-  const { data, error } = await supabase
-    .from('businesses')
-    .select('*')
-    .eq('is_active', true);
-
-  if(error) return alert(error.message);
-
-  const featured = pickRotation(data || [], 'featured', 6);
-  const newest = pickRotation(data || [], 'new', 6);
-  const popular = pickRotation(data || [], 'popular', 6);
-
-  const renderList = (title, rows) => `
-    <div class="admin-card">
-      <h3>${title}</h3>
-      ${rows.length ? rows.map((b,i) => `
-        <p>${i + 1}. ${esc(b.name_ko || b.name_en || '')} / ${esc(b.paid_product || 'basic')} / weight ${esc(b.paid_weight || 1)}</p>
-      `).join('') : '<p>노출 대상이 없습니다.</p>'}
-    </div>
-  `;
-
-  document.querySelector('#rotationPreview').innerHTML = `
-    <h3>오늘 로테이션 미리보기 (${todayKey()})</h3>
-    ${renderList('추천', featured)}
-    ${renderList('신규', newest)}
-    ${renderList('인기', popular)}
-  `;
-}
-
-window.loadAdsOps = loadAdsOps;
-window.previewRotation = previewRotation;
+// v26: legacy duplicate previewRotation removed; advertising center implementation above is canonical.
 
 function renderPager(target, page, total, fnName){
   const totalPages = Math.ceil(total / REQUEST_PAGE_SIZE);
