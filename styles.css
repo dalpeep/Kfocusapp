@@ -4761,3 +4761,27 @@ body.map-page-open #page-map .map-location-btn{
     border-radius:18px;
   }
 }
+
+/* ===== v25.3 Mobile map locate button exact top alignment ===== */
+body.map-page-open #page-map .map-search-row{
+  position:relative;
+  display:block;
+}
+body.map-page-open #page-map .map-search-input{
+  display:block;
+  width:calc(100% - 58px);
+  margin:0;
+}
+body.map-page-open #page-map .map-location-btn{
+  position:absolute;
+  top:0;
+  right:0;
+  margin:0;
+  transform:none;
+  align-self:auto;
+}
+@media (max-width:480px){
+  body.map-page-open #page-map .map-search-input{
+    width:calc(100% - 60px);
+  }
+}
