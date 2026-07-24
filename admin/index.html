@@ -1300,7 +1300,8 @@
             <span class="pill" id="newsroomAutoBadge">자동 수집 준비</span>
           </div>
           <div class="newsroom-actions">
-            <button id="newsroomCollectBtn" class="btn primary" type="button">오늘 수집하기</button>
+            <button id="newsroomCollectBtn" class="btn primary" type="button">① 오늘 수집</button>
+            <button id="newsroomAnalyzeAllBtn" class="btn ghost" type="button">② 수집분 AI 분류</button>
             <button id="newsroomRefreshBtn" class="btn ghost" type="button">새로고침</button>
             <label class="newsroom-toggle"><input id="newsroomAutoEnabled" type="checkbox" checked><span>매일 오전 자동 수집</span></label>
             <span id="newsroomStatus" class="tiny muted">수집 결과는 검토 대기로 저장됩니다.</span>
@@ -1308,6 +1309,7 @@
           <div class="newsroom-metrics">
             <button class="metric-card newsroom-filter active" data-status="all"><span>전체</span><strong id="newsroomCountAll">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="collected"><span>분류 대기</span><strong id="newsroomCountCollected">0</strong></button>
+            <button class="metric-card newsroom-filter" data-status="classified"><span>기사 작성 대기</span><strong id="newsroomCountClassified">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="review"><span>검토 대기</span><strong id="newsroomCountReview">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="published"><span>게시됨</span><strong id="newsroomCountPublished">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="excluded"><span>제외됨</span><strong id="newsroomCountExcluded">0</strong></button>
@@ -1363,6 +1365,8 @@
               </div>
               <label class="field full"><span>관리자 메모</span><textarea id="newsroomAdminNote" rows="2"></textarea></label>
               <div class="field full newsroom-bottom-actions">
+                <button id="newsroomAnalyzeBtn" class="btn ghost" type="button">② 이 소식 AI 분류</button>
+                <button id="newsroomDraftBtn" class="btn ghost" type="button">③ 한국어 기사 작성</button>
                 <button id="newsroomSaveReviewBtn" class="btn ghost" type="button">검토 내용 저장</button>
                 <button id="newsroomExcludeBtn" class="btn danger" type="button">제외</button>
                 <button id="newsroomPublishBtn" class="btn primary" type="button">확정 위치에 게시</button>
