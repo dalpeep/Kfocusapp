@@ -200,6 +200,44 @@ function isBusinessVisibleByPaidDate(b){
 
   return true;
 }
+function businessGroupRank(b, section){
+  if(section === 'featured') return Number(b.featured_rank ?? 1000);
+  if(section === 'new') return Number(b.new_rank ?? 1000);
+  if(section === 'popular') return Number(b.popular_rank ?? 1000);
+  return 1000;
+}
+function rotationDateKey(dateValue){
+  return String(dateValue || new Date().toISOString().slice(0,10)).slice(0,10);
+}
+function rotationEligibleOnDate(b, dateValue){
+  if(b.is_active === false || b.list_visible === false) return false;
+  const dateKey = rotationDateKey(dateValue);
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10) > dateKey) return false;
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10) < dateKey) return false;
+  return true;
+}
+function rotationHash(seed){
+  let h = 2166136261;
+  for(let i=0;i<seed.length;i++){
+    h ^= seed.charCodeAt(i);
+    h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24);
+  }
+  return Math.abs(h>>>0);
+}
+function homeRotationRows(rows, section, dateValue, limit=6){
+  const dateKey=rotationDateKey(dateValue);
+  const eligible=rows.filter(b=>rotationEligibleOnDate(b,dateKey));
+  const fixed=eligible.filter(b=>b.rotation_enabled===false)
+    .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const automatic=eligible.filter(b=>b.rotation_enabled!==false)
+    .sort((a,b)=>{
+      const aw=Math.max(1,Number(a.paid_weight||1));
+      const bw=Math.max(1,Number(b.paid_weight||1));
+      return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
+    });
+  return fixed.concat(automatic).slice(0,limit);
+}
+
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
   if(!box) return;
@@ -218,15 +256,7 @@ function renderHomeBusinessTabs(){
     rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
   }
 
-  rows = sortBusinessesByDistance(rows)
-    .slice()
-    .sort((a,b)=>
-      Number(a.featured_rank ?? a.new_rank ?? a.popular_rank ?? 1000)
-      - Number(b.featured_rank ?? b.new_rank ?? b.popular_rank ?? 1000)
-      ||
-      String(b.created_at || '').localeCompare(String(a.created_at || ''))
-    )
-    .slice(0,6);
+  rows = homeRotationRows(rows, homeBusinessTab, todayKey(), 6);
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
@@ -910,7 +940,7 @@ async function loadRealData(){
       'parking','reservation','languages','insurance','video_url','youtube_url',
       'lat','lng','is_featured','featured_rank','is_new','new_rank',
       'is_popular','popular_rank','reservation_enabled',
-      'paid_product','paid_active','paid_start_at','paid_end_at',
+      'paid_product','paid_active','paid_start_at','paid_end_at','paid_weight','rotation_enabled',
       'promo_enabled','home_fixed','home_fixed_sort','promo_image_url','promo_text',
       'order_url','delivery_url','reservation_url','created_at','region','is_active',
       'rating','review_count','google_maps_url','google_review_url','list_visible'
@@ -961,6 +991,8 @@ async function loadRealData(){
           paid_active: !!row.paid_active,
           paid_start_at: row.paid_start_at || '',
           paid_end_at: row.paid_end_at || '',
+          paid_weight: Math.max(1, Number(row.paid_weight || 1)),
+          rotation_enabled: row.rotation_enabled !== false,
 
           parking: row.parking || '',
           reservation: row.reservation || '',
