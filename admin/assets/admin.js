@@ -3169,8 +3169,24 @@ on('refreshBtn','click', async () => {
     on(id, 'change', markSlideFormDirty);
   });
   on('slide_business_select', 'change', () => {
-    const row = businesses.find((b) => String(b.id) === String(val('slide_business_select')));
-    if (row) fillSlideForm(row);
+    const businessId = val('slide_business_select') || '';
+    const row = businesses.find((b) => String(b.id) === String(businessId));
+
+    // 연결 업소 변경은 현재 슬라이드 편집 내용을 유지해야 한다.
+    // 기존에는 business row를 fillSlideForm()에 넘겨 새 슬라이드 모드로 초기화되는 문제가 있었다.
+    setVal('slide_business_id', businessId);
+    selectedSlideBusinessId = businessId || null;
+
+    if (selectedSlideId) {
+      const currentSlide = slideById(selectedSlideId);
+      const label = row?.name_ko || row?.name_en || '업소 미연결';
+      safeText('slideFormTitle', `슬라이드 수정 · ${currentSlide?.promo_text || label}`);
+      setSlideFormMode('edit', true);
+    } else {
+      const label = row?.name_ko || row?.name_en || '독립 슬라이드';
+      safeText('slideFormTitle', `새 슬라이드 · ${label}`);
+      setSlideFormMode('new', true);
+    }
   });
 }
 
