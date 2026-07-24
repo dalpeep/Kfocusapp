@@ -702,3 +702,36 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .ads-list-caption-actions{display:flex;align-items:center;gap:10px}.ads-list-caption-actions .btn{white-space:nowrap}@media(max-width:760px){.ads-list-caption{align-items:flex-start;gap:10px}.ads-list-caption-actions{align-items:flex-end;flex-direction:column}}
 
 .business-multi-source{display:none!important}.business-multi-picker{border:1px solid #d8e2f2;border-radius:14px;padding:10px;background:#fff}.business-multi-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:8px}.business-multi-toolbar input{flex:1}.business-multi-toolbar span{font-size:12px;font-weight:700;color:#2563eb;white-space:nowrap}.business-multi-options{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;max-height:250px;overflow:auto}.business-multi-item{display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid #e6edf7;border-radius:10px;background:#f9fbff;cursor:pointer}.business-multi-item:has(input:checked){border-color:#4f7cff;background:#eef4ff}.business-multi-item span{display:flex;flex-direction:column}.business-multi-item small{color:#64748b;margin-top:2px}
+
+
+/* v30 banner media + AI image */
+.banner-media-types,.banner-video-options,.banner-ai-actions{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.banner-media-types label,.banner-video-options label{display:flex;align-items:center;gap:6px;font-weight:600}
+.banner-video-options{margin-top:10px}
+.banner-media-panel.is-image #bnVideoUrl,.banner-media-panel.is-image .banner-video-options{opacity:.5}
+.banner-ai-panel{padding:14px;border:1px solid #c7d2fe;border-radius:12px;background:#f8faff}
+.banner-ai-actions{margin-top:9px}.banner-ai-actions select{min-width:150px}
+.business-multi-picker{margin-top:8px;border:1px solid #dbe3ef;border-radius:12px;padding:10px;background:#fff}
+.business-multi-options{max-height:250px;overflow:auto;display:grid;gap:4px;margin-top:8px}
+.business-multi-item{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:8px}.business-multi-item:hover{background:#f8fafc}.business-multi-item span{display:flex;flex-direction:column}.business-multi-item small{color:#64748b;margin-top:2px}
+
+
+/* v30.1 banner live preview */
+.banner-live-preview-panel{margin-top:6px}
+.bn-live-preview{width:100%;max-width:760px}
+.bn-preview-card{position:relative;overflow:hidden;border-radius:18px;background:#0f172a;aspect-ratio:16/6;box-shadow:0 10px 30px rgba(15,23,42,.14)}
+.bn-preview-media{display:block;width:100%;height:100%;object-fit:cover;border:0}
+.bn-preview-empty{display:flex;align-items:center;justify-content:center;width:100%;height:100%;padding:24px;color:#cbd5e1;text-align:center;background:linear-gradient(135deg,#0f172a,#1d4ed8)}
+.bn-preview-overlay{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-start;padding:24px;color:white;background:linear-gradient(90deg,rgba(2,6,23,.82),rgba(2,6,23,.18) 70%,transparent)}
+.bn-preview-overlay strong{font-size:clamp(20px,3vw,34px);line-height:1.15;max-width:80%}
+.bn-preview-overlay p{margin:9px 0 0;max-width:72%;font-size:14px;line-height:1.5}
+.bn-preview-overlay span{margin-top:14px;padding:9px 15px;border-radius:10px;background:#2563eb;font-weight:700}
+.bn-preview-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.68);color:white;font-size:24px;padding-left:4px}
+@media(max-width:700px){.bn-preview-card{aspect-ratio:16/7}.bn-preview-overlay{padding:16px}.bn-preview-overlay p{display:none}.bn-preview-overlay strong{max-width:90%}}
+
+
+/* v30.5 category-specific home banners */
+.banner-category-picker{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.banner-category-picker label{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border:1px solid #d8e1f4;border-radius:999px;background:#f8faff;font-weight:600;cursor:pointer}
+.banner-category-picker input{width:auto;margin:0}
+.banner-category-picker label:has(input:checked){border-color:#2f6fed;background:#edf4ff;color:#174fc7}

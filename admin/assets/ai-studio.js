@@ -67,6 +67,32 @@ function selectedThemes(){ return [...document.querySelectorAll('#ucsThemes inpu
 function setBusy(btn,busy,text){ if(!btn)return; if(!btn.dataset.original) btn.dataset.original=btn.textContent; btn.disabled=busy; btn.textContent=busy?text:btn.dataset.original; }
 function notify(msg){ alert(msg); }
 
+function truncateText(value,max=900){const t=String(value||'').trim();return t.length>max?t.slice(0,max)+'…':t;}
+async function fetchJsonDetailed(url,options={},label='요청'){
+  let response;
+  try{response=await fetch(url,options);}catch(error){
+    const e=new Error(`${label} 연결 실패: ${error.message||'네트워크 오류'}`);e.stage='network';throw e;
+  }
+  const raw=await response.text();
+  let data={};
+  try{data=raw?JSON.parse(raw):{};}catch(_){
+    const e=new Error(`${label} 응답을 해석하지 못했습니다. HTTP ${response.status}\n${truncateText(raw)||'응답 본문 없음'}`);e.status=response.status;e.stage='parse';throw e;
+  }
+  if(!response.ok){
+    const message=data.error||data.message||`${label} 실패`;
+    const detail=[data.stage&&`단계: ${data.stage}`,data.code&&`코드: ${data.code}`,data.detail&&`상세: ${data.detail}`,`HTTP: ${response.status}`].filter(Boolean).join('\n');
+    const e=new Error(`${message}${detail?'\n'+detail:''}`);e.status=response.status;e.stage=data.stage||'server';e.payload=data;throw e;
+  }
+  return data;
+}
+function showStudioError(title,error,statusEl){
+  console.error(`[AI Studio] ${title}`,error);
+  const message=error?.message||String(error||'알 수 없는 오류');
+  if(statusEl)statusEl.textContent=`${title}: ${message.replace(/\n/g,' · ')}`;
+  notify(`${title}\n\n${message}\n\nNetlify Functions 로그에서도 같은 시간의 오류를 확인할 수 있습니다.`);
+}
+
+
 function populateBusinesses(){
   const rows = typeof bridge().getBusinesses === 'function' ? bridge().getBusinesses() : [];
   const el=$('ucsBusiness'); if(!el)return;
@@ -106,12 +132,10 @@ async function analyzeTopic(){
   const btn=$('ucsAnalyzeBtn'); setBusy(btn,true,'분석 중...');
   $('ucsAnalyzeStatus').textContent='AI가 콘텐츠 성격, 추천 테마와 제작물을 분석하고 있습니다...';
   try{
-    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analyze',topic})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||'주제 분석 실패');
+    const j=await fetchJsonDetailed('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'analyze',topic})},'주제 분석');
     renderAnalysis(j.analysis||{});
     $('ucsAnalyzeStatus').textContent='분석 완료 · 추천안을 확인하고 필요한 항목을 선택하세요.';
-  }catch(e){ $('ucsAnalyzeStatus').textContent=`오류: ${e.message}`; notify(e.message); }
+  }catch(e){ showStudioError('주제 분석 실패',e,$('ucsAnalyzeStatus')); }
   finally{ setBusy(btn,false); }
 }
 
@@ -130,13 +154,20 @@ async function generateSuite(){
   if(!analysis)return notify('먼저 AI 분석을 실행하세요.');
   if(!types.length)return notify('생성할 콘텐츠를 하나 이상 선택하세요.');
   if(analysis.business_requirement==='required'&&!$('ucsBusiness')?.value)return notify('이 주제는 연결 업소를 선택해야 합니다.');
-  const btn=$('ucsGenerateBtn'); setBusy(btn,true,'생성 중...');
+  const btn=$('ucsGenerateBtn'); setBusy(btn,true,'1/3 문구 생성 중...');
+  const progress=$('ucsAnalyzeStatus');
   try{
+    if(progress)progress.textContent='1/3 · AI가 캠페인 문구와 이미지 프롬프트를 생성하고 있습니다...';
     const payload={topic,goal:$('ucsGoal')?.value.trim(),audience:$('ucsAudience')?.value.trim(),tone:$('ucsTone')?.value.trim(),instructions:[`선택 테마: ${selectedThemes().join(', ')}`,$('ucsInstructions')?.value.trim()].filter(Boolean).join('\n'),content_types:types,business:businessPayload(),analysis};
-    const r=await fetch('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    const j=await r.json().catch(()=>({})); if(!r.ok)throw new Error(j.error||'콘텐츠 생성 실패');
-    suite=j.suite||{}; renderResults(types,suite); $('ucsResultsSection')?.classList.remove('hidden'); $('ucsResultsSection').scrollIntoView({behavior:'smooth',block:'start'});
-  }catch(e){notify(e.message);}finally{setBusy(btn,false);}
+    const j=await fetchJsonDetailed('/.netlify/functions/generate-content-suite',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)},'콘텐츠 문구 생성');
+    suite=j.suite||{};
+    if(!Object.keys(suite).length)throw new Error('서버 응답에 생성 결과(suite)가 없습니다.');
+    if(progress)progress.textContent=types.includes('banner')?'2/3 · 문구 생성 완료. 1차 배너 이미지 준비 중...':'2/3 · 문구 생성 완료. 미리보기 준비 중...';
+    renderResults(types,suite);
+    $('ucsResultsSection')?.classList.remove('hidden');
+    $('ucsResultsSection').scrollIntoView({behavior:'smooth',block:'start'});
+    if(progress)progress.textContent=types.includes('banner')?'3/3 · 문구 미리보기 완료. 배너 이미지는 아래 생성 상태를 확인하세요.':'3/3 · 콘텐츠 생성과 미리보기 완료.';
+  }catch(e){showStudioError('콘텐츠 생성 실패',e,progress);}finally{setBusy(btn,false);}
 }
 
 function stringifyAsset(type,s){
@@ -190,7 +221,9 @@ function injectPreviewStyles(){
     .ucs-coupon-codebox small{display:block;color:#92400e;font-weight:800;letter-spacing:.08em;margin-bottom:4px}.ucs-coupon-codebox strong{font-size:20px;letter-spacing:.08em;color:#7c2d12}
     .ucs-coupon-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;border-radius:12px;background:#c2410c;color:#fff;font-weight:900;box-shadow:0 6px 14px rgba(194,65,12,.22)}
     .ucs-preview-stage.mobile .ucs-coupon-ticket{border-radius:18px}.ucs-preview-stage.mobile .ucs-coupon-hero{padding:20px 18px 16px;min-height:145px}.ucs-preview-stage.mobile .ucs-coupon-hero h3{font-size:22px;max-width:68%}.ucs-preview-stage.mobile .ucs-coupon-stamp{width:68px;height:68px;right:14px;top:18px;font-size:13px}.ucs-preview-stage.mobile .ucs-coupon-bottom{grid-template-columns:1fr}.ucs-preview-stage.mobile .ucs-coupon-button{width:100%}
-    .ucs-banner-preview{position:relative;min-height:230px;background:linear-gradient(120deg,#0f172a,#1e3a8a 55%,#0ea5e9);color:#fff;display:flex;align-items:flex-end;padding:28px;overflow:hidden}
+    .ucs-banner-preview{position:relative;min-height:230px;background:linear-gradient(120deg,#0f172a,#1e3a8a 55%,#0ea5e9);background-size:cover;background-position:center;color:#fff;display:flex;align-items:flex-end;padding:28px;overflow:hidden}
+    .ucs-banner-image-status{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid #dbe3ef;border-radius:12px;background:#f8fafc;font-size:12px;color:#475569}
+    .ucs-banner-image-status .btn{white-space:nowrap}
     .ucs-banner-preview:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.62),rgba(0,0,0,.08))}
     .ucs-banner-copy{position:relative;z-index:1;max-width:72%}.ucs-banner-copy h3{font-size:28px;margin:0 0 8px}.ucs-banner-copy p{color:#e2e8f0;margin:0}
     .ucs-article-preview .ucs-preview-body h3{font-size:24px}.ucs-article-summary{font-weight:600;color:#334155!important}
@@ -232,7 +265,9 @@ function previewHtml(type){
     const title=esc(nonempty[0]||'배너 제목');
     const cta=esc((lines.find(x=>x.startsWith('CTA:'))||'CTA: 자세히 보기').replace(/^CTA:\s*/,''));
     const desc=esc(nonempty.filter(x=>!x.startsWith('CTA:')&&!x.startsWith('이미지 프롬프트:')).slice(1).filter(x=>!x.includes('프롬프트')).join(' ')||'배너 설명');
-    return `<div class="ucs-preview-card ucs-banner-preview"><div class="ucs-banner-copy"><span class="ucs-preview-chip">${name}</span><h3>${title}</h3><p>${desc}</p><span class="ucs-preview-cta">${cta}</span></div></div>`;
+    const imageUrl=suite?.banner?.generated_image_url||'';
+    const bg=imageUrl?` style="background-image:url('${esc(imageUrl)}')"`:'';
+    return `<div class="ucs-preview-card ucs-banner-preview"${bg}><div class="ucs-banner-copy"><span class="ucs-preview-chip">${name}</span><h3>${title}</h3><p>${desc}</p><span class="ucs-preview-cta">${cta}</span></div></div>`;
   }
   if(type==='dalpick'||type==='guide'){
     const title=esc(nonempty[0]||'콘텐츠 제목');
@@ -256,7 +291,8 @@ function renderResults(types,s){
   $('ucsResultStatus').textContent=`${types.length}개 콘텐츠 생성 완료 · 왼쪽에서 수정하면 오른쪽 미리보기에 바로 반영됩니다.`;
   $('ucsResults').innerHTML=types.map(type=>{
     const meta=ASSETS.find(x=>x[0]===type)||[type,'','콘텐츠',''];
-    return `<article class="ucs-result-card" data-result="${type}"><div class="ucs-result-head"><strong>${meta[1]} ${meta[2]}</strong><div class="ucs-result-actions"><button class="btn ghost ucs-copy" data-type="${type}" type="button">복사</button>${actionButton(type)}</div></div><div class="ucs-result-layout"><div class="ucs-result-editor"><textarea id="ucsResult_${type}">${esc(stringifyAsset(type,s))}</textarea></div><div class="ucs-preview-wrap"><div class="ucs-preview-title"><strong>실시간 미리보기</strong><div class="ucs-preview-device"><button type="button" class="active" data-preview-mode="desktop" data-type="${type}">PC</button><button type="button" data-preview-mode="mobile" data-type="${type}">모바일</button></div></div><div class="ucs-preview-stage" id="ucsPreviewStage_${type}"><div id="ucsPreview_${type}"></div></div></div></div></article>`;
+    const bannerTools=type==='banner'?`<div class="ucs-banner-image-status"><span id="ucsBannerImageStatus">1차 AI 이미지를 자동 생성합니다.</span><button class="btn secondary" id="ucsBannerRegenerate" type="button">이미지 다시 생성</button></div>`:'';
+    return `<article class="ucs-result-card" data-result="${type}"><div class="ucs-result-head"><strong>${meta[1]} ${meta[2]}</strong><div class="ucs-result-actions"><button class="btn ghost ucs-copy" data-type="${type}" type="button">복사</button>${actionButton(type)}</div></div><div class="ucs-result-layout"><div class="ucs-result-editor"><textarea id="ucsResult_${type}">${esc(stringifyAsset(type,s))}</textarea>${bannerTools}</div><div class="ucs-preview-wrap"><div class="ucs-preview-title"><strong>실시간 미리보기</strong><div class="ucs-preview-device"><button type="button" class="active" data-preview-mode="desktop" data-type="${type}">PC</button><button type="button" data-preview-mode="mobile" data-type="${type}">모바일</button></div></div><div class="ucs-preview-stage" id="ucsPreviewStage_${type}"><div id="ucsPreview_${type}"></div></div></div></div></article>`;
   }).join('');
   document.querySelectorAll('.ucs-copy').forEach(b=>b.addEventListener('click',()=>navigator.clipboard.writeText($(`ucsResult_${b.dataset.type}`)?.value||'').then(()=>notify('복사했습니다.'))));
   document.querySelectorAll('[data-send-asset]').forEach(b=>b.addEventListener('click',()=>sendAsset(b.dataset.sendAsset,b)));
@@ -264,12 +300,54 @@ function renderResults(types,s){
     updatePreview(type);
     $(`ucsResult_${type}`)?.addEventListener('input',()=>updatePreview(type));
   });
+  $('ucsBannerRegenerate')?.addEventListener('click',()=>generateBannerStudioImage(false));
+  if(types.includes('banner')) setTimeout(()=>generateBannerStudioImage(true),120);
   document.querySelectorAll('[data-preview-mode]').forEach(btn=>btn.addEventListener('click',()=>{
     const type=btn.dataset.type;
     btn.closest('.ucs-preview-device')?.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===btn));
     $(`ucsPreviewStage_${type}`)?.classList.toggle('mobile',btn.dataset.previewMode==='mobile');
   }));
 }
+
+function bannerDataFromEditor(){
+  const lines=textLines('banner');
+  const nonempty=lines.filter(Boolean);
+  const cta=(lines.find(x=>x.startsWith('CTA:'))||'').replace(/^CTA:\s*/,'').trim();
+  const marker=lines.findIndex(x=>x.startsWith('이미지 프롬프트:'));
+  const prompt=(marker>=0?lines.slice(marker+1).join('\n'):suite?.banner?.image_prompt||'').trim();
+  const description=nonempty.filter(x=>!x.startsWith('CTA:')&&!x.startsWith('이미지 프롬프트:')).slice(1).filter(x=>!x.includes('프롬프트')).join(' ').trim();
+  return {title:nonempty[0]||suite?.banner?.title||'',description:description||suite?.banner?.description||'',button_label:cta||suite?.banner?.button_label||'자세히 보기',image_prompt:prompt||suite?.banner?.image_prompt||''};
+}
+function dataUrlToBlobUcs(dataUrl){
+  const [head,body]=String(dataUrl||'').split(',');
+  const mime=(head.match(/data:([^;]+)/)||[])[1]||'image/png';
+  const bin=atob(body||''); const bytes=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:mime});
+}
+async function generateBannerStudioImage(auto=false){
+  if(!suite?.banner)return;
+  if(auto&&suite.banner.generated_image_url)return;
+  const data=bannerDataFromEditor();
+  const status=$('ucsBannerImageStatus'); const btn=$('ucsBannerRegenerate');
+  if(!data.title||!data.image_prompt){if(status)status.textContent='제목과 이미지 프롬프트를 확인해 주세요.';return;}
+  if(btn){btn.disabled=true;btn.textContent=auto?'1차 이미지 생성 중...':'다시 생성 중...';}
+  if(status)status.textContent=auto?'AI가 1차 배너 이미지를 생성하고 있습니다.':'수정된 프롬프트로 새 이미지를 생성하고 있습니다.';
+  try{
+    const b=businessPayload();
+    const j=await fetchJsonDetailed('/.netlify/functions/generate-campaign-image',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({asset:'banner',businessName:b?.name||'DalTownMap local business',campaignName:data.title,benefit:data.description,category:b?.category||'',style:'premium',notes:data.image_prompt})},'배너 이미지 생성');
+    const blob=dataUrlToBlobUcs(`data:image/png;base64,${j.b64_json}`);
+    const upload=bridge().uploadGeneratedImage;
+    if(typeof upload!=='function')throw new Error('이미지 업로드 기능이 준비되지 않았습니다.');
+    const safe=(data.title||'banner').replace(/[^a-zA-Z0-9가-힣_-]+/g,'-').slice(0,45);
+    const url=await upload(blob,`${safe}-${Date.now()}.png`);
+    suite.banner.generated_image_url=url;
+    suite.banner.image_prompt=data.image_prompt;
+    updatePreview('banner');
+    if(status)status.textContent='이미지 생성 완료 · 문구나 프롬프트를 수정한 뒤 다시 생성할 수 있습니다.';
+  }catch(e){console.error('[AI Studio Banner Image]',e);if(status)status.textContent=`이미지 생성 실패: ${e.message.replace(/\n/g,' · ')}`;notify(`${auto?'1차 배너 이미지 자동 생성 실패':'AI 배너 이미지 생성 실패'}\n\n${e.message}\n\n문구와 프롬프트는 보존되었습니다. 아래 ‘이미지 다시 생성’ 버튼으로 재시도할 수 있습니다.`);}
+  finally{if(btn){btn.disabled=false;btn.textContent='이미지 다시 생성';}}
+}
+
 function actionButton(type){
   const labels={dalpick:'DalPick 관리로 보내기',guide:'가이드 관리로 보내기',coupon:'쿠폰으로 등록',banner:'배너 관리로 보내기',push:'푸시 발송으로 보내기'};
   return labels[type]?`<button class="btn secondary" data-send-asset="${type}" type="button">${labels[type]}</button>`:'';
@@ -384,7 +462,13 @@ ${e.message}
       if(status && status.textContent===oldStatus) status.textContent=oldStatus;
     }
   } else if(type==='banner'){
-    switchSection('banners'); setValue('bnTitle',suite.banner?.title); setValue('bnDescription',suite.banner?.description); setValue('bnButtonLabel',suite.banner?.button_label); setValue('bnBusinessId',b?.id||''); notify('배너 입력 화면에 문구를 채웠습니다. 이미지를 만든 뒤 저장하세요.');
+    const data=bannerDataFromEditor();
+    switchSection('banners');
+    setValue('bnTitle',data.title); setValue('bnDescription',data.description); setValue('bnButtonLabel',data.button_label); setValue('bnBusinessId',b?.id||'');
+    setValue('bnAiPrompt',data.image_prompt); setValue('bnAiStyle','premium');
+    if(suite.banner?.generated_image_url)setValue('bnImage',suite.banner.generated_image_url);
+    setTimeout(()=>{window.renderBannerLivePreview?.();document.getElementById('bnImage')?.dispatchEvent(new Event('input',{bubbles:true}));},80);
+    notify(suite.banner?.generated_image_url?'배너 문구·이미지·프롬프트를 모두 전달했습니다. 노출 위치를 확인한 뒤 저장하세요.':'배너 문구와 프롬프트를 전달했습니다. 이미지를 생성한 뒤 저장하세요.');
   } else if(type==='push'){
     switchSection('push'); setValue('pushTitle',suite.push?.title); setValue('pushMessage',suite.push?.message); notify('푸시 발송 화면에 내용을 채웠습니다. 대상과 링크를 확인하세요.');
   }

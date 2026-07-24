@@ -14,14 +14,17 @@ const STYLE_GUIDES = {
 };
 
 exports.handler = async function handler(event) {
+  let stage = 'request';
   const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: { ...headers, Allow: 'POST' }, body: JSON.stringify({ error: 'POST 요청만 지원합니다.' }) };
   }
+  stage = 'environment';
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { statusCode: 500, headers, body: JSON.stringify({ error: 'Netlify 환경변수 OPENAI_API_KEY를 먼저 설정하세요.' }) };
 
   try {
+    stage = 'request_parse';
     const body = JSON.parse(event.body || '{}');
     const asset = String(body.asset || '').trim();
     const settings = ASSET_SETTINGS[asset];
@@ -45,11 +48,13 @@ exports.handler = async function handler(event) {
       'Do not invent claims, products, people, medical results, contact details, or brand identity. Avoid malformed hands and distorted products.'
     ].filter(Boolean).join('\n');
 
+    stage = 'image_openai_request';
     const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'gpt-image-1', prompt, size: settings.size, quality: 'medium', output_format: 'png' })
     });
+    stage = 'image_openai_response';
     const json = await response.json().catch(() => ({}));
     if (!response.ok) return { statusCode: response.status || 500, headers, body: JSON.stringify({ error: json?.error?.message || 'OpenAI 이미지 생성에 실패했습니다.' }) };
     const b64 = json?.data?.[0]?.b64_json;
@@ -57,6 +62,6 @@ exports.handler = async function handler(event) {
     return { statusCode: 200, headers, body: JSON.stringify({ b64_json: b64, size: settings.size, asset, style: styleKey }) };
   } catch (error) {
     console.error('generate-campaign-image:', error);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || '이미지 생성 중 오류가 발생했습니다.' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: error.message || '이미지 생성 중 오류가 발생했습니다.', stage, code: error.code || 'IMAGE_GENERATION_ERROR', detail: error.name || 'Error' }) };
   }
 };

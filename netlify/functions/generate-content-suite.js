@@ -144,11 +144,14 @@ const schema = {
 };
 
 exports.handler = async (event) => {
+  let stage = 'request';
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'POST only' }) };
 
   try {
-    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY가 없습니다.');
+    stage = 'environment';
+    if (!process.env.OPENAI_API_KEY) { const e=new Error('OPENAI_API_KEY가 없습니다.'); e.code='MISSING_OPENAI_API_KEY'; throw e; }
+    stage = 'request_parse';
     const b = JSON.parse(event.body || '{}');
     const topic = String(b.topic || '').trim();
     if (!topic) return { statusCode: 400, headers, body: JSON.stringify({ error: '주제를 입력하세요.' }) };
@@ -174,6 +177,7 @@ exports.handler = async (event) => {
 - 쿠폰은 실제 할인이나 혜택 주제가 아니면 추천하지 말 것
 - 배너와 푸시는 중요한 행사, 신규 오픈, 강한 홍보 목적일 때만 추천
 - 자연스러운 한국어로 간결하게 작성`;
+      stage = 'analysis_openai_request';
       const ar = await fetch('https://api.openai.com/v1/responses', {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
@@ -186,10 +190,12 @@ exports.handler = async (event) => {
           text: { format: { type: 'json_schema', name: 'content_topic_analysis', strict: true, schema: analysisSchema } }
         })
       });
+      stage = 'analysis_openai_response';
       const aj = await ar.json();
       if (!ar.ok) throw new Error(aj?.error?.message || '주제 분석 실패');
       const at = outputText(aj);
       if (!at) throw new Error('주제 분석 응답이 비어 있습니다.');
+      stage = 'analysis_json_parse';
       return { statusCode: 200, headers, body: JSON.stringify({ analysis: JSON.parse(at) }) };
     }
 
@@ -229,6 +235,7 @@ exports.handler = async (event) => {
 - marketing_score는 현재 입력 정보와 생성 결과의 발행 준비도를 0~100점으로 평가
 - checklist는 최소 6개 항목을 작성하고, 부족한 정보는 warning으로 표시`;
 
+    stage = 'content_openai_request';
     const r = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
@@ -245,13 +252,15 @@ exports.handler = async (event) => {
       })
     });
 
+    stage = 'content_openai_response';
     const j = await r.json();
     if (!r.ok) throw new Error(j?.error?.message || 'AI 요청 실패');
     const t = outputText(j);
     if (!t) throw new Error('AI 응답이 비어 있습니다.');
+    stage = 'content_json_parse';
     return { statusCode: 200, headers, body: JSON.stringify({ suite: JSON.parse(t) }) };
   } catch (e) {
     console.error(e);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message || '통합 콘텐츠 생성 오류' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message || '통합 콘텐츠 생성 오류', stage, code: e.code || 'CONTENT_SUITE_ERROR', detail: e.name || 'Error' }) };
   }
 };

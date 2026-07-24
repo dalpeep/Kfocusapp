@@ -1106,6 +1106,53 @@ async function loadDalpicksFromSupabase(){
   }catch(e){console.warn('DalPick load skipped:',e);return false;}
 }
 
+
+function bannerYoutubeEmbed(url){
+  const raw=String(url||'').trim(); if(!raw)return '';
+  try{const u=new URL(raw,location.origin);let id='';if(u.hostname.includes('youtu.be'))id=u.pathname.split('/').filter(Boolean)[0]||'';else if(u.hostname.includes('youtube.com')){id=u.searchParams.get('v')||'';const parts=u.pathname.split('/').filter(Boolean);if(!id&&['shorts','embed','live'].includes(parts[0]))id=parts[1]||'';}return id?`https://www.youtube.com/embed/${encodeURIComponent(id)}?playsinline=1&rel=0&modestbranding=1`:'';}catch{return '';}
+}
+function bannerFallbackHTML(b,cls=''){
+  const title=esc(b?.title||'광고');
+  const desc=esc(String(b?.description||'').trim());
+  const cta=esc(String(b?.button_label||'자세히 보기').trim()||'자세히 보기');
+  return `<div class="banner-media-fallback ${cls}"><div><span>SPONSORED</span><strong>${title}</strong>${desc?`<small>${desc.length>90?desc.slice(0,90)+'…':desc}</small>`:''}<em>${cta} →</em></div></div>`;
+}
+function bannerMediaHTML(b,cls=''){
+  const type=String(b?.media_type|| (b?.video_url?'youtube':'image')).toLowerCase();
+  const rawPoster=String(b?.image_url||'').trim();
+  const poster=esc(rawPoster); const title=esc(b?.title||'광고');
+  if(type==='youtube'){
+    const embed=bannerYoutubeEmbed(b.video_url); if(!embed)return rawPoster?`<img class="${cls}" src="${poster}" alt="${title}" data-banner-media-image>`:bannerFallbackHTML(b,cls);
+    const autoplay=b.autoplay===true&&(!isMobileViewport()||b.mobile_tap===false);
+    const src=embed+`&autoplay=${autoplay?1:0}&mute=${b.muted!==false?1:0}&loop=${b.loop!==false?1:0}`;
+    return `<div class="banner-video-wrap ${cls}"><iframe src="${esc(src)}" title="${title}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>`;
+  }
+  if(type==='mp4'){
+    const video=String(b?.video_url||'').trim();
+    if(!video) return rawPoster?`<img class="${cls}" src="${poster}" alt="${title}" data-banner-media-image>`:bannerFallbackHTML(b,cls);
+    const autoplay=b.autoplay===true&&(!isMobileViewport()||b.mobile_tap===false);
+    return `<div class="banner-video-wrap ${cls}"><video ${autoplay?'autoplay':''} ${b.muted!==false?'muted':''} ${b.loop!==false?'loop':''} playsinline controls poster="${poster}" preload="metadata"><source src="${esc(video)}" type="video/mp4"></video></div>`;
+  }
+  return rawPoster?`<img class="${cls}" src="${poster}" alt="${title}" data-banner-media-image>`:bannerFallbackHTML(b,cls);
+}
+function isMobileViewport(){return matchMedia('(max-width: 768px)').matches;}
+function openBusinessChooser(ids,title='지점을 선택하세요'){
+  const rows=(ids||[]).map(id=>businesses.find(b=>String(b.id)===String(id))).filter(Boolean);
+  if(!rows.length)return;
+  let modal=document.getElementById('businessChoiceModal');
+  if(!modal){modal=document.createElement('div');modal.id='businessChoiceModal';modal.className='modal hidden';document.body.appendChild(modal);}
+  modal.innerHTML=`<div class="modal-card branch-choice-card"><div class="modal-head"><h2>${esc(title)}</h2><button type="button" data-branch-close>×</button></div><div class="branch-choice-list">${rows.map(b=>`<button type="button" class="branch-choice-item" data-branch-id="${esc(b.id)}"><strong>${esc(b.name||b.name_ko||b.name_en||'업소')}</strong><span>${esc([b.city,b.address].filter(Boolean).join(' · '))}</span></button>`).join('')}</div></div>`;
+  modal.classList.remove('hidden');
+  modal.querySelector('[data-branch-close]')?.addEventListener('click',()=>modal.classList.add('hidden'));
+  modal.querySelectorAll('[data-branch-id]').forEach(btn=>btn.addEventListener('click',()=>{modal.classList.add('hidden');selectedBizId=btn.dataset.branchId;currentDetailVideoOverride='';renderDetail(selectedBizId);showPage('business-detail');}));
+}
+function openMultiBusinessBanner(banner){
+  const ids=linkedBusinessIds(banner); if(!ids.length)return false;
+  if(ids.length===1||banner.multi_click_mode==='primary'){selectedBizId=ids[0];currentDetailVideoOverride='';renderDetail(selectedBizId);showPage('business-detail');return true;}
+  if(banner.multi_click_mode==='nearest'&&navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{const lat=pos.coords.latitude,lng=pos.coords.longitude;const ranked=ids.map(id=>businesses.find(b=>String(b.id)===String(id))).filter(Boolean).map(b=>({b,d:(Number(b.lat)-lat)**2+(Number(b.lng)-lng)**2})).sort((a,z)=>a.d-z.d);const id=ranked[0]?.b?.id||ids[0];selectedBizId=String(id);currentDetailVideoOverride='';renderDetail(selectedBizId);showPage('business-detail');},()=>openBusinessChooser(ids,banner.title||'지점 선택'),{enableHighAccuracy:false,timeout:5000});return true;}
+  openBusinessChooser(ids,banner.title||'지점 선택'); return true;
+}
+
 function linkedBusinessIds(row){const ids=Array.isArray(row?.business_ids)?row.business_ids.map(String).filter(Boolean):[];if(row?.business_id&&!ids.includes(String(row.business_id)))ids.unshift(String(row.business_id));return [...new Set(ids)];}
 function rowLinksBusiness(row,id){return linkedBusinessIds(row).includes(String(id));}
 
@@ -1924,6 +1971,7 @@ function renderGuidePosts(subtype = selectedGuideSubtype) {
 
 function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
+  if (typeof renderMainBanners === 'function') renderMainBanners();
 
   const featured = sortBusinessesByDistance(
     businesses.filter(b => b.featured && isBusinessVisibleByPaidDate(b))
@@ -2174,6 +2222,22 @@ function renderCategories() {
   `).join('');
 }
 let mainBannerCarouselTimer = null;
+function normalizedBannerHomeCategories(banner){
+  const raw=banner?.home_categories ?? banner?.categories ?? ['all'];
+  if(Array.isArray(raw)) return raw.length ? raw.map(String) : ['all'];
+  if(typeof raw==='string'){
+    const parsed=raw.replace(/[{}]/g,'').split(',').map(x=>x.trim().replace(/^"|"$/g,'')).filter(Boolean);
+    return parsed.length?parsed:['all'];
+  }
+  return ['all'];
+}
+function bannerMatchesCurrentHomeCategory(banner){
+  const categories=normalizedBannerHomeCategories(banner);
+  const selected=String(businessQuickFilter||'').trim();
+  if(!selected) return categories.includes('all') || categories.includes('전체');
+  return categories.includes(selected);
+}
+
 function renderMainBanners(){
   const box = document.getElementById('mainBanners');
   if(!box) return;
@@ -2182,14 +2246,34 @@ function renderMainBanners(){
   const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
     const placement = String(b.placement || (linkedBusinessIds(b).length ? 'both' : 'home')).toLowerCase();
     if (!['home','both'].includes(placement)) return false;
+    if (!bannerMatchesCurrentHomeCategory(b)) return false;
     if (b.start_at && new Date(b.start_at).getTime() > now) return false;
     if (b.end_at && new Date(b.end_at).getTime() < now) return false;
-    return b.is_active !== false && !!b.image_url;
+    return b.is_active !== false && !!(b.image_url || b.video_url);
   }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
-  if(!rows.length){ box.innerHTML=''; return; }
+  if(!rows.length){
+    // Completely remove the banner slot from layout. `hidden` alone can be
+    // overridden by stale/cached CSS, which previously left a large blank gap.
+    box.innerHTML='';
+    box.hidden = true;
+    box.classList.add('is-empty');
+    box.style.setProperty('display','none','important');
+    box.style.setProperty('margin','0','important');
+    box.style.setProperty('padding','0','important');
+    box.style.setProperty('height','0','important');
+    box.style.setProperty('min-height','0','important');
+    return;
+  }
+  box.hidden = false;
+  box.classList.remove('is-empty');
+  box.style.removeProperty('display');
+  box.style.removeProperty('margin');
+  box.style.removeProperty('padding');
+  box.style.removeProperty('height');
+  box.style.removeProperty('min-height');
   box.innerHTML=`<div class="main-banner-carousel ${rows.length===1?'is-single':''}">
     <div class="main-banner-viewport"><div class="main-banner-track">
-      ${rows.map(b=>`<div class="main-banner-slide"><button class="main-banner-card" type="button" data-banner-id="${esc(b.id)}"><img src="${esc(b.image_url||'')}" alt="${esc(b.title||'Sponsor banner')}"></button></div>`).join('')}
+      ${rows.map(b=>`<div class="main-banner-slide"><div class="main-banner-card" role="button" tabindex="0" data-banner-id="${esc(b.id)}">${bannerMediaHTML(b,'main-banner-media')}</div></div>`).join('')}
     </div></div>
     ${rows.length>1?`<div class="main-banner-dots">${rows.map((_,i)=>`<button type="button" class="main-banner-dot ${i===0?'active':''}" data-index="${i}" aria-label="배너 ${i+1}"></button>`).join('')}</div>`:''}
   </div>`;
@@ -2197,10 +2281,22 @@ function renderMainBanners(){
     if(!banner)return;
     const url=banner.link_url||banner.external_url;
     if(url){ window.open(normalizeUrl(url),'_blank','noopener'); return; }
-    const primary=linkedBusinessIds(banner)[0]; if(primary){ selectedBizId=primary; currentDetailVideoOverride=''; renderDetail(primary); showPage('business-detail'); return; }
-    if(url) window.open(normalizeUrl(url),'_blank','noopener');
+    if(openMultiBusinessBanner(banner)) return;
   };
-  box.querySelectorAll('.main-banner-card').forEach(btn=>btn.addEventListener('click',()=>openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)))));
+  box.querySelectorAll('[data-banner-media-image]').forEach(img=>{
+    img.addEventListener('error',()=>{
+      const card=img.closest('.main-banner-card');
+      const banner=rows.find(x=>String(x.id)===String(card?.dataset.bannerId));
+      if(card&&banner){
+        card.innerHTML=bannerFallbackHTML(banner,'main-banner-media');
+        card.classList.add('has-media-fallback');
+      }
+    },{once:true});
+  });
+  box.querySelectorAll('.main-banner-card').forEach(btn=>{
+    btn.addEventListener('click',(e)=>{if(e.target.closest('video,iframe'))return;openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)));});
+    btn.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)));}});
+  });
   if(rows.length<2)return;
   const track=box.querySelector('.main-banner-track');
   const viewport=box.querySelector('.main-banner-viewport');
@@ -2445,13 +2541,13 @@ function renderBusinessPromotion(promo){
   if (type === 'card') {
     const desc = String(promo.description || '').trim();
     return `<button type="button" class="business-detail-ad-card" data-business-promo="${esc(promo.id)}">
-      <div class="business-detail-ad-thumb"><img src="${esc(promo.image_url || '/assets/kfocus-icon.png')}" alt="${esc(promo.title || '업소 광고')}"></div>
+      <div class="business-detail-ad-thumb">${bannerMediaHTML(promo,'business-detail-ad-media')}</div>
       <div class="business-detail-ad-copy"><div class="business-detail-ad-label">SPONSORED</div><h3>${esc(promo.title || '업소 소식')}</h3>${desc?`<p>${esc(desc.length>100?desc.slice(0,100)+'…':desc)}</p>`:''}${String(promo.button_label || '').trim() ? `<span>${esc(promo.button_label)} →</span>` : ''}</div>
     </button>`;
   }
   const desc = String(promo.description || '').trim();
   return `<button type="button" class="business-detail-banner" data-business-promo="${esc(promo.id)}" aria-label="${esc(promo.title || '업소 광고')}">
-    <img src="${esc(promo.image_url || '')}" alt="${esc(promo.title || '업소 광고')}">
+    ${bannerMediaHTML(promo,'business-detail-banner-media')}
     <span class="business-detail-banner-shade"></span>
     <span class="business-detail-banner-copy">
       <strong>${esc(promo.title || '업소 소식')}</strong>
@@ -2665,7 +2761,8 @@ ${getDescriptionImages(b).length ? `
 `;
 
 detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (event) => {
+    if (event.target.closest('video,iframe')) return;
     const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
     if (!promo) return;
     const raw = String(promo.link_url || '').trim();
@@ -2688,7 +2785,7 @@ detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
     }
     if (/^tel:/i.test(raw)) { window.location.href = raw; return; }
     if (raw) { window.open(normalizeUrl(raw), '_blank', 'noopener'); return; }
-    if (promo.business_id) { selectedBizId=promo.business_id; renderDetail(promo.business_id); showPage('business-detail'); }
+    if (openMultiBusinessBanner(promo)) return;
 
   });
 });
@@ -4555,7 +4652,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', () => {
 document.getElementById('userLoginClose')?.addEventListener('click', closeUserLoginModal);
   document.addEventListener('click', e=>{ const postBtn = e.target.closest('[data-board-post]'); if(!postBtn) return; openBoardPost(postBtn.dataset.boardPost); });
   document.addEventListener('click', e=>{ const storyBtn=e.target.closest('[data-story-post]'); if(!storyBtn)return; openBoardPost(storyBtn.dataset.storyPost); });
-  categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderBusinessList(); });
+  categoryRow?.addEventListener('click', e=>{ const btn=e.target.closest('.category-chip'); if(!btn) return; businessQuickFilter = (businessQuickFilter === btn.dataset.cat ? '' : btn.dataset.cat); renderCategories(); renderMainBanners(); renderBusinessList(); });
   businessSearch?.addEventListener('input', renderBusinessList);
   globalSearchInput?.addEventListener('input', ()=>{ clearTimeout(searchDebounce); searchDebounce = setTimeout(()=>renderSearchResults(globalSearchInput.value), 220); });
   searchCloseBtn?.addEventListener('click', closeSearchOverlay);
