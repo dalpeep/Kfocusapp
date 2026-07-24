@@ -3516,6 +3516,20 @@ function ensureBannerExtrasUI() {
     qs('bnPlacement')?.parentElement?.insertAdjacentElement('afterend', modeWrap);
   }
 
+  if (!qs('bnLivePreview')) {
+    const previewWrap = document.createElement('div');
+    previewWrap.className = 'field full banner-live-preview-panel';
+    previewWrap.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+        <label style="margin:0">실제 앱 배너 미리보기</label>
+        <span class="muted" id="bnPreviewPlacement">홈 카테고리 상단</span>
+      </div>
+      <div id="bnLivePreview" class="bn-live-preview"></div>
+      <div class="muted" style="margin-top:6px">AI 콘텐츠 스튜디오에서 ‘배너 관리로 보내기’를 누른 뒤에도 이곳에서 이미지·문구·영상과 노출 위치를 확인할 수 있습니다.</div>
+    `;
+    qs('bnAiPrompt')?.parentElement?.insertAdjacentElement('afterend', previewWrap);
+  }
+
   if (!qs('bnStartAt')) {
     const dateWrap = document.createElement('div');
     dateWrap.className = 'field full';
@@ -3540,12 +3554,16 @@ function ensureBannerExtrasUI() {
   on('bnLinkType', 'change', renderBannerLinkOptions);
   on('bannerImageUploadBtn', 'click', uploadBannerImageToField);
   on('bnAiGenerateBtn', 'click', generateBannerAiImage);
-  document.querySelectorAll('input[name="bnMediaType"]').forEach(r=>r.addEventListener('change', updateBannerMediaUI));
+  document.querySelectorAll('input[name="bnMediaType"]').forEach(r=>r.addEventListener('change', () => { updateBannerMediaUI(); renderBannerLivePreview(); }));
+  ['bnTitle','bnImage','bnVideoUrl','bnDescription','bnButtonLabel','bnPlacement','bnShowButton','bnAutoplay','bnMuted','bnLoop','bnMobileTap'].forEach(id => {
+    const el=qs(id); if(el){ el.addEventListener('input', renderBannerLivePreview); el.addEventListener('change', renderBannerLivePreview); }
+  });
 
   renderBannerBusinessOptions();
   renderBusinessMultiPicker('bnBusinessId');
   renderBannerLinkOptions();
   updateBannerMediaUI();
+  renderBannerLivePreview();
 }
 
 function renderBannerLinkOptions() {
@@ -3826,6 +3844,36 @@ function updateBannerMediaUI(){
   ['bnAutoplay','bnMuted','bnLoop','bnMobileTap'].forEach(id=>{const el=qs(id);if(el)el.disabled=type==='image';});
   const image=qs('bnImage'); if(image) image.required=type==='image';
 }
+function bannerPreviewYoutubeId(url){
+  const raw=String(url||'').trim();
+  const m=raw.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/i);
+  return m ? m[1] : '';
+}
+function renderBannerLivePreview(){
+  const box=qs('bnLivePreview'); if(!box)return;
+  const title=val('bnTitle').trim() || '배너 제목 미리보기';
+  const desc=val('bnDescription').trim();
+  const image=val('bnImage').trim();
+  const video=val('bnVideoUrl').trim();
+  const type=getBannerMediaType();
+  const placement=val('bnPlacement')||'home';
+  const placementText={home:'홈 카테고리 상단',detail:'업소 상세 상단',both:'홈 + 업소 상세'}[placement]||placement;
+  const placementEl=qs('bnPreviewPlacement'); if(placementEl)placementEl.textContent=placementText;
+  let media='';
+  if(type==='youtube' && video){
+    const id=bannerPreviewYoutubeId(video);
+    media=id?`<div class="bn-preview-media"><img src="https://img.youtube.com/vi/${esc(id)}/hqdefault.jpg" alt=""><span class="bn-preview-play">▶</span></div>`:`<div class="bn-preview-empty">YouTube URL을 확인해 주세요.</div>`;
+  }else if(type==='mp4' && video){
+    media=`<video class="bn-preview-media" src="${esc(video)}" poster="${esc(image)}" ${checked('bnMuted')?'muted':''} ${checked('bnLoop')?'loop':''} controls playsinline></video>`;
+  }else if(image){
+    media=`<img class="bn-preview-media" src="${esc(image)}" alt="${esc(title)}">`;
+  }else{
+    media='<div class="bn-preview-empty">이미지를 업로드하거나 AI 배너 이미지를 생성해 주세요.</div>';
+  }
+  const showButton=checked('bnShowButton');
+  box.innerHTML=`<div class="bn-preview-card">${media}<div class="bn-preview-overlay"><strong>${esc(title)}</strong>${desc?`<p>${esc(desc)}</p>`:''}${showButton?`<span>${esc(val('bnButtonLabel').trim()||'자세히 보기')}</span>`:''}</div></div>`;
+}
+
 function dataUrlToBlob(dataUrl){
   const [head,body]=String(dataUrl||'').split(',');
   const mime=(head.match(/data:([^;]+)/)||[])[1]||'image/png';
@@ -3855,7 +3903,7 @@ async function generateBannerAiImage(){
       const up=await supabase.storage.from('campaign-assets').upload(path,file,{contentType:'image/png',upsert:false});
       if(up.error)throw up.error; url=supabase.storage.from('campaign-assets').getPublicUrl(path).data.publicUrl;
     }
-    setVal('bnImage',url); setBannerMediaType('image');
+    setVal('bnImage',url); setBannerMediaType('image'); renderBannerLivePreview();
     if(status)status.textContent='AI 이미지 생성과 업로드가 완료되었습니다.';
     alert('AI 배너 이미지가 생성되었습니다. 미리 확인한 뒤 저장하세요.');
   }catch(e){console.error(e);if(status)status.textContent=`생성 실패: ${e.message}`;alert(`AI 이미지 생성 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent=old||'AI 배너 이미지 생성';}}
@@ -3891,6 +3939,7 @@ function clearBannerForm() {
   setVal('bnEndAt', '');
   const sel = qs('bnBusinessSelect'); if (sel) sel.innerHTML = '<option value="">업소를 검색하세요</option>';
   renderBannerLinkOptions();
+  renderBannerLivePreview();
 }
 
 function fillBannerForm(row) {

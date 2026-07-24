@@ -1962,6 +1962,7 @@ function renderGuidePosts(subtype = selectedGuideSubtype) {
 
 function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
+  if (typeof renderMainBanners === 'function') renderMainBanners();
 
   const featured = sortBusinessesByDistance(
     businesses.filter(b => b.featured && isBusinessVisibleByPaidDate(b))
