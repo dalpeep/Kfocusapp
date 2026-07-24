@@ -13,6 +13,8 @@ let coupons = [];
 let boards = [];
 let dalpicks = [];
 let slides = [];
+let slideFormDirty = false;
+let slideSaveBusy = false;
 let banners = [];
 let boardTable = 'posts';
 function getConfig() {
@@ -2651,6 +2653,42 @@ function renderSlideBusinessOptions() {
   el.innerHTML = '<option value="">업소 연결 안 함</option>' +
     rows.map((b) => `<option value="${esc(b.id)}">${esc(b.name_ko || b.name_en || b.id)}</option>`).join('');
 }
+function setSlideFormMode(mode = 'new', dirty = false) {
+  const editing = mode === 'edit';
+  slideFormDirty = !!dirty;
+  const saveBtn = qs('slideSaveBtn');
+  const status = qs('slideEditStatus');
+  if (saveBtn) {
+    saveBtn.textContent = slideSaveBusy
+      ? '저장 중…'
+      : editing ? (slideFormDirty ? '수정사항 저장' : '수정 저장') : '새 슬라이드 저장';
+    saveBtn.disabled = slideSaveBusy;
+  }
+  if (status) {
+    status.className = `slide-edit-status ${editing ? 'is-edit' : 'is-new'}${slideFormDirty ? ' is-dirty' : ''}`;
+    status.textContent = editing
+      ? (slideFormDirty ? '● 저장되지 않은 변경사항' : '선택 슬라이드 수정 중')
+      : (slideFormDirty ? '● 새 슬라이드 작성 중' : '새 슬라이드');
+  }
+}
+function markSlideFormDirty() {
+  if (slideSaveBusy) return;
+  setSlideFormMode((val('slide_id') || selectedSlideId) ? 'edit' : 'new', true);
+}
+function slideToast(message, type = 'success') {
+  let toast = qs('slideToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'slideToast';
+    toast.className = 'admin-toast';
+    document.body.appendChild(toast);
+  }
+  toast.className = `admin-toast ${type} show`;
+  toast.textContent = message;
+  clearTimeout(slideToast.timer);
+  slideToast.timer = setTimeout(() => toast.classList.remove('show'), 2600);
+}
+
 function clearSlideForm() {
   setVal('slide_id', '');
   setVal('slide_business_id', '');
@@ -2667,6 +2705,7 @@ function clearSlideForm() {
   selectedSlideBusinessId = null;
   selectedSlideId = null;
   safeText('slideFormTitle', '새 슬라이드');
+  setSlideFormMode('new', false);
   $$('.slide-row').forEach((el) => el.classList.remove('active'));
 }
 function fillSlideForm(slide) {
@@ -2698,7 +2737,8 @@ function fillSlideForm(slide) {
   selectedSlideId = slide.id;
   selectedSlideBusinessId = businessId || null;
   const biz = businesses.find((b) => String(b.id) === String(businessId));
-  safeText('slideFormTitle', `슬라이드 수정 · ${biz?.name_ko || biz?.name_en || (businessId ? '연결 업소' : '업소 미연결')}`);
+  safeText('slideFormTitle', `슬라이드 수정 · ${slide.promo_text || biz?.name_ko || biz?.name_en || (businessId ? '연결 업소' : '업소 미연결')}`);
+  setSlideFormMode('edit', false);
 }
 function filterSlides() {
   const q = val('slideSearchInput').trim().toLowerCase();
@@ -2747,6 +2787,7 @@ function renderSlideList(items) {
   });
 }
 async function saveSlide() {
+  if (slideSaveBusy) return;
   const slideId = val('slide_id') || selectedSlideId;
   const businessId = val('slide_business_select') || null;
   const payload = {
@@ -2764,20 +2805,49 @@ async function saveSlide() {
     updated_at: new Date().toISOString()
   };
 
-  let query;
-  if (slideId) {
-    query = supabase.from('slides').update(payload).eq('id', slideId).select().single();
-  } else {
-    query = supabase.from('slides').insert(payload).select().single();
+  if (!payload.promo_text && !payload.promo_image_url && !payload.video_url) {
+    return alert('슬라이드 문구, 이미지 또는 영상 중 하나는 입력해 주세요.');
   }
-  const { data, error } = await query;
-  if (error) return alert(`슬라이드 저장 실패: ${error.message}`);
 
-  await loadSlides();
-  if (data) fillSlideForm(data);
-  renderSlideList(filterSlides());
-  alert(slideId ? '슬라이드 수정 완료' : '새 슬라이드 추가 완료');
+  slideSaveBusy = true;
+  setSlideFormMode(slideId ? 'edit' : 'new', slideFormDirty);
+  try {
+    let saved = null;
+    if (slideId) {
+      const { data, error } = await supabase
+        .from('slides')
+        .update(payload)
+        .eq('id', slideId)
+        .select('*');
+      if (error) throw error;
+      if (!data || !data.length) {
+        throw new Error('수정된 행이 없습니다. 관리자 권한(RLS) 또는 슬라이드 ID를 확인해 주세요.');
+      }
+      saved = data[0];
+    } else {
+      const { data, error } = await supabase
+        .from('slides')
+        .insert(payload)
+        .select('*')
+        .single();
+      if (error) throw error;
+      saved = data;
+    }
+
+    await loadSlides();
+    if (saved) fillSlideForm(slideById(saved.id) || saved);
+    renderSlideList(filterSlides());
+    slideToast(slideId ? '슬라이드 수정사항을 저장했습니다.' : '새 슬라이드를 추가했습니다.');
+  } catch (error) {
+    console.error('[slide save]', error);
+    slideToast(`저장 실패: ${error.message}`, 'error');
+    alert(`슬라이드 저장 실패: ${error.message}`);
+  } finally {
+    slideSaveBusy = false;
+    setSlideFormMode((val('slide_id') || selectedSlideId) ? 'edit' : 'new', false);
+  }
 }
+
 async function deleteSlide() {
   const slideId = val('slide_id') || selectedSlideId;
   if (!slideId) return alert('삭제할 슬라이드를 선택하세요.');
@@ -3094,9 +3164,29 @@ on('refreshBtn','click', async () => {
   on('slideNewBtn', 'click', clearSlideForm);
   on('slideDeleteBtn', 'click', deleteSlide);
   on('slideSaveBtn', 'click', saveSlide);
+  ['slide_business_select','slide_promo_enabled','slide_home_fixed','slide_home_fixed_sort','slide_promo_text','slide_promo_image_url','slide_video_url','slide_link_url','slide_start_at','slide_end_at'].forEach((id) => {
+    on(id, 'input', markSlideFormDirty);
+    on(id, 'change', markSlideFormDirty);
+  });
   on('slide_business_select', 'change', () => {
-    const row = businesses.find((b) => String(b.id) === String(val('slide_business_select')));
-    if (row) fillSlideForm(row);
+    const businessId = val('slide_business_select') || '';
+    const row = businesses.find((b) => String(b.id) === String(businessId));
+
+    // 연결 업소 변경은 현재 슬라이드 편집 내용을 유지해야 한다.
+    // 기존에는 business row를 fillSlideForm()에 넘겨 새 슬라이드 모드로 초기화되는 문제가 있었다.
+    setVal('slide_business_id', businessId);
+    selectedSlideBusinessId = businessId || null;
+
+    if (selectedSlideId) {
+      const currentSlide = slideById(selectedSlideId);
+      const label = row?.name_ko || row?.name_en || '업소 미연결';
+      safeText('slideFormTitle', `슬라이드 수정 · ${currentSlide?.promo_text || label}`);
+      setSlideFormMode('edit', true);
+    } else {
+      const label = row?.name_ko || row?.name_en || '독립 슬라이드';
+      safeText('slideFormTitle', `새 슬라이드 · ${label}`);
+      setSlideFormMode('new', true);
+    }
   });
 }
 
