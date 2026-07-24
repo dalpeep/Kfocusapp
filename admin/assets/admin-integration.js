@@ -162,7 +162,12 @@
     });
 
     const liveTodayCoupons = regionalCoupons.filter(c => c.is_today_coupon === true && rangeState(c,'start_at','end_at',c.is_active !== false) === 'live');
-    const liveSlides = regionalSlides.filter(s => s.home_fixed === true && rangeState(s,'promo_start_at','promo_end_at',s.promo_enabled === true) === 'live').sort((a,b)=>(a.home_fixed_sort ?? 1000)-(b.home_fixed_sort ?? 1000));
+    // Public homepage uses every active slide within its publish period.
+    // `home_fixed` only affects slide type/order and must not be required for exposure.
+    const liveSlides = regionalSlides.filter(s =>
+      rangeState(s,'promo_start_at','promo_end_at',s.promo_enabled === true) === 'live' &&
+      !!String(s.promo_image_url || s.video_url || '').trim()
+    ).sort((a,b)=>(a.home_fixed_sort ?? 1000)-(b.home_fixed_sort ?? 1000) || String(b.created_at || '').localeCompare(String(a.created_at || '')));
     const liveDalpicks = regionalDalpicks.filter(d => {
       const status = String(d.status || '').toLowerCase();
       if (rangeState(d,'start_at','end_at',d.is_active !== false && status !== 'draft' && status !== 'inactive') !== 'live') return false;
