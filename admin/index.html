@@ -810,16 +810,46 @@
       </section>
 
 <section id="section-adsOps" class="admin-section hidden">
-  <h2>광고 운영</h2>
+  <section class="card ads-hero">
+    <div>
+      <span class="crm-kicker">Operations · Ad Scheduling</span>
+      <h2>광고 편성 센터</h2>
+      <p class="muted">추천·신규·인기 광고를 한 화면에서 확인하고 여러 업소를 한 번에 편성합니다.</p>
+    </div>
+    <div class="ads-hero-actions">
+      <button id="adsRefreshBtn" class="btn secondary" type="button">새로고침</button>
+      <button id="adsPreviewBtn" class="btn primary" type="button">오늘 로테이션 보기</button>
+    </div>
+  </section>
 
-  <div class="admin-tabs">
-    <button type="button" onclick="loadAdsOps()">유료 업소 현황</button>
-    <button type="button" onclick="previewRotation()">오늘 로테이션 미리보기</button>
-  </div>
+  <div id="adsOpsSummary" class="ads-summary-grid"></div>
 
-  <div id="adsOpsSummary"></div>
-  <div id="adsOpsList"></div>
-  <div id="rotationPreview"></div>
+  <section class="card ads-bulk-card">
+    <div class="panel-head"><div><h2>선택 업소 일괄 편성</h2><p class="muted">체크한 업소의 광고 그룹과 유료 광고 설정을 동시에 변경합니다.</p></div><span id="adsSelectedCount" class="pill">0개 선택</span></div>
+    <div class="ads-bulk-grid">
+      <label class="field compact"><span>광고 그룹</span><select id="adsBulkGroup"><option value="keep">변경 안 함</option><option value="featured">추천</option><option value="new">신규</option><option value="popular">인기</option><option value="none">그룹 해제</option></select></label>
+      <label class="field compact"><span>유료 광고</span><select id="adsBulkPaid"><option value="keep">변경 안 함</option><option value="on">켜기</option><option value="off">끄기</option></select></label>
+      <label class="field compact"><span>광고 상품</span><select id="adsBulkProduct"><option value="keep">변경 안 함</option><option value="none">없음</option><option value="basic">Basic</option><option value="premium">Premium</option></select></label>
+      <label class="field compact"><span>노출 가중치</span><input id="adsBulkWeight" type="number" min="1" placeholder="변경 안 함"></label>
+      <label class="field compact"><span>시작일</span><input id="adsBulkStart" type="date"></label>
+      <label class="field compact"><span>종료일</span><input id="adsBulkEnd" type="date"></label>
+      <label class="field compact"><span>자동 로테이션</span><select id="adsBulkRotation"><option value="keep">변경 안 함</option><option value="on">켜기</option><option value="off">끄기</option></select></label>
+      <button id="adsBulkApplyBtn" class="btn primary" type="button">선택 업소에 적용</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="ads-toolbar">
+      <label class="field compact"><span>업소 검색</span><input id="adsSearch" type="search" placeholder="업소명·지역·업종"></label>
+      <label class="field compact"><span>광고 그룹</span><select id="adsGroupFilter"><option value="all">전체</option><option value="featured">추천</option><option value="new">신규</option><option value="popular">인기</option><option value="none">그룹 없음</option></select></label>
+      <label class="field compact"><span>상태</span><select id="adsStatusFilter"><option value="all">전체</option><option value="active">게시 중</option><option value="scheduled">예약</option><option value="expired">종료</option><option value="unpaid">유료 광고 아님</option></select></label>
+      <button id="adsSelectVisibleBtn" class="btn ghost" type="button">현재 목록 전체 선택</button>
+      <button id="adsClearSelectionBtn" class="btn ghost" type="button">선택 해제</button>
+    </div>
+    <div id="adsOpsList"></div>
+  </section>
+
+  <section id="rotationPreview" class="ads-rotation-grid"></section>
 </section>
 <section id="section-banners" class="admin-section">
   <section class="toolbar card">
