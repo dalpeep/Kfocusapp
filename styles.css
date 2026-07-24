@@ -4785,3 +4785,58 @@ body.map-page-open #page-map .map-location-btn{
     width:calc(100% - 60px);
   }
 }
+
+
+/* ===== v25.4 Current-location bubble with integrated locate button ===== */
+body.map-page-open #page-map .map-location-btn{
+  display:none!important;
+}
+body.map-page-open #page-map .map-search-row{
+  display:block;
+}
+body.map-page-open #page-map .map-search-input{
+  width:100%!important;
+}
+.current-location-map-bubble{
+  overflow:hidden;
+  padding:0!important;
+  height:38px!important;
+  border-radius:20px!important;
+}
+.current-location-map-bubble__status{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  height:100%;
+  padding:0 10px 0 12px;
+}
+.current-location-map-bubble__locate{
+  width:40px;
+  height:38px;
+  min-width:40px;
+  padding:0;
+  border:0;
+  border-left:1px solid #d6e2f4;
+  background:#eef5ff;
+  color:#2457a7;
+  display:grid;
+  place-items:center;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.current-location-map-bubble__locate:active{
+  background:#dfeaff;
+}
+@media (max-width:480px){
+  .current-location-map-bubble{
+    height:40px!important;
+    border-radius:21px!important;
+  }
+  .current-location-map-bubble__locate{
+    width:42px;
+    min-width:42px;
+    height:40px;
+  }
+}
