@@ -4979,35 +4979,45 @@ async function publishNewsroom(){
   const {error:updateError}=await supabase.from('newsroom_items').update({status:'published',published_post_id:postId,published_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',selectedNewsroomId);if(updateError)alert(`기사는 게시됐지만 뉴스룸 상태 저장 실패: ${updateError.message}`);else alert(`${newsroomLabel(dest)}에 게시했습니다.`);await Promise.all([loadBoards(),loadNewsroom()]);
 }
 async function excludeNewsroom(){if(!selectedNewsroomId)return;if(!confirm('이 소식을 제외 처리할까요?'))return;await supabase.from('newsroom_items').update({destination:'exclude',status:'excluded',reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',selectedNewsroomId);await loadNewsroom();qs('newsroomForm').hidden=true;qs('newsroomEmpty').hidden=false;selectedNewsroomId=null;}
-async function collectNewsroom(){const btn=qs('newsroomCollectBtn');const old=btn.textContent;btn.disabled=true;btn.textContent='공식 소식 수집 중…';safeText('newsroomStatus','최근 24시간 공식 자료만 수집하고 있습니다. AI 분류와 기사 작성은 다음 단계에서 실행합니다.');try{const res=await fetch('/.netlify/functions/collect-newsroom',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({region:getAppRegion(),manual:true})});const json=await res.json();if(!res.ok)throw new Error(json.error||'수집 실패');alert(`${json.inserted||0}건을 원문 후보로 수집했습니다.${json.skipped?` 중복 ${json.skipped}건 제외`:''} 이제 AI 분류를 실행하세요.`);await loadNewsroom();}catch(e){alert(`뉴스 수집 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{btn.disabled=false;btn.textContent=old;}}
-
-async function newsroomFunctionCall(name, body, busyText){
-  safeText('newsroomStatus',busyText);
-  const res=await fetch(`/.netlify/functions/${name}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  let json={};try{json=await res.json();}catch(_){throw new Error(`서버 응답을 읽지 못했습니다. (${res.status})`);}
-  if(!res.ok)throw new Error(json.error||`${name} 실행 실패`);
+async function newsroomEdgeCall(action, body={}, busyText=''){
+  if(busyText)safeText('newsroomStatus',busyText);
+  const cfg=window.KFOCUS_CONFIG||{};
+  if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY)throw new Error('config.js의 Supabase 설정을 확인하세요.');
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session?.access_token)throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
+  const res=await fetch(`${cfg.SUPABASE_URL.replace(/\/$/,'')}/functions/v1/newsroom`,{
+    method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`},
+    body:JSON.stringify({action,...body})
+  });
+  const text=await res.text();let json={};
+  try{json=text?JSON.parse(text):{};}catch(_){throw new Error(`Supabase Edge Function이 JSON이 아닌 응답을 반환했습니다 (${res.status}): ${text.replace(/\s+/g,' ').slice(0,160)}`);}
+  if(!res.ok)throw new Error(json.error||`뉴스룸 ${action} 실행 실패 (${res.status})`);
   return json;
 }
+async function loadNewsroomSettings(){try{const json=await newsroomEdgeCall('get_settings',{region:getAppRegion()});const el=qs('newsroomAutoEnabled');if(el)el.checked=json.settings?.auto_enabled!==false;safeText('newsroomAutoBadge',el?.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');}catch(e){safeText('newsroomAutoBadge','자동 수집 설정 확인 필요');console.warn(e);}}
+async function saveNewsroomAutoSetting(){const el=qs('newsroomAutoEnabled');if(!el)return;try{await newsroomEdgeCall('save_settings',{region:getAppRegion(),auto_enabled:el.checked},'자동 수집 설정을 저장하고 있습니다…');safeText('newsroomAutoBadge',el.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');safeText('newsroomStatus',el.checked?'매일 오전 자동 수집을 사용합니다.':'자동 수집을 중지했습니다. 수동 수집은 계속 사용할 수 있습니다.');}catch(e){el.checked=!el.checked;alert(`자동 수집 설정 실패: ${e.message}`);}}
+async function collectNewsroom(){
+  const btn=qs('newsroomCollectBtn'),old=btn.textContent;btn.disabled=true;btn.textContent='수집 중…';
+  try{const json=await newsroomEdgeCall('collect',{region:getAppRegion(),manual:true},'Supabase Edge Function에서 최근 공식 자료를 수집하고 있습니다…');alert(`${json.inserted||0}건의 새 원문 후보를 저장했습니다.${json.skipped?` 중복·제외 ${json.skipped}건`:''}`);safeText('newsroomStatus',`${json.inserted||0}건 수집 완료`);await loadNewsroom();}
+  catch(e){alert(`뉴스 수집 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{btn.disabled=false;btn.textContent=old;}
+}
 async function analyzeNewsroomItem(id=selectedNewsroomId){
-  if(!id)return alert('분류할 소식을 먼저 선택하세요.');
-  const btn=qs('newsroomAnalyzeBtn');if(btn)btn.disabled=true;
-  try{const json=await newsroomFunctionCall('analyze-newsroom',{id,region:getAppRegion()},'선택한 소식의 목적지·신뢰도·관련 업종을 분석하고 있습니다.');alert(`${json.analyzed||0}건을 AI 분류했습니다.`);await loadNewsroom();const row=newsroomItems.find(x=>String(x.id)===String(id));if(row)fillNewsroom(row);}catch(e){alert(`AI 분류 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
+  if(!id)return alert('분류할 소식을 먼저 선택하세요.');const btn=qs('newsroomAnalyzeBtn');if(btn)btn.disabled=true;
+  try{const json=await newsroomEdgeCall('analyze',{id,region:getAppRegion()},'선택한 소식의 목적지·신뢰도·관련 업종을 분석하고 있습니다.');alert(`${json.analyzed||0}건을 AI 분류했습니다.`);await loadNewsroom();const row=newsroomItems.find(x=>String(x.id)===String(id));if(row)fillNewsroom(row);}catch(e){alert(`AI 분류 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
 }
 async function analyzeCollectedNewsroom(){
   const btn=qs('newsroomAnalyzeAllBtn');if(btn)btn.disabled=true;
-  try{const json=await newsroomFunctionCall('analyze-newsroom',{region:getAppRegion(),limit:10},'수집 대기 항목을 최대 10건씩 AI 분류하고 있습니다.');alert(`${json.analyzed||0}건을 분류했습니다.${json.excluded?` 제외 ${json.excluded}건`:''}`);await loadNewsroom();}catch(e){alert(`AI 일괄 분류 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
+  try{const json=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:10},'수집 대기 항목을 최대 10건씩 AI 분류하고 있습니다.');alert(`${json.analyzed||0}건을 분류했습니다.${json.excluded?` 제외 ${json.excluded}건`:''}`);await loadNewsroom();}catch(e){alert(`AI 일괄 분류 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
 }
 async function draftNewsroomItem(){
-  if(!selectedNewsroomId)return alert('작성할 소식을 먼저 선택하세요.');
-  const row=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(row?.status==='collected'){alert('먼저 AI 분류를 실행하세요.');return;}
-  const btn=qs('newsroomDraftBtn');if(btn)btn.disabled=true;
-  try{await newsroomFunctionCall('draft-newsroom',{id:selectedNewsroomId},'선택한 자료로 한국어 기사 초안을 작성하고 있습니다.');alert('한국어 기사 초안을 작성했습니다.');await loadNewsroom();const updated=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(updated)fillNewsroom(updated);}catch(e){alert(`기사 작성 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
+  if(!selectedNewsroomId)return alert('작성할 소식을 먼저 선택하세요.');const row=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(row?.status==='collected'){alert('먼저 AI 분류를 실행하세요.');return;}const btn=qs('newsroomDraftBtn');if(btn)btn.disabled=true;
+  try{await newsroomEdgeCall('draft',{id:selectedNewsroomId},'선택한 자료로 한국어 기사 초안을 작성하고 있습니다.');alert('한국어 기사 초안을 작성했습니다.');await loadNewsroom();const updated=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(updated)fillNewsroom(updated);}catch(e){alert(`기사 작성 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
 }
 
 function initNewsroom(){
   const nav=qs('adminNav');if(!nav||!qs('section-newsroom'))return;
-  qs('newsroomCollectBtn')?.addEventListener('click',collectNewsroom);qs('newsroomAnalyzeAllBtn')?.addEventListener('click',analyzeCollectedNewsroom);qs('newsroomAnalyzeBtn')?.addEventListener('click',()=>analyzeNewsroomItem());qs('newsroomDraftBtn')?.addEventListener('click',draftNewsroomItem);qs('newsroomRefreshBtn')?.addEventListener('click',loadNewsroom);qs('newsroomSearch')?.addEventListener('input',renderNewsroom);qs('newsroomDestinationFilter')?.addEventListener('change',renderNewsroom);qs('newsroomSourceFilter')?.addEventListener('change',renderNewsroom);qs('newsroomDestination')?.addEventListener('change',updateNewsroomSpecialBoxes);qs('newsroomSaveReviewBtn')?.addEventListener('click',()=>saveNewsroomReview());qs('newsroomExcludeBtn')?.addEventListener('click',excludeNewsroom);qs('newsroomPublishBtn')?.addEventListener('click',publishNewsroom);qs('newsroomRecommendBusinessesBtn')?.addEventListener('click',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses({...r,selected_business_ids:newsroomSelectedBusinessIds()});});
+  qs('newsroomCollectBtn')?.addEventListener('click',collectNewsroom);qs('newsroomAutoEnabled')?.addEventListener('change',saveNewsroomAutoSetting);qs('newsroomAnalyzeAllBtn')?.addEventListener('click',analyzeCollectedNewsroom);qs('newsroomAnalyzeBtn')?.addEventListener('click',()=>analyzeNewsroomItem());qs('newsroomDraftBtn')?.addEventListener('click',draftNewsroomItem);qs('newsroomRefreshBtn')?.addEventListener('click',loadNewsroom);qs('newsroomSearch')?.addEventListener('input',renderNewsroom);qs('newsroomDestinationFilter')?.addEventListener('change',renderNewsroom);qs('newsroomSourceFilter')?.addEventListener('change',renderNewsroom);qs('newsroomDestination')?.addEventListener('change',updateNewsroomSpecialBoxes);qs('newsroomSaveReviewBtn')?.addEventListener('click',()=>saveNewsroomReview());qs('newsroomExcludeBtn')?.addEventListener('click',excludeNewsroom);qs('newsroomPublishBtn')?.addEventListener('click',publishNewsroom);qs('newsroomRecommendBusinessesBtn')?.addEventListener('click',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses({...r,selected_business_ids:newsroomSelectedBusinessIds()});});
   $$('.newsroom-filter').forEach(b=>b.addEventListener('click',()=>{$$('.newsroom-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');newsroomStatusFilter=b.dataset.status;renderNewsroom();}));
-  loadNewsroom();
+  loadNewsroom();loadNewsroomSettings();
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(initNewsroom,1400));

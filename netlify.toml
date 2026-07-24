@@ -27,7 +27,3 @@
   for = "/category/*"
   [headers.values]
     X-Robots-Tag = "index, follow"
-
-# v32 Dallas newsroom: 11:00 UTC = 6:00 AM Central during daylight saving time
-[functions."collect-newsroom"]
-schedule = "0 11 * * *"
