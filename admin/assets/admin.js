@@ -455,6 +455,41 @@ function adsFilteredRows(){
     return (!q||hay.includes(q)) && (group==='all'||adsGroupOf(b)===group) && (status==='all'||adsStatusOf(b)===status);
   });
 }
+function setAdsCenterTab(tab){
+  const target = ['overview','schedule','rotation','ending'].includes(tab) ? tab : 'overview';
+  document.querySelectorAll('.ads-center-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.adsTab===target));
+  document.querySelectorAll('.ads-center-panel').forEach(panel=>panel.classList.toggle('hidden', panel.dataset.adsPanel!==target));
+  if(target==='rotation') previewRotation();
+  if(target==='ending') renderAdsEndingList();
+}
+function renderAdsOverviewGroups(){
+  const host=document.querySelector('#adsOverviewGroups');
+  if(!host)return;
+  const active=adsOpsRows.filter(b=>adsStatusOf(b)==='active');
+  host.innerHTML=['featured','new','popular'].map(group=>{
+    const rows=active.filter(b=>adsGroupOf(b)===group);
+    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">현재 ${rows.length}개 업체</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>`<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small>가중치 ${esc(b.paid_weight||1)} · ${b.rotation_enabled===false?'고정':'자동 로테이션'}</small></div>`).join('')}</div>`:'<p class="dashboard-empty">편성된 업체가 없습니다.</p>'}</article>`;
+  }).join('');
+  host.querySelectorAll('.ads-overview-edit').forEach(btn=>btn.onclick=()=>{
+    const filter=document.querySelector('#adsGroupFilter'); if(filter)filter.value=btn.dataset.group;
+    setAdsCenterTab('schedule'); renderAdsOpsList();
+  });
+}
+function renderAdsEndingList(){
+  const host=document.querySelector('#adsEndingList');
+  if(!host)return;
+  const now=new Date(`${todayKey()}T00:00:00`);
+  const rows=adsOpsRows.filter(b=>b.paid_active&&b.paid_end_at).map(b=>{
+    const end=new Date(`${String(b.paid_end_at).slice(0,10)}T00:00:00`);
+    return {...b,_days:Math.round((end-now)/86400000)};
+  }).filter(b=>b._days<=7).sort((a,b)=>a._days-b._days);
+  host.innerHTML=rows.length?`<div class="ads-ending-list">${rows.map(b=>`<div class="ads-ending-item"><div><b>${esc(b.name_ko||b.name_en||'')}</b><span>${adsGroupLabel(adsGroupOf(b))} · ${esc(b.paid_product||'상품 없음')}</span></div><div><strong class="${b._days<0?'danger':b._days===0?'warning':''}">${b._days<0?`${Math.abs(b._days)}일 지남`:b._days===0?'오늘 종료':`${b._days}일 후 종료`}</strong><small>${esc(String(b.paid_end_at).slice(0,10))}</small></div><button class="btn ghost ads-ending-edit" data-id="${esc(b.id)}" type="button">편성 열기</button></div>`).join('')}</div>`:'<p class="dashboard-empty">7일 안에 종료되는 광고가 없습니다.</p>';
+  host.querySelectorAll('.ads-ending-edit').forEach(btn=>btn.onclick=()=>{
+    const q=document.querySelector('#adsSearch'); const row=adsOpsRows.find(b=>String(b.id)===String(btn.dataset.id));
+    if(q&&row)q.value=row.name_ko||row.name_en||'';
+    setAdsCenterTab('schedule'); renderAdsOpsList();
+  });
+}
 function renderAdsSummary(){
   const active=adsOpsRows.filter(b=>adsStatusOf(b)==='active');
   const groups=['featured','new','popular'];
@@ -465,7 +500,7 @@ function renderAdsSummary(){
   }).join('');
   const paid=active.length, ending=active.filter(b=>b.paid_end_at&&String(b.paid_end_at).slice(0,10)<=todayKey()).length;
   document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 유료 광고</span><strong>${paid}</strong><small>오늘 종료 ${ending}개</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
-  document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{document.querySelector('#adsGroupFilter').value=btn.dataset.adsGroup;renderAdsOpsList();});
+  document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{document.querySelector('#adsGroupFilter').value=btn.dataset.adsGroup;setAdsCenterTab('schedule');renderAdsOpsList();});
 }
 function renderAdsOpsList(){
   const rows=adsFilteredRows();
@@ -480,7 +515,7 @@ function updateAdsSelectedCount(){safeText('adsSelectedCount',`${adsSelectedIds.
 async function loadAdsOps(){
   const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,is_featured,is_new,is_popular').eq('region',getAppRegion()).order('name_ko',{ascending:true});
   if(error)return alert(error.message);
-  adsOpsRows=data||[];renderAdsSummary();renderAdsOpsList();document.querySelector('#rotationPreview').innerHTML='';
+  adsOpsRows=data||[];renderAdsSummary();renderAdsOverviewGroups();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
 }
 async function applyAdsBulk(){
   if(!adsSelectedIds.size)return alert('변경할 업소를 선택하세요.');
@@ -516,13 +551,16 @@ async function previewRotation(){
 }
 function initAdsOpsCenter(){
   document.querySelector('#adsRefreshBtn')?.addEventListener('click',loadAdsOps);
-  document.querySelector('#adsPreviewBtn')?.addEventListener('click',previewRotation);
+  document.querySelector('#adsPreviewBtn')?.addEventListener('click',()=>{setAdsCenterTab('rotation');previewRotation();});
+  document.querySelector('#adsPreviewBtnInline')?.addEventListener('click',previewRotation);
+  document.querySelectorAll('.ads-center-tab').forEach(btn=>btn.addEventListener('click',()=>setAdsCenterTab(btn.dataset.adsTab)));
+  document.querySelectorAll('[data-open-ads-tab]').forEach(btn=>btn.addEventListener('click',()=>setAdsCenterTab(btn.dataset.openAdsTab)));
   document.querySelector('#adsBulkApplyBtn')?.addEventListener('click',applyAdsBulk);
   ['adsSearch','adsGroupFilter','adsStatusFilter'].forEach(id=>document.querySelector('#'+id)?.addEventListener(id==='adsSearch'?'input':'change',renderAdsOpsList));
   document.querySelector('#adsSelectVisibleBtn')?.addEventListener('click',()=>{adsFilteredRows().forEach(b=>adsSelectedIds.add(String(b.id)));renderAdsOpsList();});
   document.querySelector('#adsClearSelectionBtn')?.addEventListener('click',()=>{adsSelectedIds.clear();renderAdsOpsList();});
 }
-window.loadAdsOps=loadAdsOps;window.previewRotation=previewRotation;
+window.loadAdsOps=loadAdsOps;window.previewRotation=previewRotation;window.setAdsCenterTab=setAdsCenterTab;
 document.addEventListener('DOMContentLoaded',initAdsOpsCenter);
 
 async function uploadDescriptionImage(){
