@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
-  <link rel="stylesheet" href="assets/admin.css?v=27.2.0" />
+  <link rel="stylesheet" href="assets/admin.css?v=27.4.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=27.2.0"></script>
+  <script type="module" src="assets/admin.js?v=27.4.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -854,6 +854,8 @@
     </section>
 
     <section class="card">
+      <div class="ads-category-head"><div><h3>카테고리별 광고 편성</h3><p class="muted">카테고리를 선택한 뒤 각 업소의 추천·신규·인기 버튼을 눌러 즉시 변경합니다.</p></div></div>
+      <div id="adsCategoryChips" class="ads-category-chips" aria-label="업소 카테고리"></div>
       <div class="ads-toolbar">
         <label class="field compact"><span>업소 검색</span><input id="adsSearch" type="search" placeholder="업소명·지역·업종"></label>
         <label class="field compact"><span>광고 그룹</span><select id="adsGroupFilter"><option value="all">전체</option><option value="featured">추천</option><option value="new">신규</option><option value="popular">인기</option><option value="none">그룹 없음</option></select></label>
