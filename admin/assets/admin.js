@@ -428,59 +428,103 @@ function pickRotation(list, section, limit = 6){
     .slice(0, limit);
 }
 
-async function loadAdsOps(){
-  const { data, error } = await supabase
-    .from('businesses')
-    .select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active')
-    .order('paid_active', { ascending:false });
+let adsOpsRows = [];
+let adsSelectedIds = new Set();
 
-  if(error) return alert(error.message);
-
-  const paid = (data || []).filter(isPaidBusinessActive);
-
-  document.querySelector('#adsOpsSummary').innerHTML = `
-    <div class="admin-card">
-      <h3>광고 운영 요약</h3>
-      <p><b>현재 유료 활성 업소:</b> ${paid.length}개</p>
-      <p><b>월 목표:</b> 100개 × $100 = $10,000</p>
-      <p><b>추천/신규/인기:</b> 각 6개, 총 18개 자동 노출</p>
-    </div>
-  `;
-
-  document.querySelector('#adsOpsList').innerHTML = `
-    <h3>유료 업소 목록</h3>
-    <table class="request-table">
-      <thead>
-        <tr>
-          <th>업소명</th>
-          <th>지역</th>
-          <th>상품</th>
-          <th>가중치</th>
-          <th>시작일</th>
-          <th>종료일</th>
-          <th>로테이션</th>
-          <th>상태</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${(data || []).filter(b => b.paid_active).map(b => `
-          <tr>
-            <td>${esc(b.name_ko || b.name_en || '')}</td>
-            <td>${esc(b.area || '')}</td>
-            <td>${esc(b.paid_product || 'basic')}</td>
-            <td>${esc(b.paid_weight || 1)}</td>
-            <td>${esc(b.paid_start_at || '')}</td>
-            <td>${esc(b.paid_end_at || '')}</td>
-            <td>${b.rotation_enabled === false ? 'OFF' : 'ON'}</td>
-            <td>${isPaidBusinessActive(b) ? '활성' : '비활성/기간외'}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
-  `;
-
-  document.querySelector('#rotationPreview').innerHTML = '';
+function adsGroupOf(b){
+  if(b.is_featured) return 'featured';
+  if(b.is_new) return 'new';
+  if(b.is_popular) return 'popular';
+  return 'none';
 }
+function adsGroupLabel(group){return ({featured:'추천',new:'신규',popular:'인기',none:'없음'})[group]||group;}
+function adsStatusOf(b){
+  const today=todayKey();
+  if(!b.paid_active) return 'unpaid';
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>today) return 'scheduled';
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<today) return 'expired';
+  return 'active';
+}
+function adsStatusLabel(v){return ({active:'게시 중',scheduled:'예약',expired:'종료',unpaid:'일반'})[v]||v;}
+function adsFilteredRows(){
+  const q=(document.querySelector('#adsSearch')?.value||'').trim().toLowerCase();
+  const group=document.querySelector('#adsGroupFilter')?.value||'all';
+  const status=document.querySelector('#adsStatusFilter')?.value||'all';
+  return adsOpsRows.filter(b=>{
+    const hay=[b.name_ko,b.name_en,b.area,b.category_ko].filter(Boolean).join(' ').toLowerCase();
+    return (!q||hay.includes(q)) && (group==='all'||adsGroupOf(b)===group) && (status==='all'||adsStatusOf(b)===status);
+  });
+}
+function renderAdsSummary(){
+  const active=adsOpsRows.filter(b=>adsStatusOf(b)==='active');
+  const groups=['featured','new','popular'];
+  const cards=groups.map(g=>{
+    const rows=active.filter(b=>adsGroupOf(b)===g);
+    const names=rows.slice(0,5).map(b=>esc(b.name_ko||b.name_en||'')).join(' · ');
+    return `<article class="card ads-summary-card"><span>${adsGroupLabel(g)} 광고</span><strong>${rows.length}</strong><small>${names||'편성된 업소 없음'}</small><button class="ads-summary-filter" data-ads-group="${g}" type="button">목록 보기</button></article>`;
+  }).join('');
+  const paid=active.length, ending=active.filter(b=>b.paid_end_at&&String(b.paid_end_at).slice(0,10)<=todayKey()).length;
+  document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 유료 광고</span><strong>${paid}</strong><small>오늘 종료 ${ending}개</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
+  document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{document.querySelector('#adsGroupFilter').value=btn.dataset.adsGroup;renderAdsOpsList();});
+}
+function renderAdsOpsList(){
+  const rows=adsFilteredRows();
+  const host=document.querySelector('#adsOpsList');
+  if(!host)return;
+  host.innerHTML=`<div class="ads-table-wrap"><table class="request-table ads-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹</th><th>유료</th><th>상품</th><th>가중치</th><th>기간</th><th>로테이션</th><th>상태</th></tr></thead><tbody>${rows.map(b=>`<tr><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small></td><td><span class="ads-group-tag ${adsGroupOf(b)}">${adsGroupLabel(adsGroupOf(b))}</span></td><td>${b.paid_active?'예':'아니오'}</td><td>${esc(b.paid_product||'없음')}</td><td>${esc(b.paid_weight||1)}</td><td>${esc(b.paid_start_at||'—')} ~ ${esc(b.paid_end_at||'—')}</td><td>${b.rotation_enabled===false?'OFF':'ON'}</td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td></tr>`).join('')}</tbody></table></div>`;
+  host.querySelectorAll('.ads-row-check').forEach(ch=>ch.onchange=()=>{const id=String(ch.dataset.id);ch.checked?adsSelectedIds.add(id):adsSelectedIds.delete(id);updateAdsSelectedCount();});
+  const all=host.querySelector('#adsToggleAll');if(all)all.onchange=()=>{rows.forEach(b=>all.checked?adsSelectedIds.add(String(b.id)):adsSelectedIds.delete(String(b.id)));renderAdsOpsList();updateAdsSelectedCount();};
+  updateAdsSelectedCount();
+}
+function updateAdsSelectedCount(){safeText('adsSelectedCount',`${adsSelectedIds.size}개 선택`);}
+async function loadAdsOps(){
+  const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,is_featured,is_new,is_popular').eq('region',getAppRegion()).order('name_ko',{ascending:true});
+  if(error)return alert(error.message);
+  adsOpsRows=data||[];renderAdsSummary();renderAdsOpsList();document.querySelector('#rotationPreview').innerHTML='';
+}
+async function applyAdsBulk(){
+  if(!adsSelectedIds.size)return alert('변경할 업소를 선택하세요.');
+  const group=document.querySelector('#adsBulkGroup').value;
+  const paid=document.querySelector('#adsBulkPaid').value;
+  const product=document.querySelector('#adsBulkProduct').value;
+  const rotation=document.querySelector('#adsBulkRotation').value;
+  const weight=document.querySelector('#adsBulkWeight').value;
+  const start=document.querySelector('#adsBulkStart').value;
+  const end=document.querySelector('#adsBulkEnd').value;
+  const payload={};
+  if(group!=='keep'){
+    payload.is_featured=group==='featured';payload.is_new=group==='new';payload.is_popular=group==='popular';
+  }
+  if(paid!=='keep')payload.paid_active=paid==='on';
+  if(product!=='keep')payload.paid_product=product==='none'?null:product;
+  if(rotation!=='keep')payload.rotation_enabled=rotation==='on';
+  if(weight!=='')payload.paid_weight=Math.max(1,Number(weight)||1);
+  if(start)payload.paid_start_at=start;
+  if(end)payload.paid_end_at=end;
+  if(!Object.keys(payload).length)return alert('변경할 항목을 선택하세요.');
+  if(!confirm(`${adsSelectedIds.size}개 업소의 광고 설정을 변경합니다. 계속할까요?`))return;
+  const ids=[...adsSelectedIds];
+  const {error}=await supabase.from('businesses').update(payload).in('id',ids);
+  if(error)return alert(`일괄 변경 실패: ${error.message}`);
+  adsSelectedIds.clear();await loadAdsOps();await loadBusinesses();alert('광고 편성이 변경되었습니다.');
+}
+async function previewRotation(){
+  const active=adsOpsRows.filter(isPaidBusinessActive).filter(b=>b.rotation_enabled!==false);
+  const sectionRows={featured:active.filter(b=>b.is_featured),new:active.filter(b=>b.is_new),popular:active.filter(b=>b.is_popular)};
+  const render=(key)=>{const rows=pickRotation(sectionRows[key],key,6);return `<article class="card"><div class="panel-head"><h3>${adsGroupLabel(key)}</h3><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map(b=>`<li><b>${esc(b.name_ko||b.name_en||'')}</b><span>가중치 ${esc(b.paid_weight||1)}</span></li>`).join('')}</ol>`:'<p class="muted">노출 대상이 없습니다.</p>'}</article>`;};
+  document.querySelector('#rotationPreview').innerHTML=`<div class="ads-preview-title"><h2>오늘 로테이션 미리보기</h2><span>${todayKey()} · 그룹별 최대 6개</span></div>${render('featured')}${render('new')}${render('popular')}`;
+}
+function initAdsOpsCenter(){
+  document.querySelector('#adsRefreshBtn')?.addEventListener('click',loadAdsOps);
+  document.querySelector('#adsPreviewBtn')?.addEventListener('click',previewRotation);
+  document.querySelector('#adsBulkApplyBtn')?.addEventListener('click',applyAdsBulk);
+  ['adsSearch','adsGroupFilter','adsStatusFilter'].forEach(id=>document.querySelector('#'+id)?.addEventListener(id==='adsSearch'?'input':'change',renderAdsOpsList));
+  document.querySelector('#adsSelectVisibleBtn')?.addEventListener('click',()=>{adsFilteredRows().forEach(b=>adsSelectedIds.add(String(b.id)));renderAdsOpsList();});
+  document.querySelector('#adsClearSelectionBtn')?.addEventListener('click',()=>{adsSelectedIds.clear();renderAdsOpsList();});
+}
+window.loadAdsOps=loadAdsOps;window.previewRotation=previewRotation;
+document.addEventListener('DOMContentLoaded',initAdsOpsCenter);
+
 async function uploadDescriptionImage(){
   const file = document.getElementById('descriptionImageFile')?.files?.[0];
   if(!file) return alert('이미지를 선택하세요.');
@@ -500,37 +544,7 @@ async function uploadDescriptionImage(){
 }
 
 window.uploadDescriptionImage = uploadDescriptionImage;
-async function previewRotation(){
-  const { data, error } = await supabase
-    .from('businesses')
-    .select('*')
-    .eq('is_active', true);
-
-  if(error) return alert(error.message);
-
-  const featured = pickRotation(data || [], 'featured', 6);
-  const newest = pickRotation(data || [], 'new', 6);
-  const popular = pickRotation(data || [], 'popular', 6);
-
-  const renderList = (title, rows) => `
-    <div class="admin-card">
-      <h3>${title}</h3>
-      ${rows.length ? rows.map((b,i) => `
-        <p>${i + 1}. ${esc(b.name_ko || b.name_en || '')} / ${esc(b.paid_product || 'basic')} / weight ${esc(b.paid_weight || 1)}</p>
-      `).join('') : '<p>노출 대상이 없습니다.</p>'}
-    </div>
-  `;
-
-  document.querySelector('#rotationPreview').innerHTML = `
-    <h3>오늘 로테이션 미리보기 (${todayKey()})</h3>
-    ${renderList('추천', featured)}
-    ${renderList('신규', newest)}
-    ${renderList('인기', popular)}
-  `;
-}
-
-window.loadAdsOps = loadAdsOps;
-window.previewRotation = previewRotation;
+// v26: legacy duplicate previewRotation removed; advertising center implementation above is canonical.
 
 function renderPager(target, page, total, fnName){
   const totalPages = Math.ceil(total / REQUEST_PAGE_SIZE);
@@ -4248,7 +4262,8 @@ function initDalpickTopicFirstWorkflow(){
   }else dpSetWorkflowReady(false);
 }
 
-document.addEventListener('DOMContentLoaded',()=>setTimeout(initContentStudioV21,500));
+// v25.7: legacy duplicate AI Content Studio menu disabled; unified AI Studio remains active.
+// document.addEventListener('DOMContentLoaded',()=>setTimeout(initContentStudioV21,500));
 document.addEventListener('DOMContentLoaded',()=>setTimeout(initDalpickTopicFirstWorkflow,650));
 window.initDalpickTopicFirstWorkflow=initDalpickTopicFirstWorkflow;
 window.initContentStudioV21=initContentStudioV21;
