@@ -4669,7 +4669,7 @@ body.map-page-open #page-map .map-bottom-panel{
 @media (max-width: 480px){
   /* Keep the map counter card visually separate from the fixed app navigation. */
   body.map-page-open #page-map .map-bottom-panel{
-    bottom:calc(96px + env(safe-area-inset-bottom))!important;
+    bottom:calc(76px + env(safe-area-inset-bottom))!important;
     left:12px!important;
     right:12px!important;
     border-radius:20px!important;
@@ -4700,5 +4700,13 @@ body.map-page-open #page-map .map-bottom-panel{
     top:0!important;
     width:40px!important;
     height:40px!important;
+  }
+}
+
+
+/* ===== v24.9 Mobile map panel lower placement ===== */
+@media (max-width:480px){
+  body.map-page-open #page-map .map-bottom-panel{
+    bottom:calc(76px + env(safe-area-inset-bottom))!important;
   }
 }
