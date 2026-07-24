@@ -4170,8 +4170,11 @@ class CurrentLocationBubbleOverlay extends google.maps.OverlayView {
     const div = document.createElement('div');
     div.className = 'current-location-map-bubble';
     div.innerHTML = `
-      <span class="current-location-map-bubble__dot"></span>
-      <span>현재 위치 표시 중</span>
+      <span class="current-location-map-bubble__status">
+        <span class="current-location-map-bubble__dot"></span>
+        <span>현재 위치 표시 중</span>
+      </span>
+      <button type="button" class="current-location-map-bubble__locate" aria-label="현재 위치 다시 찾기" title="현재 위치 다시 찾기">📍</button>
     `;
 
     Object.assign(div.style, {
@@ -4192,8 +4195,15 @@ class CurrentLocationBubbleOverlay extends google.maps.OverlayView {
       fontWeight: '700',
       lineHeight: '1',
       whiteSpace: 'nowrap',
-      pointerEvents: 'none',
+      pointerEvents: 'auto',
       transform: 'translate(-50%, -100%)'
+    });
+
+    const locateButton = div.querySelector('.current-location-map-bubble__locate');
+    locateButton?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      mapLocateBtn?.click();
     });
 
     const dot = div.querySelector('.current-location-map-bubble__dot');
