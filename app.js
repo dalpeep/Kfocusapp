@@ -4985,96 +4985,175 @@ function initRegionPicker(){
   });
 }
 
-function isIos() {
-  return /iPhone|iPad|iPod/.test(navigator.userAgent);
-}
-
-function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-}
-
-function showIosGuide() {
-  if (isIos() && !isStandalone()) {
-    const shown = localStorage.getItem('iosGuideShown');
-    if (!shown) {
-      document.getElementById('iosGuide').style.display = 'block';
-
-      // 5초 후 자동 숨김
-      setTimeout(() => {
-        document.getElementById('iosGuide').style.display = 'none';
-      }, 5000);
-
-      localStorage.setItem('iosGuideShown', '1');
-    }
-  }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  showIosGuide();
-});
 function isIosDevice() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function isSafariBrowser() {
-  const ua = navigator.userAgent.toLowerCase();
-  return ua.includes('safari') && !ua.includes('crios') && !ua.includes('fxios') && !ua.includes('edgios');
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 function isStandaloneMode() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
-function shouldShowIosInstallBanner() {
-  if (!isIosDevice()) return false;
-  if (!isSafariBrowser()) return false;
-  if (isStandaloneMode()) return false;
+function getIosBrowserContext() {
+  const ua = navigator.userAgent || '';
+  if (/GSA\//i.test(ua)) return 'google-app';
+  if (/KAKAOTALK/i.test(ua)) return 'kakao';
+  if (/NAVER/i.test(ua)) return 'naver';
+  if (/Instagram|FBAN|FBAV|Line\//i.test(ua)) return 'in-app';
+  if (/CriOS/i.test(ua)) return 'chrome';
+  if (/FxiOS/i.test(ua)) return 'firefox';
+  if (/EdgiOS/i.test(ua)) return 'edge';
+  if (/Safari/i.test(ua)) return 'safari';
+  return 'other';
+}
 
+function shouldShowIosInstallBanner() {
+  if (!isIosDevice() || isStandaloneMode()) return false;
   const hiddenUntil = Number(localStorage.getItem('ios_install_banner_hidden_until') || 0);
   return Date.now() > hiddenUntil;
 }
 
+function iosGuideSteps(context) {
+  const safari = [
+    {
+      title: 'Safari의 공유 버튼을 누르세요',
+      desc: '화면 아래쪽의 <strong>네모에서 위로 화살표가 나온 버튼</strong>입니다.',
+      visual: 'safari-share'
+    },
+    {
+      title: '“홈 화면에 추가”를 선택하세요',
+      desc: '공유 메뉴를 아래로 조금 내리면 <strong>홈 화면에 추가</strong>가 보입니다.',
+      visual: 'share-menu'
+    },
+    {
+      title: '오른쪽 위 “추가”를 누르면 완료',
+      desc: '홈 화면에 DalTownMap 아이콘이 생기고 앱처럼 바로 열 수 있습니다.',
+      visual: 'install-complete'
+    }
+  ];
+
+  if (context === 'safari') return safari;
+
+  const names = {
+    'google-app': 'Google 앱', chrome: 'Chrome', kakao: '카카오톡', naver: '네이버',
+    firefox: 'Firefox', edge: 'Edge', 'in-app': '현재 앱', other: '현재 브라우저'
+  };
+  const appName = names[context] || '현재 브라우저';
+  return [
+    {
+      title: `${appName}의 메뉴 또는 공유 버튼을 누르세요`,
+      desc: '오른쪽 위나 아래쪽에 있는 <strong>··· 또는 공유 아이콘</strong>을 찾아 누르세요.',
+      visual: 'browser-menu'
+    },
+    {
+      title: '“Safari에서 열기”를 선택하세요',
+      desc: '메뉴에 바로 보이지 않으면 <strong>공유</strong>를 누른 뒤 Safari 아이콘을 선택하세요.',
+      visual: 'open-safari'
+    },
+    {
+      title: 'Safari에서 홈 화면에 추가하세요',
+      desc: 'Safari의 공유 버튼 <strong>□↑</strong> → <strong>홈 화면에 추가</strong> 순서로 누르면 완료됩니다.',
+      visual: 'safari-finish'
+    }
+  ];
+}
+
+function renderIosGuideVisual(type) {
+  const visuals = {
+    'safari-share': `
+      <div class="guide-phone"><div class="guide-page">DalTownMap</div>
+        <div class="guide-safari-bar"><span>‹</span><span>›</span><span class="guide-share-icon pulse-ring">□<b>↑</b></span><span>▢</span><span>•••</span></div>
+        <div class="guide-pointer bounce-down">☝</div>
+      </div>`,
+    'share-menu': `
+      <div class="guide-share-sheet"><div class="guide-sheet-row">복사</div><div class="guide-sheet-row">북마크에 추가</div>
+        <div class="guide-sheet-row highlight-row"><span>⊞</span> 홈 화면에 추가 <span class="tap-dot"></span></div>
+      </div>`,
+    'install-complete': `
+      <div class="guide-home-screen"><div class="guide-app-icon pop-in">📍</div><div class="guide-app-name">DalTownMap</div><div class="guide-check">✓</div></div>`,
+    'browser-menu': `
+      <div class="guide-browser-top"><span class="guide-address">daltownmap.com</span><span class="guide-more pulse-ring">•••</span><div class="guide-pointer side-pointer">☝</div></div>`,
+    'open-safari': `
+      <div class="guide-share-sheet"><div class="guide-sheet-row">링크 복사</div><div class="guide-sheet-row highlight-row"><span class="safari-compass">◉</span> Safari에서 열기 <span class="tap-dot"></span></div><div class="guide-sheet-row">Chrome에서 열기</div></div>`,
+    'safari-finish': `
+      <div class="guide-finish-flow"><span class="mini-action pulse-ring">□↑</span><span class="flow-arrow">→</span><span class="mini-home">⊞ 홈 화면에 추가</span><span class="guide-check small">✓</span></div>`
+  };
+  return visuals[type] || '';
+}
+
 function initIosInstallBanner() {
   const banner = document.getElementById('iosInstallBanner');
+  const title = document.getElementById('iosInstallTitle');
+  const desc = document.getElementById('iosInstallDesc');
   const guideBtn = document.getElementById('iosInstallGuideBtn');
   const closeBtn = document.getElementById('iosInstallCloseBtn');
+  const overlay = document.getElementById('iosInstallGuideOverlay');
+  if (!banner || !overlay) return;
 
-  if (!banner) return;
+  const context = getIosBrowserContext();
+  const isSafari = context === 'safari';
+  if (title) title.textContent = isSafari ? '홈 화면에 추가하고 더 편하게 사용하세요' : 'Safari에서 열면 홈 화면에 설치할 수 있어요';
+  if (desc) desc.innerHTML = isSafari
+    ? '버튼 위치를 그림으로 한 단계씩 안내해 드립니다.'
+    : '현재 브라우저에서는 설치 메뉴가 보이지 않을 수 있습니다. Safari로 여는 방법부터 안내합니다.';
 
-  if (shouldShowIosInstallBanner()) {
-    setTimeout(() => {
-      banner.classList.remove('hidden');
-    }, 1800);
+  let stepIndex = 0;
+  let steps = iosGuideSteps(context);
+  const stepLabel = document.getElementById('iosGuideStep');
+  const guideTitle = document.getElementById('iosGuideTitle');
+  const guideDesc = document.getElementById('iosGuideDesc');
+  const visual = document.getElementById('iosGuideVisual');
+  const prevBtn = document.getElementById('iosGuidePrevBtn');
+  const nextBtn = document.getElementById('iosGuideNextBtn');
+
+  function renderStep() {
+    const step = steps[stepIndex];
+    if (stepLabel) stepLabel.textContent = `${stepIndex + 1} / ${steps.length}`;
+    if (guideTitle) guideTitle.textContent = step.title;
+    if (guideDesc) guideDesc.innerHTML = step.desc;
+    if (visual) visual.innerHTML = renderIosGuideVisual(step.visual);
+    prevBtn.disabled = stepIndex === 0;
+    nextBtn.textContent = stepIndex === steps.length - 1 ? '알겠어요' : '다음';
+    overlay.querySelectorAll('.ios-guide-progress span').forEach((dot, i) => dot.classList.toggle('active', i <= stepIndex));
   }
 
-guideBtn?.addEventListener('click', () => {
-  document.getElementById('iosInstallGuideOverlay')?.classList.remove('hidden');
-});
+  function closeGuide() {
+    overlay.classList.add('hidden');
+  }
 
-document.getElementById('iosGuideCloseBtn')?.addEventListener('click', () => {
-  document.getElementById('iosInstallGuideOverlay')?.classList.add('hidden');
-});
+  if (shouldShowIosInstallBanner()) {
+    setTimeout(() => banner.classList.remove('hidden'), 1800);
+  }
 
-document.querySelector('#iosInstallGuideOverlay .ios-guide-dim')?.addEventListener('click', () => {
-  document.getElementById('iosInstallGuideOverlay')?.classList.add('hidden');
-});
-
+  guideBtn?.addEventListener('click', () => {
+    stepIndex = 0;
+    steps = iosGuideSteps(getIosBrowserContext());
+    renderStep();
+    overlay.classList.remove('hidden');
+  });
+  prevBtn?.addEventListener('click', () => {
+    if (stepIndex > 0) { stepIndex -= 1; renderStep(); }
+  });
+  nextBtn?.addEventListener('click', () => {
+    if (stepIndex < steps.length - 1) { stepIndex += 1; renderStep(); }
+    else {
+      closeGuide();
+      banner.classList.add('hidden');
+      localStorage.setItem('ios_install_banner_hidden_until', String(Date.now() + 1000 * 60 * 60 * 24 * 7));
+    }
+  });
+  document.getElementById('iosGuideXBtn')?.addEventListener('click', closeGuide);
+  overlay.querySelector('.ios-guide-dim')?.addEventListener('click', closeGuide);
   closeBtn?.addEventListener('click', () => {
-    localStorage.setItem(
-      'ios_install_banner_hidden_until',
-      String(Date.now() + 1000 * 60 * 60 * 24 * 1)
-    );
+    localStorage.setItem('ios_install_banner_hidden_until', String(Date.now() + 1000 * 60 * 60 * 24));
     banner.classList.add('hidden');
   });
 }
+
 let deferredInstallPrompt = null;
 
 function isAndroidDevice() {
   return /android/i.test(navigator.userAgent);
-}
-
-function isStandaloneMode() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 }
 
 function shouldShowAndroidInstallBanner() {
