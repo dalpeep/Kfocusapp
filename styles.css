@@ -4792,3 +4792,24 @@ body.map-page-open #page-map .map-search-input{
 
 /* v30.6: fully collapse the category banner slot when no active banner exists */
 .home-category-banner-slot[hidden],.home-category-banner-slot.is-empty{display:none!important;margin:0!important;padding:0!important;height:0!important;min-height:0!important;overflow:hidden!important}
+
+/* v31 · Home one-line ad ticker + Dallas Life categories */
+.home-ticker-section{margin:10px 0 14px;min-width:0}
+.home-ticker-section[hidden]{display:none!important}
+.dalpick-home-list{display:block;min-width:0}
+.ticker-ad-shell{display:flex;align-items:center;min-height:44px;overflow:hidden;border:1px solid #dbe5f2;border-radius:14px;background:#fff;box-shadow:0 5px 16px rgba(15,23,42,.05)}
+.ticker-live-label{height:44px;display:flex;flex:0 0 auto;align-items:center;gap:6px;padding:0 12px;background:linear-gradient(135deg,#1769e0,#3157d5);color:#fff;z-index:2;font-size:12px;white-space:nowrap}
+.ticker-live-label svg{width:15px;height:15px}.ticker-live-label b{font-weight:900}
+.ticker-ad-viewport{overflow:hidden;min-width:0;flex:1;mask-image:linear-gradient(90deg,transparent 0,#000 18px,#000 calc(100% - 18px),transparent 100%)}
+.ticker-ad-track{display:flex;align-items:center;width:max-content;will-change:transform;animation:daltownTicker 38s linear infinite}
+.ticker-ad-shell:hover .ticker-ad-track,.ticker-ad-shell:focus-within .ticker-ad-track{animation-play-state:paused}
+.ticker-ad-item{display:inline-flex;align-items:center;gap:8px;height:44px;border:0;background:transparent;padding:0 10px;white-space:nowrap;color:#111827;cursor:pointer}
+.ticker-ad-item strong{font-size:13px;font-weight:900}.ticker-ad-detail{max-width:330px;overflow:hidden;text-overflow:ellipsis;color:#64748b;font-size:12px}
+.ticker-ad-badge{display:inline-flex;padding:3px 7px;border-radius:999px;background:#fff1d6;color:#a65300;font-size:10px;font-weight:900}
+.ticker-ad-arrow{font-size:18px;color:#94a3b8}.ticker-ad-separator{color:#cbd5e1;padding:0 3px}
+@keyframes daltownTicker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.life-category-filters{display:flex;gap:7px;overflow-x:auto;padding:2px 0 10px;scrollbar-width:none}.life-category-filters::-webkit-scrollbar{display:none}.life-category-filters.hidden{display:none}
+.life-category-chip{flex:0 0 auto;border:1px solid #dbe3ee;background:#fff;color:#526176;border-radius:999px;padding:7px 11px;font-size:12px;font-weight:800}.life-category-chip.active{background:#1769e0;border-color:#1769e0;color:#fff}
+.board-read-time{font-style:normal;font-size:10px;color:#64748b;background:#f1f5f9;border-radius:999px;padding:4px 7px;margin-left:5px}
+@media(max-width:520px){.ticker-live-label{padding:0 9px}.ticker-live-label b{display:none}.ticker-ad-detail{max-width:180px}.ticker-ad-track{animation-duration:32s}}
+@media(prefers-reduced-motion:reduce){.ticker-ad-track{animation:none}.ticker-ad-viewport{overflow-x:auto}}

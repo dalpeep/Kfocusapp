@@ -1232,110 +1232,41 @@ function renderDalpicks(){
   const couponItems=(typeof todayCoupons==='function'?todayCoupons():[])
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
-  // DalPick 콘텐츠와 '오늘의 쿠폰'을 하나의 슬라이드에 함께 노출합니다.
-  // 같은 쿠폰이 DalPick에도 등록된 경우 제목+업소 기준으로 한 번만 보여줍니다.
   const seen=new Set();
   const items=[...dalpickItems,...couponItems]
     .filter(item=>{
       const d=item.data||{};
-      const bizId=d.business_id||d.businessId||'';
-      const key=`${item.kind==='coupon'?'coupon':String(d.category||'dalpick').toLowerCase()}|${String(d.title||'').trim()}|${bizId}`;
+      const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
       if(seen.has(key)) return false;
       seen.add(key); return true;
     })
     .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
-    .slice(0,8);
+    .slice(0,12);
 
-  if(!items.length){
-    box.innerHTML='<div class="board-empty">등록된 DalPick 또는 오늘의 쿠폰이 없습니다.</div>';
-    return;
-  }
+  if(!items.length){ box.closest('.home-ticker-section')?.setAttribute('hidden',''); box.innerHTML=''; return; }
+  box.closest('.home-ticker-section')?.removeAttribute('hidden');
 
-  const slideHTML=items.map((item,index)=>{
+  const messageHTML=item=>{
     const d=item.data||{};
-    if(item.kind==='coupon'){
-      const b=getBiz(d.businessId||d.business_id)||{};
-      const img=d.imageUrl||d.image_url||d.image||b.image||b.image_url||'/assets/kfocus-icon.png';
-      return `<div class="dalpick-slide" data-slide-index="${index}">
-        <button class="dalpick-card coupon-open" type="button" data-coupon="${esc(d.id)}">
-          <img src="${esc(img)}" alt="${esc(d.title||'오늘의 쿠폰')}">
-          <div><span class="dalpick-badge badge-coupon">🎟 쿠폰</span><strong>${esc(d.title||'오늘의 쿠폰')}</strong><p>${esc(d.discount_label||d.description||b.name||'')}</p></div>
-        </button>
-      </div>`;
-    }
-    const b=getBiz(d.business_id)||{};
-    const img=d.image_url||b.image||b.image_url||'/assets/kfocus-icon.png';
-    const category=String(d.category||'').toLowerCase();
-    const badgeClass=`badge-${category.replace(/[^a-z0-9_-]/g,'')||'dalpick'}`;
-    return `<div class="dalpick-slide" data-slide-index="${index}">
-      <button class="dalpick-card" type="button" data-dalpick-id="${esc(d.id)}">
-        <img src="${esc(img)}" alt="${esc(d.title||'DalPick')}">
-        <div><span class="dalpick-badge ${badgeClass}">${esc(dalpickBadge(category))}</span><strong>${esc(d.title||'DalPick')}</strong><p>${esc(d.summary||b.name||'')}</p></div>
-      </button>
-    </div>`;
-  }).join('');
-
-  box.innerHTML=`<div class="dalpick-carousel ${items.length===1?'is-single':''}">
-    <div class="dalpick-viewport"><div class="dalpick-track">${slideHTML}</div></div>
-    ${items.length>1?`<div class="dalpick-dots" aria-label="DalPick 슬라이드">${items.map((_,i)=>`<button type="button" class="dalpick-dot ${i===0?'active':''}" data-dalpick-dot="${i}" aria-label="${i+1}번째 콘텐츠"></button>`).join('')}</div>`:''}
-  </div>`;
-
-  const carousel=box.querySelector('.dalpick-carousel');
-  const viewport=box.querySelector('.dalpick-viewport');
-  const track=box.querySelector('.dalpick-track');
-  const dots=[...box.querySelectorAll('.dalpick-dot')];
-  let current=0, touchStartX=0, touchStartY=0, touchDeltaX=0, touchDeltaY=0, touchAxis='';
-  const moveTo=(idx)=>{
-    current=(idx+items.length)%items.length;
-    track.style.transform=`translateX(-${current*100}%)`;
-    dots.forEach((dot,i)=>dot.classList.toggle('active',i===current));
+    const b=getBiz(d.business_id||d.businessId)||{};
+    const label=item.kind==='coupon'?'쿠폰':(String(d.category||'').toLowerCase()==='business_story'?'업소탐방':'광고');
+    const title=String(d.title||b.name||'새로운 소식').trim();
+    const detail=String(d.summary||d.discount_label||d.description||b.name||'').replace(/\s+/g,' ').trim();
+    return `<button class="ticker-ad-item" type="button" data-ticker-kind="${esc(item.kind)}" data-ticker-id="${esc(item.id)}"><span class="ticker-ad-badge">${esc(label)}</span><strong>${esc(title)}</strong>${detail?`<span class="ticker-ad-detail">${esc(detail)}</span>`:''}<span class="ticker-ad-arrow" aria-hidden="true">›</span></button>`;
   };
-  const restart=()=>{
-    if(items.length<2) return;
-    if(dalpickCarouselTimer) clearInterval(dalpickCarouselTimer);
-    dalpickCarouselTimer=setInterval(()=>moveTo(current+1),5500);
-  };
-  dots.forEach(dot=>dot.addEventListener('click',()=>{moveTo(Number(dot.dataset.dalpickDot)||0);restart();}));
-  if(viewport && items.length>1){
-    // 세로 페이지 스크롤은 유지하되, DalPick에서 가로 스와이프가 시작되면
-    // 브라우저의 화면 전체 가로 이동/뒤로가기 제스처를 차단합니다.
-    viewport.style.touchAction='pan-y pinch-zoom';
-    viewport.style.overscrollBehaviorX='contain';
-    viewport.addEventListener('touchstart',e=>{
-      const t=e.touches[0];
-      touchStartX=t.clientX; touchStartY=t.clientY;
-      touchDeltaX=0; touchDeltaY=0; touchAxis='';
-      if(dalpickCarouselTimer) clearInterval(dalpickCarouselTimer);
-    },{passive:true});
-    viewport.addEventListener('touchmove',e=>{
-      const t=e.touches[0];
-      touchDeltaX=t.clientX-touchStartX;
-      touchDeltaY=t.clientY-touchStartY;
-      if(!touchAxis && (Math.abs(touchDeltaX)>8 || Math.abs(touchDeltaY)>8)){
-        touchAxis=Math.abs(touchDeltaX)>Math.abs(touchDeltaY)?'x':'y';
-      }
-      if(touchAxis==='x') e.preventDefault();
-    },{passive:false});
-    viewport.addEventListener('touchend',()=>{
-      if(touchAxis==='x' && Math.abs(touchDeltaX)>45) moveTo(current+(touchDeltaX<0?1:-1));
-      touchAxis=''; restart();
-    },{passive:true});
-    viewport.addEventListener('touchcancel',()=>{touchAxis='';restart();},{passive:true});
-    carousel.addEventListener('mouseenter',()=>{if(dalpickCarouselTimer)clearInterval(dalpickCarouselTimer);});
-    carousel.addEventListener('mouseleave',restart);
-    restart();
-  }
+  const sequence=items.map(messageHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
+  box.innerHTML=`<div class="ticker-ad-shell"><span class="ticker-live-label"><i data-lucide="megaphone"></i><b>달타운 알림</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track">${sequence}<span class="ticker-ad-separator" aria-hidden="true">•</span>${sequence}</div></div></div>`;
 
-  box.querySelectorAll('[data-dalpick-id]').forEach(btn=>btn.addEventListener('click',()=>{
-    const item=items.find(x=>x.kind==='dalpick'&&String(x.id)===String(btn.dataset.dalpickId));
-    const d=item?.data;if(!d)return;
+  box.querySelectorAll('[data-ticker-kind]').forEach(btn=>btn.addEventListener('click',()=>{
+    const item=items.find(x=>x.kind===btn.dataset.tickerKind&&String(x.id)===String(btn.dataset.tickerId));
+    const d=item?.data; if(!d) return;
+    if(item.kind==='coupon'){ renderCouponDetail(d.id); lastBasePage=currentPage; showPage('coupon-detail'); return; }
     if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
     else if(isThemeDalpick(d)) openThemeArticle(d);
-    else if(String(d.category||'').toLowerCase()==='coupon' && d.coupon_id){ renderCouponDetail(d.coupon_id); lastBasePage=currentPage; showPage('coupon-detail'); }
-    else if(d.business_id){renderDetail(d.business_id);showPage('business-detail');}
-    else if(d.content||d.summary){openDalpickArticle(d);}
+    else if(d.business_id){ renderDetail(d.business_id); showPage('business-detail'); }
+    else if(d.content||d.summary) openDalpickArticle(d);
   }));
-  if(window.lucide)window.lucide.createIcons();
+  if(window.lucide) window.lucide.createIcons();
 }
 
 async function loadCouponsFromSupabase(){
@@ -1766,9 +1697,36 @@ function couponCardHTML(c, mode='all'){
   `;
 }
 
+const LIFE_CATEGORIES=['전체','생활','교육','의료','교통','세금·재정','부동산','가족','지역정보'];
+let selectedLifeCategory='전체';
+function inferLifeCategory(post={}){
+  const explicit=String(post.subtype||post.category||'').trim();
+  const text=`${explicit} ${post.title||''} ${post.summary||''} ${post.content||''}`.toLowerCase();
+  if(/학교|교육|학군|대학|학생|입학|isd/.test(text)) return '교육';
+  if(/병원|의료|건강|보험|의사|약국|메디케어/.test(text)) return '의료';
+  if(/교통|도로|차량|운전|공항|버스|열차|통제/.test(text)) return '교통';
+  if(/세금|재정|절세|은행|대출|크레딧|사업/.test(text)) return '세금·재정';
+  if(/주택|부동산|렌트|아파트|모기지|집값/.test(text)) return '부동산';
+  if(/가족|자녀|육아|시니어|부모/.test(text)) return '가족';
+  if(/생활|정착|쇼핑|음식|날씨/.test(text)) return '생활';
+  return '지역정보';
+}
+function boardReadMinutes(post={}){
+  const chars=String(post.content||post.summary||'').replace(/\s+/g,'').length;
+  return Math.max(1,Math.ceil(chars/500));
+}
+function renderLifeCategoryFilters(){
+  const el=document.getElementById('lifeCategoryFilters'); if(!el) return;
+  const isLife=selectedBoardType==='life'; el.classList.toggle('hidden',!isLife);
+  if(!isLife){el.innerHTML='';return;}
+  el.innerHTML=LIFE_CATEGORIES.map(c=>`<button type="button" class="life-category-chip ${c===selectedLifeCategory?'active':''}" data-life-category="${esc(c)}">${esc(c)}</button>`).join('');
+  el.querySelectorAll('[data-life-category]').forEach(btn=>btn.addEventListener('click',()=>{selectedLifeCategory=btn.dataset.lifeCategory||'전체';renderHomeBoardSection('life');}));
+}
 function boardListItemHTML(post) {
   const type = normalizeBoardType(post.type);
-  const summary = String(post.content || '')
+  const lifeCategory = type==='life' ? inferLifeCategory(post) : '';
+  const readMinutes = type==='life' ? boardReadMinutes(post) : 0;
+  const summary = String(post.summary || post.content || '')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 75);
@@ -1800,8 +1758,8 @@ function boardListItemHTML(post) {
       <span class="board-row-copy">
         <span class="board-row-topline">
           <em class="board-row-badge">
-            ${esc(boardLabel(type))}
-          </em>
+            ${esc(type==='life' ? lifeCategory : boardLabel(type))}
+          </em>${type==='life'?`<em class="board-read-time">${readMinutes}분 읽기</em>`:''}
 
           ${
             hasVideo
@@ -1926,8 +1884,11 @@ function renderHomeBoardSection(type='notice'){
   if(communityTabs){
     $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.board===type));
   }
-  const rows = boardPostsByType(type).slice(0,4);
-  if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
+  let rows = boardPostsByType(type);
+  if(type==='life' && selectedLifeCategory!=='전체') rows=rows.filter(post=>inferLifeCategory(post)===selectedLifeCategory);
+  rows=rows.slice(0,4);
+  renderLifeCategoryFilters();
+  if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${type==='life'&&selectedLifeCategory!=='전체'?selectedLifeCategory+' ':''}${boardLabel(type)} 글이 없습니다.</div>`;
   if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
 }
 const GUIDE_SUBTYPE_KEY = 'daltownmap_guide_subtype';
