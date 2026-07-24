@@ -4710,3 +4710,19 @@ body.map-page-open #page-map .map-bottom-panel{
     bottom:calc(76px + env(safe-area-inset-bottom))!important;
   }
 }
+
+
+/* ===== v25.0 Mobile map panel final lower placement ===== */
+@media (max-width:480px){
+  body.map-page-open #page-map .map-bottom-panel{
+    bottom:calc(58px + env(safe-area-inset-bottom))!important;
+  }
+}
+
+/* ===== v25.1 Mobile map panel closer to bottom navigation ===== */
+@media (max-width:480px){
+  body.map-page-open #page-map .map-bottom-panel{
+    /* Keep only a small breathing space above the app navigation. */
+    bottom:max(4px, calc(env(safe-area-inset-bottom) - 10px))!important;
+  }
+}

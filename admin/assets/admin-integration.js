@@ -123,6 +123,15 @@
     const regionalDalpicks = dalpicks.filter(d => inRegion(d, region, bizMap));
     const regionalBoards = boards.filter(b => inRegion(b, region, bizMap));
 
+    const businessVideos = regionalBusinesses
+      .filter(b => String(b.video_url || b.youtube_url || '').trim())
+      .map(b => ({
+        title: b.name_ko || b.name_en || b.name || '업소 영상',
+        url: String(b.video_url || b.youtube_url || '').trim(),
+        date: b.updated_at || b.created_at || '',
+        source: '업소',
+        active: b.is_active !== false && b.active !== false
+      }));
     const slideVideos = regionalSlides.filter(s => String(s.video_url || '').trim()).map(s => ({
       title: s.promo_text || bizMap.get(String(s.business_id || ''))?.name_ko || bizMap.get(String(s.business_id || ''))?.name_en || '슬라이드 영상',
       url: String(s.video_url || '').trim(),
@@ -137,7 +146,7 @@
       source: '게시글',
       active: b.is_active !== false
     }));
-    const allVideos = [...slideVideos, ...boardVideos];
+    const allVideos = [...businessVideos, ...slideVideos, ...boardVideos];
     const uniqueVideos = Array.from(new Map(allVideos.map(v => [v.url, v])).values());
     const shortVideos = uniqueVideos.filter(v => /(?:youtube\.com\/shorts\/|youtu\.be\/)/i.test(v.url));
     const regularVideos = uniqueVideos.filter(v => !shortVideos.includes(v));
