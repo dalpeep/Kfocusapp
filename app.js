@@ -3440,29 +3440,22 @@ if(bizId){
     if(!slide) return;
     const bizId=slide.dataset.biz;
     currentDetailVideoOverride = String(slide.dataset.video || '').trim();
-if(bizId){
-
-  const slideData =
-    heroSlides.find(x => String(x.bizId) === String(bizId));
-
+const slideData = heroSlides.find(x => String(x.bizId) === String(bizId));
 if (slideData) {
   const link = String(slideData.link_url || '').trim();
-
-  if (link === '#business-request') {
-    closeSlideDetailModal?.();
-    showPage('business-request');
-    return;
-  }
-
   if (link) {
-    window.open(link, '_blank');
+    if (link.startsWith('#')) {
+      closeSlideDetailModal?.();
+      showPage(link.replace(/^#/, ''));
+    } else if (/^https?:/i.test(link)) {
+      window.open(link, '_blank','noopener');
+    } else {
+      window.location.href = link;
+    }
     return;
   }
-
-  openSlideDetailModal(slideData);
-  return;
 }
-
+if(bizId){
   renderDetail(bizId);
   lastBasePage = currentPage;
   showPage('business-detail');
