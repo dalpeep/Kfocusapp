@@ -415,17 +415,33 @@ function isPaidBusinessActive(b){
   return true;
 }
 
-function rotationScore(b, section){
-  const weight = Number(b.paid_weight || 1);
-  return adSeededRandom(`${todayKey()}-${section}-${b.id}`) / weight;
+function rotationDateValue(){
+  return document.querySelector('#adsRotationDate')?.value || todayKey();
 }
-
-function pickRotation(list, section, limit = 6){
-  return list
-    .filter(isPaidBusinessActive)
-    .filter(b => b.rotation_enabled !== false)
-    .sort((a,b) => rotationScore(a, section) - rotationScore(b, section))
-    .slice(0, limit);
+function adsEligibleOnDate(b, dateValue){
+  const dateKey=String(dateValue||todayKey()).slice(0,10);
+  if(b.is_active===false) return false;
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
+  return true;
+}
+function adsGroupRank(b, section){
+  if(section==='featured') return Number(b.featured_rank??1000);
+  if(section==='new') return Number(b.new_rank??1000);
+  if(section==='popular') return Number(b.popular_rank??1000);
+  return 1000;
+}
+function rotationScore(b, section, dateValue){
+  const weight=Math.max(1,Number(b.paid_weight||1));
+  return adSeededRandom(`${String(dateValue||todayKey()).slice(0,10)}-${section}-${b.id}`)/weight;
+}
+function pickRotation(list, section, limit=6, dateValue=todayKey()){
+  const eligible=list.filter(b=>adsEligibleOnDate(b,dateValue));
+  const fixed=eligible.filter(b=>b.rotation_enabled===false)
+    .sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const automatic=eligible.filter(b=>b.rotation_enabled!==false)
+    .sort((a,b)=>rotationScore(a,section,dateValue)-rotationScore(b,section,dateValue));
+  return fixed.concat(automatic).slice(0,limit);
 }
 
 let adsOpsRows = [];
@@ -513,7 +529,7 @@ function renderAdsOpsList(){
 }
 function updateAdsSelectedCount(){safeText('adsSelectedCount',`${adsSelectedIds.size}개 선택`);}
 async function loadAdsOps(){
-  const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,is_featured,is_new,is_popular').eq('region',getAppRegion()).order('name_ko',{ascending:true});
+  const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,created_at').eq('region',getAppRegion()).order('name_ko',{ascending:true});
   if(error)return alert(error.message);
   adsOpsRows=data||[];renderAdsSummary();renderAdsOverviewGroups();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
 }
@@ -544,15 +560,30 @@ async function applyAdsBulk(){
   adsSelectedIds.clear();await loadAdsOps();await loadBusinesses();alert('광고 편성이 변경되었습니다.');
 }
 async function previewRotation(){
-  const active=adsOpsRows.filter(isPaidBusinessActive).filter(b=>b.rotation_enabled!==false);
-  const sectionRows={featured:active.filter(b=>b.is_featured),new:active.filter(b=>b.is_new),popular:active.filter(b=>b.is_popular)};
-  const render=(key)=>{const rows=pickRotation(sectionRows[key],key,6);return `<article class="card"><div class="panel-head"><h3>${adsGroupLabel(key)}</h3><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map(b=>`<li><b>${esc(b.name_ko||b.name_en||'')}</b><span>가중치 ${esc(b.paid_weight||1)}</span></li>`).join('')}</ol>`:'<p class="muted">노출 대상이 없습니다.</p>'}</article>`;};
-  document.querySelector('#rotationPreview').innerHTML=`<div class="ads-preview-title"><h2>오늘 로테이션 미리보기</h2><span>${todayKey()} · 그룹별 최대 6개</span></div>${render('featured')}${render('new')}${render('popular')}`;
+  const dateValue=rotationDateValue();
+  const sectionRows={
+    featured:adsOpsRows.filter(b=>b.is_featured),
+    new:adsOpsRows.filter(b=>b.is_new),
+    popular:adsOpsRows.filter(b=>b.is_popular)
+  };
+  const render=(key)=>{
+    const rows=pickRotation(sectionRows[key],key,6,dateValue);
+    return `<article class="card ads-rotation-card"><div class="panel-head"><div><h3>${adsGroupLabel(key)}</h3><p class="muted">편성 ${sectionRows[key].length}개 · 해당일 노출 ${rows.length}개</p></div><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map((b,i)=>`<li><span class="ads-order-no">${i+1}</span><div><b>${esc(b.name_ko||b.name_en||'')}</b><small>${b.rotation_enabled===false?'고정 순서':'자동 로테이션'} · 가중치 ${esc(b.paid_weight||1)} · ${b.paid_active?'유료':'일반 편성'}</small></div></li>`).join('')}</ol>`:'<p class="muted">이 날짜에 노출할 업체가 없습니다.</p>'}</article>`;
+  };
+  const host=document.querySelector('#rotationPreview');
+  if(!host)return;
+  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">선택 날짜 기준 · 그룹별 최대 6개</p></div><span class="pill success">홈 노출 기준</span></div>${render('featured')}${render('new')}${render('popular')}`;
 }
+
 function initAdsOpsCenter(){
   document.querySelector('#adsRefreshBtn')?.addEventListener('click',loadAdsOps);
   document.querySelector('#adsPreviewBtn')?.addEventListener('click',()=>{setAdsCenterTab('rotation');previewRotation();});
   document.querySelector('#adsPreviewBtnInline')?.addEventListener('click',previewRotation);
+  const rotationDate=document.querySelector('#adsRotationDate');
+  if(rotationDate && !rotationDate.value) rotationDate.value=todayKey();
+  rotationDate?.addEventListener('change',previewRotation);
+  document.querySelector('#adsRotationTodayBtn')?.addEventListener('click',()=>{if(rotationDate)rotationDate.value=todayKey();previewRotation();});
+  document.querySelector('#adsRotationTomorrowBtn')?.addEventListener('click',()=>{const d=new Date();d.setDate(d.getDate()+1);if(rotationDate)rotationDate.value=d.toISOString().slice(0,10);previewRotation();});
   document.querySelectorAll('.ads-center-tab').forEach(btn=>btn.addEventListener('click',()=>setAdsCenterTab(btn.dataset.adsTab)));
   document.querySelectorAll('[data-open-ads-tab]').forEach(btn=>btn.addEventListener('click',()=>setAdsCenterTab(btn.dataset.openAdsTab)));
   document.querySelector('#adsBulkApplyBtn')?.addEventListener('click',applyAdsBulk);
