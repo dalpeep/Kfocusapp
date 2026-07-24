@@ -4710,3 +4710,11 @@ body.map-page-open #page-map .map-bottom-panel{
     bottom:calc(76px + env(safe-area-inset-bottom))!important;
   }
 }
+
+
+/* ===== v25.0 Mobile map panel final lower placement ===== */
+@media (max-width:480px){
+  body.map-page-open #page-map .map-bottom-panel{
+    bottom:calc(58px + env(safe-area-inset-bottom))!important;
+  }
+}
