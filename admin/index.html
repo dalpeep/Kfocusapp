@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
-  <link rel="stylesheet" href="assets/admin.css?v=27.6.0" />
+  <link rel="stylesheet" href="assets/admin.css?v=28.0.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=27.6.0"></script>
+  <script type="module" src="assets/admin.js?v=28.0.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -678,7 +678,7 @@
 
             <form id="couponForm" class="form-grid">
               <input type="hidden" id="coupon_id" />
-              <label class="field full"><span>연결 업소</span><select id="coupon_business_id"></select></label>
+              <label class="field full"><span>연결 업소 <small class="muted">여러 지점 선택 가능</small></span><select id="coupon_business_id"></select></label>
               <label class="field"><span>쿠폰 제목</span><input id="coupon_title" type="text" /></label>
               <label class="field"><span>쿠폰 코드</span><input id="coupon_code" type="text" /></label>
 			  <label class="field full">
@@ -1081,7 +1081,7 @@
                 </div>
                 <label class="field checkbox-line"><input id="dalpick_show_in_dalpick" type="checkbox"><span>홈 DalPick에도 표시</span></label>
               </div>
-              <label class="field full"><span>연결 업소 <small id="dalpickBusinessRequirement" class="muted">선택 사항</small></span><select id="dalpick_business_id"><option value="">연결 안 함</option></select></label>
+              <label class="field full"><span>연결 업소 <small id="dalpickBusinessRequirement" class="muted">여러 지점 선택 가능</small></span><select id="dalpick_business_id"><option value="">연결 안 함</option></select></label>
               <label class="field full"><span>제목</span><input id="dalpick_title" type="text" /></label>
               <label class="field full"><span>요약</span><textarea id="dalpick_summary" rows="3"></textarea></label>
               <label class="field full"><span>본문</span><textarea id="dalpick_content" rows="10"></textarea></label>
