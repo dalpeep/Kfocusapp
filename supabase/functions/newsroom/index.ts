@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '42.1.0';
+const VERSION = '42.2.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -174,7 +174,9 @@ const LANE_QUERIES: Record<string, string[]> = {
   ],
   practical: [
     'Dallas weather alert road closure traffic airport',
-    'Dallas school closure city service public safety',
+    'Dallas school closure delayed start early dismissal city service public safety',
+    'Plano ISD Frisco ISD Lewisville ISD Carrollton Farmers Branch ISD Coppell ISD school closure delay bus route',
+    'Dallas ISD Richardson ISD Allen ISD McKinney ISD Garland ISD school alert attendance change',
     'DFW airport delay DART TxDOT Dallas advisory',
   ],
 };
@@ -338,7 +340,7 @@ async function fetchKoreanDirectSources() {
 
 
 const DFW_COUNTY_RE = /(Dallas|Collin|Denton|Tarrant|Rockwall|Ellis|Kaufman|Johnson|Parker|Wise)\s+County/i;
-const EMERGENCY_RE = /(AMBER Alert|Silver Alert|CLEAR Alert|Blue Alert|Endangered Missing|tornado warning|severe thunderstorm warning|flash flood warning|flood warning|extreme heat warning|heat advisory|winter storm warning|ice storm warning|shelter in place|evacuation|hazardous materials|active shooter|major road closure|emergency alert)/i;
+const EMERGENCY_RE = /(AMBER Alert|Silver Alert|CLEAR Alert|Blue Alert|Endangered Missing|tornado warning|severe thunderstorm warning|flash flood warning|flood warning|extreme heat warning|heat advisory|winter storm warning|ice storm warning|shelter in place|evacuation|hazardous materials|active shooter|major road closure|emergency alert|school closure|delayed start|early dismissal|classes canceled|campus closed|bus route change)/i;
 
 async function fetchNwsDfwAlerts() {
   const url = 'https://api.weather.gov/alerts/active?area=TX';
@@ -612,14 +614,16 @@ async function homeFeed(region = 'dallas') {
   const faithRe = /(교회|성당|천주교|불교|사찰|예배|부흥회|바자회|선교|성경|vbs|church|catholic|temple|worship|mission)/i;
   const koreanRe = /(한인|한국|코리안|korean|ktn|dalkora|달사람|주간.?포커스|코리아타운)/i;
   const emergencyRe = /(amber alert|silver alert|clear alert|blue alert|endangered missing|tornado warning|severe thunderstorm warning|flash flood warning|flood warning|extreme heat warning|heat advisory|shelter in place|evacuation|active shooter|긴급|경보|대피|주의보|통제)/i;
+  const schoolRe = /(school closure|school closed|classes canceled|delayed start|late start|early dismissal|campus closed|bus route change|transportation change|remote learning|휴교|등교 지연|지연 등교|조기 하교|수업 취소|학교 폐쇄|통학버스 변경|등교 변경|Plano ISD|Frisco ISD|Lewisville ISD|Carrollton-Farmers Branch ISD|Coppell ISD|Dallas ISD|Richardson ISD|Allen ISD|McKinney ISD|Garland ISD)/i;
   const seen = new Set<string>();
   const rows = (data || []).map((x: any) => {
     const text = `${x.original_title || ''} ${x.original_summary || ''} ${x.ai_title || ''} ${x.ai_summary || ''} ${x.source_name || ''} ${(x.category_keywords || []).join(' ')}`;
     const faith = faithRe.test(text);
-    const emergency = x.source_kind === 'official_emergency' || x.priority_level === 'urgent' || emergencyRe.test(text);
+    const school = schoolRe.test(text);
+    const emergency = x.source_kind === 'official_emergency' || x.priority_level === 'urgent' || emergencyRe.test(text) || school;
     const korean = x.source_kind === 'korean_media' || x.source_kind === 'korean_community' || koreanRe.test(text) || faith;
     const ageHours = Math.max(0, (Date.now() - new Date(x.source_published_at || x.collected_at || 0).getTime()) / 3600000);
-    const score = (emergency ? 1000 : 0) + (korean ? 100 : 0) + (faith ? 24 : 0) + Number(x.priority_score || 0) - Math.min(50, ageHours / 3);
+    const score = (school ? 1200 : (emergency ? 1000 : 0)) + (korean ? 100 : 0) + (faith ? 24 : 0) + Number(x.priority_score || 0) - Math.min(50, ageHours / 3);
     return {
       id: x.id,
       title: x.ai_title || x.original_title || '한인 소식',
@@ -627,14 +631,14 @@ async function homeFeed(region = 'dallas') {
       url: x.original_url || '',
       source: x.source_name || '달타운맵 뉴스룸',
       published_at: x.source_published_at || x.collected_at,
-      faith, korean, emergency, score,
+      faith, korean, emergency, school, score,
       destination: x.destination || x.suggested_destination || (emergency ? 'urgent' : 'life'),
     };
   }).filter((x: any) => {
     const key = titleKey(x.title);
     if (!key || seen.has(key)) return false;
     seen.add(key);
-    return x.emergency || x.korean;
+    return x.emergency || x.school || x.korean;
   }).sort((a: any, b: any) => b.score - a.score).slice(0, 12);
 
   return { ok: true, version: VERSION, items: rows, generated_at: new Date().toISOString() };
