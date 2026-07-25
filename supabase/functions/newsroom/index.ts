@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '40.0.4';
+const VERSION = '41.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -200,7 +200,7 @@ async function fetchTextWithTimeout(url: string, timeoutMs = 12000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 DalTownMap-Newsroom/40.0.4' },
+      headers: { 'User-Agent': 'Mozilla/5.0 DalTownMap-Newsroom/41.0.0' },
       signal: controller.signal,
     });
     if (!r.ok) throw new Error(`RSS HTTP ${r.status}`);
@@ -234,6 +234,106 @@ function parseGoogleNewsRss(xml: string, lane: string) {
   }).filter((x) => x.original_title && x.original_url);
 }
 
+
+const KOREAN_DIRECT_SOURCES = [
+  {
+    key: 'ktn', name: 'KTN 코리아타운뉴스', kind: 'korean_media', priority: 100,
+    urls: ['https://koreatownnews.com/feed/', 'https://koreatownnews.com/'],
+    articlePattern: /\/\d{4}\/\d{2}\/\d{2}\/|\/news\/|\/article/i,
+  },
+  {
+    key: 'weeklyfocus', name: '주간 포커스 텍사스', kind: 'korean_media', priority: 95,
+    urls: ['https://www.weeklyfocustx.com/rss/allArticle.xml', 'https://www.weeklyfocustx.com/news/articleList.html'],
+    articlePattern: /articleView\.html\?idxno=|\/news\/article/i,
+  },
+  {
+    key: 'dalsaram', name: '달사람닷컴', kind: 'korean_community', priority: 90,
+    urls: ['https://www.dalsaram.com/'],
+    articlePattern: /news|board|community|event|hot|detail|view/i,
+  },
+  {
+    key: 'dalkora', name: 'DK NET 달라스 코리안 라디오', kind: 'korean_media', priority: 85,
+    urls: ['https://dalkora.com/feed/', 'https://dalkora.com/'],
+    articlePattern: /\/\d{4}\/\d{2}\/|news|article|post/i,
+  },
+  {
+    key: 'koreansociety', name: '달라스 한인회', kind: 'official_community', priority: 80,
+    urls: ['https://thedallaskorea.org/'],
+    articlePattern: /event|notice|news|festival|community|post/i,
+  },
+];
+
+function absoluteUrl(base: string, href = '') {
+  try { return new URL(href, base).toString(); } catch { return ''; }
+}
+function isLikelyHeadline(text = '') {
+  const t = decodeXml(text).replace(/\s+/g, ' ').trim();
+  if (t.length < 8 || t.length > 220) return false;
+  const banned = /^(홈|로그인|회원가입|검색|메뉴|더보기|전체기사|기사목록|광고|문의|회사소개|개인정보|이용약관|facebook|instagram|youtube)$/i;
+  if (banned.test(t)) return false;
+  return /[가-힣]/.test(t) || t.split(/\s+/).length >= 4;
+}
+function parseGenericHtml(html: string, source: any, baseUrl: string) {
+  const rows: any[] = [];
+  const anchorRe = /<a\b([^>]*?)href=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = anchorRe.exec(String(html)))) {
+    const href = String(m[2] || '').trim();
+    const title = decodeXml(m[4] || '');
+    if (!href || !isLikelyHeadline(title)) continue;
+    const url = absoluteUrl(baseUrl, href);
+    if (!url || !/^https?:/i.test(url)) continue;
+    let sameHost = false;
+    try { sameHost = new URL(url).hostname.replace(/^www\./,'') === new URL(baseUrl).hostname.replace(/^www\./,''); } catch { /* ignore */ }
+    if (!sameHost) continue;
+    if (source.articlePattern && !source.articlePattern.test(url) && title.length < 18) continue;
+    rows.push({
+      original_title: title.slice(0, 500), original_summary: null, original_url: url,
+      source_name: source.name, source_kind: source.kind, source_published_at: null,
+      area: 'Dallas-Fort Worth', topic_key: titleKey(title), source_priority: source.priority,
+    });
+  }
+  return rows;
+}
+function parseRssOrAtom(xml: string, source: any) {
+  const itemBlocks = String(xml).match(/<item\b[\s\S]*?<\/item>/gi) || [];
+  const entryBlocks = String(xml).match(/<entry\b[\s\S]*?<\/entry>/gi) || [];
+  const blocks = itemBlocks.length ? itemBlocks : entryBlocks;
+  return blocks.map((block) => {
+    const title = xmlTag(block, 'title');
+    let url = xmlTag(block, 'link');
+    if (!url) {
+      const lm = block.match(/<link\b[^>]*href=["']([^"']+)["'][^>]*\/?\s*>/i);
+      url = lm ? decodeXml(lm[1]) : '';
+    }
+    const publishedRaw = xmlTag(block, 'pubDate') || xmlTag(block, 'published') || xmlTag(block, 'updated');
+    const summary = xmlTag(block, 'description') || xmlTag(block, 'summary') || xmlTag(block, 'content');
+    const d = publishedRaw ? new Date(publishedRaw) : null;
+    return {
+      original_title: title.slice(0, 500), original_summary: summary || null, original_url: absoluteUrl(source.urls[0], url),
+      source_name: source.name, source_kind: source.kind,
+      source_published_at: d && !Number.isNaN(d.getTime()) ? d.toISOString() : null,
+      area: 'Dallas-Fort Worth', topic_key: titleKey(title), source_priority: source.priority,
+    };
+  }).filter((x) => x.original_title && x.original_url);
+}
+async function fetchKoreanDirectSources() {
+  const tasks = KOREAN_DIRECT_SOURCES.flatMap((source) => source.urls.map(async (url) => {
+    const text = await fetchTextWithTimeout(url, 14000);
+    const contentLooksXml = /<rss\b|<feed\b|<channel\b/i.test(text.slice(0, 2000));
+    const items = contentLooksXml ? parseRssOrAtom(text, source) : parseGenericHtml(text, source, url);
+    return { source, url, items };
+  }));
+  const results = await Promise.allSettled(tasks);
+  const items: any[] = [];
+  const warnings: string[] = [];
+  results.forEach((r) => {
+    if (r.status === 'fulfilled') items.push(...r.value.items);
+    else warnings.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
+  });
+  return { items, warnings };
+}
+
 async function collect(region = 'dallas', scheduled = false, lane = 'practical') {
   const normalizedLane = LANE_QUERIES[lane] ? lane : 'practical';
   const triggerType = scheduled ? 'scheduled' : 'manual';
@@ -248,17 +348,39 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
     }
 
     const queries = LANE_QUERIES[normalizedLane];
-    const results = await Promise.allSettled(queries.map(async (query) => {
-      const xml = await fetchTextWithTimeout(googleNewsFeedUrl(query), 12000);
-      return parseGoogleNewsRss(xml, normalizedLane);
-    }));
-
     const fetched: any[] = [];
     const warnings: string[] = [];
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') fetched.push(...r.value);
-      else warnings.push(`${queries[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
-    });
+
+    if (normalizedLane === 'korean') {
+      const direct = await fetchKoreanDirectSources();
+      fetched.push(...direct.items);
+      warnings.push(...direct.warnings.map((x) => `한인 직접 소스: ${x}`));
+
+      // Site-specific Google News is only a fallback and supplement. Direct Korean sources always rank first.
+      const fallbackQueries = [
+        'site:koreatownnews.com 달라스',
+        'site:weeklyfocustx.com 달라스 OR 한인',
+        'site:dalsaram.com 달라스 OR 한인',
+        'site:dalkora.com 달라스 OR 한인',
+      ];
+      const fallback = await Promise.allSettled(fallbackQueries.map(async (query) => {
+        const xml = await fetchTextWithTimeout(googleNewsFeedUrl(query), 10000);
+        return parseGoogleNewsRss(xml, normalizedLane).map((x: any) => ({ ...x, source_priority: 60 }));
+      }));
+      fallback.forEach((r, i) => {
+        if (r.status === 'fulfilled') fetched.push(...r.value);
+        else warnings.push(`${fallbackQueries[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      });
+    } else {
+      const results = await Promise.allSettled(queries.map(async (query) => {
+        const xml = await fetchTextWithTimeout(googleNewsFeedUrl(query), 12000);
+        return parseGoogleNewsRss(xml, normalizedLane);
+      }));
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') fetched.push(...r.value);
+        else warnings.push(`${queries[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      });
+    }
 
     // Collection must be useful even when exact same-day coverage is sparse.
     // Keep recent practical/news items for 72 hours, and event candidates for 14 days.
@@ -277,8 +399,8 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
       unique.set(key, x);
     }
     const items = [...unique.values()]
-      .sort((a, b) => new Date(b.source_published_at || 0).getTime() - new Date(a.source_published_at || 0).getTime())
-      .slice(0, 8);
+      .sort((a, b) => Number(b.source_priority || 0) - Number(a.source_priority || 0) || new Date(b.source_published_at || 0).getTime() - new Date(a.source_published_at || 0).getTime())
+      .slice(0, normalizedLane === 'korean' ? 18 : 8);
 
     const { data: existing, error: e } = await admin.from('newsroom_items')
       .select('original_url,original_title,source_published_at,event_data')
@@ -319,18 +441,19 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
       if (error) throw error;
       insertedCount = inserted?.length || 0;
     }
-    const note = `lane:${normalizedLane}; provider:google-news-rss${warnings.length ? `; warnings:${warnings.length}` : ''}`;
+    const provider = normalizedLane === 'korean' ? 'korean-direct-plus-google-news' : 'google-news-rss';
+    const note = `lane:${normalizedLane}; provider:${provider}${warnings.length ? `; warnings:${warnings.length}` : ''}`;
     await finishRun(run?.id, {
       status: 'success', found: items.length, inserted: insertedCount, skipped, cleaned: 0, note,
     });
     return {
-      ok: true, version: VERSION, lane: normalizedLane, provider: 'google-news-rss',
+      ok: true, version: VERSION, lane: normalizedLane, provider,
       found: items.length, inserted: insertedCount, skipped, cleaned: 0,
       warnings,
     };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await finishRun(run?.id, { status: 'failed', error_message: message, note: `lane:${normalizedLane}; provider:google-news-rss` });
+    await finishRun(run?.id, { status: 'failed', error_message: message, note: `lane:${normalizedLane}; provider:${normalizedLane === 'korean' ? 'korean-direct-plus-google-news' : 'google-news-rss'}` });
     throw e;
   }
 }

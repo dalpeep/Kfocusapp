@@ -4984,11 +4984,12 @@ async function publishNewsroom(){
 async function excludeNewsroom(){if(!selectedNewsroomId)return;if(!confirm('이 소식을 제외하고 수집 후보에서 삭제할까요?'))return;const {error}=await supabase.from('newsroom_items').delete().eq('id',selectedNewsroomId);if(error)return alert(`후보 삭제 실패: ${error.message}`);selectedNewsroomId=null;await loadNewsroom();qs('newsroomForm').hidden=true;qs('newsroomEmpty').hidden=false;}
 function newsroomErrorMessage(value, fallback='뉴스룸 요청 처리 중 오류가 발생했습니다.'){
   if(typeof value==='string'&&value.trim())return value.trim();
-  if(value instanceof Error&&value.message)return value.message;
+  if(depth>4)return fallback;
+  if(value instanceof Error&&value.message)return newsroomErrorMessage(value.message,fallback,depth+1);
   if(value&&typeof value==='object'){
-    const nested=value.message||value.error_description||value.details||value.hint;
-    if(typeof nested==='string'&&nested.trim())return nested.trim();
-    try{return JSON.stringify(value);}catch(_){return fallback;}
+    const nested=value.message??value.error??value.error_description??value.details??value.hint??value.reason;
+    if(nested!==undefined&&nested!==value)return newsroomErrorMessage(nested,fallback,depth+1);
+    try{const text=JSON.stringify(value);return text&&text!=='{}'?text:fallback;}catch(_){return fallback;}
   }
   return value==null?fallback:String(value);
 }
@@ -5042,7 +5043,7 @@ async function loadNewsroomRunStatus(){
     const log=qs('newsroomRunLog');
     if(log){
       const parts=[];
-      if(run){parts.push(`<b>${esc(run.trigger_type==='scheduled'?'자동':'수동')} 수집</b>`, `<span class="${run.status==='success'?'ok':run.status==='failed'?'bad':''}">${esc(run.status==='success'?'완료':run.status==='failed'?'실패':'진행 중')}</span>`, `<span>검색 ${Number(run.found||0)}건</span>`, `<span>신규 ${Number(run.inserted||0)}건</span>`, `<span>중복·제외 ${Number(run.skipped||0)}건</span>`, `<span>자동정리 ${Number(run.cleaned||0)}건</span>`);if(run.error_message)parts.push(`<span class="bad">${esc(newsroomErrorMessage(run.error_message))}</span>`);}else parts.push('<span>아직 수집 실행 기록이 없습니다.</span>');
+      if(run){parts.push(`<b>${esc(run.trigger_type==='scheduled'?'자동':'수동')} 수집</b>`, `<span class="${run.status==='success'?'ok':run.status==='failed'?'bad':''}">${esc(run.status==='success'?'완료':run.status==='failed'?'실패':'진행 중')}</span>`, `<span>검색 ${Number(run.found||0)}건</span>`, `<span>신규 ${Number(run.inserted||0)}건</span>`, `<span>중복·제외 ${Number(run.skipped||0)}건</span>`, `<span>자동정리 ${Number(run.cleaned||0)}건</span>`);if(run.error_message){const msg=newsroomErrorMessage(run.error_message);parts.push(`<span class="bad">${esc(msg)}</span>`);}}else parts.push('<span>아직 수집 실행 기록이 없습니다.</span>');
       log.innerHTML=parts.join('');
     }
   }catch(e){safeText('newsroomLastRun','로그 확인 필요');safeText('newsroomRunResult','연결 확인');const log=qs('newsroomRunLog');if(log)log.innerHTML=`<span class="bad">${esc(e.message)}</span>`;}
@@ -5085,7 +5086,7 @@ async function collectNewsroomLanes(btn,statusPrefix='정보 수집'){
     const [lane,label]=NEWSROOM_COLLECTION_LANES[i];
     if(btn)btn.textContent=`${statusPrefix} ${i+1}/${NEWSROOM_COLLECTION_LANES.length} · ${label}`;
     try{
-      const r=await newsroomEdgeCall('collect',{region,manual:true,lane},`${label} 분야의 최신 RSS 소스를 수집하고 있습니다…`);
+      const r=await newsroomEdgeCall('collect',{region,manual:true,lane},`${label} 분야의 한인 매체·공식 RSS 소스를 수집하고 있습니다…`);
       inserted+=Number(r.inserted||0);skipped+=Number(r.skipped||0);found+=Number(r.found||0);
       if(Array.isArray(r.warnings)&&r.warnings.length)failed.push(`${label}: 일부 RSS 소스 ${r.warnings.length}개를 건너뜀`);
     }catch(e){failed.push(`${label}: ${newsroomErrorMessage(e)}`);console.warn('newsroom lane failed',lane,e);}
