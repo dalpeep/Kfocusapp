@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '42.0.0';
+const VERSION = '42.1.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -336,6 +336,73 @@ async function fetchKoreanDirectSources() {
   return { items, warnings };
 }
 
+
+const DFW_COUNTY_RE = /(Dallas|Collin|Denton|Tarrant|Rockwall|Ellis|Kaufman|Johnson|Parker|Wise)\s+County/i;
+const EMERGENCY_RE = /(AMBER Alert|Silver Alert|CLEAR Alert|Blue Alert|Endangered Missing|tornado warning|severe thunderstorm warning|flash flood warning|flood warning|extreme heat warning|heat advisory|winter storm warning|ice storm warning|shelter in place|evacuation|hazardous materials|active shooter|major road closure|emergency alert)/i;
+
+async function fetchNwsDfwAlerts() {
+  const url = 'https://api.weather.gov/alerts/active?area=TX';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
+    const r = await fetch(url, {
+      headers: {
+        'User-Agent': 'DalTownMap/42.1 emergency-alerts contact: admin@daltownmap.com',
+        'Accept': 'application/geo+json, application/json',
+      },
+      signal: controller.signal,
+    });
+    if (!r.ok) throw new Error(`NWS alerts HTTP ${r.status}`);
+    const j = await r.json();
+    const features = Array.isArray(j?.features) ? j.features : [];
+    return features.map((f: any) => {
+      const a = f?.properties || {};
+      const area = String(a.areaDesc || '');
+      const event = String(a.event || 'Weather Alert');
+      if (!DFW_COUNTY_RE.test(area)) return null;
+      return {
+        original_title: `${event} — ${area}`,
+        original_summary: [a.headline, a.description, a.instruction].filter(Boolean).join(' ').slice(0, 4000),
+        original_url: a['@id'] || f?.id || 'https://www.weather.gov/alerts',
+        source_name: 'National Weather Service',
+        source_kind: 'official_emergency',
+        source_published_at: a.sent || a.effective || new Date().toISOString(),
+        area: area || 'Dallas-Fort Worth',
+        source_priority: 1000,
+        emergency: true,
+        alert_expires_at: a.expires || a.ends || null,
+      };
+    }).filter(Boolean);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchTexasPublicSafetyAlerts() {
+  const queries = [
+    'site:txsubscribealerts.dps.texas.gov/alerts (AMBER Alert OR Silver Alert OR CLEAR Alert OR Blue Alert) Texas',
+    'site:dps.texas.gov (AMBER Alert OR Silver Alert OR CLEAR Alert OR Endangered Missing) Dallas OR Collin OR Denton OR Tarrant',
+    '(AMBER Alert OR Silver Alert OR CLEAR Alert OR Blue Alert) Dallas Fort Worth Texas',
+  ];
+  const settled = await Promise.allSettled(queries.map(async (q) => {
+    const xml = await fetchTextWithTimeout(googleNewsFeedUrl(q), 10000);
+    return parseGoogleNewsRss(xml, 'practical').map((x: any) => ({
+      ...x,
+      source_kind: 'official_emergency',
+      source_priority: 950,
+      emergency: true,
+    }));
+  }));
+  const items: any[] = [];
+  for (const r of settled) if (r.status === 'fulfilled') items.push(...r.value);
+  const cutoff = Date.now() - 36 * 3600000;
+  return items.filter((x) => {
+    const text = `${x.original_title || ''} ${x.original_summary || ''}`;
+    const published = new Date(x.source_published_at || 0).getTime();
+    return EMERGENCY_RE.test(text) && (!published || published >= cutoff);
+  });
+}
+
 async function collect(region = 'dallas', scheduled = false, lane = 'practical') {
   const normalizedLane = LANE_QUERIES[lane] ? lane : 'practical';
   const triggerType = scheduled ? 'scheduled' : 'manual';
@@ -352,6 +419,14 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
     const queries = LANE_QUERIES[normalizedLane];
     const fetched: any[] = [];
     const warnings: string[] = [];
+
+    if (normalizedLane === 'practical') {
+      const emergencySettled = await Promise.allSettled([fetchNwsDfwAlerts(), fetchTexasPublicSafetyAlerts()]);
+      emergencySettled.forEach((r) => {
+        if (r.status === 'fulfilled') fetched.push(...r.value);
+        else warnings.push(`긴급 공지 직접 소스: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
+      });
+    }
 
     if (normalizedLane === 'korean') {
       const direct = await fetchKoreanDirectSources();
@@ -432,8 +507,11 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
         area: x.area || 'Dallas-Fort Worth',
         status: 'collected', confidence: 0, fact_status: 'needs_review',
         duplicate_key: key,
-        category_keywords: [normalizedLane],
-        event_data: { start_at: null, end_at: null },
+        category_keywords: x.emergency ? [normalizedLane, 'emergency', 'local_alert'] : [normalizedLane],
+        priority_level: x.emergency ? 'urgent' : 'normal',
+        priority_score: x.emergency ? 100 : 0,
+        suggested_destination: x.emergency ? 'urgent' : null,
+        event_data: { start_at: null, end_at: x.alert_expires_at || null },
         collected_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       });
     }
@@ -445,7 +523,7 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
       if (error) throw error;
       insertedCount = inserted?.length || 0;
     }
-    const provider = normalizedLane === 'korean' ? 'korean-direct-plus-google-news' : 'google-news-rss';
+    const provider = normalizedLane === 'korean' ? 'korean-direct-plus-google-news' : (normalizedLane === 'practical' ? 'official-alerts-plus-google-news' : 'google-news-rss');
     const note = `lane:${normalizedLane}; provider:${provider}${warnings.length ? `; warnings:${warnings.length}` : ''}`;
     await finishRun(run?.id, {
       status: 'success', found: items.length, inserted: insertedCount, skipped, cleaned: 0, note,
@@ -533,13 +611,15 @@ async function homeFeed(region = 'dallas') {
 
   const faithRe = /(교회|성당|천주교|불교|사찰|예배|부흥회|바자회|선교|성경|vbs|church|catholic|temple|worship|mission)/i;
   const koreanRe = /(한인|한국|코리안|korean|ktn|dalkora|달사람|주간.?포커스|코리아타운)/i;
+  const emergencyRe = /(amber alert|silver alert|clear alert|blue alert|endangered missing|tornado warning|severe thunderstorm warning|flash flood warning|flood warning|extreme heat warning|heat advisory|shelter in place|evacuation|active shooter|긴급|경보|대피|주의보|통제)/i;
   const seen = new Set<string>();
   const rows = (data || []).map((x: any) => {
     const text = `${x.original_title || ''} ${x.original_summary || ''} ${x.ai_title || ''} ${x.ai_summary || ''} ${x.source_name || ''} ${(x.category_keywords || []).join(' ')}`;
     const faith = faithRe.test(text);
+    const emergency = x.source_kind === 'official_emergency' || x.priority_level === 'urgent' || emergencyRe.test(text);
     const korean = x.source_kind === 'korean_media' || x.source_kind === 'korean_community' || koreanRe.test(text) || faith;
     const ageHours = Math.max(0, (Date.now() - new Date(x.source_published_at || x.collected_at || 0).getTime()) / 3600000);
-    const score = (korean ? 100 : 0) + (faith ? 24 : 0) + Number(x.priority_score || 0) - Math.min(50, ageHours / 3);
+    const score = (emergency ? 1000 : 0) + (korean ? 100 : 0) + (faith ? 24 : 0) + Number(x.priority_score || 0) - Math.min(50, ageHours / 3);
     return {
       id: x.id,
       title: x.ai_title || x.original_title || '한인 소식',
@@ -547,15 +627,15 @@ async function homeFeed(region = 'dallas') {
       url: x.original_url || '',
       source: x.source_name || '달타운맵 뉴스룸',
       published_at: x.source_published_at || x.collected_at,
-      faith, korean, score,
-      destination: x.destination || x.suggested_destination || 'life',
+      faith, korean, emergency, score,
+      destination: x.destination || x.suggested_destination || (emergency ? 'urgent' : 'life'),
     };
   }).filter((x: any) => {
     const key = titleKey(x.title);
     if (!key || seen.has(key)) return false;
     seen.add(key);
-    return x.korean;
-  }).sort((a: any, b: any) => b.score - a.score).slice(0, 10);
+    return x.emergency || x.korean;
+  }).sort((a: any, b: any) => b.score - a.score).slice(0, 12);
 
   return { ok: true, version: VERSION, items: rows, generated_at: new Date().toISOString() };
 }

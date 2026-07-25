@@ -1992,7 +1992,7 @@ function v38KeywordBoost(text,ctx){
 }
 function v38Candidates(ctx){
   const rows=[];
-  (ctx.koreanNews||[]).forEach((r,i)=>rows.push({kind:'newsroom',id:String(r.id||i),title:r.title||'오늘의 한인 소식',summary:v38Text(r.summary||'달라스 한인사회에서 확인된 소식입니다.'),data:r,score:140+Number(r.score||0)+(r.faith?18:0)-i}));
+  (ctx.koreanNews||[]).forEach((r,i)=>rows.push({kind:'newsroom',id:String(r.id||i),title:r.title||(r.emergency?'긴급 지역 공지':'오늘의 한인 소식'),summary:v38Text(r.summary||(r.emergency?'달라스 지역의 긴급 공지를 확인해 주세요.':'달라스 한인사회에서 확인된 소식입니다.')),data:r,score:(r.emergency?2000:140)+Number(r.score||0)+(r.faith?18:0)-i}));
   ctx.events.forEach(r=>rows.push({kind:'event',id:String(r.id),title:r.title||'오늘 행사',summary:v38Text(r.summary||r.content||'오늘 확인할 지역 행사 소식입니다.'),data:r,score:75+v38AgeScore(r)+v38KeywordBoost(r.title,ctx)}));
   ctx.life.forEach(r=>rows.push({kind:'life',id:String(r.id),title:r.title||'달라스 라이프',summary:v38Text(r.summary||r.content||'오늘 필요한 지역 생활 정보입니다.'),data:r,score:62+v38AgeScore(r)+v38KeywordBoost(r.title,ctx)}));
   ctx.coupons.forEach(r=>rows.push({kind:'coupon',id:String(r.id),title:r.title||r.discount_label||'오늘의 쿠폰',summary:v38Text(r.description||r.discount_label||'오늘 사용할 수 있는 혜택입니다.'),data:r,score:82+v38AgeScore(r)+v38KeywordBoost(r.title,ctx)}));
@@ -2009,7 +2009,7 @@ function v37RecommendationTags(item){
   if(item?.kind==='event') add('오늘 행사');
   if(item?.kind==='life') add('생활 정보');
   if(item?.kind==='dalpick') add(d.badge||d.category_label||(isThemeDalpick(d)?'추천 테마':'DalPick'));
-  if(item?.kind==='newsroom'){add(d.faith?'교회·종교 행사':'한인 소식');add(d.source||'뉴스룸')}
+  if(item?.kind==='newsroom'){add(d.emergency?'긴급 지역 공지':(d.faith?'교회·종교 행사':'한인 소식'));add(d.source||'뉴스룸')}
   return tags.slice(0,3);
 }
 function openV37Recommendation(item){
