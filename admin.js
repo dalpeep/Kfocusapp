@@ -5085,9 +5085,9 @@ async function collectNewsroomLanes(btn,statusPrefix='정보 수집'){
     const [lane,label]=NEWSROOM_COLLECTION_LANES[i];
     if(btn)btn.textContent=`${statusPrefix} ${i+1}/${NEWSROOM_COLLECTION_LANES.length} · ${label}`;
     try{
-      const r=await newsroomEdgeCall('collect',{region,manual:true,lane},`${label} 분야를 수집하고 있습니다…`);
+      const r=await newsroomEdgeCall('collect',{region,manual:true,lane},`${label} 분야의 최신 RSS 소스를 수집하고 있습니다…`);
       inserted+=Number(r.inserted||0);skipped+=Number(r.skipped||0);found+=Number(r.found||0);
-      if(r.timed_out||r.warning)failed.push(`${label}: ${newsroomErrorMessage(r.warning,'시간 초과로 건너뜀')}`);
+      if(Array.isArray(r.warnings)&&r.warnings.length)failed.push(`${label}: 일부 RSS 소스 ${r.warnings.length}개를 건너뜀`);
     }catch(e){failed.push(`${label}: ${newsroomErrorMessage(e)}`);console.warn('newsroom lane failed',lane,e);}
   }
   return {ok:failed.length===0,cleaned,inserted,skipped,found,failed};

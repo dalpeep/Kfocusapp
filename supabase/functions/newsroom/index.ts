@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '40.0.3';
+const VERSION = '40.0.4';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -149,18 +149,95 @@ async function runStatus(region = 'dallas') {
   return { ok: true, version: VERSION, latest: data || null };
 }
 
-const LANE_PROMPTS: Record<string, string> = {
-  korean: `한인 생활 소식을 우선 수집합니다. KTN News, 주간포커스 달라스, 미주중앙일보 달라스, 달사람, 달라스 한인회, 주휴스턴총영사관 달라스 관련 공지, 한국학교·한인 문화단체·한인 커뮤니티의 최근 소식을 폭넓게 찾으세요. 큰 뉴스뿐 아니라 행사, 모집, 교육, 건강강좌, 새 업소, 커뮤니티 안내도 생활 가치가 있으면 포함합니다.`,
-  finance: `은행·금융·세금·소상공인 정보를 수집합니다. Bank of Hope, Hanmi Bank, Open Bank, PCB Bank, CBB Bank, Chase, Bank of America, Wells Fargo, Capital One, SBA, IRS, Texas Comptroller의 공식 최신 자료를 우선합니다. CD·예금·계좌 프로모션·모기지·SBA·세금 일정·송금·소상공인 지원처럼 한인 생활에 실제 도움이 될 항목을 찾으세요.`,
-  shopping: `마트·쇼핑·업소·생활경제 정보를 수집합니다. H Mart, Zion Market, Komart와 달라스 지역 한인 업소의 공식 세일, 오픈, 프로모션, 계절 행사 및 생활비 절약 정보를 찾으세요. 종료일이나 행사일이 확인되는 정보만 포함하고 단순 상시 광고는 제외합니다.`,
-  events: `향후 30일 안의 달라스-포트워스 가족 행사, 공연, 축제, 박물관, 도서관, 공원, 학교, 스포츠 일정, 캠프와 커뮤니티 이벤트를 찾으세요. 게시일이 어제여도 행사가 오늘 이후라면 포함합니다.`,
-  practical: `오늘 생활에 영향을 주는 날씨, 교통, 도로 통제, 공항, 학교, 도시 서비스, 공공안전, 건강 및 지역기관 정보를 찾으세요. 같은 폭염·예보·도로 공지의 반복은 대표 항목 하나만 남기고, 일반 날씨 예보보다 경보·폐쇄·일정 변경처럼 행동에 도움이 되는 정보를 우선합니다.`,
+const LANE_QUERIES: Record<string, string[]> = {
+  korean: [
+    'Dallas Korean community',
+    'DFW Korean event OR Korean association',
+    '달라스 한인 행사 OR 달라스 한인회',
+  ],
+  finance: [
+    'Texas SBA small business IRS tax deadline',
+    'Dallas bank mortgage CD rate promotion',
+    'Korean American bank Texas Hanmi Bank Bank of Hope',
+  ],
+  shopping: [
+    'Dallas H Mart sale OR event',
+    'Dallas Zion Market Korean grocery sale',
+    'Dallas Korean business opening promotion',
+  ],
+  events: [
+    'Dallas family events this weekend',
+    'DFW festival museum library event',
+    'Dallas Fort Worth sports concert community event',
+  ],
+  practical: [
+    'Dallas weather alert road closure traffic airport',
+    'Dallas school closure city service public safety',
+    'DFW airport delay DART TxDOT Dallas advisory',
+  ],
 };
 
+function decodeXml(value = '') {
+  return String(value)
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function xmlTag(block: string, tag: string) {
+  const m = block.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return m ? decodeXml(m[1]) : '';
+}
+function xmlSource(block: string) {
+  const m = block.match(/<source(?:\s[^>]*)?>([\s\S]*?)<\/source>/i);
+  return m ? decodeXml(m[1]) : '';
+}
+function googleNewsFeedUrl(query: string) {
+  return `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
+}
+async function fetchTextWithTimeout(url: string, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 DalTownMap-Newsroom/40.0.4' },
+      signal: controller.signal,
+    });
+    if (!r.ok) throw new Error(`RSS HTTP ${r.status}`);
+    return await r.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+function parseGoogleNewsRss(xml: string, lane: string) {
+  const blocks = String(xml).match(/<item>[\s\S]*?<\/item>/gi) || [];
+  return blocks.map((block) => {
+    const title = xmlTag(block, 'title').replace(/\s+-\s+[^-]+$/, '').trim();
+    const url = xmlTag(block, 'link');
+    const pubDateRaw = xmlTag(block, 'pubDate');
+    const source = xmlSource(block) || 'Google News';
+    const description = xmlTag(block, 'description');
+    const published = pubDateRaw ? new Date(pubDateRaw) : null;
+    return {
+      original_title: title,
+      original_summary: description || null,
+      original_url: url,
+      source_name: source,
+      source_kind: lane === 'korean' ? 'korean_media' : (lane === 'shopping' ? 'business' : 'media'),
+      source_published_at: published && !Number.isNaN(published.getTime()) ? published.toISOString() : null,
+      area: 'Dallas-Fort Worth',
+      event_start_at: null,
+      event_end_at: null,
+      expires_at: null,
+      topic_key: titleKey(title),
+    };
+  }).filter((x) => x.original_title && x.original_url);
+}
+
 async function collect(region = 'dallas', scheduled = false, lane = 'practical') {
-  const normalizedLane = LANE_PROMPTS[lane] ? lane : 'practical';
+  const normalizedLane = LANE_QUERIES[lane] ? lane : 'practical';
   const triggerType = scheduled ? 'scheduled' : 'manual';
-  const run = await startRun(region, triggerType, `lane:${normalizedLane}`);
+  const run = await startRun(region, triggerType, `lane:${normalizedLane}; provider:google-news-rss`);
   try {
     if (scheduled) {
       const { data: setting } = await admin.from('newsroom_settings').select('auto_enabled').eq('region', region).maybeSingle();
@@ -170,16 +247,38 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
       }
     }
 
-    const now = new Date();
-    const today = dateKeyInDallas(now);
-    const prompt = `${LANE_PROMPTS[normalizedLane]}\n현재 달라스 날짜는 ${today}, 현재 UTC 시각은 ${now.toISOString()}입니다.\n수집 원칙:\n- 뉴스 여부보다 달라스 한인 생활에 도움이 될 가능성을 우선합니다.\n- 일반 뉴스·날씨·공지의 source_published_at은 반드시 오늘(${today})이어야 합니다.\n- 단, 향후 행사·세일·모집은 게시일이 이전이어도 event_start_at 또는 expires_at이 오늘 이후면 허용합니다.\n- 같은 사건이나 같은 날씨 내용은 한 건만 반환합니다.\n- 가장 유용한 최대 4건만 반환하고 정확한 원문 URL을 사용합니다.\n- 확인되지 않은 SNS 글과 검색 결과 요약 URL은 제외합니다.\nReturn ONLY JSON {"items":[{"original_title":"","original_summary":"1-3 factual sentences","original_url":"https://...","source_name":"","source_kind":"official|korean_media|media|business","source_published_at":"ISO or null","area":"Dallas-Fort Worth","event_start_at":"ISO or null","event_end_at":"ISO or null","expires_at":"ISO or null","topic_key":"short duplicate grouping key"}]}`;
+    const queries = LANE_QUERIES[normalizedLane];
+    const results = await Promise.allSettled(queries.map(async (query) => {
+      const xml = await fetchTextWithTimeout(googleNewsFeedUrl(query), 12000);
+      return parseGoogleNewsRss(xml, normalizedLane);
+    }));
 
-    const result = await openai({
-      model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
-      tools: [{ type: 'web_search' }],
-      input: prompt,
+    const fetched: any[] = [];
+    const warnings: string[] = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') fetched.push(...r.value);
+      else warnings.push(`${queries[i]}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
     });
-    const items = Array.isArray(result.items) ? result.items.slice(0, 4) : [];
+
+    // Collection must be useful even when exact same-day coverage is sparse.
+    // Keep recent practical/news items for 72 hours, and event candidates for 14 days.
+    const nowMs = Date.now();
+    const maxAgeMs = normalizedLane === 'events' ? 14 * 86400000 : 72 * 3600000;
+    const recent = fetched.filter((x) => {
+      if (!x.source_published_at) return true;
+      const ms = new Date(x.source_published_at).getTime();
+      return Number.isNaN(ms) || nowMs - ms <= maxAgeMs;
+    });
+
+    const unique = new Map<string, any>();
+    for (const x of recent) {
+      const key = slug(x.original_url) || titleKey(x.original_title);
+      if (!key || unique.has(key)) continue;
+      unique.set(key, x);
+    }
+    const items = [...unique.values()]
+      .sort((a, b) => new Date(b.source_published_at || 0).getTime() - new Date(a.source_published_at || 0).getTime())
+      .slice(0, 8);
 
     const { data: existing, error: e } = await admin.from('newsroom_items')
       .select('original_url,original_title,source_published_at,event_data')
@@ -191,36 +290,24 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
     let skipped = 0;
 
     for (const x of items) {
-      if (!x?.original_url || !x?.original_title) { skipped++; continue; }
       const key = slug(x.original_url);
       const tKey = titleKey(x.original_title);
       if (!key || seenUrls.has(key) || (tKey && seenTitles.has(tKey))) { skipped++; continue; }
-
-      const eventData = {
-        start_at: x.event_start_at || null,
-        end_at: x.event_end_at || x.expires_at || null,
-      };
-      const futureEvent = isFutureOrCurrentEvent({ event_data: eventData }, today);
-      const published = parseDateKey(x.source_published_at);
-      if (published && published < today && !futureEvent) { skipped++; continue; }
-      if (eventData.end_at && parseDateKey(eventData.end_at) < today) { skipped++; continue; }
-
       seenUrls.add(key);
       if (tKey) seenTitles.add(tKey);
-      const kind = ['official', 'korean_media', 'media', 'business'].includes(x.source_kind) ? x.source_kind : 'official';
       rows.push({
         region,
         original_title: String(x.original_title).slice(0, 500),
         original_summary: x.original_summary || null,
         original_url: x.original_url,
         source_name: x.source_name || null,
-        source_kind: kind,
+        source_kind: x.source_kind || 'media',
         source_published_at: x.source_published_at || null,
         area: x.area || 'Dallas-Fort Worth',
         status: 'collected', confidence: 0, fact_status: 'needs_review',
         duplicate_key: key,
-        category_keywords: [],
-        event_data: eventData,
+        category_keywords: [normalizedLane],
+        event_data: { start_at: null, end_at: null },
         collected_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       });
     }
@@ -232,19 +319,18 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
       if (error) throw error;
       insertedCount = inserted?.length || 0;
     }
+    const note = `lane:${normalizedLane}; provider:google-news-rss${warnings.length ? `; warnings:${warnings.length}` : ''}`;
     await finishRun(run?.id, {
-      status: 'success', found: items.length, inserted: insertedCount, skipped, cleaned: 0,
-      note: `lane:${normalizedLane}`,
+      status: 'success', found: items.length, inserted: insertedCount, skipped, cleaned: 0, note,
     });
-    return { ok: true, version: VERSION, lane: normalizedLane, found: items.length, inserted: insertedCount, skipped, cleaned: 0 };
+    return {
+      ok: true, version: VERSION, lane: normalizedLane, provider: 'google-news-rss',
+      found: items.length, inserted: insertedCount, skipped, cleaned: 0,
+      warnings,
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await finishRun(run?.id, { status: 'failed', error_message: message, note: `lane:${normalizedLane}` });
-    // A slow external web search should not turn the whole newsroom collection into HTTP 500.
-    // Return a normal partial-result response so the admin can continue with the next lane.
-    if (/65초 안에 완료되지 않아/.test(message)) {
-      return { ok: true, version: VERSION, lane: normalizedLane, found: 0, inserted: 0, skipped: 0, cleaned: 0, timed_out: true, warning: message };
-    }
+    await finishRun(run?.id, { status: 'failed', error_message: message, note: `lane:${normalizedLane}; provider:google-news-rss` });
     throw e;
   }
 }
