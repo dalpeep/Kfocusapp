@@ -4982,6 +4982,16 @@ async function publishNewsroom(){
   const {error:deleteError}=await supabase.from('newsroom_items').delete().eq('id',selectedNewsroomId);if(deleteError)alert(`기사는 게시됐지만 수집 후보 정리에 실패했습니다: ${deleteError.message}`);else alert(`${newsroomLabel(dest)}에 게시하고 수집 후보에서 정리했습니다.`);selectedNewsroomId=null;qs('newsroomForm').hidden=true;qs('newsroomEmpty').hidden=false;await Promise.all([loadBoards(),loadNewsroom()]);
 }
 async function excludeNewsroom(){if(!selectedNewsroomId)return;if(!confirm('이 소식을 제외하고 수집 후보에서 삭제할까요?'))return;const {error}=await supabase.from('newsroom_items').delete().eq('id',selectedNewsroomId);if(error)return alert(`후보 삭제 실패: ${error.message}`);selectedNewsroomId=null;await loadNewsroom();qs('newsroomForm').hidden=true;qs('newsroomEmpty').hidden=false;}
+function newsroomErrorMessage(value, fallback='뉴스룸 요청 처리 중 오류가 발생했습니다.'){
+  if(typeof value==='string'&&value.trim())return value.trim();
+  if(value instanceof Error&&value.message)return value.message;
+  if(value&&typeof value==='object'){
+    const nested=value.message||value.error_description||value.details||value.hint;
+    if(typeof nested==='string'&&nested.trim())return nested.trim();
+    try{return JSON.stringify(value);}catch(_){return fallback;}
+  }
+  return value==null?fallback:String(value);
+}
 async function newsroomEdgeCall(action, body={}, busyText=''){
   if(busyText)safeText('newsroomStatus',busyText);
   const cfg=window.KFOCUS_CONFIG||{};
@@ -4989,15 +4999,25 @@ async function newsroomEdgeCall(action, body={}, busyText=''){
   const {data:{session}}=await supabase.auth.getSession();
   if(!session?.access_token)throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
   const functionName=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom').trim()||'newsroom';
-  const res=await fetch(`${cfg.SUPABASE_URL.replace(/\/$/,'')}/functions/v1/${encodeURIComponent(functionName)}`,{
-    method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`},
-    body:JSON.stringify({action,...body})
-  });
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),125000);
+  let res;
+  try{
+    res=await fetch(`${cfg.SUPABASE_URL.replace(/\/$/,'')}/functions/v1/${encodeURIComponent(functionName)}`,{
+      method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`},
+      body:JSON.stringify({action,...body}),signal:controller.signal
+    });
+  }catch(error){
+    if(error?.name==='AbortError')throw new Error('뉴스룸 서버 응답이 125초를 초과했습니다. 잠시 후 해당 분야만 다시 실행해 주세요.');
+    throw error;
+  }finally{clearTimeout(timer);}
   const text=await res.text();let json={};
   try{json=text?JSON.parse(text):{};}catch(_){throw new Error(`Supabase Edge Function이 JSON이 아닌 응답을 반환했습니다 (${res.status}): ${text.replace(/\s+/g,' ').slice(0,160)}`);}
   if(!res.ok){
     const hint=res.status===404?` Edge Function 이름 '${functionName}'이 배포되어 있는지 확인하세요.`:'';
-    const raw=json.error||`뉴스룸 ${action} 실행 실패 (${res.status})`;const friendly=/지원하지 않는 뉴스룸 작업/.test(raw)?`배포된 newsroom Edge Function이 관리자 화면보다 오래된 버전입니다. 최신 함수를 배포한 뒤 다시 시도하세요. (요청: ${action})`:raw;throw new Error(friendly+hint);
+    const raw=newsroomErrorMessage(json.error||json.message,`뉴스룸 ${action} 실행 실패 (${res.status})`);
+    const friendly=/지원하지 않는 뉴스룸 작업/.test(raw)?`배포된 newsroom Edge Function이 관리자 화면보다 오래된 버전입니다. 최신 함수를 배포한 뒤 다시 시도하세요. (요청: ${action})`:raw;
+    throw new Error(friendly+hint);
   }
   return json;
 }

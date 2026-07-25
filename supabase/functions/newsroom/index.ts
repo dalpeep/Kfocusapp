@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '40.0.0';
+const VERSION = '40.0.1';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +61,7 @@ function isFutureOrCurrentEvent(row: any, today: string) {
   return false;
 }
 
-async function openai(payload: any, timeoutMs = 42000) {
+async function openai(payload: any, timeoutMs = 110000) {
   const key = env('OPENAI_API_KEY');
   if (!key) throw new Error('OPENAI_API_KEY가 Supabase Edge Function Secrets에 없습니다.');
   const controller = new AbortController();
@@ -79,7 +79,7 @@ async function openai(payload: any, timeoutMs = 42000) {
     if (!r.ok) throw new Error(j?.error?.message || `OpenAI 오류 ${r.status}: ${t.slice(0, 180)}`);
     return parseJsonText(outputText(j));
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') throw new Error('정보 수집 시간이 초과되었습니다. 해당 분야를 다시 실행해 주세요.');
+    if (e instanceof DOMException && e.name === 'AbortError') throw new Error('정보 검색이 110초 안에 완료되지 않았습니다. 잠시 후 해당 분야만 다시 실행해 주세요.');
     throw e;
   } finally {
     clearTimeout(timer);
