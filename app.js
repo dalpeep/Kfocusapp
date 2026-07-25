@@ -1800,9 +1800,10 @@ function mapBottomItemHTML(b){
   `;
 }
 
-function renderMapBottomList(list){
+function renderMapBottomList(list, categorySummaryRows = null){
   if(!mapBottomList) return;
   const rows = list || [];
+  const summaryRows = Array.isArray(categorySummaryRows) ? categorySummaryRows : rows;
   selectedMapBusinessId = '';
   mapBusinessPreview?.classList.add('hidden');
   mapBottomList.classList.add('hidden');
@@ -1812,7 +1813,8 @@ function renderMapBottomList(list){
   mapBottomPanel?.classList.remove('hidden','collapsed','preview-open');
   mapBottomPanel?.classList.add('counts-only');
   window.__mapCurrentRows = rows;
-  renderMapCategorySummary(rows);
+  window.__mapCategorySummaryRows = summaryRows;
+  renderMapCategorySummary(summaryRows);
 }
 function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
@@ -4055,6 +4057,29 @@ function focusMapOnBusinesses(list){
   map.fitBounds(bounds, { top: 220, right: 48, bottom: 96, left: 48 });
 }
 
+function fitMapToCurrentResultRows(){
+  const rows = Array.isArray(window.__mapCurrentRows) ? window.__mapCurrentRows : [];
+  const valid = rows.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  if(!map || !window.google?.maps || !valid.length) return;
+  mapBusinessPreview?.classList.add('hidden');
+  selectedMapBusinessId = '';
+  mapBottomPanel?.classList.remove('preview-open');
+  mapBottomPanel?.classList.add('counts-only');
+  if(mapInfoWindow) mapInfoWindow.close();
+  if(valid.length === 1){
+    const b = valid[0];
+    map.setZoom(14);
+    panMapForVisibleInfo(Number(b.lat), Number(b.lng));
+    return;
+  }
+  const bounds = new google.maps.LatLngBounds();
+  valid.forEach(b=>bounds.extend({ lat:Number(b.lat), lng:Number(b.lng) }));
+  map.fitBounds(bounds, { top: 220, right: 48, bottom: 110, left: 48 });
+  google.maps.event.addListenerOnce(map, 'idle', ()=>{
+    if((map.getZoom() || 0) > 15) map.setZoom(15);
+  });
+}
+
 
 function getMarkerIconForBusiness(b){
   if(mapMode==='event' || b.has_event) return 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
@@ -4080,6 +4105,11 @@ function redrawMapMarkers(){
   if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)]));
   const nearbyBase = !radiusMiles ? baseList : baseList.filter(b=>haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng)) <= radiusMiles);
   updateMapFilterAvailability(nearbyBase.length ? nearbyBase : baseList);
+  // 상단 세부 카테고리 개수는 현재 위치/검색 범위의 전체 업소를 기준으로 유지한다.
+  // 카테고리를 선택해도 다른 카테고리 버튼과 개수가 사라지지 않게 한다.
+  let categorySummaryList = nearbyBase.length ? nearbyBase : baseList;
+  if(mapMode !== 'business') categorySummaryList = [];
+
   const list = getFilteredMapBusinesses();
   const filtered = !radiusMiles ? list : list.filter(b=>{
     const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
@@ -4113,7 +4143,7 @@ function redrawMapMarkers(){
     focusMapOnBusinesses(finalList);
   }
   const sortedFinalList = sortBusinessesByDistance(nearbyList);
-  renderMapBottomList(sortedFinalList);
+  renderMapBottomList(sortedFinalList, categorySummaryList);
   if(mapNotice) mapNotice.classList.add('hidden');
   if(mapSearchQuery && finalList.length){
     setMapBottomStatus(`검색 결과 ${finalList.length}곳`);
@@ -4642,8 +4672,12 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     selectedMapBusinessId='';
     mapCategory='';
     renderMapFilters();
-    if(mapReady) redrawMapMarkers();
-    setTimeout(()=>renderMapCategorySummary(window.__mapCurrentRows || []), 0);
+    if(mapReady){
+      redrawMapMarkers();
+      // 하단의 업소/쿠폰/행사 전체 개수를 누를 때마다 해당 결과 전체가 화면에 들어오게 정렬한다.
+      setTimeout(fitMapToCurrentResultRows, 80);
+    }
+    setTimeout(()=>renderMapCategorySummary(window.__mapCategorySummaryRows || window.__mapCurrentRows || []), 0);
   });
   mapCategoryRow?.addEventListener('click', e=>{
     const btn=e.target.closest('[data-map-category]');
@@ -4653,7 +4687,11 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     mapCategory = mapCategory === next ? '' : next;
     selectedMapBusinessId='';
     renderMapFilters();
-    if(mapReady) redrawMapMarkers();
+    if(mapReady){
+      redrawMapMarkers();
+      // 선택한 세부 카테고리 업소가 흩어져 있어도 모두 보이도록 자동 줌/중앙 정렬한다.
+      setTimeout(fitMapToCurrentResultRows, 80);
+    }
   });
 mapSearchAreaBtn?.addEventListener('click', () => {
   if (!mapReady || !map) return;
