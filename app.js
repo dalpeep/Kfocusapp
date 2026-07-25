@@ -1,4 +1,4 @@
-// DalTownMap V43.0.0 home newsroom integration
+// DalTownMap V44.0.0 reliable home newsroom integration
 console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -1941,6 +1941,8 @@ let v42KoreanNewsItems = [];
 let v43AlertItems = [];
 let v43AlertIndex = 0;
 let v43AlertTimer = null;
+let v44HomeRenderSequence = 0;
+let v44HomeFeedLoadedAt = 0;
 
 function v37VisibleBoardPosts(type){
   return (boardPosts || []).filter(post => {
@@ -1957,24 +1959,37 @@ function v38AgeScore(row){
   return Math.max(0,30-Math.min(30,days*3));
 }
 async function v42LoadKoreanNews(){
-  try{
-    const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-    const key=cfg.SUPABASE_ANON_KEY||'';
-    if(!base||!key)return [];
+  const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+  const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+  if(!base||!key){console.warn('[V44 Home Feed] Supabase public config missing');return []}
+  const endpoint=`${base}/functions/v1/newsroom`;
+  const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`,'Cache-Control':'no-cache'};
+  const attempts=[
+    {label:'GET',url:`${endpoint}?action=home_feed&region=${encodeURIComponent(currentRegion||'dallas')}&_=${Date.now()}`,options:{method:'GET',headers}},
+    {label:'POST',url:endpoint,options:{method:'POST',headers,body:JSON.stringify({action:'home_feed',region:currentRegion||'dallas',cache_bust:Date.now()})}}
+  ];
+  let lastError=null;
+  for(const attempt of attempts){
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),9000);
-    const res=await fetch(`${base}/functions/v1/newsroom`,{
-      method:'POST',signal:controller.signal,
-      headers:{'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`},
-      body:JSON.stringify({action:'home_feed',region:currentRegion||'dallas'})
-    });
-    clearTimeout(timer);
-    const json=await res.json().catch(()=>({}));
-    if(!res.ok||!json.ok)throw new Error(json.error||`HTTP ${res.status}`);
-    const items=Array.isArray(json.items)?json.items:[];
-    items.feed_meta=json.meta||{};
-    return items;
-  }catch(e){console.info('[V42] Korean newsroom feed fallback:',e?.message||e);return []}
+    const timer=setTimeout(()=>controller.abort(),15000);
+    try{
+      const res=await fetch(attempt.url,{...attempt.options,signal:controller.signal});
+      const raw=await res.text();
+      let json={};
+      try{json=raw?JSON.parse(raw):{}}catch(_){throw new Error(`${attempt.label} 응답이 JSON이 아닙니다: ${raw.slice(0,120)}`)}
+      if(!res.ok||json.ok===false)throw new Error(json.error?.message||json.error||json.message||`HTTP ${res.status}`);
+      const items=Array.isArray(json.items)?json.items:[];
+      items.feed_meta=json.meta||{};
+      v44HomeFeedLoadedAt=Date.now();
+      console.info(`[V44 Home Feed] ${attempt.label} success`,{count:items.length,meta:json.meta,version:json.version});
+      return items;
+    }catch(e){
+      lastError=e;
+      console.warn(`[V44 Home Feed] ${attempt.label} failed`,e?.name==='AbortError'?'timeout':e?.message||e);
+    }finally{clearTimeout(timer)}
+  }
+  console.warn('[V44 Home Feed] all attempts failed',lastError?.message||lastError);
+  return [];
 }
 function v42OpenNews(item){
   if(!item)return;
@@ -2134,17 +2149,36 @@ function paintV38HomePayload(payload,candidates){
   if(window.lucide)window.lucide.createIcons();
 }
 async function renderV37AIHome(){
+  const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate'),summaryNode=document.getElementById('v37BriefSummary'),chipsNode=document.getElementById('v37BriefChips');
   if(!dateNode||!summaryNode||!chipsNode)return;
   let ctx=v38Context(),candidates=v38Candidates(ctx);
   v43SetupAlerts(v42KoreanNewsItems);
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
   let immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
-  v42KoreanNewsItems=await v42LoadKoreanNews();
+
+  const loaded=await v42LoadKoreanNews();
+  if(sequence!==v44HomeRenderSequence)return;
+  v42KoreanNewsItems=loaded;
   v43SetupAlerts(v42KoreanNewsItems);
   ctx=v38Context();candidates=v38Candidates(ctx);
-  immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
-  const payload=await v38GeneratePayload(ctx,candidates);v38HomePayload=payload;paintV38HomePayload(payload,candidates);
+  immediate=v38FallbackPayload(ctx,candidates);
+  if(v42KoreanNewsItems.length){
+    const urgent=v42KoreanNewsItems.filter(x=>x.school||x.emergency);
+    const korean=v42KoreanNewsItems.filter(x=>x.korean&&!x.school&&!x.emergency);
+    const lead=(urgent[0]||korean[0]||v42KoreanNewsItems[0]);
+    immediate.title='오늘의 달라스';
+    immediate.kicker=urgent.length?'긴급·생활 공지 · 달타운 요약':'한인 소식 · 달타운 요약';
+    immediate.summary=urgent.length
+      ? `${lead.title} 등 지금 확인할 지역 공지가 있습니다. 아래 긴급 공지와 한인 소식을 차례로 확인해 보세요.`
+      : `${lead.title}${korean.length>1?` 외 ${korean.length-1}건`:''}의 한인 소식이 확인됐습니다. 아래 카드에서 주요 소식을 연속으로 살펴보세요.`;
+    immediate.tip=urgent.length?'외출이나 등교 전 공식 원문에서 최신 상태를 다시 확인하세요.':'관심 있는 카드를 누르면 해당 원문을 바로 확인할 수 있습니다.';
+    immediate.source='달타운 최신 정보';
+  }
+  v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
+  const payload=await v38GeneratePayload(ctx,candidates);
+  if(sequence!==v44HomeRenderSequence)return;
+  v38HomePayload=payload;paintV38HomePayload(payload,candidates);
 }
 function initV37AIHomeEvents(){
   const main=document.getElementById('v37RecommendMain');if(main&&!main.dataset.bound){main.dataset.bound='1';main.addEventListener('click',()=>openV37Recommendation(v37RecommendationItems[v37RecommendationIndex]))}

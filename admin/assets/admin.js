@@ -198,7 +198,15 @@ function on(id, evt, fn) {
 }
 function safeText(id, text) {
   const el = qs(id);
-  if (el) el.textContent = text ?? '';
+  if (!el) return;
+  if (text && typeof text === 'object') {
+    const preferred = text.message ?? text.error ?? text.details ?? text.hint ?? text.reason;
+    if (preferred !== undefined) text = preferred;
+    else {
+      try { text = JSON.stringify(text); } catch (_) { text = '처리 결과를 표시할 수 없습니다.'; }
+    }
+  }
+  el.textContent = text ?? '';
 }
 function val(id) { return qs(id)?.value ?? ''; }
 function setVal(id, v) { if (qs(id)) qs(id).value = v ?? ''; }

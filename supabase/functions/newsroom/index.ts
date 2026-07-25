@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '43.0.0';
+const VERSION = '44.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -9,7 +9,7 @@ const cors = {
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
-  headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' },
+  headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store, max-age=0' },
 });
 const env = (name: string) => Deno.env.get(name) || '';
 const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
@@ -672,9 +672,10 @@ async function status(region = 'dallas') {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const body = await req.json().catch(() => ({}));
-    const action = String(body.action || '');
-    const region = String(body.region || 'dallas').toLowerCase();
+    const url = new URL(req.url);
+    const body = req.method === 'GET' ? {} : await req.json().catch(() => ({}));
+    const action = String(url.searchParams.get('action') || body.action || '');
+    const region = String(url.searchParams.get('region') || body.region || 'dallas').toLowerCase();
 
     if (action === 'ping' || action === 'version') return json({ ok: true, version: VERSION, action });
     if (action === 'home_feed') return json(await homeFeed(region));
