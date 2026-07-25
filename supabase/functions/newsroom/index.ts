@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '41.0.0';
+const VERSION = '42.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -154,6 +154,8 @@ const LANE_QUERIES: Record<string, string[]> = {
     'Dallas Korean community',
     'DFW Korean event OR Korean association',
     '달라스 한인 행사 OR 달라스 한인회',
+    '달라스 한인교회 행사 OR 교회 바자회 OR 부흥회 OR VBS',
+    'DFW Korean church event OR Korean Catholic OR Korean temple',
   ],
   finance: [
     'Texas SBA small business IRS tax deadline',
@@ -362,6 +364,8 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
         'site:weeklyfocustx.com 달라스 OR 한인',
         'site:dalsaram.com 달라스 OR 한인',
         'site:dalkora.com 달라스 OR 한인',
+        '달라스 한인교회 행사 부흥회 바자회 VBS',
+        'DFW Korean church Catholic temple community event',
       ];
       const fallback = await Promise.allSettled(fallbackQueries.map(async (query) => {
         const xml = await fetchTextWithTimeout(googleNewsFeedUrl(query), 10000);
@@ -516,6 +520,46 @@ async function draft(body: any) {
   return { ok: true, version: VERSION };
 }
 
+async function homeFeed(region = 'dallas') {
+  const since = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data, error } = await admin.from('newsroom_items')
+    .select('id,original_title,original_summary,original_url,source_name,source_kind,source_published_at,ai_title,ai_summary,status,priority_score,priority_level,category_keywords,suggested_destination,destination,event_data,collected_at')
+    .eq('region', region)
+    .in('status', ['collected','classified','review'])
+    .gte('collected_at', since)
+    .order('source_published_at', { ascending: false, nullsFirst: false })
+    .limit(120);
+  if (error) throw error;
+
+  const faithRe = /(교회|성당|천주교|불교|사찰|예배|부흥회|바자회|선교|성경|vbs|church|catholic|temple|worship|mission)/i;
+  const koreanRe = /(한인|한국|코리안|korean|ktn|dalkora|달사람|주간.?포커스|코리아타운)/i;
+  const seen = new Set<string>();
+  const rows = (data || []).map((x: any) => {
+    const text = `${x.original_title || ''} ${x.original_summary || ''} ${x.ai_title || ''} ${x.ai_summary || ''} ${x.source_name || ''} ${(x.category_keywords || []).join(' ')}`;
+    const faith = faithRe.test(text);
+    const korean = x.source_kind === 'korean_media' || x.source_kind === 'korean_community' || koreanRe.test(text) || faith;
+    const ageHours = Math.max(0, (Date.now() - new Date(x.source_published_at || x.collected_at || 0).getTime()) / 3600000);
+    const score = (korean ? 100 : 0) + (faith ? 24 : 0) + Number(x.priority_score || 0) - Math.min(50, ageHours / 3);
+    return {
+      id: x.id,
+      title: x.ai_title || x.original_title || '한인 소식',
+      summary: x.ai_summary || x.original_summary || '달라스 한인사회에서 확인된 소식입니다.',
+      url: x.original_url || '',
+      source: x.source_name || '달타운맵 뉴스룸',
+      published_at: x.source_published_at || x.collected_at,
+      faith, korean, score,
+      destination: x.destination || x.suggested_destination || 'life',
+    };
+  }).filter((x: any) => {
+    const key = titleKey(x.title);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return x.korean;
+  }).sort((a: any, b: any) => b.score - a.score).slice(0, 10);
+
+  return { ok: true, version: VERSION, items: rows, generated_at: new Date().toISOString() };
+}
+
 async function status(region = 'dallas') {
   const checks: any = {
     edge_function: true,
@@ -529,7 +573,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -537,12 +581,14 @@ async function status(region = 'dallas') {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
-    const auth = await authorize(req);
     const body = await req.json().catch(() => ({}));
     const action = String(body.action || '');
     const region = String(body.region || 'dallas').toLowerCase();
 
     if (action === 'ping' || action === 'version') return json({ ok: true, version: VERSION, action });
+    if (action === 'home_feed') return json(await homeFeed(region));
+
+    const auth = await authorize(req);
     if (action === 'status' || action === 'health') return json(await status(region));
     if (action === 'run_status') return json(await runStatus(region));
     if (action === 'cleanup') return json(await cleanup(region));
@@ -564,7 +610,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed'],
     }, 400);
   } catch (e) {
     console.error(e);

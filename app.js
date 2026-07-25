@@ -1936,6 +1936,7 @@ let v37RecommendationIndex = 0;
 let v37RecommendationTimer = null;
 let v37RecommendationItems = [];
 let v38HomePayload = null;
+let v42KoreanNewsItems = [];
 
 function v37VisibleBoardPosts(type){
   return (boardPosts || []).filter(post => {
@@ -1951,13 +1952,36 @@ function v38AgeScore(row){
   const days=Math.max(0,(Date.now()-t)/86400000);
   return Math.max(0,30-Math.min(30,days*3));
 }
+async function v42LoadKoreanNews(){
+  try{
+    const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+    const key=cfg.SUPABASE_ANON_KEY||'';
+    if(!base||!key)return [];
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),9000);
+    const res=await fetch(`${base}/functions/v1/newsroom`,{
+      method:'POST',signal:controller.signal,
+      headers:{'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`},
+      body:JSON.stringify({action:'home_feed',region:currentRegion||'dallas'})
+    });
+    clearTimeout(timer);
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||!json.ok)throw new Error(json.error||`HTTP ${res.status}`);
+    return Array.isArray(json.items)?json.items:[];
+  }catch(e){console.info('[V42] Korean newsroom feed fallback:',e?.message||e);return []}
+}
+function v42OpenNews(item){
+  if(!item)return;
+  if(item.url)window.open(item.url,'_blank','noopener,noreferrer');
+}
+
 function v38Context(){
   const now=new Date(), day=now.getDay(), weekend=day===0||day===6;
   const events=v37VisibleBoardPosts('notice').slice(0,12), life=v37VisibleBoardPosts('life').slice(0,12);
   const coupons=(typeof todayCoupons==='function'?todayCoupons():[]).slice(0,12);
   const picks=activeDalpicks().filter(r=>!isThemeDalpick(r)||r.show_in_dalpick===true).slice(0,12);
   const featured=(businesses||[]).filter(b=>b.featured&&isBusinessVisibleByPaidDate(b)).slice(0,12);
-  return {now,weekend,events,life,coupons,picks,featured};
+  return {now,weekend,events,life,coupons,picks,featured,koreanNews:v42KoreanNewsItems};
 }
 function v38KeywordBoost(text,ctx){
   const s=String(text||'').toLowerCase(); let score=0;
@@ -1968,6 +1992,7 @@ function v38KeywordBoost(text,ctx){
 }
 function v38Candidates(ctx){
   const rows=[];
+  (ctx.koreanNews||[]).forEach((r,i)=>rows.push({kind:'newsroom',id:String(r.id||i),title:r.title||'오늘의 한인 소식',summary:v38Text(r.summary||'달라스 한인사회에서 확인된 소식입니다.'),data:r,score:140+Number(r.score||0)+(r.faith?18:0)-i}));
   ctx.events.forEach(r=>rows.push({kind:'event',id:String(r.id),title:r.title||'오늘 행사',summary:v38Text(r.summary||r.content||'오늘 확인할 지역 행사 소식입니다.'),data:r,score:75+v38AgeScore(r)+v38KeywordBoost(r.title,ctx)}));
   ctx.life.forEach(r=>rows.push({kind:'life',id:String(r.id),title:r.title||'달라스 라이프',summary:v38Text(r.summary||r.content||'오늘 필요한 지역 생활 정보입니다.'),data:r,score:62+v38AgeScore(r)+v38KeywordBoost(r.title,ctx)}));
   ctx.coupons.forEach(r=>rows.push({kind:'coupon',id:String(r.id),title:r.title||r.discount_label||'오늘의 쿠폰',summary:v38Text(r.description||r.discount_label||'오늘 사용할 수 있는 혜택입니다.'),data:r,score:82+v38AgeScore(r)+v38KeywordBoost(r.title,ctx)}));
@@ -1984,10 +2009,12 @@ function v37RecommendationTags(item){
   if(item?.kind==='event') add('오늘 행사');
   if(item?.kind==='life') add('생활 정보');
   if(item?.kind==='dalpick') add(d.badge||d.category_label||(isThemeDalpick(d)?'추천 테마':'DalPick'));
+  if(item?.kind==='newsroom'){add(d.faith?'교회·종교 행사':'한인 소식');add(d.source||'뉴스룸')}
   return tags.slice(0,3);
 }
 function openV37Recommendation(item){
   if(!item)return; const d=item.data||{};
+  if(item.kind==='newsroom'){v42OpenNews(d);return}
   if(item.kind==='coupon'){renderCouponDetail(d.id);lastBasePage=currentPage;showPage('coupon-detail');return}
   if(item.kind==='business'){renderDetail(d.id);showPage('business-detail');return}
   if(item.kind==='event'||item.kind==='life'){openBoardPost(d.id);return}
@@ -1998,7 +2025,7 @@ function openV37Recommendation(item){
 }
 function paintV37Recommendation(){
   const title=document.getElementById('v37RecommendTitle'),summary=document.getElementById('v37RecommendSummary'),tagsNode=document.getElementById('v37RecommendTags'),dots=document.getElementById('v37RecommendDots');
-  if(!title||!summary||!dots)return; const item=v37RecommendationItems[v37RecommendationIndex]||{title:'오늘 가볼 만한 곳',summary:'달라스의 새로운 추천을 확인해 보세요.',score:80};
+  if(!title||!summary||!dots)return; const item=v37RecommendationItems[v37RecommendationIndex]||{title:'오늘의 한인 소식',summary:'달라스 한인사회 소식을 확인해 보세요.',score:80};
   title.textContent=item.title;summary.textContent=v38Text(item.summary,105);
   if(tagsNode)tagsNode.innerHTML=v37RecommendationTags(item).map(tag=>`<span class="v37-recommend-tag">${esc(tag)}</span>`).join('');
   dots.innerHTML=v37RecommendationItems.length>1?v37RecommendationItems.map((_,i)=>`<span class="${i===v37RecommendationIndex?'active':''}"></span>`).join(''):'';
@@ -2037,12 +2064,13 @@ function v38LifeBrief(ctx,candidates){
 function v38FallbackPayload(ctx,candidates){
   const region=(currentRegion==='dallas'||!currentRegion)?'달라스':((typeof REGION_LABELS!=='undefined'&&REGION_LABELS[currentRegion])||'우리 동네');
   const brief=v38LifeBrief(ctx,candidates);
-  return {title:`오늘의 ${region}`,kicker:`${brief.pattern} · 생활 제안`,summary:brief.summary,tip:brief.tip,checklist:brief.checklist,recommendations:candidates,life:[
-    {icon:brief.signals.rain?'🛒':'🎟️',title:brief.signals.rain?'미리 장보기':'오늘 쿠폰',subtitle:ctx.coupons.length?`${ctx.coupons.length}개 혜택`:'혜택 보기'},
-    {icon:brief.signals.performance?'🎭':(ctx.weekend?'🎪':'🎉'),title:brief.signals.performance?'오늘 공연':(ctx.weekend?'주말 행사':'오늘 행사'),subtitle:ctx.events.length?`${ctx.events.length}건 새 소식`:'행사 확인'},
+  const faithCount=(ctx.koreanNews||[]).filter(x=>x.faith).length;
+  return {title:`오늘의 ${region}`,kicker:`${brief.pattern} · 한인 생활 브리핑`,summary:brief.summary,tip:brief.tip,checklist:brief.checklist,recommendations:candidates,life:[
+    {icon:'🇰🇷',title:'오늘의 한인 소식',subtitle:ctx.koreanNews?.length?`${ctx.koreanNews.length}건 새 소식`:'소식 확인'},
+    {icon:faithCount?'⛪':(brief.signals.performance?'🎭':'🎉'),title:faithCount?'교회·종교 행사':'오늘 행사',subtitle:faithCount?`${faithCount}건 확인`:(ctx.events.length?`${ctx.events.length}건 새 소식`:'행사 확인')},
     {icon:brief.signals.heat?'🍜':(brief.signals.rain?'☕':'🍽️'),title:brief.signals.heat?'시원한 맛집':(brief.signals.rain?'실내 공간':'맛집·업소'),subtitle:ctx.featured.length?`${ctx.featured.length}곳 추천`:`${(businesses||[]).length}곳 찾기`},
-    {icon:brief.signals.sale?'🛒':'📰',title:brief.signals.sale?'마트 세일':'달라스 라이프',subtitle:ctx.life.length?`${ctx.life.length}건 읽기`:'생활 정보 보기'}
-  ],source:'생활 패턴 자동 분석'};
+    {icon:'📰',title:'달라스 라이프',subtitle:ctx.life.length?`${ctx.life.length}건 읽기`:'생활 정보 보기'}
+  ],source:ctx.koreanNews?.length?'한인 소식 우선 자동 선별':'생활 패턴 자동 분석'};
 }
 async function v38GeneratePayload(ctx,candidates){
   const fallback=v38FallbackPayload(ctx,candidates);
@@ -2071,9 +2099,13 @@ function paintV38HomePayload(payload,candidates){
 }
 async function renderV37AIHome(){
   const dateNode=document.getElementById('v37BriefDate'),summaryNode=document.getElementById('v37BriefSummary'),chipsNode=document.getElementById('v37BriefChips');
-  if(!dateNode||!summaryNode||!chipsNode)return; const ctx=v38Context(),candidates=v38Candidates(ctx);
+  if(!dateNode||!summaryNode||!chipsNode)return;
+  let ctx=v38Context(),candidates=v38Candidates(ctx);
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
-  const immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
+  let immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
+  v42KoreanNewsItems=await v42LoadKoreanNews();
+  ctx=v38Context();candidates=v38Candidates(ctx);
+  immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
   const payload=await v38GeneratePayload(ctx,candidates);v38HomePayload=payload;paintV38HomePayload(payload,candidates);
 }
 function initV37AIHomeEvents(){
