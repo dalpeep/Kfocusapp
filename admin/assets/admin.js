@@ -5033,11 +5033,29 @@ async function checkNewsroomHealth(showAlert=true){
     return ok;
   }catch(e){safeText('newsroomHealthDetails',e.message);safeText('newsroomAutoBadge','Edge Function 연결 확인 필요');if(showAlert)alert(`운영 상태 확인 실패: ${e.message}`);return false;}finally{if(btn)btn.disabled=false;}
 }
+const NEWSROOM_COLLECTION_LANES=[
+  ['korean','한인 소식'],['finance','은행·금융'],['shopping','마트·업소'],['events','행사·가족'],['practical','실용정보']
+];
+async function collectNewsroomLanes(btn,statusPrefix='정보 수집'){
+  const region=getAppRegion();
+  let cleaned=0,inserted=0,skipped=0,found=0,failed=[];
+  const cleanup=await newsroomEdgeCall('cleanup',{region},'지난 날짜 후보를 먼저 정리하고 있습니다…');
+  cleaned=Number(cleanup.cleaned||0);
+  for(let i=0;i<NEWSROOM_COLLECTION_LANES.length;i++){
+    const [lane,label]=NEWSROOM_COLLECTION_LANES[i];
+    if(btn)btn.textContent=`${statusPrefix} ${i+1}/${NEWSROOM_COLLECTION_LANES.length} · ${label}`;
+    try{
+      const r=await newsroomEdgeCall('collect',{region,manual:true,lane},`${label} 분야를 수집하고 있습니다…`);
+      inserted+=Number(r.inserted||0);skipped+=Number(r.skipped||0);found+=Number(r.found||0);
+    }catch(e){failed.push(`${label}: ${e.message}`);console.warn('newsroom lane failed',lane,e);}
+  }
+  return {ok:failed.length===0,cleaned,inserted,skipped,found,failed};
+}
 async function prepareTodayNewsroom(){
   const btn=qs('newsroomPrepareTodayBtn');if(!btn)return;const old=btn.textContent;btn.disabled=true;
   try{
     btn.textContent='연결 확인 중…';if(!(await checkNewsroomHealth(false)))throw new Error('먼저 운영 상태의 경고 항목을 해결하세요.');
-    btn.textContent='1/3 공식 소식 수집 중…';const collected=await newsroomEdgeCall('collect',{region:getAppRegion(),manual:true},'오늘 공식 자료를 수집하고 있습니다…');
+    btn.textContent='1/3 생활 소식 수집 준비…';const collected=await collectNewsroomLanes(btn,'1/3 수집');
     btn.textContent='2/3 AI 분류 중…';const analyzed=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:10},'새 수집 자료를 AI가 분류하고 있습니다…');
     await loadNewsroom();
     const draftTargets=newsroomItems.filter(x=>x.status==='classified'&&x.destination!=='exclude').slice(0,3);let drafted=0;
@@ -5045,15 +5063,20 @@ async function prepareTodayNewsroom(){
     await loadNewsroom();
     newsroomStatusFilter='review';$$('.newsroom-filter').forEach(x=>x.classList.toggle('active',x.dataset.status==='review'));renderNewsroom();
     safeText('newsroomStatus',`수집 ${collected.inserted||0}건 · 분류 ${analyzed.analyzed||0}건 · 초안 ${drafted}건 준비 완료`);
-    alert(`오늘 자료 준비를 완료했습니다.\n새 수집 ${collected.inserted||0}건\nAI 분류 ${analyzed.analyzed||0}건\n기사 초안 ${drafted}건\n\n검토 대기에서 확인한 뒤 게시하세요.`);
+    alert(`오늘 자료 준비를 완료했습니다.\n지난 후보 정리 ${collected.cleaned||0}건\n새 수집 ${collected.inserted||0}건\nAI 분류 ${analyzed.analyzed||0}건\n기사 초안 ${drafted}건${collected.failed?.length?`\n일부 분야 실패: ${collected.failed.join(' / ')}`:''}\n\n검토 대기에서 확인한 뒤 게시하세요.`);
   }catch(e){alert(`오늘 자료 준비 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{btn.disabled=false;btn.textContent=old;}
 }
 async function loadNewsroomSettings(){try{const json=await newsroomEdgeCall('get_settings',{region:getAppRegion()});const el=qs('newsroomAutoEnabled');if(el)el.checked=json.settings?.auto_enabled!==false;safeText('newsroomAutoBadge',el?.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');}catch(e){safeText('newsroomAutoBadge','자동 수집 설정 확인 필요');console.warn(e);}}
 async function saveNewsroomAutoSetting(){const el=qs('newsroomAutoEnabled');if(!el)return;try{await newsroomEdgeCall('save_settings',{region:getAppRegion(),auto_enabled:el.checked},'자동 수집 설정을 저장하고 있습니다…');safeText('newsroomAutoBadge',el.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');safeText('newsroomStatus',el.checked?'매일 오전 자동 수집을 사용합니다.':'자동 수집을 중지했습니다. 수동 수집은 계속 사용할 수 있습니다.');}catch(e){el.checked=!el.checked;alert(`자동 수집 설정 실패: ${e.message}`);}}
 async function collectNewsroom(){
-  const btn=qs('newsroomCollectBtn'),old=btn.textContent;btn.disabled=true;btn.textContent='수집 중…';
-  try{const json=await newsroomEdgeCall('collect',{region:getAppRegion(),manual:true},'Supabase Edge Function에서 최근 공식 자료를 수집하고 있습니다…');alert(`${json.inserted||0}건의 새 원문 후보를 저장했습니다.${json.skipped?` 중복·제외 ${json.skipped}건`:''}`);safeText('newsroomStatus',`${json.inserted||0}건 수집 완료 · 자동정리 ${json.cleaned||0}건`);await loadNewsroom();}
-  catch(e){alert(`뉴스 수집 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{btn.disabled=false;btn.textContent=old;}
+  const btn=qs('newsroomCollectBtn'),old=btn.textContent;btn.disabled=true;btn.textContent='수집 준비…';
+  try{
+    const json=await collectNewsroomLanes(btn,'분야별 수집');
+    const failed=json.failed?.length?`\n\n일부 분야는 건너뛰었습니다.\n${json.failed.join('\n')}`:'';
+    alert(`지난 후보 ${json.cleaned||0}건을 정리하고, 새 원문 후보 ${json.inserted||0}건을 저장했습니다.${json.skipped?`\n중복·기간 제외 ${json.skipped}건`:''}${failed}`);
+    safeText('newsroomStatus',`${json.inserted||0}건 수집 완료 · 지난 후보 ${json.cleaned||0}건 정리${json.failed?.length?` · ${json.failed.length}개 분야 재시도 필요`:''}`);
+    await loadNewsroom();
+  }catch(e){alert(`생활 소식 수집 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{btn.disabled=false;btn.textContent=old;}
 }
 async function analyzeNewsroomItem(id=selectedNewsroomId){
   if(!id)return alert('분류할 소식을 먼저 선택하세요.');const btn=qs('newsroomAnalyzeBtn');if(btn)btn.disabled=true;

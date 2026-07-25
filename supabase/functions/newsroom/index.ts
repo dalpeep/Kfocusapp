@@ -12,7 +12,21 @@ const admin = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY')
 function outputText(v: any) { return v?.output_text || v?.output?.flatMap((x: any) => x.content || []).find((x: any) => x.type === 'output_text')?.text || ''; }
 function parseJsonText(text = '') { const clean = String(text).replace(/^```json\s*/i, '').replace(/```$/,'').trim(); try { return JSON.parse(clean); } catch { const a=clean.indexOf('{'), b=clean.lastIndexOf('}'); if(a>=0&&b>a) return JSON.parse(clean.slice(a,b+1)); throw new Error('AI 응답을 JSON으로 해석하지 못했습니다.'); } }
 function slug(v=''){ return String(v).toLowerCase().replace(/^https?:\/\//,'').replace(/[?#].*$/,'').replace(/\/$/,'').slice(0,500); }
-async function openai(payload: any){ const key=env('OPENAI_API_KEY'); if(!key) throw new Error('OPENAI_API_KEY가 Supabase Edge Function Secrets에 없습니다.'); const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify(payload)}); const t=await r.text(); let j:any={}; try{j=JSON.parse(t)}catch{} if(!r.ok) throw new Error(j?.error?.message || `OpenAI 오류 ${r.status}: ${t.slice(0,180)}`); return parseJsonText(outputText(j)); }
+async function openai(payload: any){
+  const key=env('OPENAI_API_KEY');
+  if(!key) throw new Error('OPENAI_API_KEY가 Supabase Edge Function Secrets에 없습니다.');
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),45000);
+  try{
+    const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({...payload,max_output_tokens:payload.max_output_tokens||2200}),signal:controller.signal});
+    const t=await r.text(); let j:any={}; try{j=JSON.parse(t)}catch{}
+    if(!r.ok) throw new Error(j?.error?.message || `OpenAI 오류 ${r.status}: ${t.slice(0,180)}`);
+    return parseJsonText(outputText(j));
+  }catch(e){
+    if(e instanceof DOMException && e.name==='AbortError') throw new Error('AI 검색이 45초를 초과했습니다. 이 수집 분야만 건너뛰고 다시 시도해 주세요.');
+    throw e;
+  }finally{clearTimeout(timer);}
+}
 
 async function authorize(req: Request){
   const cronSecret=req.headers.get('x-cron-secret');
@@ -76,6 +90,18 @@ async function runStatus(region='dallas'){
   const {data,error}=await admin.from('newsroom_runs').select('*').eq('region',region).order('started_at',{ascending:false}).limit(1).maybeSingle();
   if(error) throw error; return {ok:true,latest:data||null};
 }
+function scheduledLaneKey(){
+  const keys=['korean','finance','shopping','events','practical'];
+  const day=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',weekday:'short'}).format(new Date()).split('').reduce((a,c)=>a+c.charCodeAt(0),0));
+  return keys[day%keys.length];
+}
+const COLLECTION_LANES:Record<string,{label:string,focus:string}>={
+  korean:{label:'한인 커뮤니티',focus:`Prioritize KTN Dallas, Weekly Focus Dallas / 주간포커스 달라스, Korea Daily / 미주중앙일보 Dallas, Dalsaram / 달사람, Korean Society of Dallas, Korean consular notices, Korean schools, cultural groups, and public Korean-community events. Search in both Korean and English. Include community notices, education, culture, public church events, new Korean businesses, and useful Korean-local reporting.`},
+  finance:{label:'은행·금융',focus:`Search official sources for Hanmi Bank, Bank of Hope, Open Bank, PCB Bank, CBB Bank, Chase, Bank of America, Wells Fargo, Capital One, local credit unions, SBA and IRS. Include dated CD/savings offers, account promotions, mortgage or small-business programs, remittance information, tax deadlines and verified consumer notices. Use first-party bank, government or regulator pages for rates, fees, eligibility and deadlines.`},
+  shopping:{label:'마트·업소·생활경제',focus:`Search H Mart, Zion Market, Komart and other Korean/Asian grocery stores, plus verifiable DFW shopping promotions, restaurant openings, Korean business openings and practical consumer information. Promotions must have clear active dates or terms.`},
+  events:{label:'행사·가족·교육',focus:`Search Dallas, Plano, Frisco, Carrollton, McKinney, Allen and nearby city calendars, libraries, parks, museums, performing arts, sports schedules, school districts and family organizations. Include events, camps, festivals, classes, exhibitions and family activities happening within the next 30 days.`},
+  practical:{label:'오늘의 실용정보',focus:`Search official DFW sources for NWS Fort Worth, TxDOT, DART, cities, counties, airports, police/fire and health agencies. Include today's weather warnings, road closures, transit disruptions, airport notices, health events and practical public-service updates. Keep only one representative item per same weather or traffic situation.`}
+};
 async function collectLane(now:Date,since:string,lane:string,focus:string){
   return await openai({model:env('NEWSROOM_OPENAI_MODEL')||'gpt-5-mini',tools:[{type:'web_search'}],input:`You collect source records for DalTownMap, a Korean-language Dallas-Fort Worth daily-life guide. Current UTC time: ${now.toISOString()}. Collection lane: ${lane}.
 
@@ -84,28 +110,20 @@ ${focus}
 
 Be inclusive rather than overly strict. The question is: could this be useful or interesting to a Korean resident today or during the next 30 days? Small community notices, public events, bank programs, grocery promotions, business openings and practical local updates are valid. Search items published or materially updated since ${since}, and also clearly dated future events or active promotions occurring within the next 30 days. Prefer original/first-party pages. Do not fill the lane with near-duplicates.
 
-Exclude expired items, undated evergreen pages presented as new, pure opinion, sports recaps, unverifiable claims, and promotions whose dates or terms cannot be confirmed. Return 4-7 distinct records when available. Do not write a Korean article and do not invent facts.
+Exclude expired items, undated evergreen pages presented as new, pure opinion, sports recaps, unverifiable claims, and promotions whose dates or terms cannot be confirmed. Return 3-5 distinct records when available. Do not write a Korean article and do not invent facts.
 
 Return ONLY JSON {"items":[{"original_title":"","original_summary":"1-3 factual sentences including exact dates/terms when relevant","original_url":"https://...","source_name":"","source_kind":"official or media","source_published_at":"ISO or null","area":"Dallas-Fort Worth","item_type":"news|event|promotion|finance|shopping|business|weather|traffic|community","event_start_at":"ISO or null","event_end_at":"ISO or null","expires_at":"ISO or null"}]}`});
 }
-async function collect(region='dallas', scheduled=false){
-  const triggerType=scheduled?'scheduled':'manual';
+async function collect(region='dallas', scheduled=false, laneKey='korean'){
+  const lane=COLLECTION_LANES[laneKey]||COLLECTION_LANES.korean;
+  const triggerType=scheduled?`scheduled:${laneKey}`:`manual:${laneKey}`;
   const run=await startRun(region,triggerType);
   try{
-    if(scheduled){const {data:setting}=await admin.from('newsroom_settings').select('auto_enabled').eq('region',region).maybeSingle();if(setting && setting.auto_enabled===false){await finishRun(run?.id,{status:'success',found:0,inserted:0,skipped:0,cleaned:0,note:'auto disabled'});return {ok:true,disabled:true,found:0,inserted:0,skipped:0,cleaned:0};}}
-    const cleaned=(await cleanup(region)).cleaned;
+    if(scheduled){const {data:setting}=await admin.from('newsroom_settings').select('auto_enabled').eq('region',region).maybeSingle();if(setting && setting.auto_enabled===false){await finishRun(run?.id,{status:'success',found:0,inserted:0,skipped:0,cleaned:0,note:'auto disabled'});return {ok:true,disabled:true,lane:laneKey,found:0,inserted:0,skipped:0,cleaned:0};}}
     const now=new Date(), since=new Date(now.getTime()-72*60*60*1000).toISOString();
-    const lanes=[
-      ['한인 커뮤니티',`Prioritize KTN Dallas, Weekly Focus Dallas / 주간포커스 달라스, Korea Daily / 미주중앙일보 Dallas, Dalsaram / 달사람, Korean Society of Dallas, Korean consular notices, Korean schools, cultural groups, and public Korean-community events. Search in both Korean and English. Include community notices, education, culture, public church events, new Korean businesses, and useful Korean-local reporting.`],
-      ['은행·금융',`Search official sources for Hanmi Bank, Bank of Hope, Open Bank, PCB Bank, CBB Bank, Chase, Bank of America, Wells Fargo, Capital One, local credit unions, SBA and IRS. Include dated CD/savings offers, account promotions, mortgage or small-business programs, remittance information, tax deadlines and verified consumer notices. Use first-party bank, government or regulator pages for rates, fees, eligibility and deadlines.`],
-      ['마트·업소·생활경제',`Search H Mart, Zion Market, Komart and other Korean/Asian grocery stores, plus verifiable DFW shopping promotions, restaurant openings, Korean business openings and practical consumer information. Promotions must have clear active dates or terms.`],
-      ['행사·가족·교육',`Search Dallas, Plano, Frisco, Carrollton, McKinney, Allen and nearby city calendars, libraries, parks, museums, performing arts, sports schedules, school districts and family organizations. Include events, camps, festivals, classes, exhibitions and family activities happening within the next 30 days.`],
-      ['오늘의 실용정보',`Search official DFW sources for NWS Fort Worth, TxDOT, DART, cities, counties, airports, police/fire and health agencies. Include today's weather warnings, road closures, transit disruptions, airport notices, health events and practical public-service updates. Keep only one representative item per same weather or traffic situation.`]
-    ];
     const gathered:any[]=[];
-    for(const [lane,focus] of lanes){
-      try{const r=await collectLane(now,since,lane,focus);if(Array.isArray(r.items))gathered.push(...r.items);}catch(e){console.warn('lane collection failed',lane,e instanceof Error?e.message:String(e));}
-    }
+    const result=await collectLane(now,since,lane.label,lane.focus);
+    if(Array.isArray(result.items))gathered.push(...result.items);
     const {data:existing,error:e}=await admin.from('newsroom_items').select('original_url').eq('region',region).limit(2000); if(e) throw e;
     const seen=new Set((existing||[]).map((x:any)=>slug(x.original_url))); const rows:any[]=[]; let skipped=0;
     const todayDallas=dallasDateKey(now);
@@ -114,15 +132,14 @@ async function collect(region='dallas', scheduled=false){
       const key=slug(x.original_url); if(seen.has(key)){skipped++;continue;}
       const eventData={start_at:x.event_start_at||null,end_at:x.event_end_at||null,expires_at:x.expires_at||null,item_type:x.item_type||'news'};
       const publishedKey=x.source_published_at?dallasDateKey(x.source_published_at):'';
-      // 어제 기사라도 미래 행사/진행 중 프로모션이면 유지하고, 일반 소식은 오늘 날짜만 저장합니다.
       if(publishedKey && publishedKey<todayDallas && !futureOrActiveEvent(eventData,now.getTime())){skipped++;continue;}
       seen.add(key);
-      rows.push({region,original_title:String(x.original_title).slice(0,500),original_summary:x.original_summary||null,original_url:x.original_url,source_name:x.source_name||null,source_kind:x.source_kind==='media'?'media':'official',source_published_at:x.source_published_at||null,area:x.area||'Dallas-Fort Worth',status:'collected',confidence:0,fact_status:'needs_review',duplicate_key:key,category_keywords:Array.isArray(x.category_keywords)?x.category_keywords:[],event_data:eventData,collected_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+      rows.push({region,original_title:String(x.original_title).slice(0,500),original_summary:x.original_summary||null,original_url:x.original_url,source_name:x.source_name||null,source_kind:x.source_kind==='media'?'media':'official',source_published_at:x.source_published_at||null,area:x.area||'Dallas-Fort Worth',status:'collected',confidence:0,fact_status:'needs_review',duplicate_key:key,category_keywords:[],event_data:eventData,collected_at:new Date().toISOString(),updated_at:new Date().toISOString()});
     }
     let insertedCount=0;
     if(rows.length){const {data:inserted,error}=await admin.from('newsroom_items').upsert(rows,{onConflict:'duplicate_key',ignoreDuplicates:true}).select('id'); if(error) throw error; insertedCount=inserted?.length||0;}
-    await finishRun(run?.id,{status:'success',found:gathered.length,inserted:insertedCount,skipped,cleaned});
-    return {ok:true,found:gathered.length,inserted:insertedCount,skipped,cleaned,lanes:lanes.length};
+    await finishRun(run?.id,{status:'success',found:gathered.length,inserted:insertedCount,skipped,cleaned:0});
+    return {ok:true,lane:laneKey,lane_label:lane.label,found:gathered.length,inserted:insertedCount,skipped,cleaned:0};
   }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
 }
 async function analyzeOne(item:any){ return await openai({model:env('NEWSROOM_OPENAI_MODEL')||'gpt-5-mini',input:`Analyze one Dallas-Fort Worth source record for DalTownMap, a Korean daily-life guide. Do not write the full article yet. Title: ${item.original_title}
@@ -144,4 +161,4 @@ async function status(region='dallas'){
   return {ok,checks,message:ok?'초기 설치가 완료되어 이후 운영은 관리자 화면에서 처리할 수 있습니다.':'SQL, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.'};
 }
 
-Deno.serve(async(req)=>{ if(req.method==='OPTIONS')return new Response('ok',{headers:cors}); try{const auth=await authorize(req);const body=await req.json().catch(()=>({}));const action=String(body.action||'');const region=String(body.region||'dallas').toLowerCase();if(action==='status')return json(await status(region));if(action==='run_status')return json(await runStatus(region));if(action==='cleanup')return json(await cleanup(region));if(action==='collect')return json(await collect(region,Boolean((auth as any).cron||body.scheduled)));if(action==='analyze')return json(await analyze(body));if(action==='draft')return json(await draft(body));if(action==='get_settings'){const {data,error}=await admin.from('newsroom_settings').select('*').eq('region',region).maybeSingle();if(error)throw error;return json({ok:true,settings:data||{region,auto_enabled:true}});}if(action==='save_settings'){const {data,error}=await admin.from('newsroom_settings').upsert({region,auto_enabled:Boolean(body.auto_enabled),updated_at:new Date().toISOString()},{onConflict:'region'}).select().single();if(error)throw error;return json({ok:true,settings:data});}return json({ok:false,error:'지원하지 않는 뉴스룸 작업입니다.'},400);}catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);} });
+Deno.serve(async(req)=>{ if(req.method==='OPTIONS')return new Response('ok',{headers:cors}); try{const auth=await authorize(req);const body=await req.json().catch(()=>({}));const action=String(body.action||'');const region=String(body.region||'dallas').toLowerCase();if(action==='status')return json(await status(region));if(action==='run_status')return json(await runStatus(region));if(action==='cleanup')return json(await cleanup(region));if(action==='collect'){const scheduled=Boolean((auth as any).cron||body.scheduled);const lane=String(body.lane||(scheduled?scheduledLaneKey():'korean'));return json(await collect(region,scheduled,lane));}if(action==='analyze')return json(await analyze(body));if(action==='draft')return json(await draft(body));if(action==='get_settings'){const {data,error}=await admin.from('newsroom_settings').select('*').eq('region',region).maybeSingle();if(error)throw error;return json({ok:true,settings:data||{region,auto_enabled:true}});}if(action==='save_settings'){const {data,error}=await admin.from('newsroom_settings').upsert({region,auto_enabled:Boolean(body.auto_enabled),updated_at:new Date().toISOString()},{onConflict:'region'}).select().single();if(error)throw error;return json({ok:true,settings:data});}return json({ok:false,error:'지원하지 않는 뉴스룸 작업입니다.'},400);}catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);} });
