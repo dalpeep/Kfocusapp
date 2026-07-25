@@ -57,6 +57,7 @@
         <button class="nav-item" data-section="aiStudio">AI 콘텐츠 스튜디오 <span class="nav-badge">NEW</span></button>
         <button class="nav-item" data-section="dalpick">한 줄 광고·콘텐츠</button>
         <button class="nav-item" data-section="board">게시판·가이드 관리</button>
+        <button class="nav-item" data-section="newsroom">통합 뉴스룸 <span class="nav-badge">NEW</span></button>
         <div class="nav-group-title">운영 관리</div>
         <button class="nav-item" data-section="business">업소 관리</button>
         <button class="nav-item" data-section="coupon">쿠폰 관리</button>
@@ -1291,6 +1292,90 @@
           </div>
         </section>
       </section>
+
+      <section id="section-newsroom" class="admin-section">
+        <section class="card newsroom-hero">
+          <div class="panel-head">
+            <div><h2>달라스 라이프 통합 뉴스룸</h2><p class="muted">공식기관 소식을 수집한 뒤 AI가 목적지·신뢰도·중복·관련 업종을 제안합니다. 관리자가 승인하기 전에는 앱에 노출되지 않습니다.</p></div>
+            <span class="pill" id="newsroomAutoBadge">Supabase 자동 수집 준비</span>
+          </div>
+          <div class="newsroom-actions">
+            <button id="newsroomCollectBtn" class="btn primary" type="button">① 오늘 수집</button>
+            <button id="newsroomAnalyzeAllBtn" class="btn ghost" type="button">② 수집분 AI 분류</button>
+            <button id="newsroomRefreshBtn" class="btn ghost" type="button">새로고침</button>
+            <label class="newsroom-toggle"><input id="newsroomAutoEnabled" type="checkbox" checked><span>매일 오전 자동 수집</span></label>
+            <span id="newsroomStatus" class="tiny muted">수집 결과는 검토 대기로 저장됩니다.</span>
+          </div>
+          <div class="newsroom-metrics">
+            <button class="metric-card newsroom-filter active" data-status="all"><span>전체</span><strong id="newsroomCountAll">0</strong></button>
+            <button class="metric-card newsroom-filter" data-status="collected"><span>분류 대기</span><strong id="newsroomCountCollected">0</strong></button>
+            <button class="metric-card newsroom-filter" data-status="classified"><span>기사 작성 대기</span><strong id="newsroomCountClassified">0</strong></button>
+            <button class="metric-card newsroom-filter" data-status="review"><span>검토 대기</span><strong id="newsroomCountReview">0</strong></button>
+            <button class="metric-card newsroom-filter" data-status="published"><span>게시됨</span><strong id="newsroomCountPublished">0</strong></button>
+            <button class="metric-card newsroom-filter" data-status="excluded"><span>제외됨</span><strong id="newsroomCountExcluded">0</strong></button>
+          </div>
+        </section>
+
+        <section class="toolbar card newsroom-toolbar">
+          <div class="toolbar-row">
+            <label class="field compact"><span>검색</span><input id="newsroomSearch" type="text" placeholder="제목, 출처, 지역"></label>
+            <label class="field compact"><span>목적지</span><select id="newsroomDestinationFilter"><option value="all">전체</option><option value="life">달라스 라이프</option><option value="notice">행사안내</option><option value="guide">달라스 가이드</option><option value="urgent">긴급 공지</option><option value="exclude">제외</option></select></label>
+            <label class="field compact"><span>출처 종류</span><select id="newsroomSourceFilter"><option value="all">전체</option><option value="official">공식기관</option><option value="media">지역 언론</option></select></label>
+          </div>
+        </section>
+
+        <section class="layout newsroom-layout">
+          <div class="list-panel card">
+            <div class="panel-head"><h2>수집 후보</h2><span id="newsroomListCount" class="muted">0개</span></div>
+            <div id="newsroomList" class="newsroom-list"></div>
+          </div>
+          <div class="form-panel card newsroom-review-panel">
+            <div id="newsroomEmpty" class="newsroom-empty"><strong>검토할 소식을 선택하세요.</strong><span>AI 제안과 원문, 기사 초안, 추천 업소를 한 화면에서 확인할 수 있습니다.</span></div>
+            <form id="newsroomForm" class="form-grid" hidden>
+              <input id="newsroom_id" type="hidden">
+              <div class="field full newsroom-review-head"><div><span class="newsroom-kicker" id="newsroomSourceKind">공식기관</span><h2 id="newsroomOriginalTitle">원문 제목</h2><p id="newsroomMeta" class="muted"></p></div><a id="newsroomOriginalLink" class="btn ghost" href="#" target="_blank" rel="noopener">원문 보기</a></div>
+              <label class="field"><span>AI 추천 목적지</span><input id="newsroomSuggestedDestination" readonly></label>
+              <label class="field"><span>게시 위치 확정</span><select id="newsroomDestination"><option value="life">달라스 라이프</option><option value="notice">행사안내</option><option value="guide">달라스 가이드</option><option value="urgent">긴급 공지</option><option value="exclude">제외</option></select></label>
+              <label class="field"><span>신뢰도</span><input id="newsroomConfidence" readonly></label>
+              <label class="field"><span>사실 확인</span><select id="newsroomFactStatus"><option value="official_verified">공식 출처 확인</option><option value="needs_review">추가 확인 필요</option><option value="conflict">정보 충돌</option></select></label>
+              <label class="field full"><span>AI 작성 제목</span><input id="newsroomAiTitle"></label>
+              <label class="field full"><span>AI 요약</span><textarea id="newsroomAiSummary" rows="3"></textarea></label>
+              <label class="field full"><span>기사 본문</span><textarea id="newsroomAiContent" rows="10"></textarea></label>
+              <div id="newsroomGuideBox" class="field full newsroom-special-box" hidden>
+                <span>달라스 가이드 처리</span>
+                <div id="newsroomGuideMatches" class="tiny muted"></div>
+                <label><input type="radio" name="newsroomGuideAction" value="update" checked> 기존 글 업데이트</label>
+                <label><input type="radio" name="newsroomGuideAction" value="new"> 새로운 가이드 작성</label>
+                <label><input type="radio" name="newsroomGuideAction" value="life"> 달라스 라이프 뉴스로만 게시</label>
+                <select id="newsroomExistingGuide"></select>
+              </div>
+              <div id="newsroomEventBox" class="field full newsroom-special-box" hidden>
+                <span>AI가 추출한 행사 정보</span>
+                <div class="newsroom-event-grid">
+                  <label>행사명<input id="newsroomEventName"></label><label>장소<input id="newsroomEventVenue"></label>
+                  <label>시작<input id="newsroomEventStart" type="datetime-local"></label><label>종료<input id="newsroomEventEnd" type="datetime-local"></label>
+                  <label class="full">주소<input id="newsroomEventAddress"></label><label>비용<input id="newsroomEventCost"></label><label>주최<input id="newsroomEventOrganizer"></label>
+                </div>
+              </div>
+              <div class="field full newsroom-special-box">
+                <div class="panel-head"><span>관련 업소 자동 추천</span><button id="newsroomRecommendBusinessesBtn" type="button" class="btn ghost">다시 추천</button></div>
+                <div id="newsroomCategoryChips" class="newsroom-chips"></div>
+                <div id="newsroomBusinessCandidates" class="newsroom-businesses"></div>
+                <div class="tiny muted">실제 Google 평점이 있는 업소만 평점을 표시합니다. AI 관련도는 소비자 평점과 구분됩니다.</div>
+              </div>
+              <label class="field full"><span>관리자 메모</span><textarea id="newsroomAdminNote" rows="2"></textarea></label>
+              <div class="field full newsroom-bottom-actions">
+                <button id="newsroomAnalyzeBtn" class="btn ghost" type="button">② 이 소식 AI 분류</button>
+                <button id="newsroomDraftBtn" class="btn ghost" type="button">③ 한국어 기사 작성</button>
+                <button id="newsroomSaveReviewBtn" class="btn ghost" type="button">검토 내용 저장</button>
+                <button id="newsroomExcludeBtn" class="btn danger" type="button">제외</button>
+                <button id="newsroomPublishBtn" class="btn primary" type="button">확정 위치에 게시</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </section>
+
 	  <section id="section-push" class="admin-section">
   <h3>푸시 알림 발송</h3>
   <p class="muted">제목과 내용을 입력하고 대상 지역을 선택한 뒤 발송하세요.</p>
