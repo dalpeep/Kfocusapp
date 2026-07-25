@@ -2049,26 +2049,32 @@ async function v38GeneratePayload(ctx,candidates){
   const dayKey=new Date().toISOString().slice(0,10);
   const fingerprint=dayKey+'|'+candidates.slice(0,5).map(x=>x.kind+':'+x.id+':'+Math.round(x.score)).join('|');
   try{const cached=JSON.parse(localStorage.getItem('daltownmap_v38_home')||'null');if(cached?.fingerprint===fingerprint)return cached.payload}catch(e){}
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),4500);
   try{
-    const res=await fetch('/.netlify/functions/ai-daily-home',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:dayKey,weekend:ctx.weekend,items:candidates.slice(0,8).map(x=>({kind:x.kind,title:x.title,summary:x.summary,score:Math.round(x.score)})),counts:{coupon:ctx.coupons.length,event:ctx.events.length,life:ctx.life.length,business:ctx.featured.length}})});
+    const res=await fetch('/.netlify/functions/ai-daily-home',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({date:dayKey,weekend:ctx.weekend,items:candidates.slice(0,8).map(x=>({kind:x.kind,title:x.title,summary:x.summary,score:Math.round(x.score)})),counts:{coupon:ctx.coupons.length,event:ctx.events.length,life:ctx.life.length,business:ctx.featured.length}})});
     if(res.ok){const ai=await res.json();if(ai?.summary){fallback.summary=v38Text(ai.summary,320);fallback.kicker=v38Text(ai.kicker||fallback.kicker,50);fallback.tip=v38Text(ai.tip||fallback.tip,180);if(Array.isArray(ai.checklist)&&ai.checklist.length)fallback.checklist=ai.checklist.slice(0,3);fallback.source=ai.source||'AI 생활 제안';if(Array.isArray(ai.order)){const map=new Map(candidates.map(x=>[x.title,x]));const ordered=ai.order.map(t=>map.get(t)).filter(Boolean);fallback.recommendations=[...ordered,...candidates.filter(x=>!ordered.includes(x))]}}}
-  }catch(e){console.info('[V38] AI function fallback:',e?.message)}
-  try{localStorage.setItem('daltownmap_v38_home',JSON.stringify({fingerprint,payload:fallback}))}catch(e){}
+  }catch(e){console.info('[V38] AI function fallback:',e?.name==='AbortError'?'timeout':e?.message)}finally{clearTimeout(timeout)}
+  try{localStorage.setItem('daltownmap_v38_home',JSON.stringify({fingerprint,payload:fallback,updatedAt:new Date().toISOString()}))}catch(e){}
   return fallback;
 }
-async function renderV37AIHome(){
-  const dateNode=document.getElementById('v37BriefDate'),titleNode=document.getElementById('v37BriefTitle'),summaryNode=document.getElementById('v37BriefSummary'),chipsNode=document.getElementById('v37BriefChips'),kicker=document.getElementById('v37BriefKicker'),state=document.getElementById('v38AutoState');
-  if(!dateNode||!summaryNode||!chipsNode)return; const ctx=v38Context(),candidates=v38Candidates(ctx);
-  dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
-  const payload=await v38GeneratePayload(ctx,candidates);v38HomePayload=payload;
-  if(titleNode)titleNode.textContent=payload.title;if(kicker)kicker.textContent=payload.kicker;summaryNode.textContent=payload.summary;if(state)state.textContent=`✓ ${payload.source}`;
-  const tipNode=document.getElementById('v38BriefTip'),checkNode=document.getElementById('v38BriefChecklist');
+function paintV38HomePayload(payload,candidates){
+  const titleNode=document.getElementById('v37BriefTitle'),summaryNode=document.getElementById('v37BriefSummary'),kicker=document.getElementById('v37BriefKicker'),state=document.getElementById('v38AutoState');
+  if(titleNode)titleNode.textContent=payload.title;if(kicker)kicker.textContent=payload.kicker;if(summaryNode)summaryNode.textContent=payload.summary;if(state)state.textContent=`✓ ${payload.source}`;
+  const tipNode=document.getElementById('v38BriefTip'),checkNode=document.getElementById('v38BriefChecklist'),chipsNode=document.getElementById('v37BriefChips');
   if(tipNode)tipNode.innerHTML=`<b>💡 오늘의 팁</b><span>${esc(payload.tip||'외출 전 최신 생활 정보를 한 번 더 확인하세요.')}</span>`;
   if(checkNode)checkNode.innerHTML=(payload.checklist||[]).slice(0,3).map(v=>`<span>✓ ${esc(v)}</span>`).join('');
-  chipsNode.innerHTML='';
+  if(chipsNode)chipsNode.innerHTML='';
   const life=payload.life||[];const countIds=['v37CouponCount','v37EventCount','v37BusinessCount','v37LifeCount'];life.slice(0,4).forEach((x,i)=>{const ic=document.getElementById(`v38LifeIcon${i}`),tt=document.getElementById(`v38LifeTitle${i}`),sm=document.getElementById(countIds[i]);if(ic)ic.textContent=x.icon;if(tt)tt.textContent=x.title;if(sm)sm.textContent=x.subtitle});
   v37RecommendationItems=payload.recommendations||candidates;v37RecommendationIndex=0;paintV37Recommendation();if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5200);
   if(window.lucide)window.lucide.createIcons();
+}
+async function renderV37AIHome(){
+  const dateNode=document.getElementById('v37BriefDate'),summaryNode=document.getElementById('v37BriefSummary'),chipsNode=document.getElementById('v37BriefChips');
+  if(!dateNode||!summaryNode||!chipsNode)return; const ctx=v38Context(),candidates=v38Candidates(ctx);
+  dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
+  const immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
+  const payload=await v38GeneratePayload(ctx,candidates);v38HomePayload=payload;paintV38HomePayload(payload,candidates);
 }
 function initV37AIHomeEvents(){
   const main=document.getElementById('v37RecommendMain');if(main&&!main.dataset.bound){main.dataset.bound='1';main.addEventListener('click',()=>openV37Recommendation(v37RecommendationItems[v37RecommendationIndex]))}
