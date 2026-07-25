@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '44.1.0';
+const VERSION = '44.2.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -615,6 +615,39 @@ async function homeFeed(region = 'dallas') {
   const koreanRe = /(한인|한국|코리안|korean|ktn|dalkora|달사람|주간.?포커스|코리아타운)/i;
   const emergencyRe = /(amber alert|silver alert|clear alert|blue alert|endangered missing|tornado warning|severe thunderstorm warning|flash flood warning|flood warning|extreme heat warning|heat advisory|shelter in place|evacuation|active shooter|긴급|경보|대피|주의보|통제)/i;
   const schoolRe = /(school closure|school closed|classes canceled|delayed start|late start|early dismissal|campus closed|bus route change|transportation change|remote learning|휴교|등교 지연|지연 등교|조기 하교|수업 취소|학교 폐쇄|통학버스 변경|등교 변경|Plano ISD|Frisco ISD|Lewisville ISD|Carrollton-Farmers Branch ISD|Coppell ISD|Dallas ISD|Richardson ISD|Allen ISD|McKinney ISD|Garland ISD)/i;
+  const publicClean = (value: any) => String(value || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/(?:first appeared on|원문|출처)\s*[:：]?[^.!?。！？]{0,80}/gi, ' ')
+    .replace(/\b(?:KTN|DKNET|Dalkora|KoreaTownNews|Dallas Korean Radio)\b/gi, ' ')
+    .replace(/(?:KTN\s*코리아타운뉴스|달사람닷컴|주간\s*포커스|미주중앙일보|코리아타운뉴스)/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const publicHeadline = (x: any, flags: any) => {
+    const text = `${x.ai_title || ''} ${x.original_title || ''} ${x.ai_summary || ''} ${x.original_summary || ''}`;
+    if (flags.school) return 'DFW 학교 일정 변경 안내';
+    if (flags.emergency) return 'DFW 지역 긴급 안전 공지';
+    if (flags.faith) return '달라스 한인 종교·커뮤니티 행사 안내';
+    if (/(세금|tax|irs|경제|금리|은행|지원금|대출)/i.test(text)) return '경제·세금 관련 주요 생활 소식';
+    if (/(주택|부동산|집값|모기지|housing|home|real estate)/i.test(text)) return '주택·부동산 관련 생활 정보';
+    if (/(학교|교육|자녀|학기|입학|education|student)/i.test(text)) return '자녀 교육과 학교생활 관련 소식';
+    if (/(행사|축제|모임|세미나|공연|event|festival)/i.test(text)) return '달라스 한인사회 행사 소식';
+    return publicClean(x.ai_title || x.original_title || '달라스 한인사회 주요 소식').slice(0, 72) || '달라스 한인사회 주요 소식';
+  };
+
+  const publicSummary = (x: any, flags: any) => {
+    let summary = publicClean(x.ai_summary || x.original_summary || '');
+    if (!summary) {
+      if (flags.school) summary = '등교·휴교·지연 등 학교 운영 변동 사항을 확인해 주세요.';
+      else if (flags.emergency) summary = 'DFW 지역에서 확인된 안전 관련 공지입니다. 필요한 경우 공식 기관의 최신 안내를 함께 확인해 주세요.';
+      else if (flags.faith) summary = '달라스 한인 종교·커뮤니티에서 진행되는 공개 행사 정보를 정리했습니다.';
+      else summary = '달라스 한인사회에서 확인된 주요 내용을 생활정보 중심으로 다시 정리했습니다.';
+    }
+    return summary.slice(0, 220);
+  };
+
   const seen = new Set<string>();
   const rows = (data || []).map((x: any) => {
     const text = `${x.original_title || ''} ${x.original_summary || ''} ${x.ai_title || ''} ${x.ai_summary || ''} ${x.source_name || ''} ${(x.category_keywords || []).join(' ')}`;
@@ -624,12 +657,14 @@ async function homeFeed(region = 'dallas') {
     const korean = x.source_kind === 'korean_media' || x.source_kind === 'korean_community' || koreanRe.test(text) || faith;
     const ageHours = Math.max(0, (Date.now() - new Date(x.source_published_at || x.collected_at || 0).getTime()) / 3600000);
     const score = (school ? 1200 : (emergency ? 1000 : 0)) + (korean ? 100 : 0) + (faith ? 24 : 0) + Number(x.priority_score || 0) - Math.min(50, ageHours / 3);
+    const flags = { faith, korean, emergency, school };
     return {
       id: x.id,
-      title: x.ai_title || x.original_title || '한인 소식',
-      summary: x.ai_summary || x.original_summary || '달라스 한인사회에서 확인된 소식입니다.',
-      url: x.original_url || '',
-      source: x.source_name || '달타운맵 뉴스룸',
+      title: publicHeadline(x, flags),
+      summary: publicSummary(x, flags),
+      // Public home feed intentionally omits outlet name and source URL.
+      // The newsroom/admin still retains them internally for fact checking and audit.
+      url: '',
       published_at: x.source_published_at || x.collected_at,
       faith, korean, emergency, school, score,
       destination: x.destination || x.suggested_destination || (emergency ? 'urgent' : 'life'),

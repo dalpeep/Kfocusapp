@@ -1961,7 +1961,7 @@ function v38AgeScore(row){
 async function v42LoadKoreanNews(){
   const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
   const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-  if(!base||!key){console.warn('[V44.1 Home Feed] Supabase public config missing');return []}
+  if(!base||!key){console.warn('[V44.2 Home Feed] Supabase public config missing');return []}
   const endpoint=`${base}/functions/v1/newsroom`;
   const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`,'Cache-Control':'no-cache'};
   const attempts=[
@@ -1981,14 +1981,14 @@ async function v42LoadKoreanNews(){
       const items=Array.isArray(json.items)?json.items:[];
       items.feed_meta=json.meta||{};
       v44HomeFeedLoadedAt=Date.now();
-      console.info(`[V44.1 Home Feed] ${attempt.label} success`,{count:items.length,meta:json.meta,version:json.version});
+      console.info(`[V44.2 Home Feed] ${attempt.label} success`,{count:items.length,meta:json.meta,version:json.version});
       return items;
     }catch(e){
       lastError=e;
-      console.warn(`[V44.1 Home Feed] ${attempt.label} failed`,e?.name==='AbortError'?'timeout':e?.message||e);
+      console.warn(`[V44.2 Home Feed] ${attempt.label} failed`,e?.name==='AbortError'?'timeout':e?.message||e);
     }finally{clearTimeout(timer)}
   }
-  console.warn('[V44.1 Home Feed] all attempts failed',lastError?.message||lastError);
+  console.warn('[V44.2 Home Feed] all attempts failed',lastError?.message||lastError);
   return [];
 }
 function v42OpenNews(item){
@@ -2060,7 +2060,7 @@ function v37RecommendationTags(item){
   if(item?.kind==='event') add('오늘 행사');
   if(item?.kind==='life') add('생활 정보');
   if(item?.kind==='dalpick') add(d.badge||d.category_label||(isThemeDalpick(d)?'추천 테마':'DalPick'));
-  if(item?.kind==='newsroom'){add(d.school?'학교 등교 공지':(d.emergency?'긴급 지역 공지':(d.faith?'교회·종교 행사':'한인 소식')));add(d.source||'지역 소식')}
+  if(item?.kind==='newsroom'){add(d.school?'학교 등교 공지':(d.emergency?'긴급 지역 공지':(d.faith?'교회·종교 행사':'한인 소식')))}
   return tags.slice(0,3);
 }
 function openV37Recommendation(item){
@@ -2151,7 +2151,7 @@ function paintV38HomePayload(payload,candidates){
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate'),summaryNode=document.getElementById('v37BriefSummary'),chipsNode=document.getElementById('v37BriefChips');
-  if(!dateNode||!summaryNode||!chipsNode)return;
+  if(!dateNode||!summaryNode)return;
   let ctx=v38Context(),candidates=v38Candidates(ctx);
   v43SetupAlerts(v42KoreanNewsItems);
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
@@ -2172,16 +2172,16 @@ async function renderV37AIHome(){
     immediate.summary=urgent.length
       ? `${lead.title} 등 지금 확인할 지역 공지가 있습니다. 아래 긴급 공지와 한인 소식을 차례로 확인해 보세요.`
       : `${lead.title}${korean.length>1?` 외 ${korean.length-1}건`:''}의 한인 소식이 확인됐습니다. 아래 카드에서 주요 소식을 연속으로 살펴보세요.`;
-    immediate.tip=urgent.length?'외출이나 등교 전 공식 원문에서 최신 상태를 다시 확인하세요.':'관심 있는 카드를 누르면 해당 원문을 바로 확인할 수 있습니다.';
+    immediate.tip=urgent.length?'외출이나 등교 전 해당 기관의 최신 공식 공지를 한 번 더 확인하세요.':'주요 한인 소식을 달타운 방식으로 간단히 정리해 보여드립니다.';
     immediate.source='달타운 최신 정보';
   }
   v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
 
-  // V44.1: newsroom data is the source of truth for the live home screen.
+  // V44.2: newsroom data is the source of truth for the live home screen.
   // The older AI/cache step could overwrite the freshly loaded newsroom cards
   // with a generic cached message, making the home screen look unchanged.
   if(v42KoreanNewsItems.length){
-    console.info('[V44.1 Home Feed] live newsroom payload rendered', {count:v42KoreanNewsItems.length});
+    console.info('[V44.2 Home Feed] live newsroom payload rendered', {count:v42KoreanNewsItems.length});
     return;
   }
 
