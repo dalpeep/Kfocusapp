@@ -4985,13 +4985,17 @@ async function newsroomEdgeCall(action, body={}, busyText=''){
   if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY)throw new Error('config.js의 Supabase 설정을 확인하세요.');
   const {data:{session}}=await supabase.auth.getSession();
   if(!session?.access_token)throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
-  const res=await fetch(`${cfg.SUPABASE_URL.replace(/\/$/,'')}/functions/v1/newsroom`,{
+  const functionName=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom').trim()||'newsroom';
+  const res=await fetch(`${cfg.SUPABASE_URL.replace(/\/$/,'')}/functions/v1/${encodeURIComponent(functionName)}`,{
     method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`},
     body:JSON.stringify({action,...body})
   });
   const text=await res.text();let json={};
   try{json=text?JSON.parse(text):{};}catch(_){throw new Error(`Supabase Edge Function이 JSON이 아닌 응답을 반환했습니다 (${res.status}): ${text.replace(/\s+/g,' ').slice(0,160)}`);}
-  if(!res.ok)throw new Error(json.error||`뉴스룸 ${action} 실행 실패 (${res.status})`);
+  if(!res.ok){
+    const hint=res.status===404?` Edge Function 이름 '${functionName}'이 배포되어 있는지 확인하세요.`:'';
+    throw new Error((json.error||`뉴스룸 ${action} 실행 실패 (${res.status})`)+hint);
+  }
   return json;
 }
 async function loadNewsroomSettings(){try{const json=await newsroomEdgeCall('get_settings',{region:getAppRegion()});const el=qs('newsroomAutoEnabled');if(el)el.checked=json.settings?.auto_enabled!==false;safeText('newsroomAutoBadge',el?.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');}catch(e){safeText('newsroomAutoBadge','자동 수집 설정 확인 필요');console.warn(e);}}
