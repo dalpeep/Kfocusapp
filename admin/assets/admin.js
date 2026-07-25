@@ -4997,14 +4997,23 @@ async function newsroomEdgeCall(action, body={}, busyText=''){
   try{json=text?JSON.parse(text):{};}catch(_){throw new Error(`Supabase Edge Function이 JSON이 아닌 응답을 반환했습니다 (${res.status}): ${text.replace(/\s+/g,' ').slice(0,160)}`);}
   if(!res.ok){
     const hint=res.status===404?` Edge Function 이름 '${functionName}'이 배포되어 있는지 확인하세요.`:'';
-    throw new Error((json.error||`뉴스룸 ${action} 실행 실패 (${res.status})`)+hint);
+    const raw=json.error||`뉴스룸 ${action} 실행 실패 (${res.status})`;const friendly=/지원하지 않는 뉴스룸 작업/.test(raw)?`배포된 newsroom Edge Function이 관리자 화면보다 오래된 버전입니다. 최신 함수를 배포한 뒤 다시 시도하세요. (요청: ${action})`:raw;throw new Error(friendly+hint);
   }
   return json;
 }
 async function loadNewsroomRunStatus(){
   try{
-    const json=await newsroomEdgeCall('run_status',{region:getAppRegion()});
-    const run=json.latest||null;
+    let run=null;
+    try{
+      const json=await newsroomEdgeCall('run_status',{region:getAppRegion()});
+      run=json.latest||null;
+    }catch(edgeError){
+      // Older deployed newsroom functions may not support run_status yet.
+      // Fall back to the table directly so one stale function does not break the entire admin UI.
+      const {data,error}=await supabase.from('newsroom_runs').select('*').eq('region',getAppRegion()).order('started_at',{ascending:false}).limit(1).maybeSingle();
+      if(error)throw edgeError;
+      run=data||null;
+    }
     const when=run?.started_at?new Date(run.started_at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}):'실행 기록 없음';
     safeText('newsroomLastRun',when);
     safeText('newsroomTodayCollected',`${run?.inserted||0}건`);
@@ -5023,11 +5032,22 @@ async function checkNewsroomHealth(showAlert=true){
   const panel=qs('newsroomHealthPanel');if(panel)panel.hidden=false;
   safeText('newsroomHealthDetails','Supabase Edge Function과 필수 설정을 확인하고 있습니다…');
   try{
-    const json=await newsroomEdgeCall('status',{region:getAppRegion()});
+    let json;
+    try{
+      json=await newsroomEdgeCall('status',{region:getAppRegion()});
+    }catch(edgeError){
+      // Backward-compatible diagnostic when an older Edge Function is still deployed.
+      const [items,settings,runs]=await Promise.all([
+        supabase.from('newsroom_items').select('id',{count:'exact',head:true}),
+        supabase.from('newsroom_settings').select('region',{count:'exact',head:true}),
+        supabase.from('newsroom_runs').select('id',{count:'exact',head:true})
+      ]);
+      json={ok:!items.error&&!settings.error,checks:{edge_function:false,newsroom_items:!items.error,newsroom_settings:!settings.error,newsroom_runs:!runs.error,openai_key:null,service_role_key:null},message:'현재 배포된 Edge Function이 구버전일 수 있습니다. 데이터베이스 연결은 별도로 확인했습니다.'};
+    }
     const checks=json.checks||{};
     const rows=[['Edge Function',checks.edge_function],['뉴스룸 테이블',checks.newsroom_items],['설정 테이블',checks.newsroom_settings],['OpenAI API 키',checks.openai_key],['서비스 역할 키',checks.service_role_key]];
-    const ok=rows.every(([,v])=>v===true);
-    if(qs('newsroomHealthDetails'))qs('newsroomHealthDetails').innerHTML=rows.map(([k,v])=>`<span class="newsroom-health-row ${v?'ok':'bad'}"><b>${v?'✓':'!'}</b>${esc(k)}</span>`).join('')+`<small>${esc(json.message||'')}</small>`;
+    const ok=checks.edge_function===true&&checks.newsroom_items===true&&checks.newsroom_settings===true&&checks.openai_key===true&&checks.service_role_key===true;
+    if(qs('newsroomHealthDetails'))qs('newsroomHealthDetails').innerHTML=rows.map(([k,v])=>`<span class="newsroom-health-row ${v===true?'ok':v===false?'bad':''}"><b>${v===true?'✓':v===false?'!':'·'}</b>${esc(k)}</span>`).join('')+`<small>${esc(json.message||'')}</small>`;
     safeText('newsroomAutoBadge',ok?'AI 운영센터 정상':'설정 확인 필요');
     if(showAlert)alert(ok?'AI 운영센터가 정상 연결되어 있습니다.':'확인이 필요한 설정이 있습니다. 상태 표시를 확인하세요.');
     return ok;
@@ -5066,7 +5086,22 @@ async function prepareTodayNewsroom(){
     alert(`오늘 자료 준비를 완료했습니다.\n지난 후보 정리 ${collected.cleaned||0}건\n새 수집 ${collected.inserted||0}건\nAI 분류 ${analyzed.analyzed||0}건\n기사 초안 ${drafted}건${collected.failed?.length?`\n일부 분야 실패: ${collected.failed.join(' / ')}`:''}\n\n검토 대기에서 확인한 뒤 게시하세요.`);
   }catch(e){alert(`오늘 자료 준비 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{btn.disabled=false;btn.textContent=old;}
 }
-async function loadNewsroomSettings(){try{const json=await newsroomEdgeCall('get_settings',{region:getAppRegion()});const el=qs('newsroomAutoEnabled');if(el)el.checked=json.settings?.auto_enabled!==false;safeText('newsroomAutoBadge',el?.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');}catch(e){safeText('newsroomAutoBadge','자동 수집 설정 확인 필요');console.warn(e);}}
+async function loadNewsroomSettings(){
+  const el=qs('newsroomAutoEnabled');
+  try{
+    let settings=null;
+    try{
+      const json=await newsroomEdgeCall('get_settings',{region:getAppRegion()});
+      settings=json.settings||null;
+    }catch(edgeError){
+      const {data,error}=await supabase.from('newsroom_settings').select('*').eq('region',getAppRegion()).maybeSingle();
+      if(error)throw edgeError;
+      settings=data||null;
+    }
+    if(el)el.checked=settings?.auto_enabled!==false;
+    safeText('newsroomAutoBadge',el?.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');
+  }catch(e){safeText('newsroomAutoBadge','자동 수집 설정 확인 필요');console.warn(e);}
+}
 async function saveNewsroomAutoSetting(){const el=qs('newsroomAutoEnabled');if(!el)return;try{await newsroomEdgeCall('save_settings',{region:getAppRegion(),auto_enabled:el.checked},'자동 수집 설정을 저장하고 있습니다…');safeText('newsroomAutoBadge',el.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');safeText('newsroomStatus',el.checked?'매일 오전 자동 수집을 사용합니다.':'자동 수집을 중지했습니다. 수동 수집은 계속 사용할 수 있습니다.');}catch(e){el.checked=!el.checked;alert(`자동 수집 설정 실패: ${e.message}`);}}
 async function collectNewsroom(){
   const btn=qs('newsroomCollectBtn'),old=btn.textContent;btn.disabled=true;btn.textContent='수집 준비…';

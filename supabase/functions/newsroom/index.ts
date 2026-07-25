@@ -161,4 +161,36 @@ async function status(region='dallas'){
   return {ok,checks,message:ok?'초기 설치가 완료되어 이후 운영은 관리자 화면에서 처리할 수 있습니다.':'SQL, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.'};
 }
 
-Deno.serve(async(req)=>{ if(req.method==='OPTIONS')return new Response('ok',{headers:cors}); try{const auth=await authorize(req);const body=await req.json().catch(()=>({}));const action=String(body.action||'');const region=String(body.region||'dallas').toLowerCase();if(action==='status')return json(await status(region));if(action==='run_status')return json(await runStatus(region));if(action==='cleanup')return json(await cleanup(region));if(action==='collect'){const scheduled=Boolean((auth as any).cron||body.scheduled);const lane=String(body.lane||(scheduled?scheduledLaneKey():'korean'));return json(await collect(region,scheduled,lane));}if(action==='analyze')return json(await analyze(body));if(action==='draft')return json(await draft(body));if(action==='get_settings'){const {data,error}=await admin.from('newsroom_settings').select('*').eq('region',region).maybeSingle();if(error)throw error;return json({ok:true,settings:data||{region,auto_enabled:true}});}if(action==='save_settings'){const {data,error}=await admin.from('newsroom_settings').upsert({region,auto_enabled:Boolean(body.auto_enabled),updated_at:new Date().toISOString()},{onConflict:'region'}).select().single();if(error)throw error;return json({ok:true,settings:data});}return json({ok:false,error:'지원하지 않는 뉴스룸 작업입니다.'},400);}catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);} });
+Deno.serve(async(req)=>{
+  if(req.method==='OPTIONS')return new Response('ok',{headers:cors});
+  try{
+    const auth=await authorize(req);
+    const body=await req.json().catch(()=>({}));
+    const rawAction=String(body.action||body.task||body.operation||'').trim().toLowerCase();
+    const aliases:Record<string,string>={health:'status',health_check:'status',runstatus:'run_status',runs:'run_status',settings:'get_settings',settings_get:'get_settings',settings_save:'save_settings',collect_news:'collect',collect_life:'collect',classify:'analyze',generate:'draft'};
+    const action=aliases[rawAction]||rawAction;
+    const region=String(body.region||'dallas').toLowerCase();
+    if(action==='ping')return json({ok:true,service:'newsroom',version:'39.0.0',supported_actions:['status','run_status','cleanup','collect','analyze','draft','get_settings','save_settings']});
+    if(action==='status')return json({...await status(region),version:'39.0.0'});
+    if(action==='run_status')return json(await runStatus(region));
+    if(action==='cleanup')return json(await cleanup(region));
+    if(action==='collect'){
+      const scheduled=Boolean((auth as any).cron||body.scheduled);
+      const lane=String(body.lane||(scheduled?scheduledLaneKey():'korean'));
+      return json(await collect(region,scheduled,lane));
+    }
+    if(action==='analyze')return json(await analyze(body));
+    if(action==='draft')return json(await draft(body));
+    if(action==='get_settings'){
+      const {data,error}=await admin.from('newsroom_settings').select('*').eq('region',region).maybeSingle();
+      if(error)throw error;
+      return json({ok:true,settings:data||{region,auto_enabled:true}});
+    }
+    if(action==='save_settings'){
+      const {data,error}=await admin.from('newsroom_settings').upsert({region,auto_enabled:Boolean(body.auto_enabled),updated_at:new Date().toISOString()},{onConflict:'region'}).select().single();
+      if(error)throw error;
+      return json({ok:true,settings:data});
+    }
+    return json({ok:false,error:`알 수 없는 뉴스룸 요청입니다: ${rawAction||'(빈 요청)'}`,received_action:rawAction,supported_actions:['status','run_status','cleanup','collect','analyze','draft','get_settings','save_settings'],version:'39.0.0'},400);
+  }catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e),version:'39.0.0'},500);}
+});
