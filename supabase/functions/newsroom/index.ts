@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '42.2.0';
+const VERSION = '43.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -641,7 +641,14 @@ async function homeFeed(region = 'dallas') {
     return x.emergency || x.school || x.korean;
   }).sort((a: any, b: any) => b.score - a.score).slice(0, 12);
 
-  return { ok: true, version: VERSION, items: rows, generated_at: new Date().toISOString() };
+  const meta = {
+    total: rows.length,
+    urgent: rows.filter((x: any) => x.emergency || x.school).length,
+    school: rows.filter((x: any) => x.school).length,
+    korean: rows.filter((x: any) => x.korean).length,
+    faith: rows.filter((x: any) => x.faith).length,
+  };
+  return { ok: true, version: VERSION, items: rows, meta, generated_at: new Date().toISOString() };
 }
 
 async function status(region = 'dallas') {

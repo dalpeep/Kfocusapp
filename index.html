@@ -263,6 +263,18 @@ onclick="showPage('contact');closeMenu();">
 
         <!-- Daily Dallas home: local briefing and recommendations -->
         <section class="v37-ai-home" aria-label="오늘의 달라스 생활 홈">
+          <article class="v43-alert-card hidden" id="v43AlertCard" aria-live="polite">
+            <button type="button" class="v43-alert-main" id="v43AlertMain">
+              <span class="v43-alert-icon" id="v43AlertIcon">!</span>
+              <span class="v43-alert-copy">
+                <small id="v43AlertLabel">긴급 지역 공지</small>
+                <strong id="v43AlertTitle">확인할 긴급 공지가 있습니다.</strong>
+                <span id="v43AlertSummary">자세한 내용을 확인해 주세요.</span>
+              </span>
+              <span class="v43-alert-arrow">→</span>
+            </button>
+            <div class="v43-alert-dots" id="v43AlertDots"></div>
+          </article>
           <article class="v37-brief-card" id="v37BriefCard">
             <div class="v37-brief-top">
               <div>
@@ -633,7 +645,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app.js?v=42.2.1"></script>
+<script src="app.js?v=43.0.0"></script>
 <script src="main-banners.js?v=v8.2-coupon-banner-fix-20260722"></script>
 
 <div id="videoModal" class="video-modal hidden">

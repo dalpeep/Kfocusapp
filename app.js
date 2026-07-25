@@ -1,3 +1,4 @@
+// DalTownMap V43.0.0 home newsroom integration
 console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -1937,6 +1938,9 @@ let v37RecommendationTimer = null;
 let v37RecommendationItems = [];
 let v38HomePayload = null;
 let v42KoreanNewsItems = [];
+let v43AlertItems = [];
+let v43AlertIndex = 0;
+let v43AlertTimer = null;
 
 function v37VisibleBoardPosts(type){
   return (boardPosts || []).filter(post => {
@@ -1967,12 +1971,44 @@ async function v42LoadKoreanNews(){
     clearTimeout(timer);
     const json=await res.json().catch(()=>({}));
     if(!res.ok||!json.ok)throw new Error(json.error||`HTTP ${res.status}`);
-    return Array.isArray(json.items)?json.items:[];
+    const items=Array.isArray(json.items)?json.items:[];
+    items.feed_meta=json.meta||{};
+    return items;
   }catch(e){console.info('[V42] Korean newsroom feed fallback:',e?.message||e);return []}
 }
 function v42OpenNews(item){
   if(!item)return;
   if(item.url)window.open(item.url,'_blank','noopener,noreferrer');
+}
+
+function v43AlertType(item){
+  const text=`${item?.title||''} ${item?.summary||''}`.toLowerCase();
+  if(item?.school)return 'school';
+  if(/tornado|storm|flood|heat|weather|폭염|홍수|토네이도|기상|주의보|경보/.test(text))return 'weather';
+  return 'emergency';
+}
+function v43PaintAlert(){
+  const card=document.getElementById('v43AlertCard');
+  if(!card)return;
+  if(!v43AlertItems.length){card.classList.add('hidden');return;}
+  const item=v43AlertItems[v43AlertIndex]||v43AlertItems[0];
+  card.classList.remove('hidden','school','weather','emergency');
+  card.classList.add(v43AlertType(item));
+  const label=document.getElementById('v43AlertLabel'),title=document.getElementById('v43AlertTitle'),summary=document.getElementById('v43AlertSummary'),icon=document.getElementById('v43AlertIcon'),dots=document.getElementById('v43AlertDots');
+  if(label)label.textContent=item.school?'학교 등교·수업 공지':(v43AlertType(item)==='weather'?'지역 기상 경보':'긴급 지역 공지');
+  if(title)title.textContent=item.title||'확인할 긴급 공지가 있습니다.';
+  if(summary)summary.textContent=v38Text(item.summary||'공식 안내를 확인해 주세요.',110);
+  if(icon)icon.textContent=item.school?'🏫':(v43AlertType(item)==='weather'?'⚠':'🚨');
+  if(dots)dots.innerHTML=v43AlertItems.length>1?v43AlertItems.map((_,i)=>`<span class="${i===v43AlertIndex?'active':''}"></span>`).join(''):'';
+}
+function v43SetupAlerts(items=[]){
+  v43AlertItems=(items||[]).filter(x=>x?.school||x?.emergency).slice(0,6);
+  v43AlertIndex=0;
+  v43PaintAlert();
+  const main=document.getElementById('v43AlertMain');
+  if(main&&!main.dataset.bound){main.dataset.bound='1';main.addEventListener('click',()=>v42OpenNews(v43AlertItems[v43AlertIndex]));}
+  if(v43AlertTimer)clearInterval(v43AlertTimer);
+  if(v43AlertItems.length>1)v43AlertTimer=setInterval(()=>{v43AlertIndex=(v43AlertIndex+1)%v43AlertItems.length;v43PaintAlert()},6000);
 }
 
 function v38Context(){
@@ -2101,9 +2137,11 @@ async function renderV37AIHome(){
   const dateNode=document.getElementById('v37BriefDate'),summaryNode=document.getElementById('v37BriefSummary'),chipsNode=document.getElementById('v37BriefChips');
   if(!dateNode||!summaryNode||!chipsNode)return;
   let ctx=v38Context(),candidates=v38Candidates(ctx);
+  v43SetupAlerts(v42KoreanNewsItems);
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
   let immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
   v42KoreanNewsItems=await v42LoadKoreanNews();
+  v43SetupAlerts(v42KoreanNewsItems);
   ctx=v38Context();candidates=v38Candidates(ctx);
   immediate=v38FallbackPayload(ctx,candidates);v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
   const payload=await v38GeneratePayload(ctx,candidates);v38HomePayload=payload;paintV38HomePayload(payload,candidates);
