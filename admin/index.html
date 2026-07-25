@@ -57,7 +57,7 @@
         <button class="nav-item" data-section="aiStudio">AI 콘텐츠 스튜디오 <span class="nav-badge">NEW</span></button>
         <button class="nav-item" data-section="dalpick">한 줄 광고·콘텐츠</button>
         <button class="nav-item" data-section="board">게시판·가이드 관리</button>
-        <button class="nav-item" data-section="newsroom">통합 뉴스룸 <span class="nav-badge">NEW</span></button>
+        <button class="nav-item" data-section="newsroom">AI 운영센터 <span class="nav-badge">NEW</span></button>
         <div class="nav-group-title">운영 관리</div>
         <button class="nav-item" data-section="business">업소 관리</button>
         <button class="nav-item" data-section="coupon">쿠폰 관리</button>
@@ -1296,15 +1296,22 @@
       <section id="section-newsroom" class="admin-section">
         <section class="card newsroom-hero">
           <div class="panel-head">
-            <div><h2>달라스 라이프 통합 뉴스룸</h2><p class="muted">공식기관 소식을 수집한 뒤 AI가 목적지·신뢰도·중복·관련 업종을 제안합니다. 관리자가 승인하기 전에는 앱에 노출되지 않습니다.</p></div>
+            <div><h2>AI 운영센터</h2><p class="muted">초기 설치 후에는 이 화면에서 수집·분류·기사 작성·업소 연결·게시까지 처리합니다. 관리자가 승인하기 전에는 앱에 노출되지 않습니다.</p></div>
             <span class="pill" id="newsroomAutoBadge">Supabase 자동 수집 준비</span>
           </div>
           <div class="newsroom-actions">
-            <button id="newsroomCollectBtn" class="btn primary" type="button">① 오늘 수집</button>
+            <button id="newsroomPrepareTodayBtn" class="btn primary" type="button">오늘 자료 자동 준비</button>
+            <button id="newsroomCollectBtn" class="btn ghost" type="button">① 오늘 수집</button>
             <button id="newsroomAnalyzeAllBtn" class="btn ghost" type="button">② 수집분 AI 분류</button>
+            <button id="newsroomHealthBtn" class="btn ghost" type="button">운영 상태 확인</button>
             <button id="newsroomRefreshBtn" class="btn ghost" type="button">새로고침</button>
             <label class="newsroom-toggle"><input id="newsroomAutoEnabled" type="checkbox" checked><span>매일 오전 자동 수집</span></label>
             <span id="newsroomStatus" class="tiny muted">수집 결과는 검토 대기로 저장됩니다.</span>
+          </div>
+
+          <div id="newsroomHealthPanel" class="newsroom-health" hidden>
+            <strong>AI 운영센터 상태</strong>
+            <div id="newsroomHealthDetails" class="tiny muted">확인 버튼을 누르면 Edge Function, OpenAI Secret, 뉴스룸 테이블 연결 상태를 점검합니다.</div>
           </div>
           <div class="newsroom-metrics">
             <button class="metric-card newsroom-filter active" data-status="all"><span>전체</span><strong id="newsroomCountAll">0</strong></button>
