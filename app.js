@@ -2003,18 +2003,46 @@ function paintV37Recommendation(){
   if(tagsNode)tagsNode.innerHTML=v37RecommendationTags(item).map(tag=>`<span class="v37-recommend-tag">${esc(tag)}</span>`).join('');
   dots.innerHTML=v37RecommendationItems.length>1?v37RecommendationItems.map((_,i)=>`<span class="${i===v37RecommendationIndex?'active':''}"></span>`).join(''):'';
 }
+function v38SignalText(candidates){
+  return candidates.map(x=>`${x.title||''} ${x.summary||''}`).join(' ').toLowerCase();
+}
+function v38LifeBrief(ctx,candidates){
+  const text=v38SignalText(candidates);
+  const has=(re)=>re.test(text);
+  const signals={
+    heat:has(/폭염|무더|고온|더위|heat|hot weather|temperature|100°|99°|98°/i),
+    rain:has(/비 예보|소나기|폭우|우천|rain|storm|thunder/i),
+    mosquito:has(/모기|웨스트나일|방역|mosquito|west nile|spray/i),
+    traffic:has(/도로 통제|교통 통제|폐쇄|공사|정체|traffic|closure|road work/i),
+    sports:has(/경기|레인저스|카우보이스|매버릭스|FC Dallas|sports|game|match/i),
+    performance:has(/공연|콘서트|뮤지컬|연극|festival|concert|performance/i),
+    sale:has(/마트|세일|할인|특가|h마트|시온|코마트|sale|discount|grocery/i),
+    event:ctx.events.length>0||has(/행사|축제|세미나|이벤트/i),
+    weekend:ctx.weekend
+  };
+  let summary='오늘 확인된 달라스 생활 정보를 바탕으로 여유 있게 일정을 준비해 보세요.';
+  let tip='새로운 공지와 행사는 수시로 바뀔 수 있으니 외출 전 한 번 더 확인하세요.';
+  let checklist=['일정 확인'];
+  let pattern='일반 생활';
+  if(signals.mosquito){summary='일부 지역에서 모기 관련 안내나 방역 소식이 확인됩니다. 야외 활동을 계획했다면 긴소매 옷과 모기 기피제를 준비하는 것이 좋습니다.';tip='해 질 무렵에는 모기 활동이 늘 수 있으니 어린이와 반려동물의 야외 활동에 유의하세요.';checklist=['모기 기피제','긴소매'];pattern='안전·건강';}
+  else if(signals.rain){summary='오늘 비나 소나기 관련 소식이 있습니다. 외출과 장보기는 비가 오기 전 미리 마치고, 세일 품목은 아래 생활 정보에서 확인해 보세요.';tip='차량 이동 시 평소보다 제동거리를 길게 두고 침수된 도로에는 진입하지 마세요.';checklist=['우산','장보기'];pattern='비 오는 날';}
+  else if(signals.heat){summary='오늘 달라스는 무더운 날씨가 예상됩니다. 외출은 오전이나 저녁 시간을 추천하며, 시원한 냉면이나 실내 카페는 아래 업소 목록에서 확인해 보세요.';tip='차량 내부 온도가 빠르게 올라가므로 어린이와 반려동물을 차 안에 두지 마세요.';checklist=['물병','선크림'];pattern='폭염 생활';}
+  else if(signals.traffic){summary='오늘 도로 통제나 교통 관련 안내가 확인됩니다. 평소보다 일찍 출발하고 주요 교차로와 행사장 주변은 우회 경로를 준비하세요.';tip='출발 직전 지도 앱에서 실시간 교통 상황을 확인하면 불필요한 지연을 줄일 수 있습니다.';checklist=['우회 경로','출발 시간'];pattern='교통 주의';}
+  else if(signals.sports){summary='오늘 지역 스포츠 경기 소식이 있습니다. 경기장 주변은 시작 전부터 혼잡할 수 있으니 주차와 이동 시간을 넉넉히 잡으세요.';tip='경기 전후 주변 식당이 붐빌 수 있으므로 식사 시간을 조금 앞당기는 것이 좋습니다.';checklist=['티켓','주차'];pattern='스포츠 데이';}
+  else if(signals.performance||signals.event){summary=`오늘 확인할 공연과 지역 행사가 ${ctx.events.length?ctx.events.length+'건 ':''}있습니다. 가족이나 친구와 가볍게 외출할 계획이라면 행사 시간과 주차 안내를 먼저 확인해 보세요.`;tip='인기 행사는 현장 주차가 빨리 찰 수 있으니 조금 일찍 도착하는 편이 좋습니다.';checklist=['행사 시간','주차'];pattern='공연·행사';}
+  else if(signals.sale){summary='오늘 마트 세일과 할인 정보가 확인됩니다. 필요한 식료품이 있다면 품절되기 전 장보기를 계획하고, 세일 품목은 아래 생활 정보에서 확인해 보세요.';tip='할인 품목은 매장별 재고가 다를 수 있으므로 방문 전 확인하면 좋습니다.';checklist=['장보기 목록','세일 품목'];pattern='마트 세일';}
+  else if(signals.weekend){summary='오늘은 주말입니다. 가까운 행사나 가족 나들이 정보를 확인하고, 이동 동선 주변의 맛집과 카페도 함께 둘러보세요.';tip='오후에는 주요 쇼핑몰과 행사장이 혼잡할 수 있으니 오전 일정을 추천합니다.';checklist=['행사','맛집'];pattern='주말 나들이';}
+  return {summary,tip,checklist,pattern,signals};
+}
 function v38FallbackPayload(ctx,candidates){
-  const top=candidates[0], second=candidates[1];
   const region=(currentRegion==='dallas'||!currentRegion)?'달라스':((typeof REGION_LABELS!=='undefined'&&REGION_LABELS[currentRegion])||'우리 동네');
-  let summary='오늘 필요한 지역 생활 정보와 추천 업소를 한곳에서 확인해 보세요.';
-  if(top&&second) summary=`${top.title} 소식을 먼저 확인해 보세요. 이어서 ${second.title} 정보도 오늘의 추천으로 준비했습니다.`;
-  else if(top) summary=`오늘은 ${top.title} 소식을 우선 확인해 보세요. AI가 최신성과 중요도를 기준으로 선택했습니다.`;
-  return {title:`오늘의 ${region}`,kicker:ctx.weekend?'주말 AI 브리핑':'오늘의 AI 브리핑',summary,recommendations:candidates,life:[
-    {icon:'🎟️',title:'오늘 쿠폰',subtitle:ctx.coupons.length?`${ctx.coupons.length}개 혜택`:'혜택 보기'},
-    {icon:ctx.weekend?'🎪':'🎉',title:ctx.weekend?'주말 행사':'오늘 행사',subtitle:ctx.events.length?`${ctx.events.length}건 새 소식`:'행사 확인'},
-    {icon:ctx.weekend?'🚗':'🍽️',title:ctx.weekend?'주말 추천':'맛집·업소',subtitle:ctx.featured.length?`${ctx.featured.length}곳 추천`:`${(businesses||[]).length}곳 찾기`},
-    {icon:'📰',title:'달라스 라이프',subtitle:ctx.life.length?`${ctx.life.length}건 읽기`:'생활 기사 보기'}
-  ],source:'자동 점수 엔진'};
+  const brief=v38LifeBrief(ctx,candidates);
+  return {title:`오늘의 ${region}`,kicker:`${brief.pattern} · 생활 제안`,summary:brief.summary,tip:brief.tip,checklist:brief.checklist,recommendations:candidates,life:[
+    {icon:brief.signals.rain?'🛒':'🎟️',title:brief.signals.rain?'미리 장보기':'오늘 쿠폰',subtitle:ctx.coupons.length?`${ctx.coupons.length}개 혜택`:'혜택 보기'},
+    {icon:brief.signals.performance?'🎭':(ctx.weekend?'🎪':'🎉'),title:brief.signals.performance?'오늘 공연':(ctx.weekend?'주말 행사':'오늘 행사'),subtitle:ctx.events.length?`${ctx.events.length}건 새 소식`:'행사 확인'},
+    {icon:brief.signals.heat?'🍜':(brief.signals.rain?'☕':'🍽️'),title:brief.signals.heat?'시원한 맛집':(brief.signals.rain?'실내 공간':'맛집·업소'),subtitle:ctx.featured.length?`${ctx.featured.length}곳 추천`:`${(businesses||[]).length}곳 찾기`},
+    {icon:brief.signals.sale?'🛒':'📰',title:brief.signals.sale?'마트 세일':'달라스 라이프',subtitle:ctx.life.length?`${ctx.life.length}건 읽기`:'생활 정보 보기'}
+  ],source:'생활 패턴 자동 분석'};
 }
 async function v38GeneratePayload(ctx,candidates){
   const fallback=v38FallbackPayload(ctx,candidates);
@@ -2023,7 +2051,7 @@ async function v38GeneratePayload(ctx,candidates){
   try{const cached=JSON.parse(localStorage.getItem('daltownmap_v38_home')||'null');if(cached?.fingerprint===fingerprint)return cached.payload}catch(e){}
   try{
     const res=await fetch('/.netlify/functions/ai-daily-home',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date:dayKey,weekend:ctx.weekend,items:candidates.slice(0,8).map(x=>({kind:x.kind,title:x.title,summary:x.summary,score:Math.round(x.score)})),counts:{coupon:ctx.coupons.length,event:ctx.events.length,life:ctx.life.length,business:ctx.featured.length}})});
-    if(res.ok){const ai=await res.json();if(ai?.summary){fallback.summary=v38Text(ai.summary,260);fallback.kicker=v38Text(ai.kicker||fallback.kicker,40);fallback.source=ai.source||'AI 자동 생성';if(Array.isArray(ai.order)){const map=new Map(candidates.map(x=>[x.title,x]));const ordered=ai.order.map(t=>map.get(t)).filter(Boolean);fallback.recommendations=[...ordered,...candidates.filter(x=>!ordered.includes(x))]}}}
+    if(res.ok){const ai=await res.json();if(ai?.summary){fallback.summary=v38Text(ai.summary,320);fallback.kicker=v38Text(ai.kicker||fallback.kicker,50);fallback.tip=v38Text(ai.tip||fallback.tip,180);if(Array.isArray(ai.checklist)&&ai.checklist.length)fallback.checklist=ai.checklist.slice(0,3);fallback.source=ai.source||'AI 생활 제안';if(Array.isArray(ai.order)){const map=new Map(candidates.map(x=>[x.title,x]));const ordered=ai.order.map(t=>map.get(t)).filter(Boolean);fallback.recommendations=[...ordered,...candidates.filter(x=>!ordered.includes(x))]}}}
   }catch(e){console.info('[V38] AI function fallback:',e?.message)}
   try{localStorage.setItem('daltownmap_v38_home',JSON.stringify({fingerprint,payload:fallback}))}catch(e){}
   return fallback;
@@ -2034,8 +2062,10 @@ async function renderV37AIHome(){
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(ctx.now);
   const payload=await v38GeneratePayload(ctx,candidates);v38HomePayload=payload;
   if(titleNode)titleNode.textContent=payload.title;if(kicker)kicker.textContent=payload.kicker;summaryNode.textContent=payload.summary;if(state)state.textContent=`✓ ${payload.source}`;
-  const chips=[];if(ctx.coupons.length)chips.push(`🎟 쿠폰 ${ctx.coupons.length}`);if(ctx.events.length)chips.push(`🎉 행사 ${ctx.events.length}`);if(ctx.life.length)chips.push(`📰 라이프 ${ctx.life.length}`);chips.push(`🧠 자동선정 ${candidates.length}`);
-  chipsNode.innerHTML=chips.map(v=>`<span class="v37-brief-chip">${esc(v)}</span>`).join('');
+  const tipNode=document.getElementById('v38BriefTip'),checkNode=document.getElementById('v38BriefChecklist');
+  if(tipNode)tipNode.innerHTML=`<b>💡 오늘의 팁</b><span>${esc(payload.tip||'외출 전 최신 생활 정보를 한 번 더 확인하세요.')}</span>`;
+  if(checkNode)checkNode.innerHTML=(payload.checklist||[]).slice(0,3).map(v=>`<span>✓ ${esc(v)}</span>`).join('');
+  chipsNode.innerHTML='';
   const life=payload.life||[];const countIds=['v37CouponCount','v37EventCount','v37BusinessCount','v37LifeCount'];life.slice(0,4).forEach((x,i)=>{const ic=document.getElementById(`v38LifeIcon${i}`),tt=document.getElementById(`v38LifeTitle${i}`),sm=document.getElementById(countIds[i]);if(ic)ic.textContent=x.icon;if(tt)tt.textContent=x.title;if(sm)sm.textContent=x.subtitle});
   v37RecommendationItems=payload.recommendations||candidates;v37RecommendationIndex=0;paintV37Recommendation();if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5200);
   if(window.lucide)window.lucide.createIcons();
