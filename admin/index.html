@@ -1300,26 +1300,31 @@
             <span class="pill" id="newsroomAutoBadge">Supabase 자동 수집 준비</span>
           </div>
           <div class="newsroom-actions">
-            <button id="newsroomPrepareTodayBtn" class="btn primary" type="button">오늘 자료 자동 준비</button>
-            <button id="newsroomCollectBtn" class="btn ghost" type="button">① 오늘 수집</button>
+            <button id="newsroomCollectBtn" class="btn primary" type="button">🔄 지금 다시 수집</button>
             <button id="newsroomAnalyzeAllBtn" class="btn ghost" type="button">② 수집분 AI 분류</button>
             <button id="newsroomHealthBtn" class="btn ghost" type="button">운영 상태 확인</button>
             <button id="newsroomRefreshBtn" class="btn ghost" type="button">새로고침</button>
             <label class="newsroom-toggle"><input id="newsroomAutoEnabled" type="checkbox" checked><span>매일 오전 자동 수집</span></label>
-            <span id="newsroomStatus" class="tiny muted">수집 결과는 검토 대기로 저장됩니다.</span>
+            <span id="newsroomStatus" class="tiny muted">자동 수집 상태를 확인하고 있습니다.</span>
           </div>
 
           <div id="newsroomHealthPanel" class="newsroom-health" hidden>
             <strong>AI 운영센터 상태</strong>
             <div id="newsroomHealthDetails" class="tiny muted">확인 버튼을 누르면 Edge Function, OpenAI Secret, 뉴스룸 테이블 연결 상태를 점검합니다.</div>
           </div>
+          <div class="newsroom-run-summary">
+            <div><span>마지막 자동 실행</span><strong id="newsroomLastRun">확인 중</strong></div>
+            <div><span>오늘 새 수집</span><strong id="newsroomTodayCollected">0건</strong></div>
+            <div><span>중복·제외</span><strong id="newsroomTodaySkipped">0건</strong></div>
+            <div><span>실행 결과</span><strong id="newsroomRunResult">확인 중</strong></div>
+          </div>
+          <div id="newsroomRunLog" class="newsroom-run-log"><span class="muted">자동 수집 로그를 불러오고 있습니다.</span></div>
           <div class="newsroom-metrics">
-            <button class="metric-card newsroom-filter active" data-status="all"><span>전체</span><strong id="newsroomCountAll">0</strong></button>
+            <button class="metric-card newsroom-filter active" data-status="all"><span>미처리 전체</span><strong id="newsroomCountAll">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="collected"><span>분류 대기</span><strong id="newsroomCountCollected">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="classified"><span>기사 작성 대기</span><strong id="newsroomCountClassified">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="review"><span>검토 대기</span><strong id="newsroomCountReview">0</strong></button>
-            <button class="metric-card newsroom-filter" data-status="published"><span>게시됨</span><strong id="newsroomCountPublished">0</strong></button>
-            <button class="metric-card newsroom-filter" data-status="excluded"><span>제외됨</span><strong id="newsroomCountExcluded">0</strong></button>
+
           </div>
         </section>
 
@@ -1333,7 +1338,7 @@
 
         <section class="layout newsroom-layout">
           <div class="list-panel card">
-            <div class="panel-head"><div><h2>수집 후보</h2><p class="tiny muted">긴급도와 중요도 순으로 정렬됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
+            <div class="panel-head"><div><h2>오늘 처리할 후보</h2><p class="tiny muted">게시·제외한 항목은 즉시 목록에서 정리되고, 오래된 미처리 후보도 자동 삭제됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
             <div id="newsroomList" class="newsroom-list"></div>
           </div>
           <div class="form-panel card newsroom-review-panel">
