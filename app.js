@@ -1961,7 +1961,7 @@ function v38AgeScore(row){
 async function v42LoadKoreanNews(){
   const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
   const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-  if(!base||!key){console.warn('[V44 Home Feed] Supabase public config missing');return []}
+  if(!base||!key){console.warn('[V44.1 Home Feed] Supabase public config missing');return []}
   const endpoint=`${base}/functions/v1/newsroom`;
   const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`,'Cache-Control':'no-cache'};
   const attempts=[
@@ -1981,14 +1981,14 @@ async function v42LoadKoreanNews(){
       const items=Array.isArray(json.items)?json.items:[];
       items.feed_meta=json.meta||{};
       v44HomeFeedLoadedAt=Date.now();
-      console.info(`[V44 Home Feed] ${attempt.label} success`,{count:items.length,meta:json.meta,version:json.version});
+      console.info(`[V44.1 Home Feed] ${attempt.label} success`,{count:items.length,meta:json.meta,version:json.version});
       return items;
     }catch(e){
       lastError=e;
-      console.warn(`[V44 Home Feed] ${attempt.label} failed`,e?.name==='AbortError'?'timeout':e?.message||e);
+      console.warn(`[V44.1 Home Feed] ${attempt.label} failed`,e?.name==='AbortError'?'timeout':e?.message||e);
     }finally{clearTimeout(timer)}
   }
-  console.warn('[V44 Home Feed] all attempts failed',lastError?.message||lastError);
+  console.warn('[V44.1 Home Feed] all attempts failed',lastError?.message||lastError);
   return [];
 }
 function v42OpenNews(item){
@@ -2176,6 +2176,15 @@ async function renderV37AIHome(){
     immediate.source='달타운 최신 정보';
   }
   v38HomePayload=immediate;paintV38HomePayload(immediate,candidates);
+
+  // V44.1: newsroom data is the source of truth for the live home screen.
+  // The older AI/cache step could overwrite the freshly loaded newsroom cards
+  // with a generic cached message, making the home screen look unchanged.
+  if(v42KoreanNewsItems.length){
+    console.info('[V44.1 Home Feed] live newsroom payload rendered', {count:v42KoreanNewsItems.length});
+    return;
+  }
+
   const payload=await v38GeneratePayload(ctx,candidates);
   if(sequence!==v44HomeRenderSequence)return;
   v38HomePayload=payload;paintV38HomePayload(payload,candidates);

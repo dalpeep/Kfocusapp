@@ -4991,7 +4991,14 @@ async function publishNewsroom(){
 }
 async function excludeNewsroom(){if(!selectedNewsroomId)return;if(!confirm('이 소식을 제외하고 수집 후보에서 삭제할까요?'))return;const {error}=await supabase.from('newsroom_items').delete().eq('id',selectedNewsroomId);if(error)return alert(`후보 삭제 실패: ${error.message}`);selectedNewsroomId=null;await loadNewsroom();qs('newsroomForm').hidden=true;qs('newsroomEmpty').hidden=false;}
 function newsroomErrorMessage(value, fallback='뉴스룸 요청 처리 중 오류가 발생했습니다.', depth=0){
-  if(typeof value==='string'&&value.trim())return value.trim();
+  if(typeof value==='string'&&value.trim()){
+    const text=value.trim();
+    if(text==='[object Object]'||text==='object Object')return '이전 실행의 상세 오류 기록이 없습니다.';
+    if((text.startsWith('{')&&text.endsWith('}'))||(text.startsWith('[')&&text.endsWith(']'))){
+      try{return newsroomErrorMessage(JSON.parse(text),fallback,depth+1);}catch(_){ }
+    }
+    return text;
+  }
   if(depth>4)return fallback;
   if(value instanceof Error&&value.message)return newsroomErrorMessage(value.message,fallback,depth+1);
   if(value&&typeof value==='object'){
