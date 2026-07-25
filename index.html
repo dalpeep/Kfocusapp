@@ -261,12 +261,12 @@ onclick="showPage('contact');closeMenu();">
           <div class="hero-dots" id="heroDots"></div>
         </section>
 
-        <!-- V37 AI HOME -->
+        <!-- V38 AI HOME: daily automatic composition -->
         <section class="v37-ai-home" aria-label="오늘의 달라스 AI 홈">
           <article class="v37-brief-card" id="v37BriefCard">
             <div class="v37-brief-top">
               <div>
-                <span class="v37-eyebrow"><i data-lucide="sparkles"></i> AI DAILY BRIEF</span>
+                <span class="v37-eyebrow"><i data-lucide="sparkles"></i> AI DAILY BRIEF <em id="v38AutoState">자동 준비 중</em></span>
                 <h2 id="v37BriefTitle">오늘의 달라스</h2>
               </div>
               <span class="v37-date" id="v37BriefDate"></span>
@@ -293,21 +293,21 @@ onclick="showPage('contact');closeMenu();">
             <div class="v37-section-heading">
               <div>
                 <span class="v37-eyebrow"><i data-lucide="wand-sparkles"></i> AI LIFE</span>
-                <h3>오늘 필요한 생활 정보</h3>
+                <h3 id="v38LifeHeading">오늘 필요한 생활 정보</h3>
               </div>
             </div>
             <div class="v37-life-grid">
               <button type="button" class="v37-life-card v37-life-coupon" data-v37-nav="coupon">
-                <span class="v37-life-icon">🎟️</span><span><b>오늘 쿠폰</b><small id="v37CouponCount">혜택 보기</small></span>
+                <span class="v37-life-icon" id="v38LifeIcon0">🎟️</span><span><b id="v38LifeTitle0">오늘 쿠폰</b><small id="v37CouponCount">혜택 보기</small></span>
               </button>
               <button type="button" class="v37-life-card v37-life-event" data-v37-board="notice">
-                <span class="v37-life-icon">🎉</span><span><b>오늘 행사</b><small id="v37EventCount">행사 확인</small></span>
+                <span class="v37-life-icon" id="v38LifeIcon1">🎉</span><span><b id="v38LifeTitle1">오늘 행사</b><small id="v37EventCount">행사 확인</small></span>
               </button>
               <button type="button" class="v37-life-card v37-life-business" data-v37-nav="business">
-                <span class="v37-life-icon">🍽️</span><span><b>맛집·업소</b><small id="v37BusinessCount">가까운 곳 찾기</small></span>
+                <span class="v37-life-icon" id="v38LifeIcon2">🍽️</span><span><b id="v38LifeTitle2">맛집·업소</b><small id="v37BusinessCount">가까운 곳 찾기</small></span>
               </button>
               <button type="button" class="v37-life-card v37-life-news" data-v37-board="life">
-                <span class="v37-life-icon">📰</span><span><b>달라스 라이프</b><small id="v37LifeCount">생활 기사 보기</small></span>
+                <span class="v37-life-icon" id="v38LifeIcon3">📰</span><span><b id="v38LifeTitle3">달라스 라이프</b><small id="v37LifeCount">생활 기사 보기</small></span>
               </button>
             </div>
           </section>

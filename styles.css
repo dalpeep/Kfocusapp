@@ -4833,3 +4833,5 @@ body.map-page-open #page-map .map-search-input{
 .v37-life-business{--v37-accent:#3b82f6;--v37-soft:#eaf3ff;background:linear-gradient(135deg,#f8fbff,#f8fafc 68%)}
 .v37-life-news{--v37-accent:#8b5cf6;--v37-soft:#f1ebff;background:linear-gradient(135deg,#fbf9ff,#f8fafc 68%)}
 @media(max-width:420px){.v37-recommend-tags{max-height:22px;overflow:hidden!important}.v37-recommend-tag{font-size:8.5px!important}}
+/* V38 AI automatic state */
+.v37-eyebrow em{font-style:normal;font-size:8px;letter-spacing:0;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.22);padding:3px 6px;border-radius:999px;margin-left:3px}.v37-recommend-tag:first-child{background:#e9f3ff;border-color:#c7ddff;color:#1458a6!important}.v37-brief-card{min-height:224px}.v37-life-card b{transition:.2s}
