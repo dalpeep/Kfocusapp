@@ -5042,7 +5042,7 @@ async function loadNewsroomRunStatus(){
     const log=qs('newsroomRunLog');
     if(log){
       const parts=[];
-      if(run){parts.push(`<b>${esc(run.trigger_type==='scheduled'?'자동':'수동')} 수집</b>`, `<span class="${run.status==='success'?'ok':run.status==='failed'?'bad':''}">${esc(run.status==='success'?'완료':run.status==='failed'?'실패':'진행 중')}</span>`, `<span>검색 ${Number(run.found||0)}건</span>`, `<span>신규 ${Number(run.inserted||0)}건</span>`, `<span>중복·제외 ${Number(run.skipped||0)}건</span>`, `<span>자동정리 ${Number(run.cleaned||0)}건</span>`);if(run.error_message)parts.push(`<span class="bad">${esc(run.error_message)}</span>`);}else parts.push('<span>아직 수집 실행 기록이 없습니다.</span>');
+      if(run){parts.push(`<b>${esc(run.trigger_type==='scheduled'?'자동':'수동')} 수집</b>`, `<span class="${run.status==='success'?'ok':run.status==='failed'?'bad':''}">${esc(run.status==='success'?'완료':run.status==='failed'?'실패':'진행 중')}</span>`, `<span>검색 ${Number(run.found||0)}건</span>`, `<span>신규 ${Number(run.inserted||0)}건</span>`, `<span>중복·제외 ${Number(run.skipped||0)}건</span>`, `<span>자동정리 ${Number(run.cleaned||0)}건</span>`);if(run.error_message)parts.push(`<span class="bad">${esc(newsroomErrorMessage(run.error_message))}</span>`);}else parts.push('<span>아직 수집 실행 기록이 없습니다.</span>');
       log.innerHTML=parts.join('');
     }
   }catch(e){safeText('newsroomLastRun','로그 확인 필요');safeText('newsroomRunResult','연결 확인');const log=qs('newsroomRunLog');if(log)log.innerHTML=`<span class="bad">${esc(e.message)}</span>`;}
@@ -5087,7 +5087,8 @@ async function collectNewsroomLanes(btn,statusPrefix='정보 수집'){
     try{
       const r=await newsroomEdgeCall('collect',{region,manual:true,lane},`${label} 분야를 수집하고 있습니다…`);
       inserted+=Number(r.inserted||0);skipped+=Number(r.skipped||0);found+=Number(r.found||0);
-    }catch(e){failed.push(`${label}: ${e.message}`);console.warn('newsroom lane failed',lane,e);}
+      if(r.timed_out||r.warning)failed.push(`${label}: ${newsroomErrorMessage(r.warning,'시간 초과로 건너뜀')}`);
+    }catch(e){failed.push(`${label}: ${newsroomErrorMessage(e)}`);console.warn('newsroom lane failed',lane,e);}
   }
   return {ok:failed.length===0,cleaned,inserted,skipped,found,failed};
 }

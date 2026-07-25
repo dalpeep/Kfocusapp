@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '40.0.2';
+const VERSION = '40.0.3';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -61,7 +61,7 @@ function isFutureOrCurrentEvent(row: any, today: string) {
   return false;
 }
 
-async function openai(payload: any, timeoutMs = 110000) {
+async function openai(payload: any, timeoutMs = 65000) {
   const key = env('OPENAI_API_KEY');
   if (!key) throw new Error('OPENAI_API_KEY가 Supabase Edge Function Secrets에 없습니다.');
   const controller = new AbortController();
@@ -79,7 +79,7 @@ async function openai(payload: any, timeoutMs = 110000) {
     if (!r.ok) throw new Error(j?.error?.message || `OpenAI 오류 ${r.status}: ${t.slice(0, 180)}`);
     return parseJsonText(outputText(j));
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') throw new Error('정보 검색이 110초 안에 완료되지 않았습니다. 잠시 후 해당 분야만 다시 실행해 주세요.');
+    if (e instanceof DOMException && e.name === 'AbortError') throw new Error('정보 검색이 65초 안에 완료되지 않아 이 분야를 건너뛰었습니다.');
     throw e;
   } finally {
     clearTimeout(timer);
@@ -172,14 +172,14 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
 
     const now = new Date();
     const today = dateKeyInDallas(now);
-    const prompt = `${LANE_PROMPTS[normalizedLane]}\n현재 달라스 날짜는 ${today}, 현재 UTC 시각은 ${now.toISOString()}입니다.\n수집 원칙:\n- 뉴스 여부보다 달라스 한인 생활에 도움이 될 가능성을 우선합니다.\n- 일반 뉴스·날씨·공지의 source_published_at은 반드시 오늘(${today})이어야 합니다.\n- 단, 향후 행사·세일·모집은 게시일이 이전이어도 event_start_at 또는 expires_at이 오늘 이후면 허용합니다.\n- 같은 사건이나 같은 날씨 내용은 한 건만 반환합니다.\n- 최대 8건만 반환하고 정확한 원문 URL을 사용합니다.\n- 확인되지 않은 SNS 글과 검색 결과 요약 URL은 제외합니다.\nReturn ONLY JSON {"items":[{"original_title":"","original_summary":"1-3 factual sentences","original_url":"https://...","source_name":"","source_kind":"official|korean_media|media|business","source_published_at":"ISO or null","area":"Dallas-Fort Worth","event_start_at":"ISO or null","event_end_at":"ISO or null","expires_at":"ISO or null","topic_key":"short duplicate grouping key"}]}`;
+    const prompt = `${LANE_PROMPTS[normalizedLane]}\n현재 달라스 날짜는 ${today}, 현재 UTC 시각은 ${now.toISOString()}입니다.\n수집 원칙:\n- 뉴스 여부보다 달라스 한인 생활에 도움이 될 가능성을 우선합니다.\n- 일반 뉴스·날씨·공지의 source_published_at은 반드시 오늘(${today})이어야 합니다.\n- 단, 향후 행사·세일·모집은 게시일이 이전이어도 event_start_at 또는 expires_at이 오늘 이후면 허용합니다.\n- 같은 사건이나 같은 날씨 내용은 한 건만 반환합니다.\n- 가장 유용한 최대 4건만 반환하고 정확한 원문 URL을 사용합니다.\n- 확인되지 않은 SNS 글과 검색 결과 요약 URL은 제외합니다.\nReturn ONLY JSON {"items":[{"original_title":"","original_summary":"1-3 factual sentences","original_url":"https://...","source_name":"","source_kind":"official|korean_media|media|business","source_published_at":"ISO or null","area":"Dallas-Fort Worth","event_start_at":"ISO or null","event_end_at":"ISO or null","expires_at":"ISO or null","topic_key":"short duplicate grouping key"}]}`;
 
     const result = await openai({
       model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
       tools: [{ type: 'web_search' }],
       input: prompt,
     });
-    const items = Array.isArray(result.items) ? result.items.slice(0, 8) : [];
+    const items = Array.isArray(result.items) ? result.items.slice(0, 4) : [];
 
     const { data: existing, error: e } = await admin.from('newsroom_items')
       .select('original_url,original_title,source_published_at,event_data')
@@ -238,7 +238,13 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
     });
     return { ok: true, version: VERSION, lane: normalizedLane, found: items.length, inserted: insertedCount, skipped, cleaned: 0 };
   } catch (e) {
-    await finishRun(run?.id, { status: 'failed', error_message: e instanceof Error ? e.message : String(e), note: `lane:${normalizedLane}` });
+    const message = e instanceof Error ? e.message : String(e);
+    await finishRun(run?.id, { status: 'failed', error_message: message, note: `lane:${normalizedLane}` });
+    // A slow external web search should not turn the whole newsroom collection into HTTP 500.
+    // Return a normal partial-result response so the admin can continue with the next lane.
+    if (/65초 안에 완료되지 않아/.test(message)) {
+      return { ok: true, version: VERSION, lane: normalizedLane, found: 0, inserted: 0, skipped: 0, cleaned: 0, timed_out: true, warning: message };
+    }
     throw e;
   }
 }
