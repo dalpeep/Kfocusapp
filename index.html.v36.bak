@@ -120,7 +120,6 @@
 </script>
 </script>
 
-  <meta name="daltownmap-version" content="V37 Major Release">
 </head>
 <body>
   <div class="app-shell">
@@ -259,58 +258,6 @@ onclick="showPage('contact');closeMenu();">
             <div class="hero-track" id="heroTrack"></div>
           </div>
           <div class="hero-dots" id="heroDots"></div>
-        </section>
-
-        <!-- V37 AI HOME -->
-        <section class="v37-ai-home" aria-label="오늘의 달라스 AI 홈">
-          <article class="v37-brief-card" id="v37BriefCard">
-            <div class="v37-brief-top">
-              <div>
-                <span class="v37-eyebrow"><i data-lucide="sparkles"></i> AI DAILY BRIEF</span>
-                <h2 id="v37BriefTitle">오늘의 달라스</h2>
-              </div>
-              <span class="v37-date" id="v37BriefDate"></span>
-            </div>
-            <p class="v37-brief-kicker" id="v37BriefKicker">오늘의 한줄 브리핑</p>
-            <p class="v37-brief-summary" id="v37BriefSummary">달라스 생활 정보를 준비하고 있습니다.</p>
-            <div class="v37-brief-chips" id="v37BriefChips"></div>
-          </article>
-
-          <article class="v37-recommend-card" id="v37RecommendCard">
-            <button class="v37-recommend-main" id="v37RecommendMain" type="button">
-              <span class="v37-recommend-badge">✨ 오늘의 추천 <small>by DalPick</small></span>
-              <span class="v37-recommend-copy">
-                <strong id="v37RecommendTitle">오늘 가볼 만한 곳</strong>
-                <span id="v37RecommendSummary">달라스의 새로운 추천을 확인해 보세요.</span>
-                <span class="v37-recommend-tags" id="v37RecommendTags"></span>
-              </span>
-              <span class="v37-recommend-arrow" aria-hidden="true">→</span>
-            </button>
-            <div class="v37-recommend-dots" id="v37RecommendDots" aria-hidden="true"></div>
-          </article>
-
-          <section class="v37-life-section" aria-label="AI 생활 바로가기">
-            <div class="v37-section-heading">
-              <div>
-                <span class="v37-eyebrow"><i data-lucide="wand-sparkles"></i> AI LIFE</span>
-                <h3>오늘 필요한 생활 정보</h3>
-              </div>
-            </div>
-            <div class="v37-life-grid">
-              <button type="button" class="v37-life-card v37-life-coupon" data-v37-nav="coupon">
-                <span class="v37-life-icon">🎟️</span><span><b>오늘 쿠폰</b><small id="v37CouponCount">혜택 보기</small></span>
-              </button>
-              <button type="button" class="v37-life-card v37-life-event" data-v37-board="notice">
-                <span class="v37-life-icon">🎉</span><span><b>오늘 행사</b><small id="v37EventCount">행사 확인</small></span>
-              </button>
-              <button type="button" class="v37-life-card v37-life-business" data-v37-nav="business">
-                <span class="v37-life-icon">🍽️</span><span><b>맛집·업소</b><small id="v37BusinessCount">가까운 곳 찾기</small></span>
-              </button>
-              <button type="button" class="v37-life-card v37-life-news" data-v37-board="life">
-                <span class="v37-life-icon">📰</span><span><b>달라스 라이프</b><small id="v37LifeCount">생활 기사 보기</small></span>
-              </button>
-            </div>
-          </section>
         </section>
 		
   <section class="home-ticker-section" aria-label="한 줄 광고">
