@@ -1944,20 +1944,47 @@ function v37VisibleBoardPosts(type){
   });
 }
 
+function v37RecommendationTags(item){
+  const d=item?.data || {};
+  const tags=[];
+  const add=v=>{ const text=String(v||'').trim(); if(text && !tags.includes(text)) tags.push(text); };
+  if(item?.kind==='coupon') { add('쿠폰 혜택'); add(d.discount_label || d.coupon_type); }
+  if(item?.kind==='business') {
+    add(d.subcategory || d.category);
+    add(d.city);
+    if(d.rating || d.google_rating) add(`평점 ${d.rating || d.google_rating}`);
+    if(d.korean_service || d.korean_available) add('한국어 가능');
+  }
+  if(item?.kind==='dalpick') {
+    add(d.badge || d.category_label || (isThemeDalpick(d)?'추천 테마':'DalPick'));
+    if(d.business_name) add(d.business_name);
+  }
+  return tags.filter(Boolean).slice(0,3);
+}
+
+function v37RecommendationReason(kind,row){
+  if(kind==='coupon') return row.description || row.discount_label || '지금 받을 수 있는 혜택이라 추천합니다.';
+  if(kind==='business') {
+    const details=[row.subcategory || row.category,row.city].filter(Boolean).join(' · ');
+    return row.recommendation_reason || row.short_description || row.description || (details ? `${details} 업소로 오늘 확인해 볼 만합니다.` : '달타운맵이 오늘 확인해 볼 업소로 추천합니다.');
+  }
+  return row.recommendation_reason || row.summary || row.content || '오늘의 상황과 관심사에 어울리는 추천입니다.';
+}
+
 function v37RecommendationCandidates(){
   const picks = activeDalpicks()
     .filter(row => !isThemeDalpick(row) || row.show_in_dalpick === true)
     .map(row => ({
       kind:'dalpick', id:String(row.id), title:row.title || '오늘의 추천',
-      summary:row.summary || row.content || '달라스의 새로운 추천을 확인해 보세요.', data:row
+      summary:v37RecommendationReason('dalpick',row), data:row
     }));
   const cps = (typeof todayCoupons === 'function' ? todayCoupons() : []).map(row => ({
     kind:'coupon', id:String(row.id), title:row.title || row.discount_label || '오늘의 쿠폰',
-    summary:row.description || row.discount_label || '오늘만 받을 수 있는 혜택을 확인해 보세요.', data:row
+    summary:v37RecommendationReason('coupon',row), data:row
   }));
   const featured = (businesses || []).filter(b => b.featured && isBusinessVisibleByPaidDate(b)).slice(0,4).map(row => ({
     kind:'business', id:String(row.id), title:row.name || '추천 업소',
-    summary:[row.subcategory,row.city].filter(Boolean).join(' · ') || '달타운맵 추천 업소입니다.', data:row
+    summary:v37RecommendationReason('business',row), data:row
   }));
   const seen = new Set();
   return [...picks,...cps,...featured].filter(item => {
@@ -1966,7 +1993,6 @@ function v37RecommendationCandidates(){
     seen.add(key); return true;
   }).slice(0,6);
 }
-
 function openV37Recommendation(item){
   if(!item) return;
   const d=item.data || {};
@@ -1981,17 +2007,21 @@ function openV37Recommendation(item){
 function paintV37Recommendation(){
   const title=document.getElementById('v37RecommendTitle');
   const summary=document.getElementById('v37RecommendSummary');
+  const tagsNode=document.getElementById('v37RecommendTags');
   const dots=document.getElementById('v37RecommendDots');
   if(!title || !summary || !dots) return;
   const item=v37RecommendationItems[v37RecommendationIndex] || {
     title:'오늘 가볼 만한 곳', summary:'달라스의 새로운 추천을 확인해 보세요.'
   };
   title.textContent=item.title;
-  summary.textContent=String(item.summary || '').replace(/\s+/g,' ').trim().slice(0,100);
+  summary.textContent=String(item.summary || '').replace(/\s+/g,' ').trim().slice(0,92);
+  if(tagsNode){
+    const tags=v37RecommendationTags(item);
+    tagsNode.innerHTML=tags.map(tag=>`<span class="v37-recommend-tag">${esc(tag)}</span>`).join('');
+  }
   dots.innerHTML=v37RecommendationItems.length>1
     ? v37RecommendationItems.map((_,i)=>`<span class="${i===v37RecommendationIndex?'active':''}"></span>`).join('') : '';
 }
-
 function renderV37AIHome(){
   const dateNode=document.getElementById('v37BriefDate');
   const titleNode=document.getElementById('v37BriefTitle');
@@ -2008,12 +2038,16 @@ function renderV37AIHome(){
   const life=v37VisibleBoardPosts('life');
   const todays=(typeof todayCoupons==='function'?todayCoupons():[]);
   const featured=(businesses||[]).filter(b=>b.featured && isBusinessVisibleByPaidDate(b));
-  const parts=[];
-  if(todays.length) parts.push(`오늘 사용할 수 있는 쿠폰 ${todays.length}개`);
-  if(events.length) parts.push(`새 행사 소식 ${events.length}건`);
-  if(life.length) parts.push(`달라스 생활 기사 ${life.length}건`);
-  summaryNode.textContent=parts.length
-    ? `${parts.slice(0,3).join(', ')}을 확인해 보세요. AI가 오늘 필요한 정보를 한곳에 모았습니다.`
+  const topEvent=events[0];
+  const topCoupon=todays[0];
+  const topLife=life[0];
+  const briefLines=[];
+  if(topEvent?.title) briefLines.push(`새 행사 ‘${String(topEvent.title).trim().slice(0,28)}’ 소식이 있습니다.`);
+  if(topCoupon?.title || topCoupon?.discount_label) briefLines.push(`오늘은 ‘${String(topCoupon.title || topCoupon.discount_label).trim().slice(0,24)}’ 혜택을 확인해 보세요.`);
+  if(topLife?.title) briefLines.push(`생활 정보 ‘${String(topLife.title).trim().slice(0,28)}’도 새로 올라왔습니다.`);
+  if(!briefLines.length && featured[0]?.name) briefLines.push(`${featured[0].name} 등 오늘 확인해 볼 추천 업소를 모았습니다.`);
+  summaryNode.textContent=briefLines.length
+    ? briefLines.slice(0,2).join(' ')
     : '오늘 필요한 달라스 생활 정보와 추천 업소를 한곳에서 확인해 보세요.';
 
   const chips=[];
