@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=35.0.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=45.2.0"></script>
+  <script type="module" src="assets/admin.js?v=45.3.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -1316,7 +1316,7 @@
                 <label><input type="checkbox" value="shopping"> 쇼핑·마켓</label><label><input type="checkbox" value="weather"> 날씨</label><label><input type="checkbox" value="traffic"> 교통</label><label><input type="checkbox" value="event"> 공연·이벤트</label><label><input type="checkbox" value="education"> 교육</label><label><input type="checkbox" value="real_estate"> 부동산</label><label><input type="checkbox" value="finance"> 은행·금융</label><label><input type="checkbox" value="seminar"> 세미나</label><label><input type="checkbox" value="faith"> 종교 행사</label>
               </div></div>
               <label class="field full"><span>카테고리별 연결 링크 (JSON, 선택 입력)</span><textarea id="v45CategoryLinks" rows="4" placeholder='{"shopping":"https://...","seminar":"https://..."}'></textarea><small>특정 광고·타깃 링크가 있을 때만 입력합니다.</small></label>
-              <label class="field"><span>추천 업체 자동 모드</span><select id="v45BusinessMode"><option value="daily">요일별 자동</option><option value="featured">추천 목록</option><option value="new">신규 목록</option><option value="popular">인기 목록</option><option value="random">전체 랜덤 10개</option></select></label>
+              <label class="field"><span>추천 업체 자동 모드</span><select id="v45BusinessMode"><option value="featured">추천 목록</option><option value="new">신규 목록</option><option value="popular">인기 목록</option><option value="random">전체 랜덤 10개</option><option value="daily">추천 우선 자동</option></select></label>
               <label class="field"><span>광고·고정 업체 선택</span><select id="v45BusinessIds" multiple size="6"></select><small>선택한 업체가 있으면 자동 모드보다 우선합니다.</small></label>
               <div class="field full"><span>커뮤니티 한 줄 게시판 (미선택 시 전체 랜덤)</span><div id="v45CommunityTypes" class="checkbox-grid"><label><input type="checkbox" value="notice"> 행사안내</label><label><input type="checkbox" value="life"> 달라스 라이프</label><label><input type="checkbox" value="community"> 커뮤니티</label><label><input type="checkbox" value="religion"> 종교 행사</label><label><input type="checkbox" value="education"> 학교·교육</label></div></div>
               <label class="field"><span>자주 표시할 게시글 ID</span><input id="v45CommunityBoostIds" placeholder="쉼표로 구분"></label>

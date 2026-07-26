@@ -1,4 +1,4 @@
-// DalTownMap V45.2.0 main settings + three-zone integration fix
+// DalTownMap V45.3.0 recommended-business mode fix
 console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -2076,17 +2076,21 @@ function v45SelectedBusinesses(config={}){
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
   if(ids.length){const selected=all.filter(b=>ids.includes(String(b.id)));if(selected.length)return selected.slice(0,20)}
-  const mode=String(config.business_mode||'daily');
+  const mode=String(config.business_mode||'featured');
   let rows=[];
-  if(mode==='featured')rows=all.filter(b=>b.featured||b.is_featured);
-  else if(mode==='new')rows=all.filter(b=>b.is_new);
-  else if(mode==='popular')rows=all.filter(b=>b.is_popular);
-  else if(mode==='random')rows=all.slice().sort(()=>Math.random()-.5);
+  const featuredRows=all.filter(b=>b.featured===true||b.is_featured===true);
+  const newRows=all.filter(b=>b.is_new===true);
+  const popularRows=all.filter(b=>b.is_popular===true);
+
+  if(mode==='featured') rows=featuredRows;
+  else if(mode==='new') rows=newRows;
+  else if(mode==='popular') rows=popularRows;
+  else if(mode==='random') rows=all.slice().sort(()=>Math.random()-.5);
   else {
-    const modes=['featured','new','popular','random'];const m=modes[new Date().getDay()%modes.length];
-    rows=m==='featured'?all.filter(b=>b.featured||b.is_featured):m==='new'?all.filter(b=>b.is_new):m==='popular'?all.filter(b=>b.is_popular):all.slice().sort(()=>Math.random()-.5);
+    // 자동 모드는 '추천'을 먼저 보여주고, 추천 업소가 없을 때만 신규·인기·전체 순으로 대체합니다.
+    rows=featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:all.slice().sort(()=>Math.random()-.5)));
   }
-  return (rows.length?rows:all).slice(0,10);
+  return rows.slice(0,10);
 }
 function v45CommunityRows(config={}){
   const types=(config.community_board_types||[]).map(normalizeBoardType);
@@ -2194,7 +2198,7 @@ async function loadMainSettings(forceRefresh=false){
     : {};
   v45HomeConfig = config;
   window.__DALTOWN_MAIN_SETTINGS__ = config;
-  console.info('[V45.2 Main Settings] loaded', config);
+  console.info('[V45.3 Main Settings] loaded', config);
   return { items: Array.isArray(items) ? items : [], config };
 }
 window.loadMainSettings = loadMainSettings;
@@ -2209,7 +2213,7 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];
     v45HomeConfig=mainData.config||{};
   }catch(error){
-    console.error('[V45.2 Home] settings/feed load failed',error);
+    console.error('[V45.3 Home] settings/feed load failed',error);
     loaded=[];
     v45HomeConfig={};
   }
@@ -2232,7 +2236,7 @@ async function renderV37AIHome(){
   };
   paintProposal();if(window.v45ProposalTimer)clearInterval(window.v45ProposalTimer);if(normal.length>1)window.v45ProposalTimer=setInterval(()=>{proposalIndex=(proposalIndex+1)%normal.length;paintProposal()},6500);
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
-  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',random:'전체 랜덤',daily:'오늘의 자동'}[v45HomeConfig.business_mode]||'오늘의 자동');label.textContent=m;}
+  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5600);
   v45SetupCommunity(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
@@ -2268,7 +2272,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome().catch(error=>console.error('[V45.2 Home] render failed',error));
+  renderV37AIHome().catch(error=>console.error('[V45.3 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
