@@ -2072,24 +2072,38 @@ function v37RecommendationTags(item){
 }
 function v45BusinessName(b){return b?.name_ko||b?.name_en||b?.name||'달타운 추천 업체'}
 function v45BusinessSummary(b){return v38Text(b?.short_description||b?.description||b?.category_ko||b?.category||b?.area||'달타운에서 추천하는 업체입니다.',105)}
+function v45IsPublicInstitution(b={}){
+  const text=`${b.name||''} ${b.name_ko||''} ${b.name_en||''} ${b.category||''} ${b.category_ko||''}`.toLowerCase();
+  return /(총영사관|영사관|대사관|시청|카운티|경찰|소방|법원|도서관|공공기관|government|consulate|embassy|city of|county of|police department|fire department|public library)/i.test(text);
+}
+function v45StableShuffle(rows=[],seed=''){
+  const hash=(value)=>{let h=2166136261;for(const ch of String(value)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
+  return rows.slice().sort((a,b)=>hash(`${seed}-${a.id}`)-hash(`${seed}-${b.id}`));
+}
 function v45SelectedBusinesses(config={}){
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
+  // 관리자가 직접 지정한 광고·추천 업체는 기관 여부와 상관없이 그대로 노출합니다.
   if(ids.length){const selected=all.filter(b=>ids.includes(String(b.id)));if(selected.length)return selected.slice(0,20)}
-  const mode=String(config.business_mode||'featured');
-  let rows=[];
-  const featuredRows=all.filter(b=>b.featured===true||b.is_featured===true);
-  const newRows=all.filter(b=>b.is_new===true);
-  const popularRows=all.filter(b=>b.is_popular===true);
 
+  const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
+  const mode=String(config.business_mode||'featured');
+  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true)
+    .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
+  const newRows=consumerRows.filter(b=>b.is_new===true)
+    .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
+  const popularRows=consumerRows.filter(b=>b.is_popular===true)
+    .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+  const randomRows=v45StableShuffle(consumerRows,todayKey());
+
+  let rows=[];
   if(mode==='featured') rows=featuredRows;
   else if(mode==='new') rows=newRows;
   else if(mode==='popular') rows=popularRows;
-  else if(mode==='random') rows=all.slice().sort(()=>Math.random()-.5);
-  else {
-    // 자동 모드는 '추천'을 먼저 보여주고, 추천 업소가 없을 때만 신규·인기·전체 순으로 대체합니다.
-    rows=featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:all.slice().sort(()=>Math.random()-.5)));
-  }
+  else if(mode==='random') rows=randomRows;
+  else rows=featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows));
+
+  // 추천 모드에서는 인기 체크 여부와 관계없이 추천 체크된 업소만 보여줍니다.
   return rows.slice(0,10);
 }
 function v45CommunityRows(config={}){
@@ -2198,10 +2212,38 @@ async function loadMainSettings(forceRefresh=false){
     : {};
   v45HomeConfig = config;
   window.__DALTOWN_MAIN_SETTINGS__ = config;
-  console.info('[V45.3 Main Settings] loaded', config);
+  console.info('[V46 Main Settings] loaded', config);
   return { items: Array.isArray(items) ? items : [], config };
 }
 window.loadMainSettings = loadMainSettings;
+
+function v46FallbackProposalItems(config={}){
+  const selected=new Set((config.proposal_categories||[]).map(String));
+  const enabled=(key)=>!selected.size||selected.has(key);
+  const defs=[
+    {key:'shopping',label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'장보기 전 할인 정보를 확인해 보세요.'},
+    {key:'weather',label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 외출 시간을 조정해 보세요.'},
+    {key:'traffic',label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'출발 전 주요 도로 상황을 확인해 보세요.'},
+    {key:'event',label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'가까운 공연과 행사를 살펴보세요.'},
+    {key:'education',label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교와 교육 일정을 미리 확인해 보세요.'},
+    {key:'real_estate',label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택과 부동산 정보를 살펴보세요.'},
+    {key:'finance',label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행과 금융 안내를 비교해 보세요.'},
+    {key:'seminar',label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활에 도움이 되는 세미나를 확인해 보세요.'},
+    {key:'faith',label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'지역 종교·커뮤니티 행사를 확인해 보세요.'}
+  ];
+  const rows=(boardPosts||[]).filter(p=>adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion);
+  const result=[];const seen=new Set();
+  for(const row of rows){
+    const text=`${row.title||''} ${row.summary||''} ${row.content||''}`;
+    const emergency=/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i.test(text);
+    const def=emergency?{key:'emergency',label:'긴급 안내',icon:'🚨',title:'지금 확인해야 할 지역 긴급 공지가 있습니다.'}:defs.find(d=>enabled(d.key)&&d.re.test(text));
+    if(!def||seen.has(def.key))continue;
+    seen.add(def.key);
+    const customLink=String(config.category_links?.[def.key]||'').trim();
+    result.push({id:`fallback-${row.id}-${def.key}`,category:def.key,category_label:def.label,icon:def.icon,title:def.title,summary:v38Text(row.summary||row.content||row.title,180),link:customLink,has_link:Boolean(customLink),board_post_id:row.id,emergency});
+  }
+  return result.slice(0,8);
+}
 
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
@@ -2213,11 +2255,15 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];
     v45HomeConfig=mainData.config||{};
   }catch(error){
-    console.error('[V45.3 Home] settings/feed load failed',error);
+    console.error('[V46 Home] settings/feed load failed',error);
     loaded=[];
     v45HomeConfig={};
   }
   if(sequence!==v44HomeRenderSequence)return;
+  if(!loaded.length){
+    loaded=v46FallbackProposalItems(v45HomeConfig);
+    console.info('[V46 Home] newsroom feed empty; using local community proposals',{count:loaded.length});
+  }
   v45ProposalItems=loaded;
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
@@ -2232,7 +2278,11 @@ async function renderV37AIHome(){
     if(state)state.textContent=item.has_link?'연결된 정보':'생활 추천';
     if(tip)tip.innerHTML=`<b>💡 달타운 제안</b><span>${item.has_link?'카드를 누르면 연결된 상세 정보를 확인할 수 있습니다.':'오늘 일정에 참고해 보세요.'}</span>`;
     if(check)check.innerHTML=`<span>✓ ${esc(item.category_label||'생활 정보')}</span>`;
-    const card=document.getElementById('v37BriefCard');if(card){card.style.cursor=item.has_link?'pointer':'default';card.onclick=item.has_link?()=>window.open(item.link,'_blank','noopener,noreferrer'):null;}
+    const card=document.getElementById('v37BriefCard');if(card){
+      const clickable=item.has_link||item.board_post_id;
+      card.style.cursor=clickable?'pointer':'default';
+      card.onclick=item.has_link?()=>window.open(item.link,'_blank','noopener,noreferrer'):(item.board_post_id?()=>openBoardPost(item.board_post_id):null);
+    }
   };
   paintProposal();if(window.v45ProposalTimer)clearInterval(window.v45ProposalTimer);if(normal.length>1)window.v45ProposalTimer=setInterval(()=>{proposalIndex=(proposalIndex+1)%normal.length;paintProposal()},6500);
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
@@ -2272,7 +2322,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome().catch(error=>console.error('[V45.3 Home] render failed',error));
+  renderV37AIHome().catch(error=>console.error('[V46 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
