@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '45.0.0';
+const VERSION = '45.2.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -552,34 +552,47 @@ async function analyzeOne(item: any) {
 async function analyze(body: any) {
   let q = admin.from('newsroom_items').select('*');
   if (body.id) q = q.eq('id', body.id);
-  else q = q.eq('region', String(body.region || 'dallas').toLowerCase()).eq('status', 'collected').order('collected_at', { ascending: false }).limit(Math.min(20, Number(body.limit) || 10));
+  else q = q.eq('region', String(body.region || 'dallas').toLowerCase())
+    .eq('status', 'collected')
+    .order('collected_at', { ascending: false })
+    // Keep each Edge invocation short. The admin repeats small batches.
+    .limit(Math.min(3, Math.max(1, Number(body.limit) || 2)));
+
   const { data: rows, error } = await q;
   if (error) throw error;
+
   let analyzed = 0, excluded = 0;
+  const failed: Array<{id:string,error:string}> = [];
+
   for (const item of rows || []) {
-    const a = await analyzeOne(item);
-    const dest = ['life', 'notice', 'guide', 'urgent', 'exclude'].includes(a.suggested_destination) ? a.suggested_destination : 'life';
-    const priority = ['urgent', 'high', 'normal', 'low'].includes(a.priority_level) ? a.priority_level : (dest === 'urgent' ? 'urgent' : dest === 'exclude' ? 'low' : 'normal');
-    const mergedEvent = { ...(item.event_data || {}), ...(a.event_data && typeof a.event_data === 'object' ? a.event_data : {}) };
-    const { error: u } = await admin.from('newsroom_items').update({
-      suggested_destination: dest, destination: dest,
-      confidence: Math.max(0, Math.min(100, Number(a.confidence) || 0)),
-      fact_status: a.fact_status === 'official_verified' ? 'official_verified' : 'needs_review',
-      priority_level: priority,
-      priority_score: Math.max(0, Math.min(100, Number(a.priority_score) || 0)),
-      classification_reason: String(a.classification_reason || '').slice(0, 1000),
-      ai_title: a.ai_title || item.original_title,
-      ai_summary: a.ai_summary || item.original_summary || '',
-      category_keywords: Array.isArray(a.category_keywords) ? a.category_keywords.slice(0, 12) : [],
-      event_data: mergedEvent,
-      status: dest === 'exclude' ? 'excluded' : 'classified',
-      updated_at: new Date().toISOString(),
-    }).eq('id', item.id);
-    if (u) throw u;
-    analyzed++;
-    if (dest === 'exclude') excluded++;
+    try {
+      const a = await analyzeOne(item);
+      const dest = ['life', 'notice', 'guide', 'urgent', 'exclude'].includes(a.suggested_destination) ? a.suggested_destination : 'life';
+      const priority = ['urgent', 'high', 'normal', 'low'].includes(a.priority_level) ? a.priority_level : (dest === 'urgent' ? 'urgent' : dest === 'exclude' ? 'low' : 'normal');
+      const mergedEvent = { ...(item.event_data || {}), ...(a.event_data && typeof a.event_data === 'object' ? a.event_data : {}) };
+      const { error: u } = await admin.from('newsroom_items').update({
+        suggested_destination: dest, destination: dest,
+        confidence: Math.max(0, Math.min(100, Number(a.confidence) || 0)),
+        fact_status: a.fact_status === 'official_verified' ? 'official_verified' : 'needs_review',
+        priority_level: priority,
+        priority_score: Math.max(0, Math.min(100, Number(a.priority_score) || 0)),
+        classification_reason: String(a.classification_reason || '').slice(0, 1000),
+        ai_title: a.ai_title || item.original_title,
+        ai_summary: a.ai_summary || item.original_summary || '',
+        category_keywords: Array.isArray(a.category_keywords) ? a.category_keywords.slice(0, 12) : [],
+        event_data: mergedEvent,
+        status: dest === 'exclude' ? 'excluded' : 'classified',
+        updated_at: new Date().toISOString(),
+      }).eq('id', item.id);
+      if (u) throw u;
+      analyzed++;
+      if (dest === 'exclude') excluded++;
+    } catch (e) {
+      failed.push({ id: String(item.id), error: e instanceof Error ? e.message : String(e) });
+    }
   }
-  return { ok: true, version: VERSION, analyzed, excluded };
+
+  return { ok: true, version: VERSION, analyzed, excluded, failed, remaining_hint: Math.max(0, (rows || []).length - analyzed) };
 }
 
 async function draft(body: any) {

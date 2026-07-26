@@ -5113,7 +5113,7 @@ async function prepareTodayNewsroom(){
   try{
     btn.textContent='연결 확인 중…';if(!(await checkNewsroomHealth(false)))throw new Error('먼저 운영 상태의 경고 항목을 해결하세요.');
     btn.textContent='1/3 생활 소식 수집 준비…';const collected=await collectNewsroomLanes(btn,'1/3 수집');
-    btn.textContent='2/3 AI 분류 중…';const analyzed=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:10},'새 수집 자료를 AI가 분류하고 있습니다…');
+    btn.textContent='2/3 AI 분류 중…';const analyzed=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:2},'새 수집 자료를 2건씩 AI 분류하고 있습니다…');
     await loadNewsroom();
     const draftTargets=newsroomItems.filter(x=>x.status==='classified'&&x.destination!=='exclude').slice(0,3);let drafted=0;
     for(const item of draftTargets){btn.textContent=`3/3 기사 초안 ${drafted+1}/${draftTargets.length}`;await newsroomEdgeCall('draft',{id:item.id},`${item.ai_title||item.original_title} 기사 초안을 작성하고 있습니다…`);drafted++;}
@@ -5157,7 +5157,30 @@ async function analyzeNewsroomItem(id=selectedNewsroomId){
 }
 async function analyzeCollectedNewsroom(){
   const btn=qs('newsroomAnalyzeAllBtn');if(btn)btn.disabled=true;
-  try{const json=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:10},'수집 대기 항목을 최대 10건씩 AI 분류하고 있습니다.');alert(`${json.analyzed||0}건을 분류했습니다.${json.excluded?` 제외 ${json.excluded}건`:''}`);await loadNewsroom();}catch(e){alert(`AI 일괄 분류 실패: ${e.message}`);safeText('newsroomStatus',e.message);}finally{if(btn)btn.disabled=false;}
+  const old=btn?.textContent||'② 수집분 AI 분류';
+  let total=0,excluded=0,failed=[];
+  try{
+    // Small repeated batches prevent one long 125-second request.
+    for(let round=1;round<=5;round++){
+      if(btn)btn.textContent=`AI 분류 ${round}/5…`;
+      safeText('newsroomStatus',`수집 대기 항목을 2건씩 나누어 분류하고 있습니다. (${round}/5)`);
+      const json=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:2},`AI 분류 ${round}/5 · 최대 2건 처리 중…`);
+      total+=Number(json.analyzed||0);excluded+=Number(json.excluded||0);
+      if(Array.isArray(json.failed)&&json.failed.length)failed.push(...json.failed);
+      if(Number(json.analyzed||0)===0)break;
+    }
+    await loadNewsroom();
+    const note=failed.length?`
+일부 실패 ${failed.length}건은 다음 실행에서 다시 시도됩니다.`:'';
+    alert(`${total}건을 분류했습니다.${excluded?` 제외 ${excluded}건`:''}${note}`);
+    safeText('newsroomStatus',`${total}건 AI 분류 완료${failed.length?` · 일부 ${failed.length}건 재시도 필요`:''}`);
+  }catch(e){
+    alert(`AI 일괄 분류 실패: ${e.message}
+
+이미 완료된 항목은 저장되어 있습니다. 버튼을 다시 누르면 남은 항목부터 계속합니다.`);
+    safeText('newsroomStatus',e.message);
+    await loadNewsroom().catch(()=>{});
+  }finally{if(btn){btn.disabled=false;btn.textContent=old;}}
 }
 async function prepareNewsroomItem(){
   if(!selectedNewsroomId)return alert('작성할 소식을 먼저 선택하세요.');

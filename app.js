@@ -1,4 +1,4 @@
-// DalTownMap V45.1.0 main settings + three-zone integration fix
+// DalTownMap V45.2.0 main settings + three-zone integration fix
 console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -2194,7 +2194,7 @@ async function loadMainSettings(forceRefresh=false){
     : {};
   v45HomeConfig = config;
   window.__DALTOWN_MAIN_SETTINGS__ = config;
-  console.info('[V45.1 Main Settings] loaded', config);
+  console.info('[V45.2 Main Settings] loaded', config);
   return { items: Array.isArray(items) ? items : [], config };
 }
 window.loadMainSettings = loadMainSettings;
@@ -2209,7 +2209,7 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];
     v45HomeConfig=mainData.config||{};
   }catch(error){
-    console.error('[V45.1 Home] settings/feed load failed',error);
+    console.error('[V45.2 Home] settings/feed load failed',error);
     loaded=[];
     v45HomeConfig={};
   }
@@ -2268,7 +2268,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome().catch(error=>console.error('[V45.1 Home] render failed',error));
+  renderV37AIHome().catch(error=>console.error('[V45.2 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
