@@ -2356,7 +2356,7 @@ async function renderV37AIHome(){
     if(title)title.textContent=`${item.icon||'✨'} ${item.title}`;
     if(kicker)kicker.textContent=item.category_label||'달타운 제안';
     if(summary)summary.textContent=v38Text(item.summary,250);
-    if(state)state.textContent=item.has_link?'연결된 정보':'생활 추천';
+    if(state)state.textContent=item.has_link?'관리자 지정 링크':'생활 추천';
     if(tip)tip.innerHTML=`<b>💡 달타운 제안</b><span>${item.has_link?'카드를 누르면 연결된 상세 정보를 확인할 수 있습니다.':'오늘 일정에 참고해 보세요.'}</span>`;
     if(check)check.innerHTML=`<span>✓ ${esc(item.category_label||'생활 정보')}</span>`;
     const card=document.getElementById('v37BriefCard');if(card){

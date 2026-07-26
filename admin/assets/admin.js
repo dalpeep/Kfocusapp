@@ -4949,6 +4949,24 @@ function v482UpdateSelectionStatus(){
   safeText('v482SelectionStatus',`선택된 기사 ${v482SelectedArticleIds.size}건`);
   const apply=qs('v482ApplyPicksBtn');if(apply)apply.disabled=v482SelectedArticleIds.size===0;
 }
+async function v485ConfigureHomeLink(id){
+  const row=(newsroomItems||[]).find(x=>String(x.id)===String(id));
+  if(!row)return;
+  const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
+  const currentEnabled=meta.home_link_enabled===true;
+  const suggested=String(meta.home_link_url||row.original_url||'').trim();
+  const message=currentEnabled
+    ? '현재 이 기사는 메인 카드 링크가 활성화되어 있습니다.\n\n새 주소를 입력하면 변경되고, 내용을 모두 지우면 링크가 해제됩니다.'
+    : '메인 카드에 연결할 주소를 입력하세요.\n\n비워 두고 확인하면 링크 없이 유지됩니다. 원문 주소는 관리자 참고용으로만 제안됩니다.';
+  const entered=prompt(message,suggested);
+  if(entered===null)return;
+  const url=String(entered||'').trim();
+  try{
+    await newsroomEdgeCall('set_home_link',{id,enabled:Boolean(url),url,label:'자세히 보기',region:getAppRegion()});
+    safeText('newsroomStatus',url?'선택한 기사에 메인 링크를 지정했습니다.':'선택한 기사의 메인 링크를 해제했습니다.');
+    await loadNewsroom();
+  }catch(e){alert(e.message||String(e));}
+}
 function v481RenderCollectedPreview(){
   const box=qs('v481CollectedPreview');
   if(!box)return;
@@ -4967,6 +4985,8 @@ function v481RenderCollectedPreview(){
   box.innerHTML=items.map(r=>{
     const [,categoryLabel]=v48ItemCategory(r);
     const checked=v482SelectedArticleIds.has(String(r.id));
+    const meta=(r.event_data&&typeof r.event_data==='object')?r.event_data:{};
+    const homeLinkEnabled=meta.home_link_enabled===true&&Boolean(String(meta.home_link_url||'').trim());
     return `<div class="newsroom-item v481-collected-item ${checked?'is-selected':''}" data-id="${esc(r.id)}" style="display:flex;gap:10px;align-items:flex-start;width:100%">
       <label class="v482-article-check" style="display:flex;align-items:center;gap:7px;padding:8px 4px;cursor:pointer;min-width:72px;font-weight:700" title="이 기사를 선택">
         <input type="checkbox" data-v482-select="${esc(r.id)}" ${checked?'checked':''} style="width:22px;height:22px;accent-color:#2563eb">
@@ -4977,6 +4997,7 @@ function v481RenderCollectedPreview(){
         <span class="newsroom-item-meta">${esc(r.source_name||'출처 미상')} · ${esc(r.area||'Dallas')} · ${esc(newsroomLocalDate(r.source_published_at||r.collected_at))}</span>
         <span class="newsroom-item-summary">${esc((r.ai_summary||r.original_summary||'').slice(0,110))}</span>
       </button>
+      <button type="button" class="btn ${homeLinkEnabled?'primary':'ghost'}" data-v485-home-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">${homeLinkEnabled?'메인 링크 사용 중':'메인 링크 설정'}</button>
     </div>`;
   }).join('');
   box.querySelectorAll('[data-v482-select]').forEach(c=>c.addEventListener('change',()=>{
@@ -4984,6 +5005,9 @@ function v481RenderCollectedPreview(){
   }));
   box.querySelectorAll('[data-v482-open]').forEach(b=>b.addEventListener('click',()=>{
     const row=newsroomItems.find(x=>String(x.id)===String(b.dataset.v482Open));if(row)fillNewsroom(row);
+  }));
+  box.querySelectorAll('[data-v485-home-link]').forEach(b=>b.addEventListener('click',(event)=>{
+    event.preventDefault();event.stopPropagation();v485ConfigureHomeLink(b.dataset.v485HomeLink);
   }));
   v482UpdateSelectionStatus();
 }

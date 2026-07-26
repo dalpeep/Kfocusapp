@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '48.4.0';
+const VERSION = '48.5.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -507,6 +507,25 @@ async function setEditorPick(body:any){
   return {ok:true,version:VERSION};
 }
 
+async function setHomeLink(body:any){
+  if(!body.id) throw new Error('기사 ID가 없습니다.');
+  const {data:item,error}=await admin.from('newsroom_items').select('event_data').eq('id',body.id).single();
+  if(error) throw error;
+  const enabled=body.enabled===true;
+  const url=String(body.url||'').trim();
+  if(enabled && !/^https?:\/\//i.test(url)) throw new Error('메인 링크에는 http:// 또는 https://로 시작하는 주소가 필요합니다.');
+  const event_data={
+    ...(item?.event_data||{}),
+    home_link_enabled:enabled,
+    home_link_url:enabled?url:null,
+    home_link_label:enabled?String(body.label||'자세히 보기').trim()||'자세히 보기':null,
+    home_link_updated_at:new Date().toISOString(),
+  };
+  const {error:u}=await admin.from('newsroom_items').update({event_data,updated_at:new Date().toISOString()}).eq('id',body.id);
+  if(u) throw u;
+  return {ok:true,version:VERSION,id:String(body.id),home_link_enabled:enabled,home_link_url:enabled?url:null};
+}
+
 async function collect(region = 'dallas', scheduled = false, lane = 'practical') {
   const normalizedLane = LANE_QUERIES[lane] ? lane : 'practical';
   const triggerType = scheduled ? 'scheduled' : 'manual';
@@ -791,13 +810,19 @@ async function homeFeed(region = 'dallas') {
     const selectionSource = String(meta.selection_source || 'ai');
     const sourceBonus = selectionSource === 'editor' ? 1500 : selectionSource === 'scheduled' ? 1000 : 0;
     const preferredBonus = preferred.size === 0 || preferred.has(def.key) ? 300 : 0;
-    const link=String(homeConfig.category_links?.[def.key]||'').trim();
-    const originalUrl=String(x.original_url||'').trim();
+    // V48.5: 원문 링크는 수집용 근거로만 보관합니다. 메인에서는 관리자가
+    // 기사별로 명시적으로 허용한 링크만 사용합니다. 카테고리 공통 링크도
+    // 관리자가 직접 설정한 값이므로 보조 선택지로 유지합니다.
+    const categoryLink=String(homeConfig.category_links?.[def.key]||'').trim();
+    const itemLinkEnabled=meta.home_link_enabled===true;
+    const itemLink=itemLinkEnabled?String(meta.home_link_url||'').trim():'';
+    const approvedLink=itemLink || categoryLink;
     proposals.push({
       id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
       title:def.key==='emergency' ? (headline || def.title).slice(0,72) : def.title,
-      summary:def.summary, source_title:headline, link:link || originalUrl, has_link:Boolean(link || originalUrl),
-      is_sponsored:Boolean(link), published_at:x.source_published_at||x.collected_at,
+      summary:def.summary, source_title:headline, link:approvedLink, has_link:Boolean(approvedLink),
+      link_label:itemLink?String(meta.home_link_label||'자세히 보기'):'',
+      is_sponsored:Boolean(categoryLink), published_at:x.source_published_at||x.collected_at,
       score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
       selection_source:selectionSource, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
     });
@@ -854,7 +879,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -882,6 +907,7 @@ Deno.serve(async (req) => {
     if (action === 'collect_scheduled_topics') return json(await collectScheduledTopics(region));
     if (action === 'auto_run') return json(await autoRun(region));
     if (action === 'set_editor_pick') return json(await setEditorPick(body));
+    if (action === 'set_home_link') return json(await setHomeLink(body));
     if (action === 'analyze') return json(await analyze(body));
     if (action === 'draft') return json(await draft(body));
     if (action === 'get_settings') {
@@ -900,7 +926,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link'],
     }, 400);
   } catch (e) {
     console.error(e);
