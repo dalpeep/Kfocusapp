@@ -4954,11 +4954,12 @@ async function v485ConfigureHomeLink(id){
   const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
   const currentEnabled=meta.home_link_enabled===true&&Boolean(String(meta.home_link_url||'').trim());
   const suggested=String(meta.home_link_url||row.original_url||'').trim();
-  const entered=prompt(currentEnabled?'현재 공개 링크를 수정합니다.
-
-새 주소를 입력해 저장하세요. 삭제는 별도 버튼을 사용하세요.':'메인 카드에 공개할 주소를 입력하세요.
-
-원문 주소는 관리자 확인용으로만 제안됩니다.',suggested);
+  const entered=prompt(
+    currentEnabled
+      ? '현재 공개 링크를 수정합니다.\n\n새 주소를 입력해 저장하세요. 삭제는 별도 버튼을 사용하세요.'
+      : '메인 카드에 공개할 주소를 입력하세요.\n\n원문 주소는 관리자 확인용으로만 제안됩니다.',
+    suggested
+  );
   if(entered===null)return;const url=String(entered||'').trim();if(!url){alert('링크를 비워 두었습니다. 삭제하려면 링크 삭제 버튼을 사용하세요.');return;}
   try{await newsroomEdgeCall('set_home_link',{id,enabled:true,url,label:'자세히 보기',region:getAppRegion()});safeText('newsroomStatus',currentEnabled?'메인 링크를 수정했습니다.':'메인 링크를 승인했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
 }
