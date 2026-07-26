@@ -4841,3 +4841,12 @@ body.map-page-open #page-map .map-search-input{
 
 /* V43 home newsroom integration */
 .v43-alert-card{border-radius:18px;overflow:hidden;background:linear-gradient(135deg,#991b1b,#dc2626);box-shadow:0 12px 28px rgba(185,28,28,.22);color:#fff}.v43-alert-card.hidden{display:none!important}.v43-alert-main{width:100%;border:0;background:transparent;color:inherit;padding:14px 15px;display:grid;grid-template-columns:38px 1fr 30px;align-items:center;gap:10px;text-align:left}.v43-alert-icon{width:38px;height:38px;border-radius:13px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.24);display:grid;place-items:center;font-size:21px;font-weight:950}.v43-alert-copy{min-width:0;display:grid;gap:2px}.v43-alert-copy small{font-size:10px;font-weight:900;opacity:.82;letter-spacing:.04em}.v43-alert-copy strong{font-size:15px;line-height:1.25}.v43-alert-copy span{font-size:11px;line-height:1.4;opacity:.88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.v43-alert-arrow{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.18);display:grid;place-items:center;font-weight:900}.v43-alert-dots{display:flex;justify-content:center;gap:5px;padding:0 0 9px}.v43-alert-dots span{width:5px;height:5px;border-radius:999px;background:rgba(255,255,255,.45)}.v43-alert-dots span.active{width:17px;background:#fff}.v43-alert-card.school{background:linear-gradient(135deg,#92400e,#d97706)}.v43-alert-card.weather{background:linear-gradient(135deg,#1e3a8a,#2563eb)}
+
+/* V45 simplified 3-zone home */
+.v37-life-section{display:none!important}
+.v45-community-ticker{margin-top:12px;min-height:48px;border-radius:16px;background:#fff;border:1px solid #dfe7f3;display:flex;align-items:center;gap:10px;padding:0 15px;box-shadow:0 5px 18px rgba(24,58,110,.08);cursor:pointer;overflow:hidden}
+.v45-community-ticker b{flex:0 0 auto;color:#1559c7;font-size:12px;background:#eaf2ff;padding:6px 9px;border-radius:999px}
+.v45-community-ticker span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#24334d}
+.v45-community-ticker i{font-style:normal;font-size:22px;color:#7e8ca5}
+.v37-brief-card{min-height:240px}
+.v37-recommend-card{min-height:132px}
