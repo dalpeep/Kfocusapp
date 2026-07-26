@@ -1,0 +1,22 @@
+DalTownMap Newsroom V48.3
+
+1. Supabase SQL Editor에서 다음 파일을 실행합니다.
+   supabase/newsroom-v48.3-upgrade.sql
+
+2. 프로젝트 루트에서 다음 파일을 실행합니다.
+   DEPLOY-NEWSROOM-V48.3.cmd
+
+3. 전체 프로젝트를 Netlify에 배포합니다.
+
+4. 관리자 화면에서 Ctrl+Shift+R을 누릅니다.
+
+5. 브라우저 콘솔에서 CHECK-NEWSROOM-VERSION.js 내용을 실행합니다.
+   정상 응답: { ok: true, version: "48.3.0" }
+
+변경 사항
+- 실제 newsroom Edge Function에 예정 기사 API 포함
+- list_scheduled_topics/save/delete/auto_run/set_editor_pick 지원
+- 오늘 수집 기사 최대 50건 표시
+- 각 기사에 큰 체크박스와 '선택' 라벨 표시
+- 전체 선택/선택 해제/선택 기사 관리자 지정
+- 선택된 기사 행 강조

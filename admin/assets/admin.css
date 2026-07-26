@@ -755,3 +755,67 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 
 /* v35 Korean newsroom editor */
 .newsroom-source-box{border:1px solid #dbe3ef;border-radius:14px;padding:14px;background:#fbfdff}.newsroom-original-summary{white-space:pre-wrap;line-height:1.65;color:#475569;margin-top:10px}.newsroom-ai-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;border-radius:14px;background:linear-gradient(135deg,#eef6ff,#f8fbff);border:1px solid #cfe0fb}.newsroom-ai-toolbar strong{font-size:16px}.newsroom-priority{display:inline-flex;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:900}.newsroom-priority.urgent{background:#ffe4e6;color:#be123c}.newsroom-priority.high{background:#ffedd5;color:#c2410c}.newsroom-priority.normal{background:#dbeafe;color:#1d4ed8}.newsroom-priority.low{background:#f1f5f9;color:#64748b}.newsroom-item-priority{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:900;margin-right:6px}.newsroom-item-priority.urgent{color:#be123c}.newsroom-item-priority.high{color:#c2410c}.newsroom-item-priority.normal{color:#1d4ed8}.newsroom-item-priority.low{color:#64748b}.newsroom-review-panel textarea[readonly]{background:#f8fafc;color:#475569}@media(max-width:650px){.newsroom-ai-toolbar{align-items:stretch;flex-direction:column}.newsroom-ai-toolbar .btn{width:100%}}
+
+/* v38.2 newsroom operations */
+.newsroom-run-summary{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;margin-top:14px}.newsroom-run-summary>div{background:#fff;border:1px solid #dbe5f5;border-radius:13px;padding:12px 14px;display:grid;gap:5px}.newsroom-run-summary span{font-size:11px;color:#64748b;font-weight:700}.newsroom-run-summary strong{font-size:16px;color:#0f172a}.newsroom-run-log{margin-top:10px;background:#0f172a;color:#dbeafe;border-radius:13px;padding:11px 14px;display:flex;gap:12px;overflow:auto;white-space:nowrap;font-size:12px}.newsroom-run-log b{color:#fff}.newsroom-run-log .ok{color:#86efac}.newsroom-run-log .bad{color:#fda4af}.newsroom-metrics{grid-template-columns:repeat(4,minmax(110px,1fr))}@media(max-width:760px){.newsroom-run-summary{grid-template-columns:1fr 1fr}.newsroom-run-log{white-space:normal;display:grid}.newsroom-metrics{grid-template-columns:1fr 1fr}}
+
+/* V45.5 — keep each category label and checkbox in one row/card. */
+.v45-home-settings .checkbox-grid{
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(180px,1fr)) !important;
+  gap:10px 12px !important;
+  margin-top:10px !important;
+}
+.v45-home-settings .checkbox-grid label{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:9px !important;
+  min-width:0 !important;
+  min-height:42px !important;
+  padding:10px 12px !important;
+  margin:0 !important;
+  border:1px solid #dbe5f5 !important;
+  border-radius:12px !important;
+  background:#f8fbff !important;
+  color:#10224a !important;
+  font-size:14px !important;
+  font-weight:800 !important;
+  line-height:1.25 !important;
+  cursor:pointer !important;
+  box-sizing:border-box !important;
+}
+.v45-home-settings .checkbox-grid label input[type="checkbox"]{
+  position:static !important;
+  display:block !important;
+  flex:0 0 auto !important;
+  width:17px !important;
+  height:17px !important;
+  margin:0 !important;
+  padding:0 !important;
+  accent-color:#2563eb !important;
+}
+.v45-home-settings .checkbox-grid label:has(input:checked){
+  border-color:#8bb4ff !important;
+  background:#eef5ff !important;
+}
+@media (max-width:1000px){
+  .v45-home-settings .checkbox-grid{grid-template-columns:repeat(2,minmax(160px,1fr)) !important;}
+}
+@media (max-width:620px){
+  .v45-home-settings .checkbox-grid{grid-template-columns:1fr !important;}
+}
+
+/* V48.3 newsroom selection */
+.v481-collected-item.is-selected {
+  outline: 2px solid #2563eb;
+  background: #eff6ff;
+}
+.v482-article-check:hover {
+  background: #eaf2ff;
+  border-radius: 10px;
+}
+#v481CollectedPreview {
+  max-height: 760px;
+  overflow: auto;
+}

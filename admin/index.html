@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
-  <link rel="stylesheet" href="assets/admin.css?v=35.0.0" />
+  <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=35.0.0"></script>
+  <script type="module" src="assets/admin.js?v=48.9"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -1296,30 +1296,90 @@
       <section id="section-newsroom" class="admin-section">
         <section class="card newsroom-hero">
           <div class="panel-head">
-            <div><h2>AI 운영센터</h2><p class="muted">초기 설치 후에는 이 화면에서 수집·분류·기사 작성·업소 연결·게시까지 처리합니다. 관리자가 승인하기 전에는 앱에 노출되지 않습니다.</p></div>
+            <div><h2>AI 운영센터</h2><p class="muted">초기 설치 후에는 이 화면에서 수집·분류·기사 작성·업소 연결·게시까지 처리합니다. 예정 기사를 우선 찾고, 없으면 AI가 자동 선별합니다. 관리자는 나중에 수정·고정·삭제할 수 있습니다.</p></div>
             <span class="pill" id="newsroomAutoBadge">Supabase 자동 수집 준비</span>
           </div>
           <div class="newsroom-actions">
-            <button id="newsroomPrepareTodayBtn" class="btn primary" type="button">오늘 자료 자동 준비</button>
-            <button id="newsroomCollectBtn" class="btn ghost" type="button">① 오늘 수집</button>
+            <button id="newsroomCollectBtn" class="btn primary" type="button">🔄 지금 다시 수집</button>
             <button id="newsroomAnalyzeAllBtn" class="btn ghost" type="button">② 수집분 AI 분류</button>
             <button id="newsroomHealthBtn" class="btn ghost" type="button">운영 상태 확인</button>
             <button id="newsroomRefreshBtn" class="btn ghost" type="button">새로고침</button>
             <label class="newsroom-toggle"><input id="newsroomAutoEnabled" type="checkbox" checked><span>매일 오전 자동 수집</span></label>
-            <span id="newsroomStatus" class="tiny muted">수집 결과는 검토 대기로 저장됩니다.</span>
+            <span id="newsroomStatus" class="tiny muted">자동 수집 상태를 확인하고 있습니다.</span>
           </div>
 
-          <div id="newsroomHealthPanel" class="newsroom-health" hidden>
+
+          <section class="card v45-home-settings" style="margin-top:14px">
+            <div class="panel-head"><div><h3>메인 3개 영역 운영 설정</h3><p class="tiny muted">달타운 제안 · 추천 업체 · 커뮤니티 한 줄을 자동 또는 관리자 지정으로 운영합니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">메인 설정 저장</button></div>
+            <div class="form-grid">
+              <div class="field full"><span>달타운 제안 카테고리 (선택하지 않으면 전체 자동)</span><div id="v45ProposalCategories" class="checkbox-grid">
+                <label><input type="checkbox" value="shopping"> 쇼핑·마켓</label><label><input type="checkbox" value="weather"> 날씨</label><label><input type="checkbox" value="traffic"> 교통</label><label><input type="checkbox" value="event"> 공연·이벤트</label><label><input type="checkbox" value="education"> 교육</label><label><input type="checkbox" value="real_estate"> 부동산</label><label><input type="checkbox" value="finance"> 은행·금융</label><label><input type="checkbox" value="seminar"> 세미나</label><label><input type="checkbox" value="faith"> 종교 행사</label>
+              </div></div>
+              <label class="field full"><span>카테고리별 연결 링크 (JSON, 선택 입력)</span><textarea id="v45CategoryLinks" rows="4" placeholder='{"shopping":"https://...","seminar":"https://..."}'></textarea><small>특정 광고·타깃 링크가 있을 때만 입력합니다.</small></label>
+              <label class="field"><span>추천 업체 자동 모드</span><select id="v45BusinessMode"><option value="featured">추천 목록</option><option value="new">신규 목록</option><option value="popular">인기 목록</option><option value="random">전체 랜덤 10개</option><option value="daily">추천 우선 자동</option></select></label>
+              <label class="field"><span>광고·고정 업체 선택</span><select id="v45BusinessIds" multiple size="6"></select><small>선택한 업체가 있으면 자동 모드보다 우선합니다.</small></label>
+              <div class="field full"><span>커뮤니티 한 줄 게시판 (미선택 시 전체 랜덤)</span><div id="v45CommunityTypes" class="checkbox-grid"><label><input type="checkbox" value="notice"> 행사안내</label><label><input type="checkbox" value="life"> 달라스 라이프</label><label><input type="checkbox" value="community"> 커뮤니티</label><label><input type="checkbox" value="religion"> 종교 행사</label><label><input type="checkbox" value="education"> 학교·교육</label></div></div>
+              <label class="field"><span>자주 표시할 게시글 ID</span><input id="v45CommunityBoostIds" placeholder="쉼표로 구분"></label>
+              <label class="field"><span>최우선 게시글 ID</span><input id="v45CommunityPostIds" placeholder="쉼표로 구분"></label>
+            </div>
+          </section>
+
+          <section class="card v48-planned-news" style="margin-top:14px">
+  <div class="panel-head"><div><h3>예정 기사 · 자동 편성</h3><p class="tiny muted">예정 기사를 먼저 검색하고, 찾지 못한 자리는 AI가 자동 선별한 기사로 채웁니다. 관리자는 수집 후 원하는 기사를 최우선으로 지정할 수 있습니다.</p></div><button id="v48AutoRunBtn" class="btn primary" type="button">오늘 자동 편성 실행</button></div>
+  <div class="form-grid">
+    <input id="v48TopicId" type="hidden">
+    <label class="field"><span>예정 기사 제목</span><input id="v48TopicTitle" placeholder="예: H-Mart 주간 세일"></label>
+    <label class="field"><span>검색어</span><input id="v48TopicQuery" placeholder="예: H Mart Dallas weekly ad"></label>
+    <label class="field"><span>카테고리</span><select id="v48TopicCategory"><option value="shopping">쇼핑·마켓</option><option value="weather">날씨</option><option value="traffic">교통</option><option value="event">공연·이벤트</option><option value="education">교육</option><option value="real_estate">부동산</option><option value="finance">은행·금융</option><option value="seminar">세미나</option><option value="faith">종교 행사</option></select></label>
+    <label class="field"><span>우선순위</span><select id="v48TopicPriority"><option value="3">★★★ 최우선</option><option value="2" selected>★★ 중요</option><option value="1">★ 일반</option></select></label>
+    <label class="field"><span>반복</span><select id="v48TopicRecurrence"><option value="daily">매일</option><option value="weekly">매주</option><option value="monthly">매월</option><option value="once">한 번만</option></select></label>
+    <label class="field"><span>요일/날짜</span><input id="v48TopicScheduleValue" placeholder="매주: 0,5 / 매월: 1 / 한 번: 2026-07-30"><small>요일은 일=0, 월=1 … 토=6입니다.</small></label>
+    <label class="field checkbox-line"><input id="v48TopicActive" type="checkbox" checked><span>활성</span></label>
+    <div class="field full"><button id="v48TopicSaveBtn" class="btn primary" type="button">예정 기사 저장</button> <button id="v48TopicResetBtn" class="btn ghost" type="button">새 항목</button></div>
+  </div>
+  <div id="v48TopicList" class="newsroom-list" style="margin-top:12px"></div>
+</section>
+
+<section id="v481CollectedSection" class="card" style="margin-top:14px;border:2px solid #dbe7ff;background:#f8fbff">
+  <div class="panel-head">
+    <div>
+      <h3>오늘 수집된 기사</h3>
+      <p class="tiny muted">오전 자동 수집과 지금 다시 수집으로 들어온 기사입니다. 예정 기사 일치 항목을 먼저 표시하고, AI 선별 기사를 그다음에 정렬합니다.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="v482SelectAllBtn" class="btn ghost" type="button">전체 선택</button>
+      <button id="v482ClearSelectionBtn" class="btn ghost" type="button">선택 해제</button>
+      <button id="v482ApplyPicksBtn" class="btn primary" type="button">선택 기사 관리자 지정</button>
+      <button id="v487RemovePicksBtn" class="btn danger" type="button">선택 기사 관리자 지정 해제</button>
+      <button id="v481CollectedRefreshBtn" class="btn ghost" type="button">새로고침</button>
+      <button id="v481GoDetailBtn" class="btn primary" type="button">전체 목록·기사 편집</button>
+    </div>
+  </div>
+  <div id="v48CategorySummary" class="newsroom-run-log" style="margin-top:10px"><span class="muted">수집 기사 분류 현황을 불러오고 있습니다.</span></div>
+  <div id="v482SelectionStatus" class="tiny muted" style="margin-top:8px">선택된 기사 0건</div>
+  <div id="v481CollectedPreview" class="newsroom-list" style="margin-top:10px">
+    <div class="newsroom-empty"><strong>수집 목록을 불러오고 있습니다.</strong></div>
+  </div>
+  <div class="tiny muted" style="margin-top:8px">최근 항목 최대 12개를 표시합니다. 전체 항목의 수정·삭제·게시 관리는 ‘전체 목록·기사 편집’에서 처리합니다.</div>
+</section>
+
+<div id="newsroomHealthPanel" class="newsroom-health" hidden>
             <strong>AI 운영센터 상태</strong>
             <div id="newsroomHealthDetails" class="tiny muted">확인 버튼을 누르면 Edge Function, OpenAI Secret, 뉴스룸 테이블 연결 상태를 점검합니다.</div>
           </div>
+          <div class="newsroom-run-summary">
+            <div><span>마지막 자동 실행</span><strong id="newsroomLastRun">확인 중</strong></div>
+            <div><span>오늘 새 수집</span><strong id="newsroomTodayCollected">0건</strong></div>
+            <div><span>중복·제외</span><strong id="newsroomTodaySkipped">0건</strong></div>
+            <div><span>실행 결과</span><strong id="newsroomRunResult">확인 중</strong></div>
+          </div>
+          <div id="newsroomRunLog" class="newsroom-run-log"><span class="muted">자동 수집 로그를 불러오고 있습니다.</span></div>
           <div class="newsroom-metrics">
-            <button class="metric-card newsroom-filter active" data-status="all"><span>전체</span><strong id="newsroomCountAll">0</strong></button>
+            <button class="metric-card newsroom-filter active" data-status="all"><span>미처리 전체</span><strong id="newsroomCountAll">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="collected"><span>분류 대기</span><strong id="newsroomCountCollected">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="classified"><span>기사 작성 대기</span><strong id="newsroomCountClassified">0</strong></button>
             <button class="metric-card newsroom-filter" data-status="review"><span>검토 대기</span><strong id="newsroomCountReview">0</strong></button>
-            <button class="metric-card newsroom-filter" data-status="published"><span>게시됨</span><strong id="newsroomCountPublished">0</strong></button>
-            <button class="metric-card newsroom-filter" data-status="excluded"><span>제외됨</span><strong id="newsroomCountExcluded">0</strong></button>
+
           </div>
         </section>
 
@@ -1333,7 +1393,7 @@
 
         <section class="layout newsroom-layout">
           <div class="list-panel card">
-            <div class="panel-head"><div><h2>수집 후보</h2><p class="tiny muted">긴급도와 중요도 순으로 정렬됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
+            <div class="panel-head"><div><h2>오늘 수집된 기사 전체 목록</h2><p class="tiny muted">위의 요약 목록에서 선택하거나 여기에서 검색·분류한 뒤 기사를 편집할 수 있습니다. 게시·제외한 항목은 목록에서 정리됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
             <div id="newsroomList" class="newsroom-list"></div>
           </div>
           <div class="form-panel card newsroom-review-panel">
