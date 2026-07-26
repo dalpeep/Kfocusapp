@@ -1,4 +1,4 @@
-// DalTownMap V44.0.0 reliable home newsroom integration
+// DalTownMap V45.1.0 main settings + three-zone integration fix
 console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -116,7 +116,7 @@ const searchBoardList = $('#searchBoardList');
 const searchEmpty = $('#searchEmpty');
 const mapSearchInput = $('#mapSearchInput');
 
-function getConfig(){ return window.KFOCUS_CONFIG || {}; }
+function getConfig(){ return window.KFOCUS_CONFIG || window.APP_CONFIG || {}; }
 function getAppCity() {
   const cfg = getConfig();
 
@@ -1964,6 +1964,7 @@ function v38AgeScore(row){
   return Math.max(0,30-Math.min(30,days*3));
 }
 async function v42LoadKoreanNews(){
+  const cfg=getConfig();
   const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
   const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
   if(!base||!key){console.warn('[V45 Home Feed] Supabase public config missing');return []}
@@ -2184,12 +2185,36 @@ function paintV38HomePayload(payload,candidates){
   v37RecommendationItems=payload.recommendations||candidates;v37RecommendationIndex=0;paintV37Recommendation();if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5200);
   if(window.lucide)window.lucide.createIcons();
 }
+async function loadMainSettings(forceRefresh=false){
+  // V45 관리자에서 저장한 메인 3개 영역 설정은 newsroom home_feed 응답의
+  // home_config 필드로 전달됩니다. 메인에서는 이 함수를 통해 설정을 읽습니다.
+  const items = await v42LoadKoreanNews();
+  const config = items?.home_config && typeof items.home_config === 'object'
+    ? items.home_config
+    : {};
+  v45HomeConfig = config;
+  window.__DALTOWN_MAIN_SETTINGS__ = config;
+  console.info('[V45.1 Main Settings] loaded', config);
+  return { items: Array.isArray(items) ? items : [], config };
+}
+window.loadMainSettings = loadMainSettings;
+
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate');if(!dateNode)return;
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
-  const loaded=await v42LoadKoreanNews();if(sequence!==v44HomeRenderSequence)return;
-  v45ProposalItems=loaded;v45HomeConfig=loaded.home_config||{};
+  let loaded=[];
+  try{
+    const mainData=await loadMainSettings();
+    loaded=mainData.items||[];
+    v45HomeConfig=mainData.config||{};
+  }catch(error){
+    console.error('[V45.1 Home] settings/feed load failed',error);
+    loaded=[];
+    v45HomeConfig={};
+  }
+  if(sequence!==v44HomeRenderSequence)return;
+  v45ProposalItems=loaded;
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
   let proposalIndex=0;
@@ -2243,7 +2268,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome();
+  renderV37AIHome().catch(error=>console.error('[V45.1 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
