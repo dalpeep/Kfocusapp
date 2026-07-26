@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '48.3.0';
+const VERSION = '48.4.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -716,7 +716,7 @@ async function draft(body: any) {
 }
 
 async function homeFeed(region = 'dallas') {
-  const since = new Date(Date.now() - 10 * 86400000).toISOString();
+  const since = new Date(Date.now() - 14 * 86400000).toISOString();
   const [{ data, error }, { data: setting, error: settingError }] = await Promise.all([
     admin.from('newsroom_items')
       .select('id,original_title,original_summary,original_url,source_name,source_kind,source_published_at,ai_title,ai_summary,status,priority_score,priority_level,category_keywords,suggested_destination,destination,event_data,collected_at')
@@ -735,94 +735,94 @@ async function homeFeed(region = 'dallas') {
     community_board_types: [], community_post_ids: [], community_boost_ids: [],
   };
   const rawConfig = ((setting as any)?.home_config && typeof (setting as any).home_config === 'object')
-    ? (setting as any).home_config
-    : {};
+    ? (setting as any).home_config : {};
   const homeConfig = { ...defaultConfig, ...rawConfig };
   const selected = Array.isArray(homeConfig.proposal_categories)
     ? homeConfig.proposal_categories.map((v:any)=>String(v||'').trim()).filter(Boolean)
     : [];
-  const enabled = new Set(selected.length ? selected : ['shopping','weather','traffic','event','education','real_estate','finance','seminar','faith']);
+  const preferred = new Set(selected);
 
   const defs: any[] = [
     { key:'emergency', label:'긴급 안내', icon:'🚨', re:/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i, title:'지금 확인해야 할 지역 긴급 공지가 있습니다.', summary:'안전과 이동에 영향을 줄 수 있는 긴급 안내입니다. 공식 안내와 현재 상황을 확인해 주세요.', base:5000 },
-    { key:'seminar', label:'세미나', icon:'📋', re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률.*설명|부동산.*설명|은행.*설명|대출.*설명|세금.*설명|은퇴.*설명|메디케어.*설명|보험.*설명|창업.*설명|투자.*설명)/i, title:'생활에 도움이 되는 세미나를 확인해 보세요.', summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정이 확인됐습니다.' , base:470 },
+    { key:'seminar', label:'세미나', icon:'📋', re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률.*설명|부동산.*설명|은행.*설명|대출.*설명|세금.*설명|은퇴.*설명|메디케어.*설명|보험.*설명|창업.*설명|투자.*설명)/i, title:'생활에 도움이 되는 세미나를 확인해 보세요.', summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정이 확인됐습니다.', base:470 },
     { key:'faith', label:'종교 행사', icon:'⛪', re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i, title:'지역 종교·커뮤니티 행사를 확인해 보세요.', summary:'지역 교회·성당·사찰의 행사와 모임 일정이 확인됐습니다.', base:430 },
-    { key:'shopping', label:'쇼핑·마켓', icon:'🛒', re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i, title:'장보기 전 할인 정보를 확인해 보세요.', summary:'마켓 세일과 쇼핑 관련 정보가 확인됐습니다. 방문 전 행사 기간과 품목을 살펴보세요.', base:460 },
+    { key:'shopping', label:'쇼핑·마켓', icon:'🛒', re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기|shopping)/i, title:'장보기 전 할인 정보를 확인해 보세요.', summary:'마켓 세일과 쇼핑 관련 정보가 확인됐습니다. 방문 전 행사 기간과 품목을 살펴보세요.', base:460 },
     { key:'weather', label:'날씨', icon:'☀️', re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i, title:'오늘 날씨에 맞춰 일정을 조정해 보세요.', summary:'외출 전 최신 기상 안내를 확인하고 이동 시간과 준비물을 조정해 보세요.', base:455 },
-    { key:'traffic', label:'교통', icon:'🚗', re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i, title:'출발 전 주요 도로 상황을 확인해 보세요.', summary:'정체·사고·공사 관련 정보가 확인됐습니다. 출발 시간과 우회 경로를 살펴보세요.', base:450 },
-    { key:'event', label:'공연·이벤트', icon:'🎉', re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i, title:'가까운 공연과 행사를 살펴보세요.', summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.', base:440 },
+    { key:'traffic', label:'교통', icon:'🚗', re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회|traffic|highway|closure)/i, title:'출발 전 주요 도로 상황을 확인해 보세요.', summary:'정체·사고·공사 관련 정보가 확인됐습니다. 출발 시간과 우회 경로를 살펴보세요.', base:450 },
+    { key:'event', label:'공연·이벤트', icon:'🎉', re:/(공연|콘서트|축제|박람회|가족행사|문화행사|행사|미팅|모임|festival|concert|performance|event|meeting)/i, title:'가까운 공연과 행사를 살펴보세요.', summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.', base:440 },
     { key:'education', label:'교육', icon:'🎓', re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i, title:'학교와 교육 일정을 미리 확인해 보세요.', summary:'학교 일정과 교육 관련 공지가 확인됐습니다. 필요한 준비를 미리 살펴보세요.', base:420 },
     { key:'real_estate', label:'부동산', icon:'🏠', re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i, title:'주택과 부동산 정보를 살펴보세요.', summary:'주택·모기지·오픈하우스 관련 정보가 확인됐습니다. 조건과 일정을 비교해 보세요.', base:410 },
-    { key:'finance', label:'은행·금융', icon:'🏦', re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i, title:'은행과 금융 안내를 비교해 보세요.', summary:'대출·예금·금리 관련 안내가 확인됐습니다. 세부 조건을 비교해 보세요.', base:405 },
+    { key:'finance', label:'은행·금융', icon:'🏦', re:/(은행|대출|예금|금리|sba|bank|loan|금융|경제|소상공인 금융|finance)/i, title:'은행과 금융 안내를 비교해 보세요.', summary:'대출·예금·금리 관련 안내가 확인됐습니다. 세부 조건을 비교해 보세요.', base:405 },
   ];
 
-  const clean = (value:any) => String(value || '')
-    .replace(/<[^>]*>/g,' ')
-    .replace(/&nbsp;|&#160;/gi,' ')
-    .replace(/\s+/g,' ')
-    .replace(/(?:first appeared on|원문|출처)\s*[:：]?[^.!?。！？]{0,80}/gi,' ')
-    .replace(/\b(?:KTN|DKNET|Dalkora|KoreaTownNews|Dallas Korean Radio)\b/gi,' ')
-    .replace(/(?:KTN\s*코리아타운뉴스|달사람닷컴|주간\s*포커스|미주중앙일보|코리아타운뉴스)/gi,' ')
-    .replace(/\s+/g,' ').trim();
+  const aliases:any = {
+    '쇼핑·마켓':'shopping', shopping:'shopping', market:'shopping',
+    '날씨':'weather', weather:'weather',
+    '교통':'traffic', traffic:'traffic',
+    '공연·이벤트':'event', '공연':'event', '행사':'event', event:'event',
+    '교육':'education', education:'education',
+    '부동산':'real_estate', real_estate:'real_estate', 'real-estate':'real_estate',
+    '은행·금융':'finance', '금융':'finance', finance:'finance',
+    '세미나':'seminar', seminar:'seminar',
+    '종교 행사':'faith', '종교':'faith', faith:'faith',
+    '긴급 안내':'emergency', emergency:'emergency', urgent:'emergency',
+  };
+  const clean = (value:any) => String(value || '').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/\s+/g,' ').trim();
+  const categoryFromItem = (x:any) => {
+    const meta = (x.event_data && typeof x.event_data === 'object') ? x.event_data : {};
+    const explicit = [meta.category, meta.category_key, meta.scheduled_topic_category, ...(Array.isArray(x.category_keywords)?x.category_keywords:[])]
+      .map((v:any)=>String(v||'').trim()).filter(Boolean);
+    for (const value of explicit) {
+      const key = aliases[value] || aliases[value.toLowerCase?.()] || '';
+      const found = defs.find(d=>d.key===key);
+      if (found) return found;
+    }
+    const text = clean(`${x.ai_title||''} ${x.original_title||''} ${(x.category_keywords||[]).join(' ')} ${x.ai_summary||''} ${x.original_summary||''}`);
+    return defs.find(d=>d.re.test(text)) || null;
+  };
 
   const proposals:any[]=[];
   for (const x of (data || [])) {
-    // V47: category is determined from the headline first. This prevents a hospital/business
-    // description in a summary from being mislabeled as weather or another unrelated topic.
-    const headline = clean(x.ai_title || x.original_title || '');
-    const originalHeadline = clean(x.original_title || '');
-    const titleText = `${headline} ${originalHeadline}`.trim();
-    const emergencyDef = defs[0];
-    let def:any = emergencyDef.re.test(titleText) ? emergencyDef : null;
-    if (!def) {
-      def = defs.slice(1).find((d:any)=> enabled.has(d.key) && d.re.test(titleText)) || null;
-    }
+    const def:any = categoryFromItem(x);
     if (!def) continue;
-
+    const headline = clean(x.ai_title || x.original_title || '');
     const ageHours=Math.max(0,(Date.now()-new Date(x.source_published_at||x.collected_at||0).getTime())/3600000);
+    const meta = (x.event_data && typeof x.event_data === 'object') ? x.event_data : {};
+    const selectionSource = String(meta.selection_source || 'ai');
+    const sourceBonus = selectionSource === 'editor' ? 1500 : selectionSource === 'scheduled' ? 1000 : 0;
+    const preferredBonus = preferred.size === 0 || preferred.has(def.key) ? 300 : 0;
     const link=String(homeConfig.category_links?.[def.key]||'').trim();
     const originalUrl=String(x.original_url||'').trim();
     proposals.push({
-      id:`${x.id}-${def.key}`,
-      source_id:String(x.id),
-      category:def.key,
-      category_label:def.label,
-      icon:def.icon,
+      id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
       title:def.key==='emergency' ? (headline || def.title).slice(0,72) : def.title,
-      summary:def.summary,
-      source_title:headline || originalHeadline,
-      link:link || originalUrl,
-      has_link:Boolean(link || originalUrl),
-      is_sponsored:Boolean(link),
-      published_at:x.source_published_at||x.collected_at,
-      score:def.base+Number(x.priority_score||0)-Math.min(80,ageHours/2),
-      selection_source:String((x.event_data as any)?.selection_source||'ai'),
-      scheduled_topic_title:String((x.event_data as any)?.scheduled_topic_title||''),
-      emergency:def.key==='emergency',
+      summary:def.summary, source_title:headline, link:link || originalUrl, has_link:Boolean(link || originalUrl),
+      is_sponsored:Boolean(link), published_at:x.source_published_at||x.collected_at,
+      score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
+      selection_source:selectionSource, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
     });
   }
 
   const rows=proposals.sort((a,b)=>b.score-a.score);
   const emergency=rows.filter(x=>x.emergency).slice(0,4);
-  const normal=rows.filter(x=>!x.emergency);
-  const byCat=new Map<string,any>();
-  normal.forEach(x=>{if(!byCat.has(x.category))byCat.set(x.category,x)});
-  const varied=[...byCat.values()];
-  const feed=[...emergency,...varied].slice(0,10);
+  const nonEmergency=rows.filter(x=>!x.emergency);
+  const preferredRows = preferred.size ? nonEmergency.filter(x=>preferred.has(x.category)) : nonEmergency;
+  const fallbackRows = nonEmergency.filter(x=>!preferred.has(x.category));
+  const uniqueByCategory = (items:any[]) => {
+    const seen=new Set<string>();
+    return items.filter(x=>{ if(seen.has(x.category)) return false; seen.add(x.category); return true; });
+  };
+  // Selected categories are a preference, not a hard filter. If no selected-category article exists,
+  // AI-selected current articles fill the card so the home screen never stays empty.
+  const preferredVaried=uniqueByCategory(preferredRows);
+  const fallbackVaried=uniqueByCategory(fallbackRows);
+  const feed=[...emergency,...preferredVaried,...fallbackVaried].slice(0,10);
 
   return {
-    ok:true,
-    version:VERSION,
-    items:feed,
-    proposals:feed,
-    home_config:homeConfig,
-    meta:{
-      total:feed.length,
-      urgent:emergency.length,
-      categories:[...new Set(feed.map(x=>x.category))],
-      configured_categories:selected,
-      settings_loaded:true,
-    },
+    ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
+    meta:{ total:feed.length, urgent:emergency.length, categories:[...new Set(feed.map(x=>x.category))],
+      configured_categories:selected, matched_preferred:preferredVaried.length, fallback_used:preferred.size>0 && preferredVaried.length===0,
+      settings_loaded:true },
     generated_at:new Date().toISOString(),
   };
 }

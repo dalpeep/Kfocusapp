@@ -1,0 +1,15 @@
+DalTownMap Newsroom V48.4
+
+Fixes
+- Selected categories are now preferences, not a hard empty-state filter.
+- Uses stored category/category_keywords/event_data plus title and summary.
+- Planned and editor-selected articles receive priority.
+- If planned/selected categories have no current article, AI-selected current news fills the card automatically.
+
+Deploy
+1. Supabase Dashboard > Edge Functions > newsroom > Edit Code
+2. Replace all code with supabase/functions/newsroom/index.ts
+3. Deploy
+4. Hard refresh the app
+
+Expected version: 48.4.0
