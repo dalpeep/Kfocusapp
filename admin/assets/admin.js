@@ -4958,7 +4958,7 @@ function v481RenderCollectedPreview(){
     const sa=v48SelectionSource(a), sb=v48SelectionSource(b);
     const rank={editor:3,scheduled:2,ai:1};
     return (rank[sb]||0)-(rank[sa]||0) || newsroomPriorityRank(b)-newsroomPriorityRank(a) || new Date(b.source_published_at||b.collected_at||0)-new Date(a.source_published_at||a.collected_at||0);
-  }).slice(0,12);
+  }).slice(0,50);
   if(!items.length){
     box.innerHTML='<div class="newsroom-empty"><strong>오늘 수집된 기사가 아직 없습니다.</strong><span>오전 자동 수집 전이거나 수집 결과가 없는 경우입니다. ‘지금 다시 수집’ 또는 ‘오늘 자동 편성 실행’을 사용할 수 있습니다.</span></div>';
     v482UpdateSelectionStatus();
@@ -4967,9 +4967,12 @@ function v481RenderCollectedPreview(){
   box.innerHTML=items.map(r=>{
     const [,categoryLabel]=v48ItemCategory(r);
     const checked=v482SelectedArticleIds.has(String(r.id));
-    return `<div class="newsroom-item v481-collected-item" data-id="${esc(r.id)}" style="display:flex;gap:10px;align-items:flex-start;width:100%">
-      <label style="display:flex;align-items:center;padding-top:3px;cursor:pointer" title="이 기사를 선택"><input type="checkbox" data-v482-select="${esc(r.id)}" ${checked?'checked':''} style="width:20px;height:20px"></label>
-      <button type="button" data-v482-open="${esc(r.id)}" style="border:0;background:transparent;text-align:left;padding:0;flex:1;cursor:pointer">
+    return `<div class="newsroom-item v481-collected-item ${checked?'is-selected':''}" data-id="${esc(r.id)}" style="display:flex;gap:10px;align-items:flex-start;width:100%">
+      <label class="v482-article-check" style="display:flex;align-items:center;gap:7px;padding:8px 4px;cursor:pointer;min-width:72px;font-weight:700" title="이 기사를 선택">
+        <input type="checkbox" data-v482-select="${esc(r.id)}" ${checked?'checked':''} style="width:22px;height:22px;accent-color:#2563eb">
+        <span>선택</span>
+      </label>
+      <button type="button" data-v482-open="${esc(r.id)}" style="border:0;background:transparent;text-align:left;padding:4px 0;flex:1;cursor:pointer">
         <span class="newsroom-item-top"><strong><span class="pill">${esc(v48SourceBadge(r))}</span> <span class="pill">${esc(categoryLabel)}</span> ${esc(r.ai_title||r.original_title||'제목 없음')}</strong><span class="newsroom-destination">${esc(newsroomLabel(r.destination||r.suggested_destination))}</span></span>
         <span class="newsroom-item-meta">${esc(r.source_name||'출처 미상')} · ${esc(r.area||'Dallas')} · ${esc(newsroomLocalDate(r.source_published_at||r.collected_at))}</span>
         <span class="newsroom-item-summary">${esc((r.ai_summary||r.original_summary||'').slice(0,110))}</span>
@@ -4977,7 +4980,7 @@ function v481RenderCollectedPreview(){
     </div>`;
   }).join('');
   box.querySelectorAll('[data-v482-select]').forEach(c=>c.addEventListener('change',()=>{
-    const id=String(c.dataset.v482Select);if(c.checked)v482SelectedArticleIds.add(id);else v482SelectedArticleIds.delete(id);v482UpdateSelectionStatus();
+    const id=String(c.dataset.v482Select);if(c.checked)v482SelectedArticleIds.add(id);else v482SelectedArticleIds.delete(id);c.closest('.v481-collected-item')?.classList.toggle('is-selected',c.checked);v482UpdateSelectionStatus();
   }));
   box.querySelectorAll('[data-v482-open]').forEach(b=>b.addEventListener('click',()=>{
     const row=newsroomItems.find(x=>String(x.id)===String(b.dataset.v482Open));if(row)fillNewsroom(row);
@@ -4996,16 +4999,16 @@ async function v482ApplySelectedPicks(){
   }finally{if(button){button.disabled=false;button.textContent=old;}v482UpdateSelectionStatus();}
 }
 function v482SelectVisibleArticles(){
-  qs('v481CollectedPreview')?.querySelectorAll('[data-v482-select]').forEach(c=>{c.checked=true;v482SelectedArticleIds.add(String(c.dataset.v482Select));});v482UpdateSelectionStatus();
+  qs('v481CollectedPreview')?.querySelectorAll('[data-v482-select]').forEach(c=>{c.checked=true;v482SelectedArticleIds.add(String(c.dataset.v482Select));c.closest('.v481-collected-item')?.classList.add('is-selected');});v482UpdateSelectionStatus();
 }
 function v482ClearArticleSelection(){
-  v482SelectedArticleIds.clear();qs('v481CollectedPreview')?.querySelectorAll('[data-v482-select]').forEach(c=>c.checked=false);v482UpdateSelectionStatus();
+  v482SelectedArticleIds.clear();qs('v481CollectedPreview')?.querySelectorAll('[data-v482-select]').forEach(c=>{c.checked=false;c.closest('.v481-collected-item')?.classList.remove('is-selected');});v482UpdateSelectionStatus();
 }
 function renderNewsroom(){
   const counts={all:newsroomItems.length,collected:0,classified:0,review:0}; newsroomItems.forEach(r=>{if(counts[r.status]!==undefined)counts[r.status]++;});
   Object.entries(counts).forEach(([k,v])=>safeText('newsroomCount'+k[0].toUpperCase()+k.slice(1),String(v)));
   v48RenderCategorySummary();
-  v48RenderCategorySummary(); v481RenderCollectedPreview();
+  v481RenderCollectedPreview();
   const items=filteredNewsroom(); safeText('newsroomListCount',`${items.length}개`); const box=qs('newsroomList'); if(!box)return;
   if(!items.length){box.innerHTML='<div class="newsroom-empty"><strong>처리할 후보가 없습니다.</strong><span>예정 기사가 없거나 일치하지 않아도 AI 자동 선별이 동작합니다.</span></div>';return;}
   box.innerHTML=items.map(r=>{const priority=newsroomPriority(r);const [categoryKey,categoryLabel]=v48ItemCategory(r);const editor=v48SelectionSource(r)==='editor';return `<div class="newsroom-item ${String(r.id)===String(selectedNewsroomId)?'active':''}" data-id="${esc(r.id)}"><span class="newsroom-item-top"><strong><span class="pill v48-source-badge">${esc(v48SourceBadge(r))}</span><span class="newsroom-item-priority ${priority}">${priority==='urgent'?'🔴':priority==='high'?'🟠':priority==='normal'?'🔵':'⚪'} ${esc(NEWSROOM_PRIORITY_LABELS[priority])}</span>${esc(r.ai_title||r.original_title)}</strong><span class="newsroom-destination ${(r.destination||r.suggested_destination)==='urgent'?'urgent':(r.destination||r.suggested_destination)==='exclude'?'exclude':''}">${esc(categoryLabel)} · ${esc(newsroomLabel(r.destination||r.suggested_destination))}</span></span><span class="newsroom-item-meta">${esc(r.source_name||'출처 미상')} · ${esc(r.area||'Dallas')} · ${esc(newsroomLocalDate(r.source_published_at||r.collected_at))}</span><span class="newsroom-item-summary">${esc((r.ai_summary||r.original_summary||'').slice(0,120))}</span><span style="display:flex;gap:8px;margin-top:8px"><button type="button" class="btn ghost" data-v48-open="${esc(r.id)}">검토</button><button type="button" class="btn ghost" data-v48-pick="${esc(r.id)}">${editor?'최우선 해제':'관리자 최우선'}</button></span></div>`;}).join('');

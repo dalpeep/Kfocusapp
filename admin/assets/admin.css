@@ -805,3 +805,17 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 @media (max-width:620px){
   .v45-home-settings .checkbox-grid{grid-template-columns:1fr !important;}
 }
+
+/* V48.3 newsroom selection */
+.v481-collected-item.is-selected {
+  outline: 2px solid #2563eb;
+  background: #eff6ff;
+}
+.v482-article-check:hover {
+  background: #eaf2ff;
+  border-radius: 10px;
+}
+#v481CollectedPreview {
+  max-height: 760px;
+  overflow: auto;
+}
