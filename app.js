@@ -2245,6 +2245,62 @@ function v46FallbackProposalItems(config={}){
   return result.slice(0,8);
 }
 
+
+function v461NormalizeProposalCategory(value=''){
+  const s=String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
+  const aliases={
+    shopping:'shopping',market:'shopping',grocery:'shopping',sale:'shopping','쇼핑':'shopping','쇼핑·마켓':'shopping','마트':'shopping',
+    weather:'weather',heat:'weather',heat_advisory:'weather','기상':'weather','날씨':'weather',
+    traffic:'traffic',transportation:'traffic','교통':'traffic',
+    event:'event',events:'event',performance:'event','공연':'event','공연·이벤트':'event','행사':'event',
+    education:'education',school:'education','교육':'education',
+    real_estate:'real_estate',realestate:'real_estate',housing:'real_estate','부동산':'real_estate',
+    finance:'finance',bank:'finance','은행':'finance','은행·금융':'finance','금융':'finance',
+    seminar:'seminar','세미나':'seminar',
+    faith:'faith',religion:'faith','종교':'faith','종교_행사':'faith','종교 행사':'faith',
+    emergency:'emergency',urgent:'emergency','긴급':'emergency'
+  };
+  return aliases[s]||s;
+}
+function v461CategoryDefinition(key){
+  return {
+    shopping:{label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'장보기 전 할인 정보를 확인해 보세요.',summary:'오늘 확인된 마켓·쇼핑 정보를 살펴보고 필요한 품목과 행사 기간을 확인해 보세요.'},
+    weather:{label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 일정을 조정해 보세요.',summary:'외출 전 최신 기상 안내를 확인하고 날씨에 맞게 이동 시간과 준비물을 조정해 보세요.'},
+    traffic:{label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'출발 전 주요 도로 상황을 확인해 보세요.',summary:'정체·사고·공사 가능성을 확인하고 필요하면 우회 경로와 출발 시간을 조정해 보세요.'},
+    event:{label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'가까운 공연과 행사를 살펴보세요.',summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.'},
+    education:{label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교와 교육 일정을 미리 확인해 보세요.',summary:'학교 일정과 교육 관련 공지를 확인하고 필요한 준비를 미리 해두세요.'},
+    real_estate:{label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택과 부동산 정보를 살펴보세요.',summary:'주택·모기지·오픈하우스 관련 정보를 확인하고 조건과 일정을 비교해 보세요.'},
+    finance:{label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행과 금융 안내를 비교해 보세요.',summary:'대출·예금·금리 관련 안내를 확인하고 세부 조건을 비교해 보세요.'},
+    seminar:{label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활에 도움이 되는 세미나를 확인해 보세요.',summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정을 확인해 보세요.'},
+    faith:{label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'지역 종교·커뮤니티 행사를 확인해 보세요.',summary:'지역 교회·성당·사찰의 행사와 모임 일정을 확인해 보세요.'}
+  }[key]||null;
+}
+function v461PrepareProposalItems(items=[],config={}){
+  const selected=new Set((config.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean));
+  const result=[];
+  for(const raw of (items||[])){
+    const emergency=Boolean(raw?.emergency||raw?.school);
+    let key=v461NormalizeProposalCategory(raw?.category||raw?.category_key||raw?.category_label||'');
+    const sourceText=`${raw?.source_title||''} ${raw?.original_title||''} ${raw?.summary||''}`;
+    if(!key||!v461CategoryDefinition(key)){
+      key=['shopping','weather','traffic','event','education','real_estate','finance','seminar','faith'].find(k=>v461CategoryDefinition(k).re.test(sourceText))||'';
+    }
+    if(!emergency && selected.size && !selected.has(key)) continue;
+    const def=v461CategoryDefinition(key);
+    const item={...raw};
+    if(def){
+      item.category=key;
+      item.category_label=def.label;
+      item.icon=item.icon||def.icon;
+      item.title=item.title||def.title;
+      // 카테고리와 요약 내용이 맞지 않으면 다른 업소/기사 문구를 노출하지 않고 안전한 제안문으로 교체합니다.
+      const summary=String(item.summary||'').trim();
+      item.summary=(summary && def.re.test(`${item.source_title||''} ${item.original_title||''} ${summary}`)) ? summary : def.summary;
+    }
+    result.push(item);
+  }
+  return result;
+}
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate');if(!dateNode)return;
@@ -2260,9 +2316,10 @@ async function renderV37AIHome(){
     v45HomeConfig={};
   }
   if(sequence!==v44HomeRenderSequence)return;
+  loaded=v461PrepareProposalItems(loaded,v45HomeConfig);
   if(!loaded.length){
-    loaded=v46FallbackProposalItems(v45HomeConfig);
-    console.info('[V46 Home] newsroom feed empty; using local community proposals',{count:loaded.length});
+    loaded=v461PrepareProposalItems(v46FallbackProposalItems(v45HomeConfig),v45HomeConfig);
+    console.info('[V46.1 Home] newsroom feed empty; using local community proposals',{count:loaded.length});
   }
   v45ProposalItems=loaded;
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
@@ -2317,7 +2374,7 @@ if(homeFeaturedList){
     : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 }
 
-if (typeof renderDalpicks === 'function') { renderDalpicks(); }
+const legacyTicker=document.querySelector('.home-ticker-section'); if(legacyTicker) legacyTicker.hidden=true;
 if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
