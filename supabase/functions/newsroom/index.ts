@@ -1,11 +1,11 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '47.1.0';
+const VERSION = '47.2.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret, cache-control',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,

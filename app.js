@@ -1969,7 +1969,7 @@ async function v42LoadKoreanNews(){
   const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
   if(!base||!key){console.warn('[V45 Home Feed] Supabase public config missing');return []}
   const endpoint=`${base}/functions/v1/newsroom`;
-  const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`,'Cache-Control':'no-cache'};
+  const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`};
   const attempts=[
     {label:'GET',url:`${endpoint}?action=home_feed&region=${encodeURIComponent(currentRegion||'dallas')}&_=${Date.now()}`,options:{method:'GET',headers}},
     {label:'POST',url:endpoint,options:{method:'POST',headers,body:JSON.stringify({action:'home_feed',region:currentRegion||'dallas',cache_bust:Date.now()})}}
@@ -2212,7 +2212,7 @@ async function v471FetchPublicHomeSettings(){
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),12000);
   try{
-    const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`,'Cache-Control':'no-cache'},cache:'no-store',signal:controller.signal});
+    const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store',signal:controller.signal});
     const json=await res.json().catch(()=>({}));
     if(!res.ok||json.ok===false) throw new Error(json.error||json.message||`HTTP ${res.status}`);
     return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
