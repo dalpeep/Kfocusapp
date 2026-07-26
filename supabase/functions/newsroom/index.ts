@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '47.0.0';
+const VERSION = '47.1.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -722,6 +722,21 @@ async function homeFeed(region = 'dallas') {
     generated_at:new Date().toISOString(),
   };
 }
+async function publicHomeSettings(region = 'dallas') {
+  const { data, error } = await admin.from('newsroom_settings')
+    .select('home_config,updated_at')
+    .eq('region', region)
+    .maybeSingle();
+  if (error) throw error;
+  const defaultConfig:any = {
+    proposal_categories: [], category_links: {}, business_mode: 'featured', business_ids: [],
+    community_board_types: [], community_post_ids: [], community_boost_ids: [],
+  };
+  const raw = (data as any)?.home_config && typeof (data as any).home_config === 'object'
+    ? (data as any).home_config : {};
+  return { ok:true, version:VERSION, home_config:{...defaultConfig,...raw}, updated_at:(data as any)?.updated_at||null };
+}
+
 async function status(region = 'dallas') {
   const checks: any = {
     edge_function: true,
@@ -735,7 +750,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -750,6 +765,7 @@ Deno.serve(async (req) => {
 
     if (action === 'ping' || action === 'version') return json({ ok: true, version: VERSION, action });
     if (action === 'home_feed') return json(await homeFeed(region));
+    if (action === 'home_settings') return json(await publicHomeSettings(region));
 
     const auth = await authorize(req);
     if (action === 'status' || action === 'health') return json(await status(region));
@@ -774,7 +790,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings'],
     }, 400);
   } catch (e) {
     console.error(e);

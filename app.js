@@ -2203,17 +2203,37 @@ function paintV38HomePayload(payload,candidates){
   v37RecommendationItems=payload.recommendations||candidates;v37RecommendationIndex=0;paintV37Recommendation();if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5200);
   if(window.lucide)window.lucide.createIcons();
 }
+async function v471FetchPublicHomeSettings(){
+  const config=getConfig();
+  const base=String(config.SUPABASE_URL||'').replace(/\/$/,'');
+  const key=String(config.SUPABASE_ANON_KEY||'').trim();
+  if(!base||!key) return {};
+  const endpoint=`${base}/functions/v1/newsroom?action=home_settings&region=${encodeURIComponent(currentRegion||'dallas')}&_=${Date.now()}`;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),12000);
+  try{
+    const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`,'Cache-Control':'no-cache'},cache:'no-store',signal:controller.signal});
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||json.ok===false) throw new Error(json.error||json.message||`HTTP ${res.status}`);
+    return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
+  }catch(error){
+    console.warn('[V47.1 Main Settings] dedicated settings fetch failed',error?.message||error);
+    return {};
+  }finally{clearTimeout(timer)}
+}
 async function loadMainSettings(forceRefresh=false){
-  // V45 관리자에서 저장한 메인 3개 영역 설정은 newsroom home_feed 응답의
-  // home_config 필드로 전달됩니다. 메인에서는 이 함수를 통해 설정을 읽습니다.
-  const items = await v42LoadKoreanNews();
-  const config = items?.home_config && typeof items.home_config === 'object'
-    ? items.home_config
-    : {};
-  v45HomeConfig = config;
-  window.__DALTOWN_MAIN_SETTINGS__ = config;
-  console.info('[V46 Main Settings] loaded', config);
-  return { items: Array.isArray(items) ? items : [], config };
+  // V47.1: 설정과 피드를 별도 요청으로 읽습니다. home_feed 응답에 설정이 누락되거나
+  // 오래된 함수가 남아 있어도 관리자 선택값이 우선 적용되도록 합니다.
+  const [dedicatedConfig,items]=await Promise.all([
+    v471FetchPublicHomeSettings(),
+    v42LoadKoreanNews()
+  ]);
+  const feedConfig=items?.home_config&&typeof items.home_config==='object'?items.home_config:{};
+  const config=Object.keys(dedicatedConfig||{}).length?dedicatedConfig:feedConfig;
+  v45HomeConfig=config||{};
+  window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
+  console.info('[V47.1 Main Settings] loaded',{config:v45HomeConfig,source:Object.keys(dedicatedConfig||{}).length?'home_settings':'home_feed'});
+  return {items:Array.isArray(items)?items:[],config:v45HomeConfig};
 }
 window.loadMainSettings = loadMainSettings;
 
@@ -2311,7 +2331,7 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];
     v45HomeConfig=mainData.config||{};
   }catch(error){
-    console.error('[V46 Home] settings/feed load failed',error);
+    console.error('[V47.1 Home] settings/feed load failed',error);
     loaded=[];
     v45HomeConfig={};
   }
@@ -2383,7 +2403,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome().catch(error=>console.error('[V46 Home] render failed',error));
+  renderV37AIHome().catch(error=>console.error('[V47.1 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
