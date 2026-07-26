@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '48.6.0';
+const VERSION = '48.7.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -502,8 +502,10 @@ async function autoRun(region='dallas') {
 async function setEditorPick(body:any){
   if(!body.id) throw new Error('기사 ID가 없습니다.');
   const {data:item,error}=await admin.from('newsroom_items').select('event_data').eq('id',body.id).single();if(error)throw error;
-  const event_data={...(item?.event_data||{}),selection_source:body.enabled===false?'ai':'editor',editor_picked_at:body.enabled===false?null:new Date().toISOString()};
-  const {error:u}=await admin.from('newsroom_items').update({event_data,priority_score:body.enabled===false?50:999,updated_at:new Date().toISOString()}).eq('id',body.id);if(u)throw u;
+  const current=(item?.event_data&&typeof item.event_data==='object')?item.event_data:{};
+  const enabled=body.enabled!==false;
+  const event_data={...current,selection_source:enabled?'editor':'ai',editor_picked_at:enabled?new Date().toISOString():null,home_link_enabled:enabled?current.home_link_enabled===true:false};
+  const {error:u}=await admin.from('newsroom_items').update({event_data,priority_score:enabled?999:50,updated_at:new Date().toISOString()}).eq('id',body.id);if(u)throw u;
   return {ok:true,version:VERSION};
 }
 

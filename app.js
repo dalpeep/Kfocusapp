@@ -2229,11 +2229,13 @@ async function loadMainSettings(forceRefresh=false){
     v42LoadKoreanNews()
   ]);
   const feedConfig=items?.home_config&&typeof items.home_config==='object'?items.home_config:{};
+  const feedMeta=items?.feed_meta&&typeof items.feed_meta==='object'?items.feed_meta:{};
   const config=Object.keys(dedicatedConfig||{}).length?dedicatedConfig:feedConfig;
   v45HomeConfig=config||{};
   window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
-  console.info('[V48 Main Settings] loaded',{config:v45HomeConfig,source:Object.keys(dedicatedConfig||{}).length?'home_settings':'home_feed'});
-  return {items:Array.isArray(items)?items:[],config:v45HomeConfig};
+  window.__DALTOWN_HOME_FEED_META__=feedMeta;
+  console.info('[V48.7 Main Settings] loaded',{config:v45HomeConfig,feedMeta,source:Object.keys(dedicatedConfig||{}).length?'home_settings':'home_feed'});
+  return {items:Array.isArray(items)?items:[],config:v45HomeConfig,meta:feedMeta};
 }
 window.loadMainSettings = loadMainSettings;
 
@@ -2326,9 +2328,11 @@ async function renderV37AIHome(){
   const dateNode=document.getElementById('v37BriefDate');if(!dateNode)return;
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
   let loaded=[];
+  let feedMeta={};
   try{
     const mainData=await loadMainSettings();
     loaded=mainData.items||[];
+    feedMeta=mainData.meta||{};
     v45HomeConfig=mainData.config||{};
   }catch(error){
     console.error('[V48 Home] settings/feed load failed',error);
@@ -2336,9 +2340,11 @@ async function renderV37AIHome(){
     v45HomeConfig={};
   }
   if(sequence!==v44HomeRenderSequence)return;
-  loaded=v461PrepareProposalItems(loaded,v45HomeConfig);
+  loaded=feedMeta.editor_mode===true ? loaded : v461PrepareProposalItems(loaded,v45HomeConfig);
   const configuredCategories=(v45HomeConfig.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean);
-  if(!loaded.length && !configuredCategories.length){
+  if(!loaded.length && feedMeta.editor_mode===true){
+    console.info('[V48.7 Home] editor mode active but no publishable item',{feedMeta});
+  } else if(!loaded.length && !configuredCategories.length){
     loaded=v461PrepareProposalItems(v46FallbackProposalItems(v45HomeConfig),v45HomeConfig);
     console.info('[V48 Home] no configured category and newsroom feed empty; using local community proposals',{count:loaded.length});
   } else if(!loaded.length) {
@@ -2352,7 +2358,7 @@ async function renderV37AIHome(){
   const paintProposal=()=>{
     const item=normal[proposalIndex]||alerts[0];
     const title=document.getElementById('v37BriefTitle'),summary=document.getElementById('v37BriefSummary'),kicker=document.getElementById('v37BriefKicker'),state=document.getElementById('v38AutoState'),tip=document.getElementById('v38BriefTip'),check=document.getElementById('v38BriefChecklist');
-    if(!item){if(title)title.textContent='선택한 분야의 새 소식을 기다리고 있습니다.';if(summary)summary.textContent=(v45HomeConfig.proposal_categories||[]).length?'관리자에서 선택한 분야에 맞는 소식이 수집되면 이곳에 표시됩니다.':'새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';if(kicker)kicker.textContent='달타운 제안';if(state)state.textContent='';if(check)check.innerHTML='';return;}
+    if(!item){if(feedMeta.editor_mode===true){if(title)title.textContent='관리자 검토 중인 소식입니다.';if(summary)summary.textContent=Number(feedMeta.editor_waiting_for_link||0)>0?'관리자가 공개 링크를 확인한 뒤 이곳에 표시됩니다.':'현재 공개 승인된 기사가 없습니다.';}else{if(title)title.textContent='선택한 분야의 새 소식을 기다리고 있습니다.';if(summary)summary.textContent=(v45HomeConfig.proposal_categories||[]).length?'관리자에서 선택한 분야에 맞는 소식이 수집되면 이곳에 표시됩니다.':'새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';}if(kicker)kicker.textContent='달타운 제안';if(state)state.textContent='';if(check)check.innerHTML='';return;}
     if(title)title.textContent=`${item.icon||'✨'} ${item.title}`;
     if(kicker)kicker.textContent=item.category_label||'달타운 제안';
     if(summary)summary.textContent=v38Text(item.summary,250);

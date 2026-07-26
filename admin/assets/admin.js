@@ -4947,25 +4947,24 @@ function filteredNewsroom(){
 }
 function v482UpdateSelectionStatus(){
   safeText('v482SelectionStatus',`선택된 기사 ${v482SelectedArticleIds.size}건`);
-  const apply=qs('v482ApplyPicksBtn');if(apply)apply.disabled=v482SelectedArticleIds.size===0;
+  const disabled=v482SelectedArticleIds.size===0;const apply=qs('v482ApplyPicksBtn');if(apply)apply.disabled=disabled;const remove=qs('v487RemovePicksBtn');if(remove)remove.disabled=disabled;
 }
 async function v485ConfigureHomeLink(id){
-  const row=(newsroomItems||[]).find(x=>String(x.id)===String(id));
-  if(!row)return;
+  const row=(newsroomItems||[]).find(x=>String(x.id)===String(id));if(!row)return;
   const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
-  const currentEnabled=meta.home_link_enabled===true;
+  const currentEnabled=meta.home_link_enabled===true&&Boolean(String(meta.home_link_url||'').trim());
   const suggested=String(meta.home_link_url||row.original_url||'').trim();
-  const message=currentEnabled
-    ? '현재 이 기사는 메인 카드 링크가 활성화되어 있습니다.\n\n새 주소를 입력하면 변경되고, 내용을 모두 지우면 링크가 해제됩니다.'
-    : '메인 카드에 연결할 주소를 입력하세요.\n\n비워 두고 확인하면 링크 없이 유지됩니다. 원문 주소는 관리자 참고용으로만 제안됩니다.';
-  const entered=prompt(message,suggested);
-  if(entered===null)return;
-  const url=String(entered||'').trim();
-  try{
-    await newsroomEdgeCall('set_home_link',{id,enabled:Boolean(url),url,label:'자세히 보기',region:getAppRegion()});
-    safeText('newsroomStatus',url?'선택한 기사에 메인 링크를 지정했습니다.':'선택한 기사의 메인 링크를 해제했습니다.');
-    await loadNewsroom();
-  }catch(e){alert(e.message||String(e));}
+  const entered=prompt(currentEnabled?'현재 공개 링크를 수정합니다.
+
+새 주소를 입력해 저장하세요. 삭제는 별도 버튼을 사용하세요.':'메인 카드에 공개할 주소를 입력하세요.
+
+원문 주소는 관리자 확인용으로만 제안됩니다.',suggested);
+  if(entered===null)return;const url=String(entered||'').trim();if(!url){alert('링크를 비워 두었습니다. 삭제하려면 링크 삭제 버튼을 사용하세요.');return;}
+  try{await newsroomEdgeCall('set_home_link',{id,enabled:true,url,label:'자세히 보기',region:getAppRegion()});safeText('newsroomStatus',currentEnabled?'메인 링크를 수정했습니다.':'메인 링크를 승인했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
+}
+async function v487DeleteHomeLink(id){
+  if(!confirm('이 기사의 메인 링크를 삭제할까요? 메인 공개 대상에서도 즉시 제외됩니다.'))return;
+  try{await newsroomEdgeCall('set_home_link',{id,enabled:false,url:'',label:'',region:getAppRegion()});safeText('newsroomStatus','메인 링크를 삭제했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
 }
 function v481RenderCollectedPreview(){
   const box=qs('v481CollectedPreview');
@@ -4997,7 +4996,11 @@ function v481RenderCollectedPreview(){
         <span class="newsroom-item-meta">${esc(r.source_name||'출처 미상')} · ${esc(r.area||'Dallas')} · ${esc(newsroomLocalDate(r.source_published_at||r.collected_at))}</span>
         <span class="newsroom-item-summary">${esc((r.ai_summary||r.original_summary||'').slice(0,110))}</span>
       </button>
-      <button type="button" class="btn ${homeLinkEnabled?'primary':'ghost'}" data-v485-home-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">${homeLinkEnabled?'메인 링크 사용 중':'메인 링크 설정'}</button>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+        ${v48SelectionSource(r)==='editor'?`<button type="button" class="btn danger" data-v487-unpick="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">관리자 지정 해제</button>`:`<button type="button" class="btn ghost" data-v487-pick="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">관리자 지정</button>`}
+        <button type="button" class="btn ${homeLinkEnabled?'primary':'ghost'}" data-v485-home-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">${homeLinkEnabled?'링크 수정':'메인 링크 설정'}</button>
+        ${homeLinkEnabled?`<button type="button" class="btn danger" data-v487-delete-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">링크 삭제</button>`:''}
+      </div>
     </div>`;
   }).join('');
   box.querySelectorAll('[data-v482-select]').forEach(c=>c.addEventListener('change',()=>{
@@ -5009,7 +5012,17 @@ function v481RenderCollectedPreview(){
   box.querySelectorAll('[data-v485-home-link]').forEach(b=>b.addEventListener('click',(event)=>{
     event.preventDefault();event.stopPropagation();v485ConfigureHomeLink(b.dataset.v485HomeLink);
   }));
+  box.querySelectorAll('[data-v487-delete-link]').forEach(b=>b.addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();v487DeleteHomeLink(b.dataset.v487DeleteLink);}));
+  box.querySelectorAll('[data-v487-unpick]').forEach(b=>b.addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();v48SetEditorPick(b.dataset.v487Unpick,false);}));
+  box.querySelectorAll('[data-v487-pick]').forEach(b=>b.addEventListener('click',(event)=>{event.preventDefault();event.stopPropagation();v48SetEditorPick(b.dataset.v487Pick,true);}));
   v482UpdateSelectionStatus();
+}
+async function v487RemoveSelectedPicks(){
+  const ids=[...v482SelectedArticleIds];if(!ids.length)return;
+  if(!confirm(`선택한 ${ids.length}건의 관리자 지정을 해제할까요? 메인 목록에서 즉시 빠집니다.`))return;
+  const button=qs('v487RemovePicksBtn'),old=button?.textContent;if(button){button.disabled=true;button.textContent=`${ids.length}건 해제 중…`;}
+  let success=0;const failed=[];
+  try{for(const id of ids){try{await newsroomEdgeCall('set_editor_pick',{id,enabled:false,region:getAppRegion()});success++;}catch(e){failed.push(`${id}: ${e.message}`);}}v482SelectedArticleIds.clear();await loadNewsroom();safeText('newsroomStatus',`선택 기사 ${success}건의 관리자 지정을 해제했습니다.`);if(failed.length)alert(`일부 기사 해제 실패\n${failed.join('\n')}`);}finally{if(button){button.disabled=false;button.textContent=old;}v482UpdateSelectionStatus();}
 }
 async function v482ApplySelectedPicks(){
   const ids=[...v482SelectedArticleIds];if(!ids.length)return;
@@ -5308,7 +5321,7 @@ async function v48SetEditorPick(id,enabled=true){try{await newsroomEdgeCall('set
 
 function initNewsroom(){
   const nav=qs('adminNav');if(!nav||!qs('section-newsroom'))return;
-  qs('v48TopicSaveBtn')?.addEventListener('click',v48SaveTopic);qs('v48TopicResetBtn')?.addEventListener('click',v48ResetTopic);qs('v48AutoRunBtn')?.addEventListener('click',v48AutoRun);qs('v482SelectAllBtn')?.addEventListener('click',v482SelectVisibleArticles);qs('v482ClearSelectionBtn')?.addEventListener('click',v482ClearArticleSelection);qs('v482ApplyPicksBtn')?.addEventListener('click',v482ApplySelectedPicks);qs('v481CollectedRefreshBtn')?.addEventListener('click',loadNewsroom);qs('v481GoDetailBtn')?.addEventListener('click',()=>qs('newsroomList')?.scrollIntoView({behavior:'smooth',block:'start'}));qs('newsroomPrepareItemBtn')?.addEventListener('click',prepareNewsroomItem);qs('newsroomHealthBtn')?.addEventListener('click',()=>checkNewsroomHealth(true));qs('newsroomCollectBtn')?.addEventListener('click',collectNewsroom);qs('newsroomAutoEnabled')?.addEventListener('change',saveNewsroomAutoSetting);qs('newsroomAnalyzeAllBtn')?.addEventListener('click',analyzeCollectedNewsroom);qs('newsroomAnalyzeBtn')?.addEventListener('click',()=>analyzeNewsroomItem());qs('newsroomDraftBtn')?.addEventListener('click',draftNewsroomItem);qs('newsroomRefreshBtn')?.addEventListener('click',loadNewsroom);qs('newsroomSearch')?.addEventListener('input',renderNewsroom);qs('newsroomDestinationFilter')?.addEventListener('change',renderNewsroom);qs('newsroomSourceFilter')?.addEventListener('change',renderNewsroom);qs('newsroomDestination')?.addEventListener('change',updateNewsroomSpecialBoxes);qs('newsroomSaveReviewBtn')?.addEventListener('click',()=>saveNewsroomReview());qs('newsroomExcludeBtn')?.addEventListener('click',excludeNewsroom);qs('newsroomPublishBtn')?.addEventListener('click',publishNewsroom);qs('newsroomRecommendBusinessesBtn')?.addEventListener('click',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses({...r,selected_business_ids:newsroomSelectedBusinessIds()});});
+  qs('v48TopicSaveBtn')?.addEventListener('click',v48SaveTopic);qs('v48TopicResetBtn')?.addEventListener('click',v48ResetTopic);qs('v48AutoRunBtn')?.addEventListener('click',v48AutoRun);qs('v482SelectAllBtn')?.addEventListener('click',v482SelectVisibleArticles);qs('v482ClearSelectionBtn')?.addEventListener('click',v482ClearArticleSelection);qs('v482ApplyPicksBtn')?.addEventListener('click',v482ApplySelectedPicks);qs('v487RemovePicksBtn')?.addEventListener('click',v487RemoveSelectedPicks);qs('v481CollectedRefreshBtn')?.addEventListener('click',loadNewsroom);qs('v481GoDetailBtn')?.addEventListener('click',()=>qs('newsroomList')?.scrollIntoView({behavior:'smooth',block:'start'}));qs('newsroomPrepareItemBtn')?.addEventListener('click',prepareNewsroomItem);qs('newsroomHealthBtn')?.addEventListener('click',()=>checkNewsroomHealth(true));qs('newsroomCollectBtn')?.addEventListener('click',collectNewsroom);qs('newsroomAutoEnabled')?.addEventListener('change',saveNewsroomAutoSetting);qs('newsroomAnalyzeAllBtn')?.addEventListener('click',analyzeCollectedNewsroom);qs('newsroomAnalyzeBtn')?.addEventListener('click',()=>analyzeNewsroomItem());qs('newsroomDraftBtn')?.addEventListener('click',draftNewsroomItem);qs('newsroomRefreshBtn')?.addEventListener('click',loadNewsroom);qs('newsroomSearch')?.addEventListener('input',renderNewsroom);qs('newsroomDestinationFilter')?.addEventListener('change',renderNewsroom);qs('newsroomSourceFilter')?.addEventListener('change',renderNewsroom);qs('newsroomDestination')?.addEventListener('change',updateNewsroomSpecialBoxes);qs('newsroomSaveReviewBtn')?.addEventListener('click',()=>saveNewsroomReview());qs('newsroomExcludeBtn')?.addEventListener('click',excludeNewsroom);qs('newsroomPublishBtn')?.addEventListener('click',publishNewsroom);qs('newsroomRecommendBusinessesBtn')?.addEventListener('click',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses({...r,selected_business_ids:newsroomSelectedBusinessIds()});});
   $$('.newsroom-filter').forEach(b=>b.addEventListener('click',()=>{$$('.newsroom-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');newsroomStatusFilter=b.dataset.status;renderNewsroom();}));
   loadNewsroom();loadNewsroomSettings();v48LoadTopics();checkNewsroomHealth(false);
 }
