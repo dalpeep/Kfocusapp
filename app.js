@@ -1,4 +1,4 @@
-// DalTownMap V45.4.0 proposal fallback and category mapping fix
+// DalTownMap V45.3.0 recommended-business mode fix
 console.log('[DalTownMap] v8.5 business visibility fix loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -2198,45 +2198,10 @@ async function loadMainSettings(forceRefresh=false){
     : {};
   v45HomeConfig = config;
   window.__DALTOWN_MAIN_SETTINGS__ = config;
-  console.info('[V45.4 Main Settings] loaded', config);
+  console.info('[V45.3 Main Settings] loaded', config);
   return { items: Array.isArray(items) ? items : [], config };
 }
 window.loadMainSettings = loadMainSettings;
-
-
-function v454LocalProposalFallback(config={}){
-  const selected=Array.isArray(config.proposal_categories)?config.proposal_categories:[];
-  const enabled=new Set(selected.length?selected:['shopping','weather','traffic','event','education','real_estate','finance','seminar','faith']);
-  const defs=[
-    {key:'emergency',label:'긴급 안내',icon:'🚨',re:/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i,score:5000},
-    {key:'shopping',label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,score:420},
-    {key:'weather',label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,score:460},
-    {key:'traffic',label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,score:450},
-    {key:'event',label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,score:390},
-    {key:'education',label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,score:400},
-    {key:'real_estate',label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage|home seminar)/i,score:390},
-    {key:'finance',label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|mortgage product|금융|소상공인 금융)/i,score:380},
-    {key:'seminar',label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,score:410},
-    {key:'faith',label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,score:395}
-  ];
-  const phrase={
-    shopping:'장보기 전 할인 정보를 확인해 보세요.',weather:'오늘 날씨에 맞춰 외출 시간을 조정해 보세요.',traffic:'출발 전 주요 도로의 정체와 통제 정보를 확인해 보세요.',event:'이번 주 가까운 공연과 행사를 확인해 보세요.',education:'학교와 교육 일정을 미리 확인해 보세요.',real_estate:'주택과 부동산 관련 설명회를 확인해 보세요.',finance:'은행의 대출·금융 안내를 비교해 보세요.',seminar:'생활에 도움이 되는 세미나 일정을 확인해 보세요.',faith:'지역 종교·커뮤니티 행사를 확인해 보세요.',emergency:'지금 확인해야 할 지역 긴급 공지가 있습니다.'
-  };
-  const rows=[];
-  for(const post of (boardPosts||[])){
-    if(!adminSession&&post.region&&normalizeRegionKey(post.region)!==currentRegion)continue;
-    const text=`${post.title||''} ${post.summary||''} ${post.content||''}`;
-    for(const d of defs){
-      if(d.key!=='emergency'&&!enabled.has(d.key))continue;
-      if(!d.re.test(text))continue;
-      const configured=String(config.category_links?.[d.key]||'').trim();
-      rows.push({id:`local-${post.id}-${d.key}`,category:d.key,category_label:d.label,icon:d.icon,title:d.key==='emergency'?v38Text(post.title,72):phrase[d.key],summary:v38Text(post.summary||post.content||post.title,180),link:configured,has_link:Boolean(configured),emergency:d.key==='emergency',score:d.score,data:post,local_post_id:post.id});
-      if(d.key==='emergency')break;
-    }
-  }
-  const seen=new Set();
-  return rows.sort((a,b)=>b.score-a.score).filter(x=>{const k=x.category;if(seen.has(k))return false;seen.add(k);return true}).slice(0,8);
-}
 
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
@@ -2248,15 +2213,11 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];
     v45HomeConfig=mainData.config||{};
   }catch(error){
-    console.error('[V45.4 Home] settings/feed load failed',error);
+    console.error('[V45.3 Home] settings/feed load failed',error);
     loaded=[];
     v45HomeConfig={};
   }
   if(sequence!==v44HomeRenderSequence)return;
-  if(!loaded.length){
-    loaded=v454LocalProposalFallback(v45HomeConfig);
-    console.info('[V45.4 Home] using local proposal fallback',{count:loaded.length,categories:loaded.map(x=>x.category)});
-  }
   v45ProposalItems=loaded;
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
@@ -2271,7 +2232,7 @@ async function renderV37AIHome(){
     if(state)state.textContent=item.has_link?'연결된 정보':'생활 추천';
     if(tip)tip.innerHTML=`<b>💡 달타운 제안</b><span>${item.has_link?'카드를 누르면 연결된 상세 정보를 확인할 수 있습니다.':'오늘 일정에 참고해 보세요.'}</span>`;
     if(check)check.innerHTML=`<span>✓ ${esc(item.category_label||'생활 정보')}</span>`;
-    const card=document.getElementById('v37BriefCard');if(card){card.style.cursor=item.has_link?'pointer':'default';card.onclick=item.has_link?()=>window.open(item.link,'_blank','noopener,noreferrer'):(item.local_post_id?()=>openBoardPost(item.local_post_id):null);}
+    const card=document.getElementById('v37BriefCard');if(card){card.style.cursor=item.has_link?'pointer':'default';card.onclick=item.has_link?()=>window.open(item.link,'_blank','noopener,noreferrer'):null;}
   };
   paintProposal();if(window.v45ProposalTimer)clearInterval(window.v45ProposalTimer);if(normal.length>1)window.v45ProposalTimer=setInterval(()=>{proposalIndex=(proposalIndex+1)%normal.length;paintProposal()},6500);
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
@@ -2311,7 +2272,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome().catch(error=>console.error('[V45.4 Home] render failed',error));
+  renderV37AIHome().catch(error=>console.error('[V45.3 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
