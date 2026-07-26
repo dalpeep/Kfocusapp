@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '48.5.0';
+const VERSION = '48.6.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -829,6 +829,34 @@ async function homeFeed(region = 'dallas') {
   }
 
   const rows=proposals.sort((a,b)=>b.score-a.score);
+
+  // V48.6 publication gate:
+  // Once at least one editor-picked article exists, the home feed becomes fully curated.
+  // AI/category/scheduled fallback must not be mixed in. To avoid showing an incomplete
+  // card that tells the user to find the source themselves, an editor-picked article is
+  // public only after the administrator also approves a home link.
+  const allEditorRows=rows.filter(x=>x.selection_source==='editor');
+  const publishableEditorRows=allEditorRows.filter(x=>x.has_link);
+  if(allEditorRows.length>0){
+    const feed=publishableEditorRows.slice(0,10);
+    return {
+      ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
+      meta:{
+        total:feed.length,
+        urgent:feed.filter(x=>x.emergency).length,
+        categories:[...new Set(feed.map(x=>x.category))],
+        configured_categories:selected,
+        editor_mode:true,
+        editor_picked_total:allEditorRows.length,
+        editor_publishable_total:publishableEditorRows.length,
+        editor_waiting_for_link:Math.max(0,allEditorRows.length-publishableEditorRows.length),
+        fallback_used:false,
+        settings_loaded:true,
+      },
+      generated_at:new Date().toISOString(),
+    };
+  }
+
   const emergency=rows.filter(x=>x.emergency).slice(0,4);
   const nonEmergency=rows.filter(x=>!x.emergency);
   const preferredRows = preferred.size ? nonEmergency.filter(x=>preferred.has(x.category)) : nonEmergency;
@@ -837,8 +865,7 @@ async function homeFeed(region = 'dallas') {
     const seen=new Set<string>();
     return items.filter(x=>{ if(seen.has(x.category)) return false; seen.add(x.category); return true; });
   };
-  // Selected categories are a preference, not a hard filter. If no selected-category article exists,
-  // AI-selected current articles fill the card so the home screen never stays empty.
+  // No administrator selection exists: scheduled/category/AI automation may operate.
   const preferredVaried=uniqueByCategory(preferredRows);
   const fallbackVaried=uniqueByCategory(fallbackRows);
   const feed=[...emergency,...preferredVaried,...fallbackVaried].slice(0,10);
@@ -847,6 +874,7 @@ async function homeFeed(region = 'dallas') {
     ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
     meta:{ total:feed.length, urgent:emergency.length, categories:[...new Set(feed.map(x=>x.category))],
       configured_categories:selected, matched_preferred:preferredVaried.length, fallback_used:preferred.size>0 && preferredVaried.length===0,
+      editor_mode:false, editor_picked_total:0, editor_publishable_total:0, editor_waiting_for_link:0,
       settings_loaded:true },
     generated_at:new Date().toISOString(),
   };
