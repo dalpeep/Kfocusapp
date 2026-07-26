@@ -2217,7 +2217,7 @@ async function v471FetchPublicHomeSettings(){
     if(!res.ok||json.ok===false) throw new Error(json.error||json.message||`HTTP ${res.status}`);
     return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
   }catch(error){
-    console.warn('[V47.1 Main Settings] dedicated settings fetch failed',error?.message||error);
+    console.warn('[V48 Main Settings] dedicated settings fetch failed',error?.message||error);
     return {};
   }finally{clearTimeout(timer)}
 }
@@ -2232,7 +2232,7 @@ async function loadMainSettings(forceRefresh=false){
   const config=Object.keys(dedicatedConfig||{}).length?dedicatedConfig:feedConfig;
   v45HomeConfig=config||{};
   window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
-  console.info('[V47.1 Main Settings] loaded',{config:v45HomeConfig,source:Object.keys(dedicatedConfig||{}).length?'home_settings':'home_feed'});
+  console.info('[V48 Main Settings] loaded',{config:v45HomeConfig,source:Object.keys(dedicatedConfig||{}).length?'home_settings':'home_feed'});
   return {items:Array.isArray(items)?items:[],config:v45HomeConfig};
 }
 window.loadMainSettings = loadMainSettings;
@@ -2331,7 +2331,7 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];
     v45HomeConfig=mainData.config||{};
   }catch(error){
-    console.error('[V47.1 Home] settings/feed load failed',error);
+    console.error('[V48 Home] settings/feed load failed',error);
     loaded=[];
     v45HomeConfig={};
   }
@@ -2340,12 +2340,12 @@ async function renderV37AIHome(){
   const configuredCategories=(v45HomeConfig.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean);
   if(!loaded.length && !configuredCategories.length){
     loaded=v461PrepareProposalItems(v46FallbackProposalItems(v45HomeConfig),v45HomeConfig);
-    console.info('[V47 Home] no configured category and newsroom feed empty; using local community proposals',{count:loaded.length});
+    console.info('[V48 Home] no configured category and newsroom feed empty; using local community proposals',{count:loaded.length});
   } else if(!loaded.length) {
-    console.info('[V47 Home] configured categories have no matching current item',{configuredCategories});
+    console.info('[V48 Home] configured categories have no matching current item',{configuredCategories});
   }
   v45ProposalItems=loaded;
-  console.info('[V47 Home] settings-first render',{config:v45HomeConfig,categories:(v45HomeConfig.proposal_categories||[]),items:loaded.map(x=>({category:x.category,title:x.title,source_title:x.source_title}))});
+  console.info('[V48 Home] settings-first render',{config:v45HomeConfig,categories:(v45HomeConfig.proposal_categories||[]),items:loaded.map(x=>({category:x.category,title:x.title,source_title:x.source_title}))});
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
   let proposalIndex=0;
@@ -2403,7 +2403,7 @@ if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
-  renderV37AIHome().catch(error=>console.error('[V47.1 Home] render failed',error));
+  renderV37AIHome().catch(error=>console.error('[V48 Home] render failed',error));
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))

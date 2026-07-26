@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '47.2.0';
+const VERSION = '48.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -405,6 +405,108 @@ async function fetchTexasPublicSafetyAlerts() {
   });
 }
 
+
+function scheduledTopicDue(row: any, today = new Date()) {
+  if (row.is_active === false) return false;
+  const dateKey = dateKeyInDallas(today);
+  if (row.start_date && String(row.start_date).slice(0,10) > dateKey) return false;
+  if (row.end_date && String(row.end_date).slice(0,10) < dateKey) return false;
+  const recurrence = String(row.recurrence || 'daily');
+  const weekday = Number(new Intl.DateTimeFormat('en-US',{timeZone:DALLAS_TZ,weekday:'short'}).format(today).match(/Sun|Mon|Tue|Wed|Thu|Fri|Sat/) ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(new Intl.DateTimeFormat('en-US',{timeZone:DALLAS_TZ,weekday:'short'}).format(today)) : today.getDay());
+  if (recurrence === 'once') return !row.run_date || String(row.run_date).slice(0,10) === dateKey;
+  if (recurrence === 'weekly') return !Array.isArray(row.days_of_week) || !row.days_of_week.length || row.days_of_week.map(Number).includes(weekday);
+  if (recurrence === 'monthly') return !row.day_of_month || Number(row.day_of_month) === Number(dateKey.slice(8,10));
+  return true;
+}
+
+async function listScheduledTopics(region='dallas') {
+  const {data,error}=await admin.from('newsroom_scheduled_topics').select('*').eq('region',region).order('priority',{ascending:false}).order('created_at',{ascending:true});
+  if(error) throw error;
+  return {ok:true,version:VERSION,items:data||[],today:dateKeyInDallas()};
+}
+
+async function saveScheduledTopic(body:any) {
+  const payload:any={
+    region:String(body.region||'dallas').toLowerCase(),
+    title:String(body.title||'').trim(),
+    search_query:String(body.search_query||body.title||'').trim(),
+    category:String(body.category||'').trim()||'general',
+    priority:Math.max(1,Math.min(3,Number(body.priority)||2)),
+    recurrence:String(body.recurrence||'daily'),
+    days_of_week:Array.isArray(body.days_of_week)?body.days_of_week.map(Number):[],
+    day_of_month:body.day_of_month?Number(body.day_of_month):null,
+    run_date:body.run_date||null,
+    start_date:body.start_date||null,
+    end_date:body.end_date||null,
+    is_active:body.is_active!==false,
+    updated_at:new Date().toISOString(),
+  };
+  if(!payload.title) throw new Error('예정 기사 제목을 입력하세요.');
+  if(body.id) payload.id=body.id;
+  const {data,error}=await admin.from('newsroom_scheduled_topics').upsert(payload).select().single();
+  if(error) throw error;
+  return {ok:true,version:VERSION,item:data};
+}
+
+async function deleteScheduledTopic(body:any) {
+  if(!body.id) throw new Error('삭제할 예정 기사 ID가 없습니다.');
+  const {error}=await admin.from('newsroom_scheduled_topics').delete().eq('id',body.id);
+  if(error) throw error;
+  return {ok:true,version:VERSION};
+}
+
+async function collectScheduledTopics(region='dallas') {
+  const {data:topics,error}=await admin.from('newsroom_scheduled_topics').select('*').eq('region',region).eq('is_active',true).order('priority',{ascending:false});
+  if(error) throw error;
+  const due=(topics||[]).filter((x:any)=>scheduledTopicDue(x));
+  if(!due.length) return {ok:true,version:VERSION,due:0,found:0,inserted:0,matched_topics:[]};
+  const {data:existing,error:ee}=await admin.from('newsroom_items').select('original_url,original_title').eq('region',region).limit(1500);
+  if(ee) throw ee;
+  const seenUrls=new Set((existing||[]).map((x:any)=>slug(x.original_url)));
+  const seenTitles=new Set((existing||[]).map((x:any)=>titleKey(x.original_title)));
+  const rows:any[]=[]; const matched:any[]=[];
+  for(const topic of due){
+    try{
+      const xml=await fetchTextWithTimeout(googleNewsFeedUrl(`${topic.search_query} Dallas OR DFW`),12000);
+      const candidates=parseGoogleNewsRss(xml,'scheduled').slice(0,4);
+      let topicMatches=0;
+      for(const x of candidates){
+        const key=slug(x.original_url), tk=titleKey(x.original_title);
+        if(!key||seenUrls.has(key)||(tk&&seenTitles.has(tk))) continue;
+        seenUrls.add(key); if(tk) seenTitles.add(tk);
+        rows.push({region,original_title:String(x.original_title).slice(0,500),original_summary:x.original_summary||null,original_url:x.original_url,source_name:x.source_name||null,source_kind:x.source_kind||'media',source_published_at:x.source_published_at||null,area:x.area||'Dallas-Fort Worth',status:'collected',confidence:0,fact_status:'needs_review',duplicate_key:key,category_keywords:['scheduled',topic.category,String(topic.title)],priority_level:topic.priority>=3?'high':'normal',priority_score:700+Number(topic.priority||2)*100,suggested_destination:topic.category==='event'?'notice':'life',event_data:{scheduled_topic_id:topic.id,scheduled_topic_title:topic.title,selection_source:'scheduled',scheduled_priority:topic.priority},collected_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+        topicMatches++; if(topicMatches>=2) break;
+      }
+      if(topicMatches) matched.push({id:topic.id,title:topic.title,count:topicMatches});
+    }catch(e){console.warn('scheduled topic collect failed',topic.title,e);}
+  }
+  let inserted=0;
+  if(rows.length){const {data,error}=await admin.from('newsroom_items').upsert(rows,{onConflict:'duplicate_key',ignoreDuplicates:true}).select('id');if(error)throw error;inserted=data?.length||0;}
+  return {ok:true,version:VERSION,due:due.length,found:rows.length,inserted,matched_topics:matched};
+}
+
+async function autoRun(region='dallas') {
+  const run=await startRun(region,'scheduled','V48 planned-first auto run');
+  try{
+    const cleaned=await cleanup(region);
+    const planned=await collectScheduledTopics(region);
+    const lanes:any[]=[];
+    for(const lane of ['practical','events','korean']){try{lanes.push(await collect(region,false,lane));}catch(e){lanes.push({lane,error:e instanceof Error?e.message:String(e)});}}
+    let analyzed=0;
+    for(let i=0;i<4;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
+    await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}`});
+    return {ok:true,version:VERSION,planned,lanes,analyzed,selection_order:['scheduled','ai','editor']};
+  }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
+}
+
+async function setEditorPick(body:any){
+  if(!body.id) throw new Error('기사 ID가 없습니다.');
+  const {data:item,error}=await admin.from('newsroom_items').select('event_data').eq('id',body.id).single();if(error)throw error;
+  const event_data={...(item?.event_data||{}),selection_source:body.enabled===false?'ai':'editor',editor_picked_at:body.enabled===false?null:new Date().toISOString()};
+  const {error:u}=await admin.from('newsroom_items').update({event_data,priority_score:body.enabled===false?50:999,updated_at:new Date().toISOString()}).eq('id',body.id);if(u)throw u;
+  return {ok:true,version:VERSION};
+}
+
 async function collect(region = 'dallas', scheduled = false, lane = 'practical') {
   const normalizedLane = LANE_QUERIES[lane] ? lane : 'practical';
   const triggerType = scheduled ? 'scheduled' : 'manual';
@@ -694,6 +796,8 @@ async function homeFeed(region = 'dallas') {
       is_sponsored:Boolean(link),
       published_at:x.source_published_at||x.collected_at,
       score:def.base+Number(x.priority_score||0)-Math.min(80,ageHours/2),
+      selection_source:String((x.event_data as any)?.selection_source||'ai'),
+      scheduled_topic_title:String((x.event_data as any)?.scheduled_topic_title||''),
       emergency:def.key==='emergency',
     });
   }
@@ -750,7 +854,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -772,6 +876,12 @@ Deno.serve(async (req) => {
     if (action === 'run_status') return json(await runStatus(region));
     if (action === 'cleanup') return json(await cleanup(region));
     if (action === 'collect') return json(await collect(region, Boolean((auth as any).cron || body.scheduled), String(body.lane || 'practical')));
+    if (action === 'list_scheduled_topics') return json(await listScheduledTopics(region));
+    if (action === 'save_scheduled_topic') return json(await saveScheduledTopic({...body,region}));
+    if (action === 'delete_scheduled_topic') return json(await deleteScheduledTopic(body));
+    if (action === 'collect_scheduled_topics') return json(await collectScheduledTopics(region));
+    if (action === 'auto_run') return json(await autoRun(region));
+    if (action === 'set_editor_pick') return json(await setEditorPick(body));
     if (action === 'analyze') return json(await analyze(body));
     if (action === 'draft') return json(await draft(body));
     if (action === 'get_settings') {
@@ -790,7 +900,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick'],
     }, 400);
   } catch (e) {
     console.error(e);
