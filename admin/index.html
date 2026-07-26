@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=48.0.0"></script>
+  <script type="module" src="assets/admin.js?v=48.1.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -1339,7 +1339,25 @@
   </div>
   <div id="v48TopicList" class="newsroom-list" style="margin-top:12px"></div>
 </section>
-<div id="v48CategorySummary" class="newsroom-run-log" style="margin-top:12px"><span class="muted">수집 기사 분류 현황을 불러오고 있습니다.</span></div>
+
+<section id="v481CollectedSection" class="card" style="margin-top:14px;border:2px solid #dbe7ff;background:#f8fbff">
+  <div class="panel-head">
+    <div>
+      <h3>오늘 수집된 기사</h3>
+      <p class="tiny muted">오전 자동 수집과 지금 다시 수집으로 들어온 기사입니다. 예정 기사 일치 항목을 먼저 표시하고, AI 선별 기사를 그다음에 정렬합니다.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="v481CollectedRefreshBtn" class="btn ghost" type="button">새로고침</button>
+      <button id="v481GoDetailBtn" class="btn primary" type="button">전체 목록·기사 편집</button>
+    </div>
+  </div>
+  <div id="v48CategorySummary" class="newsroom-run-log" style="margin-top:10px"><span class="muted">수집 기사 분류 현황을 불러오고 있습니다.</span></div>
+  <div id="v481CollectedPreview" class="newsroom-list" style="margin-top:10px">
+    <div class="newsroom-empty"><strong>수집 목록을 불러오고 있습니다.</strong></div>
+  </div>
+  <div class="tiny muted" style="margin-top:8px">최근 항목 최대 12개를 표시합니다. 전체 항목의 수정·삭제·게시 관리는 ‘전체 목록·기사 편집’에서 처리합니다.</div>
+</section>
+
 <div id="newsroomHealthPanel" class="newsroom-health" hidden>
             <strong>AI 운영센터 상태</strong>
             <div id="newsroomHealthDetails" class="tiny muted">확인 버튼을 누르면 Edge Function, OpenAI Secret, 뉴스룸 테이블 연결 상태를 점검합니다.</div>
@@ -1370,7 +1388,7 @@
 
         <section class="layout newsroom-layout">
           <div class="list-panel card">
-            <div class="panel-head"><div><h2>오늘 처리할 후보</h2><p class="tiny muted">게시·제외한 항목은 즉시 목록에서 정리되고, 오래된 미처리 후보도 자동 삭제됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
+            <div class="panel-head"><div><h2>오늘 수집된 기사 전체 목록</h2><p class="tiny muted">위의 요약 목록에서 선택하거나 여기에서 검색·분류한 뒤 기사를 편집할 수 있습니다. 게시·제외한 항목은 목록에서 정리됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
             <div id="newsroomList" class="newsroom-list"></div>
           </div>
           <div class="form-panel card newsroom-review-panel">
