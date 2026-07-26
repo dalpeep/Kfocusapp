@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '48.7.0';
+const VERSION = '48.9.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -115,32 +115,30 @@ async function finishRun(id: any, patch: any) {
 }
 
 async function cleanup(region = 'dallas') {
-  const today = dateKeyInDallas();
-  const staleNoDate = Date.now() - 36 * 60 * 60 * 1000;
+  // V48.9: 일반 수집 기사는 30일 보관 후 자동 삭제합니다.
+  // 관리자가 '보관'한 기사는 기간과 관계없이 유지되며, 관리자 화면에서 직접 삭제할 수 있습니다.
+  const cutoffMs = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const { data: rows, error } = await admin.from('newsroom_items')
-    .select('id,status,source_published_at,collected_at,event_data,original_title,source_name')
+    .select('id,collected_at,source_published_at,event_data')
     .eq('region', region)
-    .limit(1500);
+    .limit(5000);
   if (error) throw error;
 
   const ids: any[] = [];
   for (const row of rows || []) {
-    if (['published', 'excluded'].includes(String(row.status || ''))) { ids.push(row.id); continue; }
-    const ev = eventDates(row);
-    if (ev.end && ev.end < today) { ids.push(row.id); continue; }
-    if (isFutureOrCurrentEvent(row, today)) continue;
-
-    const published = parseDateKey(row.source_published_at);
-    if (published && published < today) { ids.push(row.id); continue; }
-    if (!published) {
-      const collectedMs = new Date(row.collected_at || 0).getTime();
-      if (collectedMs && collectedMs < staleNoDate) ids.push(row.id);
-    }
+    const meta = (row.event_data && typeof row.event_data === 'object') ? row.event_data : {};
+    if (meta.archive_kept === true) continue;
+    const basis = new Date(row.collected_at || row.source_published_at || 0).getTime();
+    if (basis && basis < cutoffMs) ids.push(row.id);
   }
-  if (!ids.length) return { ok: true, cleaned: 0, today };
-  const { data: deleted, error: de } = await admin.from('newsroom_items').delete().in('id', ids).select('id');
-  if (de) throw de;
-  return { ok: true, cleaned: deleted?.length || 0, today };
+  if (!ids.length) return { ok: true, cleaned: 0, retention_days: 30 };
+  let cleaned = 0;
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: deleted, error: de } = await admin.from('newsroom_items').delete().in('id', ids.slice(i, i + 200)).select('id');
+    if (de) throw de;
+    cleaned += deleted?.length || 0;
+  }
+  return { ok: true, cleaned, retention_days: 30 };
 }
 
 async function runStatus(region = 'dallas') {
@@ -485,9 +483,51 @@ async function collectScheduledTopics(region='dallas') {
   return {ok:true,version:VERSION,due:due.length,found:rows.length,inserted,matched_topics:matched};
 }
 
+async function resetDailyEditorialState(region='dallas') {
+  const {data,error}=await admin.from('newsroom_items')
+    .select('id,event_data,priority_score')
+    .eq('region',region)
+    .order('collected_at',{ascending:false})
+    .limit(1000);
+  if(error) throw error;
+  const targets=(data||[]).filter((row:any)=>{
+    const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
+    return String(meta.selection_source||'')==='editor' || meta.home_link_enabled===true || Boolean(meta.home_link_url);
+  });
+  let reset=0;
+  for(let i=0;i<targets.length;i+=20){
+    const batch=targets.slice(i,i+20);
+    const results=await Promise.all(batch.map(async(row:any)=>{
+      const current=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
+      const restored=String(current.previous_selection_source||'ai');
+      const event_data={
+        ...current,
+        selection_source:String(current.selection_source||'')==='editor'?restored:String(current.selection_source||'ai'),
+        previous_selection_source:null,
+        editor_picked_at:null,
+        home_link_enabled:false,
+        home_link_url:null,
+        home_link_label:null,
+        home_link_updated_at:null,
+        daily_editorial_reset_at:new Date().toISOString(),
+      };
+      const {error:updateError}=await admin.from('newsroom_items').update({
+        event_data,
+        priority_score:Number(row.priority_score||0)>=999?50:row.priority_score,
+        updated_at:new Date().toISOString(),
+      }).eq('id',row.id);
+      if(updateError) throw updateError;
+      return 1;
+    }));
+    reset+=results.length;
+  }
+  return {ok:true,reset};
+}
+
 async function autoRun(region='dallas') {
   const run=await startRun(region,'scheduled','V48 planned-first auto run');
   try{
+    const reset=await resetDailyEditorialState(region);
     const cleaned=await cleanup(region);
     const planned=await collectScheduledTopics(region);
     const lanes:any[]=[];
@@ -495,7 +535,7 @@ async function autoRun(region='dallas') {
     let analyzed=0;
     for(let i=0;i<4;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
     await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}`});
-    return {ok:true,version:VERSION,planned,lanes,analyzed,selection_order:['scheduled','ai','editor']};
+    return {ok:true,version:VERSION,reset,planned,lanes,analyzed,selection_order:['scheduled','ai','editor']};
   }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
 }
 
@@ -504,7 +544,11 @@ async function setEditorPick(body:any){
   const {data:item,error}=await admin.from('newsroom_items').select('event_data').eq('id',body.id).single();if(error)throw error;
   const current=(item?.event_data&&typeof item.event_data==='object')?item.event_data:{};
   const enabled=body.enabled!==false;
-  const event_data={...current,selection_source:enabled?'editor':'ai',editor_picked_at:enabled?new Date().toISOString():null,home_link_enabled:enabled?current.home_link_enabled===true:false};
+  const currentSource=String(current.selection_source||'ai');
+  const restoreSource=String(current.previous_selection_source||'ai');
+  const event_data=enabled
+    ? {...current,previous_selection_source:currentSource==='editor'?restoreSource:currentSource,selection_source:'editor',editor_picked_at:new Date().toISOString()}
+    : {...current,selection_source:restoreSource,previous_selection_source:null,editor_picked_at:null};
   const {error:u}=await admin.from('newsroom_items').update({event_data,priority_score:enabled?999:50,updated_at:new Date().toISOString()}).eq('id',body.id);if(u)throw u;
   return {ok:true,version:VERSION};
 }
@@ -526,6 +570,30 @@ async function setHomeLink(body:any){
   const {error:u}=await admin.from('newsroom_items').update({event_data,updated_at:new Date().toISOString()}).eq('id',body.id);
   if(u) throw u;
   return {ok:true,version:VERSION,id:String(body.id),home_link_enabled:enabled,home_link_url:enabled?url:null};
+}
+
+
+async function setArchiveKeep(body:any){
+  if(!body.id) throw new Error('기사 ID가 없습니다.');
+  const {data:item,error}=await admin.from('newsroom_items').select('event_data').eq('id',body.id).single();
+  if(error) throw error;
+  const enabled=body.enabled===true;
+  const event_data={
+    ...(item?.event_data||{}),
+    archive_kept:enabled,
+    archive_kept_at:enabled?new Date().toISOString():null,
+    archive_updated_at:new Date().toISOString(),
+  };
+  const {error:u}=await admin.from('newsroom_items').update({event_data,updated_at:new Date().toISOString()}).eq('id',body.id);
+  if(u) throw u;
+  return {ok:true,version:VERSION,id:String(body.id),archive_kept:enabled};
+}
+
+async function deleteNewsroomItem(body:any){
+  if(!body.id) throw new Error('기사 ID가 없습니다.');
+  const {data,error}=await admin.from('newsroom_items').delete().eq('id',body.id).select('id').maybeSingle();
+  if(error) throw error;
+  return {ok:true,version:VERSION,id:String(body.id),deleted:Boolean(data)};
 }
 
 async function collect(region = 'dallas', scheduled = false, lane = 'practical') {
@@ -815,16 +883,17 @@ async function homeFeed(region = 'dallas') {
     // V48.5: 원문 링크는 수집용 근거로만 보관합니다. 메인에서는 관리자가
     // 기사별로 명시적으로 허용한 링크만 사용합니다. 카테고리 공통 링크도
     // 관리자가 직접 설정한 값이므로 보조 선택지로 유지합니다.
-    const categoryLink=String(homeConfig.category_links?.[def.key]||'').trim();
+    // V48.8: 자동 공개 기사는 기본적으로 링크 없이 노출합니다.
+    // 기사별 링크는 관리자가 해당 기사에서 명시적으로 승인한 경우에만 사용합니다.
     const itemLinkEnabled=meta.home_link_enabled===true;
     const itemLink=itemLinkEnabled?String(meta.home_link_url||'').trim():'';
-    const approvedLink=itemLink || categoryLink;
+    const approvedLink=itemLink;
     proposals.push({
       id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
       title:def.key==='emergency' ? (headline || def.title).slice(0,72) : def.title,
       summary:def.summary, source_title:headline, link:approvedLink, has_link:Boolean(approvedLink),
       link_label:itemLink?String(meta.home_link_label||'자세히 보기'):'',
-      is_sponsored:Boolean(categoryLink), published_at:x.source_published_at||x.collected_at,
+      is_sponsored:false, published_at:x.source_published_at||x.collected_at,
       score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
       selection_source:selectionSource, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
     });
@@ -832,15 +901,18 @@ async function homeFeed(region = 'dallas') {
 
   const rows=proposals.sort((a,b)=>b.score-a.score);
 
-  // V48.6 publication gate:
-  // Once at least one editor-picked article exists, the home feed becomes fully curated.
-  // AI/category/scheduled fallback must not be mixed in. To avoid showing an incomplete
-  // card that tells the user to find the source themselves, an editor-picked article is
-  // public only after the administrator also approves a home link.
+  // V48.8 관리자 운영 모드:
+  // 관리자 지정 자체가 공개 승인입니다. 링크는 선택 사항이며, 같은 카테고리라도
+  // 기사 ID가 다르면 모두 메인 슬라이드에 유지합니다.
   const allEditorRows=rows.filter(x=>x.selection_source==='editor');
-  const publishableEditorRows=allEditorRows.filter(x=>x.has_link);
   if(allEditorRows.length>0){
-    const feed=publishableEditorRows.slice(0,10);
+    const seen=new Set<string>();
+    const feed=allEditorRows.filter((x:any)=>{
+      const key=String(x.source_id||x.id||'');
+      if(!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0,10);
     return {
       ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
       meta:{
@@ -850,8 +922,8 @@ async function homeFeed(region = 'dallas') {
         configured_categories:selected,
         editor_mode:true,
         editor_picked_total:allEditorRows.length,
-        editor_publishable_total:publishableEditorRows.length,
-        editor_waiting_for_link:Math.max(0,allEditorRows.length-publishableEditorRows.length),
+        editor_publishable_total:feed.length,
+        editor_without_link:feed.filter(x=>!x.has_link).length,
         fallback_used:false,
         settings_loaded:true,
       },
@@ -909,7 +981,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -938,6 +1010,8 @@ Deno.serve(async (req) => {
     if (action === 'auto_run') return json(await autoRun(region));
     if (action === 'set_editor_pick') return json(await setEditorPick(body));
     if (action === 'set_home_link') return json(await setHomeLink(body));
+    if (action === 'set_archive_keep') return json(await setArchiveKeep(body));
+    if (action === 'delete_newsroom_item') return json(await deleteNewsroomItem(body));
     if (action === 'analyze') return json(await analyze(body));
     if (action === 'draft') return json(await draft(body));
     if (action === 'get_settings') {
@@ -956,7 +1030,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item'],
     }, 400);
   } catch (e) {
     console.error(e);
