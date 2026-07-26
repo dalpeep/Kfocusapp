@@ -2317,18 +2317,22 @@ async function renderV37AIHome(){
   }
   if(sequence!==v44HomeRenderSequence)return;
   loaded=v461PrepareProposalItems(loaded,v45HomeConfig);
-  if(!loaded.length){
+  const configuredCategories=(v45HomeConfig.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean);
+  if(!loaded.length && !configuredCategories.length){
     loaded=v461PrepareProposalItems(v46FallbackProposalItems(v45HomeConfig),v45HomeConfig);
-    console.info('[V46.1 Home] newsroom feed empty; using local community proposals',{count:loaded.length});
+    console.info('[V47 Home] no configured category and newsroom feed empty; using local community proposals',{count:loaded.length});
+  } else if(!loaded.length) {
+    console.info('[V47 Home] configured categories have no matching current item',{configuredCategories});
   }
   v45ProposalItems=loaded;
+  console.info('[V47 Home] settings-first render',{config:v45HomeConfig,categories:(v45HomeConfig.proposal_categories||[]),items:loaded.map(x=>({category:x.category,title:x.title,source_title:x.source_title}))});
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
   let proposalIndex=0;
   const paintProposal=()=>{
     const item=normal[proposalIndex]||alerts[0];
     const title=document.getElementById('v37BriefTitle'),summary=document.getElementById('v37BriefSummary'),kicker=document.getElementById('v37BriefKicker'),state=document.getElementById('v38AutoState'),tip=document.getElementById('v38BriefTip'),check=document.getElementById('v38BriefChecklist');
-    if(!item){if(title)title.textContent='오늘 확인할 제안';if(summary)summary.textContent='새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';return;}
+    if(!item){if(title)title.textContent='선택한 분야의 새 소식을 기다리고 있습니다.';if(summary)summary.textContent=(v45HomeConfig.proposal_categories||[]).length?'관리자에서 선택한 분야에 맞는 소식이 수집되면 이곳에 표시됩니다.':'새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';if(kicker)kicker.textContent='달타운 제안';if(state)state.textContent='';if(check)check.innerHTML='';return;}
     if(title)title.textContent=`${item.icon||'✨'} ${item.title}`;
     if(kicker)kicker.textContent=item.category_label||'달타운 제안';
     if(summary)summary.textContent=v38Text(item.summary,250);
