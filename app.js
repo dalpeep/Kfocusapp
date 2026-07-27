@@ -5907,10 +5907,10 @@ function initIosInstallBanner() {
 
   const context = getIosBrowserContext();
   const isSafari = context === 'safari';
-  if (title) title.textContent = isSafari ? '홈 화면에 추가하고 더 편하게 사용하세요' : 'Safari에서 열면 홈 화면에 설치할 수 있어요';
+  if (title) title.textContent = isSafari ? '홈 화면에 추가 후 편리하게 이용하세요' : 'Safari에서 열어 홈 화면에 추가하세요';
   if (desc) desc.innerHTML = isSafari
-    ? '버튼 위치를 그림으로 한 단계씩 안내해 드립니다.'
-    : '현재 브라우저에서는 설치 메뉴가 보이지 않을 수 있습니다. Safari로 여는 방법부터 안내합니다.';
+    ? '공유 버튼 위치부터 그림으로 쉽게 안내해 드립니다.'
+    : '현재 브라우저에서는 홈 화면 추가 메뉴가 보이지 않을 수 있습니다. Safari로 여는 방법부터 안내합니다.';
 
   let stepIndex = 0;
   let steps = iosGuideSteps(context);
@@ -6047,7 +6047,7 @@ function initAndroidInstallBanner() {
 
     if (!deferredInstallPrompt) {
       console.log('[PWA] deferredInstallPrompt is null');
-      alert('아직 설치 창을 띄울 수 없는 상태입니다. 잠시 후 다시 시도해 주세요.');
+      alert('아직 홈 화면 추가 창을 띄울 수 없는 상태입니다. 잠시 후 다시 시도해 주세요.');
       return;
     }
 
