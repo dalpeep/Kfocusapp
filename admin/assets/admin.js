@@ -5194,7 +5194,7 @@ function updateNewsroomUsageControls(){
   const homeBox=qs('newsroomHomeOptions'),sourceBox=qs('newsroomSourceLinkOptions');if(homeBox)homeBox.hidden=!home;if(sourceBox)sourceBox.hidden=!article;
   updateNewsroomSpecialBoxes();
   const target=qs('newsroomHomeTargetMode');if(target){const postOpt=target.querySelector('option[value="post"]');if(postOpt)postOpt.disabled=!article;if(!article&&target.value==='post')target.value='business';}
-  const btn=qs('newsroomPublishBtn');if(btn)btn.textContent=article&&home?'기사 발행 + 메인 노출':article?'게시판 기사 발행':home?'메인에만 노출':'선택한 방식으로 적용';
+  const btn=qs('newsroomPublishBtn');if(btn)btn.textContent=article&&home?'게시판 발행 + 메인 노출':article?'게시판에 기사 발행':home?'메인에만 노출':'노출 방식 선택';
 }
 function newsroomSelectedBusinessIds(){return Array.from(newsroomBusinessSelection);}
 function newsroomEventPayload(){return {name:val('newsroomEventName'),venue:val('newsroomEventVenue'),start_at:fromLocal(val('newsroomEventStart')),end_at:fromLocal(val('newsroomEventEnd')),address:val('newsroomEventAddress'),cost:val('newsroomEventCost'),organizer:val('newsroomEventOrganizer')};}
@@ -5211,7 +5211,7 @@ function newsroomEventBlock(ev){const parts=[ev.name&&`행사명: ${ev.name}`,ev
 async function publishNewsroom(){
   if(!selectedNewsroomId)return;
   const publishArticle=Boolean(qs('newsroomPublishArticle')?.checked),showHome=Boolean(qs('newsroomHomeShow')?.checked);
-  if(!publishArticle&&!showHome)return alert('게시판 기사 발행 또는 오늘의 달타운 메인 노출 중 하나를 선택하세요.');
+  if(!publishArticle&&!showHome)return alert('게시판에 기사로 발행하거나 메인 오늘의 달타운에 노출할지 선택하세요.');
   const saved=await saveNewsroomReview('review');if(!saved)return;
   const row=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId))||{};
   let postId=null;

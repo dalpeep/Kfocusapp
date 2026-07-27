@@ -2273,6 +2273,7 @@ function v46FallbackProposalItems(config={}){
 function v461NormalizeProposalCategory(value=''){
   const s=String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
   const aliases={
+    business:'business',business_promotion:'business','업소':'business','업소 추천':'business','업체 추천':'business',
     shopping:'shopping',market:'shopping',grocery:'shopping',sale:'shopping','쇼핑':'shopping','쇼핑·마켓':'shopping','마트':'shopping',
     weather:'weather',heat:'weather',heat_advisory:'weather','기상':'weather','날씨':'weather',
     traffic:'traffic',transportation:'traffic','교통':'traffic',
@@ -2288,6 +2289,7 @@ function v461NormalizeProposalCategory(value=''){
 }
 function v461CategoryDefinition(key){
   return {
+    business:{label:'업소 추천',icon:'🏪',re:/(업소|업체|비즈니스|business|카페|식당|미용실|병원|학원|마트|추천)/i,title:'오늘의 추천 업소',summary:'달타운맵에서 선택한 업소를 소개합니다.'},
     shopping:{label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'이번 주 마켓·쇼핑',summary:'오늘 확인된 마켓·쇼핑 정보를 살펴보고 필요한 품목과 행사 기간을 확인해 보세요.'},
     weather:{label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 일정을 조정해 보세요.',summary:'외출 전 최신 기상 안내를 확인하고 날씨에 맞게 이동 시간과 준비물을 조정해 보세요.'},
     traffic:{label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'DFW 교통 정보',summary:'정체·사고·공사 가능성을 확인하고 필요하면 우회 경로와 출발 시간을 조정해 보세요.'},
@@ -2307,7 +2309,7 @@ function v461PrepareProposalItems(items=[],config={}){
     let key=v461NormalizeProposalCategory(raw?.category||raw?.category_key||raw?.category_label||'');
     const sourceText=`${raw?.source_title||''} ${raw?.original_title||''} ${raw?.summary||''}`;
     if(!key||!v461CategoryDefinition(key)){
-      key=['shopping','weather','traffic','event','education','real_estate','finance','seminar','faith'].find(k=>v461CategoryDefinition(k).re.test(sourceText))||'';
+      key=['business','shopping','weather','traffic','event','education','real_estate','finance','seminar','faith'].find(k=>v461CategoryDefinition(k).re.test(sourceText))||'';
     }
     if(!emergency && selected.size && !selected.has(key)) continue;
     const def=v461CategoryDefinition(key);
@@ -2319,7 +2321,8 @@ function v461PrepareProposalItems(items=[],config={}){
       item.title=item.title||def.title;
       // 카테고리와 요약 내용이 맞지 않으면 다른 업소/기사 문구를 노출하지 않고 안전한 제안문으로 교체합니다.
       const summary=String(item.summary||'').trim();
-      item.summary=(summary && def.re.test(`${item.source_title||''} ${item.original_title||''} ${summary}`)) ? summary : def.summary;
+      const adminSelected=v51IsAdminSelected(item);
+      item.summary=adminSelected&&summary ? summary : ((summary && def.re.test(`${item.source_title||''} ${item.original_title||''} ${summary}`)) ? summary : def.summary);
     }
     result.push(item);
   }
