@@ -827,3 +827,13 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .v511-link-close{border:0;background:#f1f5f9;width:36px;height:36px;border-radius:50%;font-size:24px;line-height:1;cursor:pointer}.v511-link-source{padding:11px 13px;border-radius:12px;background:#eff6ff;color:#1e3a8a;margin-bottom:14px;line-height:1.45}
 .v511-link-modal .field{display:grid;gap:6px;margin-top:12px}.v511-link-modal .field>span{font-size:13px;font-weight:800;color:#334155}.v511-link-modal input,.v511-link-modal select{width:100%;border:1px solid #cbd5e1;border-radius:10px;padding:10px 11px;background:#fff}.v511-link-modal select[size]{min-height:190px;padding:5px}.v511-link-modal select[size] option{padding:9px 8px;border-radius:7px}
 .v511-link-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}@media(max-width:600px){.v511-link-modal-backdrop{padding:8px;align-items:end}.v511-link-modal{border-radius:18px 18px 0 0;max-height:94vh;padding:17px}.v511-link-modal-actions .btn{flex:1}}
+
+/* V51.2 AI 기사 목록의 오늘의 달타운 직접 관리 */
+.v512-home-guide{border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#ffffff)}
+.v512-guide-steps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:14px;color:#334155}
+.v512-guide-steps span:not(:nth-child(even)){padding:9px 12px;border-radius:10px;background:#fff;border:1px solid #dbeafe}
+.v512-guide-steps b{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#2563eb;color:#fff;margin-right:5px}
+.v512-home-toggle{display:flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;font-weight:800;white-space:nowrap;cursor:pointer;margin-top:5px}
+.v512-home-toggle input{width:19px;height:19px;accent-color:#2563eb}
+.v512-home-toggle.is-on{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
+@media(max-width:720px){.v512-guide-steps>span:nth-child(even){display:none}.v512-guide-steps{align-items:stretch}.v512-guide-steps span:not(:nth-child(even)){width:100%}.v512-home-toggle{width:100%;justify-content:center}}

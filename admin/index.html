@@ -1296,7 +1296,7 @@
       <section id="section-newsroom" class="admin-section">
         <section class="card newsroom-hero">
           <div class="panel-head">
-            <div><h2>AI 운영센터</h2><p class="muted">초기 설치 후에는 이 화면에서 수집·분류·기사 작성·업소 연결·게시까지 처리합니다. 예정 기사를 우선 찾고, 없으면 AI가 자동 선별합니다. 관리자는 나중에 수정·고정·삭제할 수 있습니다.</p></div>
+            <div><h2>AI 운영센터</h2><p class="muted">AI 기사 작성과 기사 목록 관리, 오늘의 달타운 메인 노출, 업소·게시판 연결을 이 화면에서 한 번에 처리합니다.</p></div>
             <span class="pill" id="newsroomAutoBadge">Supabase 자동 수집 준비</span>
           </div>
           <div class="newsroom-actions">
@@ -1360,6 +1360,11 @@
           </div>
         </section>
 
+        <section class="card v512-home-guide" style="margin-top:14px">
+          <div class="panel-head"><div><h3>오늘의 달타운 등록 방법</h3><p class="tiny muted">아래 AI 기사 목록에서 노출 여부와 연결 대상을 바로 관리합니다.</p></div></div>
+          <div class="v512-guide-steps"><span><b>1</b> 기사 확인</span><span>→</span><span><b>2</b> 오늘의 달타운 노출 체크</span><span>→</span><span><b>3</b> 업소·게시판 연결 설정</span></div>
+        </section>
+
         <section class="toolbar card newsroom-toolbar">
           <div class="toolbar-row">
             <label class="field compact"><span>검색</span><input id="newsroomSearch" type="text" placeholder="제목, 출처, 지역"></label>
@@ -1371,7 +1376,7 @@
         <section class="layout newsroom-layout">
           <div class="list-panel card">
             <div class="panel-head" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
-              <div><h2>오늘 수집된 기사</h2><p class="tiny muted">기사 선택, 검토, 관리자 지정, 내부 연결, 보관과 삭제를 한 목록에서 처리합니다.</p><div id="v48CategorySummary" class="tiny muted" style="margin-top:6px"></div><div id="v482SelectionStatus" class="tiny muted" style="margin-top:5px">선택된 기사 0건</div></div>
+              <div><h2>AI 기사 목록 · 오늘의 달타운 관리</h2><p class="tiny muted">기사마다 ‘오늘의 달타운 노출’을 켜고, 필요하면 업소 또는 게시판 글을 연결하세요. 연결이 없는 정보는 버튼 없이 표시됩니다.</p><div id="v48CategorySummary" class="tiny muted" style="margin-top:6px"></div><div id="v482SelectionStatus" class="tiny muted" style="margin-top:5px">선택된 기사 0건</div></div>
               <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
                 <span id="newsroomListCount" class="muted" style="align-self:center">0개</span>
                 <button id="v482SelectAllBtn" class="btn ghost" type="button">전체 선택</button>
