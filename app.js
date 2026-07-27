@@ -24,6 +24,9 @@ let selectedBizId = businesses[0]?.id || null;
 let currentUser = null;
 let authClient = null;
 let currentLocationMarker = null;
+let currentLocationPosition = null;
+let currentLocationWatchId = null;
+let currentLocationTrackingEnabled = false;
 let suppressMapUiChange = false;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; let selectedMapBusinessId = ''; let mapVisibleCounts = { business:0, coupon:0, event:0 }; let mapVisibleCategoryCounts = {}; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
@@ -4659,7 +4662,11 @@ function initGoogleMap(){
     mapInfoWindow = new google.maps.InfoWindow();
     currentCenter = getRegionCenter(currentRegion);
 function showCurrentLocationMarker(position) {
-  if (!map || !window.google?.maps) return;
+  if (!map || !window.google?.maps || !position) return;
+
+  currentLocationPosition = { lat: Number(position.lat), lng: Number(position.lng) };
+  if (!Number.isFinite(currentLocationPosition.lat) || !Number.isFinite(currentLocationPosition.lng)) return;
+  position = currentLocationPosition;
 
   /*
     DalTownMap 현재 위치 브랜드 핀
@@ -4849,13 +4856,14 @@ class CurrentLocationBubbleOverlay extends google.maps.OverlayView {
 }
 
 function ensureCurrentLocationBubble() {
-  if (!map || !currentCenter) return null;
+  const position = currentLocationPosition || currentCenter;
+  if (!map || !position) return null;
 
   if (!currentLocationBubbleOverlay) {
-    currentLocationBubbleOverlay = new CurrentLocationBubbleOverlay(currentCenter);
+    currentLocationBubbleOverlay = new CurrentLocationBubbleOverlay(position);
     currentLocationBubbleOverlay.setMap(map);
   } else {
-    currentLocationBubbleOverlay.setPosition(currentCenter);
+    currentLocationBubbleOverlay.setPosition(position);
   }
 
   return currentLocationBubbleOverlay;
@@ -4868,8 +4876,8 @@ function setMapUiState(state) {
     mapDirty = false;
 
     if (bubble) {
-      bubble.setPosition(currentCenter);
-      bubble.setVisible(true);
+      bubble.setPosition(currentLocationPosition || currentCenter);
+      bubble.setVisible(Boolean(currentLocationPosition));
     }
 
     if (mapSearchAreaBtn) {
@@ -4883,7 +4891,10 @@ function setMapUiState(state) {
   if (state === 'dirty') {
     mapDirty = true;
 
-    if (bubble) bubble.setVisible(false);
+    if (bubble) {
+      bubble.setPosition(currentLocationPosition || currentCenter);
+      bubble.setVisible(Boolean(currentLocationPosition));
+    }
 
     if (mapSearchAreaBtn) {
       mapSearchAreaBtn.classList.remove('hidden');
@@ -4900,7 +4911,10 @@ function setMapUiState(state) {
   }
 
   mapDirty = false;
-  if (bubble) bubble.setVisible(false);
+  if (bubble) {
+    bubble.setPosition(currentLocationPosition || currentCenter);
+    bubble.setVisible(Boolean(currentLocationPosition));
+  }
 
   if (mapSearchAreaBtn) {
     mapSearchAreaBtn.classList.add('hidden');
@@ -4932,6 +4946,33 @@ map.addListener('zoom_changed', () => {
 
   activateMapSearchAreaButton();
 });
+
+function startCurrentLocationTracking() {
+  if (!navigator.geolocation || currentLocationWatchId !== null) return;
+
+  currentLocationTrackingEnabled = true;
+  currentLocationWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (!currentLocationTrackingEnabled) return;
+      const nextPosition = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+      showCurrentLocationMarker(nextPosition);
+      const bubble = ensureCurrentLocationBubble();
+      if (bubble) {
+        bubble.setPosition(nextPosition);
+        bubble.setVisible(true);
+      }
+    },
+    (error) => console.warn('현재 위치 추적을 갱신하지 못했습니다.', error),
+    {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 30000
+    }
+  );
+}
 
 const applyCenter = () => {
   if (TEST_FORCE_CENTER || !navigator.geolocation) {
@@ -4986,6 +5027,7 @@ setTimeout(() => {
       map.setZoom(11);
 
       showCurrentLocationMarker(currentCenter);
+      startCurrentLocationTracking();
 
       mapRadius = radiusByZoom(11);
       redrawMapMarkers();
@@ -5196,6 +5238,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       map.setZoom(zoom);
       mapRadius = radiusByZoom(zoom);
       showCurrentLocationMarker(currentCenter);
+      startCurrentLocationTracking();
       redrawMapMarkers();
       setTimeout(()=>panMapAboveBottomPanel(currentCenter.lat, currentCenter.lng), 120);
       google.maps.event.addListenerOnce(map, 'idle', ()=>{
