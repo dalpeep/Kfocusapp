@@ -4934,7 +4934,7 @@ async function loadNewsroom(){
   safeText('newsroomStatus','수집 후보를 불러오는 중입니다.');
   const {data,error}=await supabase.from('newsroom_items').select('*').eq('region',getAppRegion()).in('status',['collected','classified','review']).order('collected_at',{ascending:false}).limit(300);
   if(error){safeText('newsroomStatus',`뉴스룸 테이블 연결 필요: ${error.message}`); newsroomItems=[]; renderNewsroom(); return;}
-  newsroomItems=data||[]; safeText('newsroomStatus',`미처리 후보 ${newsroomItems.length}건 · 마지막 확인 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`); renderNewsroom(); loadNewsroomRunStatus(); v531LoadHomeDashboard();
+  newsroomItems=data||[]; safeText('newsroomStatus',`미처리 후보 ${newsroomItems.length}건 · 마지막 확인 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`); renderNewsroom(); v531LoadHomeDashboard();
 }
 function filteredNewsroom(){
   const q=(val('newsroomSearch')||'').toLowerCase().trim(); const dest=val('newsroomDestinationFilter')||'all'; const source=val('newsroomSourceFilter')||'all';
@@ -5276,7 +5276,7 @@ async function publishNewsroom(){
     try{await newsroomEdgeCall('set_editor_pick',{id:selectedNewsroomId,enabled:false,region:getAppRegion()});await newsroomEdgeCall('set_home_link',{id:selectedNewsroomId,enabled:false,target_type:'',target_id:'',label:'',region:getAppRegion()});}catch(_){ }
   }
   alert(publishArticle&&showHome?'게시판 기사 발행과 메인 노출을 완료했습니다.':publishArticle?'게시판 기사만 발행했습니다.':'게시판 기사 없이 오늘의 달타운 메인에만 노출했습니다.');
-  selectedNewsroomId=null;newsroomBusinessSelection=new Set();qs('newsroomForm').hidden=true;qs('newsroomEmpty').hidden=false;await Promise.all([loadBoards(),loadNewsroom()]);
+  selectedNewsroomId=null;newsroomBusinessSelection=new Set();const form=qs('newsroomForm');if(form)form.hidden=true;const empty=qs('newsroomEmpty');if(empty)empty.hidden=false;await Promise.all([loadBoards(),loadNewsroom()]);
 }
 
 function v531HomeCategoryLabel(key){return ({weather:'날씨',traffic:'교통',shopping:'마켓 정보',event:'행사 안내',business:'관리자 지정 광고·업소',emergency:'긴급 안내',education:'교육',real_estate:'부동산',finance:'은행·금융'})[String(key||'')]||String(key||'기타');}
