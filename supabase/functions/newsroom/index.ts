@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '52.1.0';
+const VERSION = '53.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -611,6 +611,8 @@ async function ensureDailyCoreBriefs(region='dallas') {
   const now = new Date().toISOString();
   const results:any = { ok:true, version:VERSION, weather:null, traffic:null };
   const create = async(kind:string, payload:any) => {
+    const category = kind === 'weather' ? 'weather' : 'traffic';
+    const icon = kind === 'weather' ? '☀️' : '🚗';
     const duplicateKey = `daily-core-${kind}-${region}-${today}`;
     const {data:exists,error:ee}=await admin.from('newsroom_items').select('id,event_data').eq('duplicate_key',duplicateKey).maybeSingle();
     if(ee) throw ee;
@@ -623,8 +625,6 @@ async function ensureDailyCoreBriefs(region='dallas') {
       if(ue) throw ue;
       return {created:false,refreshed:true,id:exists.id,title:payload.title};
     }
-    const category = kind === 'weather' ? 'weather' : 'traffic';
-    const icon = kind === 'weather' ? '☀️' : '🚗';
     const {data,error}=await admin.from('newsroom_items').insert({
       region, original_title:payload.title, original_summary:payload.summary,
       original_url:`internal://daily-core/${kind}/${today}`, source_name:payload.source_name,
@@ -728,6 +728,67 @@ async function resetDailyEditorialState(region='dallas') {
   return {ok:true,reset};
 }
 
+
+function marketText(html='') {
+  return decodeXml(String(html)
+    .replace(/<script[\s\S]*?<\/script>/gi,' ')
+    .replace(/<style[\s\S]*?<\/style>/gi,' ')
+    .replace(/<[^>]+>/g,' ')
+    .replace(/\s+/g,' ')
+    .trim());
+}
+function marketFingerprint(value='') {
+  let h=2166136261;
+  for(const ch of String(value)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}
+  return (h>>>0).toString(16);
+}
+function clipAround(text='', re:RegExp, radius=240) {
+  const m=String(text).match(re); if(!m||m.index==null) return String(text).slice(0,radius*2);
+  return String(text).slice(Math.max(0,m.index-radius),Math.min(String(text).length,m.index+radius)).trim();
+}
+async function fetchDirectMarketCandidates() {
+  const sources=[
+    {key:'zion-texas',name:'Zion Market',url:'https://zionmarket.com/event/',kind:'zion'},
+    {key:'hmart-online-sale',name:'H Mart',url:'https://www.hmart.com/sale?map=productClusterIds',kind:'hmart'},
+  ];
+  const settled=await Promise.allSettled(sources.map(async(src)=>{
+    const html=await fetchTextWithTimeout(src.url,15000);
+    const text=marketText(html);
+    if(!text) throw new Error(`${src.name} 페이지 내용이 비어 있습니다.`);
+    if(src.kind==='zion'){
+      const hasTexas=/\bTexas\b|\bTX\b|Lewisville/i.test(text);
+      if(!hasTexas) throw new Error('Zion Market 페이지에서 Texas/Lewisville 정보를 확인하지 못했습니다.');
+      const duration=text.match(/Event Duration\s*:?\s*([0-9/\-\s]+(?:202\d)?)/i)?.[1]?.trim()||'';
+      const snippet=clipAround(text,/(Texas|Lewisville|Event Duration|Weekly Sale)/i,300);
+      const fingerprint=marketFingerprint(`${duration}|${snippet}`);
+      return {duplicate_key:'market-direct-zion-texas',fingerprint,original_title:'Zion Market Texas 이벤트·세일 정보',original_summary:(duration?`행사 기간 ${duration}. `:'')+snippet.slice(0,700),original_url:src.url,source_name:src.name,source_kind:'market_direct',area:'Lewisville · Dallas-Fort Worth',category_keywords:['shopping','market','zion','texas'],event_data:{market_source:'zion',market_scope:'texas',fingerprint,home_category:'shopping'}};
+    }
+    const weekly=clipAround(text,/(Weekly Sale|Flash Sale|Online Exclusive Deals)/i,500);
+    const fingerprint=marketFingerprint(weekly);
+    return {duplicate_key:'market-direct-hmart-online',fingerprint,original_title:'H Mart 온라인 세일 정보',original_summary:`H Mart 웹사이트의 온라인 세일 정보입니다. 매장별 가격과 재고는 다를 수 있습니다. ${weekly.slice(0,700)}`,original_url:src.url,source_name:src.name,source_kind:'market_direct',area:'Online · Dallas-Fort Worth residents',category_keywords:['shopping','market','hmart','online_sale'],event_data:{market_source:'hmart',market_scope:'online',fingerprint,home_category:'shopping',store_price_notice:true}};
+  }));
+  const items:any[]=[];const warnings:string[]=[];
+  settled.forEach((r,i)=>{if(r.status==='fulfilled')items.push(r.value);else warnings.push(`${sources[i].name}: ${r.reason instanceof Error?r.reason.message:String(r.reason)}`)});
+  return {items,warnings};
+}
+async function collectDirectMarkets(region='dallas') {
+  const now=new Date().toISOString();
+  const {items,warnings}=await fetchDirectMarketCandidates();
+  let inserted=0,updated=0,unchanged=0;
+  for(const item of items){
+    const {data:existing,error:readError}=await admin.from('newsroom_items').select('id,event_data').eq('region',region).eq('duplicate_key',item.duplicate_key).maybeSingle();
+    if(readError) throw readError;
+    const oldMeta=(existing?.event_data&&typeof existing.event_data==='object')?existing.event_data:{};
+    if(existing&&String(oldMeta.fingerprint||'')===String(item.fingerprint||'')){
+      const {error}=await admin.from('newsroom_items').update({collected_at:now,updated_at:now}).eq('id',existing.id);if(error)throw error;unchanged++;continue;
+    }
+    const payload={region,original_title:item.original_title,original_summary:item.original_summary,original_url:item.original_url,source_name:item.source_name,source_kind:item.source_kind,source_published_at:now,area:item.area,status:'collected',confidence:0,fact_status:'needs_review',duplicate_key:item.duplicate_key,category_keywords:item.category_keywords,priority_level:'normal',priority_score:40,suggested_destination:'life',event_data:{...item.event_data,market_collected_at:now},collected_at:now,updated_at:now};
+    if(existing){const {error}=await admin.from('newsroom_items').update(payload).eq('id',existing.id);if(error)throw error;updated++;}
+    else{const {error}=await admin.from('newsroom_items').insert(payload);if(error)throw error;inserted++;}
+  }
+  return {ok:true,version:VERSION,found:items.length,inserted,updated,unchanged,warnings,sources:['Zion Market Texas event','H Mart online sale']};
+}
+
 async function autoRun(region='dallas') {
   const run=await startRun(region,'scheduled','V49 daily content engine auto run');
   try{
@@ -735,13 +796,14 @@ async function autoRun(region='dallas') {
     const cleaned=await cleanup(region);
     const planned=await collectScheduledTopics(region);
     const dailyCore=await ensureDailyCoreBriefs(region);
+    let markets:any=null;try{markets=await collectDirectMarkets(region);}catch(e){markets={ok:false,error:e instanceof Error?e.message:String(e)};}
     const lanes:any[]=[];
     for(const lane of ['practical','shopping','events','korean','korea']){try{lanes.push(await collect(region,false,lane));}catch(e){lanes.push({lane,error:e instanceof Error?e.message:String(e)});}}
     const dailyScenario=await ensureDailyLifestyleScenario(region);
     let analyzed=0;
     for(let i=0;i<5;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
     await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}`});
-    return {ok:true,version:VERSION,reset,planned,dailyCore,lanes,dailyScenario,analyzed,selection_order:['daily_weather','daily_traffic','shopping','editor']};
+    return {ok:true,version:VERSION,reset,planned,dailyCore,markets,lanes,dailyScenario,analyzed,selection_order:['daily_weather','daily_traffic','editor_markets','editor_events','editor_business']};
   }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
 }
 
@@ -1254,7 +1316,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -1280,6 +1342,7 @@ Deno.serve(async (req) => {
     if (action === 'save_scheduled_topic') return json(await saveScheduledTopic({...body,region}));
     if (action === 'delete_scheduled_topic') return json(await deleteScheduledTopic(body));
     if (action === 'collect_scheduled_topics') return json(await collectScheduledTopics(region));
+    if (action === 'collect_markets') return json(await collectDirectMarkets(region));
     if (action === 'auto_run') return json(await autoRun(region));
     if (action === 'set_editor_pick') return json(await setEditorPick(body));
     if (action === 'set_home_link') return json(await setHomeLink(body));
@@ -1304,7 +1367,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
     }, 400);
   } catch (e) {
     console.error(e);
