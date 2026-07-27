@@ -2492,7 +2492,11 @@ async function v51RefreshToday(){
   const btn=document.getElementById('v51TodayRefresh');
   if(btn){btn.disabled=true;btn.classList.add('is-loading');}
   try{
-    const [mainData,netlifyEditorItems,directEditorItems]=await Promise.all([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    const settled=await Promise.allSettled([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    const mainData=settled[0].status==='fulfilled'?settled[0].value:{items:[],config:v45HomeConfig||{},meta:{partial:true}};
+    const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
+    const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
+    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Today] partial source failed',i,r.reason);});
     v45HomeConfig=mainData.config||v45HomeConfig||{};
     const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
@@ -2521,7 +2525,11 @@ async function renderV37AIHome(){
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
   let loaded=[];let feedMeta={};
   try{
-    const [mainData,netlifyEditorItems,directEditorItems]=await Promise.all([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    const settled=await Promise.allSettled([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    const mainData=settled[0].status==='fulfilled'?settled[0].value:{items:[],config:{},meta:{partial:true}};
+    const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
+    const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
+    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Home] partial source failed',i,r.reason);});
     loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;

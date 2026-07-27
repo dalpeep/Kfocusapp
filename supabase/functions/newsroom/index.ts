@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '52.0.0';
+const VERSION = '52.1.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -183,6 +183,12 @@ const LANE_QUERIES: Record<string, string[]> = {
     'Plano ISD Frisco ISD Lewisville ISD Carrollton Farmers Branch ISD Coppell ISD school closure delay bus route',
     'Dallas ISD Richardson ISD Allen ISD McKinney ISD Garland ISD school alert attendance change',
     'DFW airport delay DART TxDOT Dallas advisory',
+    'site:wfaa.com Dallas OR Plano OR Frisco OR Carrollton OR DFW',
+    'site:nbcdfw.com Dallas OR Plano OR Frisco OR Carrollton OR DFW',
+    'site:fox4news.com Dallas OR Plano OR Frisco OR Carrollton OR DFW',
+    'site:cbsnews.com/texas Dallas OR Plano OR Frisco OR Carrollton OR DFW',
+    'site:dallasnews.com Dallas OR Plano OR Frisco OR Carrollton OR DFW',
+    'site:communityimpact.com Dallas OR Plano OR Frisco OR Carrollton',
   ],
 };
 
@@ -326,6 +332,66 @@ function parseRssOrAtom(xml: string, source: any) {
     };
   }).filter((x) => x.original_title && x.original_url);
 }
+
+function parseArticlePublishedAt(html: string) {
+  const raw = String(html || '');
+  const candidates: string[] = [];
+  const metaPatterns = [
+    /<meta[^>]+property=["']article:published_time["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']article:published_time["']/i,
+    /<meta[^>]+name=["']date["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+name=["']pubdate["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+itemprop=["']datePublished["'][^>]+content=["']([^"']+)["']/i,
+    /<time[^>]+datetime=["']([^"']+)["']/i,
+    /["']datePublished["']\s*:\s*["']([^"']+)["']/i,
+    /["']uploadDate["']\s*:\s*["']([^"']+)["']/i,
+  ];
+  for (const re of metaPatterns) {
+    const m = raw.match(re);
+    if (m?.[1]) candidates.push(m[1]);
+  }
+  const text = decodeXml(raw.slice(0, 220000));
+  const textPatterns = [
+    /(20\d{2})[.\/-]\s*(\d{1,2})[.\/-]\s*(\d{1,2})(?:\s+(\d{1,2}):(\d{2}))?/,
+    /(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일(?:\s+(\d{1,2}):(\d{2}))?/,
+  ];
+  for (const re of textPatterns) {
+    const m = text.match(re);
+    if (m) {
+      const y=m[1], mo=String(m[2]).padStart(2,'0'), d=String(m[3]).padStart(2,'0');
+      const hh=String(m[4]||'12').padStart(2,'0'), mm=String(m[5]||'00').padStart(2,'0');
+      candidates.push(`${y}-${mo}-${d}T${hh}:${mm}:00-05:00`);
+      break;
+    }
+  }
+  for (const value of candidates) {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getTime() <= Date.now() + 86400000) return d.toISOString();
+  }
+  return null;
+}
+async function enrichDirectPublishedDates(items: any[], maxItems = 24) {
+  const selected = items.filter((x:any)=>!x.source_published_at && /^https?:/i.test(String(x.original_url||''))).slice(0,maxItems);
+  for (let i=0;i<selected.length;i+=6) {
+    const batch=selected.slice(i,i+6);
+    const settled=await Promise.allSettled(batch.map(async(item:any)=>{
+      const html=await fetchTextWithTimeout(item.original_url,10000);
+      const published=parseArticlePublishedAt(html);
+      if (published) item.source_published_at=published;
+      return published;
+    }));
+    settled.forEach((r,j)=>{ if(r.status==='rejected') console.warn('article date lookup failed',batch[j]?.original_url,String(r.reason)); });
+  }
+  return items;
+}
+function sourceFreshnessHours(item:any, lane:string) {
+  if (lane==='events') return 24*14;
+  const name=String(item?.source_name||'').toLowerCase();
+  if (/ktn|koreatown|주간 포커스|weekly focus/.test(name)) return 72;
+  if (/달사람|dalsaram|dalkora|dk net/.test(name)) return 96;
+  return 72;
+}
+
 async function fetchKoreanDirectSources() {
   const tasks = KOREAN_DIRECT_SOURCES.flatMap((source) => source.urls.map(async (url) => {
     const text = await fetchTextWithTimeout(url, 14000);
@@ -340,6 +406,7 @@ async function fetchKoreanDirectSources() {
     if (r.status === 'fulfilled') items.push(...r.value.items);
     else warnings.push(r.reason instanceof Error ? r.reason.message : String(r.reason));
   });
+  await enrichDirectPublishedDates(items, 30);
   return { items, warnings };
 }
 
@@ -545,9 +612,17 @@ async function ensureDailyCoreBriefs(region='dallas') {
   const results:any = { ok:true, version:VERSION, weather:null, traffic:null };
   const create = async(kind:string, payload:any) => {
     const duplicateKey = `daily-core-${kind}-${region}-${today}`;
-    const {data:exists,error:ee}=await admin.from('newsroom_items').select('id').eq('duplicate_key',duplicateKey).maybeSingle();
+    const {data:exists,error:ee}=await admin.from('newsroom_items').select('id,event_data').eq('duplicate_key',duplicateKey).maybeSingle();
     if(ee) throw ee;
-    if(exists) return {created:false,id:exists.id,title:payload.title};
+    if(exists) {
+      const event_data={...(exists.event_data||{}),selection_source:'daily_core',daily_core:true,category,icon,subtitle:payload.subtitle,generated_for_date:today,refreshed_at:now};
+      const {error:ue}=await admin.from('newsroom_items').update({
+        original_title:payload.title,original_summary:payload.summary,source_name:payload.source_name,
+        source_published_at:now,ai_title:payload.title,ai_summary:payload.summary,event_data,updated_at:now,
+      }).eq('id',exists.id);
+      if(ue) throw ue;
+      return {created:false,refreshed:true,id:exists.id,title:payload.title};
+    }
     const category = kind === 'weather' ? 'weather' : 'traffic';
     const icon = kind === 'weather' ? '☀️' : '🚗';
     const {data,error}=await admin.from('newsroom_items').insert({
@@ -794,11 +869,16 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
     // Collection must be useful even when exact same-day coverage is sparse.
     // Keep recent practical/news items for 72 hours, and event candidates for 14 days.
     const nowMs = Date.now();
-    const maxAgeMs = normalizedLane === 'events' ? 14 * 86400000 : 72 * 3600000;
     const recent = fetched.filter((x) => {
-      if (!x.source_published_at) return true;
+      // V52.1: Korean weekly/community pages must be selected by the article's actual publication date,
+      // never by the listing page's changing date or the time we happened to crawl it.
+      if (!x.source_published_at) {
+        return normalizedLane !== 'korean' && normalizedLane !== 'korea';
+      }
       const ms = new Date(x.source_published_at).getTime();
-      return Number.isNaN(ms) || nowMs - ms <= maxAgeMs;
+      if (Number.isNaN(ms)) return normalizedLane !== 'korean' && normalizedLane !== 'korea';
+      const maxAgeMs = sourceFreshnessHours(x, normalizedLane) * 3600000;
+      return nowMs >= ms && nowMs - ms <= maxAgeMs;
     });
 
     const unique = new Map<string, any>();
@@ -1174,7 +1254,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -1224,7 +1304,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources'],
     }, 400);
   } catch (e) {
     console.error(e);
