@@ -1,5 +1,5 @@
 // DalTownMap V45.3.0 recommended-business mode fix
-console.log('[DalTownMap] v8.5 business visibility fix loaded');
+console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
@@ -2398,6 +2398,20 @@ async function v51LoadDirectEditorItems(){
     return [];
   }
 }
+
+async function v517LoadNetlifyEditorItems(){
+  try{
+    const region=encodeURIComponent(currentRegion||'dallas');
+    const res=await fetch(`/.netlify/functions/today-daltown-feed?region=${region}&_=${Date.now()}`,{cache:'no-store'});
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
+    return Array.isArray(json.items)?json.items:[];
+  }catch(error){
+    console.warn('[V51.7 Today Daltown] Netlify editor feed unavailable',error?.message||error);
+    return [];
+  }
+}
+
 function v51MergeTodaySources(feedItems=[],directItems=[]){
   const merged=[...(directItems||[]),...(feedItems||[])];
   const seen=new Set();
@@ -2478,9 +2492,9 @@ async function v51RefreshToday(){
   const btn=document.getElementById('v51TodayRefresh');
   if(btn){btn.disabled=true;btn.classList.add('is-loading');}
   try{
-    const [mainData,directEditorItems]=await Promise.all([loadMainSettings(true),v51LoadDirectEditorItems()]);
+    const [mainData,netlifyEditorItems,directEditorItems]=await Promise.all([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
     v45HomeConfig=mainData.config||v45HomeConfig||{};
-    const combined=v51MergeTodaySources(mainData.items||[],directEditorItems);
+    const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const rows=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
@@ -2506,8 +2520,8 @@ async function renderV37AIHome(){
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
   let loaded=[];let feedMeta={};
   try{
-    const [mainData,directEditorItems]=await Promise.all([loadMainSettings(),v51LoadDirectEditorItems()]);
-    loaded=v51MergeTodaySources(mainData.items||[],directEditorItems);feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
+    const [mainData,netlifyEditorItems,directEditorItems]=await Promise.all([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
   loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
