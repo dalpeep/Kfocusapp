@@ -1,5 +1,5 @@
 // DalTownMap V45.3.0 recommended-business mode fix
-console.log('[DalTownMap] v8.5 business visibility fix loaded');
+console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 
@@ -24,6 +24,9 @@ let selectedBizId = businesses[0]?.id || null;
 let currentUser = null;
 let authClient = null;
 let currentLocationMarker = null;
+let currentLocationPosition = null;
+let currentLocationWatchId = null;
+let currentLocationTrackingEnabled = false;
 let suppressMapUiChange = false;
 let slideIndex = 0; let autoTimer = null; let map = null; let mapReady = false; let markers = []; let markerCluster = null; let markerClusterReady = false; let selectedCategory = '전체'; let heroSlides = []; let currentCenter = null; let mapMode = 'business'; let mapRadius = '7'; let mapCategory = ''; let eventPins = []; let mapDirty = false; let selectedMapBusinessId = ''; let mapVisibleCounts = { business:0, coupon:0, event:0 }; let mapVisibleCategoryCounts = {}; 
 const COLORADO_CENTER = { lat: 39.6662, lng: -104.8315 };
@@ -2243,26 +2246,25 @@ function v46FallbackProposalItems(config={}){
   const selected=new Set((config.proposal_categories||[]).map(String));
   const enabled=(key)=>!selected.size||selected.has(key);
   const defs=[
-    {key:'shopping',label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'장보기 전 할인 정보를 확인해 보세요.'},
-    {key:'weather',label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 외출 시간을 조정해 보세요.'},
-    {key:'traffic',label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'출발 전 주요 도로 상황을 확인해 보세요.'},
-    {key:'event',label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'가까운 공연과 행사를 살펴보세요.'},
-    {key:'education',label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교와 교육 일정을 미리 확인해 보세요.'},
-    {key:'real_estate',label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택과 부동산 정보를 살펴보세요.'},
-    {key:'finance',label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행과 금융 안내를 비교해 보세요.'},
-    {key:'seminar',label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활에 도움이 되는 세미나를 확인해 보세요.'},
-    {key:'faith',label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'지역 종교·커뮤니티 행사를 확인해 보세요.'}
+    {key:'shopping',label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'이번 주 마켓·쇼핑'},
+    {key:'weather',label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘의 날씨·생활'},
+    {key:'traffic',label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'DFW 교통 정보'},
+    {key:'event',label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'이번 주 공연·행사'},
+    {key:'education',label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교·교육 일정'},
+    {key:'real_estate',label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택·부동산 정보'},
+    {key:'finance',label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행·금융 정보'},
+    {key:'seminar',label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활 세미나 안내'},
+    {key:'faith',label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'종교·커뮤니티 행사'}
   ];
   const rows=(boardPosts||[]).filter(p=>adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion);
   const result=[];const seen=new Set();
   for(const row of rows){
     const text=`${row.title||''} ${row.summary||''} ${row.content||''}`;
     const emergency=/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i.test(text);
-    const def=emergency?{key:'emergency',label:'긴급 안내',icon:'🚨',title:'지금 확인해야 할 지역 긴급 공지가 있습니다.'}:defs.find(d=>enabled(d.key)&&d.re.test(text));
+    const def=emergency?{key:'emergency',label:'긴급 안내',icon:'🚨',title:'지역 긴급 공지'}:defs.find(d=>enabled(d.key)&&d.re.test(text));
     if(!def||seen.has(def.key))continue;
     seen.add(def.key);
-    const customLink=String(config.category_links?.[def.key]||'').trim();
-    result.push({id:`fallback-${row.id}-${def.key}`,category:def.key,category_label:def.label,icon:def.icon,title:def.title,summary:v38Text(row.summary||row.content||row.title,180),link:customLink,has_link:Boolean(customLink),board_post_id:row.id,emergency});
+    result.push({id:`fallback-${row.id}-${def.key}`,category:def.key,category_label:def.label,icon:def.icon,title:def.title,summary:'',link:'',has_link:true,target_type:'post',target_id:row.id,link_label:'기사 보기',board_post_id:row.id,emergency});
   }
   return result.slice(0,8);
 }
@@ -2271,6 +2273,7 @@ function v46FallbackProposalItems(config={}){
 function v461NormalizeProposalCategory(value=''){
   const s=String(value||'').trim().toLowerCase().replace(/[\s-]+/g,'_');
   const aliases={
+    business:'business',business_promotion:'business','업소':'business','업소 추천':'business','업체 추천':'business',
     shopping:'shopping',market:'shopping',grocery:'shopping',sale:'shopping','쇼핑':'shopping','쇼핑·마켓':'shopping','마트':'shopping',
     weather:'weather',heat:'weather',heat_advisory:'weather','기상':'weather','날씨':'weather',
     traffic:'traffic',transportation:'traffic','교통':'traffic',
@@ -2286,15 +2289,16 @@ function v461NormalizeProposalCategory(value=''){
 }
 function v461CategoryDefinition(key){
   return {
-    shopping:{label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'장보기 전 할인 정보를 확인해 보세요.',summary:'오늘 확인된 마켓·쇼핑 정보를 살펴보고 필요한 품목과 행사 기간을 확인해 보세요.'},
+    business:{label:'업소 추천',icon:'🏪',re:/(업소|업체|비즈니스|business|카페|식당|미용실|병원|학원|마트|추천)/i,title:'오늘의 추천 업소',summary:'달타운맵에서 선택한 업소를 소개합니다.'},
+    shopping:{label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'이번 주 마켓·쇼핑',summary:'오늘 확인된 마켓·쇼핑 정보를 살펴보고 필요한 품목과 행사 기간을 확인해 보세요.'},
     weather:{label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 일정을 조정해 보세요.',summary:'외출 전 최신 기상 안내를 확인하고 날씨에 맞게 이동 시간과 준비물을 조정해 보세요.'},
-    traffic:{label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'출발 전 주요 도로 상황을 확인해 보세요.',summary:'정체·사고·공사 가능성을 확인하고 필요하면 우회 경로와 출발 시간을 조정해 보세요.'},
-    event:{label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'가까운 공연과 행사를 살펴보세요.',summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.'},
-    education:{label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교와 교육 일정을 미리 확인해 보세요.',summary:'학교 일정과 교육 관련 공지를 확인하고 필요한 준비를 미리 해두세요.'},
-    real_estate:{label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택과 부동산 정보를 살펴보세요.',summary:'주택·모기지·오픈하우스 관련 정보를 확인하고 조건과 일정을 비교해 보세요.'},
-    finance:{label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행과 금융 안내를 비교해 보세요.',summary:'대출·예금·금리 관련 안내를 확인하고 세부 조건을 비교해 보세요.'},
-    seminar:{label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활에 도움이 되는 세미나를 확인해 보세요.',summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정을 확인해 보세요.'},
-    faith:{label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'지역 종교·커뮤니티 행사를 확인해 보세요.',summary:'지역 교회·성당·사찰의 행사와 모임 일정을 확인해 보세요.'}
+    traffic:{label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'DFW 교통 정보',summary:'정체·사고·공사 가능성을 확인하고 필요하면 우회 경로와 출발 시간을 조정해 보세요.'},
+    event:{label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'이번 주 공연·행사',summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.'},
+    education:{label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교·교육 일정',summary:'학교 일정과 교육 관련 공지를 확인하고 필요한 준비를 미리 해두세요.'},
+    real_estate:{label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택·부동산 정보',summary:'주택·모기지·오픈하우스 관련 정보를 확인하고 조건과 일정을 비교해 보세요.'},
+    finance:{label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행·금융 정보',summary:'대출·예금·금리 관련 안내를 확인하고 세부 조건을 비교해 보세요.'},
+    seminar:{label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활 세미나 안내',summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정을 확인해 보세요.'},
+    faith:{label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'종교·커뮤니티 행사',summary:'지역 교회·성당·사찰의 행사와 모임 일정을 확인해 보세요.'}
   }[key]||null;
 }
 function v461PrepareProposalItems(items=[],config={}){
@@ -2305,7 +2309,7 @@ function v461PrepareProposalItems(items=[],config={}){
     let key=v461NormalizeProposalCategory(raw?.category||raw?.category_key||raw?.category_label||'');
     const sourceText=`${raw?.source_title||''} ${raw?.original_title||''} ${raw?.summary||''}`;
     if(!key||!v461CategoryDefinition(key)){
-      key=['shopping','weather','traffic','event','education','real_estate','finance','seminar','faith'].find(k=>v461CategoryDefinition(k).re.test(sourceText))||'';
+      key=['business','shopping','weather','traffic','event','education','real_estate','finance','seminar','faith'].find(k=>v461CategoryDefinition(k).re.test(sourceText))||'';
     }
     if(!emergency && selected.size && !selected.has(key)) continue;
     const def=v461CategoryDefinition(key);
@@ -2317,61 +2321,214 @@ function v461PrepareProposalItems(items=[],config={}){
       item.title=item.title||def.title;
       // 카테고리와 요약 내용이 맞지 않으면 다른 업소/기사 문구를 노출하지 않고 안전한 제안문으로 교체합니다.
       const summary=String(item.summary||'').trim();
-      item.summary=(summary && def.re.test(`${item.source_title||''} ${item.original_title||''} ${summary}`)) ? summary : def.summary;
+      const adminSelected=v51IsAdminSelected(item);
+      item.summary=adminSelected&&summary ? summary : ((summary && def.re.test(`${item.source_title||''} ${item.original_title||''} ${summary}`)) ? summary : def.summary);
     }
     result.push(item);
   }
   return result;
 }
+
+// V51: "오늘의 달타운" unified live carousel.
+let v51TodayItems=[];
+let v51TodayIndex=0;
+let v51TodayTimer=null;
+let v51RelativeTimer=null;
+let v51AutoRefreshTimer=null;
+let v51RefreshInFlight=false;
+let v51TouchStartX=0;
+function v51ItemTime(item){
+  const raw=item?.updated_at||item?.published_at||item?.generated_at||item?.created_at||'';
+  const ts=Date.parse(raw);
+  return Number.isFinite(ts)?ts:0;
+}
+function v51RelativeLabel(timestamp){
+  if(!timestamp)return '';
+  const minutes=Math.max(0,Math.floor((Date.now()-timestamp)/60000));
+  if(minutes<1)return '방금 업데이트';
+  if(minutes<60)return `${minutes}분 전 업데이트`;
+  const hours=Math.floor(minutes/60);
+  if(hours<24)return `${hours}시간 전 업데이트`;
+  return '업데이트가 지연되고 있습니다';
+}
+function v51IsAdminSelected(item={}){
+  return Boolean(item.is_featured||item.featured||item.is_manual||item.manual||item.pinned||item.selected_by_admin||Number(item.priority||0)>0||item.admin_selected);
+}
+function v51CategoryRank(item={}){
+  if(item.emergency||item.school)return 0;
+  if(v51IsAdminSelected(item))return 1;
+  const key=v461NormalizeProposalCategory(item.category);
+  return ({weather:2,traffic:3,business:4,shopping:5,event:6,education:7,real_estate:8,finance:9,seminar:10,faith:11})[key]??20;
+}
+async function v51LoadDirectEditorItems(){
+  // V51.5 safety fallback: read administrator-selected home cards directly.
+  // This keeps the home carousel in sync even when an older newsroom Edge Function
+  // is still cached or was not redeployed together with the Netlify package.
+  try{
+    if(typeof supabase==='undefined'||!supabase?.from)return [];
+    const region=(currentRegion||'dallas');
+    const {data,error}=await supabase.from('newsroom_items')
+      .select('id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at')
+      .eq('region',region)
+      .order('updated_at',{ascending:false})
+      .limit(80);
+    if(error)throw error;
+    return (data||[]).map(row=>{
+      const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
+      const selected=String(meta.selection_source||'')==='editor'||meta.home_show===true;
+      if(!selected)return null;
+      const category=String(meta.home_category||meta.category||'business').trim()||'business';
+      const targetType=String(meta.home_target_type||'').trim();
+      const targetId=String(meta.home_target_id||'').trim();
+      const linked=['post','business'].includes(targetType)&&Boolean(targetId);
+      return {
+        id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
+        title:String(row.ai_title||row.original_title||'오늘의 달타운').trim(),
+        summary:String(row.ai_summary||row.original_summary||'').trim(),
+        target_type:linked?targetType:'',target_id:linked?targetId:'',
+        link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
+        selected_by_admin:true,admin_selected:true,is_manual:true,
+        priority:Number(row.priority_score||999),
+        published_at:row.source_published_at||row.collected_at,
+        updated_at:row.updated_at||row.collected_at||row.source_published_at,
+      };
+    }).filter(Boolean);
+  }catch(error){
+    console.warn('[V51.5 Today Daltown] direct editor fallback unavailable',error?.message||error);
+    return [];
+  }
+}
+
+async function v517LoadNetlifyEditorItems(){
+  try{
+    const region=encodeURIComponent(currentRegion||'dallas');
+    const res=await fetch(`/.netlify/functions/today-daltown-feed?region=${region}&_=${Date.now()}`,{cache:'no-store'});
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
+    return Array.isArray(json.items)?json.items:[];
+  }catch(error){
+    console.warn('[V51.7 Today Daltown] Netlify editor feed unavailable',error?.message||error);
+    return [];
+  }
+}
+
+function v51MergeTodaySources(feedItems=[],directItems=[]){
+  const merged=[...(directItems||[]),...(feedItems||[])];
+  const seen=new Set();
+  return merged.filter(item=>{
+    const source=String(item.source_id||item.id||'');
+    const key=source?`source:${source}`:`${String(item.category||'')}|${String(item.title||'').trim().toLowerCase()}`;
+    if(seen.has(key))return false;seen.add(key);return true;
+  });
+}
+function v51PrepareTodayItems(items=[]){
+  const rows=(items||[]).filter(item=>{
+    const key=v461NormalizeProposalCategory(item.category);
+    return Boolean(item.emergency||item.school||v51IsAdminSelected(item)||key==='weather'||key==='traffic');
+  }).slice().sort((a,b)=>v51CategoryRank(a)-v51CategoryRank(b));
+  const seen=new Set();
+  return rows.filter(item=>{
+    const key=`${v461NormalizeProposalCategory(item.category)}|${String(item.title||item.source_title||'').trim().toLowerCase()}`;
+    if(seen.has(key))return false;
+    seen.add(key);return true;
+  }).slice(0,12);
+}
+function v51OpenItem(item){
+  if(!item)return;
+  if(item.target_type==='post'&&item.target_id){openBoardPost(item.target_id);return;}
+  if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;renderDetail(item.target_id);showPage('business-detail');return;}
+  const url=item.url||item.link||item.source_url;
+  if(url)window.open(url,'_blank','noopener,noreferrer');
+}
+function v51PaintToday(){
+  const item=v51TodayItems[v51TodayIndex];
+  const card=document.getElementById('v37BriefCard');
+  const category=document.getElementById('v51TodayCategory');
+  const title=document.getElementById('v37BriefTitle');
+  const summary=document.getElementById('v37BriefSummary');
+  const time=document.getElementById('v51TodayRelativeTime');
+  const link=document.getElementById('v51TodayLinkLabel');
+  const dots=document.getElementById('v51TodayDots');
+  const main=document.getElementById('v51TodayMain');
+  if(!card||!title||!summary)return;
+  card.className='v37-brief-card v51-today-card';
+  if(!item){
+    if(category)category.textContent='생활 정보';
+    title.textContent='오늘의 정보를 준비하고 있습니다.';
+    summary.textContent='날씨·교통·쇼핑 정보가 수집되면 이곳에 표시됩니다.';
+    if(time)time.textContent='';if(link)link.textContent='';if(dots)dots.innerHTML='';
+    if(main){main.disabled=true;main.classList.remove('has-link');}
+    return;
+  }
+  const key=(item.emergency||item.school)?'emergency':v461NormalizeProposalCategory(item.category);
+  const def=v461CategoryDefinition(key);
+  const admin=v51IsAdminSelected(item)&&key!=='emergency';
+  const labels={emergency:'긴급 공지',weather:'오늘의 날씨',traffic:'교통 정보',business:'업소 추천',shopping:'쇼핑 정보',event:'행사 정보',education:'교육 정보',real_estate:'부동산 정보',finance:'금융 정보',seminar:'세미나',faith:'커뮤니티 행사'};
+  const icons={emergency:'🚨',weather:'☀️',traffic:'🚗',business:'🏪',shopping:'🛒',event:'🎉',education:'🎓',real_estate:'🏠',finance:'🏦',seminar:'📋',faith:'⛪'};
+  card.classList.add(`v51-kind-${key||'default'}`);
+  if(admin)card.classList.add('v51-admin-selected');
+  if(category)category.textContent=`${admin?'⭐ ':icons[key]||item.icon||'✨ '}${admin?'관리자 추천':(labels[key]||item.category_label||'오늘의 정보')}`;
+  title.textContent=String(item.title||item.source_title||def?.title||'오늘의 생활 정보').replace(/\s+/g,' ').trim();
+  summary.textContent=String(item.subtitle||item.summary||item.original_title||def?.summary||'자세한 내용을 확인해 보세요.').replace(/\s+/g,' ').trim();
+  const ts=v51ItemTime(item);
+  if(time){time.textContent=v51RelativeLabel(ts);time.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));}
+  const hasLink=Boolean((item.target_id&&item.target_type)||(item.url||item.link||item.source_url));
+  if(link)link.textContent=hasLink?(item.link_label||'자세히 보기 →'):'';
+  if(main){main.disabled=false;main.classList.toggle('has-link',hasLink);main.onclick=hasLink?()=>v51OpenItem(item):null;}
+  if(dots)dots.innerHTML=v51TodayItems.length>1?v51TodayItems.map((_,i)=>`<span class="${i===v51TodayIndex?'active':''}"></span>`).join(''):'';
+}
+function v51StartTodayTimer(delay=5000){
+  if(v51TodayTimer)clearInterval(v51TodayTimer);
+  if(v51TodayItems.length>1)v51TodayTimer=setInterval(()=>{v51TodayIndex=(v51TodayIndex+1)%v51TodayItems.length;v51PaintToday();},delay);
+}
+function v51MoveToday(step){
+  if(!v51TodayItems.length)return;
+  v51TodayIndex=(v51TodayIndex+step+v51TodayItems.length)%v51TodayItems.length;
+  v51PaintToday();v51StartTodayTimer(5000);
+}
+async function v51RefreshToday(){
+  if(v51RefreshInFlight)return;
+  v51RefreshInFlight=true;
+  const btn=document.getElementById('v51TodayRefresh');
+  if(btn){btn.disabled=true;btn.classList.add('is-loading');}
+  try{
+    const [mainData,netlifyEditorItems,directEditorItems]=await Promise.all([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    v45HomeConfig=mainData.config||v45HomeConfig||{};
+    const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
+    const rows=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
+    v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
+  }catch(error){console.warn('[V51 Today] refresh failed',error);}
+  finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
+}
+function v51InitToday(){
+  const btn=document.getElementById('v51TodayRefresh');
+  if(btn&&!btn.dataset.bound){btn.dataset.bound='1';btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();v51RefreshToday();});}
+  const main=document.getElementById('v51TodayMain');
+  if(main&&!main.dataset.swipeBound){
+    main.dataset.swipeBound='1';
+    main.addEventListener('touchstart',e=>{v51TouchStartX=e.changedTouches?.[0]?.clientX||0;},{passive:true});
+    main.addEventListener('touchend',e=>{const x=e.changedTouches?.[0]?.clientX||0;const dx=x-v51TouchStartX;if(Math.abs(dx)>42){e.preventDefault();v51MoveToday(dx<0?1:-1);}},{passive:false});
+  }
+  if(v51RelativeTimer)clearInterval(v51RelativeTimer);
+  v51RelativeTimer=setInterval(v51PaintToday,30000);
+  if(!v51AutoRefreshTimer)v51AutoRefreshTimer=setInterval(()=>{if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();},5*60*1000);
+}
+
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate');if(!dateNode)return;
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
-  let loaded=[];
-  let feedMeta={};
+  let loaded=[];let feedMeta={};
   try{
-    const mainData=await loadMainSettings();
-    loaded=mainData.items||[];
-    feedMeta=mainData.meta||{};
-    v45HomeConfig=mainData.config||{};
-  }catch(error){
-    console.error('[V48 Home] settings/feed load failed',error);
-    loaded=[];
-    v45HomeConfig={};
-  }
+    const [mainData,netlifyEditorItems,directEditorItems]=await Promise.all([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
+  }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
-  loaded=feedMeta.editor_mode===true ? loaded : v461PrepareProposalItems(loaded,v45HomeConfig);
-  const configuredCategories=(v45HomeConfig.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean);
-  if(!loaded.length && feedMeta.editor_mode===true){
-    console.info('[V48.7 Home] editor mode active but no publishable item',{feedMeta});
-  } else if(!loaded.length && !configuredCategories.length){
-    loaded=v461PrepareProposalItems(v46FallbackProposalItems(v45HomeConfig),v45HomeConfig);
-    console.info('[V48 Home] no configured category and newsroom feed empty; using local community proposals',{count:loaded.length});
-  } else if(!loaded.length) {
-    console.info('[V48 Home] configured categories have no matching current item',{configuredCategories});
-  }
+  loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
   v45ProposalItems=loaded;
-  console.info('[V48 Home] settings-first render',{config:v45HomeConfig,categories:(v45HomeConfig.proposal_categories||[]),items:loaded.map(x=>({category:x.category,title:x.title,source_title:x.source_title}))});
-  const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
-  const normal=loaded.filter(x=>!x.emergency);
-  let proposalIndex=0;
-  const paintProposal=()=>{
-    const item=normal[proposalIndex]||alerts[0];
-    const title=document.getElementById('v37BriefTitle'),summary=document.getElementById('v37BriefSummary'),kicker=document.getElementById('v37BriefKicker'),state=document.getElementById('v38AutoState'),tip=document.getElementById('v38BriefTip'),check=document.getElementById('v38BriefChecklist');
-    if(!item){if(feedMeta.editor_mode===true){if(title)title.textContent='관리자 검토 중인 소식입니다.';if(summary)summary.textContent=Number(feedMeta.editor_waiting_for_link||0)>0?'관리자가 공개 링크를 확인한 뒤 이곳에 표시됩니다.':'현재 공개 승인된 기사가 없습니다.';}else{if(title)title.textContent='선택한 분야의 새 소식을 기다리고 있습니다.';if(summary)summary.textContent=(v45HomeConfig.proposal_categories||[]).length?'관리자에서 선택한 분야에 맞는 소식이 수집되면 이곳에 표시됩니다.':'새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';}if(kicker)kicker.textContent='달타운 제안';if(state)state.textContent='';if(check)check.innerHTML='';return;}
-    if(title)title.textContent=`${item.icon||'✨'} ${item.title}`;
-    if(kicker)kicker.textContent=item.category_label||'달타운 제안';
-    if(summary)summary.textContent=v38Text(item.summary,250);
-    if(state)state.textContent=item.has_link?'관리자 지정 링크':'생활 추천';
-    if(tip)tip.innerHTML=`<b>💡 달타운 제안</b><span>${item.has_link?'카드를 누르면 연결된 상세 정보를 확인할 수 있습니다.':'오늘 일정에 참고해 보세요.'}</span>`;
-    if(check)check.innerHTML=`<span>✓ ${esc(item.category_label||'생활 정보')}</span>`;
-    const card=document.getElementById('v37BriefCard');if(card){
-      const clickable=item.has_link||item.board_post_id;
-      card.style.cursor=clickable?'pointer':'default';
-      card.onclick=item.has_link?()=>window.open(item.link,'_blank','noopener,noreferrer'):(item.board_post_id?()=>openBoardPost(item.board_post_id):null);
-    }
-  };
-  paintProposal();if(window.v45ProposalTimer)clearInterval(window.v45ProposalTimer);if(normal.length>1)window.v45ProposalTimer=setInterval(()=>{proposalIndex=(proposalIndex+1)%normal.length;paintProposal()},6500);
+  v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
+  console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
+  const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
   const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5600);
@@ -2464,6 +2621,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
 function normalizeThemeTarget(value){
   const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
   if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['business','업소','업체','비즈니스'].some(v=>s.includes(v))) return 'business';
   if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
   if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
   if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
@@ -2807,6 +2965,7 @@ const activeCoupon = coupons.find(c =>
 function normalizeThemeTarget(value){
   const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
   if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['business','업소','업체','비즈니스'].some(v=>s.includes(v))) return 'business';
   if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
   if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
   if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
@@ -4641,7 +4800,11 @@ function initGoogleMap(){
     mapInfoWindow = new google.maps.InfoWindow();
     currentCenter = getRegionCenter(currentRegion);
 function showCurrentLocationMarker(position) {
-  if (!map || !window.google?.maps) return;
+  if (!map || !window.google?.maps || !position) return;
+
+  currentLocationPosition = { lat: Number(position.lat), lng: Number(position.lng) };
+  if (!Number.isFinite(currentLocationPosition.lat) || !Number.isFinite(currentLocationPosition.lng)) return;
+  position = currentLocationPosition;
 
   /*
     DalTownMap 현재 위치 브랜드 핀
@@ -4831,13 +4994,14 @@ class CurrentLocationBubbleOverlay extends google.maps.OverlayView {
 }
 
 function ensureCurrentLocationBubble() {
-  if (!map || !currentCenter) return null;
+  const position = currentLocationPosition || currentCenter;
+  if (!map || !position) return null;
 
   if (!currentLocationBubbleOverlay) {
-    currentLocationBubbleOverlay = new CurrentLocationBubbleOverlay(currentCenter);
+    currentLocationBubbleOverlay = new CurrentLocationBubbleOverlay(position);
     currentLocationBubbleOverlay.setMap(map);
   } else {
-    currentLocationBubbleOverlay.setPosition(currentCenter);
+    currentLocationBubbleOverlay.setPosition(position);
   }
 
   return currentLocationBubbleOverlay;
@@ -4850,8 +5014,8 @@ function setMapUiState(state) {
     mapDirty = false;
 
     if (bubble) {
-      bubble.setPosition(currentCenter);
-      bubble.setVisible(true);
+      bubble.setPosition(currentLocationPosition || currentCenter);
+      bubble.setVisible(Boolean(currentLocationPosition));
     }
 
     if (mapSearchAreaBtn) {
@@ -4865,7 +5029,10 @@ function setMapUiState(state) {
   if (state === 'dirty') {
     mapDirty = true;
 
-    if (bubble) bubble.setVisible(false);
+    if (bubble) {
+      bubble.setPosition(currentLocationPosition || currentCenter);
+      bubble.setVisible(Boolean(currentLocationPosition));
+    }
 
     if (mapSearchAreaBtn) {
       mapSearchAreaBtn.classList.remove('hidden');
@@ -4882,7 +5049,10 @@ function setMapUiState(state) {
   }
 
   mapDirty = false;
-  if (bubble) bubble.setVisible(false);
+  if (bubble) {
+    bubble.setPosition(currentLocationPosition || currentCenter);
+    bubble.setVisible(Boolean(currentLocationPosition));
+  }
 
   if (mapSearchAreaBtn) {
     mapSearchAreaBtn.classList.add('hidden');
@@ -4914,6 +5084,33 @@ map.addListener('zoom_changed', () => {
 
   activateMapSearchAreaButton();
 });
+
+function startCurrentLocationTracking() {
+  if (!navigator.geolocation || currentLocationWatchId !== null) return;
+
+  currentLocationTrackingEnabled = true;
+  currentLocationWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      if (!currentLocationTrackingEnabled) return;
+      const nextPosition = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude
+      };
+      showCurrentLocationMarker(nextPosition);
+      const bubble = ensureCurrentLocationBubble();
+      if (bubble) {
+        bubble.setPosition(nextPosition);
+        bubble.setVisible(true);
+      }
+    },
+    (error) => console.warn('현재 위치 추적을 갱신하지 못했습니다.', error),
+    {
+      enableHighAccuracy: true,
+      timeout: 12000,
+      maximumAge: 30000
+    }
+  );
+}
 
 const applyCenter = () => {
   if (TEST_FORCE_CENTER || !navigator.geolocation) {
@@ -4968,6 +5165,7 @@ setTimeout(() => {
       map.setZoom(11);
 
       showCurrentLocationMarker(currentCenter);
+      startCurrentLocationTracking();
 
       mapRadius = radiusByZoom(11);
       redrawMapMarkers();
@@ -5178,6 +5376,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       map.setZoom(zoom);
       mapRadius = radiusByZoom(zoom);
       showCurrentLocationMarker(currentCenter);
+      startCurrentLocationTracking();
       redrawMapMarkers();
       setTimeout(()=>panMapAboveBottomPanel(currentCenter.lat, currentCenter.lng), 120);
       google.maps.event.addListenerOnce(map, 'idle', ()=>{
