@@ -5280,10 +5280,10 @@ async function publishNewsroom(){
 }
 
 function v531HomeCategoryLabel(key){return ({weather:'날씨',traffic:'교통',shopping:'마켓 정보',event:'행사 안내',business:'광고·업소',emergency:'긴급 안내',education:'교육',real_estate:'부동산',finance:'은행·금융'})[String(key||'')]||String(key||'기타');}
-function v531HomeItemTargetLabel(item){if(item?.target_type==='business')return '업소 상세 연결';if(item?.target_type==='post')return '게시판 글 연결';if(item?.target_url||item?.url)return '외부 링크';return '연결 없음';}
+function v531HomeItemTargetLabel(item){if(item?.target_type==='business')return '업소 상세 연결';if(item?.target_type==='post')return '게시판 글 연결';if(item?.target_type==='external'||item?.target_url||item?.url)return '공식 사이트 연결';return '연결 없음';}
 function v534HomeSourceId(item){return String(item?.source_id||item?.newsroom_id||'').trim();}
 async function v534EditHomeCard(sourceId){
-  if(!sourceId)return alert('이 카드는 자동 카드이므로 관리자 편집 대상이 아닙니다.');
+  if(!sourceId)return alert('수정할 메인 카드의 원본을 찾지 못했습니다.');
   let row=newsroomItems.find(x=>String(x.id)===String(sourceId));
   if(!row){
     const {data,error}=await supabase.from('newsroom_items').select('*').eq('id',sourceId).maybeSingle();
@@ -5292,7 +5292,49 @@ async function v534EditHomeCard(sourceId){
     if(row&&!newsroomItems.some(x=>String(x.id)===String(row.id)))newsroomItems.unshift(row);
   }
   if(!row)return alert('연결된 원본 콘텐츠를 찾지 못했습니다.');
-  fillNewsroom(row);
+  const meta=newsroomJson(row.event_data,{});
+  const category=String(meta.home_category||meta.category||'business');
+  const currentType=String(meta.home_target_type||'');
+  const modal=document.createElement('div');
+  modal.className='v511-link-modal-wrap';
+  const businessOptions=(businesses||[]).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ko')).map(b=>`<option value="${esc(b.id)}" ${String(meta.home_target_id||'')===String(b.id)?'selected':''}>${esc(b.name||b.business_name||'업소')} ${b.city?`· ${esc(b.city)}`:''}</option>`).join('');
+  const defaultExternal=String(meta.home_external_url||((category==='shopping'&&/^https?:/i.test(String(row.original_url||'')))?row.original_url:'')||'');
+  modal.innerHTML=`<section class="v511-link-modal" role="dialog" aria-modal="true"><div class="v511-link-modal-head"><div><h3>메인 카드 문구 수정</h3><p>날씨·교통·마켓·행사·업소 등 메인에 보이는 문구를 직접 수정합니다. 비워두면 자동 생성 문구를 사용합니다.</p></div><button type="button" class="v511-link-close" aria-label="닫기">×</button></div>
+  <label class="field"><span>메인 제목</span><input id="v536Title" maxlength="72" value="${esc(meta.home_custom_title||row.ai_title||row.original_title||'')}"></label>
+  <label class="field"><span>메인 문구 / 특별 메시지</span><textarea id="v536Message" rows="3" maxlength="180" placeholder="예: 오늘은 비가 예상되니 우산을 준비하세요.">${esc(meta.home_custom_message||meta.home_custom_summary||row.ai_summary||row.original_summary||'')}</textarea></label>
+  <label class="field"><span>연결 방식</span><select id="v536LinkType"><option value="" ${!currentType?'selected':''}>연결 없음</option><option value="external" ${currentType==='external'?'selected':''}>공식 사이트 링크</option><option value="business" ${currentType==='business'?'selected':''}>달타운맵 업소 상세</option><option value="post" ${currentType==='post'?'selected':''}>게시판 글(기존 연결 유지)</option></select></label>
+  <div id="v536ExternalBox"><label class="field"><span>공식 사이트 주소</span><input id="v536ExternalUrl" type="url" value="${esc(defaultExternal)}" placeholder="https://..."></label></div>
+  <div id="v536BusinessBox"><label class="field"><span>연결 업소</span><select id="v536Business"><option value="">업소 선택</option>${businessOptions}</select></label></div>
+  <label class="field"><span>버튼 문구</span><input id="v536Label" maxlength="30" value="${esc(meta.home_link_label||((category==='shopping')?'세일 보기':'자세히 보기'))}"></label>
+  <div class="v511-link-modal-actions"><button type="button" class="btn ghost v536-reset">자동 문구로 되돌리기</button><button type="button" class="btn ghost v511-link-cancel">취소</button><button type="button" class="btn primary v536-save">저장</button></div></section>`;
+  document.body.appendChild(modal);
+  const close=()=>modal.remove();
+  modal.querySelector('.v511-link-close').onclick=close;modal.querySelector('.v511-link-cancel').onclick=close;
+  const typeEl=modal.querySelector('#v536LinkType'), extBox=modal.querySelector('#v536ExternalBox'), bizBox=modal.querySelector('#v536BusinessBox');
+  const sync=()=>{extBox.hidden=typeEl.value!=='external';bizBox.hidden=typeEl.value!=='business';};typeEl.onchange=sync;sync();
+  modal.querySelector('.v536-reset').onclick=()=>{modal.querySelector('#v536Title').value='';modal.querySelector('#v536Message').value='';};
+  modal.querySelector('.v536-save').onclick=async()=>{
+    const btn=modal.querySelector('.v536-save');btn.disabled=true;btn.textContent='저장 중…';
+    try{
+      const linkType=String(typeEl.value||'');
+      const externalUrl=String(modal.querySelector('#v536ExternalUrl').value||'').trim();
+      const businessId=String(modal.querySelector('#v536Business').value||'').trim();
+      if(linkType==='external'&&!/^https?:\/\//i.test(externalUrl))throw new Error('공식 사이트 주소를 https://로 시작해 입력하세요.');
+      if(linkType==='business'&&!businessId)throw new Error('연결할 업소를 선택하세요.');
+      const newMeta={...meta,
+        home_custom_title:String(modal.querySelector('#v536Title').value||'').trim()||null,
+        home_custom_message:String(modal.querySelector('#v536Message').value||'').trim()||null,
+        home_link_enabled:Boolean(linkType),home_target_type:linkType||null,
+        home_target_id:linkType==='business'?businessId:(linkType==='post'?String(meta.home_target_id||''):null),
+        home_external_url:linkType==='external'?externalUrl:null,
+        home_link_label:linkType?String(modal.querySelector('#v536Label').value||'자세히 보기').trim()||'자세히 보기':null,
+        home_content_updated_at:new Date().toISOString()
+      };
+      const {error}=await supabase.from('newsroom_items').update({event_data:newMeta,updated_at:new Date().toISOString()}).eq('id',sourceId);
+      if(error)throw error;
+      close();await Promise.all([loadNewsroom(),v531LoadHomeDashboard()]);
+    }catch(e){alert(`메인 카드 수정 실패: ${e.message||e}`);btn.disabled=false;btn.textContent='저장';}
+  };
 }
 async function v534RemoveHomeCard(sourceId){
   if(!sourceId)return alert('날씨·교통 자동 카드는 메인에서 직접 삭제할 수 없습니다.');
@@ -5367,7 +5409,7 @@ async function v531LoadHomeDashboard(){
     const feedOk=feedResult.status==='fulfilled';
     safeText('v518HomeDashboardStatus',feedOk?`메인 연결 정상 · 현재 사용자에게 전달되는 카드 ${feed.length}개 · 마켓 후보 ${marketRows.length}개`:`메인 연결 실패 · ${feedResult.reason?.message||feedResult.reason||'응답 없음'}`);
     const actual=feed.map((x,i)=>{
-      const sourceId=v534HomeSourceId(x);const cat=String(x.category||'');const automatic=['weather','traffic'].includes(cat);const editable=cat==='business'&&!!sourceId;
+      const sourceId=v534HomeSourceId(x);const cat=String(x.category||'');const automatic=['weather','traffic'].includes(cat);const editable=!!sourceId;
       let action='<span class="tiny muted">자동 카드</span>';
       if(!automatic){
         action=`<div style="display:flex;gap:7px;flex-wrap:wrap">${editable?`<button type="button" class="btn ghost" data-v534-home-edit="${esc(sourceId)}">수정</button>`:''}<button type="button" class="btn danger" data-v535-home-toggle="${esc(sourceId)}" data-v535-category="${esc(cat)}" data-v535-enabled="0">메인에서 숨기기</button></div>`;
@@ -5384,7 +5426,7 @@ async function v531LoadHomeDashboard(){
       <div class="newsroom-item" style="padding:12px"><b>🎉 행사 안내</b><div class="tiny muted">자동 수집 후 관리자 노출 선택</div><div class="tiny" style="margin-top:5px;font-weight:800">후보 ${eventRows.length}개</div></div>
       <div class="newsroom-item" style="padding:12px"><b>⭐ 광고·업소</b><div class="tiny muted">업소 콘텐츠만 수정 가능</div><div class="tiny" style="margin-top:5px;font-weight:800">${feed.filter(x=>x.category==='business').length}개 표시 중</div></div>
     </div>`;
-    list.innerHTML=`<h4 style="margin:2px 0 8px">현재 사용자 메인에 표시되는 정확한 내용</h4>${actual||'<div class="empty">현재 사용자 메인에 전달되는 카드가 없습니다.</div>'}<h4 style="margin:18px 0 8px">메인에 표시할 수 있는 항목</h4>${available}<details open style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🛒 마켓 정보 후보 ${marketRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${marketCandidates}</div></details><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🎉 행사 안내 후보 ${eventRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${eventCandidates}</div></details>`;
+    list.innerHTML=`<h4 style="margin:2px 0 8px">현재 사용자 메인에 표시되는 정확한 내용</h4><div class="tiny muted" style="margin-bottom:8px">모든 카드의 제목과 문구를 수정할 수 있습니다. 날씨·교통도 특별 메시지를 넣을 수 있습니다.</div>${actual||'<div class="empty">현재 사용자 메인에 전달되는 카드가 없습니다.</div>'}<h4 style="margin:18px 0 8px">메인에 표시할 수 있는 항목</h4>${available}<details open style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🛒 마켓 정보 후보 ${marketRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${marketCandidates}</div></details><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🎉 행사 안내 후보 ${eventRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${eventCandidates}</div></details>`;
     list.querySelectorAll('[data-v534-home-edit]').forEach(b=>b.addEventListener('click',()=>v534EditHomeCard(b.dataset.v534HomeEdit)));
     list.querySelectorAll('[data-v535-home-toggle]').forEach(b=>b.addEventListener('click',()=>v535SetCandidateHome(b.dataset.v535HomeToggle,b.dataset.v535Category,b.dataset.v535Enabled==='1')));
   }catch(e){safeText('v518HomeDashboardStatus',`메인 현황 확인 실패: ${e.message||e}`);list.innerHTML='<div class="empty">메인 피드 연결을 확인하세요.</div>';}finally{clearTimeout(timer);}

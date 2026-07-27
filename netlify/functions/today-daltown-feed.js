@@ -36,19 +36,22 @@ exports.handler = async (event) => {
       const category = ['business', 'shopping', 'event'].includes(String(meta.home_category || ''))
         ? String(meta.home_category)
         : 'business';
-      const targetType = ['business', 'post'].includes(String(meta.home_target_type || ''))
+      const targetType = ['business', 'post', 'external'].includes(String(meta.home_target_type || ''))
         ? String(meta.home_target_type)
         : '';
+      const externalUrl = targetType === 'external' ? String(meta.home_external_url || '').trim() : '';
       const targetId = String(meta.home_target_id || '').trim();
       return {
         id: `netlify-${row.id}-${category}`,
         source_id: String(row.id),
         category,
-        title: String(row.ai_title || row.original_title || '오늘의 달타운').trim(),
-        summary: String(row.ai_summary || row.original_summary || '').trim(),
-        target_type: targetType && targetId ? targetType : '',
-        target_id: targetType && targetId ? targetId : '',
-        link_label: targetType && targetId ? String(meta.home_link_label || '자세히 보기') : '',
+        title: String(meta.home_custom_title || row.ai_title || row.original_title || '오늘의 달타운').trim(),
+        summary: String(meta.home_custom_message || row.ai_summary || row.original_summary || '').trim(),
+        subtitle: String(meta.home_custom_message || meta.subtitle || '').trim(),
+        target_type: targetType === 'external' && externalUrl ? 'external' : (targetType && targetId ? targetType : ''),
+        target_id: targetType !== 'external' && targetType && targetId ? targetId : '',
+        url: targetType === 'external' && externalUrl ? externalUrl : '',
+        link_label: ((targetType === 'external' && externalUrl) || (targetType && targetId)) ? String(meta.home_link_label || '자세히 보기') : '',
         selected_by_admin: true,
         admin_selected: true,
         is_manual: true,

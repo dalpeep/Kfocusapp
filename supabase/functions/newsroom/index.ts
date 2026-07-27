@@ -1246,17 +1246,19 @@ async function homeFeed(region = 'dallas') {
     const itemLinkEnabled=meta.home_link_enabled===true;
     const targetType=itemLinkEnabled?String(meta.home_target_type||'').trim():'';
     const targetId=itemLinkEnabled?String(meta.home_target_id||'').trim():'';
+    const externalUrl=String(meta.home_external_url||'').trim();
     const approvedInternalTarget=['post','business'].includes(targetType)&&Boolean(targetId);
+    const approvedExternalTarget=targetType==='external'&&/^https?:\/\//i.test(externalUrl);
     proposals.push({
       id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
-      title:(meta.daily_core===true || def.key==='emergency' || selectionSource==='editor') ? (headline || def.title).slice(0,72) : def.title,
-      summary:selectionSource==='editor'?clean(x.ai_summary||x.original_summary||'').slice(0,150):'', source_title:headline, link:'', has_link:approvedInternalTarget,
-      target_type:approvedInternalTarget?targetType:'', target_id:approvedInternalTarget?targetId:'',
-      link_label:approvedInternalTarget?String(meta.home_link_label||meta.internal_link_label||'기사 보기'):'',
+      title:clean(meta.home_custom_title||((meta.daily_core===true || def.key==='emergency' || selectionSource==='editor') ? (headline || def.title) : def.title)).slice(0,72),
+      summary:clean(meta.home_custom_message||(selectionSource==='editor'?x.ai_summary||x.original_summary||'':'')).slice(0,180), source_title:headline, link:approvedExternalTarget?externalUrl:'', url:approvedExternalTarget?externalUrl:'', has_link:approvedInternalTarget||approvedExternalTarget,
+      target_type:approvedInternalTarget?targetType:(approvedExternalTarget?'external':''), target_id:approvedInternalTarget?targetId:'',
+      link_label:(approvedInternalTarget||approvedExternalTarget)?String(meta.home_link_label||meta.internal_link_label||'자세히 보기'):'',
       is_sponsored:false, published_at:x.source_published_at||x.collected_at,
       updated_at:x.updated_at||x.collected_at||x.source_published_at,
       score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
-      selection_source:selectionSource, subtitle:String(meta.subtitle||''), daily_core:meta.daily_core===true, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
+      selection_source:selectionSource, subtitle:clean(meta.home_custom_message||meta.subtitle||''), daily_core:meta.daily_core===true, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
     });
   }
 
