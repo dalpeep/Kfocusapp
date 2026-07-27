@@ -2339,22 +2339,18 @@ async function renderV37AIHome(){
     v45HomeConfig={};
   }
   if(sequence!==v44HomeRenderSequence)return;
-  loaded=feedMeta.editor_mode===true ? loaded : v461PrepareProposalItems(loaded,v45HomeConfig);
+  loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
   const configuredCategories=(v45HomeConfig.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean);
-  if(!loaded.length && feedMeta.editor_mode===true){
-    console.info('[V48.7 Home] editor mode active but no publishable item',{feedMeta});
-  } else if(!loaded.length && !configuredCategories.length){
-    loaded=v461PrepareProposalItems(v46FallbackProposalItems(v45HomeConfig),v45HomeConfig);
-    console.info('[V48 Home] no configured category and newsroom feed empty; using local community proposals',{count:loaded.length});
-  } else if(!loaded.length) {
-    console.info('[V48 Home] configured categories have no matching current item',{configuredCategories});
+  if(!loaded.length){
+    console.info('[V50 Home] daily weather/traffic feed is not ready yet',{feedMeta});
   }
   v45ProposalItems=loaded;
-  console.info('[V48 Home] settings-first render',{config:v45HomeConfig,categories:(v45HomeConfig.proposal_categories||[]),items:loaded.map(x=>({category:x.category,title:x.title,source_title:x.source_title}))});
+  console.info('[V50 Home] daily essentials render',{config:v45HomeConfig,categories:(v45HomeConfig.proposal_categories||[]),items:loaded.map(x=>({category:x.category,title:x.title,source_title:x.source_title}))});
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
   let proposalIndex=0;
   const v491Subtitle=(item)=>{
+    if(item?.subtitle)return String(item.subtitle);
     const text=`${item?.title||''} ${item?.summary||''} ${item?.source_title||''}`;
     if(/폭염|무더위|heat|고온/i.test(text)) return '오늘 폭염에 유의하세요.';
     if(/한파|강추위|추위|freeze|cold/i.test(text)) return '추위에 대비해 건강을 챙기세요.';

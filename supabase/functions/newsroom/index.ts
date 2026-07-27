@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '49.0.0';
+const VERSION = '50.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -491,6 +491,91 @@ async function collectScheduledTopics(region='dallas') {
 }
 
 
+
+async function fetchDallasWeatherBrief() {
+  const headers = { 'User-Agent': 'DalTownMap/50.0 (Dallas Korean community app)', 'Accept': 'application/geo+json' };
+  const point = await fetch('https://api.weather.gov/points/32.7767,-96.7970', { headers });
+  if (!point.ok) throw new Error(`NWS points HTTP ${point.status}`);
+  const pointJson:any = await point.json();
+  const forecastUrl = pointJson?.properties?.forecast;
+  if (!forecastUrl) throw new Error('NWS forecast URL을 찾지 못했습니다.');
+  const forecast = await fetch(forecastUrl, { headers });
+  if (!forecast.ok) throw new Error(`NWS forecast HTTP ${forecast.status}`);
+  const forecastJson:any = await forecast.json();
+  const periods = Array.isArray(forecastJson?.properties?.periods) ? forecastJson.properties.periods : [];
+  const current = periods[0] || {};
+  const next = periods[1] || {};
+  const temperature = Number(current.temperature);
+  const unit = String(current.temperatureUnit || 'F');
+  const short = String(current.shortForecast || '날씨 정보').trim();
+  const detail = String(current.detailedForecast || '').trim();
+  const text = `${short} ${detail}`;
+  let title = `달라스 ${Number.isFinite(temperature) ? `${temperature}°${unit}` : ''} ${short}`.replace(/\s+/g,' ').trim();
+  let subtitle = '외출 전 날씨를 확인하세요.';
+  if (/heat|hot|excessive/i.test(text) || temperature >= 98) subtitle = '오늘 폭염에 유의하세요.';
+  else if (/thunder|storm|rain|shower/i.test(text)) subtitle = '비 소식에 대비하고 안전 운전하세요.';
+  else if (/snow|ice|freez|cold/i.test(text) || temperature <= 38) subtitle = '추위와 도로 결빙에 유의하세요.';
+  else if (/wind/i.test(text)) subtitle = '강한 바람에 유의하세요.';
+  return {
+    title: title.slice(0, 64),
+    summary: [detail, next?.name && next?.shortForecast ? `${next.name}: ${next.shortForecast}` : ''].filter(Boolean).join(' '),
+    subtitle,
+    source_name: 'National Weather Service Fort Worth/Dallas',
+  };
+}
+
+async function fetchDallasTrafficBrief() {
+  const now = new Date().toISOString();
+  const result:any = await openai({
+    model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
+    tools: [{ type: 'web_search_preview' }],
+    input: `Current time: ${now}. Create one current Dallas-Fort Worth traffic brief for a Korean community app. Check official 511DFW and TxDOT Dallas information first. You may use WFAA, NBC 5 DFW, FOX 4 or CBS Texas only as secondary confirmation. Focus on significant active crashes, closures, construction, DART disruptions, or unusual congestion affecting major roads such as I-35E, I-635, US-75, SH-121, PGBT and Dallas North Tollway. If no verified major issue is found, say major routes have no verified major closure and advise checking conditions before departure. Do not include URLs. Do not invent travel times. Return ONLY JSON: {"title":"Korean concise title under 32 characters","summary":"Korean factual sentence under 120 characters","subtitle":"Korean action sentence under 35 characters"}`,
+  }, 65000);
+  return {
+    title: String(result?.title || 'DFW 주요 도로 교통 점검').slice(0,64),
+    summary: String(result?.summary || '확인된 대형 통제 정보가 없더라도 출발 전 실시간 교통 상황을 확인하세요.').slice(0,240),
+    subtitle: String(result?.subtitle || '출발 전 교통 상황을 확인하세요.').slice(0,80),
+    source_name: '511DFW·TxDOT Dallas 종합',
+  };
+}
+
+async function ensureDailyCoreBriefs(region='dallas') {
+  const today = dateKeyInDallas();
+  const now = new Date().toISOString();
+  const results:any = { ok:true, version:VERSION, weather:null, traffic:null };
+  const create = async(kind:string, payload:any) => {
+    const duplicateKey = `daily-core-${kind}-${region}-${today}`;
+    const {data:exists,error:ee}=await admin.from('newsroom_items').select('id').eq('duplicate_key',duplicateKey).maybeSingle();
+    if(ee) throw ee;
+    if(exists) return {created:false,id:exists.id,title:payload.title};
+    const category = kind === 'weather' ? 'weather' : 'traffic';
+    const icon = kind === 'weather' ? '☀️' : '🚗';
+    const {data,error}=await admin.from('newsroom_items').insert({
+      region, original_title:payload.title, original_summary:payload.summary,
+      original_url:`internal://daily-core/${kind}/${today}`, source_name:payload.source_name,
+      source_kind:'daily_core', source_published_at:now, area:'Dallas-Fort Worth',
+      status:'classified', confidence:95, fact_status:'official_verified', duplicate_key:duplicateKey,
+      ai_title:payload.title, ai_summary:payload.summary, category_keywords:['daily_core',category],
+      priority_level:'high', priority_score:900, suggested_destination:'life', destination:'life',
+      event_data:{selection_source:'daily_core',daily_core:true,category,icon,subtitle:payload.subtitle,generated_for_date:today},
+      collected_at:now, updated_at:now,
+    }).select('id').single();
+    if(error) throw error;
+    return {created:true,id:data?.id,title:payload.title};
+  };
+  try { results.weather = await create('weather', await fetchDallasWeatherBrief()); }
+  catch(e) {
+    console.warn('daily weather brief failed',e);
+    results.weather = await create('weather',{title:'오늘의 달라스 날씨',summary:'외출 전 최신 기상 상황을 확인하세요.',subtitle:'오늘 날씨에 맞게 준비하세요.',source_name:'NWS Fort Worth/Dallas'});
+  }
+  try { results.traffic = await create('traffic', await fetchDallasTrafficBrief()); }
+  catch(e) {
+    console.warn('daily traffic brief failed',e);
+    results.traffic = await create('traffic',{title:'DFW 주요 도로 교통 점검',summary:'출발 전 511DFW 또는 지도 앱에서 현재 교통 상황을 확인하세요.',subtitle:'출발 전 교통 상황을 확인하세요.',source_name:'511DFW·TxDOT Dallas'});
+  }
+  return results;
+}
+
 async function ensureDailyLifestyleScenario(region='dallas') {
   // V49: 주간 발행 위주의 한인 뉴스가 없는 날에도 메인에 신선한 생활 제안을 제공합니다.
   const today=dateKeyInDallas();
@@ -572,13 +657,14 @@ async function autoRun(region='dallas') {
     const reset=await resetDailyEditorialState(region);
     const cleaned=await cleanup(region);
     const planned=await collectScheduledTopics(region);
+    const dailyCore=await ensureDailyCoreBriefs(region);
     const lanes:any[]=[];
-    for(const lane of ['practical','events','korean','korea']){try{lanes.push(await collect(region,false,lane));}catch(e){lanes.push({lane,error:e instanceof Error?e.message:String(e)});}}
+    for(const lane of ['practical','shopping','events','korean','korea']){try{lanes.push(await collect(region,false,lane));}catch(e){lanes.push({lane,error:e instanceof Error?e.message:String(e)});}}
     const dailyScenario=await ensureDailyLifestyleScenario(region);
     let analyzed=0;
     for(let i=0;i<5;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
     await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}`});
-    return {ok:true,version:VERSION,reset,planned,lanes,dailyScenario,analyzed,selection_order:['local','korean_american','korea_reference','ai_scenario','editor']};
+    return {ok:true,version:VERSION,reset,planned,dailyCore,lanes,dailyScenario,analyzed,selection_order:['daily_weather','daily_traffic','shopping','editor']};
   }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
 }
 
@@ -656,6 +742,7 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
     }
 
     const queries = LANE_QUERIES[normalizedLane];
+    const dailyCore = normalizedLane === 'practical' ? await ensureDailyCoreBriefs(region) : null;
     const fetched: any[] = [];
     const warnings: string[] = [];
 
@@ -768,7 +855,7 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
       status: 'success', found: items.length, inserted: insertedCount, skipped, cleaned: 0, note,
     });
     return {
-      ok: true, version: VERSION, lane: normalizedLane, provider,
+      ok: true, version: VERSION, lane: normalizedLane, provider, dailyCore,
       found: items.length, inserted: insertedCount, skipped, cleaned: 0,
       warnings,
     };
@@ -937,67 +1024,41 @@ async function homeFeed(region = 'dallas') {
     const approvedInternalTarget=['post','business'].includes(targetType)&&Boolean(targetId);
     proposals.push({
       id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
-      title:def.key==='emergency' ? (headline || def.title).slice(0,72) : def.title,
+      title:(meta.daily_core===true || def.key==='emergency') ? (headline || def.title).slice(0,72) : def.title,
       summary:'', source_title:headline, link:'', has_link:approvedInternalTarget,
       target_type:approvedInternalTarget?targetType:'', target_id:approvedInternalTarget?targetId:'',
       link_label:approvedInternalTarget?String(meta.home_link_label||meta.internal_link_label||'기사 보기'):'',
       is_sponsored:false, published_at:x.source_published_at||x.collected_at,
       score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
-      selection_source:selectionSource, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
+      selection_source:selectionSource, subtitle:String(meta.subtitle||''), daily_core:meta.daily_core===true, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
     });
   }
 
-  const rows=proposals.sort((a,b)=>b.score-a.score);
-
-  // V48.8 관리자 운영 모드:
-  // 관리자 지정 자체가 공개 승인입니다. 링크는 선택 사항이며, 같은 카테고리라도
-  // 기사 ID가 다르면 모두 메인 슬라이드에 유지합니다.
-  const allEditorRows=rows.filter(x=>x.selection_source==='editor');
-  if(allEditorRows.length>0){
-    const seen=new Set<string>();
-    const feed=allEditorRows.filter((x:any)=>{
-      const key=String(x.source_id||x.id||'');
-      if(!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0,10);
-    return {
-      ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
-      meta:{
-        total:feed.length,
-        urgent:feed.filter(x=>x.emergency).length,
-        categories:[...new Set(feed.map(x=>x.category))],
-        configured_categories:selected,
-        editor_mode:true,
-        editor_picked_total:allEditorRows.length,
-        editor_publishable_total:feed.length,
-        editor_without_link:feed.filter(x=>!x.has_link).length,
-        fallback_used:false,
-        settings_loaded:true,
-      },
-      generated_at:new Date().toISOString(),
-    };
+  // V50 메인 운영: 날씨와 교통은 매일 자동 고정, 쇼핑·마트는 자동 선별,
+  // 그 밖의 주제는 관리자가 지정한 기사만 추가합니다.
+  const sorted=proposals.sort((a,b)=>b.score-a.score);
+  const editorRows=sorted.filter((x:any)=>x.selection_source==='editor');
+  const emergency=sorted.filter((x:any)=>x.emergency);
+  const latestCore=(category:string)=>sorted.find((x:any)=>x.category===category && x.daily_core===true)
+    || sorted.find((x:any)=>x.category===category && x.selection_source!=='editor');
+  const autoRows:any[]=[latestCore('weather'),latestCore('traffic'),latestCore('shopping')].filter(Boolean);
+  const feed:any[]=[];
+  const seen=new Set<string>();
+  for(const row of [...emergency,...autoRows,...editorRows]){
+    const key=String(row.source_id||row.id||'');
+    if(!key||seen.has(key))continue;
+    seen.add(key);feed.push(row);
+    if(feed.length>=10)break;
   }
-
-  const emergency=rows.filter(x=>x.emergency).slice(0,4);
-  const nonEmergency=rows.filter(x=>!x.emergency);
-  const preferredRows = preferred.size ? nonEmergency.filter(x=>preferred.has(x.category)) : nonEmergency;
-  const fallbackRows = nonEmergency.filter(x=>!preferred.has(x.category));
-  const uniqueByCategory = (items:any[]) => {
-    const seen=new Set<string>();
-    return items.filter(x=>{ if(seen.has(x.category)) return false; seen.add(x.category); return true; });
-  };
-  // No administrator selection exists: scheduled/category/AI automation may operate.
-  const preferredVaried=uniqueByCategory(preferredRows);
-  const fallbackVaried=uniqueByCategory(fallbackRows);
-  const feed=[...emergency,...preferredVaried,...fallbackVaried].slice(0,10);
-
   return {
     ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
-    meta:{ total:feed.length, urgent:emergency.length, categories:[...new Set(feed.map(x=>x.category))],
-      configured_categories:selected, matched_preferred:preferredVaried.length, fallback_used:preferred.size>0 && preferredVaried.length===0,
-      editor_mode:false, editor_picked_total:0, editor_publishable_total:0, editor_waiting_for_link:0,
-      settings_loaded:true },
+    meta:{
+      total:feed.length, urgent:feed.filter((x:any)=>x.emergency).length,
+      categories:[...new Set(feed.map((x:any)=>x.category))], configured_categories:['weather','traffic','shopping'],
+      editor_mode:editorRows.length>0, editor_picked_total:editorRows.length,
+      daily_core_weather:Boolean(latestCore('weather')), daily_core_traffic:Boolean(latestCore('traffic')),
+      shopping_auto:Boolean(latestCore('shopping')), fallback_used:false, settings_loaded:true,
+    },
     generated_at:new Date().toISOString(),
   };
 }
