@@ -289,6 +289,27 @@ onclick="showPage('contact');closeMenu();">
             <div class="v38-brief-checklist" id="v38BriefChecklist"></div>
           </article>
 
+          <div class="v502-live-grid" id="v502LiveGrid" aria-label="실시간 생활 정보">
+            <article class="v502-live-card weather" id="v502WeatherCard">
+              <div class="v502-live-head">
+                <span><b>☀️ 오늘의 날씨</b><small>달라스 지역</small></span>
+                <button type="button" class="v502-refresh-btn" data-v502-refresh="weather" aria-label="날씨 새로고침" title="날씨 새로고침"><i data-lucide="refresh-cw"></i></button>
+              </div>
+              <strong class="v502-live-title" id="v502WeatherTitle">날씨 정보를 불러오는 중입니다.</strong>
+              <p class="v502-live-summary" id="v502WeatherSummary"></p>
+              <small class="v502-relative-time" id="v502WeatherTime"></small>
+            </article>
+            <article class="v502-live-card traffic" id="v502TrafficCard">
+              <div class="v502-live-head">
+                <span><b>🚗 교통</b><small>DFW 주요 도로</small></span>
+                <button type="button" class="v502-refresh-btn" data-v502-refresh="traffic" aria-label="교통 새로고침" title="교통 새로고침"><i data-lucide="refresh-cw"></i></button>
+              </div>
+              <strong class="v502-live-title" id="v502TrafficTitle">교통 정보를 불러오는 중입니다.</strong>
+              <p class="v502-live-summary" id="v502TrafficSummary"></p>
+              <small class="v502-relative-time" id="v502TrafficTime"></small>
+            </article>
+          </div>
+
           <article class="v37-recommend-card" id="v37RecommendCard">
             <button class="v37-recommend-main" id="v37RecommendMain" type="button">
               <span class="v37-recommend-badge">📍 달타운 추천 업체 <small id="v45BusinessModeLabel">오늘의 추천</small></span>

@@ -1029,6 +1029,7 @@ async function homeFeed(region = 'dallas') {
       target_type:approvedInternalTarget?targetType:'', target_id:approvedInternalTarget?targetId:'',
       link_label:approvedInternalTarget?String(meta.home_link_label||meta.internal_link_label||'기사 보기'):'',
       is_sponsored:false, published_at:x.source_published_at||x.collected_at,
+      updated_at:x.updated_at||x.collected_at||x.source_published_at,
       score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
       selection_source:selectionSource, subtitle:String(meta.subtitle||''), daily_core:meta.daily_core===true, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
     });

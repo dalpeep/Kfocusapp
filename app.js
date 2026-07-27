@@ -2325,6 +2325,88 @@ function v461PrepareProposalItems(items=[],config={}){
   }
   return result;
 }
+
+// V50.2: weather/traffic dedicated cards, relative update labels and card refresh.
+let v502LiveItems={weather:null,traffic:null};
+let v502RelativeTimer=null;
+let v502AutoRefreshTimer=null;
+let v502RefreshInFlight=false;
+function v502ItemTime(item){
+  const raw=item?.updated_at||item?.published_at||item?.generated_at||item?.created_at||'';
+  const ts=Date.parse(raw);
+  return Number.isFinite(ts)?ts:0;
+}
+function v502RelativeLabel(timestamp){
+  if(!timestamp)return '';
+  const minutes=Math.max(0,Math.floor((Date.now()-timestamp)/60000));
+  if(minutes<1)return '방금 업데이트';
+  if(minutes<60)return `${minutes}분 전 업데이트`;
+  const hours=Math.floor(minutes/60);
+  if(hours<24)return `${hours}시간 전 업데이트`;
+  return '업데이트가 지연되고 있습니다';
+}
+function v502PaintRelativeTimes(){
+  for(const key of ['weather','traffic']){
+    const node=document.getElementById(key==='weather'?'v502WeatherTime':'v502TrafficTime');
+    if(!node)continue;
+    const ts=v502ItemTime(v502LiveItems[key]);
+    node.textContent=v502RelativeLabel(ts);
+    node.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));
+  }
+}
+function v502PaintLiveCard(key,item){
+  const cap=key==='weather'?'Weather':'Traffic';
+  const card=document.getElementById(`v502${cap}Card`);
+  const title=document.getElementById(`v502${cap}Title`);
+  const summary=document.getElementById(`v502${cap}Summary`);
+  if(!card||!title||!summary)return;
+  v502LiveItems[key]=item||null;
+  if(!item){
+    title.textContent=key==='weather'?'날씨 정보가 아직 준비되지 않았습니다.':'교통 정보가 아직 준비되지 않았습니다.';
+    summary.textContent='새로고침을 눌러 다시 확인해 주세요.';
+    card.classList.add('is-empty');
+  }else{
+    card.classList.remove('is-empty');
+    title.textContent=String(item.title||item.source_title||(key==='weather'?'오늘의 달라스 날씨':'DFW 교통 정보')).trim();
+    summary.textContent=String(item.subtitle||item.summary||'').trim();
+  }
+  v502PaintRelativeTimes();
+}
+function v502RenderLiveCards(items=[]){
+  const rows=(items||[]).filter(x=>!x?.emergency);
+  v502PaintLiveCard('weather',rows.find(x=>v461NormalizeProposalCategory(x?.category)==='weather'));
+  v502PaintLiveCard('traffic',rows.find(x=>v461NormalizeProposalCategory(x?.category)==='traffic'));
+  if(v502RelativeTimer)clearInterval(v502RelativeTimer);
+  v502RelativeTimer=setInterval(v502PaintRelativeTimes,30000);
+}
+async function v502RefreshLiveCards(){
+  if(v502RefreshInFlight)return;
+  v502RefreshInFlight=true;
+  const buttons=[...document.querySelectorAll('[data-v502-refresh]')];
+  buttons.forEach(btn=>{btn.disabled=true;btn.classList.add('is-loading')});
+  try{
+    const mainData=await loadMainSettings(true);
+    const rows=v461PrepareProposalItems(mainData.items||[],{...(mainData.config||{}),proposal_categories:['weather','traffic','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
+    v502RenderLiveCards(rows);
+  }catch(error){
+    console.warn('[V50.2 Live Cards] refresh failed',error);
+  }finally{
+    buttons.forEach(btn=>{btn.disabled=false;btn.classList.remove('is-loading')});
+    v502RefreshInFlight=false;
+    if(window.lucide)window.lucide.createIcons();
+  }
+}
+function v502InitLiveCards(){
+  document.querySelectorAll('[data-v502-refresh]').forEach(btn=>{
+    if(btn.dataset.bound)return;
+    btn.dataset.bound='1';
+    btn.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();v502RefreshLiveCards()});
+  });
+  if(!v502AutoRefreshTimer)v502AutoRefreshTimer=setInterval(()=>{
+    if(!document.hidden&&document.getElementById('v502LiveGrid'))v502RefreshLiveCards();
+  },5*60*1000);
+}
+
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate');if(!dateNode)return;
@@ -2343,6 +2425,8 @@ async function renderV37AIHome(){
   }
   if(sequence!==v44HomeRenderSequence)return;
   loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
+  v502RenderLiveCards(loaded);
+  v502InitLiveCards();
   const configuredCategories=(v45HomeConfig.proposal_categories||[]).map(v461NormalizeProposalCategory).filter(Boolean);
   if(!loaded.length){
     console.info('[V50 Home] daily weather/traffic feed is not ready yet',{feedMeta});
