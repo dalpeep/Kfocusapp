@@ -838,7 +838,7 @@ function renderSearchResults(query){
   const biz = businessSearchResults(q);
   const cpn = couponSearchResults(q);
   const brd = boardSearchResults(q);
-  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}"><strong>${esc(b.name)}</strong><span>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
+  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}"><strong>${esc(b.name)}</strong><span>${esc(getBusinessDisplayCategory(b))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
   if(searchCouponList) searchCouponList.innerHTML = cpn.map(c=>{ const biz=getBiz(c.businessId) || {}; return `<button class="search-result-item" data-search-type="coupon" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(biz.name || '')}${biz.name?' · ':''}${esc(countdownLabel(c.endAt,true))}</span></button>`; }).join('');
   if(searchBoardList) searchBoardList.innerHTML = brd.map(p=>`<button class="search-result-item" data-search-type="board" data-board-result="${esc(p.type)}" data-board-title="${esc(p.title)}"><strong>${esc(p.title)}</strong><span>${esc(p.content || p.type || '')}</span></button>`).join('');
   searchBusinessSection?.classList.toggle('hidden', !biz.length);
@@ -880,6 +880,15 @@ function getMainCategoryLabel(cat=''){
   if (/자동차|정비|카센터|오토|auto|repair|body shop|mechanic|tire/.test(s)) return '서비스';
 
   return '서비스';
+}
+function getBusinessDisplayCategory(b={}){
+  const main = getMainCategoryLabel(b.map_category || b.category_main || b.category || '');
+  const candidates = [b.subcategory, b.category_sub, b.subcategory_ko];
+  for (const value of candidates) {
+    const label = String(value || '').trim();
+    if (label && label !== main) return label;
+  }
+  return main || '업소';
 }
 function mapModeLabel(mode){
   return mode === 'coupon' ? '쿠폰' : mode === 'event' ? '행사' : '업소';
@@ -1795,7 +1804,7 @@ function mapBottomItemHTML(b){
     ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng))
     : null;
 
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const meta = [getBusinessDisplayCategory(b)];
   if (miles != null && Number.isFinite(miles)) {
     meta.push(`${miles.toFixed(1)}mi`);
   }
@@ -1831,7 +1840,7 @@ function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
   const miles = currentCenter && Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
     ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const meta = [getBusinessDisplayCategory(b)];
   if(Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
   return `<div class="map-preview-card">
     <div class="map-preview-main">
@@ -1860,7 +1869,7 @@ function showMapBusinessPreview(b){
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const meta = [getBusinessDisplayCategory(b)];
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
@@ -2754,7 +2763,7 @@ function renderBusinessList() {
 
   if (keyword) {
     rows = rows.filter(b => {
-      const hay = [b.name, b.category, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
+      const hay = [b.name, b.category, b.map_category, b.category_main, b.subcategory, b.category_sub, b.search_keywords, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
       return keyword.split(/\s+/).every(part => hay.includes(part));
     });
   }
