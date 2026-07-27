@@ -2354,17 +2354,39 @@ async function renderV37AIHome(){
   const alerts=loaded.filter(x=>x.emergency);v43SetupAlerts(alerts);
   const normal=loaded.filter(x=>!x.emergency);
   let proposalIndex=0;
+  const v491Subtitle=(item)=>{
+    const text=`${item?.title||''} ${item?.summary||''} ${item?.source_title||''}`;
+    if(/폭염|무더위|heat|고온/i.test(text)) return '오늘 폭염에 유의하세요.';
+    if(/한파|강추위|추위|freeze|cold/i.test(text)) return '추위에 대비해 건강을 챙기세요.';
+    if(/비|폭우|소나기|storm|thunder|우박|눈/i.test(text)) return '날씨를 확인하고 안전 운전하세요.';
+    if(/교통|정체|사고|도로|우회|traffic|closure|highway/i.test(text)) return '출발 전 교통 상황을 확인하세요.';
+    if(/건강|병원|독감|감염|질환|health|medical/i.test(text)) return '오늘도 건강에 유의하세요.';
+    if(/학교|교육|개학|학부모|school|isd/i.test(text)) return '학교 일정을 미리 확인하세요.';
+    if(/공연|행사|축제|event|festival|concert/i.test(text)) return '이번 주 일정을 확인해 보세요.';
+    if(/마트|쇼핑|세일|할인|market|sale/i.test(text)) return '필요한 품목을 미리 확인하세요.';
+    return '오늘의 생활 정보를 확인하세요.';
+  };
+  const v491ApplyDailyTheme=()=>{
+    const card=document.getElementById('v37BriefCard');
+    if(!card)return;
+    for(let i=0;i<7;i++)card.classList.remove(`v491-theme-${i}`);
+    card.classList.add(`v491-theme-${new Date().getDay()}`);
+  };
   const paintProposal=()=>{
     const item=normal[proposalIndex]||alerts[0];
     const title=document.getElementById('v37BriefTitle'),summary=document.getElementById('v37BriefSummary'),kicker=document.getElementById('v37BriefKicker'),state=document.getElementById('v38AutoState'),tip=document.getElementById('v38BriefTip'),check=document.getElementById('v38BriefChecklist');
-    if(!item){if(feedMeta.editor_mode===true){if(title)title.textContent='관리자 검토 중인 소식입니다.';if(summary)summary.textContent=Number(feedMeta.editor_waiting_for_link||0)>0?'관리자가 공개 링크를 확인한 뒤 이곳에 표시됩니다.':'현재 공개 승인된 기사가 없습니다.';}else{if(title)title.textContent='선택한 분야의 새 소식을 기다리고 있습니다.';if(summary)summary.textContent=(v45HomeConfig.proposal_categories||[]).length?'관리자에서 선택한 분야에 맞는 소식이 수집되면 이곳에 표시됩니다.':'새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';}if(kicker)kicker.textContent='달타운 제안';if(state)state.textContent='';if(check)check.innerHTML='';return;}
-    if(title)title.textContent=`${item.icon||'✨'} ${item.title}`;
-    if(kicker)kicker.textContent=item.category_label||'달타운 제안';
+    v491ApplyDailyTheme();
+    if(!item){if(title)title.textContent='오늘의 생활 정보';if(kicker)kicker.textContent='새로운 소식을 준비하고 있습니다.';if(state)state.textContent='';if(summary){summary.textContent='';summary.hidden=true;}if(tip)tip.hidden=true;if(check){check.innerHTML='<span class="v491-proposal-subtitle">오늘도 안전하고 건강한 하루 보내세요.</span>';check.hidden=false;}return;}
+    if(title)title.textContent=`${item.icon||'✨'} ${String(item.title||'오늘의 생활 정보').replace(/\s+/g,' ').trim()}`;
+    if(kicker){kicker.textContent='';kicker.hidden=true;}
     if(summary){summary.textContent='';summary.hidden=true;}
     if(state)state.textContent='';
     if(tip)tip.hidden=true;
-    const buttonLabel=item.link_label||({event:'행사 보기',traffic:'교통 정보',education:'교육 정보',shopping:'쇼핑 정보',real_estate:'관련 정보',finance:'관련 정보'}[item.category]||'기사 보기');
-    if(check){check.innerHTML=item.has_link?`<button type="button" class="v49-proposal-link">${esc(buttonLabel)}</button>`:'';check.hidden=!item.has_link;}
+    const hasInternalLink=Boolean(item.has_link&&item.target_id&&(item.target_type==='post'||item.target_type==='business'));
+    if(check){
+      check.innerHTML=hasInternalLink?'<button type="button" class="v49-proposal-link">달타운의 추천</button>':`<span class="v491-proposal-subtitle">${esc(v491Subtitle(item))}</span>`;
+      check.hidden=false;
+    }
     const openInternal=()=>{if(item.target_type==='post'&&item.target_id){openBoardPost(item.target_id);return;}if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;renderDetail(item.target_id);showPage('business-detail');}};
     const card=document.getElementById('v37BriefCard');if(card){
       card.style.cursor='default';card.onclick=null;
