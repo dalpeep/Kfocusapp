@@ -2357,6 +2357,53 @@ function v51CategoryRank(item={}){
   const key=v461NormalizeProposalCategory(item.category);
   return ({weather:2,traffic:3,business:4,shopping:5,event:6,education:7,real_estate:8,finance:9,seminar:10,faith:11})[key]??20;
 }
+async function v51LoadDirectEditorItems(){
+  // V51.5 safety fallback: read administrator-selected home cards directly.
+  // This keeps the home carousel in sync even when an older newsroom Edge Function
+  // is still cached or was not redeployed together with the Netlify package.
+  try{
+    if(typeof supabase==='undefined'||!supabase?.from)return [];
+    const region=(currentRegion||'dallas');
+    const {data,error}=await supabase.from('newsroom_items')
+      .select('id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at')
+      .eq('region',region)
+      .order('updated_at',{ascending:false})
+      .limit(80);
+    if(error)throw error;
+    return (data||[]).map(row=>{
+      const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
+      const selected=String(meta.selection_source||'')==='editor'||meta.home_show===true;
+      if(!selected)return null;
+      const category=String(meta.home_category||meta.category||'business').trim()||'business';
+      const targetType=String(meta.home_target_type||'').trim();
+      const targetId=String(meta.home_target_id||'').trim();
+      const linked=['post','business'].includes(targetType)&&Boolean(targetId);
+      return {
+        id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
+        title:String(row.ai_title||row.original_title||'오늘의 달타운').trim(),
+        summary:String(row.ai_summary||row.original_summary||'').trim(),
+        target_type:linked?targetType:'',target_id:linked?targetId:'',
+        link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
+        selected_by_admin:true,admin_selected:true,is_manual:true,
+        priority:Number(row.priority_score||999),
+        published_at:row.source_published_at||row.collected_at,
+        updated_at:row.updated_at||row.collected_at||row.source_published_at,
+      };
+    }).filter(Boolean);
+  }catch(error){
+    console.warn('[V51.5 Today Daltown] direct editor fallback unavailable',error?.message||error);
+    return [];
+  }
+}
+function v51MergeTodaySources(feedItems=[],directItems=[]){
+  const merged=[...(directItems||[]),...(feedItems||[])];
+  const seen=new Set();
+  return merged.filter(item=>{
+    const source=String(item.source_id||item.id||'');
+    const key=source?`source:${source}`:`${String(item.category||'')}|${String(item.title||'').trim().toLowerCase()}`;
+    if(seen.has(key))return false;seen.add(key);return true;
+  });
+}
 function v51PrepareTodayItems(items=[]){
   const rows=(items||[]).filter(item=>{
     const key=v461NormalizeProposalCategory(item.category);
@@ -2428,9 +2475,10 @@ async function v51RefreshToday(){
   const btn=document.getElementById('v51TodayRefresh');
   if(btn){btn.disabled=true;btn.classList.add('is-loading');}
   try{
-    const mainData=await loadMainSettings(true);
+    const [mainData,directEditorItems]=await Promise.all([loadMainSettings(true),v51LoadDirectEditorItems()]);
     v45HomeConfig=mainData.config||v45HomeConfig||{};
-    const rows=v461PrepareProposalItems(mainData.items||[],{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
+    const combined=v51MergeTodaySources(mainData.items||[],directEditorItems);
+    const rows=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
@@ -2455,8 +2503,8 @@ async function renderV37AIHome(){
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
   let loaded=[];let feedMeta={};
   try{
-    const mainData=await loadMainSettings();
-    loaded=mainData.items||[];feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
+    const [mainData,directEditorItems]=await Promise.all([loadMainSettings(),v51LoadDirectEditorItems()]);
+    loaded=v51MergeTodaySources(mainData.items||[],directEditorItems);feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
   loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});

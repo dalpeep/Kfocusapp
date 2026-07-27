@@ -5236,9 +5236,18 @@ async function publishNewsroom(){
     if(targetType==='post'){if(!publishArticle||!postId)return alert('게시한 기사 연결을 선택하려면 게시판 기사 발행도 체크하세요.');targetId=String(postId);}
     else {targetType='business';targetId=String(val('newsroomHomeBusinessTarget')||newsroomSelectedBusinessIds()[0]||'');if(!targetId)return alert('메인 카드에 연결할 업소를 선택하세요.');}
     try{
-      await newsroomEdgeCall('set_home_link',{id:selectedNewsroomId,enabled:true,target_type:targetType,target_id:targetId,label:String(val('newsroomHomeLinkLabel')||'업소 보기').trim()||'업소 보기',category:String(val('newsroomHomeCategory')||'business'),region:getAppRegion()});
-      await newsroomEdgeCall('set_editor_pick',{id:selectedNewsroomId,enabled:true,region:getAppRegion()});
-      await newsroomEdgeCall('set_archive_keep',{id:selectedNewsroomId,enabled:true,region:getAppRegion()});
+      // V51.5: save the final home state directly first, so the selected card is
+      // immediately visible even if the deployed Edge Function is one version behind.
+      const latestRow=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId))||row||{};
+      const latestMeta=newsroomJson(latestRow.event_data,{});
+      const directMeta={...latestMeta,publish_article:publishArticle,home_show:true,home_link_enabled:true,home_target_type:targetType,home_target_id:targetId,home_link_label:String(val('newsroomHomeLinkLabel')||'업소 보기').trim()||'업소 보기',home_category:String(val('newsroomHomeCategory')||'business'),previous_selection_source:String(latestMeta.selection_source||'ai')==='editor'?String(latestMeta.previous_selection_source||'ai'):String(latestMeta.selection_source||'ai'),selection_source:'editor',editor_picked_at:new Date().toISOString(),archive_kept:true,archive_kept_at:new Date().toISOString(),home_link_updated_at:new Date().toISOString()};
+      const {error:directError}=await supabase.from('newsroom_items').update({event_data:directMeta,priority_score:999,updated_at:new Date().toISOString()}).eq('id',selectedNewsroomId);
+      if(directError)throw directError;
+      // Keep the Edge Function calls for server-side compatibility. A stale Edge
+      // deployment no longer prevents the direct database state from being saved.
+      try{await newsroomEdgeCall('set_home_link',{id:selectedNewsroomId,enabled:true,target_type:targetType,target_id:targetId,label:directMeta.home_link_label,category:directMeta.home_category,region:getAppRegion()});}catch(edgeError){console.warn('[V51.5] set_home_link edge fallback',edgeError);}
+      try{await newsroomEdgeCall('set_editor_pick',{id:selectedNewsroomId,enabled:true,region:getAppRegion()});}catch(edgeError){console.warn('[V51.5] set_editor_pick edge fallback',edgeError);}
+      try{await newsroomEdgeCall('set_archive_keep',{id:selectedNewsroomId,enabled:true,region:getAppRegion()});}catch(edgeError){console.warn('[V51.5] set_archive_keep edge fallback',edgeError);}
     }catch(homeError){return alert(`${publishArticle?'기사는 발행됐지만 ':''}메인 노출 설정에 실패했습니다: ${homeError.message||homeError}`);}
   }else{
     try{await newsroomEdgeCall('set_editor_pick',{id:selectedNewsroomId,enabled:false,region:getAppRegion()});await newsroomEdgeCall('set_home_link',{id:selectedNewsroomId,enabled:false,target_type:'',target_id:'',label:'',region:getAppRegion()});}catch(_){ }
