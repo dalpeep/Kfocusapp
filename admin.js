@@ -5279,6 +5279,25 @@ async function publishNewsroom(){
   selectedNewsroomId=null;newsroomBusinessSelection=new Set();const form=qs('newsroomForm');if(form)form.hidden=true;const empty=qs('newsroomEmpty');if(empty)empty.hidden=false;await Promise.all([loadBoards(),loadNewsroom()]);
 }
 
+
+async function v537EditAutomaticHomeCard(category, item={}){
+  category=String(category||'').toLowerCase();
+  if(!['weather','traffic'].includes(category))return;
+  let settings={};
+  try{const r=await newsroomEdgeCall('get_settings',{region:getAppRegion()});settings=r.settings||{};}catch(e){const q=await supabase.from('newsroom_settings').select('*').eq('region',getAppRegion()).maybeSingle();if(q.error)return alert(`자동 카드 설정을 불러오지 못했습니다: ${q.error.message}`);settings=q.data||{};}
+  const homeConfig=(settings.home_config&&typeof settings.home_config==='object')?settings.home_config:{};
+  const overrides=(homeConfig.auto_card_overrides&&typeof homeConfig.auto_card_overrides==='object')?homeConfig.auto_card_overrides:{};
+  const current=(overrides[category]&&typeof overrides[category]==='object')?overrides[category]:{};
+  const label=category==='weather'?'날씨':'교통';
+  const modal=document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,.58);display:flex;align-items:center;justify-content:center;padding:18px';
+  modal.innerHTML=`<section style="width:min(620px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 25px 80px rgba(0,0,0,.28)"><div style="display:flex;justify-content:space-between;gap:12px;align-items:start"><div><h3 style="margin:0">${label} 메인 문구 수정</h3><p class="tiny muted">자동 데이터는 계속 갱신되고, 관리자가 입력한 제목·특별 메시지만 우선 표시됩니다.</p></div><button type="button" data-close style="border:0;background:#eef2ff;border-radius:10px;padding:8px 12px;font-size:20px">×</button></div><label class="field"><span>메인 제목</span><input data-title maxlength="72" value="${esc(current.title||'')}" placeholder="비워두면 자동 제목 사용"></label><label class="field"><span>특별 메시지</span><textarea data-message rows="4" maxlength="180" placeholder="예: 오후 소나기 가능성이 있으니 우산을 준비하세요.">${esc(current.message||'')}</textarea></label><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button type="button" class="btn ghost" data-reset>자동 문구로 되돌리기</button><button type="button" class="btn ghost" data-cancel>취소</button><button type="button" class="btn primary" data-save>저장</button></div></section>`;
+  document.body.appendChild(modal);
+  const close=()=>modal.remove();modal.querySelector('[data-close]').onclick=close;modal.querySelector('[data-cancel]').onclick=close;
+  modal.querySelector('[data-reset]').onclick=()=>{modal.querySelector('[data-title]').value='';modal.querySelector('[data-message]').value='';};
+  modal.querySelector('[data-save]').onclick=async()=>{const btn=modal.querySelector('[data-save]');btn.disabled=true;btn.textContent='저장 중…';try{const next={...overrides,[category]:{title:String(modal.querySelector('[data-title]').value||'').trim(),message:String(modal.querySelector('[data-message]').value||'').trim(),updated_at:new Date().toISOString()}};const nextConfig={...homeConfig,auto_card_overrides:next};await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config:nextConfig},'자동 카드 문구를 저장하고 있습니다…');close();await v531LoadHomeDashboard();alert(`${label} 메인 문구를 저장했습니다.`);}catch(e){alert(`저장 실패: ${e.message||e}`);btn.disabled=false;btn.textContent='저장';}};
+}
+
 function v531HomeCategoryLabel(key){return ({weather:'날씨',traffic:'교통',shopping:'마켓 정보',event:'행사 안내',business:'광고·업소',emergency:'긴급 안내',education:'교육',real_estate:'부동산',finance:'은행·금융'})[String(key||'')]||String(key||'기타');}
 function v531HomeItemTargetLabel(item){if(item?.target_type==='business')return '업소 상세 연결';if(item?.target_type==='post')return '게시판 글 연결';if(item?.target_type==='external'||item?.target_url||item?.url)return '공식 사이트 연결';return '연결 없음';}
 function v534HomeSourceId(item){return String(item?.source_id||item?.newsroom_id||'').trim();}
@@ -5410,7 +5429,7 @@ async function v531LoadHomeDashboard(){
     safeText('v518HomeDashboardStatus',feedOk?`메인 연결 정상 · 현재 사용자에게 전달되는 카드 ${feed.length}개 · 마켓 후보 ${marketRows.length}개`:`메인 연결 실패 · ${feedResult.reason?.message||feedResult.reason||'응답 없음'}`);
     const actual=feed.map((x,i)=>{
       const sourceId=v534HomeSourceId(x);const cat=String(x.category||'');const automatic=['weather','traffic'].includes(cat);const editable=!!sourceId;
-      let action='<span class="tiny muted">자동 카드</span>';
+      let action=automatic?`<button type="button" class="btn ghost" data-v537-auto-edit="${esc(cat)}">문구 수정</button>`:'<span class="tiny muted">관리자 카드</span>';
       if(!automatic){
         action=`<div style="display:flex;gap:7px;flex-wrap:wrap">${editable?`<button type="button" class="btn ghost" data-v534-home-edit="${esc(sourceId)}">수정</button>`:''}<button type="button" class="btn danger" data-v535-home-toggle="${esc(sourceId)}" data-v535-category="${esc(cat)}" data-v535-enabled="0">메인에서 숨기기</button></div>`;
       }
@@ -5427,8 +5446,9 @@ async function v531LoadHomeDashboard(){
       <div class="newsroom-item" style="padding:12px"><b>⭐ 광고·업소</b><div class="tiny muted">업소 콘텐츠만 수정 가능</div><div class="tiny" style="margin-top:5px;font-weight:800">${feed.filter(x=>x.category==='business').length}개 표시 중</div></div>
     </div>`;
     list.innerHTML=`<h4 style="margin:2px 0 8px">현재 사용자 메인에 표시되는 정확한 내용</h4><div class="tiny muted" style="margin-bottom:8px">모든 카드의 제목과 문구를 수정할 수 있습니다. 날씨·교통도 특별 메시지를 넣을 수 있습니다.</div>${actual||'<div class="empty">현재 사용자 메인에 전달되는 카드가 없습니다.</div>'}<h4 style="margin:18px 0 8px">메인에 표시할 수 있는 항목</h4>${available}<details open style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🛒 마켓 정보 후보 ${marketRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${marketCandidates}</div></details><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🎉 행사 안내 후보 ${eventRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${eventCandidates}</div></details>`;
-    list.querySelectorAll('[data-v534-home-edit]').forEach(b=>b.addEventListener('click',()=>v534EditHomeCard(b.dataset.v534HomeEdit)));
-    list.querySelectorAll('[data-v535-home-toggle]').forEach(b=>b.addEventListener('click',()=>v535SetCandidateHome(b.dataset.v535HomeToggle,b.dataset.v535Category,b.dataset.v535Enabled==='1')));
+    list.querySelectorAll('[data-v534-home-edit]').forEach(b=>b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();v534EditHomeCard(b.dataset.v534HomeEdit);}));
+    list.querySelectorAll('[data-v537-auto-edit]').forEach(b=>b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();const cat=b.dataset.v537AutoEdit;const item=feed.find(x=>String(x.category||'')===cat)||{};v537EditAutomaticHomeCard(cat,item);}));
+    list.querySelectorAll('[data-v535-home-toggle]').forEach(b=>b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();v535SetCandidateHome(b.dataset.v535HomeToggle,b.dataset.v535Category,b.dataset.v535Enabled==='1');}));
   }catch(e){safeText('v518HomeDashboardStatus',`메인 현황 확인 실패: ${e.message||e}`);list.innerHTML='<div class="empty">메인 피드 연결을 확인하세요.</div>';}finally{clearTimeout(timer);}
 }
 async function v531CollectMarkets(){const btn=qs('v531CollectMarketsBtn');if(!btn)return;const old=btn.textContent;btn.disabled=true;btn.textContent='마켓 수집 중…';try{const r=await newsroomEdgeCall('collect_markets',{region:getAppRegion()},'Zion Market·H Mart 정보를 확인하고 있습니다…');alert(`마켓 정보 수집 완료\n새 후보 ${Number(r.inserted||0)}건\n변경 없음 ${Number(r.skipped||0)}건`);await loadNewsroom();}catch(e){alert(`마켓 수집 실패: ${e.message||e}`);}finally{btn.disabled=false;btn.textContent=old;}}

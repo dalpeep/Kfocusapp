@@ -2421,8 +2421,14 @@ function v51MergeTodaySources(feedItems=[],directItems=[]){
     if(seen.has(key))return false;seen.add(key);return true;
   });
 }
+function v537ApplyAutoCardOverrides(items=[]){
+  const cfg=(window.__DALTOWN_MAIN_SETTINGS__&&typeof window.__DALTOWN_MAIN_SETTINGS__==='object')?window.__DALTOWN_MAIN_SETTINGS__:{};
+  const overrides=(cfg.auto_card_overrides&&typeof cfg.auto_card_overrides==='object')?cfg.auto_card_overrides:{};
+  return (items||[]).map(item=>{const cat=String(item?.category||'').toLowerCase();if(!['weather','traffic'].includes(cat))return item;const o=(overrides[cat]&&typeof overrides[cat]==='object')?overrides[cat]:{};return {...item,title:String(o.title||'').trim()||item.title,summary:String(o.message||'').trim()||item.summary,subtitle:String(o.message||'').trim()||item.subtitle,admin_message:Boolean(String(o.message||'').trim())};});
+}
+
 function v51PrepareTodayItems(items=[]){
-  const rows=(items||[]).filter(item=>{
+  const rows=v537ApplyAutoCardOverrides(items||[]).filter(item=>{
     const key=v461NormalizeProposalCategory(item.category);
     return Boolean(item.emergency||item.school||v51IsAdminSelected(item)||key==='weather'||key==='traffic');
   }).slice().sort((a,b)=>v51CategoryRank(a)-v51CategoryRank(b));
