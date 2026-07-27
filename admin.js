@@ -5330,23 +5330,25 @@ async function v538RenderInlineEditor(sourceId, categoryOverride=''){
   panel.id='v538InlineHomeEditor';
   panel.className='newsroom-item';
   panel.style.cssText='padding:18px;margin:0 0 16px;border:2px solid #2563eb;background:#f8fbff;scroll-margin-top:90px';
-  const currentType=String(meta.home_target_type||'');
-  const businessOptions=(businesses||[]).slice().sort((a,b)=>String(a.name||a.name_ko||'').localeCompare(String(b.name||b.name_ko||''),'ko')).map(b=>`<option value="${esc(b.id)}" ${String(meta.home_target_id||'')===String(b.id)?'selected':''}>${esc(b.name||b.name_ko||b.business_name||'업소')} ${b.city?`· ${esc(b.city)}`:''}</option>`).join('');
+  const currentType=automatic?String(currentAuto.target_type||''):String(meta.home_target_type||'');
+  const currentTargetId=automatic?String(currentAuto.target_id||''):String(meta.home_target_id||'');
+  const businessOptions=(businesses||[]).slice().sort((a,b)=>String(a.name||a.name_ko||'').localeCompare(String(b.name||b.name_ko||''),'ko')).map(b=>`<option value="${esc(b.id)}" ${currentTargetId===String(b.id)?'selected':''}>${esc(b.name||b.name_ko||b.business_name||'업소')} ${b.city?`· ${esc(b.city)}`:''}</option>`).join('');
   const title=automatic?String(currentAuto.title||''):String(meta.home_custom_title||row?.ai_title||row?.original_title||'');
   const message=automatic?String(currentAuto.message||''):String(meta.home_custom_message||meta.home_custom_summary||row?.ai_summary||row?.original_summary||'');
-  const external=String(meta.home_external_url||((category==='shopping'&&/^https?:/i.test(String(row?.original_url||'')))?row.original_url:'')||'');
+  const external=automatic?String(currentAuto.external_url||''):String(meta.home_external_url||((category==='shopping'&&/^https?:/i.test(String(row?.original_url||'')))?row.original_url:'')||'');
+  const linkLabel=automatic?String(currentAuto.link_label||'자세히 보기'):String(meta.home_link_label||((category==='shopping')?'세일 보기':'자세히 보기'));
   panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h3 style="margin:0">${esc(v531HomeCategoryLabel(category))} 메인 내용 수정</h3><div class="tiny muted" style="margin-top:4px">이 화면에서 바로 수정하고 저장할 수 있습니다.</div></div><button type="button" class="btn ghost" data-v538-close>닫기</button></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px">
     <label class="field"><span>메인 제목</span><input data-v538-title maxlength="72" value="${esc(title)}" placeholder="비워두면 자동 제목"></label>
-    ${automatic?'':`<label class="field"><span>버튼 문구</span><input data-v538-label maxlength="30" value="${esc(meta.home_link_label||((category==='shopping')?'세일 보기':'자세히 보기'))}"></label>`}
+    <label class="field"><span>버튼 문구</span><input data-v538-label maxlength="30" value="${esc(linkLabel)}" placeholder="예: 업소 보기, 자세히 보기"></label>
   </div>
   <label class="field"><span>메인 문구 / 특별 메시지</span><textarea data-v538-message rows="4" maxlength="240" placeholder="관리자가 보여주고 싶은 문구를 입력하세요.">${esc(message)}</textarea></label>
-  ${automatic?'':`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px"><label class="field"><span>연결 방식</span><select data-v538-link><option value="" ${!currentType?'selected':''}>연결 없음</option><option value="external" ${currentType==='external'?'selected':''}>공식 사이트 링크</option><option value="business" ${currentType==='business'?'selected':''}>달타운맵 업소 상세</option><option value="post" ${currentType==='post'?'selected':''}>게시판 글(기존 연결 유지)</option></select></label><label class="field" data-v538-external-box><span>공식 사이트 주소</span><input data-v538-external type="url" value="${esc(external)}" placeholder="https://..."></label><label class="field" data-v538-business-box><span>연결 업소</span><select data-v538-business><option value="">업소 선택</option>${businessOptions}</select></label></div>`}
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px"><label class="field"><span>연결 방식</span><select data-v538-link><option value="" ${!currentType?'selected':''}>연결 없음</option><option value="external" ${currentType==='external'?'selected':''}>외부 사이트 링크</option><option value="business" ${currentType==='business'?'selected':''}>달타운맵 업소 상세</option>${automatic?'':`<option value="post" ${currentType==='post'?'selected':''}>게시판 글(기존 연결 유지)</option>`}</select></label><label class="field" data-v538-external-box><span>외부 사이트 주소</span><input data-v538-external type="url" value="${esc(external)}" placeholder="https://..."></label><label class="field" data-v538-business-box><span>연결 업소</span><select data-v538-business><option value="">업소 선택</option>${businessOptions}</select></label></div>
   <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:14px"><button type="button" class="btn ghost" data-v538-reset>자동 문구로 되돌리기</button><button type="button" class="btn primary" data-v538-save>저장</button></div>`;
   host.prepend(panel);panel.scrollIntoView({behavior:'smooth',block:'start'});
   panel.querySelector('[data-v538-close]').onclick=()=>panel.remove();
   panel.querySelector('[data-v538-reset]').onclick=()=>{panel.querySelector('[data-v538-title]').value='';panel.querySelector('[data-v538-message]').value='';};
-  if(!automatic){
+  {
     const link=panel.querySelector('[data-v538-link]'), eb=panel.querySelector('[data-v538-external-box]'), bb=panel.querySelector('[data-v538-business-box]');
     const sync=()=>{eb.hidden=link.value!=='external';bb.hidden=link.value!=='business';};link.onchange=sync;sync();
   }
@@ -5356,8 +5358,13 @@ async function v538RenderInlineEditor(sourceId, categoryOverride=''){
       const newTitle=String(panel.querySelector('[data-v538-title]').value||'').trim();
       const newMessage=String(panel.querySelector('[data-v538-message]').value||'').trim();
       if(automatic){
-        const next={...overrides,[category]:{title:newTitle,message:newMessage,updated_at:new Date().toISOString()}};
-        await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config:{...homeConfig,auto_card_overrides:next}},'자동 카드 문구를 저장하고 있습니다…');
+        const linkType=String(panel.querySelector('[data-v538-link]').value||'');
+        const externalUrl=String(panel.querySelector('[data-v538-external]').value||'').trim();
+        const businessId=String(panel.querySelector('[data-v538-business]').value||'').trim();
+        if(linkType==='external'&&!/^https?:\/\//i.test(externalUrl))throw new Error('외부 사이트 주소를 https://로 시작해 입력하세요.');
+        if(linkType==='business'&&!businessId)throw new Error('연결할 업소를 선택하세요.');
+        const next={...overrides,[category]:{title:newTitle,message:newMessage,target_type:linkType||'',target_id:linkType==='business'?businessId:'',external_url:linkType==='external'?externalUrl:'',link_label:linkType?(String(panel.querySelector('[data-v538-label]').value||'자세히 보기').trim()||'자세히 보기'):'',updated_at:new Date().toISOString()}};
+        await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config:{...homeConfig,auto_card_overrides:next}},'자동 카드 문구와 연결을 저장하고 있습니다…');
       }else{
         const linkType=String(panel.querySelector('[data-v538-link]').value||'');
         const externalUrl=String(panel.querySelector('[data-v538-external]').value||'').trim();
