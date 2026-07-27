@@ -635,6 +635,8 @@ async function resetDailyEditorialState(region='dallas') {
         home_target_type:null,
         home_target_id:null,
         home_link_label:null,
+        home_category:null,
+        home_show:false,
         home_link_updated_at:null,
         daily_editorial_reset_at:new Date().toISOString(),
       };
@@ -698,6 +700,8 @@ async function setHomeLink(body:any){
     home_target_type:enabled?targetType:null,
     home_target_id:enabled?targetId:null,
     home_link_label:enabled?String(body.label||'기사 보기').trim()||'기사 보기':null,
+    home_category:enabled?String(body.category||'business').trim()||'business':null,
+    home_show:enabled,
     home_link_updated_at:new Date().toISOString(),
   };
   const {error:u}=await admin.from('newsroom_items').update({event_data,updated_at:new Date().toISOString()}).eq('id',body.id);
@@ -965,6 +969,7 @@ async function homeFeed(region = 'dallas') {
   const preferred = new Set(selected);
 
   const defs: any[] = [
+    { key:'business', label:'업소 추천', icon:'🏪', re:/(업소 추천|업체 추천|비즈니스 추천|business promotion|business recommendation)/i, title:'오늘의 추천 업소', summary:'달라스 지역의 추천 업소를 소개합니다.', base:480 },
     { key:'emergency', label:'긴급 안내', icon:'🚨', re:/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i, title:'지역 긴급 공지', summary:'안전과 이동에 영향을 줄 수 있는 긴급 안내입니다. 공식 안내와 현재 상황을 확인해 주세요.', base:5000 },
     { key:'seminar', label:'세미나', icon:'📋', re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률.*설명|부동산.*설명|은행.*설명|대출.*설명|세금.*설명|은퇴.*설명|메디케어.*설명|보험.*설명|창업.*설명|투자.*설명)/i, title:'생활 세미나 안내', summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정이 확인됐습니다.', base:470 },
     { key:'faith', label:'종교 행사', icon:'⛪', re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i, title:'종교·커뮤니티 행사', summary:'지역 교회·성당·사찰의 행사와 모임 일정이 확인됐습니다.', base:430 },
@@ -978,6 +983,7 @@ async function homeFeed(region = 'dallas') {
   ];
 
   const aliases:any = {
+    '업소 추천':'business', '업체 추천':'business', business:'business',
     '쇼핑·마켓':'shopping', shopping:'shopping', market:'shopping',
     '날씨':'weather', weather:'weather',
     '교통':'traffic', traffic:'traffic',
@@ -992,7 +998,7 @@ async function homeFeed(region = 'dallas') {
   const clean = (value:any) => String(value || '').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/\s+/g,' ').trim();
   const categoryFromItem = (x:any) => {
     const meta = (x.event_data && typeof x.event_data === 'object') ? x.event_data : {};
-    const explicit = [meta.category, meta.category_key, meta.scheduled_topic_category, ...(Array.isArray(x.category_keywords)?x.category_keywords:[])]
+    const explicit = [meta.home_category, meta.category, meta.category_key, meta.scheduled_topic_category, ...(Array.isArray(x.category_keywords)?x.category_keywords:[])]
       .map((v:any)=>String(v||'').trim()).filter(Boolean);
     for (const value of explicit) {
       const key = aliases[value] || aliases[value.toLowerCase?.()] || '';
@@ -1024,8 +1030,8 @@ async function homeFeed(region = 'dallas') {
     const approvedInternalTarget=['post','business'].includes(targetType)&&Boolean(targetId);
     proposals.push({
       id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
-      title:(meta.daily_core===true || def.key==='emergency') ? (headline || def.title).slice(0,72) : def.title,
-      summary:'', source_title:headline, link:'', has_link:approvedInternalTarget,
+      title:(meta.daily_core===true || def.key==='emergency' || selectionSource==='editor') ? (headline || def.title).slice(0,72) : def.title,
+      summary:selectionSource==='editor'?clean(x.ai_summary||x.original_summary||'').slice(0,150):'', source_title:headline, link:'', has_link:approvedInternalTarget,
       target_type:approvedInternalTarget?targetType:'', target_id:approvedInternalTarget?targetId:'',
       link_label:approvedInternalTarget?String(meta.home_link_label||meta.internal_link_label||'기사 보기'):'',
       is_sponsored:false, published_at:x.source_published_at||x.collected_at,
@@ -1035,14 +1041,14 @@ async function homeFeed(region = 'dallas') {
     });
   }
 
-  // V50 메인 운영: 날씨와 교통은 매일 자동 고정, 쇼핑·마트는 자동 선별,
-  // 그 밖의 주제는 관리자가 지정한 기사만 추가합니다.
+  // V51.4 메인 운영: 날씨와 교통만 자동 표시합니다.
+  // 쇼핑·행사·업소 및 기타 정보는 관리자가 메인 노출로 지정한 경우에만 추가합니다.
   const sorted=proposals.sort((a,b)=>b.score-a.score);
   const editorRows=sorted.filter((x:any)=>x.selection_source==='editor');
   const emergency=sorted.filter((x:any)=>x.emergency);
   const latestCore=(category:string)=>sorted.find((x:any)=>x.category===category && x.daily_core===true)
     || sorted.find((x:any)=>x.category===category && x.selection_source!=='editor');
-  const autoRows:any[]=[latestCore('weather'),latestCore('traffic'),latestCore('shopping')].filter(Boolean);
+  const autoRows:any[]=[latestCore('weather'),latestCore('traffic')].filter(Boolean);
   const feed:any[]=[];
   const seen=new Set<string>();
   for(const row of [...emergency,...autoRows,...editorRows]){
@@ -1055,10 +1061,10 @@ async function homeFeed(region = 'dallas') {
     ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
     meta:{
       total:feed.length, urgent:feed.filter((x:any)=>x.emergency).length,
-      categories:[...new Set(feed.map((x:any)=>x.category))], configured_categories:['weather','traffic','shopping'],
+      categories:[...new Set(feed.map((x:any)=>x.category))], configured_categories:['weather','traffic'],
       editor_mode:editorRows.length>0, editor_picked_total:editorRows.length,
       daily_core_weather:Boolean(latestCore('weather')), daily_core_traffic:Boolean(latestCore('traffic')),
-      shopping_auto:Boolean(latestCore('shopping')), fallback_used:false, settings_loaded:true,
+      shopping_auto:false, fallback_used:false, settings_loaded:true,
     },
     generated_at:new Date().toISOString(),
   };

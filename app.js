@@ -2355,10 +2355,13 @@ function v51CategoryRank(item={}){
   if(item.emergency||item.school)return 0;
   if(v51IsAdminSelected(item))return 1;
   const key=v461NormalizeProposalCategory(item.category);
-  return ({weather:2,traffic:3,shopping:4,event:5,education:6,real_estate:7,finance:8,seminar:9,faith:10})[key]??20;
+  return ({weather:2,traffic:3,business:4,shopping:5,event:6,education:7,real_estate:8,finance:9,seminar:10,faith:11})[key]??20;
 }
 function v51PrepareTodayItems(items=[]){
-  const rows=(items||[]).slice().sort((a,b)=>v51CategoryRank(a)-v51CategoryRank(b));
+  const rows=(items||[]).filter(item=>{
+    const key=v461NormalizeProposalCategory(item.category);
+    return Boolean(item.emergency||item.school||v51IsAdminSelected(item)||key==='weather'||key==='traffic');
+  }).slice().sort((a,b)=>v51CategoryRank(a)-v51CategoryRank(b));
   const seen=new Set();
   return rows.filter(item=>{
     const key=`${v461NormalizeProposalCategory(item.category)}|${String(item.title||item.source_title||'').trim().toLowerCase()}`;
@@ -2396,8 +2399,8 @@ function v51PaintToday(){
   const key=(item.emergency||item.school)?'emergency':v461NormalizeProposalCategory(item.category);
   const def=v461CategoryDefinition(key);
   const admin=v51IsAdminSelected(item)&&key!=='emergency';
-  const labels={emergency:'긴급 공지',weather:'오늘의 날씨',traffic:'교통 정보',shopping:'쇼핑 정보',event:'행사 정보',education:'교육 정보',real_estate:'부동산 정보',finance:'금융 정보',seminar:'세미나',faith:'커뮤니티 행사'};
-  const icons={emergency:'🚨',weather:'☀️',traffic:'🚗',shopping:'🛒',event:'🎉',education:'🎓',real_estate:'🏠',finance:'🏦',seminar:'📋',faith:'⛪'};
+  const labels={emergency:'긴급 공지',weather:'오늘의 날씨',traffic:'교통 정보',business:'업소 추천',shopping:'쇼핑 정보',event:'행사 정보',education:'교육 정보',real_estate:'부동산 정보',finance:'금융 정보',seminar:'세미나',faith:'커뮤니티 행사'};
+  const icons={emergency:'🚨',weather:'☀️',traffic:'🚗',business:'🏪',shopping:'🛒',event:'🎉',education:'🎓',real_estate:'🏠',finance:'🏦',seminar:'📋',faith:'⛪'};
   card.classList.add(`v51-kind-${key||'default'}`);
   if(admin)card.classList.add('v51-admin-selected');
   if(category)category.textContent=`${admin?'⭐ ':icons[key]||item.icon||'✨ '}${admin?'관리자 추천':(labels[key]||item.category_label||'오늘의 정보')}`;
@@ -2427,7 +2430,7 @@ async function v51RefreshToday(){
   try{
     const mainData=await loadMainSettings(true);
     v45HomeConfig=mainData.config||v45HomeConfig||{};
-    const rows=v461PrepareProposalItems(mainData.items||[],{...v45HomeConfig,proposal_categories:['weather','traffic','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
+    const rows=v461PrepareProposalItems(mainData.items||[],{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
@@ -2456,7 +2459,7 @@ async function renderV37AIHome(){
     loaded=mainData.items||[];feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
-  loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
+  loaded=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
   v45ProposalItems=loaded;
   v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
@@ -2553,6 +2556,7 @@ if (typeof renderHomeBusinessTabs === 'function') {
 function normalizeThemeTarget(value){
   const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
   if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['business','업소','업체','비즈니스'].some(v=>s.includes(v))) return 'business';
   if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
   if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
   if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
@@ -2896,6 +2900,7 @@ const activeCoupon = coupons.find(c =>
 function normalizeThemeTarget(value){
   const s=String(value||'').trim().toLowerCase().replace(/\s+/g,'_');
   if(['restaurant','food','식당','음식','한식','카페'].some(v=>s.includes(v))) return 'restaurant';
+  if(['business','업소','업체','비즈니스'].some(v=>s.includes(v))) return 'business';
   if(['shopping','shop','쇼핑','마트'].some(v=>s.includes(v))) return 'shopping';
   if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
   if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';

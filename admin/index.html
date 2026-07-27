@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=51.3"></script>
+  <script type="module" src="assets/admin.js?v=51.4"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -1405,8 +1405,14 @@
                 <div><strong>AI 한국어 기사 편집기</strong><p id="newsroomDraftState" class="tiny muted">AI 분석과 기사 작성을 실행하면 한국어 초안이 채워집니다.</p></div>
                 <button id="newsroomPrepareItemBtn" class="btn primary" type="button">AI 분석·한국어 기사 만들기</button>
               </div>
+              <div class="field full newsroom-special-box" style="border-color:#c7d2fe;background:#f8faff">
+                <span style="font-weight:900">이 콘텐츠를 어디에 사용할까요?</span>
+                <label style="display:flex;align-items:center;gap:10px;margin-top:10px;font-weight:800"><input id="newsroomPublishArticle" type="checkbox"> 게시판 기사로 발행</label>
+                <label style="display:flex;align-items:center;gap:10px;margin-top:8px;font-weight:800"><input id="newsroomHomeShow" type="checkbox"> ‘오늘의 달타운’ 메인에 노출</label>
+                <div class="tiny muted" style="margin-top:8px">두 항목은 서로 독립적입니다. 업소 홍보용이면 기사 발행 없이 메인 노출만 선택할 수 있습니다.</div>
+              </div>
               <label class="field"><span>AI 추천 목적지</span><input id="newsroomSuggestedDestination" readonly></label>
-              <label class="field"><span>게시 위치 확정</span><select id="newsroomDestination"><option value="life">달라스 라이프</option><option value="notice">행사안내</option><option value="guide">달라스 가이드</option><option value="urgent">긴급 공지</option><option value="exclude">제외</option></select></label>
+              <label id="newsroomDestinationWrap" class="field" hidden><span>기사 게시 위치</span><select id="newsroomDestination"><option value="life">달라스 라이프</option><option value="notice">행사안내</option><option value="guide">달라스 가이드</option><option value="urgent">긴급 공지</option><option value="exclude">제외</option></select></label>
               <label class="field"><span>신뢰도</span><input id="newsroomConfidence" readonly></label>
               <label class="field"><span>사실 확인</span><select id="newsroomFactStatus"><option value="official_verified">공식 출처 확인</option><option value="needs_review">추가 확인 필요</option><option value="conflict">정보 충돌</option></select></label>
               <label class="field full"><span>AI 분류 이유</span><textarea id="newsroomClassificationReason" rows="2" readonly></textarea></label>
@@ -1440,10 +1446,17 @@
                 <div id="newsroomBusinessCandidates" class="newsroom-businesses"></div>
                 <div class="tiny muted">자동 추천이 맞지 않으면 ‘업소 직접 선택’으로 바꾸어 원하는 업소를 검색하고 선택하세요. Google 평점과 AI 관련도는 서로 다른 정보입니다.</div>
               </div>
-              <div class="field full newsroom-special-box" style="border-color:#bfdbfe;background:#eff6ff">
-                <label style="display:flex;align-items:center;gap:10px;font-weight:800"><input id="newsroomHomeShow" type="checkbox"> 게시와 동시에 ‘오늘의 달타운’ 메인에 노출</label>
-                <label class="field full" style="margin-top:10px"><span>메인 카드 버튼 문구</span><input id="newsroomHomeLinkLabel" maxlength="30" value="기사 보기" placeholder="예: 기사 보기, 추천 업소 보기"></label>
-                <div class="tiny muted">체크하면 게시된 글로 연결되는 버튼이 메인 카드에 자동 생성됩니다. 선택한 관련 업소는 기사 본문 하단의 추천 업체로 함께 표시됩니다.</div>
+              <div id="newsroomHomeOptions" class="field full newsroom-special-box" style="border-color:#bfdbfe;background:#eff6ff" hidden>
+                <label class="field full"><span>메인 표시 종류</span><select id="newsroomHomeCategory"><option value="business">업소 추천</option><option value="shopping">쇼핑</option><option value="event">행사</option><option value="education">교육</option><option value="real_estate">부동산</option><option value="finance">금융</option><option value="seminar">세미나</option><option value="faith">커뮤니티 행사</option></select></label>
+                <label class="field full"><span>메인 카드 연결 대상</span><select id="newsroomHomeTargetMode"><option value="business">선택한 업소 상세</option><option value="post">게시한 기사</option></select></label>
+                <label class="field full"><span>연결할 업소</span><select id="newsroomHomeBusinessTarget"><option value="">먼저 아래에서 업소를 선택하세요</option></select></label>
+                <label class="field full"><span>메인 카드 버튼 문구</span><input id="newsroomHomeLinkLabel" maxlength="30" value="업소 보기" placeholder="예: 업소 보기, 행사 보기"></label>
+                <div class="tiny muted">날씨와 교통만 자동 표시됩니다. 쇼핑·행사·업소 등은 이 항목을 체크한 콘텐츠만 메인에 표시됩니다.</div>
+              </div>
+              <div id="newsroomSourceLinkOptions" class="field full newsroom-special-box" hidden>
+                <label style="display:flex;align-items:center;gap:10px;font-weight:800"><input id="newsroomIncludeSourceLink" type="checkbox"> 게시 기사에 외부 링크 표시</label>
+                <label class="field full" style="margin-top:10px"><span>관리자 입력 링크</span><input id="newsroomCustomSourceUrl" type="url" placeholder="https://... (비워두면 원본 링크를 사용하지 않습니다)"></label>
+                <div class="tiny muted">기본값은 링크 없음입니다. 필요한 경우에만 관리자가 직접 입력하세요.</div>
               </div>
               <label class="field full"><span>관리자 메모</span><textarea id="newsroomAdminNote" rows="2"></textarea></label>
               <div class="field full newsroom-bottom-actions">
@@ -1451,7 +1464,7 @@
                 <button id="newsroomDraftBtn" class="btn ghost" type="button">③ 한국어 기사 다시 작성</button>
                 <button id="newsroomSaveReviewBtn" class="btn ghost" type="button">검토 내용 저장</button>
                 <button id="newsroomExcludeBtn" class="btn danger" type="button">제외</button>
-                <button id="newsroomPublishBtn" class="btn primary" type="button">확정 위치에 게시</button>
+                <button id="newsroomPublishBtn" class="btn primary" type="button">선택한 방식으로 적용</button>
               </div>
             </form>
           </div>
