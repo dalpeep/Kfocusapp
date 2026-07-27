@@ -179,7 +179,7 @@ function homeBusinessItemHTML(b){
       </div>
 
       <div class="home-biz-map-side">
-        <span class="home-biz-map-cat">${esc(b.category || '업소')}</span>
+        <span class="home-biz-map-cat">${esc(b.subcategory || b.category_sub || b.subcategory_ko || b.category_ko || b.category || '업소')}</span>
         ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)}</span>` : ''}
       </div>
     </button>
@@ -2152,7 +2152,7 @@ function paintV37Recommendation(){
   if(!title||!summary||!dots)return;const item=v37RecommendationItems[v37RecommendationIndex];
   if(!item){title.textContent='추천 업체를 준비하고 있습니다.';summary.textContent='달타운이 선별한 업체를 확인해 보세요.';dots.innerHTML='';return;}
   const b=item.data||item;title.textContent=v45BusinessName(b);summary.textContent=v45BusinessSummary(b);
-  if(tagsNode)tagsNode.innerHTML=[b.category_ko||b.category,b.area].filter(Boolean).slice(0,2).map(t=>`<span class="v37-recommend-tag">${esc(t)}</span>`).join('');
+  if(tagsNode)tagsNode.innerHTML=[b.subcategory||b.category_sub||b.subcategory_ko||b.category_ko||b.category,b.area].filter(Boolean).slice(0,2).map(t=>`<span class="v37-recommend-tag">${esc(t)}</span>`).join('');
   dots.innerHTML=v37RecommendationItems.length>1?v37RecommendationItems.map((_,i)=>`<span class="${i===v37RecommendationIndex?'active':''}"></span>`).join(''):'';
 }
 function v38SignalText(candidates){
