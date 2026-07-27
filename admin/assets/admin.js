@@ -4949,21 +4949,26 @@ function v482UpdateSelectionStatus(){
   safeText('v482SelectionStatus',`선택된 기사 ${v482SelectedArticleIds.size}건`);
   const disabled=v482SelectedArticleIds.size===0;['v482ApplyPicksBtn','v487RemovePicksBtn','v491ArchiveSelectedBtn','v491UnarchiveSelectedBtn','v491DeleteSelectedBtn'].forEach(id=>{const el=qs(id);if(el)el.disabled=disabled;});
 }
-async function v485ConfigureHomeLink(id){
-  const row=(newsroomCache||[]).find(x=>String(x.id)===String(id));
-  const meta=(row?.event_data&&typeof row.event_data==='object')?row.event_data:{};
-  const currentType=String(meta.home_target_type||'post');
-  const targetType=prompt('연결 종류를 입력하세요: post(우리 게시판) 또는 business(업소)',currentType);
-  if(targetType===null)return;
-  const normalized=String(targetType).trim().toLowerCase();
-  if(!['post','business'].includes(normalized)){alert('post 또는 business만 사용할 수 있습니다. 외부 링크는 지원하지 않습니다.');return;}
-  const targetId=prompt(normalized==='post'?'연결할 우리 게시글 ID를 입력하세요.':'연결할 업소 ID를 입력하세요.',String(meta.home_target_id||''));
-  if(targetId===null||!String(targetId).trim())return;
-  const defaultLabel=normalized==='business'?'업소 보기':'기사 보기';
-  const label=prompt('버튼 문구를 입력하세요.',String(meta.home_link_label||defaultLabel));
-  if(label===null)return;
-  try{await newsroomEdgeCall('set_home_link',{id,enabled:true,target_type:normalized,target_id:String(targetId).trim(),label:String(label).trim()||defaultLabel,region:getAppRegion()});safeText('newsroomStatus','내부 연결을 저장했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
+function v511HomeLinkTargetRows(type, query=''){
+  const q=String(query||'').trim().toLowerCase();
+  if(type==='business') return (businesses||[]).filter(x=>!q||[x.name_ko,x.name_en,x.area,x.category_ko,x.address].join(' ').toLowerCase().includes(q)).slice(0,120).map(x=>({id:String(x.id),label:`${x.name_ko||x.name_en||'업소'}${x.area?` · ${x.area}`:''}`}));
+  return (boards||[]).filter(x=>x.is_active!==false&&(!q||[x.title,x.content,boardLabel(x.type),boardSubtypeLabel(x.subtype)].join(' ').toLowerCase().includes(q))).slice(0,120).map(x=>({id:String(x.id),label:`${x.title||'제목 없음'} · ${boardLabel(x.type||'notice')}`}));
 }
+function v511CloseHomeLinkModal(){document.getElementById('v511HomeLinkModal')?.remove();}
+function v511OpenHomeLinkModal(id){
+  const pool=(typeof newsroomCache!=='undefined'&&newsroomCache?.length)?newsroomCache:newsroomItems;
+  const row=(pool||[]).find(x=>String(x.id)===String(id));if(!row)return;
+  const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
+  const currentType=['business','post'].includes(String(meta.home_target_type||''))?String(meta.home_target_type):'post';
+  const modal=document.createElement('div');modal.id='v511HomeLinkModal';modal.className='v511-link-modal-backdrop';
+  modal.innerHTML=`<section class="v511-link-modal" role="dialog" aria-modal="true" aria-labelledby="v511LinkTitle"><div class="v511-link-modal-head"><div><h3 id="v511LinkTitle">오늘의 달타운 연결 설정</h3><p>메인 정보 카드를 앱 내부의 게시판 글 또는 업소 상세로 연결합니다.</p></div><button type="button" class="v511-link-close" aria-label="닫기">×</button></div><div class="v511-link-source"><b>${esc(row.ai_title||row.original_title||'제목 없음')}</b></div><label class="field"><span>연결 종류</span><select id="v511LinkType"><option value="post">게시판 글</option><option value="business">업소 상세</option></select></label><label class="field"><span>검색</span><input id="v511LinkSearch" type="search" placeholder="제목 또는 업소명을 입력하세요"></label><label class="field"><span>연결 대상</span><select id="v511LinkTarget" size="7"></select></label><label class="field"><span>버튼 문구</span><input id="v511LinkLabel" maxlength="30" value="${esc(meta.home_link_label||'자세히 보기')}"></label><div class="v511-link-modal-actions"><button type="button" class="btn ghost v511-link-cancel">취소</button><button type="button" class="btn primary v511-link-save">연결 저장</button></div></section>`;
+  document.body.appendChild(modal);
+  const typeEl=modal.querySelector('#v511LinkType'),searchEl=modal.querySelector('#v511LinkSearch'),targetEl=modal.querySelector('#v511LinkTarget');typeEl.value=currentType;
+  const render=()=>{const rows=v511HomeLinkTargetRows(typeEl.value,searchEl.value);targetEl.innerHTML=rows.length?rows.map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join(''):'<option value="">검색 결과가 없습니다.</option>';const currentId=String(meta.home_target_id||'');if(currentId&&rows.some(x=>x.id===currentId))targetEl.value=currentId;};
+  render();typeEl.addEventListener('change',()=>{searchEl.value='';render();});searchEl.addEventListener('input',render);modal.querySelector('.v511-link-close').onclick=v511CloseHomeLinkModal;modal.querySelector('.v511-link-cancel').onclick=v511CloseHomeLinkModal;modal.addEventListener('click',e=>{if(e.target===modal)v511CloseHomeLinkModal();});
+  modal.querySelector('.v511-link-save').onclick=async()=>{const targetId=String(targetEl.value||'').trim();if(!targetId)return alert('연결할 업소 또는 게시판 글을 선택하세요.');const btn=modal.querySelector('.v511-link-save');btn.disabled=true;btn.textContent='저장 중…';try{await newsroomEdgeCall('set_home_link',{id,enabled:true,target_type:typeEl.value,target_id:targetId,label:String(modal.querySelector('#v511LinkLabel').value||'자세히 보기').trim()||'자세히 보기',region:getAppRegion()});safeText('newsroomStatus',meta.home_link_enabled===true?'메인 연결을 수정했습니다.':'메인 연결을 저장했습니다.');v511CloseHomeLinkModal();await loadNewsroom();}catch(e){btn.disabled=false;btn.textContent='연결 저장';alert(e.message||String(e));}};
+}
+async function v485ConfigureHomeLink(id){v511OpenHomeLinkModal(id);}
 async function v487DeleteHomeLink(id){
   if(!confirm('이 기사의 내부 연결 버튼을 삭제할까요? 기사는 메인에 계속 표시될 수 있습니다.'))return;
   try{await newsroomEdgeCall('set_home_link',{id,enabled:false,target_type:'',target_id:'',label:'',region:getAppRegion()});safeText('newsroomStatus','메인 링크를 삭제했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
