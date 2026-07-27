@@ -5162,9 +5162,32 @@ function renderNewsroomBusinesses(row){
   }
   newsroomBindBusinessChecks();
 }
+
+function newsroomTraceTypeLabel(v){return ({official:'공식기관',research:'연구기관',wire:'통신사',local_media:'미국 지역 언론',national_media:'미국 전국 언론',community_media:'한인·커뮤니티 매체',unknown:'출처 유형 미확인'})[String(v||'')]||'출처 유형 미확인';}
+function newsroomTraceRoleLabel(v){return ({primary:'원본 가능성 높음',near_primary:'원본에 가까운 보도',secondary:'후속 보도',discovery_signal:'주제 발견 신호'})[String(v||'')]||'참고 자료';}
+function renderNewsroomSourceTrace(trace){
+  const status=qs('newsroomSourceTraceStatus'),box=qs('newsroomSourceTraceResults');if(!status||!box)return;
+  if(!trace||typeof trace!=='object'){status.textContent='아직 출처를 추적하지 않았습니다.';box.innerHTML='';return;}
+  const origin=trace.likely_origin&&typeof trace.likely_origin==='object'?trace.likely_origin:null;
+  const sources=Array.isArray(trace.sources)?trace.sources:[];
+  const checked=trace.checked_at?new Date(trace.checked_at).toLocaleString('ko-KR'):'확인 시각 없음';
+  status.textContent=`마지막 추적 ${checked} · 후보 ${Number(trace.candidate_count||sources.length)}개 검토`;
+  const originHtml=origin&&origin.publisher?`<div style="border:1px solid #bcd0f5;background:#fff;border-radius:14px;padding:14px;margin-bottom:12px"><div class="tiny" style="font-weight:800;color:#215fc9">추정 원본 출처 · 신뢰도 ${Math.max(0,Math.min(100,Number(origin.confidence||0)))}%</div><div style="font-weight:900;font-size:16px;margin-top:5px">${esc(origin.publisher)}</div><div style="margin-top:4px">${esc(origin.title||'')}</div><div class="muted" style="margin-top:5px">${esc(newsroomTraceTypeLabel(origin.type))}</div>${origin.url?`<a class="btn ghost" style="margin-top:10px;display:inline-flex" href="${esc(origin.url)}" target="_blank" rel="noopener">후보 원문 열기</a>`:''}</div>`:'<div class="muted" style="margin-bottom:10px">확실한 단일 원본은 찾지 못했습니다. 아래 후보를 참고해 주세요.</div>';
+  const notes=trace.notes?`<div style="padding:11px 12px;border-radius:12px;background:#fff7df;margin-bottom:12px">${esc(trace.notes)}</div>`:'';
+  const list=sources.map((x,i)=>`<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;border-top:1px solid #e4ebf6;padding:12px 0"><div><div style="font-weight:800">${i+1}. ${esc(x.publisher||'출처 미상')}</div><div style="margin-top:3px">${esc(x.title||'')}</div><div class="muted" style="margin-top:4px">${esc(newsroomTraceTypeLabel(x.type))} · ${esc(newsroomTraceRoleLabel(x.role))} · 신뢰도 ${Math.max(0,Math.min(100,Number(x.confidence||0)))}%</div>${x.reason?`<div class="tiny" style="margin-top:5px">${esc(x.reason)}</div>`:''}</div>${x.url?`<a class="btn ghost" href="${esc(x.url)}" target="_blank" rel="noopener">열기</a>`:''}</div>`).join('');
+  box.innerHTML=originHtml+notes+(list||'<div class="muted">검색된 출처 후보가 없습니다.</div>');
+}
+async function traceNewsroomSources(){
+  if(!selectedNewsroomId)return alert('먼저 기사를 선택하세요.');
+  const btn=qs('newsroomTraceSourcesBtn');const old=btn?.textContent;if(btn){btn.disabled=true;btn.textContent='원본 출처 찾는 중…';}
+  safeText('newsroomSourceTraceStatus','공식기관·연구기관·미국 언론에서 원출처 후보를 찾고 있습니다.');
+  try{const result=await newsroomEdgeCall('trace_sources',{id:selectedNewsroomId,region:getAppRegion()},'원본 출처를 추적하고 있습니다.');renderNewsroomSourceTrace(result.trace);await loadNewsroom();const updated=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(updated)fillNewsroom(updated);}catch(e){safeText('newsroomSourceTraceStatus',`출처 추적 실패: ${e.message}`);alert(`원본 출처 추적 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent=old||'원본 출처 찾기';}}
+}
+
 function fillNewsroom(row){
   selectedNewsroomId=row.id; newsroomBusinessSelection=new Set(newsroomJson(row.selected_business_ids,[]).map(String)); renderNewsroom(); qs('newsroomEmpty').hidden=true; qs('newsroomForm').hidden=false;
   const meta=newsroomJson(row.event_data,{});
+  renderNewsroomSourceTrace(meta.source_trace||null);
   const savedMode=meta.business_selection_mode==='manual'?'manual':'auto';
   const modeEl=document.querySelector(`input[name="newsroomBusinessMode"][value="${savedMode}"]`);if(modeEl)modeEl.checked=true;
   setVal('newsroomBusinessSearch','');
@@ -5511,3 +5534,5 @@ function v45ReadHomeConfig(){
 async function v45SaveHomeConfig(){const btn=qs('v45HomeSaveBtn');if(btn)btn.disabled=true;try{const home_config=v45ReadHomeConfig();await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'메인 운영 설정을 저장하고 있습니다…');const verified=await newsroomEdgeCall('get_settings',{region:getAppRegion()},'저장된 메인 설정을 확인하고 있습니다…');const saved=verified?.settings?.home_config||verified?.home_config||{};v45FillHomeConfig(saved);safeText('newsroomStatus',`메인 설정 저장·확인 완료 · 선택 분야 ${(saved.proposal_categories||[]).length}개`);alert('메인 운영 설정을 저장하고 서버에서 다시 확인했습니다.');}catch(e){alert(`메인 설정 저장 실패: ${e.message}`);}finally{if(btn)btn.disabled=false;}}
 
 document.addEventListener('click',(e)=>{if(e.target?.id==='v45HomeSaveBtn')v45SaveHomeConfig();});
+
+qs('newsroomTraceSourcesBtn')?.addEventListener('click',traceNewsroomSources);

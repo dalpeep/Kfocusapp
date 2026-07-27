@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '50.0.0';
+const VERSION = '52.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -923,6 +923,83 @@ async function analyze(body: any) {
   return { ok: true, version: VERSION, analyzed, excluded, failed, remaining_hint: Math.max(0, (rows || []).length - analyzed) };
 }
 
+
+async function traceSources(body: any) {
+  if (!body.id) throw new Error('기사 ID가 없습니다.');
+  const { data: item, error } = await admin.from('newsroom_items').select('*').eq('id', body.id).single();
+  if (error) throw error;
+
+  const title = String(item.ai_title || item.original_title || '').trim();
+  const summary = String(item.ai_summary || item.original_summary || '').trim();
+  if (!title) throw new Error('출처를 추적할 제목이 없습니다.');
+
+  const compact = title.replace(/[“”"'‘’]/g, ' ').replace(/\s+/g, ' ').trim();
+  const queries = [
+    `"${compact}"`,
+    `${compact} official announcement`,
+    `${compact} source report`,
+  ];
+  const raw: any[] = [];
+  for (const q of queries) {
+    try {
+      const xml = await fetchTextWithTimeout(googleNewsFeedUrl(q), 15000);
+      raw.push(...parseGoogleNewsRss(xml, 'trace').slice(0, 12));
+    } catch (e) {
+      console.warn('source trace query failed', q, e instanceof Error ? e.message : String(e));
+    }
+  }
+  const dedup = new Map<string, any>();
+  for (const r of raw) {
+    const key = `${titleKey(r.original_title)}|${String(r.source_name || '').toLowerCase()}`;
+    if (!key || dedup.has(key)) continue;
+    dedup.set(key, {
+      title: r.original_title,
+      url: r.original_url,
+      publisher: r.source_name || '출처 미상',
+      published_at: r.source_published_at || null,
+      summary: String(r.original_summary || '').slice(0, 600),
+    });
+  }
+  const candidates = Array.from(dedup.values()).slice(0, 24);
+
+  const ranked = await openai({
+    model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
+    input: `You are tracing the likely original public source behind a news topic. The Korean/community article is only a discovery signal. Do not copy it and do not assume it is the origin. Identify official agencies, research institutions, wire services, local broadcasters/newspapers, and other primary or near-primary sources among the candidates. Be conservative: call something a likely origin only when evidence supports it.
+
+Topic title: ${title}
+Topic summary: ${summary}
+Discovery source: ${item.source_name || ''}
+Discovery URL: ${item.original_url || ''}
+Candidates JSON: ${JSON.stringify(candidates)}
+
+Return ONLY JSON with this shape:
+{
+  "likely_origin": {"publisher":"","title":"","url":"","type":"official|research|wire|local_media|national_media|community_media|unknown","confidence":0},
+  "notes":"Korean explanation of why this is or is not likely to be the original source",
+  "sources":[{"publisher":"","title":"","url":"","published_at":null,"type":"official|research|wire|local_media|national_media|community_media|unknown","role":"primary|near_primary|secondary|discovery_signal","confidence":0,"reason":"brief Korean reason"}]
+}
+Keep at most 8 sources. Prefer official and primary sources.`,
+  }, 80000);
+
+  const sources = Array.isArray(ranked.sources) ? ranked.sources.slice(0, 8) : [];
+  const trace = {
+    checked_at: new Date().toISOString(),
+    likely_origin: ranked.likely_origin || null,
+    notes: String(ranked.notes || ''),
+    sources,
+    discovery_source: { publisher: item.source_name || '', url: item.original_url || '' },
+    query_count: queries.length,
+    candidate_count: candidates.length,
+  };
+  const oldEvent = item.event_data && typeof item.event_data === 'object' ? item.event_data : {};
+  const { error: updateError } = await admin.from('newsroom_items').update({
+    event_data: { ...oldEvent, source_trace: trace },
+    updated_at: new Date().toISOString(),
+  }).eq('id', item.id);
+  if (updateError) throw updateError;
+  return { ok: true, version: VERSION, trace };
+}
+
 async function draft(body: any) {
   if (!body.id) throw new Error('기사 ID가 없습니다.');
   const { data: item, error } = await admin.from('newsroom_items').select('*').eq('id', body.id).single();
@@ -1130,6 +1207,7 @@ Deno.serve(async (req) => {
     if (action === 'delete_newsroom_item') return json(await deleteNewsroomItem(body));
     if (action === 'analyze') return json(await analyze(body));
     if (action === 'draft') return json(await draft(body));
+    if (action === 'trace_sources') return json(await traceSources(body));
     if (action === 'get_settings') {
       const { data, error } = await admin.from('newsroom_settings').select('*').eq('region', region).maybeSingle();
       if (error) throw error;
