@@ -157,7 +157,7 @@ let selectedSlideBusinessId = null;
 let selectedSlideId = null;
 
 const BUSINESS_FIELDS = [
-  'id', 'name_ko', 'name_en', 'category_ko', 'area', 'region', 'phone',
+  'id', 'name_ko', 'name_en', 'category_ko', 'map_category', 'subcategory', 'search_keywords', 'area', 'region', 'phone',
   'website', 'email', 'address', 'description',
   'coupon_notify_emails',
   'coupon_notify_phones',  
@@ -1023,6 +1023,8 @@ function clearBusinessForm() {
   setVal('region', 'dallas');
   if (qs('imageFile')) qs('imageFile').value = '';
   selectedId = null;
+  setVal('map_category',''); setVal('subcategory',''); setVal('search_keywords',''); setVal('category_ko','');
+  refreshSubcategoryOptions();
   safeText('formTitle', '새 업소 등록');
   $$('.business-row').forEach((el) => el.classList.remove('active'));
   updatePreview();
@@ -1045,9 +1047,61 @@ function fillBusinessForm(row) {
     row?.id ? `업소 수정 #${row.id}` : '업소 정보'
   );
 
+  // 기존 데이터는 category_ko에서 지도 대분류를 추정해 자동 호환합니다.
+  const legacyCategory = String(row?.category_ko || row?.category || '').trim();
+  setVal('map_category', row?.map_category || normalizeAdminMapCategory(legacyCategory));
+  const savedSubcategory = row?.subcategory || row?.category_sub || legacyCategory;
+  setVal('search_keywords', row?.search_keywords || '');
+  refreshSubcategoryOptions(savedSubcategory);
+  setVal('subcategory', savedSubcategory);
+  syncLegacyCategoryField();
+
   updatePreview();
   renderGalleryList(row);
   fillBusinessHours(row?.business_hours);
+}
+const ADMIN_MAP_CATEGORIES = ['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
+const ADMIN_SUBCATEGORY_OPTIONS = {
+  '식당':['한식','중식','일식','분식','치킨','BBQ','카페','베이커리','카페·베이커리','디저트','주점','기타 음식점'],
+  '쇼핑':['마트','식품점','의류','화장품','안경','휴대폰','전자제품','꽃집','선물·잡화'],
+  '병원':['내과','치과','소아과','산부인과','안과','피부과','정형외과','한의원','약국','재활·물리치료'],
+  '금융':['은행','보험','회계사','세무사','투자·재정','대출·융자'],
+  '법률':['이민법','사고·상해','가정법','형사법','부동산법','공증','종합 법률'],
+  '종교':['교회','성당','사찰','선교단체','종교기관'],
+  '서비스':['건강','건강기기','안마의자','미용실','네일','자동차정비','여행사','교육·학원','공공기관·관공서','사진·영상','세탁소','이사','청소','컴퓨터수리','인쇄','기타 서비스'],
+  '부동산':['부동산 중개','모기지','타이틀','건축','인테리어','상업용 부동산','임대관리']
+};
+function normalizeAdminMapCategory(value=''){
+  const s=String(value||'').toLowerCase();
+  if(/식당|restaurant|bbq|치킨|분식|한식|중식|일식|카페|bakery|베이커리|cafe|coffee|디저트/.test(s))return '식당';
+  if(/쇼핑|마트|마켓|잡화|수산|의류|전자|gift|store|market|shopping/.test(s))return '쇼핑';
+  if(/병원|치과|한의원|약국|의원|clinic|medical|doctor|dental|pharmacy/.test(s))return '병원';
+  if(/금융|은행|보험|회계|세무|finance|mortgage|loan|bank|investment|accounting|tax/.test(s))return '금융';
+  if(/법률|변호사|법무|이민|law|lawyer|attorney|legal/.test(s))return '법률';
+  if(/종교|교회|성당|사찰|절|church|catholic|mission|선교|temple/.test(s))return '종교';
+  if(/부동산|리얼터|렌트|매매|realtor|real estate|lease|rental|property/.test(s))return '부동산';
+  return '서비스';
+}
+function syncLegacyCategoryField(){
+  const main=val('map_category').trim();
+  const sub=val('subcategory').trim();
+  setVal('category_ko',sub||main);
+}
+function refreshSubcategoryOptions(preferredValue=''){
+  const host=qs('subcategory'); if(!host)return;
+  const main=val('map_category');
+  const defaults=ADMIN_SUBCATEGORY_OPTIONS[main]||[];
+  const current=String(preferredValue || host.value || '').trim();
+  host.disabled=!main;
+  if(!main){
+    host.innerHTML='<option value="">먼저 지도 대분류를 선택하세요</option>';
+    return;
+  }
+  const values=[...defaults];
+  // 과거 데이터의 상세 업종이 고정 목록에 없더라도 수정 중 값은 보존합니다.
+  if(current && !values.includes(current)) values.push(current);
+  host.innerHTML='<option value="">상세 업종 선택</option>'+values.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if(current && values.includes(current)) host.value=current;
 }
 function businessCategoryOptions() {
   const cats = Array.from(new Set(
@@ -1082,7 +1136,7 @@ function filterBusinesses() {
     if (quick === 'slide' && !slideIds.has(String(r.id))) return false;
     if (quick === 'coupon' && !couponIds.has(String(r.id))) return false;
     if (!q) return true;
-    const hay = [r.name_ko, r.name_en, r.category_ko, r.area, r.address, r.phone].join(' ').toLowerCase();
+    const hay = [r.name_ko, r.name_en, r.category_ko, r.map_category, r.subcategory, r.search_keywords, r.area, r.address, r.phone].join(' ').toLowerCase();
     return hay.includes(q);
   });
 }
@@ -1203,7 +1257,7 @@ function renderBusinessList(items) {
       <img class="biz-thumb" src="${esc(row.image_url || 'https://placehold.co/120x120?text=No+Image')}" alt="thumb" />
       <div class="biz-main">
         <div class="biz-title">${esc(row.name_ko || row.name_en || `ID ${row.id}`)}</div>
-        <div class="biz-meta">${esc([row.category_ko, row.area, row.phone].filter(Boolean).join(' · '))}</div>
+        <div class="biz-meta">${esc([row.subcategory || row.category_ko || row.map_category, row.area, row.phone].filter(Boolean).join(' · '))}</div>
         <div class="biz-meta">${esc(row.address || '')}</div>
         <div class="biz-statuses">${businessBadges(row)}</div>
         ${businessStatLine(row)}
@@ -1251,6 +1305,9 @@ function collectBusinessPayload() {
     'name_ko',
     'name_en',
     'category_ko',
+    'map_category',
+    'subcategory',
+    'search_keywords',
     'area',
     'phone',
     'website',
@@ -1363,7 +1420,10 @@ async function saveBusiness() {
   
   console.log(payload.business_hours);
   if (!payload.name_ko && !payload.name_en) return alert('업소명을 입력하세요.');
-  if (!payload.category_ko) return alert('카테고리를 입력해 주세요.');
+  if (!payload.map_category) return alert('지도 대분류를 선택해 주세요.');
+  if (!payload.subcategory) return alert('상세 업종을 선택해 주세요.');
+  // 기존 화면/연동 호환용 category_ko에는 상세 업종을 우선 저장합니다.
+  payload.category_ko = payload.subcategory || payload.map_category;
 
   let res;
   if (selectedId) {
@@ -5796,3 +5856,9 @@ async function v45SaveHomeConfig(){const btn=qs('v45HomeSaveBtn');if(btn)btn.dis
 document.addEventListener('click',(e)=>{if(e.target?.id==='v45HomeSaveBtn')v45SaveHomeConfig();});
 
 qs('newsroomTraceSourcesBtn')?.addEventListener('click',traceNewsroomSources);
+
+
+// V54 지도 대분류·상세 업종 연동
+on('map_category','change',()=>{ refreshSubcategoryOptions(); syncLegacyCategoryField(); updatePreview(); });
+on('subcategory','change',()=>{ syncLegacyCategoryField(); updatePreview(); });
+console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');

@@ -179,7 +179,7 @@ function homeBusinessItemHTML(b){
       </div>
 
       <div class="home-biz-map-side">
-        <span class="home-biz-map-cat">${esc(b.category || '업소')}</span>
+        <span class="home-biz-map-cat">${esc(b.subcategory || b.category_sub || b.subcategory_ko || b.category_ko || b.category || '업소')}</span>
         ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)}</span>` : ''}
       </div>
     </button>
@@ -791,7 +791,7 @@ function initBoardImageSlider(root=document){
 function businessSearchResults(query){
   const q = normalizeSearchText(query);
   if(!q) return [];
-  return businesses.filter(b => queryMatches(q, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)])).slice(0,8);
+  return businesses.filter(b => queryMatches(q, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)])).slice(0,8);
 }
 function couponSearchResults(query){
   const q = normalizeSearchText(query);
@@ -838,7 +838,7 @@ function renderSearchResults(query){
   const biz = businessSearchResults(q);
   const cpn = couponSearchResults(q);
   const brd = boardSearchResults(q);
-  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}"><strong>${esc(b.name)}</strong><span>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
+  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}"><strong>${esc(b.name)}</strong><span>${esc(getBusinessDisplayCategory(b))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
   if(searchCouponList) searchCouponList.innerHTML = cpn.map(c=>{ const biz=getBiz(c.businessId) || {}; return `<button class="search-result-item" data-search-type="coupon" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(biz.name || '')}${biz.name?' · ':''}${esc(countdownLabel(c.endAt,true))}</span></button>`; }).join('');
   if(searchBoardList) searchBoardList.innerHTML = brd.map(p=>`<button class="search-result-item" data-search-type="board" data-board-result="${esc(p.type)}" data-board-title="${esc(p.title)}"><strong>${esc(p.title)}</strong><span>${esc(p.content || p.type || '')}</span></button>`).join('');
   searchBusinessSection?.classList.toggle('hidden', !biz.length);
@@ -866,18 +866,29 @@ function milesToZoom(m){ if(m==='3') return 15; if(m==='5') return 13; if(m==='7
 function radiusByZoom(z){ if(z <= 10) return '10'; if(z <= 12) return '7'; if(z <= 14) return '5'; return '3'; }
 function activeMapCoupons(){ return activeCoupons(coupons); }
 function getMainCategoryLabel(cat=''){
-  const s = String(cat || '').toLowerCase();
+  const raw = String(cat || '').trim();
+  if(['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'].includes(raw)) return raw;
+  const s = raw.toLowerCase();
 
   if (/식당|restaurant|bbq|치킨|분식|한식|중식|일식|카페|bakery|베이커리|cafe|coffee|디저트|dessert/.test(s)) return '식당';
   if (/쇼핑|마트|마켓|잡화|수산|의류|전자|gift|liquor|주류|wine|beer|spirits|store|market|shopping/.test(s)) return '쇼핑';
   if (/병원|치과|한의원|약국|의원|clinic|medical|doctor|dental|pharmacy/.test(s)) return '병원';
   if (/금융|은행|보험|회계|세무|finance|financial|mortgage|loan|bank|investment|accounting|tax/.test(s)) return '금융';
   if (/법률|변호사|법무|이민|교통사고|가정법|law|lawyer|attorney|legal|immigration/.test(s)) return '법률';
-  if (/교회|성당|church|catholic|mission|선교/.test(s)) return '교회';
+  if (/종교|교회|성당|사찰|절|church|catholic|mission|선교|temple/.test(s)) return '종교';
   if (/부동산|리얼터|렌트|매매|realtor|real estate|lease|rental|property/.test(s)) return '부동산';
   if (/자동차|정비|카센터|오토|auto|repair|body shop|mechanic|tire/.test(s)) return '서비스';
 
   return '서비스';
+}
+function getBusinessDisplayCategory(b={}){
+  const main = getMainCategoryLabel(b.map_category || b.category_main || b.category || '');
+  const candidates = [b.subcategory, b.category_sub, b.subcategory_ko];
+  for (const value of candidates) {
+    const label = String(value || '').trim();
+    if (label && label !== main) return label;
+  }
+  return main || '업소';
 }
 function mapModeLabel(mode){
   return mode === 'coupon' ? '쿠폰' : mode === 'event' ? '행사' : '업소';
@@ -900,7 +911,7 @@ function renderMapCategorySummary(list=[]){
     if(label) acc[label] = (acc[label] || 0) + 1;
     return acc;
   },{});
-  const order = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const order = ['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
   const items = order.filter(label=>counts[label] > 0);
   mapCategoryRow.innerHTML = items.map(label=>`<button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]}</button>`).join('');
   mapCategoryRow.classList.toggle('hidden', items.length < 1 || mapMode !== 'business');
@@ -937,7 +948,7 @@ async function loadRealData(){
 
   try {
     const select = [
-      'id','name_ko','name_en','name','category_ko','category','area',
+      'id','name_ko','name_en','name','category_ko','category','map_category','subcategory','search_keywords','area',
       'address','phone','website','email','image_url','image_urls','gallery_urls',
       'description','description_images','hours','monday','tuesday','wednesday',
       'thursday','friday','saturday','sunday','business_hours',
@@ -971,7 +982,12 @@ async function loadRealData(){
         return {
           id: row.id,
           name: row.name_ko || row.name_en || row.name || '이름 없음',
-          category: row.category_ko || row.category || '기타',
+          category: row.map_category || getMainCategoryLabel(row.category_ko || row.category || '서비스'),
+          map_category: row.map_category || getMainCategoryLabel(row.category_ko || row.category || '서비스'),
+          category_main: row.map_category || getMainCategoryLabel(row.category_ko || row.category || '서비스'),
+          category_sub: row.subcategory || row.category_ko || row.category || '',
+          subcategory: row.subcategory || row.category_ko || row.category || '',
+          search_keywords: row.search_keywords || '',
           area: row.area || '',
           region: row.region || 'dallas',
           address: row.address || '',
@@ -1622,7 +1638,7 @@ function miniCardHTML(b){
   return `<button class="mini-card biz-open" data-biz="${esc(b.id)}"><div class="mini-image-wrap"><img class="mini-image" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="mini-badge-stack">${badgeStackHTML(b,true)}</div></div><div class="mini-name">${esc(b.name)}</div></button>`;
 }
 function listCardHTML(b){
-  return `<button class="list-card biz-open" data-biz="${esc(b.id)}"><img class="list-thumb" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="list-main"><h4>${esc(b.name)}</h4><p>${esc(b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
+  return `<button class="list-card biz-open" data-biz="${esc(b.id)}"><img class="list-thumb" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="list-main"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
 }
 function formatDateLabel(v){
   if(!v) return '';
@@ -1788,7 +1804,7 @@ function mapBottomItemHTML(b){
     ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng))
     : null;
 
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const meta = [getBusinessDisplayCategory(b)];
   if (miles != null && Number.isFinite(miles)) {
     meta.push(`${miles.toFixed(1)}mi`);
   }
@@ -1824,7 +1840,7 @@ function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
   const miles = currentCenter && Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
     ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const meta = [getBusinessDisplayCategory(b)];
   if(Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
   return `<div class="map-preview-card">
     <div class="map-preview-main">
@@ -1853,7 +1869,7 @@ function showMapBusinessPreview(b){
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
-  const meta = [getMainCategoryLabel(b.category) || '업소'];
+  const meta = [getBusinessDisplayCategory(b)];
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
@@ -2136,7 +2152,7 @@ function paintV37Recommendation(){
   if(!title||!summary||!dots)return;const item=v37RecommendationItems[v37RecommendationIndex];
   if(!item){title.textContent='추천 업체를 준비하고 있습니다.';summary.textContent='달타운이 선별한 업체를 확인해 보세요.';dots.innerHTML='';return;}
   const b=item.data||item;title.textContent=v45BusinessName(b);summary.textContent=v45BusinessSummary(b);
-  if(tagsNode)tagsNode.innerHTML=[b.category_ko||b.category,b.area].filter(Boolean).slice(0,2).map(t=>`<span class="v37-recommend-tag">${esc(t)}</span>`).join('');
+  if(tagsNode)tagsNode.innerHTML=[b.subcategory||b.category_sub||b.subcategory_ko||b.category_ko||b.category,b.area].filter(Boolean).slice(0,2).map(t=>`<span class="v37-recommend-tag">${esc(t)}</span>`).join('');
   dots.innerHTML=v37RecommendationItems.length>1?v37RecommendationItems.map((_,i)=>`<span class="${i===v37RecommendationIndex?'active':''}"></span>`).join(''):'';
 }
 function v38SignalText(candidates){
@@ -2645,7 +2661,7 @@ function normalizeThemeTarget(value){
   if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
   if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
   if(['law','legal','법률','변호'].some(v=>s.includes(v))) return 'law';
-  if(['church','교회','종교'].some(v=>s.includes(v))) return 'church';
+  if(['church','종교','종교'].some(v=>s.includes(v))) return 'church';
   if(['real_estate','realestate','부동산','주택'].some(v=>s.includes(v))) return 'real_estate';
   if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
   if(['all','전체','전체_업종'].includes(s)) return 'all';
@@ -2747,7 +2763,7 @@ function renderBusinessList() {
 
   if (keyword) {
     rows = rows.filter(b => {
-      const hay = [b.name, b.category, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
+      const hay = [b.name, b.category, b.map_category, b.category_main, b.subcategory, b.category_sub, b.search_keywords, b.address, b.desc].filter(Boolean).join(' ').toLowerCase();
       return keyword.split(/\s+/).every(part => hay.includes(part));
     });
   }
@@ -2804,7 +2820,7 @@ function formatBusinessHours(b) {
   return lines.length ? lines.join('\n') : '정보 없음';
 }
 function renderCategories() {
-  const cats = ['식당','쇼핑','병원','금융','법률','교회','서비스','부동산'];
+  const cats = ['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
   if (!categoryRow) return;
 
   categoryRow.innerHTML = cats.map(c => `
@@ -2971,7 +2987,7 @@ const orderActionHtml = `
   
   const img = b.image || b.image_url || '/assets/kfocus-icon.png';
 const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
-const category = getMainCategoryLabel(b.category) || b.category || '업소';
+const category = b.subcategory || b.category_sub || getMainCategoryLabel(b.category) || b.category || '업소';
 const address = b.address || '';
 const phone = b.phone || b.phone_number || '';
 const website = b.website || b.url || '';
@@ -2989,7 +3005,7 @@ function normalizeThemeTarget(value){
   if(['hospital','medical','health','병원','의료','건강','미용','뷰티'].some(v=>s.includes(v))) return 'hospital';
   if(['finance','tax','account','금융','세무','회계','보험'].some(v=>s.includes(v))) return 'finance';
   if(['law','legal','법률','변호'].some(v=>s.includes(v))) return 'law';
-  if(['church','교회','종교'].some(v=>s.includes(v))) return 'church';
+  if(['church','종교','종교'].some(v=>s.includes(v))) return 'church';
   if(['real_estate','realestate','부동산','주택'].some(v=>s.includes(v))) return 'real_estate';
   if(['service','auto','car','서비스','자동차','정비'].some(v=>s.includes(v))) return 'service';
   return s;
@@ -4584,7 +4600,7 @@ function getFilteredMapBusinesses(){
     list = list.filter(b=>getMainCategoryLabel(b.category)===mapCategory);
   }
   if(mapSearchQuery){
-    list = list.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)]));
+    list = list.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)]));
   }
   return list;
 }
@@ -4593,7 +4609,7 @@ function createInfoWindowContent(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
   const thumb = b.image || 'assets/kfocus-icon.png';
   const badges = [hasCoupon ? '<span class=\"map-iw-badge deal\">🎟 할인</span>' : '', b.video ? '<span class=\"map-iw-badge video\">🎥 영상</span>' : '', b.has_event ? '<span class=\"map-iw-badge event\">🎉 행사</span>' : ''].filter(Boolean).join('');
-  return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
+  return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
 }
 
 function youtubeEmbed(url) {
@@ -4734,7 +4750,7 @@ function redrawMapMarkers(){
   const focus = currentCenter || getRegionCenter(currentRegion);
   const radiusMiles = String(mapRadius)==='all' ? null : Number(mapRadius || radiusByZoom(map?.getZoom?.() || 12));
   let baseList = businesses.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
-  if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.address, b.region, getMainCategoryLabel(b.category)]));
+  if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)]));
   const nearbyBase = !radiusMiles ? baseList : baseList.filter(b=>haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng)) <= radiusMiles);
   updateMapFilterAvailability(nearbyBase.length ? nearbyBase : baseList);
   // 상단 세부 카테고리 개수는 현재 위치/검색 범위의 전체 업소를 기준으로 유지한다.

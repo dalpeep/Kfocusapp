@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=53.9"></script>
+  <script type="module" src="assets/admin.js?v=54.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -383,7 +383,20 @@
               <input type="hidden" id="id" />
               <label class="field"><span>업소명(한글)</span><input id="name_ko" type="text" /></label>
               <label class="field"><span>업소명(영문)</span><input id="name_en" type="text" /></label>
-              <label class="field"><span>카테고리(한글)</span><input id="category_ko" type="text" list="categoryOptions" placeholder="기존 업종 선택 또는 새 업종 입력" /><datalist id="categoryOptions"></datalist></label>
+              <label class="field"><span>지도 대분류 *</span><select id="map_category">
+                <option value="">선택하세요</option>
+                <option value="식당">식당</option>
+                <option value="쇼핑">쇼핑</option>
+                <option value="병원">병원</option>
+                <option value="금융">금융</option>
+                <option value="법률">법률</option>
+                <option value="종교">종교</option>
+                <option value="서비스">서비스</option>
+                <option value="부동산">부동산</option>
+              </select><small class="muted">지도 필터와 핀 표시용 8개 대분류입니다.</small></label>
+              <label class="field"><span>상세 업종 *</span><select id="subcategory" disabled><option value="">먼저 지도 대분류를 선택하세요</option></select><small class="muted">대분류에 맞는 고정 목록에서만 선택할 수 있습니다.</small></label>
+              <label class="field full"><span>검색 키워드</span><input id="search_keywords" type="text" placeholder="예: 커피, 빵집, 케이크, 건강기기" /><small class="muted">쉼표로 구분하세요. 검색에만 사용됩니다.</small></label>
+              <input id="category_ko" type="hidden" />
               <label class="field"><span>지역(area)</span><input id="area" type="text" placeholder="Aurora, Denver" /></label>
               <label class="field"><span>region</span><select id="region"><option value="colorado">colorado</option><option value="dallas">dallas</option></select></label>
               <label class="field"><span>전화번호</span><input id="phone" type="text" /></label>
