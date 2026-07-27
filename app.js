@@ -2243,26 +2243,25 @@ function v46FallbackProposalItems(config={}){
   const selected=new Set((config.proposal_categories||[]).map(String));
   const enabled=(key)=>!selected.size||selected.has(key);
   const defs=[
-    {key:'shopping',label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'장보기 전 할인 정보를 확인해 보세요.'},
-    {key:'weather',label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 외출 시간을 조정해 보세요.'},
-    {key:'traffic',label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'출발 전 주요 도로 상황을 확인해 보세요.'},
-    {key:'event',label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'가까운 공연과 행사를 살펴보세요.'},
-    {key:'education',label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교와 교육 일정을 미리 확인해 보세요.'},
-    {key:'real_estate',label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택과 부동산 정보를 살펴보세요.'},
-    {key:'finance',label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행과 금융 안내를 비교해 보세요.'},
-    {key:'seminar',label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활에 도움이 되는 세미나를 확인해 보세요.'},
-    {key:'faith',label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'지역 종교·커뮤니티 행사를 확인해 보세요.'}
+    {key:'shopping',label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'이번 주 마켓·쇼핑'},
+    {key:'weather',label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘의 날씨·생활'},
+    {key:'traffic',label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'DFW 교통 정보'},
+    {key:'event',label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'이번 주 공연·행사'},
+    {key:'education',label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교·교육 일정'},
+    {key:'real_estate',label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택·부동산 정보'},
+    {key:'finance',label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행·금융 정보'},
+    {key:'seminar',label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활 세미나 안내'},
+    {key:'faith',label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'종교·커뮤니티 행사'}
   ];
   const rows=(boardPosts||[]).filter(p=>adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion);
   const result=[];const seen=new Set();
   for(const row of rows){
     const text=`${row.title||''} ${row.summary||''} ${row.content||''}`;
     const emergency=/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i.test(text);
-    const def=emergency?{key:'emergency',label:'긴급 안내',icon:'🚨',title:'지금 확인해야 할 지역 긴급 공지가 있습니다.'}:defs.find(d=>enabled(d.key)&&d.re.test(text));
+    const def=emergency?{key:'emergency',label:'긴급 안내',icon:'🚨',title:'지역 긴급 공지'}:defs.find(d=>enabled(d.key)&&d.re.test(text));
     if(!def||seen.has(def.key))continue;
     seen.add(def.key);
-    const customLink=String(config.category_links?.[def.key]||'').trim();
-    result.push({id:`fallback-${row.id}-${def.key}`,category:def.key,category_label:def.label,icon:def.icon,title:def.title,summary:v38Text(row.summary||row.content||row.title,180),link:customLink,has_link:Boolean(customLink),board_post_id:row.id,emergency});
+    result.push({id:`fallback-${row.id}-${def.key}`,category:def.key,category_label:def.label,icon:def.icon,title:def.title,summary:'',link:'',has_link:true,target_type:'post',target_id:row.id,link_label:'기사 보기',board_post_id:row.id,emergency});
   }
   return result.slice(0,8);
 }
@@ -2286,15 +2285,15 @@ function v461NormalizeProposalCategory(value=''){
 }
 function v461CategoryDefinition(key){
   return {
-    shopping:{label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'장보기 전 할인 정보를 확인해 보세요.',summary:'오늘 확인된 마켓·쇼핑 정보를 살펴보고 필요한 품목과 행사 기간을 확인해 보세요.'},
+    shopping:{label:'쇼핑·마켓',icon:'🛒',re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기)/i,title:'이번 주 마켓·쇼핑',summary:'오늘 확인된 마켓·쇼핑 정보를 살펴보고 필요한 품목과 행사 기간을 확인해 보세요.'},
     weather:{label:'날씨',icon:'☀️',re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i,title:'오늘 날씨에 맞춰 일정을 조정해 보세요.',summary:'외출 전 최신 기상 안내를 확인하고 날씨에 맞게 이동 시간과 준비물을 조정해 보세요.'},
-    traffic:{label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'출발 전 주요 도로 상황을 확인해 보세요.',summary:'정체·사고·공사 가능성을 확인하고 필요하면 우회 경로와 출발 시간을 조정해 보세요.'},
-    event:{label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'가까운 공연과 행사를 살펴보세요.',summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.'},
-    education:{label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교와 교육 일정을 미리 확인해 보세요.',summary:'학교 일정과 교육 관련 공지를 확인하고 필요한 준비를 미리 해두세요.'},
-    real_estate:{label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택과 부동산 정보를 살펴보세요.',summary:'주택·모기지·오픈하우스 관련 정보를 확인하고 조건과 일정을 비교해 보세요.'},
-    finance:{label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행과 금융 안내를 비교해 보세요.',summary:'대출·예금·금리 관련 안내를 확인하고 세부 조건을 비교해 보세요.'},
-    seminar:{label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활에 도움이 되는 세미나를 확인해 보세요.',summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정을 확인해 보세요.'},
-    faith:{label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'지역 종교·커뮤니티 행사를 확인해 보세요.',summary:'지역 교회·성당·사찰의 행사와 모임 일정을 확인해 보세요.'}
+    traffic:{label:'교통',icon:'🚗',re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회)/i,title:'DFW 교통 정보',summary:'정체·사고·공사 가능성을 확인하고 필요하면 우회 경로와 출발 시간을 조정해 보세요.'},
+    event:{label:'공연·이벤트',icon:'🎉',re:/(공연|콘서트|축제|박람회|가족행사|문화행사|festival|concert|performance|event)/i,title:'이번 주 공연·행사',summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.'},
+    education:{label:'교육',icon:'🎓',re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i,title:'학교·교육 일정',summary:'학교 일정과 교육 관련 공지를 확인하고 필요한 준비를 미리 해두세요.'},
+    real_estate:{label:'부동산',icon:'🏠',re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i,title:'주택·부동산 정보',summary:'주택·모기지·오픈하우스 관련 정보를 확인하고 조건과 일정을 비교해 보세요.'},
+    finance:{label:'은행·금융',icon:'🏦',re:/(은행|대출|예금|금리|sba|bank|loan|금융|소상공인 금융)/i,title:'은행·금융 정보',summary:'대출·예금·금리 관련 안내를 확인하고 세부 조건을 비교해 보세요.'},
+    seminar:{label:'세미나',icon:'📋',re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률|세금|은퇴|메디케어|보험|창업|투자 설명)/i,title:'생활 세미나 안내',summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정을 확인해 보세요.'},
+    faith:{label:'종교 행사',icon:'⛪',re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i,title:'종교·커뮤니티 행사',summary:'지역 교회·성당·사찰의 행사와 모임 일정을 확인해 보세요.'}
   }[key]||null;
 }
 function v461PrepareProposalItems(items=[],config={}){
@@ -2361,14 +2360,15 @@ async function renderV37AIHome(){
     if(!item){if(feedMeta.editor_mode===true){if(title)title.textContent='관리자 검토 중인 소식입니다.';if(summary)summary.textContent=Number(feedMeta.editor_waiting_for_link||0)>0?'관리자가 공개 링크를 확인한 뒤 이곳에 표시됩니다.':'현재 공개 승인된 기사가 없습니다.';}else{if(title)title.textContent='선택한 분야의 새 소식을 기다리고 있습니다.';if(summary)summary.textContent=(v45HomeConfig.proposal_categories||[]).length?'관리자에서 선택한 분야에 맞는 소식이 수집되면 이곳에 표시됩니다.':'새 생활 정보가 들어오면 이곳에 자동으로 표시됩니다.';}if(kicker)kicker.textContent='달타운 제안';if(state)state.textContent='';if(check)check.innerHTML='';return;}
     if(title)title.textContent=`${item.icon||'✨'} ${item.title}`;
     if(kicker)kicker.textContent=item.category_label||'달타운 제안';
-    if(summary)summary.textContent=v38Text(item.summary,250);
-    if(state)state.textContent=item.has_link?'관리자 지정 링크':'생활 추천';
-    if(tip)tip.innerHTML=`<b>💡 달타운 제안</b><span>${item.has_link?'카드를 누르면 연결된 상세 정보를 확인할 수 있습니다.':'오늘 일정에 참고해 보세요.'}</span>`;
-    if(check)check.innerHTML=`<span>✓ ${esc(item.category_label||'생활 정보')}</span>`;
+    if(summary){summary.textContent='';summary.hidden=true;}
+    if(state)state.textContent='';
+    if(tip)tip.hidden=true;
+    const buttonLabel=item.link_label||({event:'행사 보기',traffic:'교통 정보',education:'교육 정보',shopping:'쇼핑 정보',real_estate:'관련 정보',finance:'관련 정보'}[item.category]||'기사 보기');
+    if(check){check.innerHTML=item.has_link?`<button type="button" class="v49-proposal-link">${esc(buttonLabel)}</button>`:'';check.hidden=!item.has_link;}
+    const openInternal=()=>{if(item.target_type==='post'&&item.target_id){openBoardPost(item.target_id);return;}if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;renderDetail(item.target_id);showPage('business-detail');}};
     const card=document.getElementById('v37BriefCard');if(card){
-      const clickable=item.has_link||item.board_post_id;
-      card.style.cursor=clickable?'pointer':'default';
-      card.onclick=item.has_link?()=>window.open(item.link,'_blank','noopener,noreferrer'):(item.board_post_id?()=>openBoardPost(item.board_post_id):null);
+      card.style.cursor='default';card.onclick=null;
+      const btn=check?.querySelector('.v49-proposal-link');if(btn)btn.onclick=(e)=>{e.preventDefault();e.stopPropagation();openInternal();};
     }
   };
   paintProposal();if(window.v45ProposalTimer)clearInterval(window.v45ProposalTimer);if(normal.length>1)window.v45ProposalTimer=setInterval(()=>{proposalIndex=(proposalIndex+1)%normal.length;paintProposal()},6500);

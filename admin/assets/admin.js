@@ -4950,22 +4950,23 @@ function v482UpdateSelectionStatus(){
   const disabled=v482SelectedArticleIds.size===0;const apply=qs('v482ApplyPicksBtn');if(apply)apply.disabled=disabled;const remove=qs('v487RemovePicksBtn');if(remove)remove.disabled=disabled;
 }
 async function v485ConfigureHomeLink(id){
-  const row=(newsroomItems||[]).find(x=>String(x.id)===String(id));if(!row)return;
-  const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
-  const currentEnabled=meta.home_link_enabled===true&&Boolean(String(meta.home_link_url||'').trim());
-  const suggested=String(meta.home_link_url||row.original_url||'').trim();
-  const entered=prompt(
-    currentEnabled
-      ? '현재 공개 링크를 수정합니다.\n\n새 주소를 입력해 저장하세요. 삭제는 별도 버튼을 사용하세요.'
-      : '메인 카드에 공개할 주소를 입력하세요.\n\n원문 주소는 관리자 확인용으로만 제안됩니다.',
-    suggested
-  );
-  if(entered===null)return;const url=String(entered||'').trim();if(!url){alert('링크를 비워 두었습니다. 삭제하려면 링크 삭제 버튼을 사용하세요.');return;}
-  try{await newsroomEdgeCall('set_home_link',{id,enabled:true,url,label:'자세히 보기',region:getAppRegion()});safeText('newsroomStatus',currentEnabled?'메인 링크를 수정했습니다.':'메인 링크를 승인했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
+  const row=(newsroomCache||[]).find(x=>String(x.id)===String(id));
+  const meta=(row?.event_data&&typeof row.event_data==='object')?row.event_data:{};
+  const currentType=String(meta.home_target_type||'post');
+  const targetType=prompt('연결 종류를 입력하세요: post(우리 게시판) 또는 business(업소)',currentType);
+  if(targetType===null)return;
+  const normalized=String(targetType).trim().toLowerCase();
+  if(!['post','business'].includes(normalized)){alert('post 또는 business만 사용할 수 있습니다. 외부 링크는 지원하지 않습니다.');return;}
+  const targetId=prompt(normalized==='post'?'연결할 우리 게시글 ID를 입력하세요.':'연결할 업소 ID를 입력하세요.',String(meta.home_target_id||''));
+  if(targetId===null||!String(targetId).trim())return;
+  const defaultLabel=normalized==='business'?'업소 보기':'기사 보기';
+  const label=prompt('버튼 문구를 입력하세요.',String(meta.home_link_label||defaultLabel));
+  if(label===null)return;
+  try{await newsroomEdgeCall('set_home_link',{id,enabled:true,target_type:normalized,target_id:String(targetId).trim(),label:String(label).trim()||defaultLabel,region:getAppRegion()});safeText('newsroomStatus','내부 연결을 저장했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
 }
 async function v487DeleteHomeLink(id){
-  if(!confirm('이 기사의 메인 링크를 삭제할까요? 메인 공개 대상에서도 즉시 제외됩니다.'))return;
-  try{await newsroomEdgeCall('set_home_link',{id,enabled:false,url:'',label:'',region:getAppRegion()});safeText('newsroomStatus','메인 링크를 삭제했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
+  if(!confirm('이 기사의 내부 연결 버튼을 삭제할까요? 기사는 메인에 계속 표시될 수 있습니다.'))return;
+  try{await newsroomEdgeCall('set_home_link',{id,enabled:false,target_type:'',target_id:'',label:'',region:getAppRegion()});safeText('newsroomStatus','메인 링크를 삭제했습니다.');await loadNewsroom();}catch(e){alert(e.message||String(e));}
 }
 async function v489SetArchiveKeep(id,enabled=true){
   try{
@@ -5006,7 +5007,7 @@ function v481RenderCollectedPreview(){
     const [,categoryLabel]=v48ItemCategory(r);
     const checked=v482SelectedArticleIds.has(String(r.id));
     const meta=(r.event_data&&typeof r.event_data==='object')?r.event_data:{};
-    const homeLinkEnabled=meta.home_link_enabled===true&&Boolean(String(meta.home_link_url||'').trim());
+    const homeLinkEnabled=meta.home_link_enabled===true&&['post','business'].includes(String(meta.home_target_type||''))&&Boolean(String(meta.home_target_id||'').trim());
     const archiveKept=meta.archive_kept===true;
     return `<div class="newsroom-item v481-collected-item ${checked?'is-selected':''}" data-id="${esc(r.id)}" style="display:flex;gap:10px;align-items:flex-start;width:100%">
       <label class="v482-article-check" style="display:flex;align-items:center;gap:7px;padding:8px 4px;cursor:pointer;min-width:72px;font-weight:700" title="이 기사를 선택">
@@ -5020,7 +5021,7 @@ function v481RenderCollectedPreview(){
       </button>
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
         ${v48SelectionSource(r)==='editor'?`<button type="button" class="btn danger" data-v487-unpick="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">관리자 지정 해제</button>`:`<button type="button" class="btn ghost" data-v487-pick="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">관리자 지정</button>`}
-        <button type="button" class="btn ${homeLinkEnabled?'primary':'ghost'}" data-v485-home-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">${homeLinkEnabled?'링크 수정':'메인 링크 설정'}</button>
+        <button type="button" class="btn ${homeLinkEnabled?'primary':'ghost'}" data-v485-home-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">${homeLinkEnabled?'내부 연결 수정':'내부 연결 설정'}</button>
         ${homeLinkEnabled?`<button type="button" class="btn danger" data-v487-delete-link="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">링크 삭제</button>`:''}
         <button type="button" class="btn ${archiveKept?'primary':'ghost'}" data-v489-archive="${esc(r.id)}" data-enabled="${archiveKept?'1':'0'}" style="white-space:nowrap;margin-top:5px">${archiveKept?'보관 해제':'보관'}</button>
         <button type="button" class="btn danger" data-v489-delete="${esc(r.id)}" style="white-space:nowrap;margin-top:5px">기사 삭제</button>

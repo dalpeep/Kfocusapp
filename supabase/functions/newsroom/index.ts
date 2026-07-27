@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '48.9.0';
+const VERSION = '49.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -169,6 +169,13 @@ const LANE_QUERIES: Record<string, string[]> = {
     'Dallas family events this weekend',
     'DFW festival museum library event',
     'Dallas Fort Worth sports concert community event',
+  ],
+  korea: [
+    'site:yna.co.kr 재외국민 OR 여권 OR 환율 OR 항공 OR 건강 OR 교육 OR 자동차 OR AI',
+    'site:ytn.co.kr 재외국민 OR 여권 OR 환율 OR 항공 OR 건강 OR 교육 OR 자동차 OR AI',
+    'site:joongang.co.kr 재외국민 OR 환율 OR 항공 OR 건강 OR 교육 OR 자동차 OR AI',
+    'site:hankyung.com 환율 OR 항공 OR 반도체 OR AI OR 자동차 OR 재외국민',
+    'site:mk.co.kr 환율 OR 항공 OR 반도체 OR AI OR 자동차 OR 재외국민',
   ],
   practical: [
     'Dallas weather alert road closure traffic airport',
@@ -483,6 +490,39 @@ async function collectScheduledTopics(region='dallas') {
   return {ok:true,version:VERSION,due:due.length,found:rows.length,inserted,matched_topics:matched};
 }
 
+
+async function ensureDailyLifestyleScenario(region='dallas') {
+  // V49: 주간 발행 위주의 한인 뉴스가 없는 날에도 메인에 신선한 생활 제안을 제공합니다.
+  const today=dateKeyInDallas();
+  const weekday=Number(new Intl.DateTimeFormat('en-US',{timeZone:DALLAS_TZ,weekday:'short'}).format(new Date()).match(/Sun|Mon|Tue|Wed|Thu|Fri|Sat/) ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(new Intl.DateTimeFormat('en-US',{timeZone:DALLAS_TZ,weekday:'short'}).format(new Date())) : new Date().getDay());
+  const scenarios:any[]=[
+    {category:'education',title:'다음 주 생활 준비',summary:'학교 일정과 가족 계획을 미리 정리해 보세요.',label:'관련 정보'},
+    {category:'traffic',title:'이번 주 교통·일정 점검',summary:'출퇴근 경로와 이번 주 주요 일정을 확인해 보세요.',label:'교통 정보'},
+    {category:'shopping',title:'한 주를 위한 생활 정비',summary:'미용·건강·장보기 등 필요한 생활 일정을 살펴보세요.',label:'생활 정보'},
+    {category:'real_estate',title:'이번 주 생활·재정 체크',summary:'주택·금융·세금 관련 생활 정보를 점검해 보세요.',label:'관련 정보'},
+    {category:'event',title:'이번 주말 행사 미리보기',summary:'가족 행사와 공연 일정을 미리 살펴보세요.',label:'행사 보기'},
+    {category:'event',title:'주말 나들이·외식 정보',summary:'가족과 함께할 행사와 가까운 업소를 찾아보세요.',label:'주말 정보'},
+    {category:'event',title:'오늘의 가족 나들이',summary:'가까운 행사와 가족 활동을 확인해 보세요.',label:'행사 보기'},
+  ];
+  const item=scenarios[weekday]||scenarios[1];
+  const duplicateKey=`daily-scenario-${region}-${today}`;
+  const {data:exists,error:ee}=await admin.from('newsroom_items').select('id').eq('duplicate_key',duplicateKey).maybeSingle();
+  if(ee) throw ee;
+  if(exists) return {ok:true,created:false,id:exists.id,title:item.title};
+  const now=new Date().toISOString();
+  const {data,error}=await admin.from('newsroom_items').insert({
+    region,original_title:item.title,original_summary:item.summary,original_url:`internal://daily-scenario/${today}`,
+    source_name:'DalTownMap AI 생활 캘린더',source_kind:'ai_scenario',source_published_at:now,area:'Dallas-Fort Worth',
+    status:'classified',confidence:95,fact_status:'official_verified',duplicate_key:duplicateKey,
+    ai_title:item.title,ai_summary:item.summary,category_keywords:['daily_scenario',item.category],
+    priority_level:'normal',priority_score:65,suggested_destination:'life',destination:'life',
+    event_data:{selection_source:'ai_scenario',category:item.category,internal_link_label:item.label,generated_for_date:today},
+    collected_at:now,updated_at:now,
+  }).select('id').single();
+  if(error) throw error;
+  return {ok:true,created:true,id:data?.id,title:item.title};
+}
+
 async function resetDailyEditorialState(region='dallas') {
   const {data,error}=await admin.from('newsroom_items')
     .select('id,event_data,priority_score')
@@ -507,6 +547,8 @@ async function resetDailyEditorialState(region='dallas') {
         editor_picked_at:null,
         home_link_enabled:false,
         home_link_url:null,
+        home_target_type:null,
+        home_target_id:null,
         home_link_label:null,
         home_link_updated_at:null,
         daily_editorial_reset_at:new Date().toISOString(),
@@ -525,17 +567,18 @@ async function resetDailyEditorialState(region='dallas') {
 }
 
 async function autoRun(region='dallas') {
-  const run=await startRun(region,'scheduled','V48 planned-first auto run');
+  const run=await startRun(region,'scheduled','V49 daily content engine auto run');
   try{
     const reset=await resetDailyEditorialState(region);
     const cleaned=await cleanup(region);
     const planned=await collectScheduledTopics(region);
     const lanes:any[]=[];
-    for(const lane of ['practical','events','korean']){try{lanes.push(await collect(region,false,lane));}catch(e){lanes.push({lane,error:e instanceof Error?e.message:String(e)});}}
+    for(const lane of ['practical','events','korean','korea']){try{lanes.push(await collect(region,false,lane));}catch(e){lanes.push({lane,error:e instanceof Error?e.message:String(e)});}}
+    const dailyScenario=await ensureDailyLifestyleScenario(region);
     let analyzed=0;
-    for(let i=0;i<4;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
+    for(let i=0;i<5;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
     await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}`});
-    return {ok:true,version:VERSION,reset,planned,lanes,analyzed,selection_order:['scheduled','ai','editor']};
+    return {ok:true,version:VERSION,reset,planned,lanes,dailyScenario,analyzed,selection_order:['local','korean_american','korea_reference','ai_scenario','editor']};
   }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
 }
 
@@ -558,20 +601,23 @@ async function setHomeLink(body:any){
   const {data:item,error}=await admin.from('newsroom_items').select('event_data').eq('id',body.id).single();
   if(error) throw error;
   const enabled=body.enabled===true;
-  const url=String(body.url||'').trim();
-  if(enabled && !/^https?:\/\//i.test(url)) throw new Error('메인 링크에는 http:// 또는 https://로 시작하는 주소가 필요합니다.');
+  const targetType=String(body.target_type||'').trim();
+  const targetId=String(body.target_id||'').trim();
+  if(enabled && !['post','business'].includes(targetType)) throw new Error('연결 대상은 우리 게시판 또는 업소만 선택할 수 있습니다.');
+  if(enabled && !targetId) throw new Error('연결할 게시글 또는 업소 ID를 입력하세요.');
   const event_data={
     ...(item?.event_data||{}),
     home_link_enabled:enabled,
-    home_link_url:enabled?url:null,
-    home_link_label:enabled?String(body.label||'자세히 보기').trim()||'자세히 보기':null,
+    home_link_url:null,
+    home_target_type:enabled?targetType:null,
+    home_target_id:enabled?targetId:null,
+    home_link_label:enabled?String(body.label||'기사 보기').trim()||'기사 보기':null,
     home_link_updated_at:new Date().toISOString(),
   };
   const {error:u}=await admin.from('newsroom_items').update({event_data,updated_at:new Date().toISOString()}).eq('id',body.id);
   if(u) throw u;
-  return {ok:true,version:VERSION,id:String(body.id),home_link_enabled:enabled,home_link_url:enabled?url:null};
+  return {ok:true,version:VERSION,id:String(body.id),home_link_enabled:enabled,home_target_type:enabled?targetType:null,home_target_id:enabled?targetId:null};
 }
-
 
 async function setArchiveKeep(body:any){
   if(!body.id) throw new Error('기사 ID가 없습니다.');
@@ -736,7 +782,7 @@ async function collect(region = 'dallas', scheduled = false, lane = 'practical')
 async function analyzeOne(item: any) {
   return await openai({
     model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
-    input: `Analyze one Dallas-Fort Worth lifestyle-newsroom source record. The product is a friendly Dallas Korean lifestyle guide, not a hard-news wire.\nTitle: ${item.original_title}\nSummary: ${item.original_summary || ''}\nSource: ${item.source_name || ''}\nURL: ${item.original_url}\nPublished: ${item.source_published_at || ''}\nArea: ${item.area || ''}\nReturn ONLY JSON with suggested_destination exactly life, notice, guide, urgent, or exclude; confidence 0-100; fact_status official_verified or needs_review; priority_level urgent, high, normal, or low; priority_score 0-100; classification_reason in concise Korean; a natural Korean working title and 2-3 sentence summary; category_keywords; event_data fields name,start_at,end_at,venue,address,cost,organizer,registration_url. Keep useful Korean-community, finance, shopping, family and practical lifestyle information even if it is not major news. Exclude only duplicates, expired items, weak DFW relevance, unverifiable claims, or pure evergreen advertising. Use gentle suggestion language rather than commands. {"suggested_destination":"life","confidence":90,"fact_status":"official_verified","priority_level":"normal","priority_score":70,"classification_reason":"","ai_title":"","ai_summary":"","category_keywords":[],"event_data":{}}`,
+    input: `Analyze one Dallas-Fort Worth lifestyle-newsroom source record. The product is a friendly Dallas Korean lifestyle guide, not a hard-news wire.\nTitle: ${item.original_title}\nSummary: ${item.original_summary || ''}\nSource: ${item.source_name || ''}\nURL: ${item.original_url}\nPublished: ${item.source_published_at || ''}\nArea: ${item.area || ''}\nReturn ONLY JSON with suggested_destination exactly life, notice, guide, urgent, or exclude; confidence 0-100; fact_status official_verified or needs_review; priority_level urgent, high, normal, or low; priority_score 0-100; classification_reason in concise Korean; a concise Korean headline preferably under 22 Korean characters and a newly written 1-2 sentence Dallas-Korean lifestyle summary; category_keywords; event_data fields name,start_at,end_at,venue,address,cost,organizer. The source URL is internal evidence only: never place a source name, original-link invitation, external URL, or attribution call-to-action in ai_title, ai_summary, or event_data. For Korean domestic news, keep only topics useful to Korean residents in Dallas such as overseas Koreans, passports, exchange rates, flights, travel, health, education, technology, automobiles, semiconductors, and practical finance; exclude Korean political conflict, gossip, routine crime, and game scores. Reframe useful topics for Dallas Korean residents instead of copying the original wording. Keep useful Korean-community, finance, shopping, family and practical lifestyle information even if it is not major news. Exclude only duplicates, expired items, weak resident relevance, unverifiable claims, or pure evergreen advertising. Use concise information-style noun phrases rather than long invitation sentences. {"suggested_destination":"life","confidence":90,"fact_status":"official_verified","priority_level":"normal","priority_score":70,"classification_reason":"","ai_title":"","ai_summary":"","category_keywords":[],"event_data":{}}`,
   });
 }
 
@@ -832,16 +878,16 @@ async function homeFeed(region = 'dallas') {
   const preferred = new Set(selected);
 
   const defs: any[] = [
-    { key:'emergency', label:'긴급 안내', icon:'🚨', re:/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i, title:'지금 확인해야 할 지역 긴급 공지가 있습니다.', summary:'안전과 이동에 영향을 줄 수 있는 긴급 안내입니다. 공식 안내와 현재 상황을 확인해 주세요.', base:5000 },
-    { key:'seminar', label:'세미나', icon:'📋', re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률.*설명|부동산.*설명|은행.*설명|대출.*설명|세금.*설명|은퇴.*설명|메디케어.*설명|보험.*설명|창업.*설명|투자.*설명)/i, title:'생활에 도움이 되는 세미나를 확인해 보세요.', summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정이 확인됐습니다.', base:470 },
-    { key:'faith', label:'종교 행사', icon:'⛪', re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i, title:'지역 종교·커뮤니티 행사를 확인해 보세요.', summary:'지역 교회·성당·사찰의 행사와 모임 일정이 확인됐습니다.', base:430 },
-    { key:'shopping', label:'쇼핑·마켓', icon:'🛒', re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기|shopping)/i, title:'장보기 전 할인 정보를 확인해 보세요.', summary:'마켓 세일과 쇼핑 관련 정보가 확인됐습니다. 방문 전 행사 기간과 품목을 살펴보세요.', base:460 },
-    { key:'weather', label:'날씨', icon:'☀️', re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i, title:'오늘 날씨에 맞춰 일정을 조정해 보세요.', summary:'외출 전 최신 기상 안내를 확인하고 이동 시간과 준비물을 조정해 보세요.', base:455 },
-    { key:'traffic', label:'교통', icon:'🚗', re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회|traffic|highway|closure)/i, title:'출발 전 주요 도로 상황을 확인해 보세요.', summary:'정체·사고·공사 관련 정보가 확인됐습니다. 출발 시간과 우회 경로를 살펴보세요.', base:450 },
-    { key:'event', label:'공연·이벤트', icon:'🎉', re:/(공연|콘서트|축제|박람회|가족행사|문화행사|행사|미팅|모임|festival|concert|performance|event|meeting)/i, title:'가까운 공연과 행사를 살펴보세요.', summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.', base:440 },
-    { key:'education', label:'교육', icon:'🎓', re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i, title:'학교와 교육 일정을 미리 확인해 보세요.', summary:'학교 일정과 교육 관련 공지가 확인됐습니다. 필요한 준비를 미리 살펴보세요.', base:420 },
-    { key:'real_estate', label:'부동산', icon:'🏠', re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i, title:'주택과 부동산 정보를 살펴보세요.', summary:'주택·모기지·오픈하우스 관련 정보가 확인됐습니다. 조건과 일정을 비교해 보세요.', base:410 },
-    { key:'finance', label:'은행·금융', icon:'🏦', re:/(은행|대출|예금|금리|sba|bank|loan|금융|경제|소상공인 금융|finance)/i, title:'은행과 금융 안내를 비교해 보세요.', summary:'대출·예금·금리 관련 안내가 확인됐습니다. 세부 조건을 비교해 보세요.', base:405 },
+    { key:'emergency', label:'긴급 안내', icon:'🚨', re:/(amber alert|silver alert|clear alert|blue alert|tornado warning|flash flood warning|severe thunderstorm warning|evacuation|shelter in place|긴급|대피|경보|통제|휴교|지연 등교|조기 하교)/i, title:'지역 긴급 공지', summary:'안전과 이동에 영향을 줄 수 있는 긴급 안내입니다. 공식 안내와 현재 상황을 확인해 주세요.', base:5000 },
+    { key:'seminar', label:'세미나', icon:'📋', re:/(세미나|설명회|강연|워크숍|seminar|workshop|법률.*설명|부동산.*설명|은행.*설명|대출.*설명|세금.*설명|은퇴.*설명|메디케어.*설명|보험.*설명|창업.*설명|투자.*설명)/i, title:'생활 세미나 안내', summary:'법률·부동산·은행·세금 등 관심 분야의 설명회와 세미나 일정이 확인됐습니다.', base:470 },
+    { key:'faith', label:'종교 행사', icon:'⛪', re:/(교회|성당|천주교|불교|사찰|예배|부흥회|찬양집회|여름성경학교|vbs|선교|기도회|수련회|바자회|church|catholic|temple|worship)/i, title:'종교·커뮤니티 행사', summary:'지역 교회·성당·사찰의 행사와 모임 일정이 확인됐습니다.', base:430 },
+    { key:'shopping', label:'쇼핑·마켓', icon:'🛒', re:/(h\s?mart|zion|komart|코마트|시온|마트|마켓|grocery|sale|discount|할인|세일|특가|장보기|shopping)/i, title:'이번 주 마켓·쇼핑', summary:'마켓 세일과 쇼핑 관련 정보가 확인됐습니다. 방문 전 행사 기간과 품목을 살펴보세요.', base:460 },
+    { key:'weather', label:'날씨', icon:'☀️', re:/(heat advisory|extreme heat|폭염|무더위|한파|강추위|비|소나기|폭우|눈|우박|storm|thunder|weather|대기질|꽃가루)/i, title:'오늘의 날씨·생활', summary:'외출 전 최신 기상 안내를 확인하고 이동 시간과 준비물을 조정해 보세요.', base:455 },
+    { key:'traffic', label:'교통', icon:'🚗', re:/(i-?121|highway 121|i-?35|i-?635|pgbt|dallas north tollway|george bush|tollway|유료도로|교통|정체|사고|road closure|도로 공사|우회|traffic|highway|closure)/i, title:'DFW 교통 정보', summary:'정체·사고·공사 관련 정보가 확인됐습니다. 출발 시간과 우회 경로를 살펴보세요.', base:450 },
+    { key:'event', label:'공연·이벤트', icon:'🎉', re:/(공연|콘서트|축제|박람회|가족행사|문화행사|행사|미팅|모임|festival|concert|performance|event|meeting)/i, title:'이번 주 공연·행사', summary:'오늘과 이번 주말에 열리는 공연·행사의 시간과 장소를 확인해 보세요.', base:440 },
+    { key:'education', label:'교육', icon:'🎓', re:/(학교|학원|교육|개학|휴교|학부모|sat|student|school|isd|설명회)/i, title:'학교·교육 일정', summary:'학교 일정과 교육 관련 공지가 확인됐습니다. 필요한 준비를 미리 살펴보세요.', base:420 },
+    { key:'real_estate', label:'부동산', icon:'🏠', re:/(부동산|주택|모기지|오픈하우스|분양|집값|real estate|housing|mortgage)/i, title:'주택·부동산 정보', summary:'주택·모기지·오픈하우스 관련 정보가 확인됐습니다. 조건과 일정을 비교해 보세요.', base:410 },
+    { key:'finance', label:'은행·금융', icon:'🏦', re:/(은행|대출|예금|금리|sba|bank|loan|금융|경제|소상공인 금융|finance)/i, title:'은행·금융 정보', summary:'대출·예금·금리 관련 안내가 확인됐습니다. 세부 조건을 비교해 보세요.', base:405 },
   ];
 
   const aliases:any = {
@@ -886,13 +932,15 @@ async function homeFeed(region = 'dallas') {
     // V48.8: 자동 공개 기사는 기본적으로 링크 없이 노출합니다.
     // 기사별 링크는 관리자가 해당 기사에서 명시적으로 승인한 경우에만 사용합니다.
     const itemLinkEnabled=meta.home_link_enabled===true;
-    const itemLink=itemLinkEnabled?String(meta.home_link_url||'').trim():'';
-    const approvedLink=itemLink;
+    const targetType=itemLinkEnabled?String(meta.home_target_type||'').trim():'';
+    const targetId=itemLinkEnabled?String(meta.home_target_id||'').trim():'';
+    const approvedInternalTarget=['post','business'].includes(targetType)&&Boolean(targetId);
     proposals.push({
       id:`${x.id}-${def.key}`, source_id:String(x.id), category:def.key, category_label:def.label, icon:def.icon,
       title:def.key==='emergency' ? (headline || def.title).slice(0,72) : def.title,
-      summary:def.summary, source_title:headline, link:approvedLink, has_link:Boolean(approvedLink),
-      link_label:itemLink?String(meta.home_link_label||'자세히 보기'):'',
+      summary:'', source_title:headline, link:'', has_link:approvedInternalTarget,
+      target_type:approvedInternalTarget?targetType:'', target_id:approvedInternalTarget?targetId:'',
+      link_label:approvedInternalTarget?String(meta.home_link_label||meta.internal_link_label||'기사 보기'):'',
       is_sponsored:false, published_at:x.source_published_at||x.collected_at,
       score:def.base+sourceBonus+preferredBonus+Number(x.priority_score||0)-Math.min(80,ageHours/2),
       selection_source:selectionSource, scheduled_topic_title:String(meta.scheduled_topic_title||''), emergency:def.key==='emergency',
