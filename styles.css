@@ -4888,3 +4888,29 @@ body.map-page-open #page-map .map-search-input{
 .v502-relative-time{display:block;font-size:10px;color:#9199a8}
 .v502-relative-time.stale{color:#b56a13}
 @media(max-width:520px){.v502-live-grid{grid-template-columns:1fr}.v502-live-card{padding:13px 14px}.v502-live-title{font-size:14px}}
+
+/* V51: 오늘의 달타운 unified 5-second carousel */
+.v502-live-grid{display:none!important}
+.v51-today-card{position:relative;overflow:hidden;min-height:156px!important;padding:18px 20px 14px!important;background:linear-gradient(135deg,#185698 0%,#2f80cf 100%)!important;color:#fff;box-shadow:0 12px 28px rgba(23,83,151,.2);transition:background .35s ease}
+.v51-today-card:after{content:"";position:absolute;width:128px;height:128px;border-radius:50%;right:-36px;top:-48px;background:rgba(255,255,255,.1);pointer-events:none}
+.v51-today-card.v51-kind-emergency{background:linear-gradient(135deg,#9f1d2d,#df3c45)!important}
+.v51-today-card.v51-kind-shopping{background:linear-gradient(135deg,#126246,#21a56f)!important}
+.v51-today-card.v51-kind-event{background:linear-gradient(135deg,#6c3ba8,#9664db)!important}
+.v51-today-card.v51-kind-education{background:linear-gradient(135deg,#2552a1,#4b79d8)!important}
+.v51-today-card.v51-admin-selected{background:linear-gradient(135deg,#8a4a16,#db8a1f)!important}
+.v51-today-top{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:15px}
+.v51-today-heading{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:950;letter-spacing:-.025em}
+.v51-today-pin{font-size:14px}
+.v51-live-badge{font-style:normal;font-size:8px;line-height:1;padding:4px 7px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);letter-spacing:.06em}
+.v51-today-actions{display:flex;align-items:center;gap:7px}.v51-today-actions .v37-date{font-size:10px;font-weight:850;color:rgba(255,255,255,.9)}
+.v51-refresh-btn{width:29px;height:29px;border:0;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center;position:relative;z-index:3}.v51-refresh-btn svg{width:14px;height:14px}.v51-refresh-btn.is-loading svg{animation:v502spin .8s linear infinite}
+.v51-today-main{position:relative;z-index:2;width:100%;border:0;background:transparent;color:inherit;padding:0;text-align:left;display:grid;gap:5px;cursor:default;touch-action:pan-y}
+.v51-today-main.has-link{cursor:pointer}.v51-today-main:disabled{opacity:1}
+.v51-today-category{font-size:11px;font-weight:900;color:rgba(255,255,255,.82)}
+.v51-today-title{font-size:23px;line-height:1.22;letter-spacing:-.045em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v51-today-summary{max-width:92%;font-size:12px;line-height:1.45;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v51-today-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:18px;margin-top:5px;font-size:9px;color:rgba(255,255,255,.72)}
+.v51-today-meta small{font-size:9px}.v51-today-meta small.stale{color:#ffe3a6}.v51-today-meta b{font-size:9px;color:#fff}
+.v51-today-dots{position:relative;z-index:2;display:flex;justify-content:center;gap:5px;margin-top:8px;height:5px}
+.v51-today-dots span{width:5px;height:5px;border-radius:99px;background:rgba(255,255,255,.38);transition:.2s}.v51-today-dots span.active{width:18px;background:#fff}
+@media(max-width:420px){.v51-today-card{min-height:150px!important;padding:17px 18px 13px!important}.v51-today-title{font-size:22px}.v51-today-summary{font-size:11.5px}.v51-today-top{margin-bottom:13px}}
