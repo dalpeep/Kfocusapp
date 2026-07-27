@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=53.2"></script>
+  <script type="module" src="assets/admin.js?v=53.3"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
   <script src="assets/admin-integration.js?v=27.0.0" defer></script>
@@ -1321,21 +1321,6 @@
             <div id="v518HomeDashboardList" class="newsroom-list" style="margin-top:12px"></div>
           </section>
 
-          <section class="card v48-planned-news" style="margin-top:14px">
-  <div class="panel-head"><div><h3>예정 기사 · 자동 편성</h3><p class="tiny muted">예정 기사를 먼저 검색하고, 찾지 못한 자리는 AI가 자동 선별한 기사로 채웁니다. 관리자는 수집 후 원하는 기사를 최우선으로 지정할 수 있습니다.</p></div><button id="v48AutoRunBtn" class="btn primary" type="button">오늘 자동 편성 실행</button></div>
-  <div class="form-grid">
-    <input id="v48TopicId" type="hidden">
-    <label class="field"><span>예정 기사 제목</span><input id="v48TopicTitle" placeholder="예: H-Mart 주간 세일"></label>
-    <label class="field"><span>검색어</span><input id="v48TopicQuery" placeholder="예: H Mart Dallas weekly ad"></label>
-    <label class="field"><span>카테고리</span><select id="v48TopicCategory"><option value="shopping">쇼핑·마켓</option><option value="weather">날씨</option><option value="traffic">교통</option><option value="event">공연·이벤트</option><option value="education">교육</option><option value="real_estate">부동산</option><option value="finance">은행·금융</option><option value="seminar">세미나</option><option value="faith">종교 행사</option></select></label>
-    <label class="field"><span>우선순위</span><select id="v48TopicPriority"><option value="3">★★★ 최우선</option><option value="2" selected>★★ 중요</option><option value="1">★ 일반</option></select></label>
-    <label class="field"><span>반복</span><select id="v48TopicRecurrence"><option value="daily">매일</option><option value="weekly">매주</option><option value="monthly">매월</option><option value="once">한 번만</option></select></label>
-    <label class="field"><span>요일/날짜</span><input id="v48TopicScheduleValue" placeholder="매주: 0,5 / 매월: 1 / 한 번: 2026-07-30"><small>요일은 일=0, 월=1 … 토=6입니다.</small></label>
-    <label class="field checkbox-line"><input id="v48TopicActive" type="checkbox" checked><span>활성</span></label>
-    <div class="field full"><button id="v48TopicSaveBtn" class="btn primary" type="button">예정 기사 저장</button> <button id="v48TopicResetBtn" class="btn ghost" type="button">새 항목</button></div>
-  </div>
-  <div id="v48TopicList" class="newsroom-list" style="margin-top:12px"></div>
-</section>
 
 <div id="newsroomHealthPanel" class="newsroom-health" hidden>
             <strong>AI 운영센터 상태</strong>
