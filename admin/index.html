@@ -1340,29 +1340,6 @@
   <div id="v48TopicList" class="newsroom-list" style="margin-top:12px"></div>
 </section>
 
-<section id="v481CollectedSection" class="card" style="margin-top:14px;border:2px solid #dbe7ff;background:#f8fbff">
-  <div class="panel-head">
-    <div>
-      <h3>오늘 수집된 기사</h3>
-      <p class="tiny muted">오전 자동 수집과 지금 다시 수집으로 들어온 기사입니다. 예정 기사 일치 항목을 먼저 표시하고, AI 선별 기사를 그다음에 정렬합니다.</p>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button id="v482SelectAllBtn" class="btn ghost" type="button">전체 선택</button>
-      <button id="v482ClearSelectionBtn" class="btn ghost" type="button">선택 해제</button>
-      <button id="v482ApplyPicksBtn" class="btn primary" type="button">선택 기사 관리자 지정</button>
-      <button id="v487RemovePicksBtn" class="btn danger" type="button">선택 기사 관리자 지정 해제</button>
-      <button id="v481CollectedRefreshBtn" class="btn ghost" type="button">새로고침</button>
-      <button id="v481GoDetailBtn" class="btn primary" type="button">전체 목록·기사 편집</button>
-    </div>
-  </div>
-  <div id="v48CategorySummary" class="newsroom-run-log" style="margin-top:10px"><span class="muted">수집 기사 분류 현황을 불러오고 있습니다.</span></div>
-  <div id="v482SelectionStatus" class="tiny muted" style="margin-top:8px">선택된 기사 0건</div>
-  <div id="v481CollectedPreview" class="newsroom-list" style="margin-top:10px">
-    <div class="newsroom-empty"><strong>수집 목록을 불러오고 있습니다.</strong></div>
-  </div>
-  <div class="tiny muted" style="margin-top:8px">최근 항목 최대 12개를 표시합니다. 전체 항목의 수정·삭제·게시 관리는 ‘전체 목록·기사 편집’에서 처리합니다.</div>
-</section>
-
 <div id="newsroomHealthPanel" class="newsroom-health" hidden>
             <strong>AI 운영센터 상태</strong>
             <div id="newsroomHealthDetails" class="tiny muted">확인 버튼을 누르면 Edge Function, OpenAI Secret, 뉴스룸 테이블 연결 상태를 점검합니다.</div>
@@ -1393,7 +1370,21 @@
 
         <section class="layout newsroom-layout">
           <div class="list-panel card">
-            <div class="panel-head"><div><h2>오늘 수집된 기사 전체 목록</h2><p class="tiny muted">위의 요약 목록에서 선택하거나 여기에서 검색·분류한 뒤 기사를 편집할 수 있습니다. 게시·제외한 항목은 목록에서 정리됩니다.</p></div><span id="newsroomListCount" class="muted">0개</span></div>
+            <div class="panel-head" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
+              <div><h2>오늘 수집된 기사</h2><p class="tiny muted">기사 선택, 검토, 관리자 지정, 내부 연결, 보관과 삭제를 한 목록에서 처리합니다.</p><div id="v48CategorySummary" class="tiny muted" style="margin-top:6px"></div><div id="v482SelectionStatus" class="tiny muted" style="margin-top:5px">선택된 기사 0건</div></div>
+              <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+                <span id="newsroomListCount" class="muted" style="align-self:center">0개</span>
+                <button id="v482SelectAllBtn" class="btn ghost" type="button">전체 선택</button>
+                <button id="v482ClearSelectionBtn" class="btn ghost" type="button">선택 해제</button>
+                <button id="v482ApplyPicksBtn" class="btn primary" type="button">관리자 지정</button>
+                <button id="v487RemovePicksBtn" class="btn ghost" type="button">지정 해제</button>
+                <button id="v491ArchiveSelectedBtn" class="btn ghost" type="button">선택 보관</button>
+                <button id="v491UnarchiveSelectedBtn" class="btn ghost" type="button">보관 해제</button>
+                <button id="v491DeleteSelectedBtn" class="btn danger" type="button">선택 삭제</button>
+                <button id="v491DeleteAllBtn" class="btn danger" type="button">전체 삭제</button>
+                <button id="v481CollectedRefreshBtn" class="btn ghost" type="button">새로고침</button>
+              </div>
+            </div>
             <div id="newsroomList" class="newsroom-list"></div>
           </div>
           <div class="form-panel card newsroom-review-panel">
