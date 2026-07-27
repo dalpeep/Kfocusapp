@@ -1,0 +1,15 @@
+DalTownMap V53.1
+
+핵심 수정
+1. 기사 저장을 막던 관리자 화면 null 오류 수정
+2. 메인 실제 노출 현황판 완성: 현재 카드 순서, 표시 가능 종류, 연결 대상, 마켓 후보 수 표시
+3. Zion Market / H Mart 전용 마켓 수집 버튼 추가
+4. 마켓 정보는 자동 공개하지 않고 관리자 지정 시에만 메인 표시
+5. 현황판 조회는 12초 타임아웃과 오류 표시 적용
+
+배포
+- ZIP 전체를 Netlify에 배포
+- supabase/functions/newsroom/index.ts를 Supabase newsroom Edge Function에 재배포
+
+참고
+- newsroom_runs 404가 계속 보이면 supabase/newsroom-v38.2.sql 및 upgrade SQL을 확인하세요. 기사 게시 자체는 이 테이블 없이도 동작하도록 관리자 화면 오류를 분리했습니다.
