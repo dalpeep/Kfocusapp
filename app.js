@@ -1280,35 +1280,57 @@ function readActiveEventRoutines(){
   }catch(e){ console.warn('[Event routines] read failed',e); }
   return [];
 }
-function eventRoutineTickerItems(){
+function eventRoutineItems(actionKey){
   const rows=[];
+  const badge=actionKey==='ticker'?'광고':'알림';
   readActiveEventRoutines().forEach(r=>{
-    const actions=r?.actions||{};
-    [['alert','알림'],['ticker','광고']].forEach(([actionKey,badge])=>{
-      const action=actions[actionKey];
-      if(!action) return;
-      (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
-        const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
-        if(!text) return;
-        rows.push({
-          kind:`event-${actionKey}`,
-          id:`${r.id||'routine'}-${actionKey}-${index}`,
-          date:r.updated_at||r.created_at||r.start_at||'',
-          data:{
-            title:text,
-            summary:'',
-            badge,
-            event_name:r.name||'',
-            link_type:action.link_type||'none',
-            link_value:action.link_value||'',
-            interval_seconds:Number(action.interval_seconds||5)
-          }
-        });
+    const action=r?.actions?.[actionKey];
+    if(!action) return;
+    (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
+      const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
+      if(!text) return;
+      rows.push({
+        kind:`event-${actionKey}`,
+        id:`${r.id||'routine'}-${actionKey}-${index}`,
+        date:r.updated_at||r.created_at||r.start_at||'',
+        data:{
+          title:text,
+          summary:r.name||'',
+          badge,
+          event_name:r.name||'',
+          link_type:action.link_type||'none',
+          link_value:action.link_value||'',
+          interval_seconds:Number(action.interval_seconds||5)
+        }
       });
     });
   });
   return rows;
 }
+function eventRoutineAlertItems(){ return eventRoutineItems('alert'); }
+function eventRoutineOneLineAdItems(){ return eventRoutineItems('ticker'); }
+function renderEventRoutineOneLineAds(){
+  const box=document.getElementById('eventOneLineAdList');
+  if(!box) return;
+  const items=eventRoutineOneLineAdItems();
+  const section=box.closest('.home-one-line-ad-section');
+  if(!items.length){ section?.setAttribute('hidden',''); box.innerHTML=''; return; }
+  section?.removeAttribute('hidden');
+  const messageHTML=item=>{
+    const d=item.data||{};
+    const title=String(d.title||'').trim();
+    return `<button class="ticker-ad-item" type="button" data-one-line-id="${esc(item.id)}"><span class="ticker-ad-badge">${esc(d.badge||'광고')}</span><strong>${esc(title)}</strong>${d.event_name?`<span class="ticker-ad-detail">${esc(d.event_name)}</span>`:''}<span class="ticker-ad-arrow" aria-hidden="true">›</span></button>`;
+  };
+  const sequence=items.map(messageHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
+  const seconds=Math.max(12,items.reduce((sum,item)=>sum+Number(item.data?.interval_seconds||5),0)*2);
+  box.innerHTML=`<div class="ticker-ad-shell one-line-ad-shell"><span class="ticker-live-label one-line-ad-label"><i data-lucide="megaphone"></i><b>한 줄 광고</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track" style="animation-duration:${seconds}s">${sequence}<span class="ticker-ad-separator" aria-hidden="true">•</span>${sequence}</div></div></div>`;
+  box.querySelectorAll('[data-one-line-id]').forEach(btn=>btn.addEventListener('click',()=>{
+    const item=items.find(x=>String(x.id)===String(btn.dataset.oneLineId));
+    if(item?.data) openEventRoutineLink(item.data);
+  }));
+  if(window.lucide) window.lucide.createIcons();
+}
+
 function openEventRoutineLink(d){
   const type=String(d?.link_type||'none');
   const value=String(d?.link_value||'').trim();
@@ -1337,7 +1359,7 @@ function renderDalpicks(){
   const couponItems=(tickerSources.has('coupon')&&typeof todayCoupons==='function'?todayCoupons():[])
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
-  const routineItems=eventRoutineTickerItems();
+  const routineItems=eventRoutineAlertItems();
 
   const seen=new Set();
   const items=[...routineItems,...dalpickItems,...couponItems]
@@ -1375,13 +1397,14 @@ function renderDalpicks(){
     else if(d.content||d.summary) openDalpickArticle(d);
   }));
   if(window.lucide) window.lucide.createIcons();
+  renderEventRoutineOneLineAds();
 }
 
 // 관리자와 메인을 같은 브라우저에서 열어 둔 경우 저장 즉시 갱신합니다.
 window.addEventListener('storage',e=>{
-  if(String(e.key||'').startsWith('kfocus_active_event_routines_v63_')) renderDalpicks();
+  if(String(e.key||'').startsWith('kfocus_active_event_routines_v63_')){ renderDalpicks(); renderEventRoutineOneLineAds(); }
 });
-window.addEventListener('kfocus:event-routines-updated',()=>renderDalpicks());
+window.addEventListener('kfocus:event-routines-updated',()=>{ renderDalpicks(); renderEventRoutineOneLineAds(); });
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
