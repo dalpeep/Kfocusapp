@@ -5899,3 +5899,104 @@ qs('newsroomTraceSourcesBtn')?.addEventListener('click',traceNewsroomSources);
 on('map_category','change',()=>{ refreshSubcategoryOptions(); syncLegacyCategoryField(); updatePreview(); });
 on('subcategory','change',()=>{ syncLegacyCategoryField(); updatePreview(); });
 console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
+
+// V62 메인 3개 섹션 통합 관리 · 자동 예약 · 자동 플레이 · 장면 프리셋
+const V62_SECTION_LABELS={today:'오늘의 달타운',community:'커뮤니티',alert:'달타운 알림'};
+const V62_ALERT_SOURCES=[['dalpick','등록 광고·콘텐츠'],['coupon','유효한 쿠폰'],['video','영상'],['event','행사'],['life','생활정보'],['emergency','긴급공지']];
+let v62Schedules=[];
+let v62Scenes=[];
+
+function v62ModeOptions(selected='featured'){
+  return Object.entries(V61_MODE_LABELS).map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');
+}
+function v62SectionTabs(){
+  return `<div class="v62-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
+    ${Object.entries(V62_SECTION_LABELS).map(([k,l],i)=>`<button type="button" class="btn ${i===0?'primary':'ghost'}" data-v62-tab="${k}">${i+1}. ${l}</button>`).join('')}
+  </div>`;
+}
+function v62ScheduleForm(section){
+  const isToday=section==='today',isCommunity=section==='community';
+  return `<div class="v62-schedule-form" data-v62-form="${section}" style="margin-top:16px;padding:14px;border:1px solid #dbe4f0;border-radius:14px;background:#f8fbff">
+    <input type="hidden" data-f="id"><div class="form-grid">
+    <label class="field"><span>예약 이름</span><input data-f="name" placeholder="예: 8월 쿠폰 주간"></label>
+    <label class="field"><span>시작일</span><input data-f="start_date" type="date"></label>
+    <label class="field"><span>종료일</span><input data-f="end_date" type="date"></label>
+    <label class="field"><span>우선순위</span><input data-f="priority" type="number" value="10"></label>
+    ${isToday?`<label class="field"><span>추천업체 기준</span><select data-f="business_mode">${v62ModeOptions()}</select></label>`:''}
+    ${isCommunity?`<label class="field"><span>커뮤니티 정렬</span><select data-f="community_sort"><option value="latest">최신순</option><option value="popular">인기순</option><option value="notice">공지 우선</option></select></label>`:''}
+    ${section==='alert'?`<div class="field full"><span>알림 출처</span><div class="checkbox-row">${V62_ALERT_SOURCES.map(([v,l])=>`<label><input type="checkbox" data-source="${v}" ${['dalpick','coupon'].includes(v)?'checked':''}> ${l}</label>`).join('')}</div></div>`:''}
+    <label class="field checkbox-line"><input data-f="enabled" type="checkbox" checked><span>이 예약 사용</span></label>
+    <div class="field"><span>&nbsp;</span><div style="display:flex;gap:8px"><button class="btn primary" type="button" data-v62-save-schedule="${section}">예약 저장</button><button class="btn ghost" type="button" data-v62-reset-schedule="${section}">새로 작성</button></div></div>
+    </div></div><div data-v62-schedule-list="${section}" style="margin-top:12px"></div>`;
+}
+function v62TodayPanel(){return `<div data-v62-panel="today">
+  <div class="panel-head"><div><h3>① 오늘의 달타운</h3><p class="muted">추천업체 표시 기준, 직접 지정 업체, 자동 플레이와 날짜 예약을 관리합니다.</p></div></div>
+  <div class="form-grid">
+    <label class="field"><span>기본 추천업체 기준</span><select id="v45BusinessMode">${v62ModeOptions('popular')}</select></label>
+    <label class="field"><span>한 화면 표시 개수</span><input id="v62TodayCount" type="number" min="1" max="20" value="10"></label>
+    <label class="field checkbox-line"><input id="v62TodayAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
+    <label class="field"><span>자동 변경 간격</span><select id="v62TodayInterval"><option value="5">5초</option><option value="8">8초</option><option value="10" selected>10초</option><option value="15">15초</option></select></label>
+    <label class="field full"><span>관리자 직접 지정 업체</span><select id="v45BusinessIds" multiple size="6"></select><small class="muted">직접 지정 업체가 있으면 자동 기준보다 우선합니다. Ctrl/Command로 여러 업체를 선택할 수 있습니다.</small></label>
+  </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('today')}</div>`}
+function v62CommunityPanel(){return `<div data-v62-panel="community" hidden>
+  <div class="panel-head"><div><h3>② 커뮤니티</h3><p class="muted">메인 가운데에 표시할 게시판 종류와 자동 플레이를 관리합니다.</p></div></div>
+  <div class="form-grid">
+    <div class="field full"><span>노출 게시판</span><div id="v62CommunityTypes" class="checkbox-row">
+      <label><input type="checkbox" value="event" checked> 행사안내</label><label><input type="checkbox" value="free" checked> 자유게시판</label><label><input type="checkbox" value="market" checked> 사고팔고</label><label><input type="checkbox" value="job" checked> 구인구직</label><label><input type="checkbox" value="business" checked> 업체소식</label></div></div>
+    <label class="field"><span>기본 정렬</span><select id="v62CommunitySort"><option value="latest">최신순</option><option value="popular">인기순</option><option value="notice">공지 우선</option></select></label>
+    <label class="field checkbox-line"><input id="v62CommunityAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
+    <label class="field"><span>자동 변경 간격</span><select id="v62CommunityInterval"><option value="5">5초</option><option value="8" selected>8초</option><option value="10">10초</option><option value="15">15초</option></select></label>
+    <label class="field"><span>직접 고정 글 ID</span><input id="v45CommunityPostIds" placeholder="쉼표로 구분"></label>
+    <label class="field"><span>우선 노출 글 ID</span><input id="v45CommunityBoostIds" placeholder="쉼표로 구분"></label>
+  </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('community')}</div>`}
+function v62AlertPanel(){return `<div data-v62-panel="alert" hidden>
+  <div class="panel-head"><div><h3>③ 달타운 알림</h3><p class="muted">기존 한 줄 광고를 알림으로 통합하여 광고·쿠폰·영상·행사·생활정보·긴급공지를 함께 관리합니다.</p></div></div>
+  <div class="form-grid">
+    <div class="field full"><span>기본 자동 포함 출처</span><div id="v62AlertSources" class="checkbox-row">${V62_ALERT_SOURCES.map(([v,l])=>`<label><input type="checkbox" value="${v}" ${['dalpick','coupon'].includes(v)?'checked':''}> ${l}</label>`).join('')}</div></div>
+    <label class="field checkbox-line"><input id="v62AlertAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
+    <label class="field"><span>자동 변경 간격</span><select id="v62AlertInterval"><option value="4">4초</option><option value="6" selected>6초</option><option value="8">8초</option><option value="10">10초</option></select></label>
+    <label class="field checkbox-line"><input id="v62AlertPauseHover" type="checkbox" checked><span>마우스를 올리면 일시정지</span></label>
+  </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('alert')}</div>`}
+function v62ScenePanel(){return `<hr><div class="panel-head"><div><h3>장면(Scene) 프리셋</h3><p class="muted">세 섹션의 설정을 한 번에 저장하고, 날짜를 지정해 메인 전체를 자동 전환합니다.</p></div><button id="v62SceneCapture" class="btn ghost" type="button">현재 설정을 장면으로 저장</button></div>
+  <div class="form-grid"><label class="field"><span>장면 이름</span><input id="v62SceneName" placeholder="예: 블랙프라이데이"></label><label class="field"><span>시작일</span><input id="v62SceneStart" type="date"></label><label class="field"><span>종료일</span><input id="v62SceneEnd" type="date"></label><label class="field"><span>우선순위</span><input id="v62ScenePriority" type="number" value="50"></label></div><div id="v62SceneList" style="margin-top:12px"></div>`}
+
+function v61HomeSettingsPanel(){
+  if(qs('v61HomeSettingsPanel'))return;
+  const section=qs('section-newsroom');if(!section)return;
+  const panel=document.createElement('section');panel.id='v61HomeSettingsPanel';panel.className='panel';panel.style.marginBottom='18px';
+  panel.innerHTML=`<div class="panel-head"><div><h2>메인 화면 관리</h2><p class="muted">사용자 메인 화면과 같은 순서로 세 섹션을 따로 관리합니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">전체 설정 저장</button></div>${v62SectionTabs()}${v62TodayPanel()}${v62CommunityPanel()}${v62AlertPanel()}${v62ScenePanel()}`;
+  section.prepend(panel);
+  panel.querySelectorAll('[data-v62-tab]').forEach(btn=>btn.onclick=()=>{panel.querySelectorAll('[data-v62-tab]').forEach(x=>x.className='btn ghost');btn.className='btn primary';panel.querySelectorAll('[data-v62-panel]').forEach(x=>x.hidden=x.dataset.v62Panel!==btn.dataset.v62Tab)});
+  panel.querySelectorAll('[data-v62-save-schedule]').forEach(b=>b.onclick=()=>v62SaveSchedule(b.dataset.v62SaveSchedule));
+  panel.querySelectorAll('[data-v62-reset-schedule]').forEach(b=>b.onclick=()=>v62ResetSchedule(b.dataset.v62ResetSchedule));
+  qs('v62SceneCapture').onclick=v62CaptureScene;
+}
+function v62Form(section){return qs(`[data-v62-form="${section}"]`)}
+function v62ResetSchedule(section){const f=v62Form(section);if(!f)return;f.querySelectorAll('input').forEach(x=>{if(x.type==='checkbox')x.checked=true;else if(x.type==='number')x.value='10';else x.value=''});f.querySelectorAll('select').forEach(x=>x.selectedIndex=0)}
+function v62SaveSchedule(section){
+  const f=v62Form(section);if(!f)return;const get=n=>f.querySelector(`[data-f="${n}"]`);const start=get('start_date')?.value,end=get('end_date')?.value;if(!start||!end)return alert('시작일과 종료일을 입력하세요.');if(end<start)return alert('종료일은 시작일보다 빠를 수 없습니다.');
+  const row={id:get('id')?.value||`v62-${section}-${Date.now()}`,section,name:get('name')?.value.trim()||`${V62_SECTION_LABELS[section]} 예약`,start_date:start,end_date:end,priority:Number(get('priority')?.value||10),enabled:get('enabled')?.checked!==false};
+  if(section==='today')row.business_mode=get('business_mode')?.value||'featured';
+  if(section==='community')row.community_sort=get('community_sort')?.value||'latest';
+  if(section==='alert')row.ticker_sources=Array.from(f.querySelectorAll('[data-source]:checked')).map(x=>x.dataset.source);
+  const i=v62Schedules.findIndex(x=>String(x.id)===String(row.id));if(i>=0)v62Schedules[i]=row;else v62Schedules.push(row);v62RenderSchedules();v62ResetSchedule(section);
+}
+function v62RenderSchedules(){
+  Object.keys(V62_SECTION_LABELS).forEach(section=>{const box=qs(`[data-v62-schedule-list="${section}"]`);if(!box)return;const rows=v62Schedules.filter(x=>x.section===section);box.innerHTML=rows.length?rows.map(r=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(r.name)} ${r.enabled===false?'<span class="muted">(중지)</span>':''}</div><div class="biz-meta">${esc(r.start_date)} ~ ${esc(r.end_date)} · 우선순위 ${esc(r.priority||0)}</div></div><button class="btn ghost" type="button" data-v62-edit="${esc(r.id)}">수정</button><button class="btn danger" type="button" data-v62-delete="${esc(r.id)}">삭제</button></div>`).join(''):'<div class="muted">등록된 예약이 없습니다.</div>';box.querySelectorAll('[data-v62-edit]').forEach(b=>b.onclick=()=>v62EditSchedule(b.dataset.v62Edit));box.querySelectorAll('[data-v62-delete]').forEach(b=>b.onclick=()=>{v62Schedules=v62Schedules.filter(x=>String(x.id)!==String(b.dataset.v62Delete));v62RenderSchedules()})})
+}
+function v62EditSchedule(id){const r=v62Schedules.find(x=>String(x.id)===String(id));if(!r)return;const f=v62Form(r.section),set=(n,v)=>{const x=f?.querySelector(`[data-f="${n}"]`);if(x)x.value=v??''};['id','name','start_date','end_date','priority','business_mode','community_sort'].forEach(n=>set(n,r[n]));const en=f?.querySelector('[data-f="enabled"]');if(en)en.checked=r.enabled!==false;if(r.section==='alert')f.querySelectorAll('[data-source]').forEach(x=>x.checked=(r.ticker_sources||[]).includes(x.dataset.source));qs(`[data-v62-tab="${r.section}"]`)?.click()}
+function v62CurrentSnapshot(){return {business_mode:val('v45BusinessMode')||'featured',business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value),ticker_sources:$$('#v62AlertSources input:checked').map(x=>x.value),community_board_types:$$('#v62CommunityTypes input:checked').map(x=>x.value),autoplay:{today:checked('v62TodayAutoplay'),community:checked('v62CommunityAutoplay'),alert:checked('v62AlertAutoplay')},intervals:{today:Number(val('v62TodayInterval')||10),community:Number(val('v62CommunityInterval')||8),alert:Number(val('v62AlertInterval')||6)}}}
+function v62CaptureScene(){const name=val('v62SceneName').trim(),start=val('v62SceneStart'),end=val('v62SceneEnd');if(!name||!start||!end)return alert('장면 이름과 시작일·종료일을 입력하세요.');v62Scenes.push({id:`scene-${Date.now()}`,name,start_date:start,end_date:end,priority:Number(val('v62ScenePriority')||50),enabled:true,config:v62CurrentSnapshot()});v62RenderScenes();setVal('v62SceneName','');setVal('v62SceneStart','');setVal('v62SceneEnd','')}
+function v62RenderScenes(){const box=qs('v62SceneList');if(!box)return;box.innerHTML=v62Scenes.length?v62Scenes.map(s=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(s.name)}</div><div class="biz-meta">${esc(s.start_date)} ~ ${esc(s.end_date)} · 우선순위 ${esc(s.priority||0)}</div></div><button class="btn danger" data-v62-scene-delete="${esc(s.id)}" type="button">삭제</button></div>`).join(''):'<div class="muted">저장된 장면이 없습니다.</div>';box.querySelectorAll('[data-v62-scene-delete]').forEach(b=>b.onclick=()=>{v62Scenes=v62Scenes.filter(x=>String(x.id)!==String(b.dataset.v62SceneDelete));v62RenderScenes()})}
+
+function v45FillHomeConfig(config={}){
+  v61HomeSettingsPanel();v62Schedules=Array.isArray(config.schedule_presets)?config.schedule_presets.map(x=>({...x,section:x.section||'today'})):[];v62Scenes=Array.isArray(config.scene_presets)?config.scene_presets.map(x=>({...x})):[];v62RenderSchedules();v62RenderScenes();
+  setVal('v45BusinessMode',config.business_mode||'featured');v45PopulateBusinessSelect(config.business_ids||[]);setVal('v62TodayCount',String(config.today_count||10));
+  const ap=config.autoplay||{},it=config.intervals||{};setChecked('v62TodayAutoplay',ap.today!==false);setChecked('v62CommunityAutoplay',ap.community!==false);setChecked('v62AlertAutoplay',ap.alert!==false);setVal('v62TodayInterval',String(it.today||10));setVal('v62CommunityInterval',String(it.community||8));setVal('v62AlertInterval',String(it.alert||6));setChecked('v62AlertPauseHover',config.alert_pause_hover!==false);
+  const types=new Set(config.community_board_types||['event','free','market','job','business']);$$('#v62CommunityTypes input').forEach(x=>x.checked=types.has(x.value));setVal('v62CommunitySort',config.community_sort||'latest');setVal('v45CommunityBoostIds',(config.community_boost_ids||[]).join(', '));setVal('v45CommunityPostIds',(config.community_post_ids||[]).join(', '));
+  const src=new Set(config.ticker_sources||['dalpick','coupon']);$$('#v62AlertSources input').forEach(x=>x.checked=src.has(x.value));
+}
+function v45ReadHomeConfig(){
+  return {...v62CurrentSnapshot(),today_count:Number(val('v62TodayCount')||10),community_sort:val('v62CommunitySort')||'latest',community_post_ids:v45Csv(val('v45CommunityPostIds')),community_boost_ids:v45Csv(val('v45CommunityBoostIds')),alert_pause_hover:checked('v62AlertPauseHover'),schedule_presets:v62Schedules,scene_presets:v62Scenes};
+}
+console.info('[DalTownMap Admin] V62 three-section home manager loaded');
