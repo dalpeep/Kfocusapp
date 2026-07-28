@@ -1307,30 +1307,9 @@ function eventRoutineItems(actionKey){
   });
   return rows;
 }
-function eventRoutineAlertItems(){ return eventRoutineItems('alert'); }
-function eventRoutineOneLineAdItems(){ return eventRoutineItems('ticker'); }
-function renderEventRoutineOneLineAds(){
-  const box=document.getElementById('eventOneLineAdList');
-  if(!box) return;
-  const items=eventRoutineOneLineAdItems();
-  const section=box.closest('.home-one-line-ad-section');
-  if(!items.length){ section?.setAttribute('hidden',''); box.innerHTML=''; return; }
-  section?.removeAttribute('hidden');
-  const messageHTML=item=>{
-    const d=item.data||{};
-    const title=String(d.title||'').trim();
-    return `<button class="ticker-ad-item" type="button" data-one-line-id="${esc(item.id)}"><span class="ticker-ad-badge">${esc(d.badge||'광고')}</span><strong>${esc(title)}</strong>${d.event_name?`<span class="ticker-ad-detail">${esc(d.event_name)}</span>`:''}<span class="ticker-ad-arrow" aria-hidden="true">›</span></button>`;
-  };
-  const sequence=items.map(messageHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
-  const seconds=Math.max(12,items.reduce((sum,item)=>sum+Number(item.data?.interval_seconds||5),0)*2);
-  box.innerHTML=`<div class="ticker-ad-shell one-line-ad-shell"><span class="ticker-live-label one-line-ad-label"><i data-lucide="megaphone"></i><b>한 줄 광고</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track" style="animation-duration:${seconds}s">${sequence}<span class="ticker-ad-separator" aria-hidden="true">•</span>${sequence}</div></div></div>`;
-  box.querySelectorAll('[data-one-line-id]').forEach(btn=>btn.addEventListener('click',()=>{
-    const item=items.find(x=>String(x.id)===String(btn.dataset.oneLineId));
-    if(item?.data) openEventRoutineLink(item.data);
-  }));
-  if(window.lucide) window.lucide.createIcons();
-}
-
+function eventRoutineAlertItems(){ return [...eventRoutineItems('alert'),...eventRoutineItems('ticker')]; }
+function eventRoutineOneLineAdItems(){ return []; }
+function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
 function openEventRoutineLink(d){
   const type=String(d?.link_type||'none');
   const value=String(d?.link_value||'').trim();
@@ -1402,9 +1381,10 @@ function renderDalpicks(){
 
 // 관리자와 메인을 같은 브라우저에서 열어 둔 경우 저장 즉시 갱신합니다.
 window.addEventListener('storage',e=>{
-  if(String(e.key||'').startsWith('kfocus_active_event_routines_v63_')){ renderDalpicks(); renderEventRoutineOneLineAds(); }
+  if(String(e.key||'').startsWith('kfocus_active_event_routines_v63_')){ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); } if(String(e.key||'').startsWith('kfocus_board_home_pins_v66_')) v45SetupCommunity(v45HomeConfig||{});
 });
-window.addEventListener('kfocus:event-routines-updated',()=>{ renderDalpicks(); renderEventRoutineOneLineAds(); });
+window.addEventListener('kfocus:event-routines-updated',()=>{ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); });
+window.addEventListener('kfocus:board-home-pins-updated',()=>v45SetupCommunity(v45HomeConfig||{}));
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
@@ -2274,18 +2254,32 @@ function v45SelectedBusinesses(config={}){
   // 추천 모드에서는 인기 체크 여부와 관계없이 추천 체크된 업소만 보여줍니다.
   return rows.slice(0,10);
 }
+function v66BoardHomePins(){
+  try{const key=`kfocus_board_home_pins_v66_${String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase()}`;const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[]);}catch{return new Set();}
+}
+function v66RoutineCommunityTypes(){
+  const out=[];readActiveEventRoutines().forEach(r=>(r?.actions?.community?.options||[]).forEach(v=>{const n=normalizeBoardType(v);if(['notice','life','guide'].includes(n)&&!out.includes(n))out.push(n);}));return out;
+}
 function v45CommunityRows(config={}){
-  const types=(config.community_board_types||[]).map(normalizeBoardType);
-  const pinned=(config.community_post_ids||[]).map(String),boost=(config.community_boost_ids||[]).map(String);
-  let rows=(boardPosts||[]).filter(p=>(adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion));
-  if(types.length)rows=rows.filter(p=>types.includes(normalizeBoardType(p.type)));
-  rows=rows.filter(p=>!['guide'].includes(normalizeBoardType(p.type)));
-  rows.sort((x,y)=>{const score=z=>(pinned.includes(String(z.id))?1000:0)+(boost.includes(String(z.id))?200:0)+(Date.parse(z.created_at||z.updated_at||0)/1e13);return score(y)-score(x)});
-  return rows.slice(0,20);
+  const routineTypes=v66RoutineCommunityTypes();
+  const configured=(config.community_board_types||[]).map(normalizeBoardType).filter(v=>['notice','life','guide'].includes(v));
+  const types=routineTypes.length?routineTypes:(configured.length?configured:['notice','life','guide']);
+  const configPinned=new Set((config.community_post_ids||[]).map(String));
+  const localPinned=v66BoardHomePins();
+  const all=(boardPosts||[]).filter(p=>(adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion)&&p.is_active!==false);
+  const result=[],seen=new Set();
+  types.forEach(type=>{
+    const group=all.filter(p=>normalizeBoardType(p.type)===type).sort((a,b)=>Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0));
+    const pins=group.filter(p=>configPinned.has(String(p.id))||localPinned.has(String(p.id))||p.is_home_pinned===true||p.home_pinned===true);
+    pins.forEach(p=>{if(!seen.has(String(p.id))){seen.add(String(p.id));result.push(p);}});
+    const latest=group.find(p=>!seen.has(String(p.id)));
+    if(latest){seen.add(String(latest.id));result.push(latest);}
+  });
+  return result;
 }
 function v45PaintCommunity(){
   const el=document.getElementById('v45CommunityTicker'),text=document.getElementById('v45CommunityText');if(!el||!text)return;
-  const row=v45CommunityItems[v45CommunityIndex];text.textContent=row?(row.title||'커뮤니티 새 소식'):'새 커뮤니티 소식을 확인해 보세요.';
+  const row=v45CommunityItems[v45CommunityIndex];text.textContent=row?`[${boardLabel(row.type)}] ${row.title||'커뮤니티 새 소식'}`:'새 커뮤니티 소식을 확인해 보세요.';
 }
 function v45SetupCommunity(config){
   v45CommunityItems=v45CommunityRows(config);v45CommunityIndex=0;v45PaintCommunity();

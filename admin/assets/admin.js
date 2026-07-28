@@ -2495,6 +2495,10 @@ async function loadBoards() {
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
+
+function boardHomePinKey(){ return `kfocus_board_home_pins_v66_${getAppRegion()}`; }
+function readBoardHomePins(){ try { const v=JSON.parse(localStorage.getItem(boardHomePinKey())||'[]'); return Array.isArray(v)?v.map(String):[]; } catch { return []; } }
+function writeBoardHomePin(id, pinned){ if(!id)return; const set=new Set(readBoardHomePins()); pinned?set.add(String(id)):set.delete(String(id)); localStorage.setItem(boardHomePinKey(),JSON.stringify([...set])); window.dispatchEvent(new CustomEvent('kfocus:board-home-pins-updated')); }
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
@@ -2519,6 +2523,7 @@ function clearBoardForm() {
   setVal('board_start_at', '');
   setVal('board_end_at', '');
   setChecked('board_is_active', true);
+  setChecked('board_home_pinned', false);
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = null;
   safeText('boardFormTitle', '새 글');
@@ -2548,6 +2553,7 @@ function fillBoardForm(row) {
   setVal('board_start_at', fmtLocal(row.start_at));
   setVal('board_end_at', fmtLocal(row.end_at));
   setChecked('board_is_active', row.is_active !== false);
+  setChecked('board_home_pinned', Boolean(row.is_home_pinned||row.home_pinned||readBoardHomePins().includes(String(row.id))));
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = row.id;
   safeText('boardFormTitle', `글 수정 #${row.id}`);
@@ -2685,8 +2691,10 @@ for (const rawPayload of payloads) {
 }
 
   if (res?.error) return alert(`게시글 저장 실패: ${res.error.message}`);
+  const savedBoardId=res?.data?.id||selectedBoardId;
+  writeBoardHomePin(savedBoardId, checked('board_home_pinned'));
   await loadBoards();
-  if (res.data) fillBoardForm(res.data);
+  if (res.data) fillBoardForm({...res.data,is_home_pinned:checked('board_home_pinned')});
   alert('게시글 저장 완료');
 }
 async function deleteBoard() {
