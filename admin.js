@@ -2467,9 +2467,9 @@ async function loadBoards() {
   return;
 }
   const selects = [
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,created_at'
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,created_at'
   ];
   let loaded = null;
   for (const select of selects) {
@@ -2495,6 +2495,44 @@ async function loadBoards() {
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
+function ensureBoardPinControls() {
+  if (qs('board_is_pinned') && qs('board_pin_order')) return;
+
+  const activeInput = qs('board_is_active');
+  if (!activeInput) return;
+
+  const anchor = activeInput.closest('label') || activeInput.parentElement;
+  const host = anchor?.parentElement || anchor;
+  if (!host) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'boardPinControls';
+  wrap.className = 'board-pin-controls';
+  wrap.style.cssText = 'display:grid;grid-template-columns:minmax(150px,1fr) minmax(140px,1fr);gap:12px;margin-top:12px;padding:12px;border:1px solid #dbe4ee;border-radius:12px;background:#f8fafc;';
+  wrap.innerHTML = `
+    <label style="display:flex;align-items:center;gap:8px;font-weight:700;">
+      <input id="board_is_pinned" type="checkbox">
+      게시물 고정
+    </label>
+    <label style="display:grid;gap:6px;font-size:13px;font-weight:700;">
+      고정 순서
+      <input id="board_pin_order" type="number" min="1" step="1" value="999" style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+    </label>
+    <small style="grid-column:1/-1;color:#64748b;line-height:1.45;">체크한 글은 메인 커뮤니티와 해당 게시판 목록의 맨 위에 표시됩니다. 숫자가 작을수록 먼저 노출됩니다.</small>
+  `;
+  host.appendChild(wrap);
+
+  qs('board_is_pinned')?.addEventListener('change', () => {
+    const order = qs('board_pin_order');
+    if (order) order.disabled = !checked('board_is_pinned');
+  });
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  ensureBoardPinControls();
+});
+
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
@@ -2518,7 +2556,11 @@ function clearBoardForm() {
   renderBoardBusinessOptions();
   setVal('board_start_at', '');
   setVal('board_end_at', '');
+  ensureBoardPinControls();
   setChecked('board_is_active', true);
+  setChecked('board_is_pinned', false);
+  setVal('board_pin_order', 999);
+  if (qs('board_pin_order')) qs('board_pin_order').disabled = true;
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = null;
   safeText('boardFormTitle', '새 글');
@@ -2547,7 +2589,11 @@ function fillBoardForm(row) {
   setVal('board_video_url', row.video_url || '');
   setVal('board_start_at', fmtLocal(row.start_at));
   setVal('board_end_at', fmtLocal(row.end_at));
+  ensureBoardPinControls();
   setChecked('board_is_active', row.is_active !== false);
+  setChecked('board_is_pinned', row.is_pinned === true);
+  setVal('board_pin_order', Number(row.pin_order || 999));
+  if (qs('board_pin_order')) qs('board_pin_order').disabled = row.is_pinned !== true;
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = row.id;
   safeText('boardFormTitle', `글 수정 #${row.id}`);
@@ -2582,8 +2628,8 @@ function renderBoardList(items) {
       <button type="button" class="biz-item board-row ${row.id === selectedBoardId ? 'active' : ''}" data-id="${esc(row.id)}">
         ${thumb}
         <div>
-          <div class="biz-title">${esc(row.title || '게시글')}</div>
-          <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
+          <div class="biz-title">${row.is_pinned === true ? '📌 ' : ''}${esc(row.title || '게시글')}</div>
+          <div class="biz-meta">${esc(boardLabel(row.type))}${row.is_pinned === true ? ` · 고정 ${esc(row.pin_order || 999)}` : ''}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
           <div class="biz-meta">${linkedBiz ? '연결 업소: ' + esc(linkedBiz.name_ko || linkedBiz.name_en || linkedBiz.id) : esc(period)}</div>
           <div class="biz-meta">${esc(row.address || row.phone || (row.content || '').slice(0, 80))}</div>
         </div>
@@ -2639,6 +2685,8 @@ const payloadBase = {
     start_at: fromLocal(val('board_start_at')),
     end_at: fromLocal(val('board_end_at')),
     is_active: checked('board_is_active'),
+    is_pinned: checked('board_is_pinned'),
+    pin_order: checked('board_is_pinned') ? Math.max(1, Number(val('board_pin_order') || 999)) : 999,
     business_id: linkedBusinessId || null
 };
 console.log('BOARD SAVE PAYLOAD', payloadBase);
