@@ -1292,9 +1292,22 @@ function readActiveEventRoutines(){
   try{
     const appRegion=String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase();
     const candidates=[appRegion, appRegion==='colorado'?'denver':appRegion, appRegion==='denver'?'colorado':appRegion];
+    const now=Date.now();
     for(const regionName of [...new Set(candidates)]){
-      const rows=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v63_${regionName}`)||'[]');
-      if(Array.isArray(rows)&&rows.length) return rows;
+      const stored=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v63_${regionName}`)||'[]');
+      if(!Array.isArray(stored)||!stored.length) continue;
+      const active=stored.filter(r=>{
+        if(!r || r.is_active===false || r.enabled===false) return false;
+        const status=String(r.status||'').toLowerCase();
+        if(['draft','inactive','disabled','archived'].includes(status)) return false;
+        const start=r.start_at||r.start_date||'';
+        const end=r.end_at||r.end_date||'';
+        if(start && Date.parse(start)>now) return false;
+        if(end && Date.parse(end)<now) return false;
+        return true;
+      }).sort((a,b)=>Date.parse(b.updated_at||b.created_at||0)-Date.parse(a.updated_at||a.created_at||0));
+      // 관리자에서 마지막으로 저장한 현재 편성만 사용해 과거 편성 문구가 다시 노출되지 않게 합니다.
+      if(active.length) return [active[0]];
     }
   }catch(e){ console.warn('[Event routines] read failed',e); }
   return [];
@@ -1349,7 +1362,8 @@ function renderDalpicks(){
   if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
 
   const tickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
-  const tickerSources=new Set(Array.isArray(tickerConfig.ticker_sources)&&tickerConfig.ticker_sources.length?tickerConfig.ticker_sources:['dalpick','coupon']);
+  // 체크된 소스만 노출합니다. 선택이 없을 때 예전 DalPick·쿠폰을 임의로 채우지 않습니다.
+  const tickerSources=new Set(Array.isArray(tickerConfig.ticker_sources)?tickerConfig.ticker_sources:[]);
   const dalpickItems=activeDalpicks()
     .filter(()=>tickerSources.has('dalpick'))
     .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)

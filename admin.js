@@ -2512,13 +2512,13 @@ function ensureBoardPinControls() {
   wrap.innerHTML = `
     <label style="display:flex;align-items:center;gap:8px;font-weight:700;">
       <input id="board_is_pinned" type="checkbox">
-      메인 고정
+      게시물 고정
     </label>
     <label style="display:grid;gap:6px;font-size:13px;font-weight:700;">
       고정 순서
       <input id="board_pin_order" type="number" min="1" step="1" value="999" style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;">
     </label>
-    <small style="grid-column:1/-1;color:#64748b;line-height:1.45;">체크한 글은 해당 게시판 목록의 맨 위에 표시됩니다. 숫자가 작을수록 먼저 노출됩니다.</small>
+    <small style="grid-column:1/-1;color:#64748b;line-height:1.45;">체크한 글은 메인 커뮤니티와 해당 게시판 목록의 맨 위에 표시됩니다. 숫자가 작을수록 먼저 노출됩니다.</small>
   `;
   host.appendChild(wrap);
 
