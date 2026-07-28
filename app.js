@@ -2078,7 +2078,7 @@ function v43SetupAlerts(items=[]){
   const main=document.getElementById('v43AlertMain');
   if(main&&!main.dataset.bound){main.dataset.bound='1';main.addEventListener('click',()=>v42OpenNews(v43AlertItems[v43AlertIndex]));}
   if(v43AlertTimer)clearInterval(v43AlertTimer);
-  if(v43AlertItems.length>1)v43AlertTimer=setInterval(()=>{v43AlertIndex=(v43AlertIndex+1)%v43AlertItems.length;v43PaintAlert()},6000);
+  const ac=v61EffectiveHomeConfig(v45HomeConfig||{}),play=ac.autoplay?.alert!==false,delay=Math.max(2,Number(ac.intervals?.alert||6))*1000;if(play&&v43AlertItems.length>1)v43AlertTimer=setInterval(()=>{v43AlertIndex=(v43AlertIndex+1)%v43AlertItems.length;v43PaintAlert()},delay);
 }
 
 function v38Context(){
@@ -2202,7 +2202,7 @@ function v45PaintCommunity(){
 function v45SetupCommunity(config){
   v45CommunityItems=v45CommunityRows(config);v45CommunityIndex=0;v45PaintCommunity();
   const el=document.getElementById('v45CommunityTicker');if(el&&!el.dataset.bound){el.dataset.bound='1';el.addEventListener('click',()=>{const r=v45CommunityItems[v45CommunityIndex];if(r)openBoardPost(r.id)});}
-  if(v45CommunityTimer)clearInterval(v45CommunityTimer);if(v45CommunityItems.length>1)v45CommunityTimer=setInterval(()=>{v45CommunityIndex=(v45CommunityIndex+1)%v45CommunityItems.length;v45PaintCommunity()},5200);
+  if(v45CommunityTimer)clearInterval(v45CommunityTimer);const c=v61EffectiveHomeConfig(v45HomeConfig||{}),play=c.autoplay?.community!==false,delay=Math.max(2,Number(c.intervals?.community||8))*1000;if(play&&v45CommunityItems.length>1)v45CommunityTimer=setInterval(()=>{v45CommunityIndex=(v45CommunityIndex+1)%v45CommunityItems.length;v45PaintCommunity()},delay);
 }
 function openV37Recommendation(item){
   if(!item)return;const d=item.data||item;
@@ -2629,7 +2629,7 @@ async function renderV37AIHome(){
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
   const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',video:'영상',promotion:'프로모션',rotation:'날짜별 순환',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
-  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5600);
+  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
 }
@@ -6137,3 +6137,16 @@ function initAndroidInstallBanner() {
   });
 }
 console.info('[DalTownMap] v8.7 guide subcategory fix loaded');
+
+// V62 날짜 예약·장면 프리셋을 세 섹션별로 병합
+function v62ActiveByDate(rows=[],today=v61DateKey()){
+  return rows.filter(r=>r&&r.enabled!==false&&(!r.start_date||r.start_date<=today)&&(!r.end_date||r.end_date>=today)).sort((a,b)=>Number(b.priority||0)-Number(a.priority||0));
+}
+function v61EffectiveHomeConfig(config={}){
+  const today=v61DateKey();let out={...config};
+  const scene=v62ActiveByDate(Array.isArray(config.scene_presets)?config.scene_presets:[],today)[0];if(scene?.config)out={...out,...scene.config,active_scene_id:scene.id||''};
+  const schedules=Array.isArray(config.schedule_presets)?config.schedule_presets:[];
+  ['today','community','alert'].forEach(section=>{const row=v62ActiveByDate(schedules.filter(x=>(x.section||'today')===section),today)[0];if(row){out={...out,...row,active_schedule_id:row.id||out.active_schedule_id||''};if(section==='alert'&&Array.isArray(row.ticker_sources))out.ticker_sources=row.ticker_sources;if(section==='community'&&row.community_sort)out.community_sort=row.community_sort;if(section==='today'&&row.business_mode)out.business_mode=row.business_mode;}});
+  out.schedule_presets=schedules;out.scene_presets=config.scene_presets||[];return out;
+}
+console.info('[DalTownMap] V62 section schedules and scenes loaded');
