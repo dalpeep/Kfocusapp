@@ -1267,6 +1267,62 @@ function openDalpickArticle(d){
   openBoardPost(postId);
 }
 let dalpickCarouselTimer = null;
+
+// V65.1: 관리자 이벤트 루틴을 메인 화면에 실제 반영합니다.
+function readActiveEventRoutines(){
+  try{
+    const appRegion=String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase();
+    const candidates=[appRegion, appRegion==='colorado'?'denver':appRegion, appRegion==='denver'?'colorado':appRegion];
+    for(const regionName of [...new Set(candidates)]){
+      const rows=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v63_${regionName}`)||'[]');
+      if(Array.isArray(rows)&&rows.length) return rows;
+    }
+  }catch(e){ console.warn('[Event routines] read failed',e); }
+  return [];
+}
+function eventRoutineTickerItems(){
+  const rows=[];
+  readActiveEventRoutines().forEach(r=>{
+    const actions=r?.actions||{};
+    [['alert','알림'],['ticker','광고']].forEach(([actionKey,badge])=>{
+      const action=actions[actionKey];
+      if(!action) return;
+      (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
+        const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
+        if(!text) return;
+        rows.push({
+          kind:`event-${actionKey}`,
+          id:`${r.id||'routine'}-${actionKey}-${index}`,
+          date:r.updated_at||r.created_at||r.start_at||'',
+          data:{
+            title:text,
+            summary:'',
+            badge,
+            event_name:r.name||'',
+            link_type:action.link_type||'none',
+            link_value:action.link_value||'',
+            interval_seconds:Number(action.interval_seconds||5)
+          }
+        });
+      });
+    });
+  });
+  return rows;
+}
+function openEventRoutineLink(d){
+  const type=String(d?.link_type||'none');
+  const value=String(d?.link_value||'').trim();
+  if(type==='none'||!value) return;
+  if(type==='external'||type==='url'){ window.open(value,'_blank','noopener'); return; }
+  if(type==='business'){ renderDetail(value); showPage('business-detail'); return; }
+  if(type==='coupon'){ renderCouponDetail(value); lastBasePage=currentPage; showPage('coupon-detail'); return; }
+  if(type==='board'||type==='article'){ openBoardPost(value); return; }
+  if(type==='guide'){ showPage('guide'); return; }
+  if(type==='internal'){
+    const page=value.replace(/^#/,'');
+    if(page) showPage(page);
+  }
+}
 function renderDalpicks(){
   const box=document.getElementById('dalpickList');
   if(!box) return;
@@ -1281,8 +1337,10 @@ function renderDalpicks(){
   const couponItems=(tickerSources.has('coupon')&&typeof todayCoupons==='function'?todayCoupons():[])
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
+  const routineItems=eventRoutineTickerItems();
+
   const seen=new Set();
-  const items=[...dalpickItems,...couponItems]
+  const items=[...routineItems,...dalpickItems,...couponItems]
     .filter(item=>{
       const d=item.data||{};
       const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
@@ -1298,7 +1356,7 @@ function renderDalpicks(){
   const messageHTML=item=>{
     const d=item.data||{};
     const b=getBiz(d.business_id||d.businessId)||{};
-    const label=item.kind==='coupon'?'쿠폰':(String(d.category||'').toLowerCase()==='business_story'?'업소탐방':'광고');
+    const label=String(d.badge||'').trim() || (item.kind==='coupon'?'쿠폰':(String(d.category||'').toLowerCase()==='business_story'?'업소탐방':'광고'));
     const title=String(d.title||b.name||'새로운 소식').trim();
     const detail=String(d.summary||d.discount_label||d.description||b.name||'').replace(/\s+/g,' ').trim();
     return `<button class="ticker-ad-item" type="button" data-ticker-kind="${esc(item.kind)}" data-ticker-id="${esc(item.id)}"><span class="ticker-ad-badge">${esc(label)}</span><strong>${esc(title)}</strong>${detail?`<span class="ticker-ad-detail">${esc(detail)}</span>`:''}<span class="ticker-ad-arrow" aria-hidden="true">›</span></button>`;
@@ -1309,6 +1367,7 @@ function renderDalpicks(){
   box.querySelectorAll('[data-ticker-kind]').forEach(btn=>btn.addEventListener('click',()=>{
     const item=items.find(x=>x.kind===btn.dataset.tickerKind&&String(x.id)===String(btn.dataset.tickerId));
     const d=item?.data; if(!d) return;
+    if(String(item.kind||'').startsWith('event-')){ openEventRoutineLink(d); return; }
     if(item.kind==='coupon'){ renderCouponDetail(d.id); lastBasePage=currentPage; showPage('coupon-detail'); return; }
     if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
     else if(isThemeDalpick(d)) openThemeArticle(d);
@@ -1317,6 +1376,12 @@ function renderDalpicks(){
   }));
   if(window.lucide) window.lucide.createIcons();
 }
+
+// 관리자와 메인을 같은 브라우저에서 열어 둔 경우 저장 즉시 갱신합니다.
+window.addEventListener('storage',e=>{
+  if(String(e.key||'').startsWith('kfocus_active_event_routines_v63_')) renderDalpicks();
+});
+window.addEventListener('kfocus:event-routines-updated',()=>renderDalpicks());
 
 async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
