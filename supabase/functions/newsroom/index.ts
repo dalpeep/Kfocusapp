@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '57.0.0';
+const VERSION = '58.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -139,38 +139,6 @@ async function cleanup(region = 'dallas') {
     cleaned += deleted?.length || 0;
   }
   return { ok: true, cleaned, retention_days: 30 };
-}
-
-async function createTestPost(region = 'dallas') {
-  const now = new Date();
-  const dallasStamp = new Intl.DateTimeFormat('ko-KR', {
-    timeZone: DALLAS_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-  }).format(now);
-  const title = `[테스트] 달라스 라이프 자동 게시 ${dallasStamp}`;
-  const content = [
-    '달타운맵 자동 게시 기능을 확인하기 위한 테스트 글입니다.',
-    '',
-    `생성 시각: ${dallasStamp} (Dallas 시간)`,
-    '',
-    '이 글이 달라스 라이프에 보이면 관리자 버튼 → Supabase Edge Function → posts 테이블 저장 과정이 정상적으로 작동한 것입니다.',
-  ].join('\n');
-  const payload:any = {
-    type: 'life',
-    subtype: 'test',
-    region,
-    title,
-    content,
-    external_url: null,
-    link_label: null,
-    start_at: now.toISOString(),
-    end_at: null,
-    is_active: true,
-    created_at: now.toISOString(),
-  };
-  const { data, error } = await admin.from('posts').insert(payload).select('id,title,type,region,created_at').single();
-  if (error) throw new Error(`테스트 글 저장 실패: ${error.message}`);
-  return { ok: true, version: VERSION, post: data };
 }
 
 async function runStatus(region = 'dallas') {
@@ -1322,6 +1290,94 @@ async function homeFeed(region = 'dallas') {
     generated_at:new Date().toISOString(),
   };
 }
+
+
+async function insertLifePost(payload: any) {
+  const base:any = {
+    type: 'life',
+    subtype: payload.subtype || 'news',
+    region: payload.region || 'dallas',
+    title: String(payload.title || '').trim(),
+    content: String(payload.content || '').trim(),
+    is_active: true,
+    created_at: new Date().toISOString(),
+  };
+  if (!base.title || !base.content) throw new Error('게시할 제목 또는 본문이 없습니다.');
+  const variants = [
+    { ...base, author_name: 'DalTownMap', external_url: null },
+    { ...base, author_name: 'DalTownMap' },
+    base,
+  ];
+  let last:any = null;
+  for (const row of variants) {
+    const { data, error } = await admin.from('posts').insert(row).select('id,title,created_at').single();
+    if (!error) return data;
+    last = error;
+  }
+  throw last || new Error('posts 테이블 저장에 실패했습니다.');
+}
+
+async function testPost(region='dallas') {
+  const stamp = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: DALLAS_TZ, year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false,
+  }).format(new Date());
+  const title = `[테스트] 달라스 라이프 자동 게시 ${stamp}`;
+  const content = `달타운맵 자동 게시 기능을 확인하기 위한 테스트 글입니다. 생성 시각: ${stamp} (Dallas 시간).`;
+  const post = await insertLifePost({region,title,content,subtype:'test'});
+  return {ok:true,version:VERSION,post};
+}
+
+async function publishOne(region='dallas', force=false) {
+  const today = dateKeyInDallas();
+  if (!force) {
+    const start = new Date(`${today}T00:00:00-05:00`).toISOString();
+    const { data: existing } = await admin.from('posts')
+      .select('id,title,created_at')
+      .eq('region', region).eq('type','life')
+      .gte('created_at', start)
+      .order('created_at',{ascending:false}).limit(20);
+    const auto = (existing || []).find((x:any)=>!String(x.title||'').startsWith('[테스트]'));
+    if (auto) return {ok:true,version:VERSION,skipped:true,reason:'already_published_today',post:auto};
+  }
+
+  const { data: rows, error } = await admin.from('newsroom_items')
+    .select('*')
+    .eq('region', region)
+    .in('status',['review','classified'])
+    .in('suggested_destination',['life','notice','guide'])
+    .neq('fact_status','rejected')
+    .order('priority_score',{ascending:false})
+    .order('source_published_at',{ascending:false, nullsFirst:false})
+    .limit(15);
+  if (error) throw error;
+  const candidate = (rows || []).find((x:any)=>{
+    const title=String(x.ai_title||x.original_title||'');
+    return title && !/범죄|살인|총격|정치|선거|소송|의료 조언|법률 조언/i.test(title);
+  });
+  if (!candidate) throw new Error('게시 가능한 분석 완료 후보가 없습니다. 먼저 “수집분 AI 분류”를 실행해 주세요.');
+
+  let item:any = candidate;
+  if (!String(item.ai_content||'').trim()) {
+    await draft({id:item.id});
+    const refreshed = await admin.from('newsroom_items').select('*').eq('id',item.id).single();
+    if (refreshed.error) throw refreshed.error;
+    item = refreshed.data;
+  }
+  const title = String(item.ai_title || item.original_title || '').trim();
+  const summary = String(item.ai_summary || '').trim();
+  const article = String(item.ai_content || '').trim();
+  const content = [summary, article].filter(Boolean).join('\n\n');
+  const post = await insertLifePost({region,title,content,subtype:'news'});
+  const meta = item.event_data && typeof item.event_data === 'object' ? item.event_data : {};
+  await admin.from('newsroom_items').update({
+    status:'published',
+    event_data:{...meta,published_post_id:post.id,published_at:new Date().toISOString()},
+    updated_at:new Date().toISOString(),
+  }).eq('id',item.id);
+  return {ok:true,version:VERSION,post,item_id:item.id,source_name:item.source_name||null};
+}
+
 async function publicHomeSettings(region = 'dallas') {
   const { data, error } = await admin.from('newsroom_settings')
     .select('home_config,updated_at')
@@ -1350,7 +1406,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['test_post', 'status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
+    supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -1368,9 +1424,10 @@ Deno.serve(async (req) => {
     if (action === 'home_settings') return json(await publicHomeSettings(region));
 
     const auth = await authorize(req);
-    if (action === 'test_post') return json(await createTestPost(region));
     if (action === 'status' || action === 'health') return json(await status(region));
     if (action === 'run_status') return json(await runStatus(region));
+    if (action === 'test_post') return json(await testPost(region));
+    if (action === 'publish_one') return json(await publishOne(region, body.force === true));
     if (action === 'cleanup') return json(await cleanup(region));
     if (action === 'collect') return json(await collect(region, Boolean((auth as any).cron || body.scheduled), String(body.lane || 'practical')));
     if (action === 'list_scheduled_topics') return json(await listScheduledTopics(region));
@@ -1402,7 +1459,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['test_post', 'status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
+      supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
     }, 400);
   } catch (e) {
     console.error(e);
