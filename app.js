@@ -1373,8 +1373,10 @@ function renderDalpicks(){
 
   const routineItems=eventRoutineAlertItems();
 
+  // V69: 달타운 알림은 이벤트 루틴의 직접 입력 문구만 표시합니다.
+  // 예전 DalPick·쿠폰·생활정보가 자동으로 섞여 다시 보이지 않도록 완전히 분리합니다.
   const seen=new Set();
-  const items=[...routineItems,...dalpickItems,...couponItems]
+  const items=[...routineItems]
     .filter(item=>{
       const d=item.data||{};
       const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
