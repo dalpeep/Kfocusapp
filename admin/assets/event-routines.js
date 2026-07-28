@@ -1,6 +1,6 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s='') => String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const ACTION_LABELS={recommendation:'추천 슬라이드',alert:'달타운 알림',ticker:'한 줄 광고',banner:'메인 배너',community:'커뮤니티',coupon:'쿠폰',article:'AI 기사',business:'업소 추천'};
+const ACTION_LABELS={recommendation:'달타운 추천',alert:'달타운 알림',ticker:'한 줄 광고',banner:'메인 배너',community:'커뮤니티',coupon:'쿠폰',article:'AI 기사',business:'업소 추천'};
 const OPTION_LABELS={
  recommendation:{new:'신규',recommended:'추천',popular:'인기',coupon:'쿠폰',ai:'AI 추천',visit:'업소 탐방',admin:'관리자 지정',random:'랜덤'},
  alert:{life:'오늘의 생활',guide:'달라스 가이드',event:'행사안내',urgent:'긴급공지',weather:'날씨',traffic:'교통',ai:'AI 추천',admin:'관리자 작성'},
