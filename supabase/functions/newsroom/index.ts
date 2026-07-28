@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '53.0.0';
+const VERSION = '56.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -789,6 +789,121 @@ async function collectDirectMarkets(region='dallas') {
   return {ok:true,version:VERSION,found:items.length,inserted,updated,unchanged,warnings,sources:['Zion Market Texas event','H Mart online sale']};
 }
 
+
+
+function newsroomSourceFooter(item: any) {
+  const source = String(item?.source_name || '공식 안내').trim();
+  const url = String(item?.original_url || '').trim();
+  return `\n\n---\n출처: ${source}${url ? `\n원문 확인: ${url}` : ''}`;
+}
+
+async function alreadyPublishedToday(region = 'dallas') {
+  const today = dateKeyInDallas();
+  const { data, error } = await admin.from('newsroom_publications')
+    .select('id,post_id,newsroom_item_id,published_for_date,published_at')
+    .eq('region', region).eq('published_for_date', today).maybeSingle();
+  if (error && !/does not exist|relation/i.test(String(error.message || ''))) throw error;
+  return data || null;
+}
+
+async function selectAutoPublishCandidate(region = 'dallas') {
+  const since = new Date(Date.now() - 14 * 86400000).toISOString();
+  const { data: publishedRows, error: pe } = await admin.from('newsroom_publications')
+    .select('newsroom_item_id').eq('region', region).limit(1000);
+  if (pe && !/does not exist|relation/i.test(String(pe.message || ''))) throw pe;
+  const published = new Set((publishedRows || []).map((x:any)=>String(x.newsroom_item_id)));
+
+  const { data, error } = await admin.from('newsroom_items')
+    .select('*').eq('region', region)
+    .in('status', ['classified','review'])
+    .in('suggested_destination', ['life','notice'])
+    .gte('collected_at', since)
+    .order('priority_score', { ascending: false })
+    .order('source_published_at', { ascending: false, nullsFirst: false })
+    .limit(100);
+  if (error) throw error;
+
+  const unsafe = /(살인|총격|강도|폭행|체포|정치|선거|소송|법률 자문|의학적 조언|진단|이민 해석|세금 해석|루머|의혹|crime|shooting|murder|election|politic)/i;
+  return (data || []).find((row:any) => {
+    if (published.has(String(row.id))) return false;
+    if (String(row.suggested_destination || '') === 'exclude') return false;
+    if (Number(row.confidence || 0) < 65) return false;
+    if (!['official_verified','needs_review'].includes(String(row.fact_status || ''))) return false;
+    const text = `${row.original_title || ''} ${row.original_summary || ''} ${row.ai_title || ''}`;
+    if (unsafe.test(text)) return false;
+    const url = String(row.original_url || '');
+    if (!/^https?:\/\//i.test(url) && !/^internal:\/\//i.test(url)) return false;
+    return true;
+  }) || null;
+}
+
+async function createDraftForAutoPublish(item: any) {
+  if (String(item.ai_content || '').trim()) return item;
+  const a = await openai({
+    model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
+    input: `Write an original Korean Dallas-Fort Worth lifestyle-information article based only on the supplied source facts. Preserve exact dates, times, names, addresses, deadlines, and restrictions. Do not invent facts. Avoid medical, legal, tax, immigration, political, crime, rumor, or opinion interpretation. Use a clear local-guide tone. Return ONLY JSON {"ai_title":"headline","ai_summary":"2-3 sentence summary","ai_content":"3-6 short paragraphs"}.\nTitle: ${item.original_title}\nSummary: ${item.original_summary || ''}\nSource: ${item.source_name || ''}\nURL: ${item.original_url || ''}\nWorking title: ${item.ai_title || ''}\nWorking summary: ${item.ai_summary || ''}`,
+  });
+  const patch = {
+    ai_title: a.ai_title || item.ai_title || item.original_title,
+    ai_summary: a.ai_summary || item.ai_summary || '',
+    ai_content: a.ai_content || '', status: 'review',
+    draft_updated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+  };
+  const { data, error } = await admin.from('newsroom_items').update(patch).eq('id', item.id).select('*').single();
+  if (error) throw error;
+  return data;
+}
+
+async function insertLifePost(item: any, region = 'dallas') {
+  const title = String(item.ai_title || item.original_title || '').trim().slice(0, 240);
+  if (!title) throw new Error('자동 게시할 기사 제목이 없습니다.');
+  const summary = String(item.ai_summary || '').trim();
+  const body = String(item.ai_content || item.original_summary || '').trim();
+  const content = `${summary ? `${summary}\n\n` : ''}${body}${newsroomSourceFooter(item)}`.trim();
+  const base:any = {
+    type: 'life', subtype: 'local_news', region, title, content,
+    external_url: /^https?:\/\//i.test(String(item.original_url || '')) ? item.original_url : null,
+    link_label: /^https?:\/\//i.test(String(item.original_url || '')) ? '공식 원문 보기' : null,
+    author_name: 'DalTownMap AI Newsroom', is_active: true,
+    start_at: new Date().toISOString(), created_at: new Date().toISOString(),
+  };
+  const attempts = [base, Object.fromEntries(Object.entries(base).filter(([k])=>!['subtype','author_name','start_at'].includes(k))), {
+    type:'life', region, title, content, is_active:true, created_at:new Date().toISOString()
+  }];
+  let last:any = null;
+  for (const payload of attempts) {
+    const res = await admin.from('posts').insert(payload).select('id').single();
+    if (!res.error) return res.data;
+    last = res.error;
+  }
+  throw last || new Error('달라스 라이프 게시글 저장에 실패했습니다.');
+}
+
+async function autoPublishOne(region = 'dallas', force = false) {
+  const today = dateKeyInDallas();
+  if (!force) {
+    const existing = await alreadyPublishedToday(region);
+    if (existing) return { ok:true, version:VERSION, skipped:true, reason:'already_published_today', publication:existing };
+  }
+  let item = await selectAutoPublishCandidate(region);
+  if (!item) return { ok:true, version:VERSION, skipped:true, reason:'no_safe_candidate' };
+  item = await createDraftForAutoPublish(item);
+  const post = await insertLifePost(item, region);
+  const publication:any = {
+    region, newsroom_item_id:item.id, post_id:post.id, published_for_date:today,
+    title:item.ai_title || item.original_title, source_url:item.original_url || null,
+    status:'published', published_at:new Date().toISOString(),
+  };
+  const { data: logged, error: le } = await admin.from('newsroom_publications')
+    .insert(publication).select().single();
+  if (le) throw new Error(`게시글은 생성됐지만 자동 게시 기록 저장 실패: ${le.message}`);
+  await admin.from('newsroom_items').update({
+    status:'published', destination:'life', updated_at:new Date().toISOString(),
+    event_data:{...(item.event_data || {}), auto_published:true, auto_post_id:post.id, auto_published_at:new Date().toISOString()},
+  }).eq('id', item.id);
+  return { ok:true, version:VERSION, skipped:false, post_id:post.id, item_id:item.id, title:publication.title, publication:logged };
+}
+
 async function autoRun(region='dallas') {
   const run=await startRun(region,'scheduled','V49 daily content engine auto run');
   try{
@@ -802,8 +917,9 @@ async function autoRun(region='dallas') {
     const dailyScenario=await ensureDailyLifestyleScenario(region);
     let analyzed=0;
     for(let i=0;i<5;i++){const r=await analyze({region,limit:3});analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
-    await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}`});
-    return {ok:true,version:VERSION,reset,planned,dailyCore,markets,lanes,dailyScenario,analyzed,selection_order:['daily_weather','daily_traffic','editor_markets','editor_events','editor_business']};
+    const published=await autoPublishOne(region,false);
+    await finishRun(run?.id,{status:'success',found:Number(planned.found||0)+lanes.reduce((n,x)=>n+Number(x.found||0),0),inserted:Number(planned.inserted||0)+lanes.reduce((n,x)=>n+Number(x.inserted||0),0),skipped:lanes.reduce((n,x)=>n+Number(x.skipped||0),0),cleaned:Number(cleaned.cleaned||0),note:`planned:${planned.inserted}; analyzed:${analyzed}; published:${published.skipped?'skipped':published.post_id}`});
+    return {ok:true,version:VERSION,reset,planned,dailyCore,markets,lanes,dailyScenario,analyzed,published,selection_order:['daily_weather','daily_traffic','editor_markets','editor_events','editor_business']};
   }catch(e){await finishRun(run?.id,{status:'failed',error_message:e instanceof Error?e.message:String(e)});throw e;}
 }
 
@@ -1318,7 +1434,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
+    supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'auto_publish'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -1346,6 +1462,7 @@ Deno.serve(async (req) => {
     if (action === 'collect_scheduled_topics') return json(await collectScheduledTopics(region));
     if (action === 'collect_markets') return json(await collectDirectMarkets(region));
     if (action === 'auto_run') return json(await autoRun(region));
+    if (action === 'auto_publish') return json(await autoPublishOne(region, body.force === true));
     if (action === 'set_editor_pick') return json(await setEditorPick(body));
     if (action === 'set_home_link') return json(await setHomeLink(body));
     if (action === 'set_archive_keep') return json(await setArchiveKeep(body));
@@ -1369,7 +1486,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
+      supported_actions: ['status', 'run_status', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'auto_publish'],
     }, 400);
   } catch (e) {
     console.error(e);
