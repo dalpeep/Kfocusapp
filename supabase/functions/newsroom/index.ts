@@ -1328,6 +1328,21 @@ async function testPost(region='dallas') {
   return {ok:true,version:VERSION,post};
 }
 
+
+const LIFE_ALLOWED_TOPICS = [
+  { subtype:'life', label:'생활', re:/(생활|날씨|폭염|한파|도서관|공원|시청|카운티|공공서비스|쓰레기|정전|수도|재난|안전|community|weather|library|park|city service|utility|public service)/i },
+  { subtype:'education', label:'교육', re:/(교육|학교|학군|학생|교사|등록|개학|휴교|장학금|대학|도서관 프로그램|ISD|school|education|student|teacher|college|university|scholarship)/i },
+  { subtype:'health', label:'의료', re:/(의료|건강|병원|보건|예방접종|백신|독감|모기|웨스트나일|질병|clinic|hospital|health|medical|vaccine|flu|west nile|public health)/i },
+  { subtype:'traffic', label:'교통', re:/(교통|도로|통제|공사|우회|버스|철도|공항|DART|TxDOT|traffic|road|closure|construction|transit|airport|highway)/i },
+  { subtype:'finance', label:'세금·재정', re:/(세금|재정|재산세|소득세|판매세|IRS|금융|은행|금리|대출|지원금|tax|finance|financial|property tax|sales tax|interest rate|loan|grant)/i },
+  { subtype:'realestate', label:'부동산', re:/(부동산|주택|렌트|임대|아파트|모기지|HOA|개발계획|주택시장|real estate|housing|rent|rental|mortgage|development|home price)/i },
+];
+function lifeTopicForItem(item:any){
+  const keywordText = Array.isArray(item?.category_keywords) ? item.category_keywords.join(' ') : String(item?.category_keywords||'');
+  const text = [item?.ai_title,item?.original_title,item?.ai_summary,item?.original_summary,keywordText,item?.source_name].filter(Boolean).join(' ');
+  return LIFE_ALLOWED_TOPICS.find(x=>x.re.test(text)) || null;
+}
+
 async function publishOne(region='dallas', force=false) {
   const today = dateKeyInDallas();
   if (!force) {
@@ -1353,9 +1368,11 @@ async function publishOne(region='dallas', force=false) {
   if (error) throw error;
   const candidate = (rows || []).find((x:any)=>{
     const title=String(x.ai_title||x.original_title||'');
-    return title && !/범죄|살인|총격|정치|선거|소송|의료 조언|법률 조언/i.test(title);
+    return title
+      && !/범죄|살인|총격|정치|선거|소송|의료 조언|법률 조언|연예|스포츠 경기 결과/i.test(title)
+      && Boolean(lifeTopicForItem(x));
   });
-  if (!candidate) throw new Error('게시 가능한 분석 완료 후보가 없습니다. 먼저 “수집분 AI 분류”를 실행해 주세요.');
+  if (!candidate) throw new Error('생활·교육·의료·교통·세금·재정·부동산 분야의 게시 가능한 후보가 없습니다. 먼저 “지금 다시 수집”과 “수집분 AI 분류”를 실행해 주세요.');
 
   let item:any = candidate;
   if (!String(item.ai_content||'').trim()) {
@@ -1368,14 +1385,15 @@ async function publishOne(region='dallas', force=false) {
   const summary = String(item.ai_summary || '').trim();
   const article = String(item.ai_content || '').trim();
   const content = [summary, article].filter(Boolean).join('\n\n');
-  const post = await insertLifePost({region,title,content,subtype:'news'});
+  const topic = lifeTopicForItem(item);
+  const post = await insertLifePost({region,title,content,subtype:topic?.subtype || 'life'});
   const meta = item.event_data && typeof item.event_data === 'object' ? item.event_data : {};
   await admin.from('newsroom_items').update({
     status:'published',
     event_data:{...meta,published_post_id:post.id,published_at:new Date().toISOString()},
     updated_at:new Date().toISOString(),
   }).eq('id',item.id);
-  return {ok:true,version:VERSION,post,item_id:item.id,source_name:item.source_name||null};
+  return {ok:true,version:VERSION,post,item_id:item.id,source_name:item.source_name||null,topic:topic?.label||'생활'};
 }
 
 async function publicHomeSettings(region = 'dallas') {

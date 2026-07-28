@@ -36,11 +36,43 @@ async function createRealArticle(){
     alert(`달라스 라이프에 실제 기사 1건을 게시했습니다.\n\n${r.post?.title||''}`);
   }catch(e){console.error('[Newsroom real article]',e);setStatus(`실제 기사 생성 실패 · ${e.message}`);alert(`실제 기사 생성 실패: ${e.message}`);}});
 }
+function ensureActionButtons(){
+  const actions = document.querySelector('#section-newsroom .newsroom-actions');
+  const collect = document.getElementById('newsroomCollectBtn');
+  if (!actions && !collect) return {};
+
+  let test = document.getElementById('newsroomTestPostBtn');
+  if (!test) {
+    test = document.createElement('button');
+    test.id = 'newsroomTestPostBtn';
+    test.className = 'btn primary';
+    test.type = 'button';
+    test.textContent = '🧪 테스트 글 생성';
+    (collect || actions.firstElementChild)?.insertAdjacentElement('beforebegin', test);
+  }
+
+  let real = document.getElementById('newsroomRealPostBtn');
+  if (!real) {
+    real = document.createElement('button');
+    real.id = 'newsroomRealPostBtn';
+    real.className = 'btn primary';
+    real.type = 'button';
+    real.textContent = '📰 실제 기사 1건 생성';
+    test.insertAdjacentElement('afterend', real);
+  }
+  return {test, real};
+}
+
 function bind(){
-  const test=document.getElementById('newsroomTestPostBtn'); if(test&&!test.dataset.bound){test.dataset.bound='1';test.addEventListener('click',createTest);}
-  let real=document.getElementById('newsroomRealPostBtn');
-  if(!real&&test){real=document.createElement('button');real.id='newsroomRealPostBtn';real.className='btn primary';real.type='button';real.textContent='📰 실제 기사 1건 생성';test.insertAdjacentElement('afterend',real);}
-  if(real&&!real.dataset.bound){real.dataset.bound='1';real.addEventListener('click',createRealArticle);}
-  console.log('[Newsroom V58] 테스트·실제 기사 버튼 연결 완료');
+  const {test, real} = ensureActionButtons();
+  if(test && !test.dataset.bound){
+    test.dataset.bound='1';
+    test.addEventListener('click',createTest);
+  }
+  if(real && !real.dataset.bound){
+    real.dataset.bound='1';
+    real.addEventListener('click',createRealArticle);
+  }
+  if(test || real) console.log('[Newsroom V59] 테스트·실제 기사 버튼 연결 완료');
 }
 document.addEventListener('DOMContentLoaded',bind);window.addEventListener('load',bind);setTimeout(bind,1500);
