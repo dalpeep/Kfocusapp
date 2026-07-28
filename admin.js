@@ -5750,6 +5750,26 @@ async function loadNewsroomSettings(){
   }catch(e){safeText('newsroomAutoBadge','자동 수집 설정 확인 필요');console.warn(e);}
 }
 async function saveNewsroomAutoSetting(){const el=qs('newsroomAutoEnabled');if(!el)return;try{await newsroomEdgeCall('save_settings',{region:getAppRegion(),auto_enabled:el.checked},'자동 수집 설정을 저장하고 있습니다…');safeText('newsroomAutoBadge',el.checked?'매일 오전 자동 수집 ON':'자동 수집 OFF');safeText('newsroomStatus',el.checked?'매일 오전 자동 수집을 사용합니다.':'자동 수집을 중지했습니다. 수동 수집은 계속 사용할 수 있습니다.');}catch(e){el.checked=!el.checked;alert(`자동 수집 설정 실패: ${e.message}`);}}
+async function createNewsroomTestPost(){
+  const btn=qs('newsroomTestPostBtn');
+  if(!btn)return;
+  const old=btn.textContent;
+  btn.disabled=true;
+  btn.textContent='테스트 글 생성 중…';
+  try{
+    const result=await newsroomEdgeCall('test_post',{region:getAppRegion()},'AI 호출 없이 달라스 라이프 테스트 글을 저장하고 있습니다…');
+    const title=result?.post?.title||result?.title||'테스트 글';
+    safeText('newsroomStatus',`테스트 글 생성 완료 · ${title}`);
+    alert(`테스트 글을 생성했습니다.\n\n${title}\n\n사용자 화면의 달라스 라이프에서 확인하세요.`);
+  }catch(e){
+    alert(`테스트 글 생성 실패: ${e.message}`);
+    safeText('newsroomStatus',e.message);
+  }finally{
+    btn.disabled=false;
+    btn.textContent=old;
+  }
+}
+
 async function collectNewsroom(){
   const btn=qs('newsroomCollectBtn'),old=btn.textContent;btn.disabled=true;btn.textContent='수집 준비…';
   try{
@@ -5824,35 +5844,12 @@ function v48ResetTopic(){setVal('v48TopicId','');setVal('v48TopicTitle','');setV
 function v48EditTopic(id){const t=v48ScheduledTopics.find(x=>String(x.id)===String(id));if(!t)return;setVal('v48TopicId',t.id);setVal('v48TopicTitle',t.title);setVal('v48TopicQuery',t.search_query);setVal('v48TopicCategory',t.category);setVal('v48TopicPriority',String(t.priority||2));setVal('v48TopicRecurrence',t.recurrence||'daily');let v='';if(t.recurrence==='weekly')v=(t.days_of_week||[]).join(',');else if(t.recurrence==='monthly')v=t.day_of_month||'';else if(t.recurrence==='once')v=t.run_date||'';setVal('v48TopicScheduleValue',v);qs('v48TopicActive').checked=t.is_active!==false;}
 async function v48SaveTopic(){const recurrence=val('v48TopicRecurrence'),sv=val('v48TopicScheduleValue').trim();const body={id:val('v48TopicId')||undefined,region:getAppRegion(),title:val('v48TopicTitle').trim(),search_query:val('v48TopicQuery').trim(),category:val('v48TopicCategory'),priority:Number(val('v48TopicPriority')||2),recurrence,is_active:qs('v48TopicActive')?.checked!==false,days_of_week:recurrence==='weekly'?sv.split(',').map(Number).filter(Number.isFinite):[],day_of_month:recurrence==='monthly'?Number(sv)||null:null,run_date:recurrence==='once'?sv||null:null};try{await newsroomEdgeCall('save_scheduled_topic',body,'예정 기사를 저장하고 있습니다…');v48ResetTopic();await v48LoadTopics();safeText('newsroomStatus','예정 기사를 저장했습니다.');}catch(e){alert(`예정 기사 저장 실패: ${e.message}`);}}
 async function v48DeleteTopic(id){if(!confirm('이 예정 기사를 삭제할까요?'))return;try{await newsroomEdgeCall('delete_scheduled_topic',{id,region:getAppRegion()});await v48LoadTopics();}catch(e){alert(e.message);}}
-async function v57TestPublish(){
-  const b=qs('newsroomTestPublishBtn'),old=b?.textContent;
-  if(b){b.disabled=true;b.textContent='테스트 글 생성 중…';}
-  try{const j=await newsroomEdgeCall('test_publish',{region:getAppRegion()},'달라스 라이프 테스트 글을 저장하고 있습니다…');await Promise.all([loadBoards(),loadNewsroom()]);alert(`테스트 글 생성 완료\n${j.post?.title||''}`);}catch(e){alert(`테스트 생성 실패: ${e.message}`);}finally{if(b){b.disabled=false;b.textContent=old;}}
-}
-async function v48AutoRun(){
-  const b=qs('v48AutoRunBtn'),old=b?.textContent;let found=0,inserted=0,analyzed=0;
-  if(b){b.disabled=true;b.textContent='1/7 예정 기사 확인…';}
-  try{
-    await newsroomEdgeCall('cleanup',{region:getAppRegion()},'지난 수집 항목을 정리하고 있습니다…');
-    const planned=await newsroomEdgeCall('collect_scheduled_topics',{region:getAppRegion()},'예정 기사를 확인하고 있습니다…');inserted+=Number(planned.inserted||0);
-    const lanes=['practical','shopping','events','korean','korea'];
-    for(let i=0;i<lanes.length;i++){
-      if(b)b.textContent=`${i+2}/7 ${lanes[i]} 수집…`;
-      const r=await newsroomEdgeCall('collect',{region:getAppRegion(),lane:lanes[i]},`${lanes[i]} 분야를 수집하고 있습니다…`);found+=Number(r.found||0);inserted+=Number(r.inserted||0);
-    }
-    if(b)b.textContent='AI 분류 중…';
-    for(let i=0;i<6;i++){const r=await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:2},`AI 분류 ${i+1}차…`);analyzed+=Number(r.analyzed||0);if(!r.analyzed)break;}
-    if(b)b.textContent='기사 게시 중…';
-    const pub=await newsroomEdgeCall('publish_daily',{region:getAppRegion()},'오늘의 달라스 라이프 기사를 게시하고 있습니다…');
-    await Promise.all([loadBoards(),loadNewsroom()]);
-    alert(`단계별 자동 편성 완료\n수집 후보 ${found}건\n신규 저장 ${inserted}건\nAI 분류 ${analyzed}건\n${pub.skipped?'게시 건너뜀: '+pub.reason:'게시: '+(pub.post?.title||'완료')}`);
-  }catch(e){alert(`단계별 자동 편성 실패: ${e.message}`);}finally{if(b){b.disabled=false;b.textContent=old;}}
-}
+async function v48AutoRun(){const b=qs('v48AutoRunBtn'),old=b?.textContent;if(b){b.disabled=true;b.textContent='예정 기사 우선 검색 중…';}try{const j=await newsroomEdgeCall('auto_run',{region:getAppRegion()},'예정 기사 우선 → AI 자동 선별 순서로 편성하고 있습니다…');await loadNewsroom();alert(`자동 편성 완료\n예정 기사 일치 ${j.planned?.inserted||0}건\nAI 분류 ${j.analyzed||0}건`);}catch(e){alert(`자동 편성 실패: ${e.message}`);}finally{if(b){b.disabled=false;b.textContent=old;}}}
 async function v48SetEditorPick(id,enabled=true){try{await newsroomEdgeCall('set_editor_pick',{id,enabled,region:getAppRegion()});await loadNewsroom();safeText('newsroomStatus',enabled?'오늘의 달타운 메인 노출을 켰습니다. 필요하면 업소·게시판 연결을 설정하세요.':'오늘의 달타운 메인 노출을 해제했습니다.');}catch(e){alert(e.message);}}
 
 function initNewsroom(){
   const nav=qs('adminNav');if(!nav||!qs('section-newsroom'))return;
-  qs('newsroomTestPublishBtn')?.addEventListener('click',v57TestPublish);qs('v48TopicSaveBtn')?.addEventListener('click',v48SaveTopic);qs('v48TopicResetBtn')?.addEventListener('click',v48ResetTopic);qs('v48AutoRunBtn')?.addEventListener('click',v48AutoRun);qs('v482SelectAllBtn')?.addEventListener('click',v482SelectVisibleArticles);qs('v482ClearSelectionBtn')?.addEventListener('click',v482ClearArticleSelection);qs('v482ApplyPicksBtn')?.addEventListener('click',v482ApplySelectedPicks);qs('v487RemovePicksBtn')?.addEventListener('click',v487RemoveSelectedPicks);qs('v491ArchiveSelectedBtn')?.addEventListener('click',()=>v491ArchiveSelected(true));qs('v491UnarchiveSelectedBtn')?.addEventListener('click',()=>v491ArchiveSelected(false));qs('v491DeleteSelectedBtn')?.addEventListener('click',v491DeleteSelected);qs('v491DeleteAllBtn')?.addEventListener('click',v491DeleteAllVisible);qs('v481CollectedRefreshBtn')?.addEventListener('click',loadNewsroom);qs('newsroomPrepareItemBtn')?.addEventListener('click',prepareNewsroomItem);qs('newsroomHealthBtn')?.addEventListener('click',()=>checkNewsroomHealth(true));qs('newsroomCollectBtn')?.addEventListener('click',collectNewsroom);qs('newsroomAutoEnabled')?.addEventListener('change',saveNewsroomAutoSetting);qs('newsroomAnalyzeAllBtn')?.addEventListener('click',analyzeCollectedNewsroom);qs('newsroomAnalyzeBtn')?.addEventListener('click',()=>analyzeNewsroomItem());qs('newsroomDraftBtn')?.addEventListener('click',draftNewsroomItem);qs('newsroomRefreshBtn')?.addEventListener('click',loadNewsroom);qs('v518HomeDashboardRefresh')?.addEventListener('click',v531LoadHomeDashboard);qs('v531CollectMarketsBtn')?.addEventListener('click',v531CollectMarkets);qs('newsroomSearch')?.addEventListener('input',renderNewsroom);qs('newsroomDestinationFilter')?.addEventListener('change',renderNewsroom);qs('newsroomSourceFilter')?.addEventListener('change',renderNewsroom);qs('newsroomDestination')?.addEventListener('change',updateNewsroomSpecialBoxes);qs('newsroomPublishArticle')?.addEventListener('change',updateNewsroomUsageControls);qs('newsroomHomeShow')?.addEventListener('change',updateNewsroomUsageControls);qs('newsroomHomeTargetMode')?.addEventListener('change',updateNewsroomUsageControls);qs('newsroomSaveReviewBtn')?.addEventListener('click',()=>saveNewsroomReview());qs('newsroomExcludeBtn')?.addEventListener('click',excludeNewsroom);qs('newsroomPublishBtn')?.addEventListener('click',publishNewsroom);qs('newsroomRecommendBusinessesBtn')?.addEventListener('click',()=>{const auto=document.querySelector('input[name="newsroomBusinessMode"][value="auto"]');if(auto)auto.checked=true;const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses(r);});document.querySelectorAll('input[name="newsroomBusinessMode"]').forEach(el=>el.addEventListener('change',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses(r);}));qs('newsroomBusinessSearch')?.addEventListener('input',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r&&newsroomBusinessMode()==='manual')renderNewsroomBusinesses(r);});
+  qs('v48TopicSaveBtn')?.addEventListener('click',v48SaveTopic);qs('v48TopicResetBtn')?.addEventListener('click',v48ResetTopic);qs('v48AutoRunBtn')?.addEventListener('click',v48AutoRun);qs('v482SelectAllBtn')?.addEventListener('click',v482SelectVisibleArticles);qs('v482ClearSelectionBtn')?.addEventListener('click',v482ClearArticleSelection);qs('v482ApplyPicksBtn')?.addEventListener('click',v482ApplySelectedPicks);qs('v487RemovePicksBtn')?.addEventListener('click',v487RemoveSelectedPicks);qs('v491ArchiveSelectedBtn')?.addEventListener('click',()=>v491ArchiveSelected(true));qs('v491UnarchiveSelectedBtn')?.addEventListener('click',()=>v491ArchiveSelected(false));qs('v491DeleteSelectedBtn')?.addEventListener('click',v491DeleteSelected);qs('v491DeleteAllBtn')?.addEventListener('click',v491DeleteAllVisible);qs('v481CollectedRefreshBtn')?.addEventListener('click',loadNewsroom);qs('newsroomPrepareItemBtn')?.addEventListener('click',prepareNewsroomItem);qs('newsroomHealthBtn')?.addEventListener('click',()=>checkNewsroomHealth(true));qs('newsroomTestPostBtn')?.addEventListener('click',createNewsroomTestPost);qs('newsroomCollectBtn')?.addEventListener('click',collectNewsroom);qs('newsroomAutoEnabled')?.addEventListener('change',saveNewsroomAutoSetting);qs('newsroomAnalyzeAllBtn')?.addEventListener('click',analyzeCollectedNewsroom);qs('newsroomAnalyzeBtn')?.addEventListener('click',()=>analyzeNewsroomItem());qs('newsroomDraftBtn')?.addEventListener('click',draftNewsroomItem);qs('newsroomRefreshBtn')?.addEventListener('click',loadNewsroom);qs('v518HomeDashboardRefresh')?.addEventListener('click',v531LoadHomeDashboard);qs('v531CollectMarketsBtn')?.addEventListener('click',v531CollectMarkets);qs('newsroomSearch')?.addEventListener('input',renderNewsroom);qs('newsroomDestinationFilter')?.addEventListener('change',renderNewsroom);qs('newsroomSourceFilter')?.addEventListener('change',renderNewsroom);qs('newsroomDestination')?.addEventListener('change',updateNewsroomSpecialBoxes);qs('newsroomPublishArticle')?.addEventListener('change',updateNewsroomUsageControls);qs('newsroomHomeShow')?.addEventListener('change',updateNewsroomUsageControls);qs('newsroomHomeTargetMode')?.addEventListener('change',updateNewsroomUsageControls);qs('newsroomSaveReviewBtn')?.addEventListener('click',()=>saveNewsroomReview());qs('newsroomExcludeBtn')?.addEventListener('click',excludeNewsroom);qs('newsroomPublishBtn')?.addEventListener('click',publishNewsroom);qs('newsroomRecommendBusinessesBtn')?.addEventListener('click',()=>{const auto=document.querySelector('input[name="newsroomBusinessMode"][value="auto"]');if(auto)auto.checked=true;const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses(r);});document.querySelectorAll('input[name="newsroomBusinessMode"]').forEach(el=>el.addEventListener('change',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r)renderNewsroomBusinesses(r);}));qs('newsroomBusinessSearch')?.addEventListener('input',()=>{const r=newsroomItems.find(x=>String(x.id)===String(selectedNewsroomId));if(r&&newsroomBusinessMode()==='manual')renderNewsroomBusinesses(r);});
   $$('.newsroom-filter').forEach(b=>b.addEventListener('click',()=>{$$('.newsroom-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');newsroomStatusFilter=b.dataset.status;renderNewsroom();}));
   loadNewsroom();loadNewsroomSettings();checkNewsroomHealth(false);
 }
