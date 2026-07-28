@@ -3,11 +3,37 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 const cfg = window.APP_CONFIG || window.KFOCUS_CONFIG || {};
 const statusId = 'newsroomStatus';
 function setStatus(message){ const el=document.getElementById(statusId); if(el) el.textContent=message; }
+let authClient = null;
 async function context(){
   if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY) throw new Error('Supabase 설정을 찾지 못했습니다.');
-  const client=createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
-  const {data}=await client.auth.getSession();
-  return {token:data?.session?.access_token||cfg.SUPABASE_ANON_KEY,region:String(cfg.APP_REGION||cfg.app_region||cfg.APP_CITY||cfg.app_city||'dallas').toLowerCase()};
+
+  // 관리자 로그인 세션은 Supabase가 localStorage에 저장합니다.
+  // persistSession:false로 별도 클라이언트를 만들면 기존 세션을 읽지 못해
+  // Authorization에 anon key가 들어가므로 Edge Function에서 인증이 실패합니다.
+  if(!authClient){
+    authClient=createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{
+      auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}
+    });
+  }
+
+  let {data,error}=await authClient.auth.getSession();
+  if(error) throw new Error(`관리자 로그인 세션 확인 실패: ${error.message}`);
+
+  let session=data?.session||null;
+  if(session?.expires_at && session.expires_at*1000-Date.now()<60000 && session.refresh_token){
+    const refreshed=await authClient.auth.refreshSession();
+    if(refreshed.error) throw new Error(`관리자 로그인 갱신 실패: ${refreshed.error.message}`);
+    session=refreshed.data?.session||session;
+  }
+
+  if(!session?.access_token){
+    throw new Error('관리자 로그인 세션이 없습니다. 관리자 화면에서 로그아웃 후 다시 로그인해 주세요.');
+  }
+
+  return {
+    token:session.access_token,
+    region:String(cfg.APP_REGION||cfg.app_region||cfg.APP_CITY||cfg.app_city||'dallas').toLowerCase()
+  };
 }
 async function call(action, extra={}){
   const {token,region}=await context();

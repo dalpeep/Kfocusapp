@@ -1,0 +1,14 @@
+Kfocusapp V59.1 로그인 세션 수정
+
+수정 내용
+- 실제 기사 생성 버튼이 기존 관리자 Supabase 로그인 세션을 읽도록 수정
+- anon key를 사용자 토큰처럼 보내던 문제 제거
+- 만료 임박 세션 자동 갱신
+- 세션이 없으면 재로그인 안내
+- newsroom Edge Function 버전 59.1.0
+
+배포
+1. 전체 프로젝트를 Netlify/GitHub에 배포
+2. supabase/functions/newsroom/index.ts를 Edge Function으로 재배포
+3. 관리자에서 Ctrl+Shift+R
+4. 실제 기사 1건 생성 클릭
