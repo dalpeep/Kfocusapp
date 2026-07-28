@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '59.1.0';
+const VERSION = '60.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -1148,7 +1148,7 @@ async function draft(body: any) {
   if (error) throw error;
   const a = await openai({
     model: env('NEWSROOM_OPENAI_MODEL') || 'gpt-5-mini',
-    input: `Write an original Korean lifestyle-information article for Korean readers in Dallas-Fort Worth. This is not a literal translation and not a command. Preserve exact facts, dates, times, names, addresses, rates, deadlines and source details. Use a warm local-guide tone and offer options with expressions such as '~할 수 있습니다', '~살펴보는 것도 좋겠습니다', or '~도 도움이 될 수 있습니다'. Do not invent facts, give financial guarantees, or turn bank information into personalized financial advice.\nDestination: ${item.destination || item.suggested_destination || 'life'}\nTitle: ${item.original_title}\nSource summary: ${item.original_summary || ''}\nSource: ${item.source_name || ''}\nURL: ${item.original_url}\nWorking title: ${item.ai_title || ''}\nWorking summary: ${item.ai_summary || ''}\nReturn ONLY JSON {"ai_title":"clear Korean headline","ai_summary":"2-3 Korean sentences with the key takeaway","ai_content":"original Korean article body, normally 3-7 short paragraphs, without a source footer"}.`,
+    input: `Write an original Korean lifestyle-information article for Korean readers in Dallas-Fort Worth. This is not a literal translation and not a command. Preserve exact facts, dates, times, names, addresses, rates, deadlines and source details. Use a warm local-guide tone and offer options with expressions such as '~할 수 있습니다', '~살펴보는 것도 좋겠습니다', or '~도 도움이 될 수 있습니다'. Do not invent facts, give financial guarantees, or turn bank information into personalized financial advice.\nDestination: ${item.destination || item.suggested_destination || 'life'}\nTitle: ${item.original_title}\nSource summary: ${item.original_summary || ''}\nSource: ${item.source_name || ''}\nURL: ${item.original_url}\nWorking title: ${item.ai_title || ''}\nWorking summary: ${item.ai_summary || ''}\nReturn ONLY JSON {"ai_title":"clear Korean headline","ai_summary":"2-3 Korean sentences with the key takeaway","ai_content":"original Korean article body, normally 3-7 short paragraphs, ending with one practical Korean sentence prefixed exactly 생활 한 줄: and containing no source name, URL, attribution, source footer, or 원문/출처 section"}.`,
   });
   const { error: u } = await admin.from('newsroom_items').update({
     ai_title: a.ai_title || item.ai_title || item.original_title,
@@ -1292,6 +1292,33 @@ async function homeFeed(region = 'dallas') {
 }
 
 
+
+function cleanPublishedArticleText(value:any) {
+  let text = String(value || '').replace(/\r\n/g, '\n').trim();
+  // 사용자 기사 본문에서는 출처·원문·URL 푸터를 제거합니다. 원본 근거는 newsroom_items에 계속 보관됩니다.
+  text = text
+    .replace(/\n{0,2}(?:[-–—*#>\s]*)?(?:출처|원문|자료|Source|Original)(?:\s*[:：]|\s+)[\s\S]*$/i, '')
+    .replace(/\n{0,2}https?:\/\/\S+\s*$/i, '')
+    .trim();
+  return text;
+}
+
+function practicalLifeLine(item:any, topic:any) {
+  const existing = [item?.ai_content,item?.ai_summary].map((v:any)=>String(v||'')).join('\n')
+    .match(/생활\s*한\s*줄\s*[:：]\s*([^\n]+)/i);
+  if (existing?.[1]) return `생활 한 줄: ${existing[1].trim()}`;
+  const subtype = String(topic?.subtype || 'life');
+  const defaults:any = {
+    education:'생활 한 줄: 학교나 교육기관의 일정은 변경될 수 있으니 방문 전 최신 공지를 다시 확인하세요.',
+    health:'생활 한 줄: 건강 관련 일정과 이용 조건은 기관마다 다를 수 있으니 방문 전에 확인하세요.',
+    traffic:'생활 한 줄: 출발 전에 실시간 교통 상황과 우회 경로를 확인하면 이동 시간을 줄일 수 있습니다.',
+    finance:'생활 한 줄: 세금·재정 정보는 적용 조건이 다를 수 있으니 공식 안내와 개인 상황을 함께 확인하세요.',
+    realestate:'생활 한 줄: 주택·임대 조건과 일정은 달라질 수 있으니 계약 전 최신 정보를 다시 확인하세요.',
+    life:'생활 한 줄: 방문이나 신청 전에 운영 시간과 최신 공지를 한 번 더 확인하세요.',
+  };
+  return defaults[subtype] || defaults.life;
+}
+
 async function insertLifePost(payload: any) {
   const base:any = {
     type: 'life',
@@ -1383,9 +1410,13 @@ async function publishOne(region='dallas', force=false) {
   }
   const title = String(item.ai_title || item.original_title || '').trim();
   const summary = String(item.ai_summary || '').trim();
-  const article = String(item.ai_content || '').trim();
-  const content = [summary, article].filter(Boolean).join('\n\n');
   const topic = lifeTopicForItem(item);
+  const article = cleanPublishedArticleText(item.ai_content || '');
+  const cleanSummary = cleanPublishedArticleText(summary);
+  const bodyWithoutLifeLine = [cleanSummary, article].filter(Boolean).join('\n\n')
+    .replace(/\n{0,2}생활\s*한\s*줄\s*[:：]\s*[^\n]+\s*$/i, '')
+    .trim();
+  const content = [bodyWithoutLifeLine, practicalLifeLine(item, topic)].filter(Boolean).join('\n\n');
   const post = await insertLifePost({region,title,content,subtype:topic?.subtype || 'life'});
   const meta = item.event_data && typeof item.event_data === 'object' ? item.event_data : {};
   await admin.from('newsroom_items').update({

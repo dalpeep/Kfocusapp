@@ -768,6 +768,32 @@ async function loadBoardPostsFromSupabase(){
   }
   return false;
 }
+
+let boardPostsLastRefreshAt = 0;
+let boardPostsRefreshBusy = false;
+async function refreshBoardPostsSilently({force=false}={}){
+  if(boardPostsRefreshBusy) return false;
+  const now=Date.now();
+  if(!force && now-boardPostsLastRefreshAt<30000) return false;
+  boardPostsRefreshBusy=true;
+  const before=String(boardPosts[0]?.id||'')+'|'+String(boardPosts[0]?.created_at||'');
+  try{
+    await loadBoardPostsFromSupabase();
+    syncBusinessStoriesToBoardPosts();
+    boardPostsLastRefreshAt=Date.now();
+    const after=String(boardPosts[0]?.id||'')+'|'+String(boardPosts[0]?.created_at||'');
+    const changed=before!==after;
+    if(currentPage==='home') renderHomeBoardSection(selectedBoardType||'notice');
+    if(currentPage==='board-detail' && !selectedBoardPost) renderBoardPage(selectedBoardType||'notice');
+    return changed;
+  }catch(e){
+    console.warn('[Board Refresh] 최신 게시글 확인 실패',e);
+    return false;
+  }finally{
+    boardPostsRefreshBusy=false;
+  }
+}
+
 function parseBoardGalleryUrls(value){
   if(Array.isArray(value)) return value.map(v=>String(v||'').trim()).filter(Boolean);
   const raw=String(value||'').trim(); if(!raw) return [];
@@ -5269,6 +5295,15 @@ requestAnimationFrame(() => {
 }
 }
 
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') refreshBoardPostsSilently();
+});
+window.addEventListener('focus',()=>refreshBoardPostsSilently());
+setInterval(()=>{
+  if(!document.hidden) refreshBoardPostsSilently();
+},5*60*1000);
+
 function bindEvents(){
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
   $('#homeBrand')?.addEventListener('click', ()=>showPage('home'));
@@ -5281,7 +5316,7 @@ function bindEvents(){
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSideMenu(); });
   $$('.side-link[data-nav], .text-link[data-nav]').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
-  communityTabs?.addEventListener('click', e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; renderHomeBoardSection(btn.dataset.board || 'notice'); });
+  communityTabs?.addEventListener('click', async e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; const type=btn.dataset.board || 'notice'; renderHomeBoardSection(type); await refreshBoardPostsSilently({force:true}); renderHomeBoardSection(type); });
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
