@@ -708,7 +708,23 @@ function isPremiumBusiness(b){
 }
 function boardPostsByType(type){
   const hiddenThemeTitles=new Set((dalpicks||[]).filter(isThemeDalpick).map(d=>String(d.title||'').trim()).filter(Boolean));
-  return boardPosts.filter(p=>normalizeBoardType(p.type)===type && !hiddenThemeTitles.has(String(p.title||'').trim()) && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion));
+  return boardPosts
+    .filter(p=>
+      normalizeBoardType(p.type)===type &&
+      p.is_active!==false &&
+      !hiddenThemeTitles.has(String(p.title||'').trim()) &&
+      (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion)
+    )
+    .sort((a,b)=>{
+      const ap=a.is_pinned===true;
+      const bp=b.is_pinned===true;
+      if(ap!==bp) return ap ? -1 : 1;
+      if(ap && bp){
+        const orderDiff=Number(a.pin_order||999)-Number(b.pin_order||999);
+        if(orderDiff) return orderDiff;
+      }
+      return Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0);
+    });
 }
 function getRecentSearches(){ try { const v = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
 function saveRecentSearch(query){
@@ -728,9 +744,9 @@ async function loadBoardPostsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const tryTables = ['posts','board_posts'];
   const selects = [
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,created_at',
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,created_at',
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,created_at'
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,is_active,is_pinned,pin_order,created_at'
   ];
   for(const table of tryTables){
     for(const select of selects){
@@ -759,6 +775,9 @@ async function loadBoardPostsFromSupabase(){
             business_id: row.business_id || '',
             start_at: row.start_at || '',
             end_at: row.end_at || '',
+            is_active: row.is_active !== false,
+            is_pinned: row.is_pinned === true,
+            pin_order: Number(row.pin_order || 999),
             created_at: row.created_at || ''
           }));
           return true;
@@ -2269,8 +2288,13 @@ function v45CommunityRows(config={}){
   const all=(boardPosts||[]).filter(p=>(adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion)&&p.is_active!==false);
   const result=[],seen=new Set();
   types.forEach(type=>{
-    const group=all.filter(p=>normalizeBoardType(p.type)===type).sort((a,b)=>Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0));
-    const pins=group.filter(p=>configPinned.has(String(p.id))||localPinned.has(String(p.id))||p.is_home_pinned===true||p.home_pinned===true);
+    const group=all.filter(p=>normalizeBoardType(p.type)===type).sort((a,b)=>{
+      const ap=a.is_pinned===true,bp=b.is_pinned===true;
+      if(ap!==bp) return ap?-1:1;
+      if(ap&&bp){const d=Number(a.pin_order||999)-Number(b.pin_order||999);if(d)return d;}
+      return Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0);
+    });
+    const pins=group.filter(p=>configPinned.has(String(p.id))||localPinned.has(String(p.id))||p.is_pinned===true||p.is_home_pinned===true||p.home_pinned===true);
     pins.forEach(p=>{if(!seen.has(String(p.id))){seen.add(String(p.id));result.push(p);}});
     const latest=group.find(p=>!seen.has(String(p.id)));
     if(latest){seen.add(String(latest.id));result.push(latest);}
