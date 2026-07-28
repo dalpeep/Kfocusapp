@@ -1272,10 +1272,13 @@ function renderDalpicks(){
   if(!box) return;
   if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
 
+  const tickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
+  const tickerSources=new Set(Array.isArray(tickerConfig.ticker_sources)&&tickerConfig.ticker_sources.length?tickerConfig.ticker_sources:['dalpick','coupon']);
   const dalpickItems=activeDalpicks()
+    .filter(()=>tickerSources.has('dalpick'))
     .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
     .map(d=>({kind:'dalpick', id:String(d.id), data:d, date:d.created_at||d.start_at||''}));
-  const couponItems=(typeof todayCoupons==='function'?todayCoupons():[])
+  const couponItems=(tickerSources.has('coupon')&&typeof todayCoupons==='function'?todayCoupons():[])
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
   const seen=new Set();
@@ -2125,7 +2128,26 @@ function v45StableShuffle(rows=[],seed=''){
   const hash=(value)=>{let h=2166136261;for(const ch of String(value)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
   return rows.slice().sort((a,b)=>hash(`${seed}-${a.id}`)-hash(`${seed}-${b.id}`));
 }
+function v61DateKey(value=new Date()){
+  const d=value instanceof Date?value:new Date(value);
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function v61EffectiveHomeConfig(config={}){
+  const today=v61DateKey();
+  const schedules=Array.isArray(config.schedule_presets)?config.schedule_presets:[];
+  const active=schedules.filter(row=>row&&row.enabled!==false&&(!row.start_date||row.start_date<=today)&&(!row.end_date||row.end_date>=today))
+    .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0)||String(b.start_date||'').localeCompare(String(a.start_date||'')))[0];
+  return active?{...config,...active,business_ids:Array.isArray(active.business_ids)?active.business_ids:[],active_schedule_id:active.id||'',schedule_presets:schedules}:config;
+}
+function v61BusinessIdsWithCoupon(){
+  return new Set((typeof coupons!=='undefined'&&Array.isArray(coupons)?activeCoupons(coupons):[]).flatMap(c=>[c.businessId,c.business_id,...(Array.isArray(c.business_ids)?c.business_ids:[])]).filter(Boolean).map(String));
+}
+function v61BusinessIdsWithBanner(){
+  return new Set((typeof mainBanners!=='undefined'&&Array.isArray(mainBanners)?mainBanners:[]).filter(x=>x&&x.is_active!==false).map(x=>x.business_id).filter(Boolean).map(String));
+}
 function v45SelectedBusinesses(config={}){
+  config=v61EffectiveHomeConfig(config);
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
   // 관리자가 직접 지정한 광고·추천 업체는 기관 여부와 상관없이 그대로 노출합니다.
@@ -2140,11 +2162,24 @@ function v45SelectedBusinesses(config={}){
   const popularRows=consumerRows.filter(b=>b.is_popular===true)
     .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
   const randomRows=v45StableShuffle(consumerRows,todayKey());
+  const couponIds=v61BusinessIdsWithCoupon();
+  const bannerIds=v61BusinessIdsWithBanner();
+  const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
+  const bannerRows=consumerRows.filter(b=>bannerIds.has(String(b.id)));
+  const videoRows=consumerRows.filter(b=>String(b.video_url||b.youtube_url||'').trim());
+  const rotateGroups=[featuredRows,popularRows,newRows,couponRows,bannerRows,videoRows].filter(g=>g.length);
+  const rotateRows=rotateGroups.length?rotateGroups[new Date().getDate()%rotateGroups.length]:randomRows;
+  const promotionRows=v45StableShuffle([...new Map([...couponRows,...bannerRows,...videoRows].map(b=>[String(b.id),b])).values()],todayKey());
 
   let rows=[];
   if(mode==='featured') rows=featuredRows;
   else if(mode==='new') rows=newRows;
   else if(mode==='popular') rows=popularRows;
+  else if(mode==='coupon') rows=couponRows;
+  else if(mode==='banner') rows=bannerRows;
+  else if(mode==='video') rows=videoRows;
+  else if(mode==='rotation') rows=rotateRows;
+  else if(mode==='promotion') rows=promotionRows;
   else if(mode==='random') rows=randomRows;
   else rows=featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows));
 
@@ -2545,7 +2580,8 @@ async function v51RefreshToday(){
     const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
     settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Today] partial source failed',i,r.reason);});
-    v45HomeConfig=mainData.config||v45HomeConfig||{};
+    v45HomeConfig=v61EffectiveHomeConfig(mainData.config||v45HomeConfig||{});
+    if(typeof renderDalpicks==='function')renderDalpicks();
     const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
@@ -2578,7 +2614,8 @@ async function renderV37AIHome(){
     const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
     settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Home] partial source failed',i,r.reason);});
-    loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=mainData.config||{};
+    loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
+    if(typeof renderDalpicks==='function')renderDalpicks();
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
   const prepared=v461PrepareProposalItems(loaded,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
@@ -2591,7 +2628,7 @@ async function renderV37AIHome(){
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
-  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
+  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',video:'영상',promotion:'프로모션',rotation:'날짜별 순환',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5600);
   v45SetupCommunity(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
