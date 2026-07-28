@@ -2467,9 +2467,9 @@ async function loadBoards() {
   return;
 }
   const selects = [
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,created_at'
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,created_at'
   ];
   let loaded = null;
   for (const select of selects) {
@@ -2523,6 +2523,8 @@ function clearBoardForm() {
   setVal('board_start_at', '');
   setVal('board_end_at', '');
   setChecked('board_is_active', true);
+  setChecked('board_is_pinned', false);
+  setVal('board_pin_order', '999');
   setChecked('board_home_pinned', false);
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = null;
@@ -2553,6 +2555,8 @@ function fillBoardForm(row) {
   setVal('board_start_at', fmtLocal(row.start_at));
   setVal('board_end_at', fmtLocal(row.end_at));
   setChecked('board_is_active', row.is_active !== false);
+  setChecked('board_is_pinned', row.is_pinned === true);
+  setVal('board_pin_order', Number(row.pin_order || 999));
   setChecked('board_home_pinned', Boolean(row.is_home_pinned||row.home_pinned||readBoardHomePins().includes(String(row.id))));
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = row.id;
@@ -2568,6 +2572,11 @@ function filterBoards() {
     if (t !== 'all' && normalizeAdminBoardType(b.type || 'notice') !== normalizeAdminBoardType(t)) return false;
     if (!q) return true;
     return [b.title, b.content, b.region, b.address, b.phone].join(' ').toLowerCase().includes(q);
+  }).sort((a,b)=>{
+    const ap=a.is_pinned===true, bp=b.is_pinned===true;
+    if(ap!==bp) return ap?-1:1;
+    if(ap&&bp){ const d=Number(a.pin_order||999)-Number(b.pin_order||999); if(d) return d; }
+    return Date.parse(b.created_at||0)-Date.parse(a.created_at||0);
   });
 }
 function renderBoardList(items) {
@@ -2588,7 +2597,7 @@ function renderBoardList(items) {
       <button type="button" class="biz-item board-row ${row.id === selectedBoardId ? 'active' : ''}" data-id="${esc(row.id)}">
         ${thumb}
         <div>
-          <div class="biz-title">${esc(row.title || '게시글')}</div>
+          <div class="biz-title">${row.is_pinned===true?'📌 ':''}${esc(row.title || '게시글')}</div>
           <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
           <div class="biz-meta">${linkedBiz ? '연결 업소: ' + esc(linkedBiz.name_ko || linkedBiz.name_en || linkedBiz.id) : esc(period)}</div>
           <div class="biz-meta">${esc(row.address || row.phone || (row.content || '').slice(0, 80))}</div>
@@ -2645,6 +2654,8 @@ const payloadBase = {
     start_at: fromLocal(val('board_start_at')),
     end_at: fromLocal(val('board_end_at')),
     is_active: checked('board_is_active'),
+    is_pinned: checked('board_is_pinned'),
+    pin_order: Math.max(1, Number(val('board_pin_order') || 999)),
     business_id: linkedBusinessId || null
 };
 console.log('BOARD SAVE PAYLOAD', payloadBase);

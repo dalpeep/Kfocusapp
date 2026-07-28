@@ -7,8 +7,8 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=63.0"></script>
-  <script type="module" src="assets/event-routines.js?v=65.0"></script>
+  <script type="module" src="assets/admin.js?v=67.0-pinned"></script>
+  <script type="module" src="assets/event-routines.js?v=67.0-alert-reset"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
   <script src="assets/ai-manager.js?v=24.0.1" defer></script>
@@ -1374,6 +1374,8 @@
               </div>
               <label class="field"><span>버튼 문구</span><input id="board_link_label" type="text" placeholder="자세히 보기" /></label>
               <label class="field"><span>버튼 링크</span><input id="board_external_url" type="url" placeholder="https://..." /></label>
+              <label class="field checkbox-line"><input id="board_is_pinned" type="checkbox" /><span>게시물 고정</span></label>
+              <label class="field"><span>고정 순서</span><input id="board_pin_order" type="number" min="1" value="999" /><small class="muted">숫자가 작을수록 먼저 표시됩니다.</small></label>
               <label class="field checkbox-line"><input id="board_home_pinned" type="checkbox" /><span>메인 커뮤니티 고정</span></label>
               <label class="field checkbox-line"><input id="board_is_active" type="checkbox" checked /><span>활성</span></label>
             </form>

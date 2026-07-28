@@ -13,13 +13,13 @@ const OPTION_LABELS={
 };
 let routines=[]; let selectedId=null;
 function region(){return String(window.APP_CONFIG?.APP_REGION||window.KFOCUS_CONFIG?.APP_REGION||'dallas').toLowerCase();}
-function key(){return `kfocus_event_routines_v63_${region()}`;}
-function activityKey(){return `kfocus_event_routine_activity_v65_${region()}`;}
+function key(){return `kfocus_event_routines_v67_${region()}`;}
+function activityKey(){return `kfocus_event_routine_activity_v67_${region()}`;}
 function readActivity(){try{return JSON.parse(localStorage.getItem(activityKey())||'[]')}catch{return[]}}
 function logActivity(message,type='updated'){const rows=readActivity();rows.unshift({id:`act-${Date.now()}`,message,type,at:new Date().toISOString()});localStorage.setItem(activityKey(),JSON.stringify(rows.slice(0,80)));renderDashboard();}
 function load(){try{routines=JSON.parse(localStorage.getItem(key())||'[]');if(!Array.isArray(routines))routines=[];}catch{routines=[];}render();publishRuntime();}
 function save(){localStorage.setItem(key(),JSON.stringify(routines));publishRuntime();render();}
-function publishRuntime(){const active=routines.filter(r=>statusOf(r)==='active');localStorage.setItem(`kfocus_active_event_routines_v63_${region()}`,JSON.stringify(active));window.dispatchEvent(new CustomEvent('kfocus:event-routines-updated',{detail:{region:region(),routines:active}}));renderDashboard();}
+function publishRuntime(){const active=routines.filter(r=>statusOf(r)==='active');localStorage.setItem(`kfocus_active_event_routines_v67_${region()}`,JSON.stringify(active));window.dispatchEvent(new CustomEvent('kfocus:event-routines-updated',{detail:{region:region(),routines:active}}));renderDashboard();}
 function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);}
 function statusOf(r){if(r.enabled===false)return'paused';const now=Date.now(),s=r.start_at?new Date(r.start_at).getTime():null,e=r.end_at?new Date(r.end_at).getTime():null;if(s&&now<s)return'scheduled';if(e&&now>e)return'ended';return'active';}
 function statusLabel(s){return({active:'진행 중',scheduled:'예약',paused:'일시중지',ended:'종료'})[s]||s;}

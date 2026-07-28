@@ -1294,7 +1294,7 @@ function readActiveEventRoutines(){
     const candidates=[appRegion, appRegion==='colorado'?'denver':appRegion, appRegion==='denver'?'colorado':appRegion];
     const now=Date.now();
     for(const regionName of [...new Set(candidates)]){
-      const stored=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v63_${regionName}`)||'[]');
+      const stored=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v67_${regionName}`)||'[]');
       if(!Array.isArray(stored)||!stored.length) continue;
       const active=stored.filter(r=>{
         if(!r || r.is_active===false || r.enabled===false) return false;
@@ -1414,7 +1414,7 @@ function renderDalpicks(){
 
 // 관리자와 메인을 같은 브라우저에서 열어 둔 경우 저장 즉시 갱신합니다.
 window.addEventListener('storage',e=>{
-  if(String(e.key||'').startsWith('kfocus_active_event_routines_v63_')){ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); } if(String(e.key||'').startsWith('kfocus_board_home_pins_v66_')) v45SetupCommunity(v45HomeConfig||{});
+  if(String(e.key||'').startsWith('kfocus_active_event_routines_v67_')){ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); } if(String(e.key||'').startsWith('kfocus_board_home_pins_v66_')) v45SetupCommunity(v45HomeConfig||{});
 });
 window.addEventListener('kfocus:event-routines-updated',()=>{ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); });
 window.addEventListener('kfocus:board-home-pins-updated',()=>v45SetupCommunity(v45HomeConfig||{}));
