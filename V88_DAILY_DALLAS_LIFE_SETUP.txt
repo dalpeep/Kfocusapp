@@ -1,0 +1,19 @@
+V88 자동 달라스 라이프 기사 설정
+
+1) Supabase Edge Functions > newsroom > Code에서
+   supabase/functions/newsroom/index.ts 내용을 배포합니다.
+
+2) Supabase SQL Editor에서
+   supabase/newsroom-v61-daily-dallas-life-cron.sql을 엽니다.
+
+3) SQL 안의 SERVICE_ROLE_KEY를 실제 service_role key로 교체한 뒤 실행합니다.
+
+작동 방식
+- 오전 동안 여러 번 자료 수집 및 AI 분류
+- 생활·날씨·교통·교육·의료·세금·재정·부동산·문화·예술 중 한 건 선정
+- 최근 7개 달라스 라이프 글과 다른 분류를 우선 선택
+- 하루에 일반 달라스 라이프 글이 이미 있으면 추가 게시하지 않음
+- 적절한 자료가 없으면 억지로 작성하지 않고 그날은 건너뜀
+
+수동 테스트 요청 본문
+{"action":"daily_dallas_life","region":"dallas"}
