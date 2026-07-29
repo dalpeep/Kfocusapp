@@ -37,16 +37,15 @@ async function edgeCall(action,body={}){
   return json;
 }
 async function runtimeRequest(method='GET', homeConfig=null){
-  const client=getAuthClient();
-  if(!client)throw new Error('Supabase 로그인 설정을 확인하세요.');
-  const {data:{session}}=await client.auth.getSession();
-  const headers={'Content-Type':'application/json'};
-  if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;
-  const endpoint=`/.netlify/functions/runtime-settings?region=${encodeURIComponent(region())}&_=${Date.now()}`;
-  const res=await fetch(endpoint,{method,headers,cache:'no-store',body:method==='POST'?JSON.stringify({home_config:homeConfig||{}}):undefined});
-  const json=await res.json().catch(()=>({}));
-  if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
-  return json;
+  if(method==='GET'){
+    const json=await edgeCall('get_settings');
+    return {ok:true,home_config:(json?.settings?.home_config&&typeof json.settings.home_config==='object')?json.settings.home_config:{}};
+  }
+  const current=await edgeCall('get_settings');
+  const existing=(current?.settings?.home_config&&typeof current.settings.home_config==='object')?current.settings.home_config:{};
+  const merged={...existing,...(homeConfig||{})};
+  const saved=await edgeCall('save_settings',{home_config:merged});
+  return {ok:true,home_config:(saved?.settings?.home_config&&typeof saved.settings.home_config==='object')?saved.settings.home_config:merged};
 }
 async function load(){
   try{

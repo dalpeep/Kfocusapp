@@ -2518,8 +2518,14 @@ function paintV38HomePayload(payload,candidates){
   if(window.lucide)window.lucide.createIcons();
 }
 async function v471FetchPublicHomeSettings(){
-  const region=encodeURIComponent(currentRegion||'dallas');
-  const res=await fetch(`/.netlify/functions/runtime-settings?region=${region}&_=${Date.now()}`,{cache:'no-store'});
+  const cfg=getConfig();
+  const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+  const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+  if(!base||!key)throw new Error('Supabase 공개 설정이 없습니다.');
+  const endpoint=`${base}/functions/v1/${encodeURIComponent(String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom'))}`;
+  const region=String(currentRegion||'dallas').toLowerCase();
+  const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`};
+  const res=await fetch(`${endpoint}?action=home_settings&region=${encodeURIComponent(region)}&_=${Date.now()}`,{method:'GET',headers,cache:'no-store'});
   const json=await res.json().catch(()=>({}));
   if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
   return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
