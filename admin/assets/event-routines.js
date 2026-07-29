@@ -37,19 +37,16 @@ async function edgeCall(action,body={}){
   return json;
 }
 async function runtimeRequest(method='GET', homeConfig=null){
-  // V77: 별도 Netlify 함수 대신 기존 AI 운영센터(newsroom) 설정 API를 단일 저장소로 사용합니다.
-  // 이 경로는 관리자 페이지의 다른 메인 설정 저장과 동일하므로 배포 환경 차이로 설정이 갈라지지 않습니다.
-  if(method==='GET'){
-    const json=await edgeCall('get_settings',{});
-    const home_config=json?.settings?.home_config||json?.home_config||{};
-    return {ok:true,region:region(),home_config};
-  }
-  const currentJson=await edgeCall('get_settings',{});
-  const current=currentJson?.settings?.home_config||currentJson?.home_config||{};
-  const merged={...current,...(homeConfig||{})};
-  const saved=await edgeCall('save_settings',{home_config:merged});
-  const home_config=saved?.settings?.home_config||saved?.home_config||merged;
-  return {ok:true,region:region(),home_config};
+  const client=getAuthClient();
+  if(!client)throw new Error('Supabase 로그인 설정을 확인하세요.');
+  const {data:{session}}=await client.auth.getSession();
+  const headers={'Content-Type':'application/json'};
+  if(session?.access_token)headers.Authorization=`Bearer ${session.access_token}`;
+  const endpoint=`/.netlify/functions/runtime-settings?region=${encodeURIComponent(region())}&_=${Date.now()}`;
+  const res=await fetch(endpoint,{method,headers,cache:'no-store',body:method==='POST'?JSON.stringify({home_config:homeConfig||{}}):undefined});
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
+  return json;
 }
 async function load(){
   try{
@@ -66,13 +63,19 @@ async function load(){
 async function save(){
   if(serverSyncBusy)return;
   serverSyncBusy=true;
-  localStorage.setItem(key(),JSON.stringify(routines));
-  publishRuntime();render();
   try{
-    const saved=await runtimeRequest('POST',{event_routines:routines,event_routines_updated_at:new Date().toISOString()});
-    const verified=saved?.home_config?.event_routines;
-    if(Array.isArray(verified)){routines=verified;localStorage.setItem(key(),JSON.stringify(routines));}
+    const payload={event_routines:routines,event_routines_updated_at:new Date().toISOString()};
+    const saved=await runtimeRequest('POST',payload);
+    const verified=Array.isArray(saved?.home_config?.event_routines)?saved.home_config.event_routines:null;
+    if(!verified)throw new Error('서버에서 저장된 이벤트 루틴을 확인하지 못했습니다.');
+    routines=verified;
+    localStorage.setItem(key(),JSON.stringify(routines));
     publishRuntime();render();
+    alert(`이벤트 루틴을 서버에 저장했습니다. (${routines.length}개)`);
+  }catch(error){
+    console.error('[Event routines] save failed',error);
+    alert(`이벤트 루틴 서버 저장 실패: ${error?.message||error}`);
+    throw error;
   }finally{serverSyncBusy=false;}
 }
 function publishRuntime(){const active=routines.filter(r=>statusOf(r)==='active');localStorage.setItem(`kfocus_active_event_routines_v72_${region()}`,JSON.stringify(active));window.dispatchEvent(new CustomEvent('kfocus:event-routines-updated',{detail:{region:region(),routines:active}}));renderDashboard();}

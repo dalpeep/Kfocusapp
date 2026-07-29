@@ -1296,8 +1296,8 @@ function readActiveEventRoutines(){
     const serverConfig=(window.__DALTOWN_MAIN_SETTINGS__&&typeof window.__DALTOWN_MAIN_SETTINGS__==='object')?window.__DALTOWN_MAIN_SETTINGS__:(v45HomeConfig||{});
     const serverRows=Array.isArray(serverConfig.event_routines)?serverConfig.event_routines:[];
     let source=serverRows;
-    // 서버 설정을 아직 불러오기 전인 첫 화면에서만 V72 로컬 캐시를 잠시 사용합니다.
-    if(!source.length){
+    // 서버 설정을 아직 한 번도 읽지 못한 최초 화면에서만 로컬 캐시를 잠시 사용합니다.
+    if(!window.__DALTOWN_SERVER_SETTINGS_LOADED__&&!source.length){
       const candidates=[appRegion,appRegion==='colorado'?'denver':appRegion,appRegion==='denver'?'colorado':appRegion];
       for(const regionName of [...new Set(candidates)]){
         const cached=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v72_${regionName}`)||'[]');
@@ -2518,29 +2518,11 @@ function paintV38HomePayload(payload,candidates){
   if(window.lucide)window.lucide.createIcons();
 }
 async function v471FetchPublicHomeSettings(){
-  // V77: 공개 메인도 기존 newsroom Edge Function의 home_settings를 우선 사용합니다.
-  // 관리자 저장(save_settings)과 공개 조회(home_settings)가 같은 newsroom_settings 행을 사용합니다.
   const region=encodeURIComponent(currentRegion||'dallas');
-  const config=getConfig();
-  const base=String(config.SUPABASE_URL||'').replace(/\/$/,'');
-  const key=String(config.SUPABASE_ANON_KEY||'').trim();
-  if(base&&key){
-    const endpoint=`${base}/functions/v1/newsroom?action=home_settings&region=${region}&_=${Date.now()}`;
-    try{
-      const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'});
-      const json=await res.json().catch(()=>({}));
-      if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
-      const cfg=json.home_config&&typeof json.home_config==='object'?json.home_config:{};
-      if(Object.keys(cfg).length)return cfg;
-    }catch(error){console.warn('[V77 Main Settings] newsroom home_settings failed',error?.message||error);}
-  }
-  // 배포 중 newsroom 함수가 잠시 실패할 때만 기존 Netlify 경로를 보조로 사용합니다.
-  try{
-    const res=await fetch(`/.netlify/functions/runtime-settings?region=${region}&_=${Date.now()}`,{cache:'no-store'});
-    const json=await res.json().catch(()=>({}));
-    if(res.ok&&json.ok!==false&&json.home_config&&typeof json.home_config==='object')return json.home_config;
-  }catch(error){console.warn('[V77 Main Settings] fallback failed',error?.message||error);}
-  return {};
+  const res=await fetch(`/.netlify/functions/runtime-settings?region=${region}&_=${Date.now()}`,{cache:'no-store'});
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
+  return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
 }
 async function loadMainSettings(forceRefresh=false){
   // V47.1: 설정과 피드를 별도 요청으로 읽습니다. home_feed 응답에 설정이 누락되거나
@@ -2553,6 +2535,7 @@ async function loadMainSettings(forceRefresh=false){
   const feedMeta=items?.feed_meta&&typeof items.feed_meta==='object'?items.feed_meta:{};
   const config=Object.keys(dedicatedConfig||{}).length?dedicatedConfig:feedConfig;
   v45HomeConfig=config||{};
+  window.__DALTOWN_SERVER_SETTINGS_LOADED__=true;
   window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
   window.__DALTOWN_HOME_FEED_META__=feedMeta;
   console.info('[V48.7 Main Settings] loaded',{config:v45HomeConfig,feedMeta,source:Object.keys(dedicatedConfig||{}).length?'home_settings':'home_feed'});
