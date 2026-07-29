@@ -1698,12 +1698,62 @@ return {
   console.log('buildHeroSlides result =', heroSlides);
 }
 
+// V87: 기존 해시 URL을 유지하면서 검색·공유용 실제 경로도 병행 지원합니다.
+// 기존 /#board-detail?id=... 링크는 계속 작동하고, 새 /board/:id 링크도 같은 화면을 엽니다.
+function v87PublicPathFor(page){
+  if(page==='business-detail' && selectedBizId) return `/business/${encodeURIComponent(selectedBizId)}`;
+  if(page==='coupon-detail' && selectedCouponId) return `/coupon/${encodeURIComponent(selectedCouponId)}`;
+  if(page==='board-detail' && selectedBoardPost?.id){
+    const kind = normalizeBoardType(selectedBoardPost.type)==='guide' ? 'guide' : 'board';
+    return `/${kind}/${encodeURIComponent(selectedBoardPost.id)}`;
+  }
+  return '';
+}
 function routeFor(page){
-  const base = `${location.pathname}${location.search}`;
+  const publicPath = v87PublicPathFor(page);
+  if(publicPath) return publicPath;
+  const base = '/';
   return page === 'home' ? base : `${base}#${page}`;
 }
 function setRoute(page){ history.replaceState(null,'', routeFor(page)); }
-function getRoute(){ return location.hash.replace('#','') || 'home'; }
+function getRoute(){
+  const clean = location.hash.replace('#','');
+  return clean || 'home';
+}
+function v87ParsePublicRoute(){
+  const parts = location.pathname.split('/').filter(Boolean).map(v=>decodeURIComponent(v));
+  if(parts.length < 2) return null;
+  const [kind,id] = parts;
+  if(!id) return null;
+  if(kind==='business') return { page:'business-detail', id };
+  if(kind==='coupon') return { page:'coupon-detail', id };
+  if(kind==='board') return { page:'board-detail', id };
+  if(kind==='guide') return { page:'board-detail', id, forceType:'guide' };
+  return null;
+}
+function v87OpenPublicRoute(){
+  const route = v87ParsePublicRoute();
+  if(!route) return false;
+  if(route.page==='business-detail'){
+    selectedBizId = route.id;
+    renderDetail(route.id);
+    showPage('business-detail');
+    return true;
+  }
+  if(route.page==='coupon-detail'){
+    renderCouponDetail(route.id);
+    showPage('coupon-detail');
+    return true;
+  }
+  if(route.page==='board-detail'){
+    const post = (boardPosts||[]).find(p=>String(p.id)===String(route.id));
+    const type = route.forceType || normalizeBoardType(post?.type || 'notice');
+    renderBoardPage(type, route.id);
+    showPage('board-detail');
+    return true;
+  }
+  return false;
+}
 function getPageOrder(){ return ['home','business','coupon','map','guide']; }
 function getBiz(id){
     if (!id) return null;
@@ -5843,6 +5893,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
     }
   });
   window.addEventListener('hashchange', ()=>showPage(getRoute()));
+  window.addEventListener('popstate', ()=>{ if(!v87OpenPublicRoute()) showPage(getRoute()); });
 }
 
 function openVideoModal(videoUrl){
@@ -6046,7 +6097,7 @@ updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
   renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
-  showPage(getRoute());
+  if(!v87OpenPublicRoute()) showPage(getRoute());
   initRegionPicker();
   hideRegionUi();
 }
@@ -6479,3 +6530,5 @@ function v61EffectiveHomeConfig(config={}){
   out.schedule_presets=schedules;out.scene_presets=config.scene_presets||[];return out;
 }
 console.info('[DalTownMap] V62 section schedules and scenes loaded');
+
+console.info('[DalTownMap] V87 dual URL compatibility loaded');

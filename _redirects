@@ -1,0 +1,6 @@
+# V87: 실제 경로를 SPA 앱으로 전달합니다. 기존 해시 링크도 그대로 유지됩니다.
+/business/*  /index.html  200
+/coupon/*    /index.html  200
+/board/*     /index.html  200
+/guide/*     /index.html  200
+/*           /index.html  200

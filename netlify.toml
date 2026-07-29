@@ -27,3 +27,23 @@
   for = "/category/*"
   [headers.values]
     X-Robots-Tag = "index, follow"
+
+[[redirects]]
+  from = "/business/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/coupon/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/board/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/guide/*"
+  to = "/index.html"
+  status = 200
