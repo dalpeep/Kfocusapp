@@ -54,6 +54,7 @@ let currentRegion = getAppRegion();
 localStorage.setItem('region', currentRegion);
 let suppressCardClickUntil = 0;
 let boardPosts = [];
+let alertNoticePosts = [];
 let slideRows = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
@@ -790,6 +791,32 @@ async function loadBoardPostsFromSupabase(){
   return false;
 }
 
+
+async function loadAlertNoticePostsFromSupabase(){
+  const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
+  alertNoticePosts = [];
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+  try{
+    const select='id,title,content,type,region,external_url,start_at,end_at,is_active,is_alert_notice,alert_order,created_at';
+    const params=new URLSearchParams({
+      select,
+      is_alert_notice:'eq.true',
+      order:'alert_order.asc.nullslast,created_at.desc.nullslast',
+      limit:'100'
+    });
+    const res=await fetch(`${SUPABASE_URL}/rest/v1/posts?${params.toString()}`,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`},cache:'no-store'});
+    if(!res.ok){console.warn('[V85 alert] direct notice query failed',res.status,await res.text().catch(()=>''));return false;}
+    const rows=await res.json();
+    alertNoticePosts=(Array.isArray(rows)?rows:[]).map(row=>({
+      id:row.id, title:row.title||'달타운 공지', content:row.content||'', type:normalizeBoardType(row.type),
+      region:row.region||'', external_url:row.external_url||'', start_at:row.start_at||'', end_at:row.end_at||'',
+      is_active:row.is_active!==false, is_alert_notice:row.is_alert_notice===true, alert_order:Number(row.alert_order||999), created_at:row.created_at||''
+    }));
+    console.info('[V85 alert] direct notices loaded',{count:alertNoticePosts.length,ids:alertNoticePosts.map(x=>x.id)});
+    return true;
+  }catch(e){console.warn('[V85 alert] direct notice query error',e);return false;}
+}
+
 let boardPostsLastRefreshAt = 0;
 let boardPostsRefreshBusy = false;
 async function refreshBoardPostsSilently({force=false}={}){
@@ -800,6 +827,7 @@ async function refreshBoardPostsSilently({force=false}={}){
   const before=String(boardPosts[0]?.id||'')+'|'+String(boardPosts[0]?.created_at||'');
   try{
     await loadBoardPostsFromSupabase();
+    await loadAlertNoticePostsFromSupabase();
     syncBusinessStoriesToBoardPosts();
     boardPostsLastRefreshAt=Date.now();
     const after=String(boardPosts[0]?.id||'')+'|'+String(boardPosts[0]?.created_at||'');
@@ -1129,6 +1157,7 @@ async function loadRealData(){
   await loadCouponsFromSupabase();
   await loadDalpicksFromSupabase();
   await loadBoardPostsFromSupabase();
+  await loadAlertNoticePostsFromSupabase();
   syncBusinessStoriesToBoardPosts();
   // V84: 초기 데이터 로드 시 공지 게시글을 읽은 뒤 달타운 알림을 즉시 갱신합니다.
   if(typeof renderDalpicks==='function') renderDalpicks();
@@ -1352,61 +1381,64 @@ function eventRoutineItems(actionKey){
   });
   return rows;
 }
+function v86AlertBusinessRows(action={}){
+  const options=new Set((Array.isArray(action.options)?action.options:[]).map(String));
+  const wants=[...options].filter(v=>v.startsWith('business_'));
+  if(!wants.length)return [];
+  const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b)&&!v45IsPublicInstitution(b));
+  const groups={
+    business_new:all.filter(b=>b.is_new===true).sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000)),
+    business_popular:all.filter(b=>b.is_popular===true).sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000)),
+    business_rating:all.filter(b=>Number(b.rating||0)>0).sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)||Number(b.review_count||0)-Number(a.review_count||0)),
+    business_ad:all.filter(b=>b.promo_enabled===true||b.featured===true||b.is_featured===true||b.is_sponsor===true||b.is_ad===true),
+    business_ai:all.filter(b=>b.featured===true||b.is_featured===true||b.recommendation_reason||b.ai_recommended===true),
+    business_random:v45StableShuffle(all,todayKey())
+  };
+  const seen=new Set(),rows=[];
+  wants.forEach(key=>(groups[key]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
+  return rows.slice(0,12);
+}
 function eventRoutineAlertItems(){
-  const active=readActiveEventRoutines().filter(r=>r?.actions?.alert||r?.actions?.ticker);
+  const active=readActiveEventRoutines().filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
   if(!active.length)return [];
-  const alertAction=active.find(r=>r?.actions?.alert)?.actions?.alert||active[0]?.actions?.ticker||{};
-  const interval=Math.max(3,Number(alertAction.interval_seconds||5));
+  const primary=active.find(r=>r?.actions?.alert)||active[0];
+  const alertAction=primary?.actions?.alert||primary?.actions?.ticker||{};
+  const legacyBusiness=primary?.actions?.business||{};
+  const mergedOptions=[...new Set([...(alertAction.options||[]),...(legacyBusiness.options||[]).map(v=>`business_${v}`)])];
+  const mergedAction={...alertAction,options:mergedOptions,interval_seconds:alertAction.interval_seconds||legacyBusiness.interval_seconds||5};
+  const interval=Math.max(3,Number(mergedAction.interval_seconds||5));
   const now=Date.now();
 
-  // V75 우선순위 1: 게시판에서 '달타운 공지'로 지정한 현재 유효 글
-  const notices=(boardPosts||[]).filter(post=>{
-    if(post?.is_active===false||post?.is_alert_notice!==true)return false;
-    if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
-    if(post.start_at&&Date.parse(post.start_at)>now)return false;
-    if(post.end_at&&Date.parse(post.end_at)<now)return false;
-    return true;
-  }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({
-    kind:'event-alert-board-notice',
-    id:`board-notice-${post.id}`,
-    date:post.created_at||'',
-    data:{
-      title:post.title||'달타운 공지',
-      summary:v38Text(post.content||'',80),
-      badge:'공지',
-      event_name:'게시판 공지',
-      link_type:'board',
-      link_value:post.id,
-      interval_seconds:interval
-    }
-  }));
-  console.info('[V84 alert] board notices',{totalPosts:(boardPosts||[]).length,notices:notices.length,ids:notices.map(x=>x.id)});
-  if(notices.length)return notices;
+  // 1순위: '게시판 공지'를 선택했고 유효한 공지 글이 있을 때는 공지만 표시합니다.
+  if(mergedOptions.includes('board_notice')){
+    const noticeSource=(alertNoticePosts&&alertNoticePosts.length)?alertNoticePosts:(boardPosts||[]);
+    const notices=noticeSource.filter(post=>{
+      if(post?.is_active===false||post?.is_alert_notice!==true)return false;
+      if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
+      if(post.start_at&&Date.parse(post.start_at)>now)return false;
+      if(post.end_at&&Date.parse(post.end_at)<now)return false;
+      return true;
+    }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({
+      kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:interval}
+    }));
+    console.info('[V86 alert] board notices',{notices:notices.length});
+    if(notices.length)return notices;
+  }
 
-  // V75 우선순위 2: 공지가 없을 때만 이벤트 루틴의 직접 입력 알림을 대체 표시
+  // 2순위: 공지가 없을 때 직접 입력 문구와 선택한 업소 조건을 함께 순환합니다.
   const fallback=[];
   active.forEach(r=>{
-    const action=r?.actions?.alert||r?.actions?.ticker;
-    if(!action)return;
+    const action=r?.actions?.alert||r?.actions?.ticker||{};
     (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
       const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
       if(!text)return;
-      fallback.push({
-        kind:'event-alert-fallback',
-        id:`${r.id||'routine'}-alert-fallback-${index}`,
-        date:r.updated_at||r.created_at||r.start_at||'',
-        data:{
-          title:text,
-          summary:r.name||'',
-          badge:'알림',
-          event_name:r.name||'',
-          link_type:action.link_type||'none',
-          link_value:action.link_value||'',
-          interval_seconds:Math.max(3,Number(action.interval_seconds||interval))
-        }
-      });
+      fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:r.name||'',badge:'알림',event_name:r.name||'',link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
     });
   });
+  v86AlertBusinessRows(mergedAction).forEach((b,index)=>fallback.push({
+    kind:'event-alert-business',id:`alert-business-${b.id}`,date:b.created_at||'',data:{title:b.promo_text||b.name||'추천 업소',summary:b.promo_text?b.name:(b.short_description||b.description||b.category||''),badge:'업소',event_name:'업소 알림',business_id:b.id,link_type:'business',link_value:b.id,interval_seconds:interval}
+  }));
+  console.info('[V86 alert] fallback',{custom:fallback.filter(x=>x.kind==='event-alert-fallback').length,business:fallback.filter(x=>x.kind==='event-alert-business').length});
   return fallback;
 }
 function eventRoutineOneLineAdItems(){ return []; }
