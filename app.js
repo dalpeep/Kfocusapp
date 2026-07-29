@@ -1345,7 +1345,42 @@ function eventRoutineItems(actionKey){
   });
   return rows;
 }
-function eventRoutineAlertItems(){ return [...eventRoutineItems('alert'),...eventRoutineItems('ticker')]; }
+function eventRoutineAlertItems(){
+  const direct=[...eventRoutineItems('alert'),...eventRoutineItems('ticker')];
+  const generated=[];
+  readActiveEventRoutines().forEach(r=>{
+    const action=r?.actions?.alert||r?.actions?.ticker;
+    if(!action)return;
+    const options=new Set(Array.isArray(action.options)?action.options:[]);
+    const interval=Number(action.interval_seconds||5);
+    const push=(kind,id,title,summary='',badge='알림',link_type='none',link_value='')=>{
+      const text=String(title||'').trim(); if(!text)return;
+      generated.push({kind,id:String(id),date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:String(summary||''),badge,event_name:r.name||'',link_type,link_value,interval_seconds:interval}});
+    };
+    if(options.has('visit')){
+      activeDalpicks().filter(d=>String(d.category||'').toLowerCase()==='business_story').slice(0,6).forEach(d=>push('event-alert-visit',`visit-${d.id}`,d.title||'업소 탐방',d.summary||'', '업소탐방', d.business_id?'business':'article', d.business_id||`dalpick-story-${d.id}`));
+    }
+    if(options.has('coupon')){
+      (typeof todayCoupons==='function'?todayCoupons():[]).slice(0,6).forEach(c=>push('event-alert-coupon',`coupon-${c.id}`,c.title||'오늘의 쿠폰',c.discount_label||c.description||'', '쿠폰','coupon',c.id));
+    }
+    if(options.has('business')){
+      activeDalpicks().filter(d=>['recommended','new_business'].includes(String(d.category||'').toLowerCase())).slice(0,6).forEach(d=>push('event-alert-business',`business-${d.id}`,d.title||'추천 업소',d.summary||'', '업소',d.business_id?'business':'article',d.business_id||`dalpick-article-${d.id}`));
+    }
+    if(options.has('new')){
+      (businesses||[]).filter(b=>b.is_new===true&&b.is_active!==false).slice(0,6).forEach(b=>push('event-alert-new',`new-${b.id}`,`${b.name_ko||b.name||b.name_en||'신규 업소'} 새로 오픈`,b.area||b.address||'', '신규','business',b.id));
+    }
+    if(options.has('event')){
+      boardPostsByType('notice').slice(0,4).forEach(post=>push('event-alert-event',`event-${post.id}`,post.title,post.summary||'', '행사','board',post.id));
+    }
+    if(options.has('guide')){
+      boardPostsByType('guide').slice(0,4).forEach(post=>push('event-alert-guide',`guide-${post.id}`,post.title,post.summary||'', '가이드','board',post.id));
+    }
+    if(options.has('life')){
+      boardPostsByType('life').slice(0,4).forEach(post=>push('event-alert-life',`life-${post.id}`,post.title,post.summary||'', '생활','board',post.id));
+    }
+  });
+  return [...direct,...generated];
+}
 function eventRoutineOneLineAdItems(){ return []; }
 function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
 function openEventRoutineLink(d){
@@ -2255,6 +2290,15 @@ function v61BusinessIdsWithCoupon(){
 function v61BusinessIdsWithBanner(){
   return new Set((typeof mainBanners!=='undefined'&&Array.isArray(mainBanners)?mainBanners:[]).filter(x=>x&&x.is_active!==false).map(x=>x.business_id).filter(Boolean).map(String));
 }
+function v73RoutineRecommendationOptions(){
+  const out=[];
+  readActiveEventRoutines().forEach(r=>(r?.actions?.recommendation?.options||[]).forEach(v=>{if(!out.includes(v))out.push(v)}));
+  return out;
+}
+function v73RoutineRecommendationInterval(){
+  const row=readActiveEventRoutines().find(r=>r?.actions?.recommendation);
+  return Math.max(3,Number(row?.actions?.recommendation?.interval_seconds||5))*1000;
+}
 function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
@@ -2263,7 +2307,9 @@ function v45SelectedBusinesses(config={}){
   if(ids.length){const selected=all.filter(b=>ids.includes(String(b.id)));if(selected.length)return selected.slice(0,20)}
 
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
-  const mode=String(config.business_mode||'featured');
+  const routineOptions=v73RoutineRecommendationOptions();
+  const routineModeMap={recommended:'featured',new:'new',popular:'popular',coupon:'coupon',random:'random'};
+  const mode=String(routineOptions.map(v=>routineModeMap[v]).find(Boolean)||config.business_mode||'featured');
   const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true)
     .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
   const newRows=consumerRows.filter(b=>b.is_new===true)
@@ -2803,7 +2849,7 @@ async function renderV37AIHome(){
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
   const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',video:'영상',promotion:'프로모션',rotation:'날짜별 순환',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
-  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
+  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
 }
