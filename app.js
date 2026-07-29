@@ -1400,7 +1400,11 @@ function v86AlertBusinessRows(action={}){
 }
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines().filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
-  if(!active.length)return [];
+  const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
+  const briefingValid=dailyBriefing&&dailyBriefing.is_active!==false&&String(dailyBriefing.text||'').trim()&&(!dailyBriefing.date_key||dailyBriefing.date_key===todayKey());
+  if(!active.length){
+    return briefingValid?[{kind:'event-alert-briefing',id:`daily-briefing-${dailyBriefing.date_key||todayKey()}`,date:dailyBriefing.generated_at||'',data:{title:String(dailyBriefing.text||'').trim(),summary:String(dailyBriefing.summary||'').trim(),badge:'브리핑',event_name:'오늘의 브리핑',link_type:dailyBriefing.link_type||'none',link_value:dailyBriefing.link_value||'',interval_seconds:6}}]:[];
+  }
   const primary=active.find(r=>r?.actions?.alert)||active[0];
   const alertAction=primary?.actions?.alert||primary?.actions?.ticker||{};
   const legacyBusiness=primary?.actions?.business||{};
@@ -1435,7 +1439,12 @@ function eventRoutineAlertItems(){
       fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:r.name||'',badge:'알림',event_name:r.name||'',link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
     });
   });
-  v86AlertBusinessRows(mergedAction).forEach((b,index)=>fallback.push({
+  // 3순위: 관리자 직접 문구가 없거나 끝난 뒤 오늘의 자동 브리핑을 표시합니다.
+  if(briefingValid) fallback.push({
+    kind:'event-alert-briefing',id:`daily-briefing-${dailyBriefing.date_key||todayKey()}`,date:dailyBriefing.generated_at||'',data:{title:String(dailyBriefing.text||'').trim(),summary:String(dailyBriefing.summary||'').trim(),badge:'브리핑',event_name:'오늘의 브리핑',link_type:dailyBriefing.link_type||'none',link_value:dailyBriefing.link_value||'',interval_seconds:interval}
+  });
+  // 4순위: 공지·직접 입력·브리핑이 없는 경우에만 업소 조건 알림을 사용합니다.
+  if(!fallback.length) v86AlertBusinessRows(mergedAction).forEach((b,index)=>fallback.push({
     kind:'event-alert-business',id:`alert-business-${b.id}`,date:b.created_at||'',data:{title:b.promo_text||b.name||'추천 업소',summary:b.promo_text?b.name:(b.short_description||b.description||b.category||''),badge:'업소',event_name:'업소 알림',business_id:b.id,link_type:'business',link_value:b.id,interval_seconds:interval}
   }));
   console.info('[V86 alert] fallback',{custom:fallback.filter(x=>x.kind==='event-alert-fallback').length,business:fallback.filter(x=>x.kind==='event-alert-business').length});

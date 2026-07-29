@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '61.0.0';
+const VERSION = '62.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -1441,13 +1441,54 @@ async function publishOne(region='dallas', force=false) {
   return {ok:true,version:VERSION,post,item_id:item.id,source_name:item.source_name||null,topic:topic?.label||'생활'};
 }
 
+async function saveDailyBriefing(region:string, published:any) {
+  const post = published?.post || null;
+  if (!post?.id) return null;
+
+  const topic = String(published?.topic || '생활').trim();
+  const title = String(post.title || '오늘의 달라스 생활 소식').trim();
+  const summary = String(published?.briefing_summary || '').trim();
+  const icons:any = {'생활':'💡','날씨':'🌤️','교통':'🚗','문화·예술':'🎭','교육':'🎓','의료':'🏥','세금·재정':'💰','부동산':'🏠'};
+  const text = summary || title;
+  const briefing = {
+    text: `${icons[topic] || '💡'} ${text}`.slice(0, 180),
+    summary: title,
+    type: topic,
+    link_type: 'board',
+    link_value: String(post.id),
+    post_id: String(post.id),
+    generated_at: new Date().toISOString(),
+    date_key: dateKeyInDallas(),
+    is_active: true,
+  };
+
+  const { data: setting, error: readError } = await admin.from('newsroom_settings')
+    .select('home_config').eq('region', region).maybeSingle();
+  if (readError) throw readError;
+  const homeConfig = setting?.home_config && typeof setting.home_config === 'object' ? setting.home_config : {};
+  const { error } = await admin.from('newsroom_settings').upsert({
+    region,
+    home_config: { ...homeConfig, daily_briefing: briefing },
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'region' });
+  if (error) throw error;
+  return briefing;
+}
+
 async function dailyDallasLife(region='dallas') {
   const collected = await autoRun(region);
   try {
     const published = await publishOne(region,false);
-    return {ok:true,version:VERSION,collected,published};
+    let briefing = null;
+    if (!published?.skipped && published?.post?.id) {
+      const { data: item } = await admin.from('newsroom_items')
+        .select('ai_summary,original_summary').eq('id', published.item_id).maybeSingle();
+      published.briefing_summary = String(item?.ai_summary || item?.original_summary || '').replace(/\s+/g,' ').trim().slice(0,120);
+      briefing = await saveDailyBriefing(region, published);
+    }
+    return {ok:true,version:VERSION,collected,published,briefing};
   } catch (e) {
-    return {ok:true,version:VERSION,collected,published:{ok:false,skipped:true,reason:e instanceof Error?e.message:String(e)}};
+    return {ok:true,version:VERSION,collected,published:{ok:false,skipped:true,reason:e instanceof Error?e.message:String(e)},briefing:null};
   }
 }
 
