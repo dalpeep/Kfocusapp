@@ -2293,7 +2293,15 @@ function v66BoardHomePins(){
   try{const key=`kfocus_board_home_pins_v66_${String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase()}`;const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[]);}catch{return new Set();}
 }
 function v66RoutineCommunityTypes(){
-  const out=[];readActiveEventRoutines().forEach(r=>(r?.actions?.community?.options||[]).forEach(v=>{const n=normalizeBoardType(v);if(['notice','life','guide'].includes(n)&&!out.includes(n))out.push(n);}));return out;
+  const out=[];
+  readActiveEventRoutines().forEach(r=>(r?.actions?.community?.options||[]).forEach(v=>{
+    const n=normalizeBoardType(v);
+    if(['notice','life','guide'].includes(n)&&!out.includes(n)) out.push(n);
+  }));
+  return out;
+}
+function v66RoutineCommunityEnabled(){
+  return readActiveEventRoutines().some(r=>!!r?.actions?.community);
 }
 function v45CommunityRows(config={}){
   const routineTypes=v66RoutineCommunityTypes();
@@ -2301,30 +2309,44 @@ function v45CommunityRows(config={}){
   const types=routineTypes.length?routineTypes:(configured.length?configured:['notice','life','guide']);
   const configPinned=new Set((config.community_post_ids||[]).map(String));
   const localPinned=v66BoardHomePins();
-  const all=(boardPosts||[]).filter(p=>(adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion)&&p.is_active!==false);
-  const result=[],seen=new Set();
-  types.forEach(type=>{
-    const group=all.filter(p=>normalizeBoardType(p.type)===type).sort((a,b)=>{
-      const ap=a.is_pinned===true,bp=b.is_pinned===true;
-      if(ap!==bp) return ap?-1:1;
-      if(ap&&bp){const d=Number(a.pin_order||999)-Number(b.pin_order||999);if(d)return d;}
-      return Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0);
-    });
-    const pins=group.filter(p=>configPinned.has(String(p.id))||localPinned.has(String(p.id))||p.is_pinned===true||p.is_home_pinned===true||p.home_pinned===true);
-    pins.forEach(p=>{if(!seen.has(String(p.id))){seen.add(String(p.id));result.push(p);}});
-    const latest=group.find(p=>!seen.has(String(p.id)));
-    if(latest){seen.add(String(latest.id));result.push(latest);}
+  const seen=new Set();
+  const rows=(boardPosts||[]).filter(p=>
+    types.includes(normalizeBoardType(p.type)) &&
+    (adminSession||!p.region||normalizeRegionKey(p.region)===currentRegion) &&
+    p.is_active!==false
+  ).filter(p=>{
+    const id=String(p.id); if(seen.has(id)) return false; seen.add(id); return true;
   });
-  return result;
+  return rows.sort((a,b)=>{
+    const ap=configPinned.has(String(a.id))||localPinned.has(String(a.id))||a.is_pinned===true||a.is_home_pinned===true||a.home_pinned===true;
+    const bp=configPinned.has(String(b.id))||localPinned.has(String(b.id))||b.is_pinned===true||b.is_home_pinned===true||b.home_pinned===true;
+    if(ap!==bp) return ap?-1:1;
+    if(ap&&bp){
+      const d=Number(a.pin_order||999)-Number(b.pin_order||999);
+      if(d) return d;
+    }
+    return Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0);
+  });
 }
 function v45PaintCommunity(){
-  const el=document.getElementById('v45CommunityTicker'),text=document.getElementById('v45CommunityText');if(!el||!text)return;
-  const row=v45CommunityItems[v45CommunityIndex];text.textContent=row?`[${boardLabel(row.type)}] ${row.title||'커뮤니티 새 소식'}`:'새 커뮤니티 소식을 확인해 보세요.';
+  const el=document.getElementById('v45CommunityTicker');
+  if(!el) return;
+  const enabled=v66RoutineCommunityEnabled();
+  if(!enabled){ el.hidden=true; el.innerHTML=''; return; }
+  el.hidden=false;
+  if(!v45CommunityItems.length){
+    el.innerHTML='<div class="v70-community-head"><b>커뮤니티</b><span>새 소식을 준비하고 있습니다.</span></div>';
+    return;
+  }
+  el.innerHTML=`<div class="v70-community-head"><b>커뮤니티</b><span>행사안내 · 달라스 라이프 · 달라스 가이드</span></div><div class="v70-community-list">${v45CommunityItems.map((row,index)=>{
+    const pinned=row.is_pinned===true||row.is_home_pinned===true||row.home_pinned===true||v66BoardHomePins().has(String(row.id));
+    return `<button type="button" class="v70-community-item" data-community-id="${esc(row.id)}"><span class="v70-community-type">${pinned?'📌 ':''}${esc(boardLabel(row.type))}</span><strong>${esc(row.title||'커뮤니티 새 소식')}</strong><i aria-hidden="true">›</i></button>`;
+  }).join('')}</div>`;
+  el.querySelectorAll('[data-community-id]').forEach(btn=>btn.addEventListener('click',()=>openBoardPost(btn.dataset.communityId)));
 }
 function v45SetupCommunity(config){
   v45CommunityItems=v45CommunityRows(config);v45CommunityIndex=0;v45PaintCommunity();
-  const el=document.getElementById('v45CommunityTicker');if(el&&!el.dataset.bound){el.dataset.bound='1';el.addEventListener('click',()=>{const r=v45CommunityItems[v45CommunityIndex];if(r)openBoardPost(r.id)});}
-  if(v45CommunityTimer)clearInterval(v45CommunityTimer);const c=v61EffectiveHomeConfig(v45HomeConfig||{}),play=c.autoplay?.community!==false,delay=Math.max(2,Number(c.intervals?.community||8))*1000;if(play&&v45CommunityItems.length>1)v45CommunityTimer=setInterval(()=>{v45CommunityIndex=(v45CommunityIndex+1)%v45CommunityItems.length;v45PaintCommunity()},delay);
+  if(v45CommunityTimer){clearInterval(v45CommunityTimer);v45CommunityTimer=null;}
 }
 function openV37Recommendation(item){
   if(!item)return;const d=item.data||item;
