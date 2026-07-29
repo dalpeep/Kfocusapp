@@ -6048,3 +6048,77 @@ function v45ReadHomeConfig(){
   return {...v62CurrentSnapshot(),today_count:Number(val('v62TodayCount')||10),community_sort:val('v62CommunitySort')||'latest',community_post_ids:v45Csv(val('v45CommunityPostIds')),community_boost_ids:v45Csv(val('v45CommunityBoostIds')),alert_pause_hover:checked('v62AlertPauseHover'),schedule_presets:v62Schedules,scene_presets:v62Scenes};
 }
 console.info('[DalTownMap Admin] V62 three-section home manager loaded');
+
+// V90 — 뉴스룸 관리자: 오늘의 자동 브리핑 확인·수정
+(function(){
+  const state={homeConfig:null,loaded:false};
+  const el=id=>document.getElementById(id);
+  const todayDallas=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  function setStatus(text,bad=false){const x=el('v90BriefingStatus');if(x){x.textContent=text;x.style.color=bad?'#b91c1c':'';}}
+  function fill(b={}){
+    if(el('v90BriefingText')) el('v90BriefingText').value=String(b.text||'');
+    if(el('v90BriefingSummary')) el('v90BriefingSummary').value=String(b.summary||'');
+    if(el('v90BriefingType')) el('v90BriefingType').value=String(b.type||'생활');
+    if(el('v90BriefingDate')) el('v90BriefingDate').value=String(b.date_key||todayDallas()).slice(0,10);
+    if(el('v90BriefingLinkType')) el('v90BriefingLinkType').value=String(b.link_type||'board');
+    if(el('v90BriefingLinkValue')) el('v90BriefingLinkValue').value=String(b.link_value||b.post_id||'');
+    if(el('v90BriefingActive')) el('v90BriefingActive').checked=b.is_active!==false;
+    const generated=b.generated_at?new Date(b.generated_at).toLocaleString('ko-KR'):'자동 생성 기록 없음';
+    setStatus(`저장 날짜 ${b.date_key||'-'} · ${generated}`);
+  }
+  async function load(showMessage=false){
+    if(!el('v90BriefingManager')||typeof newsroomEdgeCall!=='function') return;
+    try{
+      setStatus('브리핑 정보를 불러오고 있습니다…');
+      const j=await newsroomEdgeCall('get_settings',{region:getAppRegion()},'오늘의 브리핑을 불러오고 있습니다…');
+      state.homeConfig={...((j?.settings?.home_config&&typeof j.settings.home_config==='object')?j.settings.home_config:{})};
+      fill(state.homeConfig.daily_briefing||{});state.loaded=true;
+      if(showMessage) setStatus('서버의 최신 브리핑을 불러왔습니다.');
+    }catch(e){console.error('[V90 briefing load]',e);setStatus(`불러오기 실패: ${e.message}`,true);}
+  }
+  async function save(){
+    const btn=el('v90BriefingSaveBtn');if(btn)btn.disabled=true;
+    try{
+      const latest=await newsroomEdgeCall('get_settings',{region:getAppRegion()},'기존 메인 설정을 확인하고 있습니다…');
+      const home={...((latest?.settings?.home_config&&typeof latest.settings.home_config==='object')?latest.settings.home_config:{})};
+      const old=(home.daily_briefing&&typeof home.daily_briefing==='object')?home.daily_briefing:{};
+      const linkType=el('v90BriefingLinkType')?.value||'board';
+      const linkValue=(el('v90BriefingLinkValue')?.value||'').trim();
+      home.daily_briefing={
+        ...old,
+        text:(el('v90BriefingText')?.value||'').trim(),
+        summary:(el('v90BriefingSummary')?.value||'').trim(),
+        type:el('v90BriefingType')?.value||'생활',
+        date_key:el('v90BriefingDate')?.value||todayDallas(),
+        link_type:linkType,
+        link_value:linkType==='none'?'':linkValue,
+        post_id:linkType==='board'?linkValue:null,
+        is_active:!!el('v90BriefingActive')?.checked,
+        edited_at:new Date().toISOString(),
+      };
+      await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config:home},'수정한 브리핑을 저장하고 있습니다…');
+      state.homeConfig=home;fill(home.daily_briefing);setStatus('브리핑을 저장했습니다. 메인 달타운 알림에 바로 반영됩니다.');
+      try{localStorage.setItem(`kfocus_daily_briefing_updated_${getAppRegion()}`,String(Date.now()));}catch(_){ }
+      alert('오늘의 브리핑을 저장했습니다.');
+    }catch(e){console.error('[V90 briefing save]',e);setStatus(`저장 실패: ${e.message}`,true);alert(`브리핑 저장 실패: ${e.message}`);}finally{if(btn)btn.disabled=false;}
+  }
+  async function generate(){
+    if(!confirm('자동 뉴스 수집·선별 작업을 지금 실행할까요? 오늘 기사가 이미 있으면 새 기사를 중복 발행하지 않습니다.'))return;
+    const btn=el('v90BriefingGenerateBtn');if(btn){btn.disabled=true;btn.textContent='자동 작업 실행 중…';}
+    try{
+      const j=await newsroomEdgeCall('daily_dallas_life',{region:getAppRegion()},'자료를 수집하고 오늘의 기사와 브리핑을 준비하고 있습니다…');
+      await load();
+      const reason=j?.published?.reason;
+      setStatus(j?.briefing?'새 기사와 브리핑을 생성했습니다.':`자동 작업 완료${reason?` · ${reason}`:''}`);
+      alert(j?.briefing?'새 브리핑이 생성되었습니다.':'자동 작업을 마쳤습니다. 오늘 기사가 이미 있거나 적합한 자료가 없어 새 브리핑을 만들지 않았습니다.');
+    }catch(e){console.error('[V90 briefing generate]',e);setStatus(`자동 작업 실패: ${e.message}`,true);alert(`자동 작업 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent='AI 자동 작업 실행';}}
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    el('v90BriefingRefreshBtn')?.addEventListener('click',()=>load(true));
+    el('v90BriefingSaveBtn')?.addEventListener('click',save);
+    el('v90BriefingGenerateBtn')?.addEventListener('click',generate);
+    document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(()=>load(),120));
+    setTimeout(()=>load(),900);
+  });
+  window.V90BriefingManager={load,save,generate};
+})();

@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=70.0"></script>
+  <script type="module" src="assets/admin.js?v=90.0"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -1413,7 +1413,32 @@
           </section>
 
 
-<div id="newsroomHealthPanel" class="newsroom-health" hidden>
+<section class="card" id="v90BriefingManager" style="margin-top:16px;border:1px solid #bfdbfe;background:linear-gradient(135deg,#eff6ff,#ffffff)">
+          <div class="panel-head" style="align-items:flex-start;gap:12px;flex-wrap:wrap">
+            <div>
+              <span class="pill">달타운 알림</span>
+              <h3 style="margin:8px 0 4px">오늘의 자동 브리핑</h3>
+              <p class="tiny muted" style="margin:0">자동 기사와 함께 생성되는 한 줄 브리핑을 확인하고 직접 수정할 수 있습니다.</p>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="v90BriefingRefreshBtn" class="btn ghost" type="button">새로고침</button>
+              <button id="v90BriefingGenerateBtn" class="btn ghost" type="button">AI 자동 작업 실행</button>
+              <button id="v90BriefingSaveBtn" class="btn primary" type="button">수정 내용 저장</button>
+            </div>
+          </div>
+          <div class="form-grid" style="margin-top:14px">
+            <label class="field full"><span>알림에 표시할 한 줄</span><textarea id="v90BriefingText" rows="3" maxlength="180" placeholder="예: 🌤️ 오늘 오후 폭염이 예상됩니다. 야외 활동 시 수분을 충분히 섭취하세요."></textarea></label>
+            <label class="field full"><span>관리자용 제목·설명</span><input id="v90BriefingSummary" maxlength="160" placeholder="연결된 기사 제목 또는 간단한 설명"></label>
+            <label class="field"><span>분류</span><select id="v90BriefingType"><option value="생활">생활</option><option value="날씨">날씨</option><option value="교통">교통</option><option value="문화·예술">문화·예술</option><option value="교육">교육</option><option value="의료">의료</option><option value="세금·재정">세금·재정</option><option value="부동산">부동산</option></select></label>
+            <label class="field"><span>표시 날짜</span><input id="v90BriefingDate" type="date"></label>
+            <label class="field"><span>연결 방식</span><select id="v90BriefingLinkType"><option value="board">게시판 기사</option><option value="url">외부 링크</option><option value="none">연결 없음</option></select></label>
+            <label class="field"><span>게시물 ID 또는 URL</span><input id="v90BriefingLinkValue" placeholder="게시물 ID 또는 https://..."></label>
+            <label class="field full" style="display:flex;align-items:center;gap:10px"><input id="v90BriefingActive" type="checkbox" checked><span>오늘 달타운 알림에 사용</span></label>
+          </div>
+          <div id="v90BriefingStatus" class="tiny muted" style="margin-top:12px">브리핑 정보를 불러오고 있습니다.</div>
+        </section>
+
+        <div id="newsroomHealthPanel" class="newsroom-health" hidden>
             <strong>AI 운영센터 상태</strong>
             <div id="newsroomHealthDetails" class="tiny muted">확인 버튼을 누르면 Edge Function, OpenAI Secret, 뉴스룸 테이블 연결 상태를 점검합니다.</div>
           </div>
