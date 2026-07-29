@@ -2467,9 +2467,9 @@ async function loadBoards() {
   return;
 }
   const selects = [
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,created_at'
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at'
   ];
   let loaded = null;
   for (const select of selects) {
@@ -2525,6 +2525,8 @@ function clearBoardForm() {
   setChecked('board_is_active', true);
   setChecked('board_is_pinned', false);
   setVal('board_pin_order', '999');
+  setChecked('board_is_alert_notice', false);
+  setVal('board_alert_order', '999');
   setChecked('board_home_pinned', false);
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = null;
@@ -2557,6 +2559,8 @@ function fillBoardForm(row) {
   setChecked('board_is_active', row.is_active !== false);
   setChecked('board_is_pinned', row.is_pinned === true);
   setVal('board_pin_order', Number(row.pin_order || 999));
+  setChecked('board_is_alert_notice', row.is_alert_notice === true);
+  setVal('board_alert_order', Number(row.alert_order || 999));
   setChecked('board_home_pinned', Boolean(row.is_home_pinned||row.home_pinned||readBoardHomePins().includes(String(row.id))));
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = row.id;
@@ -2597,8 +2601,8 @@ function renderBoardList(items) {
       <button type="button" class="biz-item board-row ${row.id === selectedBoardId ? 'active' : ''}" data-id="${esc(row.id)}">
         ${thumb}
         <div>
-          <div class="biz-title">${row.is_pinned===true?'📌 ':''}${esc(row.title || '게시글')}</div>
-          <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
+          <div class="biz-title">${row.is_pinned===true?'📌 ':''}${row.is_alert_notice===true?'📣 ':''}${esc(row.title || '게시글')}</div>
+          <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_alert_notice===true?'· 달타운 공지 ':''}${row.is_active === false ? '· 비활성' : ''}</div>
           <div class="biz-meta">${linkedBiz ? '연결 업소: ' + esc(linkedBiz.name_ko || linkedBiz.name_en || linkedBiz.id) : esc(period)}</div>
           <div class="biz-meta">${esc(row.address || row.phone || (row.content || '').slice(0, 80))}</div>
         </div>
@@ -2656,6 +2660,8 @@ const payloadBase = {
     is_active: checked('board_is_active'),
     is_pinned: checked('board_is_pinned'),
     pin_order: Math.max(1, Number(val('board_pin_order') || 999)),
+    is_alert_notice: checked('board_is_alert_notice'),
+    alert_order: Math.max(1, Number(val('board_alert_order') || 999)),
     business_id: linkedBusinessId || null
 };
 console.log('BOARD SAVE PAYLOAD', payloadBase);

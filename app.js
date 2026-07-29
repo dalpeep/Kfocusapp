@@ -744,9 +744,9 @@ async function loadBoardPostsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const tryTables = ['posts','board_posts'];
   const selects = [
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,created_at',
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,created_at',
-    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,is_active,is_pinned,pin_order,created_at'
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at'
   ];
   for(const table of tryTables){
     for(const select of selects){
@@ -778,6 +778,8 @@ async function loadBoardPostsFromSupabase(){
             is_active: row.is_active !== false,
             is_pinned: row.is_pinned === true,
             pin_order: Number(row.pin_order || 999),
+            is_alert_notice: row.is_alert_notice === true,
+            alert_order: Number(row.alert_order || 999),
             created_at: row.created_at || ''
           }));
           return true;
@@ -1346,40 +1348,19 @@ function eventRoutineItems(actionKey){
   return rows;
 }
 function eventRoutineAlertItems(){
-  const direct=[...eventRoutineItems('alert'),...eventRoutineItems('ticker')];
-  const generated=[];
-  readActiveEventRoutines().forEach(r=>{
-    const action=r?.actions?.alert||r?.actions?.ticker;
-    if(!action)return;
-    const options=new Set(Array.isArray(action.options)?action.options:[]);
-    const interval=Number(action.interval_seconds||5);
-    const push=(kind,id,title,summary='',badge='알림',link_type='none',link_value='')=>{
-      const text=String(title||'').trim(); if(!text)return;
-      generated.push({kind,id:String(id),date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:String(summary||''),badge,event_name:r.name||'',link_type,link_value,interval_seconds:interval}});
-    };
-    if(options.has('visit')){
-      activeDalpicks().filter(d=>String(d.category||'').toLowerCase()==='business_story').slice(0,6).forEach(d=>push('event-alert-visit',`visit-${d.id}`,d.title||'업소 탐방',d.summary||'', '업소탐방', d.business_id?'business':'article', d.business_id||`dalpick-story-${d.id}`));
-    }
-    if(options.has('coupon')){
-      (typeof todayCoupons==='function'?todayCoupons():[]).slice(0,6).forEach(c=>push('event-alert-coupon',`coupon-${c.id}`,c.title||'오늘의 쿠폰',c.discount_label||c.description||'', '쿠폰','coupon',c.id));
-    }
-    if(options.has('business')){
-      activeDalpicks().filter(d=>['recommended','new_business'].includes(String(d.category||'').toLowerCase())).slice(0,6).forEach(d=>push('event-alert-business',`business-${d.id}`,d.title||'추천 업소',d.summary||'', '업소',d.business_id?'business':'article',d.business_id||`dalpick-article-${d.id}`));
-    }
-    if(options.has('new')){
-      (businesses||[]).filter(b=>b.is_new===true&&b.is_active!==false).slice(0,6).forEach(b=>push('event-alert-new',`new-${b.id}`,`${b.name_ko||b.name||b.name_en||'신규 업소'} 새로 오픈`,b.area||b.address||'', '신규','business',b.id));
-    }
-    if(options.has('event')){
-      boardPostsByType('notice').slice(0,4).forEach(post=>push('event-alert-event',`event-${post.id}`,post.title,post.summary||'', '행사','board',post.id));
-    }
-    if(options.has('guide')){
-      boardPostsByType('guide').slice(0,4).forEach(post=>push('event-alert-guide',`guide-${post.id}`,post.title,post.summary||'', '가이드','board',post.id));
-    }
-    if(options.has('life')){
-      boardPostsByType('life').slice(0,4).forEach(post=>push('event-alert-life',`life-${post.id}`,post.title,post.summary||'', '생활','board',post.id));
-    }
-  });
-  return [...direct,...generated];
+  const active=readActiveEventRoutines().filter(r=>r?.actions?.alert||r?.actions?.ticker);
+  if(!active.length)return [];
+  const interval=Math.max(3,Number((active.find(r=>r?.actions?.alert)?.actions?.alert||active[0]?.actions?.ticker)?.interval_seconds||5));
+  const now=Date.now();
+  return (boardPosts||[]).filter(post=>{
+    if(post?.is_active===false||post?.is_alert_notice!==true)return false;
+    if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
+    if(post.start_at&&Date.parse(post.start_at)>now)return false;
+    if(post.end_at&&Date.parse(post.end_at)<now)return false;
+    return true;
+  }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({
+    kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:interval}
+  }));
 }
 function eventRoutineOneLineAdItems(){ return []; }
 function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
@@ -2288,12 +2269,27 @@ function v61BusinessIdsWithCoupon(){
   return new Set((typeof coupons!=='undefined'&&Array.isArray(coupons)?activeCoupons(coupons):[]).flatMap(c=>[c.businessId,c.business_id,...(Array.isArray(c.business_ids)?c.business_ids:[])]).filter(Boolean).map(String));
 }
 function v61BusinessIdsWithBanner(){
-  return new Set((typeof mainBanners!=='undefined'&&Array.isArray(mainBanners)?mainBanners:[]).filter(x=>x&&x.is_active!==false).map(x=>x.business_id).filter(Boolean).map(String));
+  const ids=[];
+  (typeof mainBanners!=='undefined'&&Array.isArray(mainBanners)?mainBanners:[]).filter(x=>x&&x.is_active!==false).forEach(x=>{
+    [x.business_id,x.businessId].forEach(v=>{if(v)ids.push(v)});
+    if(Array.isArray(x.business_ids))ids.push(...x.business_ids);
+  });
+  return new Set(ids.filter(Boolean).map(String));
 }
 function v73RoutineRecommendationOptions(){
   const out=[];
   readActiveEventRoutines().forEach(r=>(r?.actions?.recommendation?.options||[]).forEach(v=>{if(!out.includes(v))out.push(v)}));
   return out;
+}
+function v74RoutineRecommendationAddressTerms(){
+  const out=[];
+  readActiveEventRoutines().forEach(r=>(r?.actions?.recommendation?.address_terms||[]).forEach(v=>{const t=String(v||'').trim().toLowerCase();if(t&&!out.includes(t))out.push(t)}));
+  return out;
+}
+function v74BusinessMatchesAddress(b,terms=[]){
+  if(!terms.length)return false;
+  const hay=`${b?.address||''} ${b?.area||''}`.toLowerCase();
+  return terms.some(term=>hay.includes(String(term).toLowerCase()));
 }
 function v73RoutineRecommendationInterval(){
   const row=readActiveEventRoutines().find(r=>r?.actions?.recommendation);
@@ -2303,43 +2299,30 @@ function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
-  // 관리자가 직접 지정한 광고·추천 업체는 기관 여부와 상관없이 그대로 노출합니다.
-  if(ids.length){const selected=all.filter(b=>ids.includes(String(b.id)));if(selected.length)return selected.slice(0,20)}
-
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
-  const routineOptions=v73RoutineRecommendationOptions();
-  const routineModeMap={recommended:'featured',new:'new',popular:'popular',coupon:'coupon',random:'random'};
-  const mode=String(routineOptions.map(v=>routineModeMap[v]).find(Boolean)||config.business_mode||'featured');
-  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true)
-    .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
-  const newRows=consumerRows.filter(b=>b.is_new===true)
-    .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
-  const popularRows=consumerRows.filter(b=>b.is_popular===true)
-    .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
-  const randomRows=v45StableShuffle(consumerRows,todayKey());
+  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true).sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
+  const newRows=consumerRows.filter(b=>b.is_new===true).sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
+  const popularRows=consumerRows.filter(b=>b.is_popular===true).sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
   const couponIds=v61BusinessIdsWithCoupon();
   const bannerIds=v61BusinessIdsWithBanner();
   const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
   const bannerRows=consumerRows.filter(b=>bannerIds.has(String(b.id)));
-  const videoRows=consumerRows.filter(b=>String(b.video_url||b.youtube_url||'').trim());
-  const rotateGroups=[featuredRows,popularRows,newRows,couponRows,bannerRows,videoRows].filter(g=>g.length);
-  const rotateRows=rotateGroups.length?rotateGroups[new Date().getDate()%rotateGroups.length]:randomRows;
-  const promotionRows=v45StableShuffle([...new Map([...couponRows,...bannerRows,...videoRows].map(b=>[String(b.id),b])).values()],todayKey());
-
-  let rows=[];
-  if(mode==='featured') rows=featuredRows;
-  else if(mode==='new') rows=newRows;
-  else if(mode==='popular') rows=popularRows;
-  else if(mode==='coupon') rows=couponRows;
-  else if(mode==='banner') rows=bannerRows;
-  else if(mode==='video') rows=videoRows;
-  else if(mode==='rotation') rows=rotateRows;
-  else if(mode==='promotion') rows=promotionRows;
-  else if(mode==='random') rows=randomRows;
-  else rows=featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows));
-
-  // 추천 모드에서는 인기 체크 여부와 관계없이 추천 체크된 업소만 보여줍니다.
-  return rows.slice(0,10);
+  const addressTerms=v74RoutineRecommendationAddressTerms();
+  const addressRows=consumerRows.filter(b=>v74BusinessMatchesAddress(b,addressTerms));
+  const adminRows=ids.length?all.filter(b=>ids.includes(String(b.id))):[];
+  const randomRows=v45StableShuffle(consumerRows,todayKey());
+  const options=v73RoutineRecommendationOptions();
+  const groups={recommended:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,address:addressRows,admin:adminRows,random:randomRows};
+  if(options.length){
+    const seen=new Set(),rows=[];
+    options.forEach(option=>(groups[option]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
+    if(rows.length)return rows.slice(0,20);
+  }
+  if(adminRows.length)return adminRows.slice(0,20);
+  const legacyMode=String(config.business_mode||'featured');
+  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
+  const rows=legacyGroups[legacyMode]||featuredRows;
+  return (rows.length?rows:(featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows)))).slice(0,20);
 }
 function v66BoardHomePins(){
   try{const key=`kfocus_board_home_pins_v66_${String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase()}`;const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[]);}catch{return new Set();}
