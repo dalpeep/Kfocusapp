@@ -2507,22 +2507,26 @@ function paintV38HomePayload(payload,candidates){
   if(window.lucide)window.lucide.createIcons();
 }
 async function v471FetchPublicHomeSettings(){
-  const config=getConfig();
-  const base=String(config.SUPABASE_URL||'').replace(/\/$/,'');
-  const key=String(config.SUPABASE_ANON_KEY||'').trim();
-  if(!base||!key) return {};
-  const endpoint=`${base}/functions/v1/newsroom?action=home_settings&region=${encodeURIComponent(currentRegion||'dallas')}&_=${Date.now()}`;
-  const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),12000);
+  const region=encodeURIComponent(currentRegion||'dallas');
   try{
-    const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store',signal:controller.signal});
+    const res=await fetch(`/.netlify/functions/runtime-settings?region=${region}&_=${Date.now()}`,{cache:'no-store'});
     const json=await res.json().catch(()=>({}));
-    if(!res.ok||json.ok===false) throw new Error(json.error||json.message||`HTTP ${res.status}`);
-    return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
-  }catch(error){
-    console.warn('[V48 Main Settings] dedicated settings fetch failed',error?.message||error);
-    return {};
-  }finally{clearTimeout(timer)}
+    if(res.ok&&json.ok!==false&&json.home_config&&typeof json.home_config==='object')return json.home_config;
+    throw new Error(json.error||`HTTP ${res.status}`);
+  }catch(primaryError){
+    console.warn('[V76 Runtime Settings] Netlify endpoint failed, trying newsroom edge',primaryError?.message||primaryError);
+    const config=getConfig();
+    const base=String(config.SUPABASE_URL||'').replace(/\/$/,'');
+    const key=String(config.SUPABASE_ANON_KEY||'').trim();
+    if(!base||!key) return {};
+    const endpoint=`${base}/functions/v1/newsroom?action=home_settings&region=${region}&_=${Date.now()}`;
+    try{
+      const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'});
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
+      return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
+    }catch(error){console.warn('[V76 Runtime Settings] fallback failed',error?.message||error);return {};}
+  }
 }
 async function loadMainSettings(forceRefresh=false){
   // V47.1: 설정과 피드를 별도 요청으로 읽습니다. home_feed 응답에 설정이 누락되거나

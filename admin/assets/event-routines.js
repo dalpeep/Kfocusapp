@@ -36,10 +36,26 @@ async function edgeCall(action,body={}){
   if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
   return json;
 }
+async function runtimeRequest(method='GET', homeConfig=null){
+  const client=getAuthClient();
+  const headers={'Content-Type':'application/json'};
+  if(method==='POST'){
+    if(!client)throw new Error('Supabase 설정을 확인하세요.');
+    const {data:{session}}=await client.auth.getSession();
+    if(!session?.access_token)throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
+    headers.Authorization=`Bearer ${session.access_token}`;
+  }
+  const res=await fetch(`/.netlify/functions/runtime-settings?region=${encodeURIComponent(region())}&_=${Date.now()}`,{
+    method,headers,cache:'no-store',body:method==='POST'?JSON.stringify({home_config:homeConfig||{}}):undefined
+  });
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
+  return json;
+}
 async function load(){
   try{
-    const json=await edgeCall('get_settings',{region:region()});
-    const cfg=json?.settings?.home_config||{};
+    const json=await runtimeRequest('GET');
+    const cfg=json?.home_config||{};
     routines=Array.isArray(cfg.event_routines)?cfg.event_routines:[];
     localStorage.setItem(key(),JSON.stringify(routines));
   }catch(e){
@@ -54,11 +70,8 @@ async function save(){
   localStorage.setItem(key(),JSON.stringify(routines));
   publishRuntime();render();
   try{
-    const current=await edgeCall('get_settings',{region:region()});
-    const homeConfig=current?.settings?.home_config&&typeof current.settings.home_config==='object'?current.settings.home_config:{};
-    const nextConfig={...homeConfig,event_routines:routines,event_routines_updated_at:new Date().toISOString()};
-    const saved=await edgeCall('save_settings',{region:region(),home_config:nextConfig});
-    const verified=saved?.settings?.home_config?.event_routines;
+    const saved=await runtimeRequest('POST',{event_routines:routines,event_routines_updated_at:new Date().toISOString()});
+    const verified=saved?.home_config?.event_routines;
     if(Array.isArray(verified)){routines=verified;localStorage.setItem(key(),JSON.stringify(routines));}
     publishRuntime();render();
   }finally{serverSyncBusy=false;}
