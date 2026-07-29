@@ -1,0 +1,23 @@
+V91 수정 내용
+
+1) 달타운 알림
+- 과거 이벤트 루틴 여러 개의 문구를 모두 합치던 오류 수정
+- 가장 최근 활성 알림 루틴 1개만 사용
+- 테스트 잔여 문구 '평일 운영'은 표시하지 않음
+- 중복 문구 노출 방지
+
+2) 125초 시간 초과
+- 한 요청 안에서 전체 수집+분류+기사+브리핑을 수행하던 구조 제거
+- 관리자 버튼은 수집 단계를 여러 개의 짧은 요청으로 분리 실행
+- daily_dallas_life는 최종 기사 게시와 브리핑 저장만 담당
+- Cron도 단계별 분할 실행
+
+적용 순서
+1. ZIP 전체를 Netlify에 배포
+2. supabase/functions/newsroom/index.ts를 newsroom Edge Function에 재배포
+3. SQL Editor에서 supabase/v91-remove-weekday-routine.sql 실행
+4. 기존 Cron을 설치했다면 supabase/newsroom-v62-split-daily-cron.sql에서 SERVICE_ROLE_KEY를 교체한 뒤 실행
+
+주의
+- 이전 newsroom-v61-daily-dallas-life-cron.sql은 다시 실행하지 마세요.
+- V62 SQL이 기존 daltown-newsroom-* 작업을 모두 제거하고 분할 작업으로 다시 등록합니다.

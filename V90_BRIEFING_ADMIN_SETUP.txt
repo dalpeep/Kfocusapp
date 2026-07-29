@@ -1,0 +1,26 @@
+DalTownMap V90 - 뉴스룸 오늘의 브리핑 관리자
+
+추가 위치
+- 관리자 > AI 운영센터(뉴스룸) 상단
+- '오늘의 자동 브리핑' 카드
+
+가능한 작업
+1. 현재 서버에 저장된 브리핑 확인
+2. 한 줄 문구 직접 수정
+3. 관리자용 제목, 분류, 표시 날짜 수정
+4. 게시판 기사 ID, 외부 URL, 연결 없음 선택
+5. 달타운 알림 사용 여부 켜기/끄기
+6. AI 자동 작업을 수동으로 즉시 실행
+
+저장 위치
+- newsroom_settings.home_config.daily_briefing
+- 기존 home_config를 먼저 다시 읽고 daily_briefing만 병합하므로 다른 메인 설정을 덮어쓰지 않습니다.
+
+메인 노출 조건
+- is_active가 true
+- date_key가 Dallas 현지 오늘 날짜와 일치
+- 게시판 공지와 관리자 직접 입력이 없을 때 자동 브리핑이 다음 우선순위로 표시
+
+배포
+- ZIP 전체를 Netlify에 배포하세요.
+- V89 newsroom Edge Function이 이미 배포되어 있다면 Edge Function 재배포는 필요 없습니다.
