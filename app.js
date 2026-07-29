@@ -2427,6 +2427,17 @@ function v45SetupCommunity(config){
     v45CommunityTimer=setInterval(()=>{v45CommunityIndex=(v45CommunityIndex+1)%v45CommunityItems.length;v45PaintCommunity();},5000);
   }
 }
+function v77RefreshRoutineDrivenHome(){
+  const biz=v45SelectedBusinesses(v45HomeConfig||{});
+  v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));
+  v37RecommendationIndex=0;
+  paintV37Recommendation();
+  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);
+  const delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():5000;
+  if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation();},delay);
+  renderDalpicks();
+  v45SetupCommunity(v45HomeConfig||{});
+}
 function openV37Recommendation(item){
   if(!item)return;const d=item.data||item;
   if(item.kind==='business'||d.id){selectedBizId=d.id;renderDetail(d.id);showPage('business-detail');}
@@ -2507,26 +2518,29 @@ function paintV38HomePayload(payload,candidates){
   if(window.lucide)window.lucide.createIcons();
 }
 async function v471FetchPublicHomeSettings(){
+  // V77: 공개 메인도 기존 newsroom Edge Function의 home_settings를 우선 사용합니다.
+  // 관리자 저장(save_settings)과 공개 조회(home_settings)가 같은 newsroom_settings 행을 사용합니다.
   const region=encodeURIComponent(currentRegion||'dallas');
-  try{
-    const res=await fetch(`/.netlify/functions/runtime-settings?region=${region}&_=${Date.now()}`,{cache:'no-store'});
-    const json=await res.json().catch(()=>({}));
-    if(res.ok&&json.ok!==false&&json.home_config&&typeof json.home_config==='object')return json.home_config;
-    throw new Error(json.error||`HTTP ${res.status}`);
-  }catch(primaryError){
-    console.warn('[V76 Runtime Settings] Netlify endpoint failed, trying newsroom edge',primaryError?.message||primaryError);
-    const config=getConfig();
-    const base=String(config.SUPABASE_URL||'').replace(/\/$/,'');
-    const key=String(config.SUPABASE_ANON_KEY||'').trim();
-    if(!base||!key) return {};
+  const config=getConfig();
+  const base=String(config.SUPABASE_URL||'').replace(/\/$/,'');
+  const key=String(config.SUPABASE_ANON_KEY||'').trim();
+  if(base&&key){
     const endpoint=`${base}/functions/v1/newsroom?action=home_settings&region=${region}&_=${Date.now()}`;
     try{
       const res=await fetch(endpoint,{method:'GET',headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'});
       const json=await res.json().catch(()=>({}));
       if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
-      return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
-    }catch(error){console.warn('[V76 Runtime Settings] fallback failed',error?.message||error);return {};}
+      const cfg=json.home_config&&typeof json.home_config==='object'?json.home_config:{};
+      if(Object.keys(cfg).length)return cfg;
+    }catch(error){console.warn('[V77 Main Settings] newsroom home_settings failed',error?.message||error);}
   }
+  // 배포 중 newsroom 함수가 잠시 실패할 때만 기존 Netlify 경로를 보조로 사용합니다.
+  try{
+    const res=await fetch(`/.netlify/functions/runtime-settings?region=${region}&_=${Date.now()}`,{cache:'no-store'});
+    const json=await res.json().catch(()=>({}));
+    if(res.ok&&json.ok!==false&&json.home_config&&typeof json.home_config==='object')return json.home_config;
+  }catch(error){console.warn('[V77 Main Settings] fallback failed',error?.message||error);}
+  return {};
 }
 async function loadMainSettings(forceRefresh=false){
   // V47.1: 설정과 피드를 별도 요청으로 읽습니다. home_feed 응답에 설정이 누락되거나
@@ -2554,15 +2568,13 @@ function v72StartRoutineSettingsSync(){
     if(document.hidden)return;
     try{
       await loadMainSettings(true);
-      renderDalpicks();
-      v45SetupCommunity(v45HomeConfig||{});
-      if(typeof renderHomeRecommendations==='function')renderHomeRecommendations();
+      v77RefreshRoutineDrivenHome();
     }catch(e){console.warn('[V72 routine sync]',e);}
   },30000);
 }
 document.addEventListener('visibilitychange',async()=>{
   if(!document.hidden){
-    try{await loadMainSettings(true);renderDalpicks();v45SetupCommunity(v45HomeConfig||{});}catch(e){}
+    try{await loadMainSettings(true);v77RefreshRoutineDrivenHome();}catch(e){}
   }
 });
 setTimeout(v72StartRoutineSettingsSync,1500);

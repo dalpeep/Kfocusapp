@@ -37,20 +37,19 @@ async function edgeCall(action,body={}){
   return json;
 }
 async function runtimeRequest(method='GET', homeConfig=null){
-  const client=getAuthClient();
-  const headers={'Content-Type':'application/json'};
-  if(method==='POST'){
-    if(!client)throw new Error('Supabase 설정을 확인하세요.');
-    const {data:{session}}=await client.auth.getSession();
-    if(!session?.access_token)throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
-    headers.Authorization=`Bearer ${session.access_token}`;
+  // V77: 별도 Netlify 함수 대신 기존 AI 운영센터(newsroom) 설정 API를 단일 저장소로 사용합니다.
+  // 이 경로는 관리자 페이지의 다른 메인 설정 저장과 동일하므로 배포 환경 차이로 설정이 갈라지지 않습니다.
+  if(method==='GET'){
+    const json=await edgeCall('get_settings',{});
+    const home_config=json?.settings?.home_config||json?.home_config||{};
+    return {ok:true,region:region(),home_config};
   }
-  const res=await fetch(`/.netlify/functions/runtime-settings?region=${encodeURIComponent(region())}&_=${Date.now()}`,{
-    method,headers,cache:'no-store',body:method==='POST'?JSON.stringify({home_config:homeConfig||{}}):undefined
-  });
-  const json=await res.json().catch(()=>({}));
-  if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
-  return json;
+  const currentJson=await edgeCall('get_settings',{});
+  const current=currentJson?.settings?.home_config||currentJson?.home_config||{};
+  const merged={...current,...(homeConfig||{})};
+  const saved=await edgeCall('save_settings',{home_config:merged});
+  const home_config=saved?.settings?.home_config||saved?.home_config||merged;
+  return {ok:true,region:region(),home_config};
 }
 async function load(){
   try{
