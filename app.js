@@ -1350,17 +1350,58 @@ function eventRoutineItems(actionKey){
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines().filter(r=>r?.actions?.alert||r?.actions?.ticker);
   if(!active.length)return [];
-  const interval=Math.max(3,Number((active.find(r=>r?.actions?.alert)?.actions?.alert||active[0]?.actions?.ticker)?.interval_seconds||5));
+  const alertAction=active.find(r=>r?.actions?.alert)?.actions?.alert||active[0]?.actions?.ticker||{};
+  const interval=Math.max(3,Number(alertAction.interval_seconds||5));
   const now=Date.now();
-  return (boardPosts||[]).filter(post=>{
+
+  // V75 우선순위 1: 게시판에서 '달타운 공지'로 지정한 현재 유효 글
+  const notices=(boardPosts||[]).filter(post=>{
     if(post?.is_active===false||post?.is_alert_notice!==true)return false;
     if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
     if(post.start_at&&Date.parse(post.start_at)>now)return false;
     if(post.end_at&&Date.parse(post.end_at)<now)return false;
     return true;
   }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({
-    kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:interval}
+    kind:'event-alert-board-notice',
+    id:`board-notice-${post.id}`,
+    date:post.created_at||'',
+    data:{
+      title:post.title||'달타운 공지',
+      summary:v38Text(post.content||'',80),
+      badge:'공지',
+      event_name:'게시판 공지',
+      link_type:'board',
+      link_value:post.id,
+      interval_seconds:interval
+    }
   }));
+  if(notices.length)return notices;
+
+  // V75 우선순위 2: 공지가 없을 때만 이벤트 루틴의 직접 입력 알림을 대체 표시
+  const fallback=[];
+  active.forEach(r=>{
+    const action=r?.actions?.alert||r?.actions?.ticker;
+    if(!action)return;
+    (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
+      const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
+      if(!text)return;
+      fallback.push({
+        kind:'event-alert-fallback',
+        id:`${r.id||'routine'}-alert-fallback-${index}`,
+        date:r.updated_at||r.created_at||r.start_at||'',
+        data:{
+          title:text,
+          summary:r.name||'',
+          badge:'알림',
+          event_name:r.name||'',
+          link_type:action.link_type||'none',
+          link_value:action.link_value||'',
+          interval_seconds:Math.max(3,Number(action.interval_seconds||interval))
+        }
+      });
+    });
+  });
+  return fallback;
 }
 function eventRoutineOneLineAdItems(){ return []; }
 function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
@@ -1395,8 +1436,8 @@ function renderDalpicks(){
 
   const routineItems=eventRoutineAlertItems();
 
-  // V69: 달타운 알림은 이벤트 루틴의 직접 입력 문구만 표시합니다.
-  // 예전 DalPick·쿠폰·생활정보가 자동으로 섞여 다시 보이지 않도록 완전히 분리합니다.
+  // V75: 게시판 공지를 우선 표시하고, 공지가 없을 때만 이벤트 루틴 직접 입력 문구를 표시합니다.
+  // 둘 다 없을 때만 달타운 알림 영역을 숨깁니다.
   const seen=new Set();
   const items=[...routineItems]
     .filter(item=>{
