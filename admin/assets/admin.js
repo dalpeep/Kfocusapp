@@ -5861,57 +5861,130 @@ function initNewsroom(){
 document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{v61HomeSettingsPanel();initNewsroom();},1400));
 
 
-// V61 메인 자동 편성·날짜별 운영 설정
+// V61 메인 추천 규칙·날짜별 운영 설정
 let v61HomeSchedules=[];
-const V61_MODE_LABELS={featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체',promotion:'쿠폰·배너·영상 업체',rotation:'날짜별 자동 순환',random:'전체 랜덤'};
+let v61BaseBusinessIds=new Set();
+let v61ScheduleBusinessIds=new Set();
+const V61_MODE_LABELS={featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체'};
+const V61_DEFAULT_MODES=['featured','popular','new','coupon','banner','video'];
+
+function v61RuleChecksHtml(prefix, selectedModes=[], selectedCategories=[]){
+  const modeSet=new Set((selectedModes||[]).map(String));
+  const categorySet=new Set((selectedCategories||[]).map(String));
+  return `<div class="v61-rule-box">
+    <div class="v61-rule-group"><b>업체 조건</b><div class="checkbox-row">${Object.entries(V61_MODE_LABELS).map(([v,l])=>`<label><input type="checkbox" data-v61-rule="mode" data-prefix="${prefix}" value="${v}" ${modeSet.has(v)?'checked':''}> ${l}</label>`).join('')}</div></div>
+    <div class="v61-rule-group" style="margin-top:10px"><b>업종</b><div class="checkbox-row">${ADMIN_MAP_CATEGORIES.map(v=>`<label><input type="checkbox" data-v61-rule="category" data-prefix="${prefix}" value="${esc(v)}" ${categorySet.has(v)?'checked':''}> ${esc(v)}</label>`).join('')}</div><small class="muted">업종을 선택하지 않으면 모든 업종을 대상으로 합니다.</small></div>
+  </div>`;
+}
+function v61ReadRules(prefix){
+  return {
+    business_modes:$$(`input[data-v61-rule="mode"][data-prefix="${prefix}"]:checked`).map(x=>x.value),
+    business_categories:$$(`input[data-v61-rule="category"][data-prefix="${prefix}"]:checked`).map(x=>x.value)
+  };
+}
+function v61BusinessName(id){const b=(businesses||[]).find(x=>String(x.id)===String(id));return b?(b.name_ko||b.name_en||b.name||String(id)):String(id)}
+function v61BusinessSearchResultsHtml(query, selectedSet){
+  const q=String(query||'').trim().toLowerCase();
+  if(!q)return '<div class="muted">업체명을 입력하면 검색 결과가 표시됩니다.</div>';
+  const rows=(businesses||[]).filter(b=>{
+    if(selectedSet.has(String(b.id)))return false;
+    const hay=[b.name_ko,b.name_en,b.category_ko,b.map_category,b.subcategory,b.area].filter(Boolean).join(' ').toLowerCase();
+    return hay.includes(q);
+  }).slice(0,20);
+  return rows.length?rows.map(b=>`<button type="button" class="btn ghost v61-business-result" data-id="${esc(b.id)}">+ ${esc(b.name_ko||b.name_en||b.id)} <small>${esc([b.map_category||b.category_ko,b.area].filter(Boolean).join(' · '))}</small></button>`).join(''):'<div class="muted">검색 결과가 없습니다.</div>';
+}
+function v61RenderSelectedBusinesses(prefix, selectedSet){
+  const box=qs(`${prefix}Selected`);if(!box)return;
+  const ids=[...selectedSet];
+  box.innerHTML=ids.length?ids.map(id=>`<span class="pill">${esc(v61BusinessName(id))}<button type="button" data-remove-id="${esc(id)}" aria-label="삭제">×</button></span>`).join(''):'<span class="muted">지정된 업체가 없습니다. 자동 추천 규칙만 적용됩니다.</span>';
+  box.querySelectorAll('[data-remove-id]').forEach(btn=>btn.onclick=()=>{selectedSet.delete(String(btn.dataset.removeId));v61RenderSelectedBusinesses(prefix,selectedSet)});
+}
+function v61BindBusinessSearch(prefix, selectedSet){
+  const input=qs(`${prefix}Search`),results=qs(`${prefix}Results`);if(!input||!results)return;
+  const render=()=>{
+    results.innerHTML=v61BusinessSearchResultsHtml(input.value,selectedSet);
+    results.querySelectorAll('.v61-business-result').forEach(btn=>btn.onclick=()=>{selectedSet.add(String(btn.dataset.id));input.value='';results.innerHTML='<div class="muted">업체명을 입력하면 검색 결과가 표시됩니다.</div>';v61RenderSelectedBusinesses(prefix,selectedSet)});
+  };
+  input.addEventListener('input',render);
+  v61RenderSelectedBusinesses(prefix,selectedSet);
+}
 function v61HomeSettingsPanel(){
   if(qs('v61HomeSettingsPanel'))return;
   const section=qs('section-newsroom');if(!section)return;
   const panel=document.createElement('section');panel.id='v61HomeSettingsPanel';panel.className='panel';panel.style.marginBottom='18px';
-  panel.innerHTML=`<div class="panel-head"><div><h2>메인 자동 편성</h2><p class="muted">달타운 추천업체와 한 줄 광고를 기본값 또는 날짜별 일정으로 자동 변경합니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">메인 설정 저장</button></div>
+  panel.innerHTML=`<div class="panel-head"><div><h2>추천 규칙</h2><p class="muted">선택한 조건과 업종을 자동으로 순환합니다. 관리자 지정 업체는 자동 추천보다 먼저 노출됩니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">추천 규칙 저장</button></div>
   <div class="form-grid">
-    <label class="field"><span>기본 추천업체 기준</span><select id="v45BusinessMode">${Object.entries(V61_MODE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
-    <label class="field full"><span>관리자 직접 지정 업체</span><select id="v45BusinessIds" multiple size="5"></select><small class="muted">직접 지정하면 날짜별 기준보다 우선합니다. Ctrl/Command로 여러 업체를 선택할 수 있습니다.</small></label>
-    <div class="field full"><span>기본 한 줄 광고 자동 포함</span><div class="checkbox-row"><label><input id="v61TickerDalpick" type="checkbox" checked> 등록 광고·콘텐츠</label><label><input id="v61TickerCoupon" type="checkbox" checked> 유효한 쿠폰</label></div></div>
+    <div class="field full"><span>기본 자동 추천 분류</span><div id="v61BaseRules">${v61RuleChecksHtml('base',V61_DEFAULT_MODES,[])}</div></div>
+    <div class="field full"><span>관리자 우선 노출 업체</span><input id="v61BaseBusinessSearch" placeholder="업체명 검색"><div id="v61BaseBusinessResults" class="v61-search-results"><div class="muted">업체명을 입력하면 검색 결과가 표시됩니다.</div></div><div id="v61BaseBusinessSelected" class="checkbox-row" style="margin-top:10px"></div><small class="muted">검색해서 지정한 업체는 날짜별 일정과 자동 추천보다 먼저 노출됩니다.</small></div>
   </div>
-  <hr><div class="panel-head"><div><h3>날짜별 자동 변경 일정</h3><p class="muted">기간이 겹치면 우선순위 숫자가 큰 일정이 적용됩니다. 종료일 다음 날에는 자동으로 기본 설정으로 돌아갑니다.</p></div><button id="v61ScheduleAddBtn" class="btn ghost" type="button">일정 추가</button></div>
+  <hr><div class="panel-head"><div><h3>날짜별 추천 규칙</h3><p class="muted">지정 기간에만 아래 규칙이 기본 설정을 대신합니다. 기간이 겹치면 우선순위가 높은 일정이 적용되고, 종료 후 기본 규칙으로 돌아갑니다.</p></div><button id="v61ScheduleAddBtn" class="btn ghost" type="button">새 일정</button></div>
   <div class="form-grid">
     <input id="v61ScheduleId" type="hidden">
-    <label class="field"><span>일정 이름</span><input id="v61ScheduleName" placeholder="예: 8월 쿠폰 주간"></label>
-    <label class="field"><span>추천업체 기준</span><select id="v61ScheduleMode">${Object.entries(V61_MODE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
+    <label class="field"><span>일정 이름</span><input id="v61ScheduleName" placeholder="예: 개학 시즌"></label>
+    <label class="field"><span>우선순위</span><input id="v61SchedulePriority" type="number" value="10"></label>
     <label class="field"><span>시작일</span><input id="v61ScheduleStart" type="date"></label>
     <label class="field"><span>종료일</span><input id="v61ScheduleEnd" type="date"></label>
-    <label class="field"><span>우선순위</span><input id="v61SchedulePriority" type="number" value="10"></label>
-    <div class="field"><span>한 줄 광고 포함</span><div class="checkbox-row"><label><input id="v61ScheduleDalpick" type="checkbox" checked> 광고·콘텐츠</label><label><input id="v61ScheduleCoupon" type="checkbox" checked> 쿠폰</label></div></div>
+    <div class="field full"><span>자동 추천 분류</span><div id="v61ScheduleRules">${v61RuleChecksHtml('schedule',['featured'],[])}</div></div>
+    <div class="field full"><span>관리자 지정 업체(선택)</span><input id="v61ScheduleBusinessSearch" placeholder="업체명 검색"><div id="v61ScheduleBusinessResults" class="v61-search-results"><div class="muted">업체명을 입력하면 검색 결과가 표시됩니다.</div></div><div id="v61ScheduleBusinessSelected" class="checkbox-row" style="margin-top:10px"></div></div>
     <label class="field checkbox-line"><input id="v61ScheduleEnabled" type="checkbox" checked><span>이 일정 사용</span></label>
     <div class="field"><span>&nbsp;</span><button id="v61ScheduleSaveBtn" class="btn primary" type="button">일정 등록</button></div>
   </div><div id="v61ScheduleList" class="business-list" style="margin-top:14px"></div>`;
   section.prepend(panel);
-  qs('v61ScheduleAddBtn').onclick=v61ResetScheduleForm;qs('v61ScheduleSaveBtn').onclick=v61SaveScheduleLocal;
+  qs('v61ScheduleAddBtn').onclick=v61ResetScheduleForm;
+  qs('v61ScheduleSaveBtn').onclick=v61SaveScheduleLocal;
+  v61BindBusinessSearch('v61BaseBusiness',v61BaseBusinessIds);
+  v61BindBusinessSearch('v61ScheduleBusiness',v61ScheduleBusinessIds);
 }
-function v61ResetScheduleForm(){setVal('v61ScheduleId','');setVal('v61ScheduleName','');setVal('v61ScheduleStart','');setVal('v61ScheduleEnd','');setVal('v61ScheduleMode','featured');setVal('v61SchedulePriority','10');setChecked('v61ScheduleDalpick',true);setChecked('v61ScheduleCoupon',true);setChecked('v61ScheduleEnabled',true);safeText('v61ScheduleSaveBtn','일정 등록')}
-function v61SchedulePayload(){const start=val('v61ScheduleStart'),end=val('v61ScheduleEnd');if(!start||!end)throw new Error('시작일과 종료일을 입력하세요.');if(end<start)throw new Error('종료일은 시작일보다 빠를 수 없습니다.');return {id:val('v61ScheduleId')||`schedule-${Date.now()}`,name:val('v61ScheduleName').trim()||`${start} 일정`,start_date:start,end_date:end,business_mode:val('v61ScheduleMode')||'featured',priority:Number(val('v61SchedulePriority')||0),ticker_sources:[checked('v61ScheduleDalpick')?'dalpick':'',checked('v61ScheduleCoupon')?'coupon':''].filter(Boolean),enabled:checked('v61ScheduleEnabled')}}
+function v61SetRuleChecks(prefix,modes=[],categories=[]){
+  const host=qs(prefix==='base'?'v61BaseRules':'v61ScheduleRules');
+  if(host)host.innerHTML=v61RuleChecksHtml(prefix,modes,categories);
+}
+function v61ResetScheduleForm(){
+  setVal('v61ScheduleId','');setVal('v61ScheduleName','');setVal('v61ScheduleStart','');setVal('v61ScheduleEnd','');setVal('v61SchedulePriority','10');setChecked('v61ScheduleEnabled',true);safeText('v61ScheduleSaveBtn','일정 등록');
+  v61ScheduleBusinessIds=new Set();v61SetRuleChecks('schedule',['featured'],[]);v61BindBusinessSearch('v61ScheduleBusiness',v61ScheduleBusinessIds);setVal('v61ScheduleBusinessSearch','');
+}
+function v61SchedulePayload(){
+  const start=val('v61ScheduleStart'),end=val('v61ScheduleEnd');if(!start||!end)throw new Error('시작일과 종료일을 입력하세요.');if(end<start)throw new Error('종료일은 시작일보다 빠를 수 없습니다.');
+  const rules=v61ReadRules('schedule');if(!rules.business_modes.length)throw new Error('자동 추천 분류를 하나 이상 선택하세요.');
+  return {id:val('v61ScheduleId')||`schedule-${Date.now()}`,name:val('v61ScheduleName').trim()||`${start} 일정`,start_date:start,end_date:end,business_modes:rules.business_modes,business_mode:rules.business_modes[0]||'featured',business_categories:rules.business_categories,business_ids:[...v61ScheduleBusinessIds],priority:Number(val('v61SchedulePriority')||0),enabled:checked('v61ScheduleEnabled')};
+}
 function v61SaveScheduleLocal(){try{const row=v61SchedulePayload();const i=v61HomeSchedules.findIndex(x=>String(x.id)===String(row.id));if(i>=0)v61HomeSchedules[i]=row;else v61HomeSchedules.push(row);v61HomeSchedules.sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)));v61RenderSchedules();v61ResetScheduleForm();}catch(e){alert(e.message)}}
-function v61RenderSchedules(){const box=qs('v61ScheduleList');if(!box)return;box.innerHTML=v61HomeSchedules.length?v61HomeSchedules.map(r=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(r.name||'날짜별 일정')} ${r.enabled===false?'<span class="muted">(중지)</span>':''}</div><div class="biz-meta">${esc(r.start_date||'')} ~ ${esc(r.end_date||'')} · ${esc(V61_MODE_LABELS[r.business_mode]||r.business_mode)} · 우선순위 ${esc(r.priority||0)}</div><div class="biz-meta">한 줄 광고: ${(r.ticker_sources||[]).includes('dalpick')?'광고·콘텐츠 ':''}${(r.ticker_sources||[]).includes('coupon')?'쿠폰':''}</div></div><button class="btn ghost" data-v61-edit="${esc(r.id)}" type="button">수정</button><button class="btn danger" data-v61-delete="${esc(r.id)}" type="button">삭제</button></div>`).join(''):'<div class="muted">등록된 날짜별 일정이 없습니다.</div>';box.querySelectorAll('[data-v61-edit]').forEach(b=>b.onclick=()=>v61EditSchedule(b.dataset.v61Edit));box.querySelectorAll('[data-v61-delete]').forEach(b=>b.onclick=()=>{v61HomeSchedules=v61HomeSchedules.filter(x=>String(x.id)!==String(b.dataset.v61Delete));v61RenderSchedules()})}
-function v61EditSchedule(id){const r=v61HomeSchedules.find(x=>String(x.id)===String(id));if(!r)return;setVal('v61ScheduleId',r.id);setVal('v61ScheduleName',r.name||'');setVal('v61ScheduleStart',r.start_date||'');setVal('v61ScheduleEnd',r.end_date||'');setVal('v61ScheduleMode',r.business_mode||'featured');setVal('v61SchedulePriority',String(r.priority||0));setChecked('v61ScheduleDalpick',(r.ticker_sources||[]).includes('dalpick'));setChecked('v61ScheduleCoupon',(r.ticker_sources||[]).includes('coupon'));setChecked('v61ScheduleEnabled',r.enabled!==false);safeText('v61ScheduleSaveBtn','일정 수정')}
+function v61RenderSchedules(){
+  const box=qs('v61ScheduleList');if(!box)return;
+  box.innerHTML=v61HomeSchedules.length?v61HomeSchedules.map(r=>{
+    const modes=(r.business_modes?.length?r.business_modes:[r.business_mode||'featured']).map(x=>V61_MODE_LABELS[x]||x).join(' · ');
+    const cats=(r.business_categories||[]).join(' · ')||'전체 업종';
+    const names=(r.business_ids||[]).map(v61BusinessName).join(' · ');
+    return `<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(r.name||'날짜별 일정')} ${r.enabled===false?'<span class="muted">(중지)</span>':''}</div><div class="biz-meta">${esc(r.start_date||'')} ~ ${esc(r.end_date||'')} · 우선순위 ${esc(r.priority||0)}</div><div class="biz-meta">조건: ${esc(modes)} · 업종: ${esc(cats)}</div>${names?`<div class="biz-meta">관리자 지정: ${esc(names)}</div>`:''}</div><button class="btn ghost" data-v61-edit="${esc(r.id)}" type="button">수정</button><button class="btn danger" data-v61-delete="${esc(r.id)}" type="button">삭제</button></div>`;
+  }).join(''):'<div class="muted">등록된 날짜별 일정이 없습니다.</div>';
+  box.querySelectorAll('[data-v61-edit]').forEach(b=>b.onclick=()=>v61EditSchedule(b.dataset.v61Edit));
+  box.querySelectorAll('[data-v61-delete]').forEach(b=>b.onclick=()=>{v61HomeSchedules=v61HomeSchedules.filter(x=>String(x.id)!==String(b.dataset.v61Delete));v61RenderSchedules()});
+}
+function v61EditSchedule(id){
+  const r=v61HomeSchedules.find(x=>String(x.id)===String(id));if(!r)return;
+  setVal('v61ScheduleId',r.id);setVal('v61ScheduleName',r.name||'');setVal('v61ScheduleStart',r.start_date||'');setVal('v61ScheduleEnd',r.end_date||'');setVal('v61SchedulePriority',String(r.priority||0));setChecked('v61ScheduleEnabled',r.enabled!==false);safeText('v61ScheduleSaveBtn','일정 수정');
+  const modes=r.business_modes?.length?r.business_modes:[r.business_mode||'featured'];v61SetRuleChecks('schedule',modes,r.business_categories||[]);
+  v61ScheduleBusinessIds=new Set((r.business_ids||[]).map(String));v61BindBusinessSearch('v61ScheduleBusiness',v61ScheduleBusinessIds);setVal('v61ScheduleBusinessSearch','');
+}
 
 // V45 main three-zone settings
 function v45Csv(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean)}
-function v45PopulateBusinessSelect(selected=[]){const el=qs('v45BusinessIds');if(!el)return;const ids=new Set((selected||[]).map(String));el.innerHTML=(businesses||[]).slice().sort((a,b)=>String(a.name_ko||a.name_en||'').localeCompare(String(b.name_ko||b.name_en||''),'ko')).map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('')}
+function v45PopulateBusinessSelect(selected=[]){v61BaseBusinessIds=new Set((selected||[]).map(String));v61RenderSelectedBusinesses('v61BaseBusiness',v61BaseBusinessIds)}
 function v45FillHomeConfig(config={}){
   v61HomeSettingsPanel();
   v61HomeSchedules=Array.isArray(config.schedule_presets)?config.schedule_presets.map(x=>({...x})):[];v61RenderSchedules();
-  setChecked('v61TickerDalpick',!Array.isArray(config.ticker_sources)||config.ticker_sources.includes('dalpick'));setChecked('v61TickerCoupon',!Array.isArray(config.ticker_sources)||config.ticker_sources.includes('coupon'));
   const cats=new Set(config.proposal_categories||[]);$$('#v45ProposalCategories input').forEach(x=>x.checked=cats.has(x.value));
   const links=qs('v45CategoryLinks');if(links)links.value=JSON.stringify(config.category_links||{},null,2);
-  const mode=qs('v45BusinessMode');if(mode)mode.value=config.business_mode||'featured';v45PopulateBusinessSelect(config.business_ids||[]);
+  const modes=Array.isArray(config.business_modes)&&config.business_modes.length?config.business_modes:[config.business_mode||'featured'];
+  v61SetRuleChecks('base',modes,config.business_categories||[]);v45PopulateBusinessSelect(config.business_ids||[]);v61BindBusinessSearch('v61BaseBusiness',v61BaseBusinessIds);
   const types=new Set(config.community_board_types||[]);$$('#v45CommunityTypes input').forEach(x=>x.checked=types.has(x.value));
   if(qs('v45CommunityBoostIds'))qs('v45CommunityBoostIds').value=(config.community_boost_ids||[]).join(', ');
   if(qs('v45CommunityPostIds'))qs('v45CommunityPostIds').value=(config.community_post_ids||[]).join(', ');
 }
 function v45ReadHomeConfig(){
   let links={};try{links=JSON.parse(qs('v45CategoryLinks')?.value||'{}')}catch(_){throw new Error('카테고리별 연결 링크는 올바른 JSON 형식으로 입력하세요.');}
-  return {proposal_categories:$$('#v45ProposalCategories input:checked').map(x=>x.value),category_links:links,business_mode:qs('v45BusinessMode')?.value||'featured',business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value),ticker_sources:[checked('v61TickerDalpick')?'dalpick':'',checked('v61TickerCoupon')?'coupon':''].filter(Boolean),schedule_presets:v61HomeSchedules,community_board_types:$$('#v45CommunityTypes input:checked').map(x=>x.value),community_post_ids:v45Csv(qs('v45CommunityPostIds')?.value),community_boost_ids:v45Csv(qs('v45CommunityBoostIds')?.value)};
+  const rules=v61ReadRules('base');if(!rules.business_modes.length)throw new Error('기본 자동 추천 분류를 하나 이상 선택하세요.');
+  return {proposal_categories:$$('#v45ProposalCategories input:checked').map(x=>x.value),category_links:links,business_modes:rules.business_modes,business_mode:rules.business_modes[0]||'featured',business_categories:rules.business_categories,business_ids:[...v61BaseBusinessIds],schedule_presets:v61HomeSchedules,community_board_types:$$('#v45CommunityTypes input:checked').map(x=>x.value),community_post_ids:v45Csv(qs('v45CommunityPostIds')?.value),community_boost_ids:v45Csv(qs('v45CommunityBoostIds')?.value)};
 }
 async function v45SaveHomeConfig(){const btn=qs('v45HomeSaveBtn');if(btn)btn.disabled=true;try{const home_config=v45ReadHomeConfig();await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'메인 운영 설정을 저장하고 있습니다…');const verified=await newsroomEdgeCall('get_settings',{region:getAppRegion()},'저장된 메인 설정을 확인하고 있습니다…');const saved=verified?.settings?.home_config||verified?.home_config||{};v45FillHomeConfig(saved);safeText('newsroomStatus',`메인 설정 저장·확인 완료 · 선택 분야 ${(saved.proposal_categories||[]).length}개`);alert('메인 운영 설정을 저장하고 서버에서 다시 확인했습니다.');}catch(e){alert(`메인 설정 저장 실패: ${e.message}`);}finally{if(btn)btn.disabled=false;}}
 
