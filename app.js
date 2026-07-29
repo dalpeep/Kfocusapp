@@ -1291,25 +1291,31 @@ let dalpickCarouselTimer = null;
 function readActiveEventRoutines(){
   try{
     const appRegion=String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase();
-    const candidates=[appRegion, appRegion==='colorado'?'denver':appRegion, appRegion==='denver'?'colorado':appRegion];
-    const now=Date.now();
-    for(const regionName of [...new Set(candidates)]){
-      const stored=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v68_${regionName}`)||'[]');
-      if(!Array.isArray(stored)||!stored.length) continue;
-      const active=stored.filter(r=>{
-        if(!r || r.is_active===false || r.enabled===false) return false;
-        const status=String(r.status||'').toLowerCase();
-        if(['draft','inactive','disabled','archived'].includes(status)) return false;
-        const start=r.start_at||r.start_date||'';
-        const end=r.end_at||r.end_date||'';
-        if(start && Date.parse(start)>now) return false;
-        if(end && Date.parse(end)<now) return false;
-        return true;
-      }).sort((a,b)=>Date.parse(b.updated_at||b.created_at||0)-Date.parse(a.updated_at||a.created_at||0));
-      // 관리자에서 마지막으로 저장한 현재 편성만 사용해 과거 편성 문구가 다시 노출되지 않게 합니다.
-      if(active.length) return [active[0]];
+    const serverConfig=(window.__DALTOWN_MAIN_SETTINGS__&&typeof window.__DALTOWN_MAIN_SETTINGS__==='object')?window.__DALTOWN_MAIN_SETTINGS__:(v45HomeConfig||{});
+    const serverRows=Array.isArray(serverConfig.event_routines)?serverConfig.event_routines:[];
+    let source=serverRows;
+    // 서버 설정을 아직 불러오기 전인 첫 화면에서만 V72 로컬 캐시를 잠시 사용합니다.
+    if(!source.length){
+      const candidates=[appRegion,appRegion==='colorado'?'denver':appRegion,appRegion==='denver'?'colorado':appRegion];
+      for(const regionName of [...new Set(candidates)]){
+        const cached=JSON.parse(localStorage.getItem(`kfocus_active_event_routines_v72_${regionName}`)||'[]');
+        if(Array.isArray(cached)&&cached.length){source=cached;break;}
+      }
     }
-  }catch(e){ console.warn('[Event routines] read failed',e); }
+    const now=Date.now();
+    return source.filter(r=>{
+      if(!r||r.is_active===false||r.enabled===false)return false;
+      const rr=String(r.region||appRegion).toLowerCase();
+      if(![appRegion,'all',appRegion==='colorado'?'denver':'',appRegion==='denver'?'colorado':''].includes(rr))return false;
+      const status=String(r.status||'').toLowerCase();
+      if(['draft','inactive','disabled','archived'].includes(status))return false;
+      const start=r.start_at||r.start_date||'';
+      const end=r.end_at||r.end_date||'';
+      if(start&&Date.parse(start)>now)return false;
+      if(end&&Date.parse(end)<now)return false;
+      return true;
+    }).sort((a,b)=>Date.parse(b.updated_at||b.created_at||0)-Date.parse(a.updated_at||a.created_at||0));
+  }catch(e){console.warn('[Event routines] read failed',e);}
   return [];
 }
 function eventRoutineItems(actionKey){
@@ -1416,7 +1422,7 @@ function renderDalpicks(){
 
 // 관리자와 메인을 같은 브라우저에서 열어 둔 경우 저장 즉시 갱신합니다.
 window.addEventListener('storage',e=>{
-  if(String(e.key||'').startsWith('kfocus_active_event_routines_v68_')){ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); } if(String(e.key||'').startsWith('kfocus_board_home_pins_v66_')) v45SetupCommunity(v45HomeConfig||{});
+  if(String(e.key||'').startsWith('kfocus_active_event_routines_v72_')){ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); } if(String(e.key||'').startsWith('kfocus_board_home_pins_v66_')) v45SetupCommunity(v45HomeConfig||{});
 });
 window.addEventListener('kfocus:event-routines-updated',()=>{ renderDalpicks(); v45SetupCommunity(v45HomeConfig||{}); });
 window.addEventListener('kfocus:board-home-pins-updated',()=>v45SetupCommunity(v45HomeConfig||{}));
@@ -2465,6 +2471,27 @@ async function loadMainSettings(forceRefresh=false){
   return {items:Array.isArray(items)?items:[],config:v45HomeConfig,meta:feedMeta};
 }
 window.loadMainSettings = loadMainSettings;
+// V72: 관리자에서 저장한 이벤트 루틴을 모든 기기에서 공유합니다.
+// 메인 화면을 계속 열어 둔 경우에도 주기적으로 서버 설정을 다시 읽어 반영합니다.
+let v72RoutineSettingsTimer=null;
+function v72StartRoutineSettingsSync(){
+  if(v72RoutineSettingsTimer)clearInterval(v72RoutineSettingsTimer);
+  v72RoutineSettingsTimer=setInterval(async()=>{
+    if(document.hidden)return;
+    try{
+      await loadMainSettings(true);
+      renderDalpicks();
+      v45SetupCommunity(v45HomeConfig||{});
+      if(typeof renderHomeRecommendations==='function')renderHomeRecommendations();
+    }catch(e){console.warn('[V72 routine sync]',e);}
+  },30000);
+}
+document.addEventListener('visibilitychange',async()=>{
+  if(!document.hidden){
+    try{await loadMainSettings(true);renderDalpicks();v45SetupCommunity(v45HomeConfig||{});}catch(e){}
+  }
+});
+setTimeout(v72StartRoutineSettingsSync,1500);
 
 function v46FallbackProposalItems(config={}){
   const selected=new Set((config.proposal_categories||[]).map(String));

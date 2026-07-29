@@ -13,13 +13,57 @@ const OPTION_LABELS={
 };
 let routines=[]; let selectedId=null;
 function region(){return String(window.APP_CONFIG?.APP_REGION||window.KFOCUS_CONFIG?.APP_REGION||'dallas').toLowerCase();}
-function key(){return `kfocus_event_routines_v68_${region()}`;}
-function activityKey(){return `kfocus_event_routine_activity_v68_${region()}`;}
+function key(){return `kfocus_event_routines_v72_${region()}`;}
+function activityKey(){return `kfocus_event_routine_activity_v72_${region()}`;}
 function readActivity(){try{return JSON.parse(localStorage.getItem(activityKey())||'[]')}catch{return[]}}
 function logActivity(message,type='updated'){const rows=readActivity();rows.unshift({id:`act-${Date.now()}`,message,type,at:new Date().toISOString()});localStorage.setItem(activityKey(),JSON.stringify(rows.slice(0,80)));renderDashboard();}
-function load(){try{routines=JSON.parse(localStorage.getItem(key())||'[]');if(!Array.isArray(routines))routines=[];}catch{routines=[];}render();publishRuntime();}
-function save(){localStorage.setItem(key(),JSON.stringify(routines));publishRuntime();render();}
-function publishRuntime(){const active=routines.filter(r=>statusOf(r)==='active');localStorage.setItem(`kfocus_active_event_routines_v68_${region()}`,JSON.stringify(active));window.dispatchEvent(new CustomEvent('kfocus:event-routines-updated',{detail:{region:region(),routines:active}}));renderDashboard();}
+let serverSyncBusy=false;
+function config(){return window.KFOCUS_CONFIG||window.APP_CONFIG||{};}
+function getAuthClient(){
+  const cfg=config();
+  if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY||!window.supabase?.createClient)return null;
+  if(!window.__eventRoutineSupabase)window.__eventRoutineSupabase=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
+  return window.__eventRoutineSupabase;
+}
+async function edgeCall(action,body={}){
+  const cfg=config(),client=getAuthClient();
+  if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY||!client)throw new Error('Supabase 설정을 확인하세요.');
+  const {data:{session}}=await client.auth.getSession();
+  if(!session?.access_token)throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
+  const functionName=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom').trim()||'newsroom';
+  const res=await fetch(`${String(cfg.SUPABASE_URL).replace(/\/$/,'')}/functions/v1/${encodeURIComponent(functionName)}`,{method:'POST',headers:{'Content-Type':'application/json',apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({action,region:region(),...body}),cache:'no-store'});
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
+  return json;
+}
+async function load(){
+  try{
+    const json=await edgeCall('get_settings',{region:region()});
+    const cfg=json?.settings?.home_config||{};
+    routines=Array.isArray(cfg.event_routines)?cfg.event_routines:[];
+    localStorage.setItem(key(),JSON.stringify(routines));
+  }catch(e){
+    console.warn('[Event routines] server load failed, using cache',e);
+    try{routines=JSON.parse(localStorage.getItem(key())||'[]');if(!Array.isArray(routines))routines=[];}catch{routines=[];}
+  }
+  render();publishRuntime();
+}
+async function save(){
+  if(serverSyncBusy)return;
+  serverSyncBusy=true;
+  localStorage.setItem(key(),JSON.stringify(routines));
+  publishRuntime();render();
+  try{
+    const current=await edgeCall('get_settings',{region:region()});
+    const homeConfig=current?.settings?.home_config&&typeof current.settings.home_config==='object'?current.settings.home_config:{};
+    const nextConfig={...homeConfig,event_routines:routines,event_routines_updated_at:new Date().toISOString()};
+    const saved=await edgeCall('save_settings',{region:region(),home_config:nextConfig});
+    const verified=saved?.settings?.home_config?.event_routines;
+    if(Array.isArray(verified)){routines=verified;localStorage.setItem(key(),JSON.stringify(routines));}
+    publishRuntime();render();
+  }finally{serverSyncBusy=false;}
+}
+function publishRuntime(){const active=routines.filter(r=>statusOf(r)==='active');localStorage.setItem(`kfocus_active_event_routines_v72_${region()}`,JSON.stringify(active));window.dispatchEvent(new CustomEvent('kfocus:event-routines-updated',{detail:{region:region(),routines:active}}));renderDashboard();}
 function nowLocal(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16);}
 function statusOf(r){if(r.enabled===false)return'paused';const now=Date.now(),s=r.start_at?new Date(r.start_at).getTime():null,e=r.end_at?new Date(r.end_at).getTime():null;if(s&&now<s)return'scheduled';if(e&&now>e)return'ended';return'active';}
 function statusLabel(s){return({active:'진행 중',scheduled:'예약',paused:'일시중지',ended:'종료'})[s]||s;}
@@ -31,9 +75,9 @@ function reset(){selectedId=null;$('erId').value='';$('erName').value='';$('erDe
 function edit(id){const r=routines.find(x=>String(x.id)===String(id));if(!r)return;selectedId=r.id;$('erId').value=r.id;$('erName').value=r.name||'';$('erDescription').value=r.description||'';$('erRegion').value=r.region||region();$('erScheduleType').value=r.schedule_type||'range';$('erEnabled').value=String(r.enabled!==false);$('erStartAt').value=r.start_at||'';$('erEndAt').value=r.end_at||'';$('erRepeatType').value=r.repeat_type||'weekly';$('erRepeatValue').value=r.repeat_value||'';document.querySelectorAll('#erActionGrid>label').forEach(l=>{const cb=l.querySelector(':scope > input[type=checkbox]');let a=r.actions?.[cb.value];if(cb.value==='alert'&&r.actions?.ticker){const legacy=r.actions.ticker;a={...(a||{}),options:[...new Set([...(a?.options||[]),...(legacy.options||[])])],custom_items:[...(a?.custom_items||[]),...(legacy.custom_items||[])],interval_seconds:a?.interval_seconds||legacy.interval_seconds||5,link_type:a?.link_type||legacy.link_type||'none',link_value:a?.link_value||legacy.link_value||''};}cb.checked=!!a;l.classList.toggle('selected',!!a);l.querySelectorAll('[data-er-options] input[type=checkbox]').forEach(x=>x.checked=Array.isArray(a?.options)&&a.options.includes(x.value));const interval=l.querySelector('[data-er-interval]');if(interval)interval.value=String(a?.interval_seconds||5);const custom=l.querySelector('[data-er-custom]');if(custom)custom.value=(a?.custom_items||[]).map(x=>typeof x==='string'?x:x.text).filter(Boolean).join('\n');const lt=l.querySelector('[data-er-link-type]');if(lt)lt.value=a?.link_type||'none';const lv=l.querySelector('[data-er-link-value]');if(lv)lv.value=a?.link_value||'';});$('erFormTitle').textContent='이벤트 루틴 수정';$('erSaveBtn').textContent='변경 저장';$('erDeleteBtn').classList.remove('hidden');$('erDuplicateBtn').classList.remove('hidden');scheduleUI();render();}
 function scheduleUI(){const t=$('erScheduleType').value;document.querySelectorAll('.er-repeat-field').forEach(x=>x.classList.toggle('hidden',t!=='repeat'));document.querySelectorAll('.er-date-field').forEach(x=>x.classList.remove('hidden'));if(t==='today'){const n=new Date(),pad=v=>String(v).padStart(2,'0'),day=`${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}`;$('erStartAt').value=`${day}T00:00`;$('erEndAt').value=`${day}T23:59`;}if(t==='open')$('erEndAt').value='';}
 function payload(){const name=$('erName').value.trim();if(!name)throw new Error('이벤트 이름을 입력하세요.');const actions={};document.querySelectorAll('#erActionGrid>label').forEach(l=>{const cb=l.querySelector(':scope > input[type=checkbox]');if(!cb.checked)return;const optionBox=l.querySelector('[data-er-options]');const options=optionBox?[...optionBox.querySelectorAll('input[type=checkbox]:checked')].map(x=>x.value):[];const custom=l.querySelector('[data-er-custom]');const customItems=(custom?.value||'').split('\n').map(x=>x.trim()).filter(Boolean).map(text=>({text}));if(!options.length&&!customItems.length)throw new Error(`${ACTION_LABELS[cb.value]}에서 유형을 선택하거나 직접 문구를 입력하세요.`);const interval=l.querySelector('[data-er-interval]');const linkType=l.querySelector('[data-er-link-type]')?.value||'none';const linkValue=l.querySelector('[data-er-link-value]')?.value.trim()||'';const action={options,custom_items:customItems,interval_seconds:Number(interval?.value||5),mode:'rotate',link_type:linkType,link_value:linkValue};action.detail=actionSummary(action,cb.value);actions[cb.value]=action;});if(!Object.keys(actions).length)throw new Error('실행할 영역을 하나 이상 선택하세요.');const t=$('erScheduleType').value,start=$('erStartAt').value,end=$('erEndAt').value;if(['range','today'].includes(t)&&(!start||!end))throw new Error('시작과 종료 날짜를 입력하세요.');if(start&&end&&new Date(end)<new Date(start))throw new Error('종료 날짜는 시작 날짜보다 빠를 수 없습니다.');return{id:$('erId').value||`event-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,name,description:$('erDescription').value.trim(),region:$('erRegion').value,schedule_type:t,enabled:$('erEnabled').value==='true',start_at:start||null,end_at:t==='open'?null:(end||null),repeat_type:$('erRepeatType').value,repeat_value:$('erRepeatValue').value.trim(),actions,updated_at:new Date().toISOString()};}
-function saveForm(){try{const r=payload(),i=routines.findIndex(x=>String(x.id)===String(r.id));const isEdit=i>=0;if(isEdit)routines[i]={...routines[i],...r};else routines.push({...r,created_at:new Date().toISOString()});save();edit(r.id);logActivity(`${r.name} ${isEdit?'수정':'추가'} · ${Object.keys(r.actions).map(k=>ACTION_LABELS[k]).join(', ')}`,isEdit?'updated':'created');alert('이벤트 루틴을 저장했습니다. 선택 유형과 직접 문구는 함께 순환하도록 저장됩니다.');}catch(e){alert(e.message);}}
-function remove(){if(!selectedId||!confirm('이 이벤트 루틴을 삭제할까요?'))return;const r=routines.find(x=>String(x.id)===String(selectedId));routines=routines.filter(x=>String(x.id)!==String(selectedId));save();logActivity(`${r?.name||'이벤트'} 삭제`,'deleted');reset();}
-function duplicate(){const r=routines.find(x=>String(x.id)===String(selectedId));if(!r)return;const copy=structuredClone(r);copy.id=`event-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;copy.name=`${r.name} 복사본`;copy.enabled=false;copy.created_at=new Date().toISOString();routines.push(copy);save();logActivity(`${r.name} 복제본 생성`,'duplicated');edit(copy.id);}
+async function saveForm(){try{const r=payload(),i=routines.findIndex(x=>String(x.id)===String(r.id));const isEdit=i>=0;if(isEdit)routines[i]={...routines[i],...r};else routines.push({...r,created_at:new Date().toISOString()});await save();edit(r.id);logActivity(`${r.name} ${isEdit?'수정':'추가'} · ${Object.keys(r.actions).map(k=>ACTION_LABELS[k]).join(', ')}`,isEdit?'updated':'created');alert('이벤트 루틴을 저장했습니다. 선택 유형과 직접 문구는 함께 순환하도록 저장됩니다.');}catch(e){alert(e.message);}}
+async function remove(){if(!selectedId||!confirm('이 이벤트 루틴을 삭제할까요?'))return;const r=routines.find(x=>String(x.id)===String(selectedId));routines=routines.filter(x=>String(x.id)!==String(selectedId));await save();logActivity(`${r?.name||'이벤트'} 삭제`,'deleted');reset();}
+async function duplicate(){const r=routines.find(x=>String(x.id)===String(selectedId));if(!r)return;const copy=structuredClone(r);copy.id=`event-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;copy.name=`${r.name} 복사본`;copy.enabled=false;copy.created_at=new Date().toISOString();routines.push(copy);await save();logActivity(`${r.name} 복제본 생성`,'duplicated');edit(copy.id);}
 function preview(){try{const r=payload();$('erPreview').innerHTML=`<strong>${esc(r.name)}</strong><br>${esc(dateText(r))}<br><br>${Object.entries(r.actions).map(([k,v])=>`• ${esc(ACTION_LABELS[k])}: ${esc(actionSummary(v,k))}${v.interval_seconds?` · ${esc(v.interval_seconds)}초마다 순환`:''}`).join('<br>')}<br><br><strong>동시 실행 규칙:</strong> 다른 이벤트를 덮어쓰지 않고 선택 콘텐츠와 직접 문구를 합쳐 순환합니다.`;$('erPreview').classList.remove('hidden');}catch(e){alert(e.message);}}
 function renderDashboard(){const activeBox=$('erDashboardActive'),activityBox=$('erDashboardActivity'),upcomingBox=$('erDashboardUpcoming');if(activeBox){const active=routines.filter(r=>statusOf(r)==='active');activeBox.innerHTML=active.length?active.map(r=>`<div class="er-dashboard-item"><div class="er-dashboard-item-head"><strong>${esc(r.name)}</strong><span class="er-mini-status">적용 중</span></div><p>${Object.entries(r.actions||{}).map(([k,v])=>`${ACTION_LABELS[k]}: ${actionSummary(v,k)}`).join('<br>')}</p></div>`).join(''):'<div class="dashboard-empty">현재 적용 중인 이벤트가 없습니다.</div>';}
  if(activityBox){const rows=readActivity().slice(0,12);activityBox.innerHTML=rows.length?rows.map(x=>`<div class="er-activity-item"><time>${new Date(x.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</time><span>${esc(x.message)}</span></div>`).join(''):'<div class="dashboard-empty">활동 내역이 없습니다.</div>';}
