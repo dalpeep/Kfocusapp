@@ -2428,8 +2428,6 @@ function v45SetupCommunity(config){
   }
 }
 function v77RefreshRoutineDrivenHome(){
-  const activeRoutines=readActiveEventRoutines();
-  document.documentElement.dataset.eventRoutineCount=String(activeRoutines.length);
   const biz=v45SelectedBusinesses(v45HomeConfig||{});
   v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));
   v37RecommendationIndex=0;
@@ -2520,36 +2518,17 @@ function paintV38HomePayload(payload,candidates){
   if(window.lucide)window.lucide.createIcons();
 }
 async function v471FetchPublicHomeSettings(){
-  // V82: Edge Function 응답과 newsroom_settings 테이블을 함께 확인합니다.
-  // 함수가 이전 버전이거나 CDN에 오래된 응답이 남아 있어도 실제 DB의 최신 home_config가 우선입니다.
   const cfg=getConfig();
   const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
   const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
   if(!base||!key)throw new Error('Supabase 공개 설정이 없습니다.');
+  const endpoint=`${base}/functions/v1/${encodeURIComponent(String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom'))}`;
   const region=String(currentRegion||'dallas').toLowerCase();
-  const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`,'Cache-Control':'no-cache'};
-  let edgeConfig={}, directConfig={}, edgeError=null, directError=null;
-  try{
-    const endpoint=`${base}/functions/v1/${encodeURIComponent(String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom'))}`;
-    const res=await fetch(`${endpoint}?action=home_settings&region=${encodeURIComponent(region)}&_=${Date.now()}`,{method:'GET',headers,cache:'no-store'});
-    const json=await res.json().catch(()=>({}));
-    if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
-    edgeConfig=json.home_config&&typeof json.home_config==='object'?json.home_config:{};
-  }catch(error){edgeError=error;console.warn('[V82 settings] Edge Function read failed',error);}
-  try{
-    const rest=`${base}/rest/v1/newsroom_settings?select=home_config,updated_at&region=eq.${encodeURIComponent(region)}&limit=1&_=${Date.now()}`;
-    const res=await fetch(rest,{method:'GET',headers:{...headers,Accept:'application/json'},cache:'no-store'});
-    const rows=await res.json().catch(()=>[]);
-    if(!res.ok)throw new Error(rows?.message||rows?.error||`HTTP ${res.status}`);
-    const row=Array.isArray(rows)?rows[0]:null;
-    directConfig=row?.home_config&&typeof row.home_config==='object'?row.home_config:{};
-  }catch(error){directError=error;console.warn('[V82 settings] direct table read failed',error);}
-  const directHasRoutines=Array.isArray(directConfig.event_routines);
-  const edgeHasRoutines=Array.isArray(edgeConfig.event_routines);
-  const result=directHasRoutines?{...edgeConfig,...directConfig}:{...directConfig,...edgeConfig};
-  if(!Object.keys(result).length)throw(edgeError||directError||new Error('메인 설정을 읽지 못했습니다.'));
-  console.info('[V82 settings] resolved',{region,source:directHasRoutines?'newsroom_settings':(edgeHasRoutines?'home_settings':'merged'),routines:Array.isArray(result.event_routines)?result.event_routines.length:0});
-  return result;
+  const headers={'Content-Type':'application/json','apikey':key,'Authorization':`Bearer ${key}`};
+  const res=await fetch(`${endpoint}?action=home_settings&region=${encodeURIComponent(region)}&_=${Date.now()}`,{method:'GET',headers,cache:'no-store'});
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
+  return json.home_config&&typeof json.home_config==='object'?json.home_config:{};
 }
 async function loadMainSettings(forceRefresh=false){
   // V47.1: 설정과 피드를 별도 요청으로 읽습니다. home_feed 응답에 설정이 누락되거나
@@ -2885,9 +2864,6 @@ async function renderV37AIHome(){
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
     settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Home] partial source failed',i,r.reason);});
     loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
-    window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
-    document.documentElement.dataset.eventRoutineCount=String(readActiveEventRoutines().length);
-    console.info('[V82 routines] active',readActiveEventRoutines().map(r=>({id:r.id,name:r.name,actions:Object.keys(r.actions||{})})));
     if(typeof renderDalpicks==='function')renderDalpicks();
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
