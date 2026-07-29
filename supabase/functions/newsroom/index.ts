@@ -1476,7 +1476,9 @@ async function saveDailyBriefing(region:string, published:any) {
 }
 
 async function dailyDallasLife(region='dallas') {
-  const collected = await autoRun(region);
+  // V91: 수집 전체(autoRun)를 같은 요청 안에서 실행하지 않습니다.
+  // Supabase Edge Function의 약 125초 제한을 피하기 위해 수집/분류는 별도 짧은 요청으로 나누고,
+  // 이 작업은 최종 기사 1건 게시 + 브리핑 저장만 담당합니다.
   try {
     const published = await publishOne(region,false);
     let briefing = null;
@@ -1486,9 +1488,9 @@ async function dailyDallasLife(region='dallas') {
       published.briefing_summary = String(item?.ai_summary || item?.original_summary || '').replace(/\s+/g,' ').trim().slice(0,120);
       briefing = await saveDailyBriefing(region, published);
     }
-    return {ok:true,version:VERSION,collected,published,briefing};
+    return {ok:true,version:VERSION,published,briefing};
   } catch (e) {
-    return {ok:true,version:VERSION,collected,published:{ok:false,skipped:true,reason:e instanceof Error?e.message:String(e)},briefing:null};
+    return {ok:true,version:VERSION,published:{ok:false,skipped:true,reason:e instanceof Error?e.message:String(e)},briefing:null};
   }
 }
 

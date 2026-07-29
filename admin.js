@@ -6106,12 +6106,31 @@ console.info('[DalTownMap Admin] V62 three-section home manager loaded');
     if(!confirm('자동 뉴스 수집·선별 작업을 지금 실행할까요? 오늘 기사가 이미 있으면 새 기사를 중복 발행하지 않습니다.'))return;
     const btn=el('v90BriefingGenerateBtn');if(btn){btn.disabled=true;btn.textContent='자동 작업 실행 중…';}
     try{
-      const j=await newsroomEdgeCall('daily_dallas_life',{region:getAppRegion()},'자료를 수집하고 오늘의 기사와 브리핑을 준비하고 있습니다…');
+      const region=getAppRegion();
+      const steps=[
+        ['collect_scheduled_topics',{},'예정 주제를 확인하고 있습니다…'],
+        ['collect_markets',{},'마트·생활 정보를 확인하고 있습니다…'],
+        ['collect',{lane:'practical'},'생활·날씨·교통 자료를 수집하고 있습니다…'],
+        ['collect',{lane:'events'},'문화·예술·행사 자료를 수집하고 있습니다…'],
+        ['collect',{lane:'korean'},'한인 지역 자료를 수집하고 있습니다…'],
+        ['collect',{lane:'shopping'},'쇼핑·생활 자료를 수집하고 있습니다…'],
+      ];
+      for(let i=0;i<steps.length;i++){
+        const [action,extra,msg]=steps[i];
+        setStatus(`${i+1}/${steps.length+3} ${msg}`);
+        try{await newsroomEdgeCall(action,{region,...extra},msg);}catch(stepError){console.warn('[V91 briefing step]',action,stepError);}
+      }
+      for(let i=0;i<2;i++){
+        setStatus(`${steps.length+i+1}/${steps.length+3} 수집 자료를 AI로 분류하고 있습니다…`);
+        try{await newsroomEdgeCall('analyze',{region,limit:4},'수집 자료를 AI로 분류하고 있습니다…');}catch(stepError){console.warn('[V91 analyze step]',stepError);}
+      }
+      setStatus(`${steps.length+3}/${steps.length+3} 오늘의 기사와 브리핑을 생성하고 있습니다…`);
+      const j=await newsroomEdgeCall('daily_dallas_life',{region},'오늘의 기사와 브리핑을 생성하고 있습니다…');
       await load();
       const reason=j?.published?.reason;
       setStatus(j?.briefing?'새 기사와 브리핑을 생성했습니다.':`자동 작업 완료${reason?` · ${reason}`:''}`);
       alert(j?.briefing?'새 브리핑이 생성되었습니다.':'자동 작업을 마쳤습니다. 오늘 기사가 이미 있거나 적합한 자료가 없어 새 브리핑을 만들지 않았습니다.');
-    }catch(e){console.error('[V90 briefing generate]',e);setStatus(`자동 작업 실패: ${e.message}`,true);alert(`자동 작업 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent='AI 자동 작업 실행';}}
+    }catch(e){console.error('[V91 briefing generate]',e);setStatus(`자동 작업 실패: ${e.message}`,true);alert(`자동 작업 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent='AI 자동 작업 실행';}}
   }
   document.addEventListener('DOMContentLoaded',()=>{
     el('v90BriefingRefreshBtn')?.addEventListener('click',()=>load(true));

@@ -1431,14 +1431,17 @@ function eventRoutineAlertItems(){
 
   // 2순위: 공지가 없을 때 직접 입력 문구와 선택한 업소 조건을 함께 순환합니다.
   const fallback=[];
-  active.forEach(r=>{
-    const action=r?.actions?.alert||r?.actions?.ticker||{};
+  // V91: 여러 과거 루틴의 직접 문구를 한꺼번에 합치지 않습니다.
+  // 현재 선택된(가장 최근) 알림 루틴 1개만 사용하여 '평일 운영' 같은 잔여 문구와 중복 노출을 막습니다.
+  {
+    const r=primary;
+    const action=r?.actions?.alert||{};
     (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
       const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
-      if(!text)return;
+      if(!text||text==='평일 운영')return;
       fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:r.name||'',badge:'알림',event_name:r.name||'',link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
     });
-  });
+  }
   // 3순위: 관리자 직접 문구가 없거나 끝난 뒤 오늘의 자동 브리핑을 표시합니다.
   if(briefingValid) fallback.push({
     kind:'event-alert-briefing',id:`daily-briefing-${dailyBriefing.date_key||todayKey()}`,date:dailyBriefing.generated_at||'',data:{title:String(dailyBriefing.text||'').trim(),summary:String(dailyBriefing.summary||'').trim(),badge:'브리핑',event_name:'오늘의 브리핑',link_type:dailyBriefing.link_type||'none',link_value:dailyBriefing.link_value||'',interval_seconds:interval}
