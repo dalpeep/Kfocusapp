@@ -2318,8 +2318,18 @@ function v61BusinessIdsWithBanner(){
   return new Set(ids.filter(Boolean).map(String));
 }
 function v73RoutineRecommendationOptions(){
+  const aliases={featured:'recommended',recommend:'recommended',recommendation:'recommended',new_business:'new',newest:'new',popular_business:'popular',coupon_business:'coupon',banner_business:'banner',address_business:'address',selected:'admin',manual:'admin',random_business:'random'};
+  const allowed=new Set(['recommended','new','popular','coupon','banner','address','admin','random']);
   const out=[];
-  readActiveEventRoutines().forEach(r=>(r?.actions?.recommendation?.options||[]).forEach(v=>{if(!out.includes(v))out.push(v)}));
+  readActiveEventRoutines().forEach(r=>{
+    const action=r?.actions?.recommendation;
+    if(!action)return;
+    const raw=Array.isArray(action.options)?action.options:(action.option?[action.option]:[]);
+    raw.forEach(v=>{
+      const key=aliases[String(v||'').trim()]||String(v||'').trim();
+      if(allowed.has(key)&&!out.includes(key))out.push(key);
+    });
+  });
   return out;
 }
 function v74RoutineRecommendationAddressTerms(){
@@ -2335,6 +2345,14 @@ function v74BusinessMatchesAddress(b,terms=[]){
 function v73RoutineRecommendationInterval(){
   const row=readActiveEventRoutines().find(r=>r?.actions?.recommendation);
   return Math.max(3,Number(row?.actions?.recommendation?.interval_seconds||5))*1000;
+}
+
+function v83RecommendationLabel(config={}){
+  const labels={recommended:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',address:'주소',admin:'관리자 지정',random:'랜덤'};
+  const options=v73RoutineRecommendationOptions();
+  if(options.length)return options.map(v=>labels[v]||v).join(' · ');
+  if(Array.isArray(config.business_ids)&&config.business_ids.length)return '관리자 지정';
+  return ({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',random:'랜덤',daily:''}[String(config.business_mode||'featured')]??'추천');
 }
 function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
@@ -2535,20 +2553,20 @@ async function v471FetchPublicHomeSettings(){
     const json=await res.json().catch(()=>({}));
     if(!res.ok||json.ok===false)throw new Error(json.error||json.message||`HTTP ${res.status}`);
     edgeConfig=json.home_config&&typeof json.home_config==='object'?json.home_config:{};
-  }catch(error){edgeError=error;console.warn('[V82 settings] Edge Function read failed',error);}
+  }catch(error){edgeError=error;console.warn('[V83 settings] Edge Function read failed',error);}
   try{
-    const rest=`${base}/rest/v1/newsroom_settings?select=home_config,updated_at&region=eq.${encodeURIComponent(region)}&limit=1&_=${Date.now()}`;
+    const rest=`${base}/rest/v1/newsroom_settings?select=home_config,updated_at&region=eq.${encodeURIComponent(region)}&limit=1`;
     const res=await fetch(rest,{method:'GET',headers:{...headers,Accept:'application/json'},cache:'no-store'});
     const rows=await res.json().catch(()=>[]);
     if(!res.ok)throw new Error(rows?.message||rows?.error||`HTTP ${res.status}`);
     const row=Array.isArray(rows)?rows[0]:null;
     directConfig=row?.home_config&&typeof row.home_config==='object'?row.home_config:{};
-  }catch(error){directError=error;console.warn('[V82 settings] direct table read failed',error);}
+  }catch(error){directError=error;console.warn('[V83 settings] direct table read failed',error);}
   const directHasRoutines=Array.isArray(directConfig.event_routines);
   const edgeHasRoutines=Array.isArray(edgeConfig.event_routines);
   const result=directHasRoutines?{...edgeConfig,...directConfig}:{...directConfig,...edgeConfig};
   if(!Object.keys(result).length)throw(edgeError||directError||new Error('메인 설정을 읽지 못했습니다.'));
-  console.info('[V82 settings] resolved',{region,source:directHasRoutines?'newsroom_settings':(edgeHasRoutines?'home_settings':'merged'),routines:Array.isArray(result.event_routines)?result.event_routines.length:0});
+  console.info('[V83 settings] resolved',{region,source:directHasRoutines?'newsroom_settings':(edgeHasRoutines?'home_settings':'merged'),routines:Array.isArray(result.event_routines)?result.event_routines.length:0});
   return result;
 }
 async function loadMainSettings(forceRefresh=false){
@@ -2887,7 +2905,7 @@ async function renderV37AIHome(){
     loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
     window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
     document.documentElement.dataset.eventRoutineCount=String(readActiveEventRoutines().length);
-    console.info('[V82 routines] active',readActiveEventRoutines().map(r=>({id:r.id,name:r.name,actions:Object.keys(r.actions||{})})));
+    console.info('[V83 routines] active',readActiveEventRoutines().map(r=>({id:r.id,name:r.name,actions:Object.keys(r.actions||{})})));
     if(typeof renderDalpicks==='function')renderDalpicks();
   }catch(error){console.error('[V51 Home] settings/feed load failed',error);loaded=[];v45HomeConfig={};}
   if(sequence!==v44HomeRenderSequence)return;
@@ -2900,8 +2918,8 @@ async function renderV37AIHome(){
   v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
-  const biz=v45SelectedBusinesses(v45HomeConfig);v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
-  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v45HomeConfig.business_ids?.length?'광고 지정':({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',video:'영상',promotion:'프로모션',rotation:'날짜별 순환',random:'전체 랜덤',daily:''}[v45HomeConfig.business_mode]??'');label.textContent=m;label.hidden=!m;}
+  const biz=v45SelectedBusinesses(v45HomeConfig);console.info('[V83 recommendation] authoritative',{options:v73RoutineRecommendationOptions(),addressTerms:v74RoutineRecommendationAddressTerms(),count:biz.length,names:biz.slice(0,8).map(b=>b.name||b.name_ko)});v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
+  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v83RecommendationLabel(v45HomeConfig);label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
