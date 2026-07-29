@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '60.0.0';
+const VERSION = '61.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -1312,6 +1312,7 @@ function practicalLifeLine(item:any, topic:any) {
     education:'생활 한 줄: 학교나 교육기관의 일정은 변경될 수 있으니 방문 전 최신 공지를 다시 확인하세요.',
     health:'생활 한 줄: 건강 관련 일정과 이용 조건은 기관마다 다를 수 있으니 방문 전에 확인하세요.',
     traffic:'생활 한 줄: 출발 전에 실시간 교통 상황과 우회 경로를 확인하면 이동 시간을 줄일 수 있습니다.',
+    culture:'생활 한 줄: 문화·예술 행사는 일정과 입장 조건이 바뀔 수 있으니 방문 전 최신 안내를 확인하세요.',
     finance:'생활 한 줄: 세금·재정 정보는 적용 조건이 다를 수 있으니 공식 안내와 개인 상황을 함께 확인하세요.',
     realestate:'생활 한 줄: 주택·임대 조건과 일정은 달라질 수 있으니 계약 전 최신 정보를 다시 확인하세요.',
     life:'생활 한 줄: 방문이나 신청 전에 운영 시간과 최신 공지를 한 번 더 확인하세요.',
@@ -1361,6 +1362,7 @@ const LIFE_ALLOWED_TOPICS = [
   { subtype:'education', label:'교육', re:/(교육|학교|학군|학생|교사|등록|개학|휴교|장학금|대학|도서관 프로그램|ISD|school|education|student|teacher|college|university|scholarship)/i },
   { subtype:'health', label:'의료', re:/(의료|건강|병원|보건|예방접종|백신|독감|모기|웨스트나일|질병|clinic|hospital|health|medical|vaccine|flu|west nile|public health)/i },
   { subtype:'traffic', label:'교통', re:/(교통|도로|통제|공사|우회|버스|철도|공항|DART|TxDOT|traffic|road|closure|construction|transit|airport|highway)/i },
+  { subtype:'culture', label:'문화·예술', re:/(문화|예술|공연|전시|박물관|미술관|음악|연극|축제|콘서트|오케스트라|댄스|영화제|culture|arts?|museum|gallery|concert|festival|theater|theatre|music|exhibition)/i },
   { subtype:'finance', label:'세금·재정', re:/(세금|재정|재산세|소득세|판매세|IRS|금융|은행|금리|대출|지원금|tax|finance|financial|property tax|sales tax|interest rate|loan|grant)/i },
   { subtype:'realestate', label:'부동산', re:/(부동산|주택|렌트|임대|아파트|모기지|HOA|개발계획|주택시장|real estate|housing|rent|rental|mortgage|development|home price)/i },
 ];
@@ -1393,12 +1395,24 @@ async function publishOne(region='dallas', force=false) {
     .order('source_published_at',{ascending:false, nullsFirst:false})
     .limit(15);
   if (error) throw error;
-  const candidate = (rows || []).find((x:any)=>{
+  const { data: recentPosts } = await admin.from('posts')
+    .select('subtype,created_at,title')
+    .eq('region',region).eq('type','life')
+    .order('created_at',{ascending:false}).limit(7);
+  const recentSubtypes = new Set((recentPosts || []).map((x:any)=>String(x.subtype||'')).filter(Boolean));
+  const eligible = (rows || []).filter((x:any)=>{
     const title=String(x.ai_title||x.original_title||'');
     return title
       && !/범죄|살인|총격|정치|선거|소송|의료 조언|법률 조언|연예|스포츠 경기 결과/i.test(title)
       && Boolean(lifeTopicForItem(x));
   });
+  const ranked = eligible.map((x:any)=>{
+    const topic = lifeTopicForItem(x);
+    const diversityBonus = topic && !recentSubtypes.has(topic.subtype) ? 1000 : 0;
+    const freshness = Math.max(0, 200 - Math.floor((Date.now()-new Date(x.source_published_at||x.collected_at||0).getTime())/3600000));
+    return {x,score:diversityBonus+Number(x.priority_score||0)+freshness};
+  }).sort((a:any,b:any)=>b.score-a.score);
+  const candidate = ranked[0]?.x || null;
   if (!candidate) throw new Error('생활·교육·의료·교통·세금·재정·부동산 분야의 게시 가능한 후보가 없습니다. 먼저 “지금 다시 수집”과 “수집분 AI 분류”를 실행해 주세요.');
 
   let item:any = candidate;
@@ -1425,6 +1439,16 @@ async function publishOne(region='dallas', force=false) {
     updated_at:new Date().toISOString(),
   }).eq('id',item.id);
   return {ok:true,version:VERSION,post,item_id:item.id,source_name:item.source_name||null,topic:topic?.label||'생활'};
+}
+
+async function dailyDallasLife(region='dallas') {
+  const collected = await autoRun(region);
+  try {
+    const published = await publishOne(region,false);
+    return {ok:true,version:VERSION,collected,published};
+  } catch (e) {
+    return {ok:true,version:VERSION,collected,published:{ok:false,skipped:true,reason:e instanceof Error?e.message:String(e)}};
+  }
 }
 
 async function publicHomeSettings(region = 'dallas') {
@@ -1455,7 +1479,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
+    supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'daily_dallas_life'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -1485,6 +1509,7 @@ Deno.serve(async (req) => {
     if (action === 'collect_scheduled_topics') return json(await collectScheduledTopics(region));
     if (action === 'collect_markets') return json(await collectDirectMarkets(region));
     if (action === 'auto_run') return json(await autoRun(region));
+    if (action === 'daily_dallas_life') return json(await dailyDallasLife(region));
     if (action === 'set_editor_pick') return json(await setEditorPick(body));
     if (action === 'set_home_link') return json(await setHomeLink(body));
     if (action === 'set_archive_keep') return json(await setArchiveKeep(body));
@@ -1508,7 +1533,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets'],
+      supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'daily_dallas_life'],
     }, 400);
   } catch (e) {
     console.error(e);
