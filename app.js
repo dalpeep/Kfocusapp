@@ -751,7 +751,7 @@ async function loadBoardPostsFromSupabase(){
   for(const table of tryTables){
     for(const select of selects){
       try {
-        const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&order=created_at.desc.nullslast&limit=50`;
+        const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&order=created_at.desc.nullslast&limit=500`;
         const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
         if(!res.ok) continue;
         const rows = await res.json();
@@ -806,6 +806,9 @@ async function refreshBoardPostsSilently({force=false}={}){
     const changed=before!==after;
     if(currentPage==='home') renderHomeBoardSection(selectedBoardType||'notice');
     if(currentPage==='board-detail' && !selectedBoardPost) renderBoardPage(selectedBoardType||'notice');
+    // V84: 게시판 공지가 새로 로드된 직후 달타운 알림도 반드시 다시 그립니다.
+    // 직접 입력 문구가 비어 있어도 is_alert_notice=true인 게시글만으로 알림이 표시되어야 합니다.
+    if(typeof renderDalpicks==='function') renderDalpicks();
     return changed;
   }catch(e){
     console.warn('[Board Refresh] 최신 게시글 확인 실패',e);
@@ -1127,6 +1130,8 @@ async function loadRealData(){
   await loadDalpicksFromSupabase();
   await loadBoardPostsFromSupabase();
   syncBusinessStoriesToBoardPosts();
+  // V84: 초기 데이터 로드 시 공지 게시글을 읽은 뒤 달타운 알림을 즉시 갱신합니다.
+  if(typeof renderDalpicks==='function') renderDalpicks();
   await loadSlidesFromSupabase();
   await loadBannersFromSupabase();
   finalizeData();
@@ -1375,6 +1380,7 @@ function eventRoutineAlertItems(){
       interval_seconds:interval
     }
   }));
+  console.info('[V84 alert] board notices',{totalPosts:(boardPosts||[]).length,notices:notices.length,ids:notices.map(x=>x.id)});
   if(notices.length)return notices;
 
   // V75 우선순위 2: 공지가 없을 때만 이벤트 루틴의 직접 입력 알림을 대체 표시
