@@ -5438,14 +5438,15 @@ async function v538RenderInlineEditor(sourceId, categoryOverride=''){
   panel.id='v538InlineHomeEditor';
   panel.className='newsroom-item';
   panel.style.cssText='padding:18px;margin:0 0 16px;border:2px solid #2563eb;background:#f8fbff;scroll-margin-top:90px';
-  const currentType=automatic?String(currentAuto.target_type||''):String(meta.home_target_type||'');
-  const currentTargetId=automatic?String(currentAuto.target_id||''):String(meta.home_target_id||'');
+  const autoMatchedBiz=(!automatic&&category==='shopping'&&!meta.home_target_id)?v106FindMarketBusiness(row):null;
+  const currentType=automatic?String(currentAuto.target_type||''):String(meta.home_target_type||(autoMatchedBiz?'business':''));
+  const currentTargetId=automatic?String(currentAuto.target_id||''):String(meta.home_target_id||(autoMatchedBiz?.id||''));
   const businessOptions=(businesses||[]).slice().sort((a,b)=>String(a.name||a.name_ko||'').localeCompare(String(b.name||b.name_ko||''),'ko')).map(b=>`<option value="${esc(b.id)}" ${currentTargetId===String(b.id)?'selected':''}>${esc(b.name||b.name_ko||b.business_name||'업소')} ${b.city?`· ${esc(b.city)}`:''}</option>`).join('');
   const title=automatic?String(currentAuto.title||''):String(meta.home_custom_title||row?.ai_title||row?.original_title||'');
   const message=automatic?String(currentAuto.message||''):String(meta.home_custom_message||meta.home_custom_summary||row?.ai_summary||row?.original_summary||'');
   const external=automatic?String(currentAuto.external_url||''):String(meta.home_external_url||((category==='shopping'&&/^https?:/i.test(String(row?.original_url||'')))?row.original_url:'')||'');
   const linkLabel=automatic?String(currentAuto.link_label||'자세히 보기'):String(meta.home_link_label||((category==='shopping')?'세일 보기':'자세히 보기'));
-  panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h3 style="margin:0">${esc(v531HomeCategoryLabel(category))} 메인 내용 수정</h3><div class="tiny muted" style="margin-top:4px">이 화면에서 바로 수정하고 저장할 수 있습니다.</div></div><button type="button" class="btn ghost" data-v538-close>닫기</button></div>
+  panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><h3 style="margin:0">${esc(v531HomeCategoryLabel(category))} 메인 내용 수정</h3><div class="tiny muted" style="margin-top:4px">이 화면에서 바로 수정하고 저장할 수 있습니다.</div>${autoMatchedBiz?`<div class="tiny" style="margin-top:5px;color:#047857;font-weight:800">✓ 업소록 자동 연결: ${esc(autoMatchedBiz.name||autoMatchedBiz.name_ko||autoMatchedBiz.name_en||'업소')}</div>`:''}</div><button type="button" class="btn ghost" data-v538-close>닫기</button></div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px">
     <label class="field"><span>메인 제목</span><input data-v538-title maxlength="72" value="${esc(title)}" placeholder="비워두면 자동 제목"></label>
     <label class="field"><span>버튼 문구</span><input data-v538-label maxlength="30" value="${esc(linkLabel)}" placeholder="예: 업소 보기, 자세히 보기"></label>
@@ -5583,13 +5584,16 @@ async function v535SetCandidateHome(sourceId, category, enabled){
       try{await newsroomEdgeCall('set_editor_pick',{id:other.id,enabled:false,region:getAppRegion()});}catch(_){ }
     }
   }
+  const autoBiz=String(category||'')==='shopping'?v106FindMarketBusiness(current):null;
+  const keepBusiness=oldMeta.home_target_type==='business'&&oldMeta.home_target_id;
   const meta={...oldMeta,
     home_show:!!enabled,
     home_category:String(category||oldMeta.home_category||oldMeta.category||'shopping'),
-    home_link_enabled:false,
-    home_target_type:null,
-    home_target_id:null,
-    home_link_label:null,
+    home_link_enabled:Boolean(keepBusiness||autoBiz),
+    home_target_type:keepBusiness?'business':(autoBiz?'business':null),
+    home_target_id:keepBusiness?String(oldMeta.home_target_id):(autoBiz?String(autoBiz.id):null),
+    home_external_url:(keepBusiness||autoBiz)?null:(oldMeta.home_external_url||null),
+    home_link_label:(keepBusiness||autoBiz)?(oldMeta.home_link_label||'업소 보기'):(oldMeta.home_link_label||null),
     selection_source:enabled?'editor':String(oldMeta.previous_selection_source||'ai'),
     previous_selection_source:enabled?String(oldMeta.selection_source||'ai'):String(oldMeta.previous_selection_source||oldMeta.selection_source||'ai'),
     editor_picked_at:enabled?now:(oldMeta.editor_picked_at||null),
@@ -5603,6 +5607,55 @@ async function v535SetCandidateHome(sourceId, category, enabled){
   if(!enabled){try{await newsroomEdgeCall('set_home_link',{id:sourceId,enabled:false,target_type:'',target_id:'',label:'',region:getAppRegion()});}catch(_){ }}
   await Promise.all([loadNewsroom(),v531LoadHomeDashboard()]);
 }
+
+// V106: H Mart / Zion Market cards prefer the matching DalTownMap business detail.
+function v106NormalizeMarketText(value){
+  return String(value||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9가-힣]+/g,'');
+}
+function v106MarketBrand(text){
+  const raw=String(text||'').toLowerCase();
+  const compact=v106NormalizeMarketText(raw);
+  if(/시온\s*(마트|마켓)?|zion\s*(market|mart)?/i.test(raw)||compact.includes('시온마트')||compact.includes('시온마켓')||compact.includes('zionmarket')||compact.includes('zionmart'))return 'zion';
+  if(/에이치\s*마트|h[\s-]*mart/i.test(raw)||compact.includes('에이치마트')||compact.includes('hmart'))return 'hmart';
+  return '';
+}
+function v106BusinessMarketBrand(b){
+  return v106MarketBrand([b?.name,b?.name_ko,b?.name_en,b?.business_name,b?.title,b?.website,b?.url].filter(Boolean).join(' '));
+}
+function v106MarketText(row){
+  const m=newsroomJson(row?.event_data,{});
+  return [row?.ai_title,row?.original_title,row?.ai_summary,row?.original_summary,row?.source_name,row?.original_url,m?.title,m?.summary,m?.description,m?.city,m?.area].filter(Boolean).join(' ');
+}
+function v106FindMarketBusiness(row){
+  const text=v106MarketText(row);
+  const brand=v106MarketBrand(text);
+  if(!brand)return null;
+  const candidates=(businesses||[]).filter(b=>v106BusinessMarketBrand(b)===brand);
+  if(!candidates.length)return null;
+  if(candidates.length===1)return candidates[0];
+  const normalized=v106NormalizeMarketText(text);
+  const cityMatches=candidates.filter(b=>{
+    const city=v106NormalizeMarketText(b?.city||'');
+    const address=v106NormalizeMarketText(b?.address||b?.address1||'');
+    return (city&&normalized.includes(city))||(address&&normalized.includes(address));
+  });
+  return cityMatches.length===1?cityMatches[0]:null;
+}
+async function v106EnsureMarketBusinessLinks(rows){
+  const updates=[];
+  for(const row of (rows||[])){
+    if(v535CandidateCategory(row)!=='shopping')continue;
+    const meta=newsroomJson(row.event_data,{});
+    if(meta.home_target_type==='business'&&meta.home_target_id)continue;
+    const biz=v106FindMarketBusiness(row);
+    if(!biz)continue;
+    const next={...meta,home_link_enabled:true,home_target_type:'business',home_target_id:String(biz.id),home_external_url:null,home_link_label:meta.home_link_label||'업소 보기',home_business_auto_matched:true,home_business_auto_matched_at:new Date().toISOString()};
+    updates.push(supabase.from('newsroom_items').update({event_data:next,updated_at:new Date().toISOString()}).eq('id',row.id).then(({error})=>{if(!error)row.event_data=next;return error;}));
+  }
+  const results=await Promise.all(updates);
+  return results.filter(x=>!x).length;
+}
+
 function v535CandidateCategory(row){
   const m=newsroomJson(row?.event_data,{});
   const text=`${row?.source_kind||''} ${row?.source_name||''} ${m.category||''} ${m.home_category||''} ${row?.ai_title||''} ${row?.original_title||''}`;
@@ -5626,6 +5679,10 @@ async function v531LoadHomeDashboard(){
     const rows=candidateResult.status==='fulfilled'&&!candidateResult.value.error?(candidateResult.value.data||[]):[];
     const marketRows=rows.filter(x=>v535CandidateCategory(x)==='shopping');
     const eventRows=rows.filter(x=>v535CandidateCategory(x)==='event');
+    const autoLinked=await v106EnsureMarketBusinessLinks(marketRows);
+    if(autoLinked>0){
+      try{const refreshed=await fetch(feedUrl,{cache:'no-store'}).then(async r=>{const j=await r.json().catch(()=>({}));return r.ok?(j.items||[]):feed;});feed.splice(0,feed.length,...refreshed);}catch(_){ }
+    }
     const adminCards=feed.filter(x=>!['weather','traffic'].includes(String(x.category||'')));
     const pinnedMarket=marketRows.find(x=>v535CandidateIsHome(x));
     const pinnedEvent=eventRows.find(x=>v535CandidateIsHome(x));
