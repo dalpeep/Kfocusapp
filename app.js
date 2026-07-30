@@ -59,6 +59,7 @@ let slideRows = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
 let selectedBoardType = 'notice';
+let boardDetailReturn = { mode: 'page', page: 'home', type: 'notice' };
 let selectedBoardPost = null;
 let adminSession = false;
 const ADMIN_EMAIL = 'admin@kfocusapp.com';
@@ -4787,6 +4788,10 @@ function renderBoardPage(type = 'notice', postId = null) {
     ].filter(Boolean).join('');
     page.innerHTML = `
       <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
+      <div class="board-detail-nav" aria-label="게시글 이동">
+        <button type="button" class="board-detail-nav-btn back" data-board-back>← 이전 페이지</button>
+        <button type="button" class="board-detail-nav-btn list" data-board-list>☰ 목록으로</button>
+      </div>
       <article class="board-detail-v3">
         <div class="board-detail-v3-head">
           <div class="board-detail-v3-badges"><span>${esc(boardLabel(normalizedType))}</span>${normalizedType==='business_story'?'<span class="sponsored">Sponsored</span>':''}${post.video_url?'<span class="video">▶ 영상</span>':''}</div>
@@ -4797,7 +4802,25 @@ function renderBoardPage(type = 'notice', postId = null) {
         ${videoHtml}
         <div class="board-detail-v3-content">${autoLinkText(post.content || '')}</div>
         ${actions?`<div class="board-detail-actions">${actions}</div>`:''}
+        <div class="board-detail-nav bottom" aria-label="게시글 이동">
+          <button type="button" class="board-detail-nav-btn back" data-board-back>← 이전 페이지</button>
+          <button type="button" class="board-detail-nav-btn list" data-board-list>☰ 목록으로</button>
+        </div>
       </article>`;
+    page.querySelectorAll('[data-board-list]').forEach(button=>button.addEventListener('click',()=>{
+      renderBoardPage(normalizedType);
+      showPage('board-detail');
+    }));
+    page.querySelectorAll('[data-board-back]').forEach(button=>button.addEventListener('click',()=>{
+      const target = boardDetailReturn || {};
+      if(target.mode==='list'){
+        renderBoardPage(target.type || normalizedType);
+        showPage('board-detail');
+        return;
+      }
+      const returnPage = target.page && target.page!=='board-detail' ? target.page : 'home';
+      showPage(returnPage);
+    }));
     initBoardGallery(page);
     page.querySelectorAll('.biz-open').forEach(button=>button.addEventListener('click',()=>{const bizId=button.dataset.biz;if(!bizId)return;renderDetail(bizId);lastBasePage=currentPage;showPage('business-detail');}));
     return;
@@ -4829,6 +4852,9 @@ function showBoard(board){ renderBoardPage(board); lastBasePage = currentPage;
 function openBoardPost(postId){
   const post = boardPosts.find(p=>String(p.id)===String(postId));
   const type = normalizeBoardType(post?.type || selectedBoardType || 'notice');
+  boardDetailReturn = (currentPage==='board-detail' && !selectedBoardPost)
+    ? { mode:'list', page:'board-detail', type }
+    : { mode:'page', page:currentPage || 'home', type };
   renderBoardPage(type, postId);
   lastBasePage = currentPage;
   showPage('board-detail');
