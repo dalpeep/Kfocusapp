@@ -2883,40 +2883,26 @@ async function v51LoadDirectEditorItems(){
       .order('updated_at',{ascending:false})
       .limit(80);
     if(error)throw error;
-    const normalized=(data||[]).map(row=>{
+    return (data||[]).map(row=>{
       const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
-      const text=`${meta.home_category||''} ${meta.category||''} ${row.ai_title||''} ${row.original_title||''} ${row.ai_summary||''} ${row.original_summary||''}`;
-      let category=String(meta.home_category||meta.category||'').trim();
-      if(!['business','shopping','event'].includes(category)){
-        if(/market|shopping|zion|h\s*mart|마트|마켓|세일|할인|장보기/i.test(text))category='shopping';
-        else if(/event|festival|concert|seminar|행사|공연|축제|세미나|박람회|모임/i.test(text))category='event';
-        else category='';
-      }
-      if(!category)return null;
-      const pinned=String(meta.selection_source||'')==='editor'||meta.home_show===true;
-      return {row,meta,category,pinned};
-    }).filter(Boolean);
-    const choose=cat=>normalized.find(x=>x.category===cat&&x.pinned)||normalized.find(x=>x.category===cat);
-    const picked=[choose('shopping'),choose('event'),...normalized.filter(x=>x.category==='business'&&x.pinned)]
-      .filter(Boolean).filter((x,i,a)=>a.findIndex(y=>String(y.row.id)===String(x.row.id))===i);
-    return picked.map(({row,meta,category,pinned})=>{
+      const selected=String(meta.selection_source||'')==='editor'||meta.home_show===true;
+      if(!selected)return null;
+      const category=String(meta.home_category||meta.category||'business').trim()||'business';
       const targetType=String(meta.home_target_type||'').trim();
       const targetId=String(meta.home_target_id||'').trim();
-      const external=targetType==='external'&&/^https?:\/\//i.test(String(meta.home_external_url||''));
       const linked=['post','business'].includes(targetType)&&Boolean(targetId);
       return {
         id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
-        title:String(meta.home_custom_title||row.ai_title||row.original_title||'오늘의 달타운').trim(),
-        summary:String(meta.home_custom_message||row.ai_summary||row.original_summary||'').trim(),
-        target_type:external?'external':(linked?targetType:''),target_id:linked?targetId:'',
-        url:external?String(meta.home_external_url||'').trim():'',
-        link_label:(linked||external)?String(meta.home_link_label||'자세히 보기'):'',
-        selected_by_admin:pinned,admin_selected:pinned,is_manual:pinned,is_pinned:pinned,auto_selected:!pinned&&['shopping','event'].includes(category),
-        priority:Number(row.priority_score||(pinned?999:0)),
+        title:String(row.ai_title||row.original_title||'오늘의 달타운').trim(),
+        summary:String(row.ai_summary||row.original_summary||'').trim(),
+        target_type:linked?targetType:'',target_id:linked?targetId:'',
+        link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
+        selected_by_admin:true,admin_selected:true,is_manual:true,
+        priority:Number(row.priority_score||999),
         published_at:row.source_published_at||row.collected_at,
         updated_at:row.updated_at||row.collected_at||row.source_published_at,
       };
-    });
+    }).filter(Boolean);
   }catch(error){
     console.warn('[V51.5 Today Daltown] direct editor fallback unavailable',error?.message||error);
     return [];
