@@ -1,6 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSION = '62.0.0';
+const VERSION = '63.0.0';
 const DALLAS_TZ = 'America/Chicago';
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -145,6 +145,14 @@ async function runStatus(region = 'dallas') {
   const { data, error } = await admin.from('newsroom_runs').select('*').eq('region', region).order('started_at', { ascending: false }).limit(1).maybeSingle();
   if (error) throw error;
   return { ok: true, version: VERSION, latest: data || null };
+}
+
+async function dailyRunStatus(region = 'dallas') {
+  const { data, error } = await admin.from('newsroom_runs')
+    .select('*').eq('region', region).eq('trigger_type','daily_publish')
+    .order('started_at', { ascending:false }).limit(7);
+  if (error) throw error;
+  return { ok:true, version:VERSION, latest:data?.[0] || null, history:data || [] };
 }
 
 const LANE_QUERIES: Record<string, string[]> = {
@@ -1476,21 +1484,68 @@ async function saveDailyBriefing(region:string, published:any) {
 }
 
 async function dailyDallasLife(region='dallas') {
-  // V91: 수집 전체(autoRun)를 같은 요청 안에서 실행하지 않습니다.
-  // Supabase Edge Function의 약 125초 제한을 피하기 위해 수집/분류는 별도 짧은 요청으로 나누고,
-  // 이 작업은 최종 기사 1건 게시 + 브리핑 저장만 담당합니다.
+  // V101: 최종 자동 게시 작업은 성공/건너뜀/실패 여부를 newsroom_runs에 반드시 기록합니다.
+  const run = await startRun(region, 'daily_publish', '매일 AI 기사 1건 자동 게시 작업 시작');
+  const startedAt = new Date().toISOString();
   try {
+    const { count: readyCount } = await admin.from('newsroom_items')
+      .select('id', { count:'exact', head:true })
+      .eq('region', region)
+      .in('status',['review','classified'])
+      .in('suggested_destination',['life','notice','guide'])
+      .neq('fact_status','rejected');
+
     const published = await publishOne(region,false);
     let briefing = null;
     if (!published?.skipped && published?.post?.id) {
       const { data: item } = await admin.from('newsroom_items')
-        .select('ai_summary,original_summary').eq('id', published.item_id).maybeSingle();
+        .select('ai_summary,original_summary,original_url').eq('id', published.item_id).maybeSingle();
       published.briefing_summary = String(item?.ai_summary || item?.original_summary || '').replace(/\s+/g,' ').trim().slice(0,120);
       briefing = await saveDailyBriefing(region, published);
+
+      // 실제 자동 게시된 글을 날짜별로 남깁니다. 테이블이 아직 없더라도 기사 게시 자체는 유지합니다.
+      const publicationRow:any = {
+        region,
+        newsroom_item_id: String(published.item_id),
+        post_id: String(published.post.id),
+        published_for_date: dateKeyInDallas(),
+        title: String(published.post.title || ''),
+        source_url: item?.original_url || null,
+        status: 'published',
+        error_message: null,
+        published_at: new Date().toISOString(),
+      };
+      const publication = await admin.from('newsroom_publications').upsert(publicationRow, { onConflict:'region,published_for_date' });
+      if (publication.error) console.warn('newsroom_publications log failed', publication.error.message);
+
+      const note = `기사 1건 게시 · ${published.post.title || '제목 없음'} · post_id=${published.post.id}`;
+      await finishRun(run?.id, {
+        status:'success', found:Number(readyCount||0), inserted:1, skipped:0, note, error_message:null,
+      });
+      return {ok:true,version:VERSION,published,briefing,run_status:'published',run_note:note,started_at:startedAt};
     }
-    return {ok:true,version:VERSION,published,briefing};
+
+    const reason = published?.reason === 'already_published_today'
+      ? '오늘 자동 게시 기록이 이미 있어 새 기사를 게시하지 않았습니다.'
+      : String(published?.reason || '게시 가능한 후보가 없어 기사를 작성하지 않았습니다.');
+    await finishRun(run?.id, {
+      status:'success', found:Number(readyCount||0), inserted:0, skipped:1, note:`게시하지 않음 · ${reason}`, error_message:null,
+    });
+    return {ok:true,version:VERSION,published,briefing:null,run_status:'skipped',run_note:reason,started_at:startedAt};
   } catch (e) {
-    return {ok:true,version:VERSION,published:{ok:false,skipped:true,reason:e instanceof Error?e.message:String(e)},briefing:null};
+    const reason = e instanceof Error ? e.message : String(e);
+    // 후보 부족은 시스템 오류가 아니라 정상 실행 후 미게시로 기록합니다.
+    const noCandidate = /게시 가능한 후보가 없습니다|적합한 자료|후보가 없어/i.test(reason);
+    await finishRun(run?.id, {
+      status:noCandidate?'success':'failed', found:0, inserted:0, skipped:noCandidate?1:0,
+      note:noCandidate?`게시하지 않음 · ${reason}`:'자동 게시 실행 실패',
+      error_message:noCandidate?null:reason,
+    });
+    return {
+      ok:true,version:VERSION,
+      published:{ok:false,skipped:true,reason},briefing:null,
+      run_status:noCandidate?'skipped':'failed',run_note:reason,started_at:startedAt,
+    };
   }
 }
 
@@ -1522,7 +1577,7 @@ async function status(region = 'dallas') {
   const ok = Object.values(checks).every(Boolean);
   return {
     ok, version: VERSION, checks,
-    supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'daily_dallas_life'],
+    supported_actions: ['status', 'run_status', 'daily_run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'daily_dallas_life'],
     message: ok ? `newsroom Edge Function V${VERSION}이 정상 연결되어 있습니다.` : 'SQL 테이블, Edge Function Secrets 또는 함수 배포 상태를 확인하세요.',
   };
 }
@@ -1542,6 +1597,7 @@ Deno.serve(async (req) => {
     const auth = await authorize(req);
     if (action === 'status' || action === 'health') return json(await status(region));
     if (action === 'run_status') return json(await runStatus(region));
+    if (action === 'daily_run_status') return json(await dailyRunStatus(region));
     if (action === 'test_post') return json(await testPost(region));
     if (action === 'publish_one') return json(await publishOne(region, body.force === true));
     if (action === 'cleanup') return json(await cleanup(region));
@@ -1576,7 +1632,7 @@ Deno.serve(async (req) => {
     return json({
       ok: false, version: VERSION,
       error: `지원하지 않는 뉴스룸 작업입니다: ${action || '(빈 요청)'}`,
-      supported_actions: ['status', 'run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'daily_dallas_life'],
+      supported_actions: ['status', 'run_status', 'daily_run_status', 'test_post', 'publish_one', 'cleanup', 'collect', 'analyze', 'draft', 'get_settings', 'save_settings', 'version', 'ping', 'home_feed', 'home_settings', 'list_scheduled_topics', 'save_scheduled_topic', 'delete_scheduled_topic', 'collect_scheduled_topics', 'auto_run', 'set_editor_pick', 'set_home_link', 'set_archive_keep', 'delete_newsroom_item', 'trace_sources', 'collect_markets', 'daily_dallas_life'],
     }, 400);
   } catch (e) {
     console.error(e);
