@@ -5917,6 +5917,8 @@ on('map_category','change',()=>{ refreshSubcategoryOptions(); syncLegacyCategory
 on('subcategory','change',()=>{ syncLegacyCategoryField(); updatePreview(); });
 console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
 
+const V61_MODE_LABELS={featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체',promotion:'쿠폰·배너·영상 업체',rotation:'날짜별 자동 순환',random:'전체 랜덤'};
+
 // V62 메인 3개 섹션 통합 관리 · 자동 예약 · 자동 플레이 · 장면 프리셋
 const V62_SECTION_LABELS={today:'오늘의 달타운',community:'커뮤니티',alert:'달타운 알림'};
 const V62_ALERT_SOURCES=[['dalpick','등록 광고·콘텐츠'],['coupon','유효한 쿠폰'],['video','영상'],['event','행사'],['life','생활정보'],['emergency','긴급공지']];
