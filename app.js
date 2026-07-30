@@ -1748,27 +1748,16 @@ return {
   }).filter((s) => !!(s.bg || s.video_url));
 
   if (!heroSlides.length) {
-    // V110: 슬라이드 테이블 조회가 실패해도 현재 Dallas 업소 데이터에서만 안전한 대체 슬라이드를 만듭니다.
-    // Denver/Colorado 샘플 데이터는 홈 슬라이드에 절대 사용하지 않습니다.
-    const fallbackBusinesses=(businesses||[]).filter(b=>{
-      const region=String(b.region||currentRegion||'dallas').toLowerCase();
-      const image=b.image_url||b.image||b.promo_image_url||'';
-      return region==='dallas'&&Boolean(image)&&(b.is_featured===true||b.promo_enabled===true||b.is_popular===true);
-    }).slice(0,5);
-    heroSlides=fallbackBusinesses.map(b=>({
-      type:'BANNER',
-      title:b.name||b.name_ko||b.name_en||'달타운 추천 업소',
-      desc:[b.category||b.category_ko||'',b.city||b.area||'Dallas'].filter(Boolean).join(' · '),
-      button:'',
-      bg:b.image_url||b.image||b.promo_image_url||'',
-      bizId:String(b.id||''),
-      video_url:''
-    }));
-  }
-  if (!heroSlides.length) {
+    // V111: do not manufacture hero slides from ordinary businesses.
+    // When no registered slide is active, keep the original neutral banner instead.
     heroSlides=[{
-      type:'BANNER',title:'달타운 추천 업소',desc:'Dallas 지역 추천 정보를 준비하고 있습니다.',button:'',
-      bg:'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',bizId:'',video_url:''
+      type:'BANNER',
+      title:'추천 업소',
+      desc:'홈 상단 배너 영역입니다.',
+      button:'',
+      bg:'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
+      bizId:'',
+      video_url:''
     }];
   }
 
