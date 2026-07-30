@@ -1174,19 +1174,28 @@ async function loadSlidesFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   slideRows = [];
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
-  try {
-    const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
-    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
-    if(!res.ok) throw new Error(`Slides ${res.status}`);
-    const rows = await res.json();
-    slideRows = Array.isArray(rows) ? rows : [];
-    return true;
-  } catch(e){
-    console.warn('Using business promo fallback', e);
-    slideRows = [];
-    return false;
+  const headers={ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' };
+  const selects=[
+    'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at',
+    'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at',
+    'id,business_id,region,promo_enabled,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at',
+    '*'
+  ];
+  let lastError=null;
+  for(const select of selects){
+    try{
+      const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=created_at.desc.nullslast&_ts=${Date.now()}`;
+      const res = await fetch(url,{ cache:'no-store', headers });
+      if(!res.ok) throw new Error(`Slides ${res.status}: ${await res.text()}`);
+      const rows = await res.json();
+      slideRows = (Array.isArray(rows)?rows:[]).filter(r=>String(r.region||getAppRegion()).toLowerCase()===String(getAppRegion()).toLowerCase());
+      console.info('[V110 slides] loaded',{region:getAppRegion(),count:slideRows.length,select});
+      return true;
+    }catch(e){ lastError=e; }
   }
+  console.warn('[V110 slides] all schema attempts failed', lastError);
+  slideRows=[];
+  return false;
 }
 
 async function loadDalpicksFromSupabase(){
@@ -1739,17 +1748,28 @@ return {
   }).filter((s) => !!(s.bg || s.video_url));
 
   if (!heroSlides.length) {
-    heroSlides = [
-      {
-        type: 'BANNER',
-        title: '추천 업소',
-        desc: '홈 상단 배너 영역입니다.',
-        button: '',
-        bg: 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
-        bizId: '',
-        video_url: ''
-      }
-    ];
+    // V110: 슬라이드 테이블 조회가 실패해도 현재 Dallas 업소 데이터에서만 안전한 대체 슬라이드를 만듭니다.
+    // Denver/Colorado 샘플 데이터는 홈 슬라이드에 절대 사용하지 않습니다.
+    const fallbackBusinesses=(businesses||[]).filter(b=>{
+      const region=String(b.region||currentRegion||'dallas').toLowerCase();
+      const image=b.image_url||b.image||b.promo_image_url||'';
+      return region==='dallas'&&Boolean(image)&&(b.is_featured===true||b.promo_enabled===true||b.is_popular===true);
+    }).slice(0,5);
+    heroSlides=fallbackBusinesses.map(b=>({
+      type:'BANNER',
+      title:b.name||b.name_ko||b.name_en||'달타운 추천 업소',
+      desc:[b.category||b.category_ko||'',b.city||b.area||'Dallas'].filter(Boolean).join(' · '),
+      button:'',
+      bg:b.image_url||b.image||b.promo_image_url||'',
+      bizId:String(b.id||''),
+      video_url:''
+    }));
+  }
+  if (!heroSlides.length) {
+    heroSlides=[{
+      type:'BANNER',title:'달타운 추천 업소',desc:'Dallas 지역 추천 정보를 준비하고 있습니다.',button:'',
+      bg:'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',bizId:'',video_url:''
+    }];
   }
 
   console.log('buildHeroSlides result =', heroSlides);
@@ -2880,13 +2900,11 @@ async function v51LoadDirectEditorItems(){
     // V108: 최근 후보뿐 아니라 관리자 고정 항목을 별도로 조회합니다.
     // 오래된 H마트 카드나 업소 연결이 없는 카드도 최근 80건 제한 때문에 누락되지 않습니다.
     const baseSelect='id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at';
-    const [recentRes,pinnedRes]=await Promise.all([
-      supabase.from('newsroom_items').select(baseSelect).eq('region',region).order('updated_at',{ascending:false}).limit(120),
-      supabase.from('newsroom_items').select(baseSelect).eq('region',region).contains('event_data',{home_show:true}).order('updated_at',{ascending:false}).limit(200)
-    ]);
-    if(recentRes.error)throw recentRes.error;
-    if(pinnedRes.error)console.warn('[V108 Today Daltown] pinned query fallback',pinnedRes.error.message||pinnedRes.error);
-    const allRows=[...(pinnedRes.data||[]),...(recentRes.data||[])].filter((row,i,arr)=>arr.findIndex(x=>String(x.id)===String(row.id))===i);
+    // V110: 관리자 고정 항목 전체를 한 번에 읽어 클라이언트에서 판별합니다.
+    // JSONB contains 쿼리는 예전 데이터의 값 형식이나 추가 필드 구성에 따라 일부 고정 항목을 놓칠 수 있었습니다.
+    const allRes=await supabase.from('newsroom_items').select(baseSelect).eq('region',region).order('updated_at',{ascending:false}).limit(1000);
+    if(allRes.error)throw allRes.error;
+    const allRows=(allRes.data||[]).filter((row,i,arr)=>arr.findIndex(x=>String(x.id)===String(row.id))===i);
     const normalized=allRows.map(row=>{
       const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
       const text=`${meta.home_category||''} ${meta.category||''} ${row.ai_title||''} ${row.original_title||''} ${row.ai_summary||''} ${row.original_summary||''}`;
@@ -2897,7 +2915,7 @@ async function v51LoadDirectEditorItems(){
         else category='';
       }
       if(!category)return null;
-      const pinned=String(meta.selection_source||'')==='editor'||meta.home_show===true;
+      const pinned=String(meta.selection_source||'')==='editor'||meta.home_show===true||meta.admin_selected===true||meta.selected_by_admin===true;
       return {row,meta,category,pinned};
     }).filter(Boolean);
     const chooseLatest=cat=>normalized.find(x=>x.category===cat);
