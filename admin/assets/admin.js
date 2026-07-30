@@ -2467,9 +2467,9 @@ async function loadBoards() {
   return;
 }
   const selects = [
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
-    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at'
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,created_at',
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,created_at'
   ];
   let loaded = null;
   for (const select of selects) {
@@ -2495,10 +2495,44 @@ async function loadBoards() {
   renderBoardList(filterBoards());
   renderBusinessList(filterBusinesses());
 }
+function ensureBoardPinControls() {
+  if (qs('board_is_pinned') && qs('board_pin_order')) return;
 
-function boardHomePinKey(){ return `kfocus_board_home_pins_v66_${getAppRegion()}`; }
-function readBoardHomePins(){ try { const v=JSON.parse(localStorage.getItem(boardHomePinKey())||'[]'); return Array.isArray(v)?v.map(String):[]; } catch { return []; } }
-function writeBoardHomePin(id, pinned){ if(!id)return; const set=new Set(readBoardHomePins()); pinned?set.add(String(id)):set.delete(String(id)); localStorage.setItem(boardHomePinKey(),JSON.stringify([...set])); window.dispatchEvent(new CustomEvent('kfocus:board-home-pins-updated')); }
+  const activeInput = qs('board_is_active');
+  if (!activeInput) return;
+
+  const anchor = activeInput.closest('label') || activeInput.parentElement;
+  const host = anchor?.parentElement || anchor;
+  if (!host) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'boardPinControls';
+  wrap.className = 'board-pin-controls';
+  wrap.style.cssText = 'display:grid;grid-template-columns:minmax(150px,1fr) minmax(140px,1fr);gap:12px;margin-top:12px;padding:12px;border:1px solid #dbe4ee;border-radius:12px;background:#f8fafc;';
+  wrap.innerHTML = `
+    <label style="display:flex;align-items:center;gap:8px;font-weight:700;">
+      <input id="board_is_pinned" type="checkbox">
+      게시물 고정
+    </label>
+    <label style="display:grid;gap:6px;font-size:13px;font-weight:700;">
+      고정 순서
+      <input id="board_pin_order" type="number" min="1" step="1" value="999" style="width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px;">
+    </label>
+    <small style="grid-column:1/-1;color:#64748b;line-height:1.45;">체크한 글은 메인 커뮤니티와 해당 게시판 목록의 맨 위에 표시됩니다. 숫자가 작을수록 먼저 노출됩니다.</small>
+  `;
+  host.appendChild(wrap);
+
+  qs('board_is_pinned')?.addEventListener('change', () => {
+    const order = qs('board_pin_order');
+    if (order) order.disabled = !checked('board_is_pinned');
+  });
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  ensureBoardPinControls();
+});
+
 function clearBoardForm() {
   setVal('board_id', '');
   setVal('board_type', 'notice');
@@ -2522,12 +2556,11 @@ function clearBoardForm() {
   renderBoardBusinessOptions();
   setVal('board_start_at', '');
   setVal('board_end_at', '');
+  ensureBoardPinControls();
   setChecked('board_is_active', true);
   setChecked('board_is_pinned', false);
-  setVal('board_pin_order', '999');
-  setChecked('board_is_alert_notice', false);
-  setVal('board_alert_order', '999');
-  setChecked('board_home_pinned', false);
+  setVal('board_pin_order', 999);
+  if (qs('board_pin_order')) qs('board_pin_order').disabled = true;
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = null;
   safeText('boardFormTitle', '새 글');
@@ -2556,12 +2589,11 @@ function fillBoardForm(row) {
   setVal('board_video_url', row.video_url || '');
   setVal('board_start_at', fmtLocal(row.start_at));
   setVal('board_end_at', fmtLocal(row.end_at));
+  ensureBoardPinControls();
   setChecked('board_is_active', row.is_active !== false);
   setChecked('board_is_pinned', row.is_pinned === true);
   setVal('board_pin_order', Number(row.pin_order || 999));
-  setChecked('board_is_alert_notice', row.is_alert_notice === true);
-  setVal('board_alert_order', Number(row.alert_order || 999));
-  setChecked('board_home_pinned', Boolean(row.is_home_pinned||row.home_pinned||readBoardHomePins().includes(String(row.id))));
+  if (qs('board_pin_order')) qs('board_pin_order').disabled = row.is_pinned !== true;
   if (qs('board_image_file')) qs('board_image_file').value = '';
   selectedBoardId = row.id;
   safeText('boardFormTitle', `글 수정 #${row.id}`);
@@ -2576,11 +2608,6 @@ function filterBoards() {
     if (t !== 'all' && normalizeAdminBoardType(b.type || 'notice') !== normalizeAdminBoardType(t)) return false;
     if (!q) return true;
     return [b.title, b.content, b.region, b.address, b.phone].join(' ').toLowerCase().includes(q);
-  }).sort((a,b)=>{
-    const ap=a.is_pinned===true, bp=b.is_pinned===true;
-    if(ap!==bp) return ap?-1:1;
-    if(ap&&bp){ const d=Number(a.pin_order||999)-Number(b.pin_order||999); if(d) return d; }
-    return Date.parse(b.created_at||0)-Date.parse(a.created_at||0);
   });
 }
 function renderBoardList(items) {
@@ -2601,8 +2628,8 @@ function renderBoardList(items) {
       <button type="button" class="biz-item board-row ${row.id === selectedBoardId ? 'active' : ''}" data-id="${esc(row.id)}">
         ${thumb}
         <div>
-          <div class="biz-title">${row.is_pinned===true?'📌 ':''}${row.is_alert_notice===true?'📣 ':''}${esc(row.title || '게시글')}</div>
-          <div class="biz-meta">${esc(boardLabel(row.type))}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_alert_notice===true?'· 달타운 공지 ':''}${row.is_active === false ? '· 비활성' : ''}</div>
+          <div class="biz-title">${row.is_pinned === true ? '📌 ' : ''}${esc(row.title || '게시글')}</div>
+          <div class="biz-meta">${esc(boardLabel(row.type))}${row.is_pinned === true ? ` · 고정 ${esc(row.pin_order || 999)}` : ''}${row.subtype ? ' · ' + esc(boardSubtypeLabel(row.subtype)) : ''} · ${esc(row.region || 'colorado')} ${row.is_active === false ? '· 비활성' : ''}</div>
           <div class="biz-meta">${linkedBiz ? '연결 업소: ' + esc(linkedBiz.name_ko || linkedBiz.name_en || linkedBiz.id) : esc(period)}</div>
           <div class="biz-meta">${esc(row.address || row.phone || (row.content || '').slice(0, 80))}</div>
         </div>
@@ -2659,9 +2686,7 @@ const payloadBase = {
     end_at: fromLocal(val('board_end_at')),
     is_active: checked('board_is_active'),
     is_pinned: checked('board_is_pinned'),
-    pin_order: Math.max(1, Number(val('board_pin_order') || 999)),
-    is_alert_notice: checked('board_is_alert_notice'),
-    alert_order: Math.max(1, Number(val('board_alert_order') || 999)),
+    pin_order: checked('board_is_pinned') ? Math.max(1, Number(val('board_pin_order') || 999)) : 999,
     business_id: linkedBusinessId || null
 };
 console.log('BOARD SAVE PAYLOAD', payloadBase);
@@ -2708,10 +2733,8 @@ for (const rawPayload of payloads) {
 }
 
   if (res?.error) return alert(`게시글 저장 실패: ${res.error.message}`);
-  const savedBoardId=res?.data?.id||selectedBoardId;
-  writeBoardHomePin(savedBoardId, checked('board_home_pinned'));
   await loadBoards();
-  if (res.data) fillBoardForm({...res.data,is_home_pinned:checked('board_home_pinned')});
+  if (res.data) fillBoardForm(res.data);
   alert('게시글 저장 완료');
 }
 async function deleteBoard() {
@@ -5548,6 +5571,18 @@ async function v535SetCandidateHome(sourceId, category, enabled){
   if(!current)return alert('후보 콘텐츠를 찾지 못했습니다.');
   const oldMeta=newsroomJson(current.event_data,{});
   const now=new Date().toISOString();
+  // V102: 마켓·행사는 카테고리당 한 건만 관리자 고정할 수 있습니다.
+  // 새 항목을 고정하면 기존 고정은 자동 해제되고, 고정 해제 시 최신 항목 자동 표시로 돌아갑니다.
+  if(enabled && ['shopping','event'].includes(String(category||''))){
+    const samePinned=(newsroomItems||[]).filter(x=>String(x.id)!==String(sourceId)&&v535CandidateCategory(x)===String(category)&&v535CandidateIsHome(x));
+    for(const other of samePinned){
+      const om=newsroomJson(other.event_data,{});
+      const restored=String(om.previous_selection_source||'ai');
+      const next={...om,home_show:false,selection_source:restored,previous_selection_source:null,editor_removed_at:now};
+      await supabase.from('newsroom_items').update({event_data:next,updated_at:now}).eq('id',other.id);
+      try{await newsroomEdgeCall('set_editor_pick',{id:other.id,enabled:false,region:getAppRegion()});}catch(_){ }
+    }
+  }
   const meta={...oldMeta,
     home_show:!!enabled,
     home_category:String(category||oldMeta.home_category||oldMeta.category||'shopping'),
@@ -5563,7 +5598,7 @@ async function v535SetCandidateHome(sourceId, category, enabled){
     archive_kept_at:enabled?now:(oldMeta.archive_kept_at||null)
   };
   const {error}=await supabase.from('newsroom_items').update({event_data:meta,priority_score:enabled?998:(current.priority_score||0),updated_at:now}).eq('id',sourceId);
-  if(error)return alert(`${enabled?'메인 표시':'메인 해제'} 실패: ${error.message}`);
+  if(error)return alert(`${enabled?'메인 고정':'고정 해제'} 실패: ${error.message}`);
   try{await newsroomEdgeCall('set_editor_pick',{id:sourceId,enabled:!!enabled,region:getAppRegion()});}catch(_){ }
   if(!enabled){try{await newsroomEdgeCall('set_home_link',{id:sourceId,enabled:false,target_type:'',target_id:'',label:'',region:getAppRegion()});}catch(_){ }}
   await Promise.all([loadNewsroom(),v531LoadHomeDashboard()]);
@@ -5592,28 +5627,34 @@ async function v531LoadHomeDashboard(){
     const marketRows=rows.filter(x=>v535CandidateCategory(x)==='shopping');
     const eventRows=rows.filter(x=>v535CandidateCategory(x)==='event');
     const adminCards=feed.filter(x=>!['weather','traffic'].includes(String(x.category||'')));
+    const pinnedMarket=marketRows.find(x=>v535CandidateIsHome(x));
+    const pinnedEvent=eventRows.find(x=>v535CandidateIsHome(x));
+    const autoMarketId=String((pinnedMarket||marketRows[0]||{}).id||'');
+    const autoEventId=String((pinnedEvent||eventRows[0]||{}).id||'');
     safeText('v518AdminCardCount',`${adminCards.length}개`);safeText('v518TotalCardCount',`${feed.length}개`);safeText('v518DashboardCheckedAt',new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}));
     const feedOk=feedResult.status==='fulfilled';
     safeText('v518HomeDashboardStatus',feedOk?`메인 연결 정상 · 현재 사용자에게 전달되는 카드 ${feed.length}개 · 마켓 후보 ${marketRows.length}개`:`메인 연결 실패 · ${feedResult.reason?.message||feedResult.reason||'응답 없음'}`);
     const actual=feed.map((x,i)=>{
-      const sourceId=v534HomeSourceId(x);const cat=String(x.category||'');const automatic=['weather','traffic'].includes(cat);const editable=!!sourceId;
-      let action=automatic?`<button type="button" class="btn ghost" data-v538-auto-inline="${esc(cat)}">문구 수정</button>`:'<span class="tiny muted">관리자 카드</span>';
-      if(!automatic){
+      const sourceId=v534HomeSourceId(x);const cat=String(x.category||'');const coreAutomatic=['weather','traffic'].includes(cat);const rotatingAutomatic=['shopping','event'].includes(cat);const pinned=Boolean(x.is_pinned||x.is_manual||x.admin_selected||x.selected_by_admin);const automatic=coreAutomatic||(rotatingAutomatic&&!pinned);const editable=!!sourceId;
+      let action=coreAutomatic?`<button type="button" class="btn ghost" data-v538-auto-inline="${esc(cat)}">문구 수정</button>`:'<span class="tiny muted">자동 카드</span>';
+      if(rotatingAutomatic){
+        action=`<div style="display:flex;gap:7px;flex-wrap:wrap">${editable?`<button type="button" class="btn ghost" data-v538-inline-edit="${esc(sourceId)}" data-v538-category="${esc(cat)}">수정</button>`:''}${pinned?`<button type="button" class="btn danger" data-v535-home-toggle="${esc(sourceId)}" data-v535-category="${esc(cat)}" data-v535-enabled="0">고정 해제</button>`:`<button type="button" class="btn primary" data-v535-home-toggle="${esc(sourceId)}" data-v535-category="${esc(cat)}" data-v535-enabled="1">메인 고정</button>`}</div>`;
+      }else if(!coreAutomatic){
         action=`<div style="display:flex;gap:7px;flex-wrap:wrap">${editable?`<button type="button" class="btn ghost" data-v538-inline-edit="${esc(sourceId)}" data-v538-category="${esc(cat)}">수정</button>`:''}<button type="button" class="btn danger" data-v535-home-toggle="${esc(sourceId)}" data-v535-category="${esc(cat)}" data-v535-enabled="0">메인에서 숨기기</button></div>`;
       }
       return `<div class="newsroom-item" style="padding:14px;margin-top:9px;border-color:${automatic?'#bfdbfe':'#86efac'}"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start"><div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="pill">${i+1}번째</span><b>${esc(x.icon||'•')} ${esc(x.title||'제목 없음')}</b></div><div class="tiny muted" style="margin-top:6px">${esc(v531HomeCategoryLabel(cat))} · ${esc(v531HomeItemTargetLabel(x))}${sourceId?` · 원본 ID ${esc(sourceId.slice(0,8))}`:''}</div><div style="margin-top:8px;line-height:1.55">${esc(x.summary||'요약 없음')}</div>${x.link_label?`<div class="tiny" style="margin-top:7px">버튼 문구: <b>${esc(x.link_label)}</b></div>`:''}</div>${action}</div></div>`;
     }).join('');
-    const candidateCard=(row,category)=>{const m=newsroomJson(row.event_data,{});const on=v535CandidateIsHome(row);const title=row.ai_title||row.original_title||`${v531HomeCategoryLabel(category)} 후보`;const summary=row.ai_summary||row.original_summary||m.summary||'';return `<div class="newsroom-item" style="padding:12px;margin-top:8px"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center"><div><b>${esc(title)}</b><div class="tiny muted" style="margin-top:4px">${esc(row.source_name||'자동 수집')} · ${on?'현재 메인 표시 중':'현재 미표시'}</div>${summary?`<div class="tiny" style="margin-top:6px;line-height:1.45">${esc(String(summary).slice(0,180))}</div>`:''}</div><div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="btn ghost" data-v538-inline-edit="${esc(row.id)}" data-v538-category="${esc(category)}">수정</button><button type="button" class="btn ${on?'danger':'primary'}" data-v535-home-toggle="${esc(row.id)}" data-v535-category="${esc(category)}" data-v535-enabled="${on?'0':'1'}">${on?'메인에서 숨기기':'메인에 표시'}</button></div></div></div>`;};
+    const candidateCard=(row,category)=>{const m=newsroomJson(row.event_data,{});const pinned=v535CandidateIsHome(row);const currentId=category==='shopping'?autoMarketId:autoEventId;const current=String(row.id)===String(currentId);const state=pinned?'📌 관리자 고정':current?'최신 자동 표시':'자동 대기';const title=row.ai_title||row.original_title||`${v531HomeCategoryLabel(category)} 후보`;const summary=row.ai_summary||row.original_summary||m.summary||'';return `<div class="newsroom-item" style="padding:12px;margin-top:8px;border-color:${pinned?'#f59e0b':current?'#60a5fa':''}"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center"><div><b>${esc(title)}</b><div class="tiny muted" style="margin-top:4px">${esc(row.source_name||'자동 수집')} · ${state}</div>${summary?`<div class="tiny" style="margin-top:6px;line-height:1.45">${esc(String(summary).slice(0,180))}</div>`:''}</div><div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end"><button type="button" class="btn ghost" data-v538-inline-edit="${esc(row.id)}" data-v538-category="${esc(category)}">수정</button><button type="button" class="btn ${pinned?'danger':'primary'}" data-v535-home-toggle="${esc(row.id)}" data-v535-category="${esc(category)}" data-v535-enabled="${pinned?'0':'1'}">${pinned?'고정 해제':'메인 고정'}</button></div></div></div>`;};
     const marketCandidates=marketRows.slice(0,8).map(x=>candidateCard(x,'shopping')).join('')||'<div class="empty">현재 수집된 마켓 후보가 없습니다.</div>';
     const eventCandidates=eventRows.slice(0,8).map(x=>candidateCard(x,'event')).join('')||'<div class="empty">현재 수집된 행사 후보가 없습니다.</div>';
     const available=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px">
       <div class="newsroom-item" style="padding:12px"><b>☀️ 날씨</b><div class="tiny muted">자동 표시</div><div class="tiny" style="margin-top:5px;font-weight:800">${feed.some(x=>x.category==='weather')?'현재 표시 중':'현재 피드에 없음'}</div><button type="button" class="btn ghost" style="margin-top:8px" data-v538-auto-inline="weather">문구 수정</button></div>
       <div class="newsroom-item" style="padding:12px"><b>🚗 교통</b><div class="tiny muted">자동 표시</div><div class="tiny" style="margin-top:5px;font-weight:800">${feed.some(x=>x.category==='traffic')?'현재 표시 중':'현재 피드에 없음'}</div><button type="button" class="btn ghost" style="margin-top:8px" data-v538-auto-inline="traffic">문구 수정</button></div>
-      <div class="newsroom-item" style="padding:12px"><b>🛒 마켓 정보</b><div class="tiny muted">자동 수집 후 관리자 노출 선택</div><div class="tiny" style="margin-top:5px;font-weight:800">후보 ${marketRows.length}개</div></div>
-      <div class="newsroom-item" style="padding:12px"><b>🎉 행사 안내</b><div class="tiny muted">자동 수집 후 관리자 노출 선택</div><div class="tiny" style="margin-top:5px;font-weight:800">후보 ${eventRows.length}개</div></div>
+      <div class="newsroom-item" style="padding:12px"><b>🛒 마켓 정보</b><div class="tiny muted">최신 1건 자동 표시 · 필요 시 고정</div><div class="tiny" style="margin-top:5px;font-weight:800">후보 ${marketRows.length}개</div></div>
+      <div class="newsroom-item" style="padding:12px"><b>🎉 행사 안내</b><div class="tiny muted">최신 1건 자동 표시 · 필요 시 고정</div><div class="tiny" style="margin-top:5px;font-weight:800">후보 ${eventRows.length}개</div></div>
       <div class="newsroom-item" style="padding:12px"><b>⭐ 광고·업소</b><div class="tiny muted">업소 콘텐츠만 수정 가능</div><div class="tiny" style="margin-top:5px;font-weight:800">${feed.filter(x=>x.category==='business').length}개 표시 중</div></div>
     </div>`;
-    list.innerHTML=`<h4 style="margin:2px 0 8px">현재 사용자 메인에 표시되는 정확한 내용</h4><div class="tiny muted" style="margin-bottom:8px">모든 카드의 제목과 문구를 수정할 수 있습니다. 날씨·교통도 특별 메시지를 넣을 수 있습니다.</div>${actual||'<div class="empty">현재 사용자 메인에 전달되는 카드가 없습니다.</div>'}<h4 style="margin:18px 0 8px">메인에 표시할 수 있는 항목</h4>${available}<details open style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🛒 마켓 정보 후보 ${marketRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${marketCandidates}</div></details><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🎉 행사 안내 후보 ${eventRows.length}개 — 표시 여부만 선택</summary><div style="margin-top:8px">${eventCandidates}</div></details>`;
+    list.innerHTML=`<h4 style="margin:2px 0 8px">현재 사용자 메인에 표시되는 정확한 내용</h4><div class="tiny muted" style="margin-bottom:8px">모든 카드의 제목과 문구를 수정할 수 있습니다. 날씨·교통도 특별 메시지를 넣을 수 있습니다.</div>${actual||'<div class="empty">현재 사용자 메인에 전달되는 카드가 없습니다.</div>'}<h4 style="margin:18px 0 8px">메인에 표시할 수 있는 항목</h4>${available}<details open style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🛒 마켓 정보 후보 ${marketRows.length}개 — 최신 자동 표시 / 관리자 고정</summary><div style="margin-top:8px">${marketCandidates}</div></details><details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">🎉 행사 안내 후보 ${eventRows.length}개 — 최신 자동 표시 / 관리자 고정</summary><div style="margin-top:8px">${eventCandidates}</div></details>`;
     list.querySelectorAll('[data-v534-home-edit]').forEach(b=>b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();v534EditHomeCard(b.dataset.v534HomeEdit);}));
     list.querySelectorAll('[data-v537-auto-edit]').forEach(b=>b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();const cat=b.dataset.v537AutoEdit;const item=feed.find(x=>String(x.category||'')===cat)||{};v537EditAutomaticHomeCard(cat,item);}));
     list.querySelectorAll('[data-v538-inline-edit]').forEach(b=>b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();v538RenderInlineEditor(b.dataset.v538InlineEdit,b.dataset.v538Category||'');}));
@@ -5925,6 +5966,106 @@ on('map_category','change',()=>{ refreshSubcategoryOptions(); syncLegacyCategory
 on('subcategory','change',()=>{ syncLegacyCategoryField(); updatePreview(); });
 console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
 
+// V62 메인 3개 섹션 통합 관리 · 자동 예약 · 자동 플레이 · 장면 프리셋
+const V62_SECTION_LABELS={today:'오늘의 달타운',community:'커뮤니티',alert:'달타운 알림'};
+const V62_ALERT_SOURCES=[['dalpick','등록 광고·콘텐츠'],['coupon','유효한 쿠폰'],['video','영상'],['event','행사'],['life','생활정보'],['emergency','긴급공지']];
+let v62Schedules=[];
+let v62Scenes=[];
+
+function v62ModeOptions(selected='featured'){
+  return Object.entries(V61_MODE_LABELS).map(([v,l])=>`<option value="${v}" ${v===selected?'selected':''}>${l}</option>`).join('');
+}
+function v62SectionTabs(){
+  return `<div class="v62-tabs" style="display:flex;gap:8px;flex-wrap:wrap;margin:16px 0">
+    ${Object.entries(V62_SECTION_LABELS).map(([k,l],i)=>`<button type="button" class="btn ${i===0?'primary':'ghost'}" data-v62-tab="${k}">${i+1}. ${l}</button>`).join('')}
+  </div>`;
+}
+function v62ScheduleForm(section){
+  const isToday=section==='today',isCommunity=section==='community';
+  return `<div class="v62-schedule-form" data-v62-form="${section}" style="margin-top:16px;padding:14px;border:1px solid #dbe4f0;border-radius:14px;background:#f8fbff">
+    <input type="hidden" data-f="id"><div class="form-grid">
+    <label class="field"><span>예약 이름</span><input data-f="name" placeholder="예: 8월 쿠폰 주간"></label>
+    <label class="field"><span>시작일</span><input data-f="start_date" type="date"></label>
+    <label class="field"><span>종료일</span><input data-f="end_date" type="date"></label>
+    <label class="field"><span>우선순위</span><input data-f="priority" type="number" value="10"></label>
+    ${isToday?`<label class="field"><span>추천업체 기준</span><select data-f="business_mode">${v62ModeOptions()}</select></label>`:''}
+    ${isCommunity?`<label class="field"><span>커뮤니티 정렬</span><select data-f="community_sort"><option value="latest">최신순</option><option value="popular">인기순</option><option value="notice">공지 우선</option></select></label>`:''}
+    ${section==='alert'?`<div class="field full"><span>알림 출처</span><div class="checkbox-row">${V62_ALERT_SOURCES.map(([v,l])=>`<label><input type="checkbox" data-source="${v}" ${['dalpick','coupon'].includes(v)?'checked':''}> ${l}</label>`).join('')}</div></div>`:''}
+    <label class="field checkbox-line"><input data-f="enabled" type="checkbox" checked><span>이 예약 사용</span></label>
+    <div class="field"><span>&nbsp;</span><div style="display:flex;gap:8px"><button class="btn primary" type="button" data-v62-save-schedule="${section}">예약 저장</button><button class="btn ghost" type="button" data-v62-reset-schedule="${section}">새로 작성</button></div></div>
+    </div></div><div data-v62-schedule-list="${section}" style="margin-top:12px"></div>`;
+}
+function v62TodayPanel(){return `<div data-v62-panel="today">
+  <div class="panel-head"><div><h3>① 오늘의 달타운</h3><p class="muted">추천업체 표시 기준, 직접 지정 업체, 자동 플레이와 날짜 예약을 관리합니다.</p></div></div>
+  <div class="form-grid">
+    <label class="field"><span>기본 추천업체 기준</span><select id="v45BusinessMode">${v62ModeOptions('popular')}</select></label>
+    <label class="field"><span>한 화면 표시 개수</span><input id="v62TodayCount" type="number" min="1" max="20" value="10"></label>
+    <label class="field checkbox-line"><input id="v62TodayAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
+    <label class="field"><span>자동 변경 간격</span><select id="v62TodayInterval"><option value="5">5초</option><option value="8">8초</option><option value="10" selected>10초</option><option value="15">15초</option></select></label>
+    <label class="field full"><span>관리자 직접 지정 업체</span><select id="v45BusinessIds" multiple size="6"></select><small class="muted">직접 지정 업체가 있으면 자동 기준보다 우선합니다. Ctrl/Command로 여러 업체를 선택할 수 있습니다.</small></label>
+  </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('today')}</div>`}
+function v62CommunityPanel(){return `<div data-v62-panel="community" hidden>
+  <div class="panel-head"><div><h3>② 커뮤니티</h3><p class="muted">메인 가운데에 표시할 게시판 종류와 자동 플레이를 관리합니다.</p></div></div>
+  <div class="form-grid">
+    <div class="field full"><span>노출 게시판</span><div id="v62CommunityTypes" class="checkbox-row">
+      <label><input type="checkbox" value="event" checked> 행사안내</label><label><input type="checkbox" value="free" checked> 자유게시판</label><label><input type="checkbox" value="market" checked> 사고팔고</label><label><input type="checkbox" value="job" checked> 구인구직</label><label><input type="checkbox" value="business" checked> 업체소식</label></div></div>
+    <label class="field"><span>기본 정렬</span><select id="v62CommunitySort"><option value="latest">최신순</option><option value="popular">인기순</option><option value="notice">공지 우선</option></select></label>
+    <label class="field checkbox-line"><input id="v62CommunityAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
+    <label class="field"><span>자동 변경 간격</span><select id="v62CommunityInterval"><option value="5">5초</option><option value="8" selected>8초</option><option value="10">10초</option><option value="15">15초</option></select></label>
+    <label class="field"><span>직접 고정 글 ID</span><input id="v45CommunityPostIds" placeholder="쉼표로 구분"></label>
+    <label class="field"><span>우선 노출 글 ID</span><input id="v45CommunityBoostIds" placeholder="쉼표로 구분"></label>
+  </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('community')}</div>`}
+function v62AlertPanel(){return `<div data-v62-panel="alert" hidden>
+  <div class="panel-head"><div><h3>③ 달타운 알림</h3><p class="muted">기존 한 줄 광고를 알림으로 통합하여 광고·쿠폰·영상·행사·생활정보·긴급공지를 함께 관리합니다.</p></div></div>
+  <div class="form-grid">
+    <div class="field full"><span>기본 자동 포함 출처</span><div id="v62AlertSources" class="checkbox-row">${V62_ALERT_SOURCES.map(([v,l])=>`<label><input type="checkbox" value="${v}" ${['dalpick','coupon'].includes(v)?'checked':''}> ${l}</label>`).join('')}</div></div>
+    <label class="field checkbox-line"><input id="v62AlertAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
+    <label class="field"><span>자동 변경 간격</span><select id="v62AlertInterval"><option value="4">4초</option><option value="6" selected>6초</option><option value="8">8초</option><option value="10">10초</option></select></label>
+    <label class="field checkbox-line"><input id="v62AlertPauseHover" type="checkbox" checked><span>마우스를 올리면 일시정지</span></label>
+  </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('alert')}</div>`}
+function v62ScenePanel(){return `<hr><div class="panel-head"><div><h3>장면(Scene) 프리셋</h3><p class="muted">세 섹션의 설정을 한 번에 저장하고, 날짜를 지정해 메인 전체를 자동 전환합니다.</p></div><button id="v62SceneCapture" class="btn ghost" type="button">현재 설정을 장면으로 저장</button></div>
+  <div class="form-grid"><label class="field"><span>장면 이름</span><input id="v62SceneName" placeholder="예: 블랙프라이데이"></label><label class="field"><span>시작일</span><input id="v62SceneStart" type="date"></label><label class="field"><span>종료일</span><input id="v62SceneEnd" type="date"></label><label class="field"><span>우선순위</span><input id="v62ScenePriority" type="number" value="50"></label></div><div id="v62SceneList" style="margin-top:12px"></div>`}
+
+function v61HomeSettingsPanel(){
+  if(qs('v61HomeSettingsPanel'))return;
+  const section=qs('section-newsroom');if(!section)return;
+  const panel=document.createElement('section');panel.id='v61HomeSettingsPanel';panel.className='panel';panel.style.marginBottom='18px';
+  panel.innerHTML=`<div class="panel-head"><div><h2>메인 화면 관리</h2><p class="muted">사용자 메인 화면과 같은 순서로 세 섹션을 따로 관리합니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">전체 설정 저장</button></div>${v62SectionTabs()}${v62TodayPanel()}${v62CommunityPanel()}${v62AlertPanel()}${v62ScenePanel()}`;
+  section.prepend(panel);
+  panel.querySelectorAll('[data-v62-tab]').forEach(btn=>btn.onclick=()=>{panel.querySelectorAll('[data-v62-tab]').forEach(x=>x.className='btn ghost');btn.className='btn primary';panel.querySelectorAll('[data-v62-panel]').forEach(x=>x.hidden=x.dataset.v62Panel!==btn.dataset.v62Tab)});
+  panel.querySelectorAll('[data-v62-save-schedule]').forEach(b=>b.onclick=()=>v62SaveSchedule(b.dataset.v62SaveSchedule));
+  panel.querySelectorAll('[data-v62-reset-schedule]').forEach(b=>b.onclick=()=>v62ResetSchedule(b.dataset.v62ResetSchedule));
+  qs('v62SceneCapture').onclick=v62CaptureScene;
+}
+function v62Form(section){return qs(`[data-v62-form="${section}"]`)}
+function v62ResetSchedule(section){const f=v62Form(section);if(!f)return;f.querySelectorAll('input').forEach(x=>{if(x.type==='checkbox')x.checked=true;else if(x.type==='number')x.value='10';else x.value=''});f.querySelectorAll('select').forEach(x=>x.selectedIndex=0)}
+function v62SaveSchedule(section){
+  const f=v62Form(section);if(!f)return;const get=n=>f.querySelector(`[data-f="${n}"]`);const start=get('start_date')?.value,end=get('end_date')?.value;if(!start||!end)return alert('시작일과 종료일을 입력하세요.');if(end<start)return alert('종료일은 시작일보다 빠를 수 없습니다.');
+  const row={id:get('id')?.value||`v62-${section}-${Date.now()}`,section,name:get('name')?.value.trim()||`${V62_SECTION_LABELS[section]} 예약`,start_date:start,end_date:end,priority:Number(get('priority')?.value||10),enabled:get('enabled')?.checked!==false};
+  if(section==='today')row.business_mode=get('business_mode')?.value||'featured';
+  if(section==='community')row.community_sort=get('community_sort')?.value||'latest';
+  if(section==='alert')row.ticker_sources=Array.from(f.querySelectorAll('[data-source]:checked')).map(x=>x.dataset.source);
+  const i=v62Schedules.findIndex(x=>String(x.id)===String(row.id));if(i>=0)v62Schedules[i]=row;else v62Schedules.push(row);v62RenderSchedules();v62ResetSchedule(section);
+}
+function v62RenderSchedules(){
+  Object.keys(V62_SECTION_LABELS).forEach(section=>{const box=qs(`[data-v62-schedule-list="${section}"]`);if(!box)return;const rows=v62Schedules.filter(x=>x.section===section);box.innerHTML=rows.length?rows.map(r=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(r.name)} ${r.enabled===false?'<span class="muted">(중지)</span>':''}</div><div class="biz-meta">${esc(r.start_date)} ~ ${esc(r.end_date)} · 우선순위 ${esc(r.priority||0)}</div></div><button class="btn ghost" type="button" data-v62-edit="${esc(r.id)}">수정</button><button class="btn danger" type="button" data-v62-delete="${esc(r.id)}">삭제</button></div>`).join(''):'<div class="muted">등록된 예약이 없습니다.</div>';box.querySelectorAll('[data-v62-edit]').forEach(b=>b.onclick=()=>v62EditSchedule(b.dataset.v62Edit));box.querySelectorAll('[data-v62-delete]').forEach(b=>b.onclick=()=>{v62Schedules=v62Schedules.filter(x=>String(x.id)!==String(b.dataset.v62Delete));v62RenderSchedules()})})
+}
+function v62EditSchedule(id){const r=v62Schedules.find(x=>String(x.id)===String(id));if(!r)return;const f=v62Form(r.section),set=(n,v)=>{const x=f?.querySelector(`[data-f="${n}"]`);if(x)x.value=v??''};['id','name','start_date','end_date','priority','business_mode','community_sort'].forEach(n=>set(n,r[n]));const en=f?.querySelector('[data-f="enabled"]');if(en)en.checked=r.enabled!==false;if(r.section==='alert')f.querySelectorAll('[data-source]').forEach(x=>x.checked=(r.ticker_sources||[]).includes(x.dataset.source));qs(`[data-v62-tab="${r.section}"]`)?.click()}
+function v62CurrentSnapshot(){return {business_mode:val('v45BusinessMode')||'featured',business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value),ticker_sources:$$('#v62AlertSources input:checked').map(x=>x.value),community_board_types:$$('#v62CommunityTypes input:checked').map(x=>x.value),autoplay:{today:checked('v62TodayAutoplay'),community:checked('v62CommunityAutoplay'),alert:checked('v62AlertAutoplay')},intervals:{today:Number(val('v62TodayInterval')||10),community:Number(val('v62CommunityInterval')||8),alert:Number(val('v62AlertInterval')||6)}}}
+function v62CaptureScene(){const name=val('v62SceneName').trim(),start=val('v62SceneStart'),end=val('v62SceneEnd');if(!name||!start||!end)return alert('장면 이름과 시작일·종료일을 입력하세요.');v62Scenes.push({id:`scene-${Date.now()}`,name,start_date:start,end_date:end,priority:Number(val('v62ScenePriority')||50),enabled:true,config:v62CurrentSnapshot()});v62RenderScenes();setVal('v62SceneName','');setVal('v62SceneStart','');setVal('v62SceneEnd','')}
+function v62RenderScenes(){const box=qs('v62SceneList');if(!box)return;box.innerHTML=v62Scenes.length?v62Scenes.map(s=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(s.name)}</div><div class="biz-meta">${esc(s.start_date)} ~ ${esc(s.end_date)} · 우선순위 ${esc(s.priority||0)}</div></div><button class="btn danger" data-v62-scene-delete="${esc(s.id)}" type="button">삭제</button></div>`).join(''):'<div class="muted">저장된 장면이 없습니다.</div>';box.querySelectorAll('[data-v62-scene-delete]').forEach(b=>b.onclick=()=>{v62Scenes=v62Scenes.filter(x=>String(x.id)!==String(b.dataset.v62SceneDelete));v62RenderScenes()})}
+
+function v45FillHomeConfig(config={}){
+  v61HomeSettingsPanel();v62Schedules=Array.isArray(config.schedule_presets)?config.schedule_presets.map(x=>({...x,section:x.section||'today'})):[];v62Scenes=Array.isArray(config.scene_presets)?config.scene_presets.map(x=>({...x})):[];v62RenderSchedules();v62RenderScenes();
+  setVal('v45BusinessMode',config.business_mode||'featured');v45PopulateBusinessSelect(config.business_ids||[]);setVal('v62TodayCount',String(config.today_count||10));
+  const ap=config.autoplay||{},it=config.intervals||{};setChecked('v62TodayAutoplay',ap.today!==false);setChecked('v62CommunityAutoplay',ap.community!==false);setChecked('v62AlertAutoplay',ap.alert!==false);setVal('v62TodayInterval',String(it.today||10));setVal('v62CommunityInterval',String(it.community||8));setVal('v62AlertInterval',String(it.alert||6));setChecked('v62AlertPauseHover',config.alert_pause_hover!==false);
+  const types=new Set(config.community_board_types||['event','free','market','job','business']);$$('#v62CommunityTypes input').forEach(x=>x.checked=types.has(x.value));setVal('v62CommunitySort',config.community_sort||'latest');setVal('v45CommunityBoostIds',(config.community_boost_ids||[]).join(', '));setVal('v45CommunityPostIds',(config.community_post_ids||[]).join(', '));
+  const src=new Set(config.ticker_sources||['dalpick','coupon']);$$('#v62AlertSources input').forEach(x=>x.checked=src.has(x.value));
+}
+function v45ReadHomeConfig(){
+  return {...v62CurrentSnapshot(),today_count:Number(val('v62TodayCount')||10),community_sort:val('v62CommunitySort')||'latest',community_post_ids:v45Csv(val('v45CommunityPostIds')),community_boost_ids:v45Csv(val('v45CommunityBoostIds')),alert_pause_hover:checked('v62AlertPauseHover'),schedule_presets:v62Schedules,scene_presets:v62Scenes};
+}
+console.info('[DalTownMap Admin] V62 three-section home manager loaded');
 
 // V90 — 뉴스룸 관리자: 오늘의 자동 브리핑 확인·수정
 (function(){
@@ -5983,12 +6124,31 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
     if(!confirm('자동 뉴스 수집·선별 작업을 지금 실행할까요? 오늘 기사가 이미 있으면 새 기사를 중복 발행하지 않습니다.'))return;
     const btn=el('v90BriefingGenerateBtn');if(btn){btn.disabled=true;btn.textContent='자동 작업 실행 중…';}
     try{
-      const j=await newsroomEdgeCall('daily_dallas_life',{region:getAppRegion()},'자료를 수집하고 오늘의 기사와 브리핑을 준비하고 있습니다…');
+      const region=getAppRegion();
+      const steps=[
+        ['collect_scheduled_topics',{},'예정 주제를 확인하고 있습니다…'],
+        ['collect_markets',{},'마트·생활 정보를 확인하고 있습니다…'],
+        ['collect',{lane:'practical'},'생활·날씨·교통 자료를 수집하고 있습니다…'],
+        ['collect',{lane:'events'},'문화·예술·행사 자료를 수집하고 있습니다…'],
+        ['collect',{lane:'korean'},'한인 지역 자료를 수집하고 있습니다…'],
+        ['collect',{lane:'shopping'},'쇼핑·생활 자료를 수집하고 있습니다…'],
+      ];
+      for(let i=0;i<steps.length;i++){
+        const [action,extra,msg]=steps[i];
+        setStatus(`${i+1}/${steps.length+3} ${msg}`);
+        try{await newsroomEdgeCall(action,{region,...extra},msg);}catch(stepError){console.warn('[V91 briefing step]',action,stepError);}
+      }
+      for(let i=0;i<2;i++){
+        setStatus(`${steps.length+i+1}/${steps.length+3} 수집 자료를 AI로 분류하고 있습니다…`);
+        try{await newsroomEdgeCall('analyze',{region,limit:4},'수집 자료를 AI로 분류하고 있습니다…');}catch(stepError){console.warn('[V91 analyze step]',stepError);}
+      }
+      setStatus(`${steps.length+3}/${steps.length+3} 오늘의 기사와 브리핑을 생성하고 있습니다…`);
+      const j=await newsroomEdgeCall('daily_dallas_life',{region},'오늘의 기사와 브리핑을 생성하고 있습니다…');
       await load();
       const reason=j?.published?.reason;
       setStatus(j?.briefing?'새 기사와 브리핑을 생성했습니다.':`자동 작업 완료${reason?` · ${reason}`:''}`);
       alert(j?.briefing?'새 브리핑이 생성되었습니다.':'자동 작업을 마쳤습니다. 오늘 기사가 이미 있거나 적합한 자료가 없어 새 브리핑을 만들지 않았습니다.');
-    }catch(e){console.error('[V90 briefing generate]',e);setStatus(`자동 작업 실패: ${e.message}`,true);alert(`자동 작업 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent='AI 자동 작업 실행';}}
+    }catch(e){console.error('[V91 briefing generate]',e);setStatus(`자동 작업 실패: ${e.message}`,true);alert(`자동 작업 실패: ${e.message}`);}finally{if(btn){btn.disabled=false;btn.textContent='AI 자동 작업 실행';}}
   }
   document.addEventListener('DOMContentLoaded',()=>{
     el('v90BriefingRefreshBtn')?.addEventListener('click',()=>load(true));
