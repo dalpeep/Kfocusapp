@@ -1262,25 +1262,17 @@ async function homeFeed(region = 'dallas') {
     });
   }
 
-  // V102 메인 운영: 날씨·교통·마켓·행사는 자동 표시합니다.
-  // 마켓·행사는 각 카테고리의 최신 1건이 자동 노출되며, 관리자가 고정한 항목이 있으면
-  // 최신 자동 항목 대신 고정 항목을 사용합니다. 광고·업소는 계속 관리자 지정만 노출합니다.
+  // V51.4 메인 운영: 날씨와 교통만 자동 표시합니다.
+  // 쇼핑·행사·업소 및 기타 정보는 관리자가 메인 노출로 지정한 경우에만 추가합니다.
   const sorted=proposals.sort((a,b)=>b.score-a.score);
   const editorRows=sorted.filter((x:any)=>x.selection_source==='editor');
   const emergency=sorted.filter((x:any)=>x.emergency);
   const latestCore=(category:string)=>sorted.find((x:any)=>x.category===category && x.daily_core===true)
     || sorted.find((x:any)=>x.category===category && x.selection_source!=='editor');
-  const pinnedFor=(category:string)=>editorRows.find((x:any)=>x.category===category);
-  const autoRows:any[]=[
-    latestCore('weather'),
-    latestCore('traffic'),
-    pinnedFor('shopping') || latestCore('shopping'),
-    pinnedFor('event') || latestCore('event'),
-  ].filter(Boolean);
-  const editorExtras=editorRows.filter((x:any)=>!['weather','traffic','shopping','event'].includes(String(x.category||'')));
+  const autoRows:any[]=[latestCore('weather'),latestCore('traffic')].filter(Boolean);
   const feed:any[]=[];
   const seen=new Set<string>();
-  for(const row of [...emergency,...autoRows,...editorExtras]){
+  for(const row of [...emergency,...autoRows,...editorRows]){
     const key=String(row.source_id||row.id||'');
     if(!key||seen.has(key))continue;
     seen.add(key);feed.push(row);
@@ -1290,10 +1282,10 @@ async function homeFeed(region = 'dallas') {
     ok:true, version:VERSION, items:feed, proposals:feed, home_config:homeConfig,
     meta:{
       total:feed.length, urgent:feed.filter((x:any)=>x.emergency).length,
-      categories:[...new Set(feed.map((x:any)=>x.category))], configured_categories:['weather','traffic','shopping','event'],
+      categories:[...new Set(feed.map((x:any)=>x.category))], configured_categories:['weather','traffic'],
       editor_mode:editorRows.length>0, editor_picked_total:editorRows.length,
       daily_core_weather:Boolean(latestCore('weather')), daily_core_traffic:Boolean(latestCore('traffic')),
-      shopping_auto:true, event_auto:true, fallback_used:false, settings_loaded:true,
+      shopping_auto:false, fallback_used:false, settings_loaded:true,
     },
     generated_at:new Date().toISOString(),
   };
