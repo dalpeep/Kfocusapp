@@ -1174,28 +1174,19 @@ async function loadSlidesFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   slideRows = [];
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
-  const headers={ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' };
-  const selects=[
-    'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at',
-    'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at',
-    'id,business_id,region,promo_enabled,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,created_at',
-    '*'
-  ];
-  let lastError=null;
-  for(const select of selects){
-    try{
-      const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=created_at.desc.nullslast&_ts=${Date.now()}`;
-      const res = await fetch(url,{ cache:'no-store', headers });
-      if(!res.ok) throw new Error(`Slides ${res.status}: ${await res.text()}`);
-      const rows = await res.json();
-      slideRows = (Array.isArray(rows)?rows:[]).filter(r=>String(r.region||getAppRegion()).toLowerCase()===String(getAppRegion()).toLowerCase());
-      console.info('[V110 slides] loaded',{region:getAppRegion(),count:slideRows.length,select});
-      return true;
-    }catch(e){ lastError=e; }
+  try {
+    const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
+    if(!res.ok) throw new Error(`Slides ${res.status}`);
+    const rows = await res.json();
+    slideRows = Array.isArray(rows) ? rows : [];
+    return true;
+  } catch(e){
+    console.warn('Using business promo fallback', e);
+    slideRows = [];
+    return false;
   }
-  console.warn('[V110 slides] all schema attempts failed', lastError);
-  slideRows=[];
-  return false;
 }
 
 async function loadDalpicksFromSupabase(){
@@ -1748,17 +1739,17 @@ return {
   }).filter((s) => !!(s.bg || s.video_url));
 
   if (!heroSlides.length) {
-    // V111: do not manufacture hero slides from ordinary businesses.
-    // When no registered slide is active, keep the original neutral banner instead.
-    heroSlides=[{
-      type:'BANNER',
-      title:'추천 업소',
-      desc:'홈 상단 배너 영역입니다.',
-      button:'',
-      bg:'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
-      bizId:'',
-      video_url:''
-    }];
+    heroSlides = [
+      {
+        type: 'BANNER',
+        title: '추천 업소',
+        desc: '홈 상단 배너 영역입니다.',
+        button: '',
+        bg: 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
+        bizId: '',
+        video_url: ''
+      }
+    ];
   }
 
   console.log('buildHeroSlides result =', heroSlides);
@@ -2886,56 +2877,32 @@ async function v51LoadDirectEditorItems(){
   try{
     if(typeof supabase==='undefined'||!supabase?.from)return [];
     const region=(currentRegion||'dallas');
-    // V108: 최근 후보뿐 아니라 관리자 고정 항목을 별도로 조회합니다.
-    // 오래된 H마트 카드나 업소 연결이 없는 카드도 최근 80건 제한 때문에 누락되지 않습니다.
-    const baseSelect='id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at';
-    // V110: 관리자 고정 항목 전체를 한 번에 읽어 클라이언트에서 판별합니다.
-    // JSONB contains 쿼리는 예전 데이터의 값 형식이나 추가 필드 구성에 따라 일부 고정 항목을 놓칠 수 있었습니다.
-    const allRes=await supabase.from('newsroom_items').select(baseSelect).eq('region',region).order('updated_at',{ascending:false}).limit(1000);
-    if(allRes.error)throw allRes.error;
-    const allRows=(allRes.data||[]).filter((row,i,arr)=>arr.findIndex(x=>String(x.id)===String(row.id))===i);
-    const normalized=allRows.map(row=>{
+    const {data,error}=await supabase.from('newsroom_items')
+      .select('id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at')
+      .eq('region',region)
+      .order('updated_at',{ascending:false})
+      .limit(80);
+    if(error)throw error;
+    return (data||[]).map(row=>{
       const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
-      const text=`${meta.home_category||''} ${meta.category||''} ${row.ai_title||''} ${row.original_title||''} ${row.ai_summary||''} ${row.original_summary||''}`;
-      let category=String(meta.home_category||meta.category||'').trim();
-      if(!['business','shopping','event'].includes(category)){
-        if(/market|shopping|zion|h\s*mart|마트|마켓|세일|할인|장보기/i.test(text))category='shopping';
-        else if(/event|festival|concert|seminar|행사|공연|축제|세미나|박람회|모임/i.test(text))category='event';
-        else category='';
-      }
-      if(!category)return null;
-      const pinned=String(meta.selection_source||'')==='editor'||meta.home_show===true||meta.admin_selected===true||meta.selected_by_admin===true;
-      return {row,meta,category,pinned};
-    }).filter(Boolean);
-    const chooseLatest=cat=>normalized.find(x=>x.category===cat);
-    const chooseCategory=cat=>{
-      const pinnedRows=normalized.filter(x=>x.category===cat&&x.pinned);
-      return pinnedRows.length?pinnedRows:[chooseLatest(cat)].filter(Boolean);
-    };
-    // V107: 관리자 고정 항목은 같은 분류라도 모두 메인 캐러셀에 전달합니다.
-    // 고정 항목이 하나도 없을 때만 해당 분류의 최신 1건을 자동 표시합니다.
-    const picked=[...chooseCategory('shopping'),...chooseCategory('event'),...normalized.filter(x=>x.category==='business'&&x.pinned)]
-      .filter(Boolean).filter((x,i,a)=>a.findIndex(y=>String(y.row.id)===String(x.row.id))===i);
-    return picked.map(({row,meta,category,pinned})=>{
+      const selected=String(meta.selection_source||'')==='editor'||meta.home_show===true;
+      if(!selected)return null;
+      const category=String(meta.home_category||meta.category||'business').trim()||'business';
       const targetType=String(meta.home_target_type||'').trim();
       const targetId=String(meta.home_target_id||'').trim();
-      const external=targetType==='external'&&/^https?:\/\//i.test(String(meta.home_external_url||''));
       const linked=['post','business'].includes(targetType)&&Boolean(targetId);
       return {
         id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
-        title:String(meta.home_custom_title||row.ai_title||row.original_title||'오늘의 달타운').trim(),
-        summary:String(meta.home_custom_message||row.ai_summary||row.original_summary||'').trim(),
-        // 업소 매칭이 없더라도 카드는 그대로 표시하고 버튼만 숨깁니다.
-        target_type:external?'external':(linked?targetType:''),target_id:linked?targetId:'',
-        url:external?String(meta.home_external_url||'').trim():'',
-        link_label:(linked||external)?String(meta.home_link_label||'자세히 보기'):'',
-        display_without_link:true,
-        selected_by_admin:pinned,admin_selected:pinned,is_manual:pinned,is_pinned:pinned,auto_selected:!pinned&&['shopping','event'].includes(category),
-        priority:Number(row.priority_score||(pinned?999:0)),
+        title:String(row.ai_title||row.original_title||'오늘의 달타운').trim(),
+        summary:String(row.ai_summary||row.original_summary||'').trim(),
+        target_type:linked?targetType:'',target_id:linked?targetId:'',
+        link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
+        selected_by_admin:true,admin_selected:true,is_manual:true,
+        priority:Number(row.priority_score||999),
         published_at:row.source_published_at||row.collected_at,
         updated_at:row.updated_at||row.collected_at||row.source_published_at,
       };
-    });
+    }).filter(Boolean);
   }catch(error){
     console.warn('[V51.5 Today Daltown] direct editor fallback unavailable',error?.message||error);
     return [];
