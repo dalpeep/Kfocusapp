@@ -34,9 +34,11 @@ async function fetchDallasBanners() {
     `${url}/rest/v1/banners?select=*` +
     `&is_active=eq.true` +
     `&region=eq.dallas` +
-    `&order=sort_order.asc`;
+    `&order=sort_order.asc` +
+    `&_ts=${Date.now()}`;
 
   const res = await fetch(endpoint, {
+    cache: 'no-store',
     headers: {
       apikey: key,
       Authorization: `Bearer ${key}`

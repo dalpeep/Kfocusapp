@@ -1,3 +1,4 @@
+console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
@@ -1175,8 +1176,8 @@ async function loadSlidesFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
     if(!res.ok) throw new Error(`Slides ${res.status}`);
     const rows = await res.json();
     slideRows = Array.isArray(rows) ? rows : [];
@@ -1581,8 +1582,8 @@ async function loadCouponsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones';
-    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
     const rows = await res.json();
     // 쿠폰은 연결 업소가 현재 지역 업소 목록에 없더라도 쿠폰 자체 데이터로 노출합니다.
@@ -1634,12 +1635,14 @@ async function loadBannersFromSupabase(){
 
   try {
     const select = 'id,title,image_url,link_url,business_id,region,sort_order,is_active,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc`;
+    const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc&_ts=${Date.now()}`;
 
     const res = await fetch(url, {
+      cache: 'no-store',
       headers: {
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Cache-Control': 'no-cache'
       }
     });
 
@@ -6166,6 +6169,76 @@ async function submitAdRequest(){
   showPage("home");
 }
 
+
+// V100: iPhone 홈 화면 PWA가 오래 열려 있어도 관리자 변경 내용을 다시 읽습니다.
+// 게시글/쿠폰/슬라이드/배너 같은 데이터 변경에는 업데이트 팝업을 띄우지 않습니다.
+let v100PublicRefreshRunning = false;
+let v100LastPublicRefreshAt = 0;
+const V100_PUBLIC_REFRESH_MIN_GAP = 8000;
+
+async function v100RefreshPublicData(reason='manual', force=false){
+  const now = Date.now();
+  if(v100PublicRefreshRunning) return false;
+  if(!force && now - v100LastPublicRefreshAt < V100_PUBLIC_REFRESH_MIN_GAP) return false;
+
+  v100PublicRefreshRunning = true;
+  try{
+    const jobs = [
+      loadCouponsFromSupabase(),
+      loadSlidesFromSupabase(),
+      loadBannersFromSupabase(),
+      loadDalpicksFromSupabase(),
+      loadBoardPostsFromSupabase(),
+      loadAlertNoticePostsFromSupabase()
+    ];
+    if(typeof loadMainSettings === 'function') jobs.push(loadMainSettings(true));
+    await Promise.allSettled(jobs);
+
+    syncBusinessStoriesToBoardPosts();
+    buildHeroSlides();
+
+    if(typeof renderHero === 'function') renderHero();
+    if(typeof bindHeroSwipe === 'function') bindHeroSwipe();
+    if(typeof setSlide === 'function') setSlide(0);
+    if(typeof restartAuto === 'function') restartAuto();
+    if(typeof renderHome === 'function') renderHome();
+    if(typeof renderCoupons === 'function') renderCoupons();
+    if(typeof renderDalpicks === 'function') renderDalpicks();
+    if(typeof renderMainBanners === 'function') renderMainBanners();
+    if(typeof window.loadMainBanners === 'function') window.loadMainBanners();
+    if(typeof v77RefreshRoutineDrivenHome === 'function') v77RefreshRoutineDrivenHome();
+
+    v100LastPublicRefreshAt = Date.now();
+    console.info('[DalTownMap V100] public data refreshed', reason);
+    return true;
+  }catch(error){
+    console.warn('[DalTownMap V100] public refresh failed', reason, error);
+    return false;
+  }finally{
+    v100PublicRefreshRunning = false;
+  }
+}
+window.refreshDalTownPublicData = (force=true)=>v100RefreshPublicData('manual', force);
+
+function v100InstallPublicRefreshHooks(){
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible') v100RefreshPublicData('visibility');
+  });
+  window.addEventListener('pageshow', event=>{
+    v100RefreshPublicData(event.persisted ? 'pageshow-bfcache' : 'pageshow');
+  });
+  window.addEventListener('focus', ()=>v100RefreshPublicData('focus'));
+
+  document.addEventListener('click', event=>{
+    const homeTarget = event.target.closest('#homeBrand, .nav-item[data-nav="home"]');
+    if(homeTarget) setTimeout(()=>v100RefreshPublicData('home-tap', true), 0);
+  });
+
+  setInterval(()=>{
+    if(!document.hidden && currentPage === 'home') v100RefreshPublicData('home-interval');
+  }, 2 * 60 * 1000);
+}
+
 async function init(){
   await detectInitialRegion();
 
@@ -6182,7 +6255,7 @@ await refreshCurrentUser();
 
 updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); v100InstallPublicRefreshHooks(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   if(!v87OpenPublicRoute()) showPage(getRoute());
   initRegionPicker();
