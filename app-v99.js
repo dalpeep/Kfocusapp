@@ -2896,8 +2896,14 @@ async function v51LoadDirectEditorItems(){
       const pinned=String(meta.selection_source||'')==='editor'||meta.home_show===true;
       return {row,meta,category,pinned};
     }).filter(Boolean);
-    const choose=cat=>normalized.find(x=>x.category===cat&&x.pinned)||normalized.find(x=>x.category===cat);
-    const picked=[choose('shopping'),choose('event'),...normalized.filter(x=>x.category==='business'&&x.pinned)]
+    const chooseLatest=cat=>normalized.find(x=>x.category===cat);
+    const chooseCategory=cat=>{
+      const pinnedRows=normalized.filter(x=>x.category===cat&&x.pinned);
+      return pinnedRows.length?pinnedRows:[chooseLatest(cat)].filter(Boolean);
+    };
+    // V107: 관리자 고정 항목은 같은 분류라도 모두 메인 캐러셀에 전달합니다.
+    // 고정 항목이 하나도 없을 때만 해당 분류의 최신 1건을 자동 표시합니다.
+    const picked=[...chooseCategory('shopping'),...chooseCategory('event'),...normalized.filter(x=>x.category==='business'&&x.pinned)]
       .filter(Boolean).filter((x,i,a)=>a.findIndex(y=>String(y.row.id)===String(x.row.id))===i);
     return picked.map(({row,meta,category,pinned})=>{
       const targetType=String(meta.home_target_type||'').trim();
