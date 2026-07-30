@@ -2877,13 +2877,17 @@ async function v51LoadDirectEditorItems(){
   try{
     if(typeof supabase==='undefined'||!supabase?.from)return [];
     const region=(currentRegion||'dallas');
-    const {data,error}=await supabase.from('newsroom_items')
-      .select('id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at')
-      .eq('region',region)
-      .order('updated_at',{ascending:false})
-      .limit(80);
-    if(error)throw error;
-    const normalized=(data||[]).map(row=>{
+    // V108: 최근 후보뿐 아니라 관리자 고정 항목을 별도로 조회합니다.
+    // 오래된 H마트 카드나 업소 연결이 없는 카드도 최근 80건 제한 때문에 누락되지 않습니다.
+    const baseSelect='id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at';
+    const [recentRes,pinnedRes]=await Promise.all([
+      supabase.from('newsroom_items').select(baseSelect).eq('region',region).order('updated_at',{ascending:false}).limit(120),
+      supabase.from('newsroom_items').select(baseSelect).eq('region',region).contains('event_data',{home_show:true}).order('updated_at',{ascending:false}).limit(200)
+    ]);
+    if(recentRes.error)throw recentRes.error;
+    if(pinnedRes.error)console.warn('[V108 Today Daltown] pinned query fallback',pinnedRes.error.message||pinnedRes.error);
+    const allRows=[...(pinnedRes.data||[]),...(recentRes.data||[])].filter((row,i,arr)=>arr.findIndex(x=>String(x.id)===String(row.id))===i);
+    const normalized=allRows.map(row=>{
       const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
       const text=`${meta.home_category||''} ${meta.category||''} ${row.ai_title||''} ${row.original_title||''} ${row.ai_summary||''} ${row.original_summary||''}`;
       let category=String(meta.home_category||meta.category||'').trim();
@@ -2914,9 +2918,11 @@ async function v51LoadDirectEditorItems(){
         id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
         title:String(meta.home_custom_title||row.ai_title||row.original_title||'오늘의 달타운').trim(),
         summary:String(meta.home_custom_message||row.ai_summary||row.original_summary||'').trim(),
+        // 업소 매칭이 없더라도 카드는 그대로 표시하고 버튼만 숨깁니다.
         target_type:external?'external':(linked?targetType:''),target_id:linked?targetId:'',
         url:external?String(meta.home_external_url||'').trim():'',
         link_label:(linked||external)?String(meta.home_link_label||'자세히 보기'):'',
+        display_without_link:true,
         selected_by_admin:pinned,admin_selected:pinned,is_manual:pinned,is_pinned:pinned,auto_selected:!pinned&&['shopping','event'].includes(category),
         priority:Number(row.priority_score||(pinned?999:0)),
         published_at:row.source_published_at||row.collected_at,

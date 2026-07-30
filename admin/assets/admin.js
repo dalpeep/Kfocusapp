@@ -5572,18 +5572,8 @@ async function v535SetCandidateHome(sourceId, category, enabled){
   if(!current)return alert('후보 콘텐츠를 찾지 못했습니다.');
   const oldMeta=newsroomJson(current.event_data,{});
   const now=new Date().toISOString();
-  // V102: 마켓·행사는 카테고리당 한 건만 관리자 고정할 수 있습니다.
-  // 새 항목을 고정하면 기존 고정은 자동 해제되고, 고정 해제 시 최신 항목 자동 표시로 돌아갑니다.
-  if(enabled && ['shopping','event'].includes(String(category||''))){
-    const samePinned=(newsroomItems||[]).filter(x=>String(x.id)!==String(sourceId)&&v535CandidateCategory(x)===String(category)&&v535CandidateIsHome(x));
-    for(const other of samePinned){
-      const om=newsroomJson(other.event_data,{});
-      const restored=String(om.previous_selection_source||'ai');
-      const next={...om,home_show:false,selection_source:restored,previous_selection_source:null,editor_removed_at:now};
-      await supabase.from('newsroom_items').update({event_data:next,updated_at:now}).eq('id',other.id);
-      try{await newsroomEdgeCall('set_editor_pick',{id:other.id,enabled:false,region:getAppRegion()});}catch(_){ }
-    }
-  }
+  // V108: 마켓·행사는 여러 항목을 동시에 관리자 고정할 수 있습니다.
+  // 업소록 연결 여부와 관계없이 각 고정 항목은 독립적인 메인 카드로 유지합니다.
   const autoBiz=String(category||'')==='shopping'?v106FindMarketBusiness(current):null;
   const keepBusiness=oldMeta.home_target_type==='business'&&oldMeta.home_target_id;
   const meta={...oldMeta,
