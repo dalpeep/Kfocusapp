@@ -5695,6 +5695,7 @@ async function newsroomEdgeCall(action, body={}, busyText=''){
   return json;
 }
 async function loadNewsroomRunStatus(){
+  loadDailyPublishStatus();
   try{
     let run=null;
     try{
@@ -5720,6 +5721,41 @@ async function loadNewsroomRunStatus(){
     }
   }catch(e){safeText('newsroomLastRun','로그 확인 필요');safeText('newsroomRunResult','연결 확인');const log=qs('newsroomRunLog');if(log)log.innerHTML=`<span class="bad">${esc(e.message)}</span>`;}
 }
+async function loadDailyPublishStatus(){
+  const whenEl=qs('newsroomDailyPublishWhen'), resultEl=qs('newsroomDailyPublishResult'), memoEl=qs('newsroomDailyPublishMemo');
+  if(!whenEl||!resultEl||!memoEl)return;
+  try{
+    let run=null;
+    try{
+      const json=await newsroomEdgeCall('daily_run_status',{region:getAppRegion()});
+      run=json.latest||null;
+    }catch(edgeError){
+      const {data,error}=await supabase.from('newsroom_runs').select('*').eq('region',getAppRegion()).eq('trigger_type','daily_publish').order('started_at',{ascending:false}).limit(1).maybeSingle();
+      if(error)throw edgeError;
+      run=data||null;
+    }
+    if(!run){
+      safeText('newsroomDailyPublishWhen','실행 기록 없음');
+      safeText('newsroomDailyPublishResult','아직 실행되지 않음');
+      safeText('newsroomDailyPublishMemo','자동 게시 작업이 실행되면 게시 여부와 사유가 기록됩니다.');
+      return;
+    }
+    const when=new Date(run.started_at).toLocaleString('ko-KR',{timeZone:'America/Chicago',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    safeText('newsroomDailyPublishWhen',`${when} (달라스)`);
+    const isPublished=Number(run.inserted||0)>0;
+    const isFailed=run.status==='failed';
+    safeText('newsroomDailyPublishResult',isFailed?'실행 실패':isPublished?'기사 1건 게시':'실행 완료 · 게시하지 않음');
+    resultEl.className=isFailed?'bad':isPublished?'ok':'muted';
+    const memo=run.error_message||run.note||(isPublished?'자동 기사를 게시했습니다.':'게시 가능한 자료가 없어 새 기사를 만들지 않았습니다.');
+    safeText('newsroomDailyPublishMemo',memo);
+  }catch(e){
+    safeText('newsroomDailyPublishWhen','로그 확인 필요');
+    safeText('newsroomDailyPublishResult','연결 확인');
+    safeText('newsroomDailyPublishMemo',e.message||String(e));
+    resultEl.className='bad';
+  }
+}
+
 async function checkNewsroomHealth(showAlert=true){
   const btn=qs('newsroomHealthBtn');if(btn)btn.disabled=true;
   const panel=qs('newsroomHealthPanel');if(panel)panel.hidden=false;
@@ -6127,6 +6163,7 @@ console.info('[DalTownMap Admin] V62 three-section home manager loaded');
       setStatus(`${steps.length+3}/${steps.length+3} 오늘의 기사와 브리핑을 생성하고 있습니다…`);
       const j=await newsroomEdgeCall('daily_dallas_life',{region},'오늘의 기사와 브리핑을 생성하고 있습니다…');
       await load();
+      await loadDailyPublishStatus();
       const reason=j?.published?.reason;
       setStatus(j?.briefing?'새 기사와 브리핑을 생성했습니다.':`자동 작업 완료${reason?` · ${reason}`:''}`);
       alert(j?.briefing?'새 브리핑이 생성되었습니다.':'자동 작업을 마쳤습니다. 오늘 기사가 이미 있거나 적합한 자료가 없어 새 브리핑을 만들지 않았습니다.');
@@ -6138,6 +6175,7 @@ console.info('[DalTownMap Admin] V62 three-section home manager loaded');
     el('v90BriefingGenerateBtn')?.addEventListener('click',generate);
     document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(()=>load(),120));
     setTimeout(()=>load(),900);
+    setTimeout(()=>loadDailyPublishStatus(),1100);
   });
   window.V90BriefingManager={load,save,generate};
 })();
