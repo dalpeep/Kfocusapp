@@ -1410,6 +1410,11 @@ function v93IsLegacyWeekdayAlert(value){
   const text=v93NormalizeAlertText(value);
   return text==='평일운영'||text.includes('평일운영');
 }
+// V95: 과거 테스트 알림을 치환하면서 생긴 '달타운 알림/알림' 같은 빈 껍데기 문구도 제외합니다.
+function v95IsPlaceholderAlert(value){
+  const text=v93NormalizeAlertText(value);
+  return !text || text==='평일운영' || text.includes('평일운영') || text==='달타운알림' || text==='알림';
+}
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines()
     .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
@@ -1452,7 +1457,7 @@ function eventRoutineAlertItems(){
     const action=r?.actions?.alert||{};
     (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
       const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
-      if(!text||v93IsLegacyWeekdayAlert(text))return;
+      if(!text||v95IsPlaceholderAlert(text))return;
       const safeRoutineName=v93IsLegacyWeekdayAlert(r?.name)?'달타운 알림':String(r?.name||'');
       fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:safeRoutineName,badge:'알림',event_name:safeRoutineName,link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
     });
@@ -1510,7 +1515,7 @@ function renderDalpicks(){
       // V93: 서버/로컬 캐시에 남은 '평일 운영' 계열 문구를 최종 렌더 단계에서도 차단합니다.
       // V94: 실제 표시 제목이 '평일 운영'일 때만 제외합니다.
       // 루틴 이름/요약에 과거 이름이 남아 있어도 공지·브리핑·업소 알림까지 함께 삭제하지 않습니다.
-      if(v93IsLegacyWeekdayAlert(d.title)) return false;
+      if(v95IsPlaceholderAlert(d.title)) return false;
       if(v93IsLegacyWeekdayAlert(d.summary)) d.summary='';
       if(v93IsLegacyWeekdayAlert(d.event_name)) d.event_name='달타운 알림';
       const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
