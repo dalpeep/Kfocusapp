@@ -1399,8 +1399,21 @@ function v86AlertBusinessRows(action={}){
   wants.forEach(key=>(groups[key]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
   return rows.slice(0,12);
 }
+function v93NormalizeAlertText(value){
+  return String(value||'')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g,'')
+    .replace(/[•·▪︎◦\s>›→-]+/g,'')
+    .trim();
+}
+function v93IsLegacyWeekdayAlert(value){
+  const text=v93NormalizeAlertText(value);
+  return text==='평일운영'||text.includes('평일운영');
+}
 function eventRoutineAlertItems(){
-  const active=readActiveEventRoutines().filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
+  const active=readActiveEventRoutines()
+    .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business)
+    .filter(r=>!v93IsLegacyWeekdayAlert(r?.name));
   const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
   const briefingValid=dailyBriefing&&dailyBriefing.is_active!==false&&String(dailyBriefing.text||'').trim()&&(!dailyBriefing.date_key||dailyBriefing.date_key===todayKey());
   if(!active.length){
@@ -1439,7 +1452,7 @@ function eventRoutineAlertItems(){
     const action=r?.actions?.alert||{};
     (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
       const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
-      if(!text||text==='평일 운영')return;
+      if(!text||v93IsLegacyWeekdayAlert(text)||v93IsLegacyWeekdayAlert(r?.name))return;
       fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:r.name||'',badge:'알림',event_name:r.name||'',link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
     });
   }
@@ -1493,6 +1506,8 @@ function renderDalpicks(){
   const items=[...routineItems]
     .filter(item=>{
       const d=item.data||{};
+      // V93: 서버/로컬 캐시에 남은 '평일 운영' 계열 문구를 최종 렌더 단계에서도 차단합니다.
+      if(v93IsLegacyWeekdayAlert(d.title)||v93IsLegacyWeekdayAlert(d.summary)||v93IsLegacyWeekdayAlert(d.event_name)) return false;
       const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
       if(seen.has(key)) return false;
       seen.add(key); return true;
