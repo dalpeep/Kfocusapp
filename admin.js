@@ -5904,7 +5904,28 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{v61HomeSettings
 
 // V45 main three-zone settings
 function v45Csv(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean)}
-function v45PopulateBusinessSelect(selected=[]){const el=qs('v45BusinessIds');if(!el)return;const ids=new Set((selected||[]).map(String));el.innerHTML=(businesses||[]).slice().sort((a,b)=>String(a.name_ko||a.name_en||'').localeCompare(String(b.name_ko||b.name_en||''),'ko')).map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('')}
+function v45BusinessMatchesMode(b,mode){
+  if(!b||b.is_active===false)return false;
+  if(mode==='featured')return !!b.is_featured;
+  if(mode==='popular')return !!b.is_popular;
+  if(mode==='new')return !!b.is_new;
+  if(mode==='coupon')return (Array.isArray(coupons)?coupons:[]).some(x=>String(x.business_id||'')===String(b.id)&&x.is_active!==false);
+  if(mode==='banner')return (Array.isArray(banners)?banners:[]).some(x=>String(x.business_id||'')===String(b.id)&&x.is_active!==false);
+  if(mode==='video')return (Array.isArray(videos)?videos:[]).some(x=>String(x.business_id||'')===String(b.id)&&x.is_active!==false);
+  if(mode==='promotion')return v45BusinessMatchesMode(b,'coupon')||v45BusinessMatchesMode(b,'banner')||v45BusinessMatchesMode(b,'video');
+  return true;
+}
+function v45PopulateBusinessSelect(selected=[],mode=val('v45BusinessMode')||'featured'){
+  const el=qs('v45BusinessIds');if(!el)return;
+  const ids=new Set((selected||[]).map(String));
+  const rows=(businesses||[]).filter(b=>v45BusinessMatchesMode(b,mode)).slice().sort((a,b)=>String(a.name_ko||a.name_en||'').localeCompare(String(b.name_ko||b.name_en||''),'ko'));
+  el.innerHTML=rows.length?rows.map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join(''):`<option disabled>해당 기준의 업체가 없습니다.</option>`;
+  const hint=qs('v45BusinessIdsHint');if(hint)hint.textContent=`${V61_MODE_LABELS[mode]||'전체'} 기준 ${rows.length}개 · 직접 선택하면 자동 기준보다 우선합니다.`;
+}
+function v45RefreshBusinessModeList(){
+  const el=qs('v45BusinessIds');const selected=Array.from(el?.selectedOptions||[]).map(x=>x.value);
+  v45PopulateBusinessSelect(selected,val('v45BusinessMode')||'featured');
+}
 async function v45SaveHomeConfig(){const btn=qs('v45HomeSaveBtn');if(btn)btn.disabled=true;try{const home_config=v45ReadHomeConfig();await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'메인 운영 설정을 저장하고 있습니다…');const verified=await newsroomEdgeCall('get_settings',{region:getAppRegion()},'저장된 메인 설정을 확인하고 있습니다…');const saved=verified?.settings?.home_config||verified?.home_config||{};v45FillHomeConfig(saved);safeText('newsroomStatus',`메인 설정 저장·확인 완료 · 선택 분야 ${(saved.proposal_categories||[]).length}개`);alert('메인 운영 설정을 저장하고 서버에서 다시 확인했습니다.');}catch(e){alert(`메인 설정 저장 실패: ${e.message}`);}finally{if(btn)btn.disabled=false;}}
 
 document.addEventListener('click',(e)=>{if(e.target?.id==='v45HomeSaveBtn')v45SaveHomeConfig();});
@@ -5955,7 +5976,7 @@ function v62TodayPanel(){return `<div data-v62-panel="today">
     <label class="field"><span>한 화면 표시 개수</span><input id="v62TodayCount" type="number" min="1" max="20" value="10"></label>
     <label class="field checkbox-line"><input id="v62TodayAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
     <label class="field"><span>자동 변경 간격</span><select id="v62TodayInterval"><option value="5">5초</option><option value="8">8초</option><option value="10" selected>10초</option><option value="15">15초</option></select></label>
-    <label class="field full"><span>관리자 직접 지정 업체</span><select id="v45BusinessIds" multiple size="6"></select><small class="muted">직접 지정 업체가 있으면 자동 기준보다 우선합니다. Ctrl/Command로 여러 업체를 선택할 수 있습니다.</small></label>
+    <label class="field full"><span>관리자 직접 지정 업체</span><select id="v45BusinessIds" multiple size="6"></select><small id="v45BusinessIdsHint" class="muted">선택한 기준에 맞는 업체만 표시됩니다. 직접 지정 업체가 있으면 자동 기준보다 우선합니다.</small></label>
   </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('today')}</div>`}
 function v62CommunityPanel(){return `<div data-v62-panel="community" hidden>
   <div class="panel-head"><div><h3>② 커뮤니티</h3><p class="muted">메인 가운데에 표시할 게시판 종류와 자동 플레이를 관리합니다.</p></div></div>
@@ -5989,6 +6010,7 @@ function v61HomeSettingsPanel(){
   panel.querySelectorAll('[data-v62-save-schedule]').forEach(b=>b.onclick=()=>v62SaveSchedule(b.dataset.v62SaveSchedule));
   panel.querySelectorAll('[data-v62-reset-schedule]').forEach(b=>b.onclick=()=>v62ResetSchedule(b.dataset.v62ResetSchedule));
   qs('v62SceneCapture').onclick=v62CaptureScene;
+  qs('v45BusinessMode')?.addEventListener('change',v45RefreshBusinessModeList);
 }
 function v62Form(section){return qs(`[data-v62-form="${section}"]`)}
 function v62ResetSchedule(section){const f=v62Form(section);if(!f)return;f.querySelectorAll('input').forEach(x=>{if(x.type==='checkbox')x.checked=true;else if(x.type==='number')x.value='10';else x.value=''});f.querySelectorAll('select').forEach(x=>x.selectedIndex=0)}
@@ -6010,7 +6032,7 @@ function v62RenderScenes(){const box=qs('v62SceneList');if(!box)return;box.inner
 
 function v45FillHomeConfig(config={}){
   v61HomeSettingsPanel();v62Schedules=Array.isArray(config.schedule_presets)?config.schedule_presets.map(x=>({...x,section:x.section||'today'})):[];v62Scenes=Array.isArray(config.scene_presets)?config.scene_presets.map(x=>({...x})):[];v62RenderSchedules();v62RenderScenes();
-  setVal('v45BusinessMode',config.business_mode||'featured');v45PopulateBusinessSelect(config.business_ids||[]);setVal('v62TodayCount',String(config.today_count||10));
+  setVal('v45BusinessMode',config.business_mode||'featured');v45PopulateBusinessSelect(config.business_ids||[],config.business_mode||'featured');setVal('v62TodayCount',String(config.today_count||10));
   const ap=config.autoplay||{},it=config.intervals||{};setChecked('v62TodayAutoplay',ap.today!==false);setChecked('v62CommunityAutoplay',ap.community!==false);setChecked('v62AlertAutoplay',ap.alert!==false);setVal('v62TodayInterval',String(it.today||10));setVal('v62CommunityInterval',String(it.community||8));setVal('v62AlertInterval',String(it.alert||6));setChecked('v62AlertPauseHover',config.alert_pause_hover!==false);
   const types=new Set(config.community_board_types||['event','free','market','job','business']);$$('#v62CommunityTypes input').forEach(x=>x.checked=types.has(x.value));setVal('v62CommunitySort',config.community_sort||'latest');setVal('v45CommunityBoostIds',(config.community_boost_ids||[]).join(', '));setVal('v45CommunityPostIds',(config.community_post_ids||[]).join(', '));
   const src=new Set(config.ticker_sources||['dalpick','coupon']);$$('#v62AlertSources input').forEach(x=>x.checked=src.has(x.value));
