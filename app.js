@@ -1412,8 +1412,8 @@ function v93IsLegacyWeekdayAlert(value){
 }
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines()
-    .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business)
-    .filter(r=>!v93IsLegacyWeekdayAlert(r?.name));
+    .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
+  // V94: 루틴 이름이 과거 테스트명이어도 공지/업소 조건 설정은 유지하고, 해당 문구만 제거합니다.
   const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
   const briefingValid=dailyBriefing&&dailyBriefing.is_active!==false&&String(dailyBriefing.text||'').trim()&&(!dailyBriefing.date_key||dailyBriefing.date_key===todayKey());
   if(!active.length){
@@ -1452,8 +1452,9 @@ function eventRoutineAlertItems(){
     const action=r?.actions?.alert||{};
     (Array.isArray(action.custom_items)?action.custom_items:[]).forEach((entry,index)=>{
       const text=String(typeof entry==='string'?entry:(entry?.text||'')).trim();
-      if(!text||v93IsLegacyWeekdayAlert(text)||v93IsLegacyWeekdayAlert(r?.name))return;
-      fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:r.name||'',badge:'알림',event_name:r.name||'',link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
+      if(!text||v93IsLegacyWeekdayAlert(text))return;
+      const safeRoutineName=v93IsLegacyWeekdayAlert(r?.name)?'달타운 알림':String(r?.name||'');
+      fallback.push({kind:'event-alert-fallback',id:`${r.id||'routine'}-alert-fallback-${index}`,date:r.updated_at||r.created_at||r.start_at||'',data:{title:text,summary:safeRoutineName,badge:'알림',event_name:safeRoutineName,link_type:action.link_type||'none',link_value:action.link_value||'',interval_seconds:Math.max(3,Number(action.interval_seconds||interval))}});
     });
   }
   // 3순위: 관리자 직접 문구가 없거나 끝난 뒤 오늘의 자동 브리핑을 표시합니다.
@@ -1507,7 +1508,11 @@ function renderDalpicks(){
     .filter(item=>{
       const d=item.data||{};
       // V93: 서버/로컬 캐시에 남은 '평일 운영' 계열 문구를 최종 렌더 단계에서도 차단합니다.
-      if(v93IsLegacyWeekdayAlert(d.title)||v93IsLegacyWeekdayAlert(d.summary)||v93IsLegacyWeekdayAlert(d.event_name)) return false;
+      // V94: 실제 표시 제목이 '평일 운영'일 때만 제외합니다.
+      // 루틴 이름/요약에 과거 이름이 남아 있어도 공지·브리핑·업소 알림까지 함께 삭제하지 않습니다.
+      if(v93IsLegacyWeekdayAlert(d.title)) return false;
+      if(v93IsLegacyWeekdayAlert(d.summary)) d.summary='';
+      if(v93IsLegacyWeekdayAlert(d.event_name)) d.event_name='달타운 알림';
       const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
       if(seen.has(key)) return false;
       seen.add(key); return true;
