@@ -6017,7 +6017,7 @@ function v62ScheduleForm(section){
     </div></div><div data-v62-schedule-list="${section}" style="margin-top:12px"></div>`;
 }
 function v62TodayPanel(){return `<div data-v62-panel="today">
-  <div class="panel-head"><div><h3>① 오늘의 달타운</h3><p class="muted">추천업체 표시 기준, 직접 지정 업체, 자동 플레이와 날짜 예약을 관리합니다.</p></div></div>
+  <div class="panel-head"><div><h3>① 오늘의 달타운</h3><p class="muted">추천업체 표시 기준, 직접 지정 업체, 자동 플레이와 날짜 예약을 관리합니다.</p></div><label class="field checkbox-line" style="margin:0"><input id="v114ShowToday" type="checkbox" checked><span>메인에 표시</span></label></div>
   <div class="form-grid">
     <label class="field"><span>기본 추천업체 기준</span><select id="v45BusinessMode">${v62ModeOptions('popular')}</select></label>
     <label class="field"><span>한 화면 표시 개수</span><input id="v62TodayCount" type="number" min="1" max="20" value="10"></label>
@@ -6026,7 +6026,7 @@ function v62TodayPanel(){return `<div data-v62-panel="today">
     <label class="field full"><span>관리자 직접 지정 업체</span><select id="v45BusinessIds" multiple size="6"></select><small id="v45BusinessIdsHint" class="muted">선택한 기준에 맞는 업체만 표시됩니다. 직접 지정 업체가 있으면 자동 기준보다 우선합니다.</small></label>
   </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('today')}</div>`}
 function v62CommunityPanel(){return `<div data-v62-panel="community" hidden>
-  <div class="panel-head"><div><h3>② 커뮤니티</h3><p class="muted">메인 가운데에 표시할 게시판 종류와 자동 플레이를 관리합니다.</p></div></div>
+  <div class="panel-head"><div><h3>② 커뮤니티</h3><p class="muted">메인 가운데에 표시할 게시판 종류와 자동 플레이를 관리합니다.</p></div><label class="field checkbox-line" style="margin:0"><input id="v114ShowCommunity" type="checkbox" checked><span>메인에 표시</span></label></div>
   <div class="form-grid">
     <div class="field full"><span>노출 게시판</span><div id="v62CommunityTypes" class="checkbox-row">
       <label><input type="checkbox" value="event" checked> 행사안내</label><label><input type="checkbox" value="free" checked> 자유게시판</label><label><input type="checkbox" value="market" checked> 사고팔고</label><label><input type="checkbox" value="job" checked> 구인구직</label><label><input type="checkbox" value="business" checked> 업체소식</label></div></div>
@@ -6037,7 +6037,7 @@ function v62CommunityPanel(){return `<div data-v62-panel="community" hidden>
     <label class="field"><span>우선 노출 글 ID</span><input id="v45CommunityBoostIds" placeholder="쉼표로 구분"></label>
   </div><h4 style="margin-top:20px">날짜별 자동 예약</h4>${v62ScheduleForm('community')}</div>`}
 function v62AlertPanel(){return `<div data-v62-panel="alert" hidden>
-  <div class="panel-head"><div><h3>③ 달타운 알림</h3><p class="muted">기존 한 줄 광고를 알림으로 통합하여 광고·쿠폰·영상·행사·생활정보·긴급공지를 함께 관리합니다.</p></div></div>
+  <div class="panel-head"><div><h3>③ 달타운 알림</h3><p class="muted">기존 한 줄 광고를 알림으로 통합하여 광고·쿠폰·영상·행사·생활정보·긴급공지를 함께 관리합니다.</p></div><label class="field checkbox-line" style="margin:0"><input id="v114ShowAlert" type="checkbox" checked><span>메인에 표시</span></label></div>
   <div class="form-grid">
     <div class="field full"><span>기본 자동 포함 출처</span><div id="v62AlertSources" class="checkbox-row">${V62_ALERT_SOURCES.map(([v,l])=>`<label><input type="checkbox" value="${v}" ${['dalpick','coupon'].includes(v)?'checked':''}> ${l}</label>`).join('')}</div></div>
     <label class="field checkbox-line"><input id="v62AlertAutoplay" type="checkbox" checked><span>자동 플레이</span></label>
@@ -6083,9 +6083,11 @@ function v45FillHomeConfig(config={}){
   const ap=config.autoplay||{},it=config.intervals||{};setChecked('v62TodayAutoplay',ap.today!==false);setChecked('v62CommunityAutoplay',ap.community!==false);setChecked('v62AlertAutoplay',ap.alert!==false);setVal('v62TodayInterval',String(it.today||10));setVal('v62CommunityInterval',String(it.community||8));setVal('v62AlertInterval',String(it.alert||6));setChecked('v62AlertPauseHover',config.alert_pause_hover!==false);
   const types=new Set(config.community_board_types||['event','free','market','job','business']);$$('#v62CommunityTypes input').forEach(x=>x.checked=types.has(x.value));setVal('v62CommunitySort',config.community_sort||'latest');setVal('v45CommunityBoostIds',(config.community_boost_ids||[]).join(', '));setVal('v45CommunityPostIds',(config.community_post_ids||[]).join(', '));
   const src=new Set(config.ticker_sources||['dalpick','coupon']);$$('#v62AlertSources input').forEach(x=>x.checked=src.has(x.value));
+  const visibility=(config.section_visibility&&typeof config.section_visibility==='object')?config.section_visibility:{};
+  setChecked('v114ShowToday',visibility.today!==false);setChecked('v114ShowCommunity',visibility.community!==false);setChecked('v114ShowAlert',visibility.alert!==false);
 }
 function v45ReadHomeConfig(){
-  return {...v62CurrentSnapshot(),today_count:Number(val('v62TodayCount')||10),community_sort:val('v62CommunitySort')||'latest',community_post_ids:v45Csv(val('v45CommunityPostIds')),community_boost_ids:v45Csv(val('v45CommunityBoostIds')),alert_pause_hover:checked('v62AlertPauseHover'),schedule_presets:v62Schedules,scene_presets:v62Scenes};
+  return {...v62CurrentSnapshot(),today_count:Number(val('v62TodayCount')||10),community_sort:val('v62CommunitySort')||'latest',community_post_ids:v45Csv(val('v45CommunityPostIds')),community_boost_ids:v45Csv(val('v45CommunityBoostIds')),alert_pause_hover:checked('v62AlertPauseHover'),section_visibility:{today:checked('v114ShowToday'),community:checked('v114ShowCommunity'),alert:checked('v114ShowAlert')},schedule_presets:v62Schedules,scene_presets:v62Scenes};
 }
 console.info('[DalTownMap Admin] V62 three-section home manager loaded');
 
