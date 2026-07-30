@@ -4952,3 +4952,15 @@ body.map-page-open #page-map .map-search-input{
 .board-detail-nav.bottom{justify-content:center!important;flex-wrap:wrap}
 .board-detail-nav.bottom .board-detail-nav-btn{flex:0 1 150px;min-width:130px;text-align:center}
 @media(max-width:520px){.board-detail-nav.bottom .board-detail-nav-btn{flex:0 1 calc(50% - 6px);min-width:0;max-width:170px}}
+
+
+/* V99: 게시글 상세에서는 기존 하단 탭을 이전/목록 탭으로 교체 */
+.bottom-nav.hidden{display:none!important}
+.board-bottom-nav{grid-template-columns:repeat(2,1fr);padding:6px 8px calc(6px + env(safe-area-inset-bottom));}
+.board-bottom-item{border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:56px;color:#2f80ed;font-size:13px;font-weight:700;cursor:pointer;position:relative;}
+.board-bottom-item+ .board-bottom-item{border-left:1px solid #e5eaf2;}
+.board-bottom-item:active{background:#f2f7ff;}
+.board-bottom-icon{font-size:23px;line-height:1;font-weight:700;}
+.board-bottom-item strong{font-size:13px;font-weight:700;}
+/* V99: 본문 상단/하단에 있던 중복 이동 버튼은 사용하지 않음 */
+.board-detail-nav{display:none!important;}

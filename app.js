@@ -4829,10 +4829,6 @@ function renderBoardPage(type = 'notice', postId = null) {
     ].filter(Boolean).join('');
     page.innerHTML = `
       <h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3>
-      <div class="board-detail-nav" aria-label="게시글 이동">
-        <button type="button" class="board-detail-nav-btn back" data-board-back>← 이전 페이지</button>
-        <button type="button" class="board-detail-nav-btn list" data-board-list>☰ 목록으로</button>
-      </div>
       <article class="board-detail-v3">
         <div class="board-detail-v3-head">
           <div class="board-detail-v3-badges"><span>${esc(boardLabel(normalizedType))}</span>${normalizedType==='business_story'?'<span class="sponsored">Sponsored</span>':''}${post.video_url?'<span class="video">▶ 영상</span>':''}</div>
@@ -4843,25 +4839,7 @@ function renderBoardPage(type = 'notice', postId = null) {
         ${videoHtml}
         <div class="board-detail-v3-content">${autoLinkText(post.content || '')}</div>
         ${actions?`<div class="board-detail-actions">${actions}</div>`:''}
-        <div class="board-detail-nav bottom" aria-label="게시글 이동">
-          <button type="button" class="board-detail-nav-btn back" data-board-back>← 이전 페이지</button>
-          <button type="button" class="board-detail-nav-btn list" data-board-list>☰ 목록으로</button>
-        </div>
       </article>`;
-    page.querySelectorAll('[data-board-list]').forEach(button=>button.addEventListener('click',()=>{
-      renderBoardPage(normalizedType);
-      showPage('board-detail');
-    }));
-    page.querySelectorAll('[data-board-back]').forEach(button=>button.addEventListener('click',()=>{
-      const target = boardDetailReturn || {};
-      if(target.mode==='list'){
-        renderBoardPage(target.type || normalizedType);
-        showPage('board-detail');
-        return;
-      }
-      const returnPage = target.page && target.page!=='board-detail' ? target.page : 'home';
-      showPage(returnPage);
-    }));
     initBoardGallery(page);
     page.querySelectorAll('.biz-open').forEach(button=>button.addEventListener('click',()=>{const bizId=button.dataset.biz;if(!bizId)return;renderDetail(bizId);lastBasePage=currentPage;showPage('business-detail');}));
     return;
@@ -4922,6 +4900,33 @@ function animatePageTransition(fromPage, toPage, direction='left') {
   setTimeout(cleanup, 260);
 }
 
+function updateBottomNavMode(page){
+  const normalNav = document.querySelector('.bottom-nav:not(.board-bottom-nav)');
+  const boardNav = document.querySelector('.board-bottom-nav');
+  const isPostDetail = page === 'board-detail' && !!selectedBoardPost;
+  normalNav?.classList.toggle('hidden', isPostDetail);
+  boardNav?.classList.toggle('hidden', !isPostDetail);
+}
+
+function boardBottomBack(){
+  const type = normalizeBoardType(selectedBoardPost?.type || selectedBoardType || boardDetailReturn?.type || 'notice');
+  const target = boardDetailReturn || {};
+  if(target.mode === 'list'){
+    renderBoardPage(target.type || type);
+    showPage('board-detail');
+    return;
+  }
+  const returnPage = target.page && target.page !== 'board-detail' ? target.page : 'home';
+  selectedBoardPost = null;
+  showPage(returnPage);
+}
+
+function boardBottomList(){
+  const type = normalizeBoardType(selectedBoardPost?.type || selectedBoardType || boardDetailReturn?.type || 'notice');
+  renderBoardPage(type);
+  showPage('board-detail');
+}
+
 function showPage(page, opts={}){
   const prevPage = currentPage;
   currentPage = page;
@@ -4935,6 +4940,7 @@ function showPage(page, opts={}){
   if (prevPage !== page) animatePageTransition(prevPage, page, direction);
   else $$('.page').forEach(p=>p.classList.toggle('active', p.id===`page-${page}`));
   $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===page));
+  updateBottomNavMode(page);
   if (nextIdx >= 0) lastBasePage = page;
   setRoute(page);
   if(page==='guide') renderGuidePosts();
@@ -5803,6 +5809,8 @@ function bindEvents(){
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
   $('#homeBrand')?.addEventListener('click', ()=>showPage('home'));
   $$('.nav-item').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
+  document.querySelector('[data-board-bottom-back]')?.addEventListener('click', boardBottomBack);
+  document.querySelector('[data-board-bottom-list]')?.addEventListener('click', boardBottomList);
   $('#menuBtn')?.addEventListener('click', openSideMenu); $('#sideClose')?.addEventListener('click', closeSideMenu); $('#sideOverlay')?.addEventListener('click', closeSideMenu);
   $('#sideRegionPicker')?.addEventListener('click', ()=>{ closeSideMenu(); openRegionPicker(); });
   $('#adminLoginBackdrop')?.addEventListener('click', closeAdminLoginModal);
