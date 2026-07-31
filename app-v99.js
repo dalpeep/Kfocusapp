@@ -2,6 +2,7 @@
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
+console.log('[DalTownMap] P001.1 life subcategory correction loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -2078,19 +2079,22 @@ function couponCardHTML(c, mode='all'){
   `;
 }
 
-const LIFE_CATEGORIES=['전체','생활','교육','의료','교통','세금·재정','부동산','가족','지역정보'];
+const LIFE_CATEGORIES=['전체','생활','교통','교육','의료','경제','부동산','쇼핑','안전','문화·행사'];
 let selectedLifeCategory='전체';
 function inferLifeCategory(post={}){
-  const explicit=String(post.subtype||post.category||'').trim();
-  const text=`${explicit} ${post.title||''} ${post.summary||''} ${post.content||''}`.toLowerCase();
-  if(/학교|교육|학군|대학|학생|입학|isd/.test(text)) return '교육';
-  if(/병원|의료|건강|보험|의사|약국|메디케어/.test(text)) return '의료';
-  if(/교통|도로|차량|운전|공항|버스|열차|통제/.test(text)) return '교통';
-  if(/세금|재정|절세|은행|대출|크레딧|사업/.test(text)) return '세금·재정';
-  if(/주택|부동산|렌트|아파트|모기지|집값/.test(text)) return '부동산';
-  if(/가족|자녀|육아|시니어|부모/.test(text)) return '가족';
-  if(/생활|정착|쇼핑|음식|날씨/.test(text)) return '생활';
-  return '지역정보';
+  // P001.1: 과거 DB에 잘못 저장된 subtype/category(예: 교통)를 판정 텍스트에 넣지 않습니다.
+  // 제목·요약·본문의 실제 내용으로 화면 소분류를 다시 계산합니다.
+  const text=`${post.title||''} ${post.summary||''} ${post.content||''}`.toLowerCase();
+
+  if(/학교|교육|학군|대학|학생|입학|개학|휴교|수업|학부모|isd|school|education|college|university/.test(text)) return '교육';
+  if(/병원|의료|건강|의사|약국|메디케어|클리닉|예방접종|검진|health|medical|hospital|clinic|doctor|pharmacy/.test(text)) return '의료';
+  if(/세금|재정|절세|은행|대출|크레딧|금리|금융|경제|사업|고용|실업|소득|매출|투자|tax|finance|bank|loan|economy|business|employment/.test(text)) return '경제';
+  if(/주택|부동산|렌트|아파트|모기지|집값|주거|분양|오픈하우스|real estate|housing|rent|apartment|mortgage|home price/.test(text)) return '부동산';
+  if(/쇼핑|마트|마켓|세일|할인|특가|장보기|신규 매장|매장 오픈|오픈 소식|개점|신규 식당|식당 오픈|레스토랑|카페|베이커리|엔터테인먼트|아케이드|store|shopping|market|grocery|sale|discount|grand opening|restaurant|cafe|bakery|entertainment|arcade/.test(text)) return '쇼핑';
+  if(/경찰|소방|범죄|체포|실종|경보|주의보|대피|총격|화재|폭염|홍수|토네이도|안전|위험|비상|100°f|heat advisory|police|fire|crime|arrest|missing|alert|warning|evacuation|shooting|flood|tornado|safety/.test(text)) return '안전';
+  if(/공연|콘서트|축제|행사|전시|박람회|세미나|워크숍|문화|예술|스포츠|경기|페스티벌|festival|concert|event|exhibition|seminar|workshop|culture|art|sports|game/.test(text)) return '문화·행사';
+  if(/도로|교통|차량|운전|공항|버스|열차|통제|폐쇄|우회|정체|충돌|도로 공사|고속도로|톨웨이|txdot|dart|traffic|road closure|highway|transit|airport|detour|congestion/.test(text)) return '교통';
+  return '생활';
 }
 function boardReadMinutes(post={}){
   const chars=String(post.content||post.summary||'').replace(/\s+/g,'').length;
