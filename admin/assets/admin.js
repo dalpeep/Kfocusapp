@@ -6306,3 +6306,211 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.P002TodayNewsroomStatus = {load};
 })();
 
+// === P002-4: AI 운영센터 단순 운영 모드 ===
+// 기존 세부 기능은 유지하면서, 상단에서 수집 → AI 생성 → 게시 순서로 실행합니다.
+(() => {
+  const PREFIX='p0024';
+
+  const byId=(id)=>document.getElementById(id);
+  const wait=(ms)=>new Promise(resolve=>setTimeout(resolve,ms));
+
+  function ensureStyles(){
+    if(byId(PREFIX+'Style')) return;
+    const style=document.createElement('style');
+    style.id=PREFIX+'Style';
+    style.textContent=`
+      #${PREFIX}Actions{margin-top:14px;border:1px solid #cbdcf8;border-radius:16px;padding:15px;background:#f8fbff}
+      #${PREFIX}Actions .p0024-title{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+      #${PREFIX}Actions .p0024-title h3{margin:0;font-size:16px}
+      #${PREFIX}Actions .p0024-title p{margin:4px 0 0;color:#64748b;font-size:12px}
+      #${PREFIX}Actions .p0024-flow{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:10px;align-items:stretch;margin-top:13px}
+      #${PREFIX}Actions .p0024-step{border:1px solid #dbe6f7;border-radius:14px;padding:13px;background:#fff;display:flex;flex-direction:column;gap:8px}
+      #${PREFIX}Actions .p0024-step small{color:#64748b}
+      #${PREFIX}Actions .p0024-step strong{font-size:15px}
+      #${PREFIX}Actions .p0024-step button{width:100%;min-height:42px}
+      #${PREFIX}Actions .p0024-arrow{display:flex;align-items:center;color:#7c93b8;font-size:22px;font-weight:800}
+      #${PREFIX}Actions .p0024-help{margin-top:10px;padding:10px 12px;border-radius:11px;background:#eef5ff;color:#334155;font-size:12px;line-height:1.5}
+      #${PREFIX}Actions .p0024-busy{opacity:.65;pointer-events:none}
+      #${PREFIX}Actions .p0024-advanced{margin-top:10px}
+      #${PREFIX}Actions .p0024-advanced button{border:0;background:transparent;color:#2563eb;font-weight:700;cursor:pointer;padding:4px 0}
+      #${PREFIX}Actions .p0024-status{font-size:12px;font-weight:700;color:#475569;min-height:18px}
+      @media(max-width:900px){
+        #${PREFIX}Actions .p0024-flow{grid-template-columns:1fr}
+        #${PREFIX}Actions .p0024-arrow{display:none}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function setBusy(active, message=''){
+    const box=byId(PREFIX+'Actions');
+    if(box) box.classList.toggle('p0024-busy',active);
+    ['Collect','Generate','Publish'].forEach(k=>{
+      const b=byId(PREFIX+k);
+      if(b) b.disabled=active;
+    });
+    const status=byId(PREFIX+'Status');
+    if(status) status.textContent=message;
+  }
+
+  async function refreshAll(message='현황을 다시 확인했습니다.'){
+    try{
+      if(window.P002TodayNewsroomStatus?.load) await window.P002TodayNewsroomStatus.load();
+      if(typeof loadNewsroom==='function') await loadNewsroom();
+      const status=byId(PREFIX+'Status');
+      if(status) status.textContent=message;
+    }catch(e){
+      console.warn('[P002-4 refresh]',e);
+    }
+  }
+
+  async function collectNow(){
+    if(!confirm('지금 뉴스 자료 수집을 실행할까요?\n이미 수집된 자료는 중복 제외됩니다.')) return;
+    setBusy(true,'1단계: 자료를 수집하고 있습니다...');
+    try{
+      if(typeof collectNewsroom==='function'){
+        await collectNewsroom();
+      }else{
+        await newsroomEdgeCall('auto_run',{region:getAppRegion()},'오늘 자료를 수집하고 있습니다...');
+      }
+      await wait(500);
+      await refreshAll('자료 수집이 끝났습니다. 다음으로 AI 기사 생성을 실행하세요.');
+    }catch(e){
+      alert(`수집 실행 실패: ${e.message}`);
+      const status=byId(PREFIX+'Status'); if(status) status.textContent=`수집 실패: ${e.message}`;
+    }finally{ setBusy(false,byId(PREFIX+'Status')?.textContent||''); }
+  }
+
+  async function generateNow(){
+    const pending=Number(byId('newsroomStatCollected')?.textContent||0);
+    const msg=pending>0
+      ? `분류 대기 자료 ${pending}건이 있습니다. AI 분류와 기사 준비를 실행할까요?`
+      : '현재 표시된 수집 자료를 대상으로 AI 분류와 기사 준비를 실행할까요?';
+    if(!confirm(msg)) return;
+    setBusy(true,'2단계: AI가 자료를 분류하고 기사 초안을 준비하고 있습니다...');
+    try{
+      if(typeof analyzeCollectedNewsroom==='function') await analyzeCollectedNewsroom();
+      else await newsroomEdgeCall('analyze',{region:getAppRegion(),limit:3},'AI 분류를 실행하고 있습니다...');
+      await wait(500);
+      await refreshAll('AI 기사 생성 작업이 끝났습니다. 검토 후 오늘 기사 게시를 실행하세요.');
+    }catch(e){
+      alert(`AI 기사 생성 실패: ${e.message}`);
+      const status=byId(PREFIX+'Status'); if(status) status.textContent=`AI 생성 실패: ${e.message}`;
+    }finally{ setBusy(false,byId(PREFIX+'Status')?.textContent||''); }
+  }
+
+  async function publishNow(){
+    if(!confirm('오늘의 기사 1건을 게시할까요?\n오늘 이미 게시한 기사가 있으면 중복 게시하지 않습니다.')) return;
+    setBusy(true,'3단계: 오늘의 기사 1건을 게시하고 브리핑을 저장하고 있습니다...');
+    try{
+      const result=await newsroomEdgeCall('daily_dallas_life',{region:getAppRegion()},'오늘의 기사와 브리핑을 게시하고 있습니다...');
+      const p=result?.published;
+      let message='';
+      if(p?.skipped){
+        message=p.reason==='already_published_today'
+          ? '오늘 게시된 기사가 이미 있어 중복 게시하지 않았습니다.'
+          : `게시하지 않았습니다: ${p.reason||'게시 가능한 후보 없음'}`;
+      }else if(p?.post?.id){
+        message=`오늘 기사 게시 완료: ${p.post.title||'기사 1건'}`;
+      }else{
+        message='게시 작업은 완료됐지만 새 게시글은 생성되지 않았습니다.';
+      }
+      await wait(500);
+      await refreshAll(message);
+      alert(message);
+    }catch(e){
+      alert(`오늘 기사 게시 실패: ${e.message}`);
+      const status=byId(PREFIX+'Status'); if(status) status.textContent=`게시 실패: ${e.message}`;
+    }finally{ setBusy(false,byId(PREFIX+'Status')?.textContent||''); }
+  }
+
+  function toggleAdvanced(){
+    const ids=[
+      'newsroomPrepareTodayBtn','newsroomCollectBtn','newsroomAnalyzeAllBtn',
+      'newsroomHealthBtn','newsroomRefreshBtn','v48AutoRunBtn','v90BriefingGenerateBtn'
+    ];
+    const currentlyHidden=ids.every(id=>!byId(id)||byId(id).dataset.p0024Hidden==='1');
+    ids.forEach(id=>{
+      const el=byId(id);
+      if(!el) return;
+      if(currentlyHidden){
+        el.style.display='';
+        delete el.dataset.p0024Hidden;
+      }else{
+        el.style.display='none';
+        el.dataset.p0024Hidden='1';
+      }
+    });
+    const b=byId(PREFIX+'AdvancedToggle');
+    if(b) b.textContent=currentlyHidden?'고급 기능 숨기기':'고급 기능 보기';
+  }
+
+  function hideDuplicateButtonsInitially(){
+    [
+      'newsroomPrepareTodayBtn','newsroomCollectBtn','newsroomAnalyzeAllBtn',
+      'newsroomHealthBtn','newsroomRefreshBtn','v48AutoRunBtn','v90BriefingGenerateBtn'
+    ].forEach(id=>{
+      const el=byId(id);
+      if(!el) return;
+      el.style.display='none';
+      el.dataset.p0024Hidden='1';
+    });
+  }
+
+  function ensureUI(){
+    const panel=byId('p0022Panel');
+    if(!panel || byId(PREFIX+'Actions')) return;
+    ensureStyles();
+    const box=document.createElement('div');
+    box.id=PREFIX+'Actions';
+    box.innerHTML=`
+      <div class="p0024-title">
+        <div>
+          <h3>AI 뉴스룸 간편 운영</h3>
+          <p>아래 순서대로 필요한 단계만 한 번씩 실행하세요. 화면을 열어두는 것만으로는 재실행되지 않습니다.</p>
+        </div>
+        <div id="${PREFIX}Status" class="p0024-status">먼저 오늘 수집 기록을 확인하세요.</div>
+      </div>
+      <div class="p0024-flow">
+        <div class="p0024-step">
+          <small>1단계</small>
+          <strong>뉴스 자료 수집</strong>
+          <span class="p0024-status">새 자료를 찾고 중복 자료를 제외합니다.</span>
+          <button type="button" class="btn primary" id="${PREFIX}Collect">지금 수집 실행</button>
+        </div>
+        <div class="p0024-arrow">→</div>
+        <div class="p0024-step">
+          <small>2단계</small>
+          <strong>AI 기사 생성</strong>
+          <span class="p0024-status">수집 자료를 분류하고 기사 후보를 준비합니다.</span>
+          <button type="button" class="btn primary" id="${PREFIX}Generate">AI 기사 생성</button>
+        </div>
+        <div class="p0024-arrow">→</div>
+        <div class="p0024-step">
+          <small>3단계</small>
+          <strong>오늘 기사 게시</strong>
+          <span class="p0024-status">후보 중 1건을 게시하고 브리핑에 연결합니다.</span>
+          <button type="button" class="btn primary" id="${PREFIX}Publish">오늘 기사 게시</button>
+        </div>
+      </div>
+      <div class="p0024-help">
+        <b>중복 실행 방지:</b> 수집은 기존 URL·제목을 중복 제외하고, 게시 단계는 오늘 이미 게시한 기사가 있으면 새 글을 만들지 않습니다.
+        <div class="p0024-advanced"><button type="button" id="${PREFIX}AdvancedToggle">고급 기능 보기</button></div>
+      </div>`;
+    const state=byId('p0022State');
+    if(state) state.insertAdjacentElement('afterend',box);
+    else panel.appendChild(box);
+
+    byId(PREFIX+'Collect')?.addEventListener('click',collectNow);
+    byId(PREFIX+'Generate')?.addEventListener('click',generateNow);
+    byId(PREFIX+'Publish')?.addEventListener('click',publishNow);
+    byId(PREFIX+'AdvancedToggle')?.addEventListener('click',toggleAdvanced);
+    hideDuplicateButtonsInitially();
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(ensureUI,250));
+    setTimeout(ensureUI,1600);
+  });
+})();
+
