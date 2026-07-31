@@ -1358,13 +1358,16 @@ async function testPost(region='dallas') {
 
 
 const LIFE_ALLOWED_TOPICS = [
-  { subtype:'life', label:'생활', re:/(생활|날씨|폭염|한파|도서관|공원|시청|카운티|공공서비스|쓰레기|정전|수도|재난|안전|community|weather|library|park|city service|utility|public service)/i },
-  { subtype:'education', label:'교육', re:/(교육|학교|학군|학생|교사|등록|개학|휴교|장학금|대학|도서관 프로그램|ISD|school|education|student|teacher|college|university|scholarship)/i },
-  { subtype:'health', label:'의료', re:/(의료|건강|병원|보건|예방접종|백신|독감|모기|웨스트나일|질병|clinic|hospital|health|medical|vaccine|flu|west nile|public health)/i },
-  { subtype:'traffic', label:'교통', re:/(교통|도로|통제|공사|우회|버스|철도|공항|DART|TxDOT|traffic|road|closure|construction|transit|airport|highway)/i },
-  { subtype:'culture', label:'문화·예술', re:/(문화|예술|공연|전시|박물관|미술관|음악|연극|축제|콘서트|오케스트라|댄스|영화제|culture|arts?|museum|gallery|concert|festival|theater|theatre|music|exhibition)/i },
-  { subtype:'finance', label:'세금·재정', re:/(세금|재정|재산세|소득세|판매세|IRS|금융|은행|금리|대출|지원금|tax|finance|financial|property tax|sales tax|interest rate|loan|grant)/i },
-  { subtype:'realestate', label:'부동산', re:/(부동산|주택|렌트|임대|아파트|모기지|HOA|개발계획|주택시장|real estate|housing|rent|rental|mortgage|development|home price)/i },
+  // 구체적인 분야를 먼저 검사하고, 일반 생활은 마지막에 처리합니다.
+  { subtype:'traffic', label:'교통', re:/(교통|도로|고속도로|교차로|차선|통제|폐쇄|공사|우회|정체|사고|버스|철도|공항|DART|TxDOT|traffic|road|highway|closure|construction|transit|airport)/i },
+  { subtype:'education', label:'교육', re:/(교육|학교|학군|학생|교사|등록|입학|개학|휴교|장학금|대학|ISD|school|education|student|teacher|college|university|scholarship)/i },
+  { subtype:'health', label:'의료', re:/(의료|건강|병원|보건|의사|약국|예방접종|백신|독감|모기|웨스트나일|질병|clinic|hospital|health|medical|vaccine|flu|west nile|public health)/i },
+  { subtype:'safety', label:'안전', re:/(폭염|한파|홍수|토네이도|폭풍|경보|대피|경찰|소방|실종|재난|정전|amber alert|warning|emergency|evacuation|police|fire|disaster|outage)/i },
+  { subtype:'realestate', label:'부동산', re:/(부동산|주택|렌트|임대|아파트|모기지|HOA|개발계획|주택시장|집값|real estate|housing|rent|rental|mortgage|development|home price)/i },
+  { subtype:'finance', label:'경제', re:/(세금|재정|재산세|소득세|판매세|IRS|금융|은행|금리|대출|지원금|경제|고용|사업|tax|finance|financial|property tax|sales tax|interest rate|loan|grant|economy|employment)/i },
+  { subtype:'shopping', label:'쇼핑', re:/(마트|마켓|쇼핑|세일|할인|쿠폰|식당|레스토랑|카페|매장|오픈|개점|신규 업소|H\s?Mart|Zion|Komart|grocery|shopping|sale|discount|restaurant|store opening)/i },
+  { subtype:'culture', label:'문화·행사', re:/(문화|예술|공연|전시|박물관|미술관|음악|연극|축제|콘서트|오케스트라|댄스|영화제|세미나|설명회|행사|culture|arts?|museum|gallery|concert|festival|theater|theatre|music|exhibition|seminar|event)/i },
+  { subtype:'life', label:'생활', re:/(생활|날씨|도서관|공원|시청|카운티|공공서비스|쓰레기|수도|커뮤니티|community|weather|library|park|city service|utility|public service)/i },
 ];
 function lifeTopicForItem(item:any){
   const keywordText = Array.isArray(item?.category_keywords) ? item.category_keywords.join(' ') : String(item?.category_keywords||'');
