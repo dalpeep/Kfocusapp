@@ -3063,19 +3063,49 @@ function v51InitToday(){
   if(!v51AutoRefreshTimer)v51AutoRefreshTimer=setInterval(()=>{if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();},5*60*1000);
 }
 
+function v119RenderOneLineAds(){
+  const box=document.getElementById('homeAdTickerList');
+  const section=document.getElementById('homeAdTickerSection');
+  if(!box||!section)return;
+  const cfg=v61EffectiveHomeConfig(v45HomeConfig||{});
+  if(cfg.show_ticker_section===false){section.hidden=true;box.innerHTML='';return;}
+  const sources=new Set(Array.isArray(cfg.ticker_sources)?cfg.ticker_sources:[]);
+  const rows=[];
+  const direct=(cfg.ticker_direct&&typeof cfg.ticker_direct==='object')?cfg.ticker_direct:{};
+  if(direct.enabled===true&&String(direct.text||'').trim())rows.push({kind:'direct',id:'direct-ticker',title:String(direct.text).trim(),detail:String(direct.label||'').trim(),url:String(direct.url||'').trim(),badge:'광고'});
+  if(sources.has('dalpick'))activeDalpicks().filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true).slice(0,8).forEach(d=>rows.push({kind:'dalpick',id:String(d.id),title:String(d.title||'광고 소식').trim(),detail:String(d.summary||d.description||'').replace(/\s+/g,' ').trim(),badge:'광고',data:d}));
+  if(sources.has('coupon')&&typeof todayCoupons==='function')todayCoupons().slice(0,8).forEach(c=>rows.push({kind:'coupon',id:String(c.id),title:String(c.title||c.name||'쿠폰 소식').trim(),detail:String(c.discount_label||c.description||'').replace(/\s+/g,' ').trim(),badge:'쿠폰',data:c}));
+  if(!rows.length){section.hidden=true;box.innerHTML='';return;}
+  const itemHTML=r=>`<button class="ticker-ad-item" type="button" data-ad-kind="${esc(r.kind)}" data-ad-id="${esc(r.id)}"><span class="ticker-ad-badge">${esc(r.badge)}</span><strong>${esc(r.title)}</strong>${r.detail?`<span class="ticker-ad-detail">${esc(r.detail)}</span>`:''}<span class="ticker-ad-arrow">›</span></button>`;
+  const seq=rows.map(itemHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
+  box.innerHTML=`<div class="ticker-ad-shell"><span class="ticker-live-label"><i data-lucide="megaphone"></i><b>한 줄 광고</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track">${seq}<span class="ticker-ad-separator" aria-hidden="true">•</span>${seq}</div></div></div>`;
+  section.hidden=false;
+  box.querySelectorAll('[data-ad-kind]').forEach(btn=>btn.addEventListener('click',()=>{
+    const r=rows.find(x=>x.kind===btn.dataset.adKind&&String(x.id)===String(btn.dataset.adId)); if(!r)return;
+    if(r.kind==='direct'){if(r.url)window.open(r.url,'_blank','noopener');return;}
+    if(r.kind==='coupon'){if(typeof openCouponDetail==='function')openCouponDetail(r.data);return;}
+    if(r.kind==='dalpick'){
+      const d=r.data||{}; const bid=d.business_id||d.businessId;
+      if(bid&&typeof openBusinessDetail==='function'){openBusinessDetail(bid);return;}
+      const url=d.link_url||d.url; if(url)window.open(url,'_blank','noopener');
+    }
+  }));
+} 
+
 function v116ApplyHomeSectionVisibility(config={}){
+  const showToday=config.show_today_section!==false;
   const showRecommend=config.show_recommend_section!==false;
   const showCommunity=config.show_community_section!==false;
   const showAlert=config.show_alert_section!==false;
-  const brief=document.getElementById('v37BriefCard');
-  const recommend=document.getElementById('v37RecommendCard');
-  // V118: 오늘의 달타운은 자동 영역이므로 항상 표시하고, 달타운 추천만 별도로 켜고 끕니다.
-  if(brief)brief.hidden=false;
-  if(recommend)recommend.hidden=!showRecommend;
+  const showTicker=config.show_ticker_section!==false;
+  const brief=document.getElementById('v37BriefCard'); if(brief)brief.hidden=!showToday;
+  const recommend=document.getElementById('v37RecommendCard'); if(recommend)recommend.hidden=!showRecommend;
   const community=document.getElementById('v45CommunityTicker');
   if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
-  const alertSection=document.querySelector('.home-ticker-section');
+  const alertSection=document.getElementById('homeAlertSection')||document.querySelector('.home-ticker-section');
   if(alertSection&&!showAlert)alertSection.hidden=true;
+  const tickerSection=document.getElementById('homeAdTickerSection');
+  if(tickerSection&&!showTicker)tickerSection.hidden=true;
 }
 
 async function renderV37AIHome(){
@@ -3110,6 +3140,7 @@ async function renderV37AIHome(){
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
   renderDalpicks();
+  v119RenderOneLineAds();
   v116ApplyHomeSectionVisibility(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
 }

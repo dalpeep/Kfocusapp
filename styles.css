@@ -4964,3 +4964,7 @@ body.map-page-open #page-map .map-search-input{
 .board-bottom-item strong{font-size:13px;font-weight:700;}
 /* V99: 본문 상단/하단에 있던 중복 이동 버튼은 사용하지 않음 */
 .board-detail-nav{display:none!important;}
+
+/* V119 separate one-line advertising section */
+.home-ad-ticker-section{margin:12px 0;}
+.home-ad-ticker-section[hidden]{display:none!important;}
