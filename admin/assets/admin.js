@@ -6047,3 +6047,115 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   });
   window.V90BriefingManager={load,save,generate};
 })();
+
+// ===== P002-1 AI 뉴스룸 운영 대시보드 =====
+(function installNewsroomOperationsDashboard(){
+  const P002_KEY=`daltown_newsroom_ops_${typeof getAppRegion==='function'?getAppRegion():'dallas'}`;
+  let p002Rows=[];
+  let p002Status='all';
+
+  function p002TodayStart(){
+    const now=new Date();
+    const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+    const map=Object.fromEntries(parts.map(x=>[x.type,x.value]));
+    // Dallas daylight/standard offset is resolved by converting local midnight through Intl.
+    const localText=`${map.year}-${map.month}-${map.day}T00:00:00`;
+    const guess=new Date(localText+'-05:00');
+    return guess.toISOString();
+  }
+  function p002ReadLogs(){try{const v=JSON.parse(localStorage.getItem(P002_KEY)||'[]');return Array.isArray(v)?v:[];}catch(_){return [];}}
+  function p002WriteLog(type,message,ok=true,detail=''){
+    const rows=p002ReadLogs();
+    rows.unshift({at:new Date().toISOString(),type,message,ok,detail});
+    try{localStorage.setItem(P002_KEY,JSON.stringify(rows.slice(0,40)));}catch(_){ }
+    p002RenderLogs();
+  }
+  function p002StatusLabel(status){
+    return ({collected:'수집',classified:'AI 생성',review:'검토 대기',published:'게시 완료',hold:'보류',held:'보류',excluded:'제외',exclude:'제외',error:'오류',failed:'오류'})[String(status||'').toLowerCase()]||String(status||'미확인');
+  }
+  function p002StatusGroup(row){
+    const s=String(row?.status||'').toLowerCase();
+    const msg=[row?.error,row?.error_message,row?.last_error,row?.processing_error].filter(Boolean).join(' ');
+    if(['error','failed'].includes(s)||msg)return 'error';
+    if(['published','posted'].includes(s)||row?.published_at||row?.post_id)return 'published';
+    if(['hold','held','paused'].includes(s)||row?.is_held===true)return 'hold';
+    if(['review','draft'].includes(s)||row?.article_content||row?.ai_content)return 'generated';
+    if(['classified','analyzed'].includes(s)||row?.ai_title||row?.ai_summary)return 'generated';
+    return 'collected';
+  }
+  function p002InjectStyle(){
+    if(document.getElementById('p002NewsroomStyle'))return;
+    const style=document.createElement('style');style.id='p002NewsroomStyle';style.textContent=`
+      .p002-ops{margin-bottom:14px;padding:16px}.p002-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.p002-head h3{margin:0 0 4px}.p002-actions{display:flex;gap:7px;flex-wrap:wrap}.p002-grid{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:10px;margin-top:14px}.p002-metric{border:1px solid #dbe3ef;border-radius:12px;background:#fff;padding:12px;text-align:left}.p002-metric span{display:block;color:#64748b;font-size:12px}.p002-metric strong{display:block;font-size:24px;margin-top:5px}.p002-metric.active{outline:2px solid #2563eb;border-color:#2563eb}.p002-bottom{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-top:12px}.p002-panel{border:1px solid #dbe3ef;border-radius:12px;padding:12px;background:#fff}.p002-panel h4{margin:0 0 9px}.p002-log,.p002-article{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:start;padding:8px 0;border-top:1px solid #eef2f7}.p002-log:first-child,.p002-article:first-child{border-top:0}.p002-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;background:#16a34a}.p002-dot.bad{background:#dc2626}.p002-article button{white-space:nowrap}.p002-muted{color:#64748b;font-size:12px}.p002-health-ok{color:#15803d}.p002-health-bad{color:#b91c1c}.p002-empty{padding:12px;color:#64748b;text-align:center}.p002-busy{opacity:.65;pointer-events:none}@media(max-width:980px){.p002-grid{grid-template-columns:repeat(3,1fr)}.p002-bottom{grid-template-columns:1fr}}@media(max-width:560px){.p002-grid{grid-template-columns:repeat(2,1fr)}}`;
+    document.head.appendChild(style);
+  }
+  function p002EnsureUI(){
+    const section=document.getElementById('section-newsroom');if(!section)return null;
+    let host=document.getElementById('p002NewsroomOps');if(host)return host;
+    p002InjectStyle();host=document.createElement('section');host.id='p002NewsroomOps';host.className='card p002-ops';
+    host.innerHTML=`<div class="p002-head"><div><h3>AI 뉴스룸 운영 현황</h3><div id="p002Updated" class="p002-muted">오늘 데이터를 확인하고 있습니다.</div></div><div class="p002-actions"><button id="p002CollectBtn" class="btn primary" type="button">오늘 수집 실행</button><button id="p002RegenerateBtn" class="btn ghost" type="button">선택 기사 다시 생성</button><button id="p002PublishBtn" class="btn ghost" type="button">선택 기사 게시</button><button id="p002HealthBtn" class="btn ghost" type="button">Edge 상태 확인</button><button id="p002RefreshBtn" class="btn ghost" type="button">새로고침</button></div></div><div class="p002-grid"><button class="p002-metric active" data-p002-filter="all"><span>오늘 수집</span><strong id="p002Collected">0</strong></button><button class="p002-metric" data-p002-filter="generated"><span>AI 생성</span><strong id="p002Generated">0</strong></button><button class="p002-metric" data-p002-filter="published"><span>게시 완료</span><strong id="p002Published">0</strong></button><button class="p002-metric" data-p002-filter="hold"><span>보류</span><strong id="p002Hold">0</strong></button><button class="p002-metric" data-p002-filter="error"><span>오류</span><strong id="p002Error">0</strong></button><div class="p002-metric"><span>Edge Function</span><strong id="p002Health" style="font-size:16px">확인 중</strong></div></div><div class="p002-bottom"><div class="p002-panel"><h4>오늘 기사 목록</h4><div id="p002Articles"><div class="p002-empty">불러오는 중…</div></div></div><div class="p002-panel"><h4>오늘 실행 로그</h4><div id="p002Logs"><div class="p002-empty">실행 기록이 없습니다.</div></div></div></div>`;
+    const first=section.querySelector('.card, .toolbar')||section.firstElementChild;section.insertBefore(host,first||null);
+    host.querySelectorAll('[data-p002-filter]').forEach(btn=>btn.addEventListener('click',()=>{p002Status=btn.dataset.p002Filter||'all';host.querySelectorAll('[data-p002-filter]').forEach(x=>x.classList.toggle('active',x===btn));p002RenderArticles();}));
+    host.querySelector('#p002RefreshBtn')?.addEventListener('click',()=>p002Load(true));
+    host.querySelector('#p002HealthBtn')?.addEventListener('click',()=>p002Health(true));
+    host.querySelector('#p002CollectBtn')?.addEventListener('click',()=>p002Run('collect'));
+    host.querySelector('#p002RegenerateBtn')?.addEventListener('click',()=>p002Run('regenerate'));
+    host.querySelector('#p002PublishBtn')?.addEventListener('click',()=>p002Run('publish'));
+    return host;
+  }
+  function p002SetBusy(busy){const host=p002EnsureUI();if(host)host.classList.toggle('p002-busy',busy);}
+  function p002SelectedId(){return typeof selectedNewsroomId!=='undefined'?selectedNewsroomId:null;}
+  function p002RenderLogs(){
+    const box=document.getElementById('p002Logs');if(!box)return;const rows=p002ReadLogs();
+    box.innerHTML=rows.length?rows.slice(0,12).map(r=>`<div class="p002-log"><i class="p002-dot ${r.ok===false?'bad':''}"></i><div><b>${esc(r.message||'작업')}</b>${r.detail?`<div class="p002-muted">${esc(r.detail)}</div>`:''}</div><time class="p002-muted">${esc(new Date(r.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}))}</time></div>`).join(''):'<div class="p002-empty">실행 기록이 없습니다.</div>';
+  }
+  function p002RenderArticles(){
+    const box=document.getElementById('p002Articles');if(!box)return;
+    const rows=p002Rows.filter(r=>p002Status==='all'||p002StatusGroup(r)===p002Status).sort((a,b)=>new Date(b.updated_at||b.published_at||b.collected_at||0)-new Date(a.updated_at||a.published_at||a.collected_at||0)).slice(0,40);
+    box.innerHTML=rows.length?rows.map(r=>`<div class="p002-article"><span class="pill">${esc(p002StatusLabel(r.status))}</span><div><b>${esc(r.ai_title||r.original_title||'제목 없음')}</b><div class="p002-muted">${esc(r.source_name||'출처 미상')} · ${esc(typeof newsroomLocalDate==='function'?newsroomLocalDate(r.updated_at||r.published_at||r.collected_at):'')}</div></div><button class="btn ghost" type="button" data-p002-open="${esc(r.id)}">열기</button></div>`).join(''):'<div class="p002-empty">해당 상태의 오늘 기사가 없습니다.</div>';
+    box.querySelectorAll('[data-p002-open]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.p002Open;let row=(typeof newsroomItems!=='undefined'?newsroomItems:[]).find(x=>String(x.id)===String(id))||p002Rows.find(x=>String(x.id)===String(id));if(row&&typeof fillNewsroom==='function'){if(typeof newsroomItems!=='undefined'&&!newsroomItems.some(x=>String(x.id)===String(row.id)))newsroomItems.unshift(row);fillNewsroom(row);}}));
+  }
+  function p002RenderMetrics(){
+    const counts={collected:p002Rows.length,generated:0,published:0,hold:0,error:0};
+    p002Rows.forEach(r=>{const g=p002StatusGroup(r);if(g!=='collected')counts[g]=(counts[g]||0)+1;});
+    safeText('p002Collected',counts.collected);safeText('p002Generated',counts.generated);safeText('p002Published',counts.published);safeText('p002Hold',counts.hold);safeText('p002Error',counts.error);
+    safeText('p002Updated',`마지막 확인 ${new Date().toLocaleString('ko-KR')} · Dallas 기준 오늘`);p002RenderArticles();p002RenderLogs();
+  }
+  async function p002Load(manual=false){
+    const host=p002EnsureUI();if(!host||!supabase)return;p002SetBusy(true);
+    try{
+      const start=p002TodayStart();
+      let res=await supabase.from('newsroom_items').select('*').eq('region',getAppRegion()).gte('collected_at',start).order('collected_at',{ascending:false}).limit(500);
+      if(res.error){res=await supabase.from('newsroom_items').select('*').eq('region',getAppRegion()).order('collected_at',{ascending:false}).limit(500);}
+      if(res.error)throw res.error;
+      p002Rows=(res.data||[]).filter(r=>{const d=new Date(r.collected_at||r.created_at||0);return !Number.isNaN(d.getTime())&&d>=new Date(start);});
+      p002RenderMetrics();if(manual)p002WriteLog('refresh','운영 현황을 새로고침했습니다.',true,`${p002Rows.length}건 확인`);
+    }catch(e){p002WriteLog('refresh','운영 현황 조회 실패',false,e.message);safeText('p002Updated',`조회 실패: ${e.message}`);}finally{p002SetBusy(false);}
+  }
+  async function p002Health(showAlert=false){
+    p002EnsureUI();safeText('p002Health','확인 중');
+    try{const ok=typeof checkNewsroomHealth==='function'?await checkNewsroomHealth(false):false;const el=document.getElementById('p002Health');if(el){el.textContent=ok?'🟢 정상':'🔴 확인 필요';el.className=ok?'p002-health-ok':'p002-health-bad';}p002WriteLog('health',ok?'Edge Function 정상':'Edge Function 설정 확인 필요',ok);if(showAlert)alert(ok?'AI 뉴스룸 연결이 정상입니다.':'설정 또는 Edge Function 연결을 확인하세요.');return ok;}catch(e){safeText('p002Health','🔴 오류');p002WriteLog('health','Edge Function 상태 확인 실패',false,e.message);if(showAlert)alert(e.message);return false;}
+  }
+  async function p002Run(kind){
+    const id=p002SelectedId();
+    if(kind!=='collect'&&!id)return alert('기사 목록에서 먼저 검토할 기사를 선택하세요.');
+    const labels={collect:'오늘 수집',regenerate:'기사 다시 생성',publish:'기사 게시'};if(!confirm(`${labels[kind]} 작업을 실행할까요?`))return;
+    p002SetBusy(true);p002WriteLog(kind,`${labels[kind]} 시작`,true);
+    try{
+      if(kind==='collect'){
+        if(typeof collectNewsroom==='function')await collectNewsroom();else if(typeof newsroomEdgeCall==='function')await newsroomEdgeCall('collect',{region:getAppRegion(),manual:true});
+      }else if(kind==='regenerate'){
+        if(typeof newsroomEdgeCall!=='function')throw new Error('뉴스룸 Edge Function을 찾을 수 없습니다.');
+        await newsroomEdgeCall('draft',{id,rewrite:true,region:getAppRegion()},'선택한 기사를 다시 생성하고 있습니다…');
+      }else if(kind==='publish'){
+        if(typeof publishNewsroom!=='function')throw new Error('게시 기능을 찾을 수 없습니다.');
+        await publishNewsroom();
+      }
+      p002WriteLog(kind,`${labels[kind]} 완료`,true,id?`기사 ID ${id}`:'');
+      if(typeof loadNewsroom==='function')await loadNewsroom();await p002Load(false);
+    }catch(e){p002WriteLog(kind,`${labels[kind]} 실패`,false,e.message);alert(`${labels[kind]} 실패: ${e.message}`);}finally{p002SetBusy(false);}
+  }
+  function p002Init(){p002EnsureUI();p002RenderLogs();setTimeout(()=>{p002Load(false);p002Health(false);},700);document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(()=>{p002Load(false);p002Health(false);},120));}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',p002Init);else p002Init();
+  window.P002NewsroomDashboard={load:p002Load,health:p002Health,run:p002Run};
+})();
