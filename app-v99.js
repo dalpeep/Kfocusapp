@@ -1,3 +1,4 @@
+console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
@@ -1175,8 +1176,8 @@ async function loadSlidesFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
     if(!res.ok) throw new Error(`Slides ${res.status}`);
     const rows = await res.json();
     slideRows = Array.isArray(rows) ? rows : [];
@@ -1581,8 +1582,8 @@ async function loadCouponsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones';
-    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
     const rows = await res.json();
     // 쿠폰은 연결 업소가 현재 지역 업소 목록에 없더라도 쿠폰 자체 데이터로 노출합니다.
@@ -1634,12 +1635,14 @@ async function loadBannersFromSupabase(){
 
   try {
     const select = 'id,title,image_url,link_url,business_id,region,sort_order,is_active,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc`;
+    const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc&_ts=${Date.now()}`;
 
     const res = await fetch(url, {
+      cache: 'no-store',
       headers: {
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Cache-Control': 'no-cache'
       }
     });
 
@@ -2878,29 +2881,48 @@ async function v51LoadDirectEditorItems(){
       .select('id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at')
       .eq('region',region)
       .order('updated_at',{ascending:false})
-      .limit(1000);
+      .limit(80);
     if(error)throw error;
-    return (data||[]).map(row=>{
+    const normalized=(data||[]).map(row=>{
       const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
-      const truthy=v=>v===true||v===1||String(v||'').trim().toLowerCase()==='true';
-      const selected=String(meta.selection_source||'').trim().toLowerCase()==='editor'||truthy(meta.home_show)||truthy(meta.admin_selected)||truthy(meta.selected_by_admin);
-      if(!selected)return null;
-      const category=String(meta.home_category||meta.category||'business').trim()||'business';
+      const text=`${meta.home_category||''} ${meta.category||''} ${row.ai_title||''} ${row.original_title||''} ${row.ai_summary||''} ${row.original_summary||''}`;
+      let category=String(meta.home_category||meta.category||'').trim();
+      if(!['business','shopping','event'].includes(category)){
+        if(/market|shopping|zion|h\s*mart|마트|마켓|세일|할인|장보기/i.test(text))category='shopping';
+        else if(/event|festival|concert|seminar|행사|공연|축제|세미나|박람회|모임/i.test(text))category='event';
+        else category='';
+      }
+      if(!category)return null;
+      const pinned=String(meta.selection_source||'')==='editor'||meta.home_show===true;
+      return {row,meta,category,pinned};
+    }).filter(Boolean);
+    const chooseLatest=cat=>normalized.find(x=>x.category===cat);
+    const chooseCategory=cat=>{
+      const pinnedRows=normalized.filter(x=>x.category===cat&&x.pinned);
+      return pinnedRows.length?pinnedRows:[chooseLatest(cat)].filter(Boolean);
+    };
+    // V107: 관리자 고정 항목은 같은 분류라도 모두 메인 캐러셀에 전달합니다.
+    // 고정 항목이 하나도 없을 때만 해당 분류의 최신 1건을 자동 표시합니다.
+    const picked=[...chooseCategory('shopping'),...chooseCategory('event'),...normalized.filter(x=>x.category==='business'&&x.pinned)]
+      .filter(Boolean).filter((x,i,a)=>a.findIndex(y=>String(y.row.id)===String(x.row.id))===i);
+    return picked.map(({row,meta,category,pinned})=>{
       const targetType=String(meta.home_target_type||'').trim();
       const targetId=String(meta.home_target_id||'').trim();
+      const external=targetType==='external'&&/^https?:\/\//i.test(String(meta.home_external_url||''));
       const linked=['post','business'].includes(targetType)&&Boolean(targetId);
       return {
         id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
         title:String(meta.home_custom_title||row.ai_title||row.original_title||'오늘의 달타운').trim(),
         summary:String(meta.home_custom_message||row.ai_summary||row.original_summary||'').trim(),
-        target_type:linked?targetType:'',target_id:linked?targetId:'',
-        link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
-        selected_by_admin:true,admin_selected:true,is_manual:true,
-        priority:Number(row.priority_score||999),
+        target_type:external?'external':(linked?targetType:''),target_id:linked?targetId:'',
+        url:external?String(meta.home_external_url||'').trim():'',
+        link_label:(linked||external)?String(meta.home_link_label||'자세히 보기'):'',
+        selected_by_admin:pinned,admin_selected:pinned,is_manual:pinned,is_pinned:pinned,auto_selected:!pinned&&['shopping','event'].includes(category),
+        priority:Number(row.priority_score||(pinned?999:0)),
         published_at:row.source_published_at||row.collected_at,
         updated_at:row.updated_at||row.collected_at||row.source_published_at,
       };
-    }).filter(Boolean);
+    });
   }catch(error){
     console.warn('[V51.5 Today Daltown] direct editor fallback unavailable',error?.message||error);
     return [];
@@ -2928,17 +2950,6 @@ function v51MergeTodaySources(feedItems=[],directItems=[]){
     const key=source?`source:${source}`:`${String(item.category||'')}|${String(item.title||'').trim().toLowerCase()}`;
     if(seen.has(key))return false;seen.add(key);return true;
   });
-}
-function v112KeepAllPinnedEditorCards(prepared=[], loaded=[]){
-  // 관리자 고정 항목은 같은 분류라도 각각 독립 카드로 유지합니다.
-  // 업소 연결 유무는 노출 조건으로 사용하지 않습니다.
-  const output=[...(prepared||[])];
-  const seen=new Set(output.map(item=>String(item?.source_id||item?.id||'')));
-  (loaded||[]).filter(v51IsAdminSelected).forEach(item=>{
-    const key=String(item?.source_id||item?.id||'');
-    if(key&&!seen.has(key)){ seen.add(key); output.push(item); }
-  });
-  return output.slice(0,20);
 }
 function v537ApplyAutoCardOverrides(items=[]){
   const cfg=(window.__DALTOWN_MAIN_SETTINGS__&&typeof window.__DALTOWN_MAIN_SETTINGS__==='object')?window.__DALTOWN_MAIN_SETTINGS__:{};
@@ -3027,7 +3038,7 @@ async function v51RefreshToday(){
     const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
-    v51TodayItems=v112KeepAllPinnedEditorCards(v51PrepareTodayItems(rows),combined);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
+    v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
 }
@@ -3069,7 +3080,7 @@ async function renderV37AIHome(){
   const authoritativeAdmin=loaded.filter(v51IsAdminSelected);
   loaded=v51MergeTodaySources(prepared,authoritativeAdmin);
   v45ProposalItems=loaded;
-  v51TodayItems=v112KeepAllPinnedEditorCards(v51PrepareTodayItems(loaded),loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
+  v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);console.info('[V83 recommendation] authoritative',{options:v73RoutineRecommendationOptions(),addressTerms:v74RoutineRecommendationAddressTerms(),count:biz.length,names:biz.slice(0,8).map(b=>b.name||b.name_ko)});v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
@@ -6178,6 +6189,76 @@ async function submitAdRequest(){
   showPage("home");
 }
 
+
+// V100: iPhone 홈 화면 PWA가 오래 열려 있어도 관리자 변경 내용을 다시 읽습니다.
+// 게시글/쿠폰/슬라이드/배너 같은 데이터 변경에는 업데이트 팝업을 띄우지 않습니다.
+let v100PublicRefreshRunning = false;
+let v100LastPublicRefreshAt = 0;
+const V100_PUBLIC_REFRESH_MIN_GAP = 8000;
+
+async function v100RefreshPublicData(reason='manual', force=false){
+  const now = Date.now();
+  if(v100PublicRefreshRunning) return false;
+  if(!force && now - v100LastPublicRefreshAt < V100_PUBLIC_REFRESH_MIN_GAP) return false;
+
+  v100PublicRefreshRunning = true;
+  try{
+    const jobs = [
+      loadCouponsFromSupabase(),
+      loadSlidesFromSupabase(),
+      loadBannersFromSupabase(),
+      loadDalpicksFromSupabase(),
+      loadBoardPostsFromSupabase(),
+      loadAlertNoticePostsFromSupabase()
+    ];
+    if(typeof loadMainSettings === 'function') jobs.push(loadMainSettings(true));
+    await Promise.allSettled(jobs);
+
+    syncBusinessStoriesToBoardPosts();
+    buildHeroSlides();
+
+    if(typeof renderHero === 'function') renderHero();
+    if(typeof bindHeroSwipe === 'function') bindHeroSwipe();
+    if(typeof setSlide === 'function') setSlide(0);
+    if(typeof restartAuto === 'function') restartAuto();
+    if(typeof renderHome === 'function') renderHome();
+    if(typeof renderCoupons === 'function') renderCoupons();
+    if(typeof renderDalpicks === 'function') renderDalpicks();
+    if(typeof renderMainBanners === 'function') renderMainBanners();
+    if(typeof window.loadMainBanners === 'function') window.loadMainBanners();
+    if(typeof v77RefreshRoutineDrivenHome === 'function') v77RefreshRoutineDrivenHome();
+
+    v100LastPublicRefreshAt = Date.now();
+    console.info('[DalTownMap V100] public data refreshed', reason);
+    return true;
+  }catch(error){
+    console.warn('[DalTownMap V100] public refresh failed', reason, error);
+    return false;
+  }finally{
+    v100PublicRefreshRunning = false;
+  }
+}
+window.refreshDalTownPublicData = (force=true)=>v100RefreshPublicData('manual', force);
+
+function v100InstallPublicRefreshHooks(){
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible') v100RefreshPublicData('visibility');
+  });
+  window.addEventListener('pageshow', event=>{
+    v100RefreshPublicData(event.persisted ? 'pageshow-bfcache' : 'pageshow');
+  });
+  window.addEventListener('focus', ()=>v100RefreshPublicData('focus'));
+
+  document.addEventListener('click', event=>{
+    const homeTarget = event.target.closest('#homeBrand, .nav-item[data-nav="home"]');
+    if(homeTarget) setTimeout(()=>v100RefreshPublicData('home-tap', true), 0);
+  });
+
+  setInterval(()=>{
+    if(!document.hidden && currentPage === 'home') v100RefreshPublicData('home-interval');
+  }, 2 * 60 * 1000);
+}
+
 async function init(){
   await detectInitialRegion();
 
@@ -6194,7 +6275,7 @@ await refreshCurrentUser();
 
 updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); v100InstallPublicRefreshHooks(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   if(!v87OpenPublicRoute()) showPage(getRoute());
   initRegionPicker();
