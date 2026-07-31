@@ -2878,12 +2878,11 @@ async function v51LoadDirectEditorItems(){
       .select('id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at')
       .eq('region',region)
       .order('updated_at',{ascending:false})
-      .limit(1000);
+      .limit(80);
     if(error)throw error;
     return (data||[]).map(row=>{
       const meta=(row.event_data&&typeof row.event_data==='object')?row.event_data:{};
-      const truthy=v=>v===true||v===1||String(v||'').trim().toLowerCase()==='true';
-      const selected=String(meta.selection_source||'').trim().toLowerCase()==='editor'||truthy(meta.home_show)||truthy(meta.admin_selected)||truthy(meta.selected_by_admin);
+      const selected=String(meta.selection_source||'')==='editor'||meta.home_show===true;
       if(!selected)return null;
       const category=String(meta.home_category||meta.category||'business').trim()||'business';
       const targetType=String(meta.home_target_type||'').trim();
@@ -2891,8 +2890,8 @@ async function v51LoadDirectEditorItems(){
       const linked=['post','business'].includes(targetType)&&Boolean(targetId);
       return {
         id:`direct-${row.id}-${category}`,source_id:String(row.id),category,
-        title:String(meta.home_custom_title||row.ai_title||row.original_title||'오늘의 달타운').trim(),
-        summary:String(meta.home_custom_message||row.ai_summary||row.original_summary||'').trim(),
+        title:String(row.ai_title||row.original_title||'오늘의 달타운').trim(),
+        summary:String(row.ai_summary||row.original_summary||'').trim(),
         target_type:linked?targetType:'',target_id:linked?targetId:'',
         link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
         selected_by_admin:true,admin_selected:true,is_manual:true,
@@ -2928,17 +2927,6 @@ function v51MergeTodaySources(feedItems=[],directItems=[]){
     const key=source?`source:${source}`:`${String(item.category||'')}|${String(item.title||'').trim().toLowerCase()}`;
     if(seen.has(key))return false;seen.add(key);return true;
   });
-}
-function v112KeepAllPinnedEditorCards(prepared=[], loaded=[]){
-  // 관리자 고정 항목은 같은 분류라도 각각 독립 카드로 유지합니다.
-  // 업소 연결 유무는 노출 조건으로 사용하지 않습니다.
-  const output=[...(prepared||[])];
-  const seen=new Set(output.map(item=>String(item?.source_id||item?.id||'')));
-  (loaded||[]).filter(v51IsAdminSelected).forEach(item=>{
-    const key=String(item?.source_id||item?.id||'');
-    if(key&&!seen.has(key)){ seen.add(key); output.push(item); }
-  });
-  return output.slice(0,20);
 }
 function v537ApplyAutoCardOverrides(items=[]){
   const cfg=(window.__DALTOWN_MAIN_SETTINGS__&&typeof window.__DALTOWN_MAIN_SETTINGS__==='object')?window.__DALTOWN_MAIN_SETTINGS__:{};
@@ -3027,7 +3015,7 @@ async function v51RefreshToday(){
     const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
-    v51TodayItems=v112KeepAllPinnedEditorCards(v51PrepareTodayItems(rows),combined);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
+    v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
 }
@@ -3069,7 +3057,7 @@ async function renderV37AIHome(){
   const authoritativeAdmin=loaded.filter(v51IsAdminSelected);
   loaded=v51MergeTodaySources(prepared,authoritativeAdmin);
   v45ProposalItems=loaded;
-  v51TodayItems=v112KeepAllPinnedEditorCards(v51PrepareTodayItems(loaded),loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
+  v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);console.info('[V83 recommendation] authoritative',{options:v73RoutineRecommendationOptions(),addressTerms:v74RoutineRecommendationAddressTerms(),count:biz.length,names:biz.slice(0,8).map(b=>b.name||b.name_ko)});v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();

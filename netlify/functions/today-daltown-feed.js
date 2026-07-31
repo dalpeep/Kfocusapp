@@ -1,7 +1,3 @@
-function isTrue(value) {
-  return value === true || value === 1 || String(value || '').trim().toLowerCase() === 'true';
-}
-
 function json(statusCode, body) {
   return {
     statusCode,
@@ -25,7 +21,7 @@ exports.handler = async (event) => {
       select: 'id,ai_title,ai_summary,original_title,original_summary,event_data,priority_score,source_published_at,collected_at,updated_at,region',
       region: `eq.${region}`,
       order: 'updated_at.desc',
-      limit: '1000',
+      limit: '100',
     });
     const res = await fetch(`${base}/rest/v1/newsroom_items?${params.toString()}`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
@@ -35,7 +31,7 @@ exports.handler = async (event) => {
     const rows = raw ? JSON.parse(raw) : [];
     const items = rows.map((row) => {
       const meta = row.event_data && typeof row.event_data === 'object' ? row.event_data : {};
-      const selected = isTrue(meta.home_show) || isTrue(meta.admin_selected) || isTrue(meta.selected_by_admin) || String(meta.selection_source || '').trim().toLowerCase() === 'editor';
+      const selected = meta.home_show === true || String(meta.selection_source || '') === 'editor';
       if (!selected) return null;
       const category = ['business', 'shopping', 'event'].includes(String(meta.home_category || ''))
         ? String(meta.home_category)
