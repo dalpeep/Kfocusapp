@@ -1434,6 +1434,29 @@ function v96IsInvalidTickerContent(value){
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines()
     .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
+  // V117: 관리자 메인 설정의 독립 달타운 알림. 직접 입력을 최우선으로 사용합니다.
+  const direct=(v45HomeConfig&&typeof v45HomeConfig.direct_alert==='object')?v45HomeConfig.direct_alert:{};
+  if(direct.enabled!==false){
+    const title=String(direct.title||'').trim();
+    const message=String(direct.message||'').trim();
+    if(title||message){
+      return [{kind:'event-alert-direct',id:'direct-home-alert',date:direct.updated_at||'',data:{title:title||message,summary:title&&message?message:'',badge:'공지',event_name:String(direct.label||'').trim(),link_type:direct.link_type||'none',link_value:direct.link_value||'',interval_seconds:6}}];
+    }
+    if(direct.use_board_notice!==false){
+      const now=Date.now();
+      const noticeSource=(alertNoticePosts&&alertNoticePosts.length)?alertNoticePosts:(boardPosts||[]);
+      const notices=noticeSource.filter(post=>{
+        if(post?.is_active===false||post?.is_alert_notice!==true)return false;
+        if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
+        if(post.start_at&&Date.parse(post.start_at)>now)return false;
+        if(post.end_at&&Date.parse(post.end_at)<now)return false;
+        return true;
+      }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:6}}));
+      if(notices.length)return notices;
+    }
+    // V118: 알림 사용이 켜져 있지만 직접 문구와 게시판 공지가 모두 비어 있어도 영역이 사라지지 않도록 기본 안내를 표시합니다.
+    return [{kind:'event-alert-direct',id:'direct-home-alert-default',date:direct.updated_at||'',data:{title:'달타운맵 알림',summary:'새로운 지역 소식과 생활 정보를 확인하세요.',badge:'알림',event_name:'',link_type:'none',link_value:'',interval_seconds:6}}];
+  }
   // V94: 루틴 이름이 과거 테스트명이어도 공지/업소 조건 설정은 유지하고, 해당 문구만 제거합니다.
   const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
   const briefingValid=dailyBriefing&&dailyBriefing.is_active!==false&&String(dailyBriefing.text||'').trim()&&(!dailyBriefing.date_key||dailyBriefing.date_key===todayKey());
@@ -1508,6 +1531,7 @@ function openEventRoutineLink(d){
 function renderDalpicks(){
   const box=document.getElementById('dalpickList');
   if(!box) return;
+  if(v45HomeConfig?.show_alert_section===false){box.closest('.home-ticker-section')?.setAttribute('hidden','');box.innerHTML='';return;}
   if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
 
   const tickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
@@ -2514,14 +2538,20 @@ function v45SelectedBusinesses(config={}){
   const randomRows=v45StableShuffle(consumerRows,todayKey());
   const options=v73RoutineRecommendationOptions();
   const groups={recommended:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,address:addressRows,admin:adminRows,random:randomRows};
+  // V116: 관리자가 저장한 기본 기준(추천/신규/인기)을 우선 적용합니다.
+  // 이전에는 활성 이벤트 루틴이나 남아 있던 직접 지정 ID가 항상 우선되어 기준을 바꿔도 목록이 같았습니다.
+  const legacyMode=String(config.business_mode||'featured');
+  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
+  if(Object.prototype.hasOwnProperty.call(legacyGroups,legacyMode)){
+    const selected=legacyGroups[legacyMode]||[];
+    if(selected.length)return selected.slice(0,20);
+  }
+  if(adminRows.length)return adminRows.slice(0,20);
   if(options.length){
     const seen=new Set(),rows=[];
     options.forEach(option=>(groups[option]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
     if(rows.length)return rows.slice(0,20);
   }
-  if(adminRows.length)return adminRows.slice(0,20);
-  const legacyMode=String(config.business_mode||'featured');
-  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
   const rows=legacyGroups[legacyMode]||featuredRows;
   return (rows.length?rows:(featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows)))).slice(0,20);
 }
@@ -2567,7 +2597,7 @@ function v45CommunityRows(config={}){
 function v45PaintCommunity(){
   const el=document.getElementById('v45CommunityTicker');
   if(!el) return;
-  const enabled=v66RoutineCommunityEnabled();
+  const enabled=(v45HomeConfig?.show_community_section!==false) && (v66RoutineCommunityEnabled() || v45HomeConfig?.show_community_section===true);
   if(!enabled){ el.hidden=true; el.innerHTML=''; return; }
   el.hidden=false;
   if(!v45CommunityItems.length){
@@ -3033,6 +3063,51 @@ function v51InitToday(){
   if(!v51AutoRefreshTimer)v51AutoRefreshTimer=setInterval(()=>{if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();},5*60*1000);
 }
 
+function v119RenderOneLineAds(){
+  const box=document.getElementById('homeAdTickerList');
+  const section=document.getElementById('homeAdTickerSection');
+  if(!box||!section)return;
+  const cfg=v61EffectiveHomeConfig(v45HomeConfig||{});
+  if(cfg.show_ticker_section===false){section.hidden=true;box.innerHTML='';return;}
+  const sources=new Set(Array.isArray(cfg.ticker_sources)?cfg.ticker_sources:[]);
+  const rows=[];
+  const direct=(cfg.ticker_direct&&typeof cfg.ticker_direct==='object')?cfg.ticker_direct:{};
+  if(direct.enabled===true&&String(direct.text||'').trim())rows.push({kind:'direct',id:'direct-ticker',title:String(direct.text).trim(),detail:String(direct.label||'').trim(),url:String(direct.url||'').trim(),badge:'광고'});
+  if(sources.has('dalpick'))activeDalpicks().filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true).slice(0,8).forEach(d=>rows.push({kind:'dalpick',id:String(d.id),title:String(d.title||'광고 소식').trim(),detail:String(d.summary||d.description||'').replace(/\s+/g,' ').trim(),badge:'광고',data:d}));
+  if(sources.has('coupon')&&typeof todayCoupons==='function')todayCoupons().slice(0,8).forEach(c=>rows.push({kind:'coupon',id:String(c.id),title:String(c.title||c.name||'쿠폰 소식').trim(),detail:String(c.discount_label||c.description||'').replace(/\s+/g,' ').trim(),badge:'쿠폰',data:c}));
+  if(!rows.length){section.hidden=true;box.innerHTML='';return;}
+  const itemHTML=r=>`<button class="ticker-ad-item" type="button" data-ad-kind="${esc(r.kind)}" data-ad-id="${esc(r.id)}"><span class="ticker-ad-badge">${esc(r.badge)}</span><strong>${esc(r.title)}</strong>${r.detail?`<span class="ticker-ad-detail">${esc(r.detail)}</span>`:''}<span class="ticker-ad-arrow">›</span></button>`;
+  const seq=rows.map(itemHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
+  box.innerHTML=`<div class="ticker-ad-shell"><span class="ticker-live-label"><i data-lucide="megaphone"></i><b>한 줄 광고</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track">${seq}<span class="ticker-ad-separator" aria-hidden="true">•</span>${seq}</div></div></div>`;
+  section.hidden=false;
+  box.querySelectorAll('[data-ad-kind]').forEach(btn=>btn.addEventListener('click',()=>{
+    const r=rows.find(x=>x.kind===btn.dataset.adKind&&String(x.id)===String(btn.dataset.adId)); if(!r)return;
+    if(r.kind==='direct'){if(r.url)window.open(r.url,'_blank','noopener');return;}
+    if(r.kind==='coupon'){if(typeof openCouponDetail==='function')openCouponDetail(r.data);return;}
+    if(r.kind==='dalpick'){
+      const d=r.data||{}; const bid=d.business_id||d.businessId;
+      if(bid&&typeof openBusinessDetail==='function'){openBusinessDetail(bid);return;}
+      const url=d.link_url||d.url; if(url)window.open(url,'_blank','noopener');
+    }
+  }));
+} 
+
+function v116ApplyHomeSectionVisibility(config={}){
+  const showToday=config.show_today_section!==false;
+  const showRecommend=config.show_recommend_section!==false;
+  const showCommunity=config.show_community_section!==false;
+  const showAlert=config.show_alert_section!==false;
+  const showTicker=config.show_ticker_section!==false;
+  const brief=document.getElementById('v37BriefCard'); if(brief)brief.hidden=!showToday;
+  const recommend=document.getElementById('v37RecommendCard'); if(recommend)recommend.hidden=!showRecommend;
+  const community=document.getElementById('v45CommunityTicker');
+  if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
+  const alertSection=document.getElementById('homeAlertSection')||document.querySelector('.home-ticker-section');
+  if(alertSection&&!showAlert)alertSection.hidden=true;
+  const tickerSection=document.getElementById('homeAdTickerSection');
+  if(tickerSection&&!showTicker)tickerSection.hidden=true;
+}
+
 async function renderV37AIHome(){
   const sequence=++v44HomeRenderSequence;
   const dateNode=document.getElementById('v37BriefDate');if(!dateNode)return;
@@ -3064,6 +3139,9 @@ async function renderV37AIHome(){
   const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v83RecommendationLabel(v45HomeConfig);label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
+  renderDalpicks();
+  v119RenderOneLineAds();
+  v116ApplyHomeSectionVisibility(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
 }
 function initV37AIHomeEvents(){
@@ -3092,7 +3170,7 @@ if(homeFeaturedList){
     : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 }
 
-const legacyTicker=document.querySelector('.home-ticker-section'); if(legacyTicker) legacyTicker.hidden=true;
+// V116: 달타운 알림은 메인 표시 설정과 실제 알림 내용에 따라 renderDalpicks()가 제어합니다.
 if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();

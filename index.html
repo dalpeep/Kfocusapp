@@ -254,7 +254,7 @@ onclick="showPage('contact');closeMenu();">
 
     <main id="appMain" class="pages-wrap">
       <section class="page active" id="page-home">
-        <section class="card hero-wrap home-hero-wrap">
+        <section class="card hero-wrap home-hero-wrap" id="homeHeroSection">
           <div class="hero-viewport" id="heroViewport">
             <div class="hero-track" id="heroTrack"></div>
           </div>
@@ -302,12 +302,15 @@ onclick="showPage('contact');closeMenu();">
           <div class="v45-community-ticker v70-community-panel" id="v45CommunityTicker" aria-label="커뮤니티 최신 글" hidden></div>
         </section>
 		
-  <section class="home-ticker-section" aria-label="달타운 알림" hidden>
+  <section class="home-ticker-section" id="homeAlertSection" aria-label="달타운 알림" hidden>
     <div id="dalpickList" class="dalpick-home-list"></div>
   </section>
 
+  <section class="home-ad-ticker-section" id="homeAdTickerSection" aria-label="한 줄 광고" hidden>
+    <div id="homeAdTickerList" class="dalpick-home-list"></div>
+  </section>
 
-<section class="card section-card home-business-tabs-card">
+<section class="card section-card home-business-tabs-card" id="homeBusinessListSection">
   <div class="section-head compact-head">
     <h3 class="section-title">
       <i data-lucide="store"></i>
@@ -632,7 +635,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=97.0-alert-source-fix"></script>
+<script src="app-v99.js?v=119.0-all-home-toggles"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
