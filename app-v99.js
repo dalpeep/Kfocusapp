@@ -2,7 +2,7 @@
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
-console.info('[DalTownMap] P003 public alert modal loaded');
+console.info('[DalTownMap] P004 public alert modal v2 loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -3007,7 +3007,13 @@ function v51EnsurePublicNoticeModal(){
     #v51PublicNoticeModal .v51-notice-meta-row b{min-width:68px;color:#0f2b5b}
     #v51PublicNoticeModal .v51-notice-body{margin-top:17px;white-space:pre-wrap;line-height:1.72;color:#253858;font-size:15px}
     #v51PublicNoticeModal .v51-notice-action{margin-top:18px;padding:14px;border-radius:14px;background:#fff7ed;color:#9a3412;line-height:1.6;font-size:14px}
-    #v51PublicNoticeModal .v51-notice-buttons{display:flex;gap:9px;margin-top:18px}
+    #v51PublicNoticeModal .v51-social-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px}
+#v51PublicNoticeModal .v51-social-actions button{min-height:44px;border-radius:12px;border:1px solid #dbe6f7;background:#fff;color:#24456f;font-weight:800;cursor:pointer}
+#v51PublicNoticeModal .v51-social-actions button.active{background:#fff7db;border-color:#f4c95d;color:#8a5a00}
+#v51PublicNoticeModal .v51-social-feedback{min-height:20px;margin-top:8px;text-align:center;color:#56708f;font-size:12px}
+#v51PublicNoticeModal .v51-notice-sheet{transform:translateY(24px);opacity:0;transition:transform .24s ease,opacity .24s ease}
+#v51PublicNoticeModal.open .v51-notice-sheet{transform:translateY(0);opacity:1}
+#v51PublicNoticeModal .v51-notice-buttons{display:flex;gap:9px;margin-top:18px}
     #v51PublicNoticeModal .v51-notice-buttons button,#v51PublicNoticeModal .v51-notice-buttons a{flex:1;min-height:46px;border-radius:13px;border:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:800;cursor:pointer}
     #v51PublicNoticeModal .v51-official-link{background:#2864e8;color:#fff}
     #v51PublicNoticeModal .v51-share{background:#eef4ff;color:#174ea6}
@@ -3057,6 +3063,11 @@ function v51NoticeActionText(detail,item){
   if(/road|traffic|closure|교통|도로|통제/.test(text))return '출발 전에 실시간 도로 상황과 우회 경로를 확인하세요.';
   return '';
 }
+
+function v51NoticeStorageKey(type,id){return `daltownmap:${type}:${String(id||'unknown')}`;}
+function v51GetStoredFlag(type,id){try{return localStorage.getItem(v51NoticeStorageKey(type,id))==='1';}catch{return false;}}
+function v51SetStoredFlag(type,id,value){try{value?localStorage.setItem(v51NoticeStorageKey(type,id),'1'):localStorage.removeItem(v51NoticeStorageKey(type,id));}catch{}}
+
 async function v51OpenPublicNoticeModal(item){
   const modal=v51EnsurePublicNoticeModal();
   const content=document.getElementById('v51PublicNoticeContent');
@@ -3072,6 +3083,7 @@ async function v51OpenPublicNoticeModal(item){
   const source=String(detail?.source_name||item?.source_name||'공식 기관').trim();
   const area=String(detail?.area||meta.area||'').trim();
   const published=v51FormatModalDate(detail?.source_published_at||detail?.collected_at||item?.published_at||item?.updated_at);
+  const updated=v51FormatModalDate(detail?.updated_at||item?.updated_at||detail?.collected_at||item?.published_at);
   const expires=v51FormatModalDate(meta.end_at||meta.expires_at||meta.alert_expires_at);
   const officialUrl=String(detail?.original_url||item?.url||item?.link||item?.source_url||'').trim();
   const action=v51NoticeActionText(detail,item);
@@ -3088,20 +3100,50 @@ async function v51OpenPublicNoticeModal(item){
     <div class="v51-notice-meta">
       ${area?`<div class="v51-notice-meta-row"><b>지역</b><span>${v51EscapeModalText(area)}</span></div>`:''}
       ${published?`<div class="v51-notice-meta-row"><b>발표·수집</b><span>${v51EscapeModalText(published)}</span></div>`:''}
+      ${updated?`<div class="v51-notice-meta-row"><b>마지막 업데이트</b><span>${v51EscapeModalText(updated)}</span></div>`:''}
       ${expires?`<div class="v51-notice-meta-row"><b>종료 예정</b><span>${v51EscapeModalText(expires)}</span></div>`:''}
       <div class="v51-notice-meta-row"><b>출처</b><span>${v51EscapeModalText(source)}</span></div>
     </div>
     <div class="v51-notice-body">${v51EscapeModalText(summary)}</div>
     ${action?`<div class="v51-notice-action"><b>확인 사항</b><br>${v51EscapeModalText(action)}</div>`:''}
+    <div class="v51-social-actions">
+      <button type="button" class="v51-helpful">👍 도움이 되었어요</button>
+      <button type="button" class="v51-share">📤 공유하기</button>
+      <button type="button" class="v51-save">⭐ 저장</button>
+    </div>
+    <div class="v51-social-feedback" aria-live="polite"></div>
     <div class="v51-notice-buttons">
       ${/^https?:\/\//i.test(officialUrl)?`<a class="v51-official-link" href="${v51EscapeModalText(officialUrl)}" target="_blank" rel="noopener noreferrer">공식 원문 보기</a>`:''}
-      <button type="button" class="v51-share">공유하기</button>
     </div>`;
   content.querySelector('.v51-notice-close')?.addEventListener('click',v51ClosePublicNoticeModal);
+  const noticeId=String(detail?.id||item?.source_id||item?.id||title);
+  const feedback=content.querySelector('.v51-social-feedback');
+  const helpfulBtn=content.querySelector('.v51-helpful');
+  const saveBtn=content.querySelector('.v51-save');
+  const helpfulActive=v51GetStoredFlag('helpful',noticeId);
+  const savedActive=v51GetStoredFlag('saved-notice',noticeId);
+  helpfulBtn?.classList.toggle('active',helpfulActive);
+  saveBtn?.classList.toggle('active',savedActive);
+  if(helpfulBtn)helpfulBtn.textContent=helpfulActive?'👍 도움 표시됨':'👍 도움이 되었어요';
+  if(saveBtn)saveBtn.textContent=savedActive?'★ 저장됨':'⭐ 저장';
+  helpfulBtn?.addEventListener('click',()=>{
+    const next=!v51GetStoredFlag('helpful',noticeId);
+    v51SetStoredFlag('helpful',noticeId,next);
+    helpfulBtn.classList.toggle('active',next);
+    helpfulBtn.textContent=next?'👍 도움 표시됨':'👍 도움이 되었어요';
+    if(feedback)feedback.textContent=next?'감사합니다. 더 좋은 정보를 제공하는 데 반영하겠습니다.':'도움 표시를 취소했습니다.';
+  });
+  saveBtn?.addEventListener('click',()=>{
+    const next=!v51GetStoredFlag('saved-notice',noticeId);
+    v51SetStoredFlag('saved-notice',noticeId,next);
+    saveBtn.classList.toggle('active',next);
+    saveBtn.textContent=next?'★ 저장됨':'⭐ 저장';
+    if(feedback)feedback.textContent=next?'이 기기에 공지를 저장했습니다.':'저장을 해제했습니다.';
+  });
   content.querySelector('.v51-share')?.addEventListener('click',async()=>{
     try{
       if(navigator.share)await navigator.share({title,text:shareText,url:location.href});
-      else{await navigator.clipboard.writeText(shareText);alert('알림 내용이 복사되었습니다.');}
+      else{await navigator.clipboard.writeText(shareText);if(feedback)feedback.textContent='알림 내용이 복사되었습니다.';}
     }catch(e){if(e?.name!=='AbortError')console.warn(e);}
   });
 }
