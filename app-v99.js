@@ -2,7 +2,7 @@
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
-console.log('[DalTownMap] P001.2 admin-aligned life category patch loaded');
+console.info('[DalTownMap] P003 public alert modal loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -2082,23 +2082,15 @@ function couponCardHTML(c, mode='all'){
 const LIFE_CATEGORIES=['전체','생활','교육','의료','교통','세금·재정','부동산','가족','지역정보'];
 let selectedLifeCategory='전체';
 function inferLifeCategory(post={}){
-  // P001.2: 관리자 분류 체계는 그대로 유지하고,
-  // 과거에 잘못 저장된 subtype/category 값은 판정에서 제외합니다.
-  const text=`${post.title||''} ${post.summary||''} ${post.content||''}`.toLowerCase();
-
-  if(/학교|교육|학군|대학|학생|입학|개학|휴교|수업|학부모|isd|school|education|college|university/.test(text)) return '교육';
-  if(/병원|의료|건강|보험|의사|약국|메디케어|클리닉|예방접종|검진|health|medical|hospital|clinic|doctor|pharmacy/.test(text)) return '의료';
-  if(/세금|재정|절세|은행|대출|크레딧|금리|금융|사업|고용|실업|소득|투자|tax|finance|bank|loan|economy|business|employment/.test(text)) return '세금·재정';
-  if(/주택|부동산|렌트|아파트|모기지|집값|주거|분양|오픈하우스|real estate|housing|rent|apartment|mortgage|home price/.test(text)) return '부동산';
-  if(/가족|자녀|육아|시니어|부모|아동|청소년|family|child|children|parent|senior/.test(text)) return '가족';
-
-  // 실제 교통 내용만 교통으로 분류합니다.
-  if(/도로|교통|차량|운전|공항|버스|열차|통제|폐쇄|우회|정체|충돌|도로 공사|고속도로|톨웨이|txdot|dart|traffic|road closure|highway|transit|airport|detour|congestion/.test(text)) return '교통';
-
-  // 날씨·폭염·마트·식당·매장 오픈 등 일상 생활 정보
-  if(/생활|정착|쇼핑|음식|날씨|폭염|무더위|기온|비|눈|마트|마켓|세일|할인|특가|장보기|신규 매장|매장 오픈|개점|신규 식당|식당 오픈|레스토랑|카페|베이커리|store|shopping|market|grocery|sale|discount|grand opening|restaurant|cafe|bakery|weather|heat/.test(text)) return '생활';
-
-  // 동물원, 공원, 시청 시설, 지역 개발·공사 등
+  const explicit=String(post.subtype||post.category||'').trim();
+  const text=`${explicit} ${post.title||''} ${post.summary||''} ${post.content||''}`.toLowerCase();
+  if(/학교|교육|학군|대학|학생|입학|isd/.test(text)) return '교육';
+  if(/병원|의료|건강|보험|의사|약국|메디케어/.test(text)) return '의료';
+  if(/교통|도로|차량|운전|공항|버스|열차|통제/.test(text)) return '교통';
+  if(/세금|재정|절세|은행|대출|크레딧|사업/.test(text)) return '세금·재정';
+  if(/주택|부동산|렌트|아파트|모기지|집값/.test(text)) return '부동산';
+  if(/가족|자녀|육아|시니어|부모/.test(text)) return '가족';
+  if(/생활|정착|쇼핑|음식|날씨/.test(text)) return '생활';
   return '지역정보';
 }
 function boardReadMinutes(post={}){
@@ -2985,12 +2977,140 @@ function v51PrepareTodayItems(items=[]){
     seen.add(key);return true;
   }).slice(0,12);
 }
+function v51EscapeModalText(value=''){
+  return String(value).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function v51FormatModalDate(value){
+  if(!value)return '';
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return '';
+  return new Intl.DateTimeFormat('ko-KR',{
+    timeZone:'America/Chicago',year:'numeric',month:'long',day:'numeric',
+    hour:'numeric',minute:'2-digit'
+  }).format(d);
+}
+function v51EnsurePublicNoticeModal(){
+  let modal=document.getElementById('v51PublicNoticeModal');
+  if(modal)return modal;
+  const style=document.createElement('style');
+  style.id='v51PublicNoticeModalStyle';
+  style.textContent=`
+    #v51PublicNoticeModal{position:fixed;inset:0;z-index:99999;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.58);padding:0}
+    #v51PublicNoticeModal.open{display:flex}
+    #v51PublicNoticeModal .v51-notice-sheet{width:min(100%,560px);max-height:88vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -18px 50px rgba(15,23,42,.24);padding:20px 20px calc(24px + env(safe-area-inset-bottom))}
+    #v51PublicNoticeModal .v51-notice-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+    #v51PublicNoticeModal .v51-notice-badge{display:inline-flex;padding:5px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800}
+    #v51PublicNoticeModal .v51-notice-title{margin:10px 0 0;font-size:23px;line-height:1.35;color:#0f2b5b}
+    #v51PublicNoticeModal .v51-notice-close{border:0;background:#eef4ff;width:38px;height:38px;border-radius:12px;font-size:24px;line-height:1;cursor:pointer;color:#375a93}
+    #v51PublicNoticeModal .v51-notice-meta{display:grid;gap:8px;margin-top:16px;padding:13px;border-radius:14px;background:#f8fafc;color:#475569;font-size:13px}
+    #v51PublicNoticeModal .v51-notice-meta-row{display:flex;gap:8px;align-items:flex-start}
+    #v51PublicNoticeModal .v51-notice-meta-row b{min-width:68px;color:#0f2b5b}
+    #v51PublicNoticeModal .v51-notice-body{margin-top:17px;white-space:pre-wrap;line-height:1.72;color:#253858;font-size:15px}
+    #v51PublicNoticeModal .v51-notice-action{margin-top:18px;padding:14px;border-radius:14px;background:#fff7ed;color:#9a3412;line-height:1.6;font-size:14px}
+    #v51PublicNoticeModal .v51-notice-buttons{display:flex;gap:9px;margin-top:18px}
+    #v51PublicNoticeModal .v51-notice-buttons button,#v51PublicNoticeModal .v51-notice-buttons a{flex:1;min-height:46px;border-radius:13px;border:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:800;cursor:pointer}
+    #v51PublicNoticeModal .v51-official-link{background:#2864e8;color:#fff}
+    #v51PublicNoticeModal .v51-share{background:#eef4ff;color:#174ea6}
+    #v51PublicNoticeModal .v51-loading{padding:28px 4px;text-align:center;color:#64748b}
+    @media(min-width:700px){#v51PublicNoticeModal{align-items:center;padding:20px}#v51PublicNoticeModal .v51-notice-sheet{border-radius:24px;max-height:86vh}}
+  `;
+  document.head.appendChild(style);
+  modal=document.createElement('div');
+  modal.id='v51PublicNoticeModal';
+  modal.setAttribute('role','dialog');
+  modal.setAttribute('aria-modal','true');
+  modal.innerHTML=`
+    <div class="v51-notice-sheet">
+      <div id="v51PublicNoticeContent" class="v51-loading">상세 내용을 불러오고 있습니다.</div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)v51ClosePublicNoticeModal();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))v51ClosePublicNoticeModal();});
+  return modal;
+}
+function v51ClosePublicNoticeModal(){
+  const modal=document.getElementById('v51PublicNoticeModal');
+  if(modal)modal.classList.remove('open');
+  document.body.style.overflow='';
+}
+async function v51LoadPublicNoticeDetails(item){
+  const sourceId=String(item?.source_id||'').replace(/^direct-/,'').split('-')[0];
+  if(!sourceId||typeof supabase==='undefined'||!supabase?.from)return null;
+  try{
+    const {data,error}=await supabase.from('newsroom_items')
+      .select('id,original_title,original_summary,original_url,source_name,source_published_at,area,ai_title,ai_summary,ai_content,event_data,collected_at,updated_at')
+      .eq('id',sourceId).maybeSingle();
+    if(error)throw error;
+    return data||null;
+  }catch(error){
+    console.warn('[P003 public notice modal] detail lookup failed',error?.message||error);
+    return null;
+  }
+}
+function v51NoticeActionText(detail,item){
+  const meta=(detail?.event_data&&typeof detail.event_data==='object')?detail.event_data:{};
+  const direct=String(meta.instruction||meta.action_text||meta.subtitle||'').trim();
+  if(direct)return direct;
+  const text=`${detail?.ai_title||item?.title||''} ${detail?.ai_summary||detail?.original_summary||item?.summary||''}`.toLowerCase();
+  if(/amber alert|missing|실종/.test(text))return '관련 인물이나 차량을 발견하면 직접 접근하지 말고 즉시 911 또는 안내된 수사기관에 신고하세요.';
+  if(/tornado|storm|flood|폭풍|토네이도|홍수/.test(text))return '해당 지역의 공식 경보를 확인하고, 필요하면 실내의 안전한 장소로 이동하세요.';
+  if(/road|traffic|closure|교통|도로|통제/.test(text))return '출발 전에 실시간 도로 상황과 우회 경로를 확인하세요.';
+  return '';
+}
+async function v51OpenPublicNoticeModal(item){
+  const modal=v51EnsurePublicNoticeModal();
+  const content=document.getElementById('v51PublicNoticeContent');
+  modal.classList.add('open');
+  document.body.style.overflow='hidden';
+  content.className='v51-loading';
+  content.textContent='상세 내용을 불러오고 있습니다.';
+  const detail=await v51LoadPublicNoticeDetails(item);
+  const meta=(detail?.event_data&&typeof detail.event_data==='object')?detail.event_data:{};
+  const emergency=Boolean(item?.emergency||item?.school||/amber alert|긴급|경보|실종/i.test(`${item?.title||''} ${detail?.ai_title||''}`));
+  const title=String(detail?.ai_title||detail?.original_title||item?.title||'공공 알림').trim();
+  const summary=String(detail?.ai_content||detail?.ai_summary||detail?.original_summary||item?.summary||item?.subtitle||'상세 내용이 제공되지 않았습니다.').trim();
+  const source=String(detail?.source_name||item?.source_name||'공식 기관').trim();
+  const area=String(detail?.area||meta.area||'').trim();
+  const published=v51FormatModalDate(detail?.source_published_at||detail?.collected_at||item?.published_at||item?.updated_at);
+  const expires=v51FormatModalDate(meta.end_at||meta.expires_at||meta.alert_expires_at);
+  const officialUrl=String(detail?.original_url||item?.url||item?.link||item?.source_url||'').trim();
+  const action=v51NoticeActionText(detail,item);
+  const shareText=`${title}\n${summary.slice(0,180)}\nDalTownMap`;
+  content.className='';
+  content.innerHTML=`
+    <div class="v51-notice-head">
+      <div>
+        <span class="v51-notice-badge">${emergency?'🚨 긴급 공지':'📢 공공기관 안내'}</span>
+        <h2 class="v51-notice-title">${v51EscapeModalText(title)}</h2>
+      </div>
+      <button type="button" class="v51-notice-close" aria-label="닫기">×</button>
+    </div>
+    <div class="v51-notice-meta">
+      ${area?`<div class="v51-notice-meta-row"><b>지역</b><span>${v51EscapeModalText(area)}</span></div>`:''}
+      ${published?`<div class="v51-notice-meta-row"><b>발표·수집</b><span>${v51EscapeModalText(published)}</span></div>`:''}
+      ${expires?`<div class="v51-notice-meta-row"><b>종료 예정</b><span>${v51EscapeModalText(expires)}</span></div>`:''}
+      <div class="v51-notice-meta-row"><b>출처</b><span>${v51EscapeModalText(source)}</span></div>
+    </div>
+    <div class="v51-notice-body">${v51EscapeModalText(summary)}</div>
+    ${action?`<div class="v51-notice-action"><b>확인 사항</b><br>${v51EscapeModalText(action)}</div>`:''}
+    <div class="v51-notice-buttons">
+      ${/^https?:\/\//i.test(officialUrl)?`<a class="v51-official-link" href="${v51EscapeModalText(officialUrl)}" target="_blank" rel="noopener noreferrer">공식 원문 보기</a>`:''}
+      <button type="button" class="v51-share">공유하기</button>
+    </div>`;
+  content.querySelector('.v51-notice-close')?.addEventListener('click',v51ClosePublicNoticeModal);
+  content.querySelector('.v51-share')?.addEventListener('click',async()=>{
+    try{
+      if(navigator.share)await navigator.share({title,text:shareText,url:location.href});
+      else{await navigator.clipboard.writeText(shareText);alert('알림 내용이 복사되었습니다.');}
+    }catch(e){if(e?.name!=='AbortError')console.warn(e);}
+  });
+}
 function v51OpenItem(item){
   if(!item)return;
   if(item.target_type==='post'&&item.target_id){openBoardPost(item.target_id);return;}
   if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;renderDetail(item.target_id);showPage('business-detail');return;}
-  const url=item.url||item.link||item.source_url;
-  if(url)window.open(url,'_blank','noopener,noreferrer');
+  // 긴급·공공 알림과 링크 없는 오늘의 달타운 카드는 앱 내부 모달로 표시합니다.
+  v51OpenPublicNoticeModal(item);
 }
 function v51PaintToday(){
   const item=v51TodayItems[v51TodayIndex];
@@ -3025,8 +3145,9 @@ function v51PaintToday(){
   const ts=v51ItemTime(item);
   if(time){time.textContent=v51RelativeLabel(ts);time.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));}
   const hasLink=Boolean((item.target_id&&item.target_type)||(item.url||item.link||item.source_url));
-  if(link)link.textContent=hasLink?(item.link_label||'자세히 보기 →'):'';
-  if(main){main.disabled=false;main.classList.toggle('has-link',hasLink);main.onclick=hasLink?()=>v51OpenItem(item):null;}
+  const hasDetails=Boolean(item);
+  if(link)link.textContent=hasLink?(item.link_label||'자세히 보기 →'):'자세히 보기 →';
+  if(main){main.disabled=!hasDetails;main.classList.toggle('has-link',hasDetails);main.onclick=hasDetails?()=>v51OpenItem(item):null;}
   if(dots)dots.innerHTML=v51TodayItems.length>1?v51TodayItems.map((_,i)=>`<span class="${i===v51TodayIndex?'active':''}"></span>`).join(''):'';
 }
 function v51StartTodayTimer(delay=5000){
