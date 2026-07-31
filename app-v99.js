@@ -1454,6 +1454,8 @@ function eventRoutineAlertItems(){
       }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:6}}));
       if(notices.length)return notices;
     }
+    // V118: 알림 사용이 켜져 있지만 직접 문구와 게시판 공지가 모두 비어 있어도 영역이 사라지지 않도록 기본 안내를 표시합니다.
+    return [{kind:'event-alert-direct',id:'direct-home-alert-default',date:direct.updated_at||'',data:{title:'달타운맵 알림',summary:'새로운 지역 소식과 생활 정보를 확인하세요.',badge:'알림',event_name:'',link_type:'none',link_value:'',interval_seconds:6}}];
   }
   // V94: 루틴 이름이 과거 테스트명이어도 공지/업소 조건 설정은 유지하고, 해당 문구만 제거합니다.
   const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
@@ -3062,13 +3064,14 @@ function v51InitToday(){
 }
 
 function v116ApplyHomeSectionVisibility(config={}){
-  const showToday=config.show_today_section!==false;
+  const showRecommend=config.show_recommend_section!==false;
   const showCommunity=config.show_community_section!==false;
   const showAlert=config.show_alert_section!==false;
   const brief=document.getElementById('v37BriefCard');
   const recommend=document.getElementById('v37RecommendCard');
-  if(brief)brief.hidden=!showToday;
-  if(recommend)recommend.hidden=!showToday;
+  // V118: 오늘의 달타운은 자동 영역이므로 항상 표시하고, 달타운 추천만 별도로 켜고 끕니다.
+  if(brief)brief.hidden=false;
+  if(recommend)recommend.hidden=!showRecommend;
   const community=document.getElementById('v45CommunityTicker');
   if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
   const alertSection=document.querySelector('.home-ticker-section');
