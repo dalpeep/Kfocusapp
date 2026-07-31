@@ -44,19 +44,9 @@ exports.handler = async (event) => {
       const pinned = meta.home_show === true || String(meta.selection_source || '') === 'editor';
       return { row, meta, category, pinned };
     }).filter(Boolean);
-    // V111: every administrator-pinned market/event item must become its own home slide.
-    // Only when a category has no pinned item do we fall back to its newest candidate.
-    const chooseCategory = (category) => {
-      const pinnedRows = normalized.filter((x) => x.category === category && x.pinned);
-      if (pinnedRows.length) return pinnedRows;
-      const latest = normalized.find((x) => x.category === category);
-      return latest ? [latest] : [];
-    };
-    const selectedRows = [
-      ...chooseCategory('shopping'),
-      ...chooseCategory('event'),
-      ...normalized.filter((x) => x.category === 'business' && x.pinned),
-    ]
+    const choose = (category) => normalized.find((x) => x.category === category && x.pinned)
+      || normalized.find((x) => x.category === category);
+    const selectedRows = [choose('shopping'), choose('event'), ...normalized.filter((x) => x.category === 'business' && x.pinned)]
       .filter(Boolean)
       .filter((x, i, arr) => arr.findIndex((y) => String(y.row.id) === String(x.row.id)) === i);
     const items = selectedRows.map(({ row, meta, category, pinned }) => {
@@ -86,7 +76,7 @@ exports.handler = async (event) => {
         updated_at: row.updated_at || row.collected_at || row.source_published_at,
       };
     });
-    return json(200, { ok: true, items, count: items.length, source: 'netlify-service-feed-v111' });
+    return json(200, { ok: true, items, count: items.length, source: 'netlify-service-feed-v102' });
   } catch (error) {
     return json(500, { ok: false, error: error instanceof Error ? error.message : String(error) });
   }
