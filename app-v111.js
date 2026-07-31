@@ -1518,7 +1518,6 @@ function openEventRoutineLink(d){
 function renderDalpicks(){
   const box=document.getElementById('dalpickList');
   if(!box) return;
-  if(!v114SectionVisible('alert',v45HomeConfig||{})){box.closest('.home-ticker-section')?.setAttribute('hidden','');box.innerHTML='';return;}
   if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
 
   const tickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
@@ -2313,17 +2312,6 @@ let v43AlertTimer = null;
 let v44HomeRenderSequence = 0;
 let v44HomeFeedLoadedAt = 0;
 let v45HomeConfig = {};
-function v114SectionVisible(section,config=v45HomeConfig){
-  const visibility=(config&&config.section_visibility&&typeof config.section_visibility==='object')?config.section_visibility:{};
-  return visibility[section]!==false;
-}
-function v114ApplySectionVisibility(config=v45HomeConfig){
-  const today=v114SectionVisible('today',config),community=v114SectionVisible('community',config),alert=v114SectionVisible('alert',config);
-  const todayCard=document.getElementById('v37BriefCard');if(todayCard)todayCard.hidden=!today;
-  const recommendCard=document.getElementById('v37RecommendCard');if(recommendCard)recommendCard.hidden=!today;
-  const communityTicker=document.getElementById('v45CommunityTicker');if(communityTicker&&!community)communityTicker.hidden=true;
-  const alertSection=document.querySelector('.home-ticker-section');if(alertSection&&!alert)alertSection.hidden=true;
-}
 let v45ProposalItems = [];
 let v45CommunityItems = [];
 let v45CommunityIndex = 0;
@@ -2591,7 +2579,6 @@ function v45CommunityRows(config={}){
 function v45PaintCommunity(){
   const el=document.getElementById('v45CommunityTicker');
   if(!el) return;
-  if(!v114SectionVisible('community',v45HomeConfig||{})){el.hidden=true;el.innerHTML='';return;}
   const enabled=v66RoutineCommunityEnabled();
   if(!enabled){ el.hidden=true; el.innerHTML=''; return; }
   el.hidden=false;
@@ -3095,7 +3082,6 @@ async function renderV37AIHome(){
     settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Home] partial source failed',i,r.reason);});
     loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
     window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
-    v114ApplySectionVisibility(v45HomeConfig);
     document.documentElement.dataset.eventRoutineCount=String(readActiveEventRoutines().length);
     console.info('[V83 routines] active',readActiveEventRoutines().map(r=>({id:r.id,name:r.name,actions:Object.keys(r.actions||{})})));
     if(typeof renderDalpicks==='function')renderDalpicks();
@@ -3114,7 +3100,6 @@ async function renderV37AIHome(){
   const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v83RecommendationLabel(v45HomeConfig);label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
-  v114ApplySectionVisibility(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
 }
 function initV37AIHomeEvents(){
@@ -3143,7 +3128,7 @@ if(homeFeaturedList){
     : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 }
 
-v114ApplySectionVisibility(v45HomeConfig||{}); if(typeof renderDalpicks==='function')renderDalpicks();
+const legacyTicker=document.querySelector('.home-ticker-section'); if(legacyTicker) legacyTicker.hidden=true;
 if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
