@@ -6048,114 +6048,261 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.V90BriefingManager={load,save,generate};
 })();
 
-// ===== P002-1 AI 뉴스룸 운영 대시보드 =====
-(function installNewsroomOperationsDashboard(){
-  const P002_KEY=`daltown_newsroom_ops_${typeof getAppRegion==='function'?getAppRegion():'dallas'}`;
-  let p002Rows=[];
-  let p002Status='all';
+// === P002-2: 오늘 자동 수집·기사 생성 확인 패널 ===
+// 조회 전용 패치입니다. 관리자 페이지를 열어 둔다고 수집을 다시 실행하지 않습니다.
+(() => {
+  const P = 'p0022';
 
-  function p002TodayStart(){
-    const now=new Date();
-    const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
-    const map=Object.fromEntries(parts.map(x=>[x.type,x.value]));
-    // Dallas daylight/standard offset is resolved by converting local midnight through Intl.
-    const localText=`${map.year}-${map.month}-${map.day}T00:00:00`;
-    const guess=new Date(localText+'-05:00');
-    return guess.toISOString();
+  function el(id){ return document.getElementById(id); }
+  function escHtml(v=''){
+    return String(v).replace(/[&<>"']/g, m => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[m]);
   }
-  function p002ReadLogs(){try{const v=JSON.parse(localStorage.getItem(P002_KEY)||'[]');return Array.isArray(v)?v:[];}catch(_){return [];}}
-  function p002WriteLog(type,message,ok=true,detail=''){
-    const rows=p002ReadLogs();
-    rows.unshift({at:new Date().toISOString(),type,message,ok,detail});
-    try{localStorage.setItem(P002_KEY,JSON.stringify(rows.slice(0,40)));}catch(_){ }
-    p002RenderLogs();
+  function localDayRange(){
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    return { startIso:start.toISOString(), endIso:end.toISOString() };
   }
-  function p002StatusLabel(status){
-    return ({collected:'수집',classified:'AI 생성',review:'검토 대기',published:'게시 완료',hold:'보류',held:'보류',excluded:'제외',exclude:'제외',error:'오류',failed:'오류'})[String(status||'').toLowerCase()]||String(status||'미확인');
+  function fmt(v){
+    if(!v) return '-';
+    const d = new Date(v);
+    if(Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleString('ko-KR', {
+      month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'
+    });
   }
-  function p002StatusGroup(row){
-    const s=String(row?.status||'').toLowerCase();
-    const msg=[row?.error,row?.error_message,row?.last_error,row?.processing_error].filter(Boolean).join(' ');
-    if(['error','failed'].includes(s)||msg)return 'error';
-    if(['published','posted'].includes(s)||row?.published_at||row?.post_id)return 'published';
-    if(['hold','held','paused'].includes(s)||row?.is_held===true)return 'hold';
-    if(['review','draft'].includes(s)||row?.article_content||row?.ai_content)return 'generated';
-    if(['classified','analyzed'].includes(s)||row?.ai_title||row?.ai_summary)return 'generated';
-    return 'collected';
+  function statusLabel(run, itemCount){
+    if(run){
+      const s = String(run.status || '').toLowerCase();
+      const trigger = String(run.trigger_type || '').toLowerCase();
+      if(s === 'running') return {cls:'running', text:'수집 작업 실행 중'};
+      if(s === 'failed') return {cls:'failed', text:'오늘 수집 실행 실패'};
+      if(s === 'success'){
+        const inserted = Number(run.inserted || 0);
+        const auto = trigger === 'scheduled' || trigger === 'cron';
+        if(inserted > 0) return {cls:'ok', text:`${auto?'자동 ':''}수집 완료 · 새 자료 ${inserted}건`};
+        return {cls:'ok', text:`${auto?'자동 ':''}수집 완료 · 새 자료 없음`};
+      }
+    }
+    if(itemCount > 0) return {cls:'ok', text:`오늘 수집 데이터 ${itemCount}건 확인됨`};
+    return {cls:'waiting', text:'오늘 수집 실행 기록을 아직 확인하지 못했습니다'};
   }
-  function p002InjectStyle(){
-    if(document.getElementById('p002NewsroomStyle'))return;
-    const style=document.createElement('style');style.id='p002NewsroomStyle';style.textContent=`
-      .p002-ops{margin-bottom:14px;padding:16px}.p002-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}.p002-head h3{margin:0 0 4px}.p002-actions{display:flex;gap:7px;flex-wrap:wrap}.p002-grid{display:grid;grid-template-columns:repeat(6,minmax(110px,1fr));gap:10px;margin-top:14px}.p002-metric{border:1px solid #dbe3ef;border-radius:12px;background:#fff;padding:12px;text-align:left}.p002-metric span{display:block;color:#64748b;font-size:12px}.p002-metric strong{display:block;font-size:24px;margin-top:5px}.p002-metric.active{outline:2px solid #2563eb;border-color:#2563eb}.p002-bottom{display:grid;grid-template-columns:1.15fr .85fr;gap:12px;margin-top:12px}.p002-panel{border:1px solid #dbe3ef;border-radius:12px;padding:12px;background:#fff}.p002-panel h4{margin:0 0 9px}.p002-log,.p002-article{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:start;padding:8px 0;border-top:1px solid #eef2f7}.p002-log:first-child,.p002-article:first-child{border-top:0}.p002-dot{width:9px;height:9px;border-radius:50%;margin-top:5px;background:#16a34a}.p002-dot.bad{background:#dc2626}.p002-article button{white-space:nowrap}.p002-muted{color:#64748b;font-size:12px}.p002-health-ok{color:#15803d}.p002-health-bad{color:#b91c1c}.p002-empty{padding:12px;color:#64748b;text-align:center}.p002-busy{opacity:.65;pointer-events:none}@media(max-width:980px){.p002-grid{grid-template-columns:repeat(3,1fr)}.p002-bottom{grid-template-columns:1fr}}@media(max-width:560px){.p002-grid{grid-template-columns:repeat(2,1fr)}}`;
+  function ensureStyle(){
+    if(el(P+'Style')) return;
+    const style = document.createElement('style');
+    style.id = P+'Style';
+    style.textContent = `
+      #${P}Panel{margin:0 0 18px;padding:18px;border:1px solid #cddcf6;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(32,79,160,.06)}
+      #${P}Panel .p0022-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap}
+      #${P}Panel h2{margin:0;font-size:21px}
+      #${P}Panel .p0022-sub{margin-top:5px;color:#64748b;font-size:13px}
+      #${P}Panel .p0022-state{margin-top:14px;padding:13px 15px;border-radius:14px;font-weight:800}
+      #${P}Panel .p0022-state.ok{background:#ecfdf3;color:#087443}
+      #${P}Panel .p0022-state.running{background:#eff6ff;color:#1d4ed8}
+      #${P}Panel .p0022-state.failed{background:#fff1f2;color:#be123c}
+      #${P}Panel .p0022-state.waiting{background:#fff7ed;color:#9a3412}
+      #${P}Panel .p0022-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:12px}
+      #${P}Panel .p0022-card{border:1px solid #dbe5f5;border-radius:14px;padding:13px;background:#fbfdff}
+      #${P}Panel .p0022-card span{display:block;color:#64748b;font-size:12px}
+      #${P}Panel .p0022-card strong{display:block;margin-top:5px;font-size:22px}
+      #${P}Panel .p0022-detail{display:grid;grid-template-columns:1.1fr .9fr;gap:12px;margin-top:12px}
+      #${P}Panel .p0022-box{border:1px solid #e2e8f0;border-radius:14px;padding:14px}
+      #${P}Panel .p0022-box h3{margin:0 0 10px;font-size:15px}
+      #${P}Panel .p0022-row{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-top:1px solid #eef2f7;font-size:13px}
+      #${P}Panel .p0022-row:first-of-type{border-top:0}
+      #${P}Panel .p0022-muted{color:#64748b}
+      #${P}Panel .p0022-note{margin-top:11px;padding:11px 13px;border-radius:12px;background:#f8fafc;color:#475569;font-size:13px;line-height:1.55}
+      #${P}Panel button{white-space:nowrap}
+      @media(max-width:900px){#${P}Panel .p0022-grid{grid-template-columns:repeat(2,minmax(0,1fr))}#${P}Panel .p0022-detail{grid-template-columns:1fr}}
+    `;
     document.head.appendChild(style);
   }
-  function p002EnsureUI(){
-    const section=document.getElementById('section-newsroom');if(!section)return null;
-    let host=document.getElementById('p002NewsroomOps');if(host)return host;
-    p002InjectStyle();host=document.createElement('section');host.id='p002NewsroomOps';host.className='card p002-ops';
-    host.innerHTML=`<div class="p002-head"><div><h3>AI 뉴스룸 운영 현황</h3><div id="p002Updated" class="p002-muted">오늘 데이터를 확인하고 있습니다.</div></div><div class="p002-actions"><button id="p002CollectBtn" class="btn primary" type="button">오늘 수집 실행</button><button id="p002RegenerateBtn" class="btn ghost" type="button">선택 기사 다시 생성</button><button id="p002PublishBtn" class="btn ghost" type="button">선택 기사 게시</button><button id="p002HealthBtn" class="btn ghost" type="button">Edge 상태 확인</button><button id="p002RefreshBtn" class="btn ghost" type="button">새로고침</button></div></div><div class="p002-grid"><button class="p002-metric active" data-p002-filter="all"><span>오늘 수집</span><strong id="p002Collected">0</strong></button><button class="p002-metric" data-p002-filter="generated"><span>AI 생성</span><strong id="p002Generated">0</strong></button><button class="p002-metric" data-p002-filter="published"><span>게시 완료</span><strong id="p002Published">0</strong></button><button class="p002-metric" data-p002-filter="hold"><span>보류</span><strong id="p002Hold">0</strong></button><button class="p002-metric" data-p002-filter="error"><span>오류</span><strong id="p002Error">0</strong></button><div class="p002-metric"><span>Edge Function</span><strong id="p002Health" style="font-size:16px">확인 중</strong></div></div><div class="p002-bottom"><div class="p002-panel"><h4>오늘 기사 목록</h4><div id="p002Articles"><div class="p002-empty">불러오는 중…</div></div></div><div class="p002-panel"><h4>오늘 실행 로그</h4><div id="p002Logs"><div class="p002-empty">실행 기록이 없습니다.</div></div></div></div>`;
-    const first=section.querySelector('.card, .toolbar')||section.firstElementChild;section.insertBefore(host,first||null);
-    host.querySelectorAll('[data-p002-filter]').forEach(btn=>btn.addEventListener('click',()=>{p002Status=btn.dataset.p002Filter||'all';host.querySelectorAll('[data-p002-filter]').forEach(x=>x.classList.toggle('active',x===btn));p002RenderArticles();}));
-    host.querySelector('#p002RefreshBtn')?.addEventListener('click',()=>p002Load(true));
-    host.querySelector('#p002HealthBtn')?.addEventListener('click',()=>p002Health(true));
-    host.querySelector('#p002CollectBtn')?.addEventListener('click',()=>p002Run('collect'));
-    host.querySelector('#p002RegenerateBtn')?.addEventListener('click',()=>p002Run('regenerate'));
-    host.querySelector('#p002PublishBtn')?.addEventListener('click',()=>p002Run('publish'));
-    return host;
+  function ensurePanel(){
+    if(el(P+'Panel')) return el(P+'Panel');
+    const section = el('section-newsroom');
+    if(!section) return null;
+    ensureStyle();
+    const panel = document.createElement('section');
+    panel.id = P+'Panel';
+    panel.innerHTML = `
+      <div class="p0022-head">
+        <div>
+          <h2>오늘 자동 수집·기사 생성 확인</h2>
+          <div class="p0022-sub">조회 전용입니다. 새로고침해도 수집이나 기사 생성을 다시 실행하지 않습니다.</div>
+        </div>
+        <button type="button" class="btn primary" id="${P}Refresh">현황 새로고침</button>
+      </div>
+      <div id="${P}State" class="p0022-state waiting">확인 중...</div>
+      <div class="p0022-grid">
+        <div class="p0022-card"><span>오늘 수집</span><strong id="${P}Collected">-</strong></div>
+        <div class="p0022-card"><span>AI 기사 생성</span><strong id="${P}Generated">-</strong></div>
+        <div class="p0022-card"><span>게시 완료</span><strong id="${P}Published">-</strong></div>
+        <div class="p0022-card"><span>보류·검토</span><strong id="${P}Review">-</strong></div>
+        <div class="p0022-card"><span>오류</span><strong id="${P}Errors">-</strong></div>
+      </div>
+      <div class="p0022-detail">
+        <div class="p0022-box">
+          <h3>오늘 실행 결과</h3>
+          <div class="p0022-row"><span>실행 방식</span><b id="${P}Trigger">-</b></div>
+          <div class="p0022-row"><span>시작 시간</span><b id="${P}Started">-</b></div>
+          <div class="p0022-row"><span>종료 시간</span><b id="${P}Finished">-</b></div>
+          <div class="p0022-row"><span>검색 / 신규 / 중복·제외</span><b id="${P}RunCounts">-</b></div>
+          <div class="p0022-note" id="${P}Memo">확인 중...</div>
+        </div>
+        <div class="p0022-box">
+          <h3>최근 실행 기록</h3>
+          <div id="${P}Runs" class="p0022-muted">불러오는 중...</div>
+        </div>
+      </div>`;
+    const first = section.firstElementChild;
+    if(first) first.insertAdjacentElement('afterend', panel);
+    else section.prepend(panel);
+    el(P+'Refresh')?.addEventListener('click', load);
+    return panel;
   }
-  function p002SetBusy(busy){const host=p002EnsureUI();if(host)host.classList.toggle('p002-busy',busy);}
-  function p002SelectedId(){return typeof selectedNewsroomId!=='undefined'?selectedNewsroomId:null;}
-  function p002RenderLogs(){
-    const box=document.getElementById('p002Logs');if(!box)return;const rows=p002ReadLogs();
-    box.innerHTML=rows.length?rows.slice(0,12).map(r=>`<div class="p002-log"><i class="p002-dot ${r.ok===false?'bad':''}"></i><div><b>${esc(r.message||'작업')}</b>${r.detail?`<div class="p002-muted">${esc(r.detail)}</div>`:''}</div><time class="p002-muted">${esc(new Date(r.at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}))}</time></div>`).join(''):'<div class="p002-empty">실행 기록이 없습니다.</div>';
+
+  async function queryTodayItems(startIso,endIso){
+    let res = await supabase.from('newsroom_items')
+      .select('*')
+      .eq('region', getAppRegion())
+      .gte('collected_at', startIso)
+      .lt('collected_at', endIso)
+      .order('collected_at', {ascending:false})
+      .limit(500);
+    if(res.error){
+      res = await supabase.from('newsroom_items')
+        .select('*')
+        .eq('region', getAppRegion())
+        .gte('created_at', startIso)
+        .lt('created_at', endIso)
+        .order('created_at', {ascending:false})
+        .limit(500);
+    }
+    return res.error ? [] : (res.data || []);
   }
-  function p002RenderArticles(){
-    const box=document.getElementById('p002Articles');if(!box)return;
-    const rows=p002Rows.filter(r=>p002Status==='all'||p002StatusGroup(r)===p002Status).sort((a,b)=>new Date(b.updated_at||b.published_at||b.collected_at||0)-new Date(a.updated_at||a.published_at||a.collected_at||0)).slice(0,40);
-    box.innerHTML=rows.length?rows.map(r=>`<div class="p002-article"><span class="pill">${esc(p002StatusLabel(r.status))}</span><div><b>${esc(r.ai_title||r.original_title||'제목 없음')}</b><div class="p002-muted">${esc(r.source_name||'출처 미상')} · ${esc(typeof newsroomLocalDate==='function'?newsroomLocalDate(r.updated_at||r.published_at||r.collected_at):'')}</div></div><button class="btn ghost" type="button" data-p002-open="${esc(r.id)}">열기</button></div>`).join(''):'<div class="p002-empty">해당 상태의 오늘 기사가 없습니다.</div>';
-    box.querySelectorAll('[data-p002-open]').forEach(btn=>btn.addEventListener('click',()=>{const id=btn.dataset.p002Open;let row=(typeof newsroomItems!=='undefined'?newsroomItems:[]).find(x=>String(x.id)===String(id))||p002Rows.find(x=>String(x.id)===String(id));if(row&&typeof fillNewsroom==='function'){if(typeof newsroomItems!=='undefined'&&!newsroomItems.some(x=>String(x.id)===String(row.id)))newsroomItems.unshift(row);fillNewsroom(row);}}));
+  async function queryRuns(startIso,endIso){
+    const today = await supabase.from('newsroom_runs')
+      .select('*')
+      .eq('region', getAppRegion())
+      .gte('started_at', startIso)
+      .lt('started_at', endIso)
+      .order('started_at', {ascending:false})
+      .limit(20);
+    if(today.error) return {today:[], recent:[], error:today.error};
+    const recent = await supabase.from('newsroom_runs')
+      .select('*')
+      .eq('region', getAppRegion())
+      .order('started_at', {ascending:false})
+      .limit(5);
+    return {today:today.data||[], recent:recent.error?today.data||[]:recent.data||[], error:null};
   }
-  function p002RenderMetrics(){
-    const counts={collected:p002Rows.length,generated:0,published:0,hold:0,error:0};
-    p002Rows.forEach(r=>{const g=p002StatusGroup(r);if(g!=='collected')counts[g]=(counts[g]||0)+1;});
-    safeText('p002Collected',counts.collected);safeText('p002Generated',counts.generated);safeText('p002Published',counts.published);safeText('p002Hold',counts.hold);safeText('p002Error',counts.error);
-    safeText('p002Updated',`마지막 확인 ${new Date().toLocaleString('ko-KR')} · Dallas 기준 오늘`);p002RenderArticles();p002RenderLogs();
+  async function queryTodayPublications(startIso,endIso){
+    let res = await supabase.from('newsroom_publications')
+      .select('*')
+      .eq('region', getAppRegion())
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+      .limit(500);
+    if(res.error) return [];
+    return res.data || [];
   }
-  async function p002Load(manual=false){
-    const host=p002EnsureUI();if(!host||!supabase)return;p002SetBusy(true);
+
+  async function load(){
+    const panel = ensurePanel();
+    if(!panel || !supabase) return;
+    const btn = el(P+'Refresh');
+    if(btn){btn.disabled=true;btn.textContent='확인 중...';}
+    el(P+'State').className='p0022-state running';
+    el(P+'State').textContent='오늘 수집 및 기사 생성 기록을 확인하고 있습니다...';
     try{
-      const start=p002TodayStart();
-      let res=await supabase.from('newsroom_items').select('*').eq('region',getAppRegion()).gte('collected_at',start).order('collected_at',{ascending:false}).limit(500);
-      if(res.error){res=await supabase.from('newsroom_items').select('*').eq('region',getAppRegion()).order('collected_at',{ascending:false}).limit(500);}
-      if(res.error)throw res.error;
-      p002Rows=(res.data||[]).filter(r=>{const d=new Date(r.collected_at||r.created_at||0);return !Number.isNaN(d.getTime())&&d>=new Date(start);});
-      p002RenderMetrics();if(manual)p002WriteLog('refresh','운영 현황을 새로고침했습니다.',true,`${p002Rows.length}건 확인`);
-    }catch(e){p002WriteLog('refresh','운영 현황 조회 실패',false,e.message);safeText('p002Updated',`조회 실패: ${e.message}`);}finally{p002SetBusy(false);}
-  }
-  async function p002Health(showAlert=false){
-    p002EnsureUI();safeText('p002Health','확인 중');
-    try{const ok=typeof checkNewsroomHealth==='function'?await checkNewsroomHealth(false):false;const el=document.getElementById('p002Health');if(el){el.textContent=ok?'🟢 정상':'🔴 확인 필요';el.className=ok?'p002-health-ok':'p002-health-bad';}p002WriteLog('health',ok?'Edge Function 정상':'Edge Function 설정 확인 필요',ok);if(showAlert)alert(ok?'AI 뉴스룸 연결이 정상입니다.':'설정 또는 Edge Function 연결을 확인하세요.');return ok;}catch(e){safeText('p002Health','🔴 오류');p002WriteLog('health','Edge Function 상태 확인 실패',false,e.message);if(showAlert)alert(e.message);return false;}
-  }
-  async function p002Run(kind){
-    const id=p002SelectedId();
-    if(kind!=='collect'&&!id)return alert('기사 목록에서 먼저 검토할 기사를 선택하세요.');
-    const labels={collect:'오늘 수집',regenerate:'기사 다시 생성',publish:'기사 게시'};if(!confirm(`${labels[kind]} 작업을 실행할까요?`))return;
-    p002SetBusy(true);p002WriteLog(kind,`${labels[kind]} 시작`,true);
-    try{
-      if(kind==='collect'){
-        if(typeof collectNewsroom==='function')await collectNewsroom();else if(typeof newsroomEdgeCall==='function')await newsroomEdgeCall('collect',{region:getAppRegion(),manual:true});
-      }else if(kind==='regenerate'){
-        if(typeof newsroomEdgeCall!=='function')throw new Error('뉴스룸 Edge Function을 찾을 수 없습니다.');
-        await newsroomEdgeCall('draft',{id,rewrite:true,region:getAppRegion()},'선택한 기사를 다시 생성하고 있습니다…');
-      }else if(kind==='publish'){
-        if(typeof publishNewsroom!=='function')throw new Error('게시 기능을 찾을 수 없습니다.');
-        await publishNewsroom();
+      const {startIso,endIso}=localDayRange();
+      const [items, runResult, publications] = await Promise.all([
+        queryTodayItems(startIso,endIso),
+        queryRuns(startIso,endIso),
+        queryTodayPublications(startIso,endIso)
+      ]);
+
+      const todayRuns = runResult.today || [];
+      const latest = todayRuns[0] || null;
+      const generated = items.filter(r =>
+        r.ai_title || r.ai_summary || r.ai_content ||
+        ['classified','review','drafted','published'].includes(String(r.status||'').toLowerCase())
+      ).length;
+      const review = items.filter(r =>
+        ['review','classified','collected','hold','pending'].includes(String(r.status||'').toLowerCase())
+      ).length;
+      const errors = items.filter(r =>
+        ['error','failed'].includes(String(r.status||'').toLowerCase()) ||
+        r.error_message
+      ).length + todayRuns.filter(r=>String(r.status||'').toLowerCase()==='failed').length;
+      const published = publications.length || items.filter(r =>
+        String(r.status||'').toLowerCase()==='published' || r.published_at
+      ).length;
+
+      const s = statusLabel(latest, items.length);
+      el(P+'State').className=`p0022-state ${s.cls}`;
+      el(P+'State').textContent=s.text;
+      el(P+'Collected').textContent=String(items.length);
+      el(P+'Generated').textContent=String(generated);
+      el(P+'Published').textContent=String(published);
+      el(P+'Review').textContent=String(review);
+      el(P+'Errors').textContent=String(errors);
+
+      const trigger = String(latest?.trigger_type||'').toLowerCase();
+      el(P+'Trigger').textContent = latest ? (
+        trigger==='scheduled'||trigger==='cron' ? '오전 자동 실행' :
+        trigger==='manual' ? '관리자 수동 실행' :
+        latest.trigger_type || '실행 기록'
+      ) : '오늘 기록 없음';
+      el(P+'Started').textContent=fmt(latest?.started_at);
+      el(P+'Finished').textContent=fmt(latest?.finished_at||latest?.ended_at);
+      el(P+'RunCounts').textContent=latest
+        ? `${Number(latest.found||0)} / ${Number(latest.inserted||0)} / ${Number(latest.skipped||0)}`
+        : '-';
+
+      let memo='';
+      if(latest){
+        const st=String(latest.status||'').toLowerCase();
+        if(st==='failed') memo=`수집 실행이 실패했습니다.${latest.error_message?` 오류: ${latest.error_message}`:''}`;
+        else if(st==='running') memo='현재 수집 작업이 실행 중입니다. 잠시 후 현황 새로고침을 누르세요.';
+        else if(Number(latest.inserted||0)===0) memo='오늘 수집 작업은 정상 실행됐지만 새로 추가할 자료가 없었거나 중복·제외 처리되었습니다.';
+        else if(generated===0) memo='오늘 자료 수집은 확인됐지만 아직 AI 기사 생성 기록은 없습니다. 아래 AI 운영센터에서 자동 작업 결과를 확인하세요.';
+        else if(published===0) memo=`오늘 자료 ${items.length}건, AI 생성 ${generated}건이 확인됐지만 아직 게시 완료 기록은 없습니다.`;
+        else memo=`오늘 수집과 기사 생성이 확인됐습니다. 게시 완료 ${published}건입니다.`;
+      }else if(items.length){
+        memo=`newsroom_runs 실행 로그는 없지만 오늘 수집 데이터 ${items.length}건이 확인됐습니다.`;
+      }else{
+        memo='오늘 수집 로그와 오늘 수집 자료가 모두 없습니다. 오전 자동 실행 전이거나, Cron/Edge Function 실행 기록 저장을 확인해야 합니다.';
       }
-      p002WriteLog(kind,`${labels[kind]} 완료`,true,id?`기사 ID ${id}`:'');
-      if(typeof loadNewsroom==='function')await loadNewsroom();await p002Load(false);
-    }catch(e){p002WriteLog(kind,`${labels[kind]} 실패`,false,e.message);alert(`${labels[kind]} 실패: ${e.message}`);}finally{p002SetBusy(false);}
+      el(P+'Memo').textContent=memo;
+
+      const recent = runResult.recent || [];
+      el(P+'Runs').innerHTML = recent.length ? recent.map(r=>{
+        const st=String(r.status||'').toLowerCase();
+        const label=st==='success'?'완료':st==='failed'?'실패':st==='running'?'실행 중':st||'기록';
+        const trig=['scheduled','cron'].includes(String(r.trigger_type||'').toLowerCase())?'자동':'수동';
+        return `<div class="p0022-row"><span>${escHtml(fmt(r.started_at))} · ${trig}</span><b>${label} · 신규 ${Number(r.inserted||0)}건</b></div>`;
+      }).join('') : '<div class="p0022-muted">최근 실행 기록이 없습니다.</div>';
+
+      const checkedAt = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+      const sub = panel.querySelector('.p0022-sub');
+      if(sub) sub.textContent=`마지막 확인 ${checkedAt} · 조회 전용이며 자동 재수집하지 않습니다.`;
+    }catch(e){
+      console.error('[P002-2 today newsroom status]',e);
+      el(P+'State').className='p0022-state failed';
+      el(P+'State').textContent='오늘 수집 현황 확인에 실패했습니다';
+      el(P+'Memo').textContent=e?.message||String(e);
+    }finally{
+      if(btn){btn.disabled=false;btn.textContent='현황 새로고침';}
+    }
   }
-  function p002Init(){p002EnsureUI();p002RenderLogs();setTimeout(()=>{p002Load(false);p002Health(false);},700);document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(()=>{p002Load(false);p002Health(false);},120));}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',p002Init);else p002Init();
-  window.P002NewsroomDashboard={load:p002Load,health:p002Health,run:p002Run};
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(load,150));
+    setTimeout(()=>{ if(el('section-newsroom')){ ensurePanel(); load(); } },1200);
+  });
+  window.P002TodayNewsroomStatus = {load};
 })();
+
