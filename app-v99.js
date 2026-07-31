@@ -1434,6 +1434,27 @@ function v96IsInvalidTickerContent(value){
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines()
     .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
+  // V117: 관리자 메인 설정의 독립 달타운 알림. 직접 입력을 최우선으로 사용합니다.
+  const direct=(v45HomeConfig&&typeof v45HomeConfig.direct_alert==='object')?v45HomeConfig.direct_alert:{};
+  if(direct.enabled!==false){
+    const title=String(direct.title||'').trim();
+    const message=String(direct.message||'').trim();
+    if(title||message){
+      return [{kind:'event-alert-direct',id:'direct-home-alert',date:direct.updated_at||'',data:{title:title||message,summary:title&&message?message:'',badge:'공지',event_name:String(direct.label||'').trim(),link_type:direct.link_type||'none',link_value:direct.link_value||'',interval_seconds:6}}];
+    }
+    if(direct.use_board_notice!==false){
+      const now=Date.now();
+      const noticeSource=(alertNoticePosts&&alertNoticePosts.length)?alertNoticePosts:(boardPosts||[]);
+      const notices=noticeSource.filter(post=>{
+        if(post?.is_active===false||post?.is_alert_notice!==true)return false;
+        if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
+        if(post.start_at&&Date.parse(post.start_at)>now)return false;
+        if(post.end_at&&Date.parse(post.end_at)<now)return false;
+        return true;
+      }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:6}}));
+      if(notices.length)return notices;
+    }
+  }
   // V94: 루틴 이름이 과거 테스트명이어도 공지/업소 조건 설정은 유지하고, 해당 문구만 제거합니다.
   const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
   const briefingValid=dailyBriefing&&dailyBriefing.is_active!==false&&String(dailyBriefing.text||'').trim()&&(!dailyBriefing.date_key||dailyBriefing.date_key===todayKey());
