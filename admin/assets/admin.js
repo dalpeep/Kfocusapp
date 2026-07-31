@@ -6514,3 +6514,179 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   });
 })();
 
+// === P002-5: 오늘 AI 기사 후보 목록 및 개별 관리 ===
+(() => {
+  const P='p0025';
+  const $id=(id)=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const fmt=(v)=>{
+    if(!v) return '-';
+    const d=new Date(v);
+    return Number.isNaN(d.getTime())?'-':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  };
+  const todayKey=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const rowDay=(row)=> {
+    const v=row.draft_updated_at||row.updated_at||row.collected_at||row.created_at;
+    if(!v) return '';
+    return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v));
+  };
+  const isGenerated=(r)=>Boolean(
+    String(r.ai_title||'').trim() ||
+    String(r.ai_summary||'').trim() ||
+    String(r.ai_content||'').trim() ||
+    ['classified','review','drafted','published'].includes(String(r.status||'').toLowerCase())
+  );
+
+  function ensureStyle(){
+    if($id(P+'Style')) return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      #${P}Panel{margin-top:16px;border:1px solid #cbdcf8;border-radius:16px;padding:16px;background:#fff}
+      #${P}Panel .p0025-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+      #${P}Panel h3{margin:0;font-size:18px}
+      #${P}Panel .p0025-sub{margin-top:4px;color:#64748b;font-size:12px}
+      #${P}List{display:grid;gap:11px;margin-top:13px}
+      #${P}Panel .p0025-card{border:1px solid #dbe6f7;border-radius:14px;padding:14px;background:#fbfdff}
+      #${P}Panel .p0025-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      #${P}Panel .p0025-title{font-size:16px;font-weight:800;line-height:1.4}
+      #${P}Panel .p0025-meta{margin-top:5px;color:#64748b;font-size:12px}
+      #${P}Panel .p0025-summary{margin-top:9px;line-height:1.55;color:#334155;font-size:13px}
+      #${P}Panel .p0025-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+      #${P}Panel .p0025-actions button{padding:8px 11px;border-radius:10px;border:1px solid #cbdcf8;background:#fff;color:#174ea6;font-weight:700;cursor:pointer}
+      #${P}Panel .p0025-actions button.primary{background:#2864e8;color:#fff;border-color:#2864e8}
+      #${P}Panel .p0025-actions button.danger{color:#b42318;border-color:#fecaca;background:#fff5f5}
+      #${P}Panel .p0025-preview{display:none;margin-top:12px;padding:13px;border-radius:12px;background:#f1f5f9;white-space:pre-wrap;line-height:1.6;font-size:13px;max-height:340px;overflow:auto}
+      #${P}Panel .p0025-preview.open{display:block}
+      #${P}Panel .p0025-empty{padding:24px;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:13px}
+      #${P}Panel .p0025-badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#e8f0ff;color:#1d4ed8;font-size:11px;font-weight:800}
+      @media(max-width:700px){#${P}Panel .p0025-top{display:block}#${P}Panel .p0025-badge{margin-top:8px}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function ensurePanel(){
+    if($id(P+'Panel')) return $id(P+'Panel');
+    const anchor=$id('p0024Actions') || $id('p0022Panel');
+    if(!anchor) return null;
+    ensureStyle();
+    const panel=document.createElement('section');
+    panel.id=P+'Panel';
+    panel.innerHTML=`
+      <div class="p0025-head">
+        <div>
+          <h3>오늘 AI 기사 후보</h3>
+          <div class="p0025-sub">오늘 생성된 기사 제목과 내용을 확인하고 개별 관리할 수 있습니다.</div>
+        </div>
+        <button type="button" class="btn primary" id="${P}Refresh">후보 새로고침</button>
+      </div>
+      <div id="${P}List"><div class="p0025-empty">기사 후보를 불러오는 중입니다.</div></div>`;
+    anchor.insertAdjacentElement('afterend',panel);
+    $id(P+'Refresh')?.addEventListener('click',load);
+    return panel;
+  }
+
+  async function load(){
+    const panel=ensurePanel();
+    if(!panel||!supabase) return;
+    const list=$id(P+'List');
+    list.innerHTML='<div class="p0025-empty">오늘 생성된 기사를 확인하고 있습니다.</div>';
+    try{
+      const {data,error}=await supabase.from('newsroom_items')
+        .select('id,original_title,original_summary,ai_title,ai_summary,ai_content,status,source_name,suggested_destination,destination,event_data,collected_at,updated_at,draft_updated_at')
+        .eq('region',getAppRegion())
+        .order('updated_at',{ascending:false})
+        .limit(300);
+      if(error) throw error;
+      const rows=(data||[]).filter(r=>rowDay(r)===todayKey()&&isGenerated(r));
+      if(!rows.length){
+        list.innerHTML='<div class="p0025-empty">오늘 생성된 AI 기사 후보가 없습니다. 먼저 “AI 기사 생성”을 실행하세요.</div>';
+        return;
+      }
+      list.innerHTML=rows.map((r,i)=>{
+        const meta=r.event_data&&typeof r.event_data==='object'?r.event_data:{};
+        const title=String(r.ai_title||r.original_title||'제목 없음').trim();
+        const summary=String(r.ai_summary||r.original_summary||'').trim();
+        const content=String(r.ai_content||'').trim();
+        const picked=String(meta.selection_source||'')==='editor';
+        const published=String(r.status||'').toLowerCase()==='published'||Boolean(meta.published_post_id);
+        return `
+          <article class="p0025-card" data-id="${esc(r.id)}">
+            <div class="p0025-top">
+              <div>
+                <div class="p0025-title">${i+1}. ${esc(title)}</div>
+                <div class="p0025-meta">${esc(r.source_name||'출처 미상')} · ${esc(r.destination||r.suggested_destination||'미분류')} · ${esc(fmt(r.draft_updated_at||r.updated_at))}</div>
+              </div>
+              <span class="p0025-badge">${published?'게시 완료':picked?'달타운 지정':'기사 후보'}</span>
+            </div>
+            <div class="p0025-summary">${esc(summary||'요약이 없습니다.')}</div>
+            <div class="p0025-actions">
+              <button type="button" data-act="preview">미리보기</button>
+              <button type="button" data-act="redraft">다시 생성</button>
+              <button type="button" data-act="pick">${picked?'달타운 해제':'달타운 지정'}</button>
+              <button type="button" class="primary" data-act="publish" ${published?'disabled':''}>${published?'게시됨':'이 기사 게시'}</button>
+              <button type="button" class="danger" data-act="delete">삭제</button>
+            </div>
+            <div class="p0025-preview">${esc(content||summary||'작성된 본문이 없습니다. “다시 생성”을 눌러 본문을 작성하세요.')}</div>
+          </article>`;
+      }).join('');
+
+      list.querySelectorAll('.p0025-card').forEach(card=>{
+        card.addEventListener('click',async(e)=>{
+          const button=e.target.closest('button[data-act]');
+          if(!button) return;
+          const id=card.dataset.id;
+          const act=button.dataset.act;
+          const row=rows.find(x=>String(x.id)===String(id));
+          if(!row) return;
+          if(act==='preview'){
+            const p=card.querySelector('.p0025-preview');
+            p.classList.toggle('open');
+            button.textContent=p.classList.contains('open')?'미리보기 닫기':'미리보기';
+            return;
+          }
+          button.disabled=true;
+          try{
+            if(act==='redraft'){
+              await newsroomEdgeCall('draft',{id,region:getAppRegion()},'선택 기사를 다시 작성하고 있습니다...');
+              alert('선택 기사를 다시 생성했습니다.');
+            }else if(act==='pick'){
+              const meta=row.event_data&&typeof row.event_data==='object'?row.event_data:{};
+              const enabled=String(meta.selection_source||'')!=='editor';
+              await newsroomEdgeCall('set_editor_pick',{id,enabled,region:getAppRegion()});
+              alert(enabled?'오늘의 달타운 후보로 지정했습니다.':'오늘의 달타운 지정을 해제했습니다.');
+            }else if(act==='publish'){
+              if(!confirm(`“${row.ai_title||row.original_title}” 기사를 게시할까요?\n오늘 이미 게시한 자동 기사가 있으면 중복 게시하지 않습니다.`)) return;
+              const result=await newsroomEdgeCall('publish_item',{id,region:getAppRegion()},'선택 기사를 게시하고 있습니다...');
+              const p=result?.published||result;
+              const message=p?.skipped
+                ? `게시하지 않았습니다: ${p.reason||'오늘 게시글이 이미 있음'}`
+                : `게시 완료: ${p?.post?.title||row.ai_title||row.original_title}`;
+              alert(message);
+            }else if(act==='delete'){
+              if(!confirm('이 기사 후보를 삭제할까요?')) return;
+              await newsroomEdgeCall('delete_newsroom_item',{id,region:getAppRegion()});
+            }
+            await load();
+            if(window.P002TodayNewsroomStatus?.load) await window.P002TodayNewsroomStatus.load();
+            if(typeof loadNewsroom==='function') await loadNewsroom();
+          }catch(err){
+            alert(`처리 실패: ${err.message}`);
+          }finally{
+            button.disabled=false;
+          }
+        });
+      });
+    }catch(e){
+      console.error('[P002-5 candidates]',e);
+      list.innerHTML=`<div class="p0025-empty">기사 후보 확인 실패: ${esc(e.message)}</div>`;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(()=>{ensurePanel();load();},350));
+    setTimeout(()=>{ensurePanel();load();},1900);
+  });
+  window.P002TodayCandidates={load};
+})();
+
