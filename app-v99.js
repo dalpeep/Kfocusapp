@@ -2,7 +2,7 @@
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
-console.info('[DalTownMap] P004 public alert modal v2 loaded');
+console.info('[DalTownMap] P005 public alert modal smart upgrade loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -2999,7 +2999,25 @@ function v51EnsurePublicNoticeModal(){
     #v51PublicNoticeModal.open{display:flex}
     #v51PublicNoticeModal .v51-notice-sheet{width:min(100%,560px);max-height:88vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -18px 50px rgba(15,23,42,.24);padding:20px 20px calc(24px + env(safe-area-inset-bottom))}
     #v51PublicNoticeModal .v51-notice-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
-    #v51PublicNoticeModal .v51-notice-badge{display:inline-flex;padding:5px 10px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:12px;font-weight:800}
+    #v51PublicNoticeModal .v51-notice-badge{display:inline-flex;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800}
+    #v51PublicNoticeModal .v51-notice-sheet.level-critical{border-top:7px solid #dc2626}
+    #v51PublicNoticeModal .v51-notice-sheet.level-warning{border-top:7px solid #f59e0b}
+    #v51PublicNoticeModal .v51-notice-sheet.level-info{border-top:7px solid #2563eb}
+    #v51PublicNoticeModal .v51-notice-sheet.level-life{border-top:7px solid #16a34a}
+    #v51PublicNoticeModal .v51-notice-sheet.level-critical .v51-notice-badge{background:#fee2e2;color:#b91c1c}
+    #v51PublicNoticeModal .v51-notice-sheet.level-warning .v51-notice-badge{background:#fff7ed;color:#b45309}
+    #v51PublicNoticeModal .v51-notice-sheet.level-info .v51-notice-badge{background:#eaf2ff;color:#1d4ed8}
+    #v51PublicNoticeModal .v51-notice-sheet.level-life .v51-notice-badge{background:#ecfdf3;color:#047857}
+    #v51PublicNoticeModal .v51-agency-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:13px;background:#f8fafc}
+    #v51PublicNoticeModal .v51-agency-icon{width:38px;height:38px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(15,23,42,.08)}
+    #v51PublicNoticeModal .v51-agency-copy b{display:block;color:#0f2b5b}
+    #v51PublicNoticeModal .v51-agency-copy span{display:block;margin-top:2px;color:#64748b;font-size:12px}
+    #v51PublicNoticeModal .v51-related{margin-top:18px;padding-top:16px;border-top:1px solid #e2e8f0}
+    #v51PublicNoticeModal .v51-related h3{margin:0 0 10px;font-size:15px;color:#0f2b5b}
+    #v51PublicNoticeModal .v51-related-list{display:grid;gap:8px}
+    #v51PublicNoticeModal .v51-related-item{width:100%;text-align:left;border:1px solid #dbe6f7;background:#f8fbff;border-radius:12px;padding:11px 12px;cursor:pointer}
+    #v51PublicNoticeModal .v51-related-item b{display:block;color:#163b70;font-size:13px;line-height:1.35}
+    #v51PublicNoticeModal .v51-related-item span{display:block;margin-top:4px;color:#64748b;font-size:11px}
     #v51PublicNoticeModal .v51-notice-title{margin:10px 0 0;font-size:23px;line-height:1.35;color:#0f2b5b}
     #v51PublicNoticeModal .v51-notice-close{border:0;background:#eef4ff;width:38px;height:38px;border-radius:12px;font-size:24px;line-height:1;cursor:pointer;color:#375a93}
     #v51PublicNoticeModal .v51-notice-meta{display:grid;gap:8px;margin-top:16px;padding:13px;border-radius:14px;background:#f8fafc;color:#475569;font-size:13px}
@@ -3064,6 +3082,58 @@ function v51NoticeActionText(detail,item){
   return '';
 }
 
+
+function v51AgencyInfo(source='',title=''){
+  const text=`${source} ${title}`.toLowerCase();
+  if(/consul|consulate|영사관|외교부|korean mission/.test(text)) return {icon:'🇰🇷',name:'대한민국 영사기관'};
+  if(/texas dps|department of public safety|amber alert|silver alert|clear alert|blue alert/.test(text)) return {icon:'🚨',name:'Texas DPS'};
+  if(/police|sheriff|경찰/.test(text)) return {icon:'🚔',name:'경찰·보안기관'};
+  if(/fire department|fire rescue|소방/.test(text)) return {icon:'🚒',name:'소방기관'};
+  if(/national weather service|weather.gov|nws|기상청|기상/.test(text)) return {icon:'🌦️',name:'National Weather Service'};
+  if(/txdot|511dfw|transportation|도로교통/.test(text)) return {icon:'🚧',name:'TxDOT·511DFW'};
+  if(/dart|transit|rail|bus/.test(text)) return {icon:'🚆',name:'DART·대중교통'};
+  if(/school|isd|교육청|학교/.test(text)) return {icon:'🏫',name:'교육기관'};
+  if(/city of|county|시청|카운티/.test(text)) return {icon:'🏛️',name:'시·카운티 기관'};
+  return {icon:'📢',name:source||'공공기관'};
+}
+function v51NoticeLevel(title='',summary='',meta={}){
+  const text=`${title} ${summary} ${meta?.priority_level||''} ${meta?.severity||''}`.toLowerCase();
+  if(/amber alert|active shooter|evacuation|tornado warning|flash flood warning|실종|대피|총격|긴급/.test(text)) return {key:'critical',label:'긴급'};
+  if(/warning|advisory|closure|heat|storm|flood|통제|폭염|주의|경보/.test(text)) return {key:'warning',label:'주의'};
+  if(/event|생활|안내|공지|service|schedule/.test(text)) return {key:'info',label:'안내'};
+  return {key:'life',label:'생활'};
+}
+async function v51LoadRelatedNotices(detail,item,limit=3){
+  if(typeof supabase==='undefined'||!supabase?.from)return [];
+  const sourceId=String(detail?.id||item?.source_id||'');
+  const title=String(detail?.ai_title||detail?.original_title||item?.title||'');
+  const tokens=title.toLowerCase().replace(/[^a-z0-9가-힣 ]/g,' ').split(/\s+/).filter(x=>x.length>=3).slice(0,6);
+  try{
+    const since=new Date(Date.now()-14*86400000).toISOString();
+    const {data,error}=await supabase.from('newsroom_items')
+      .select('id,ai_title,original_title,ai_summary,original_summary,source_name,source_published_at,collected_at,event_data,area')
+      .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
+      .gte('collected_at',since)
+      .order('collected_at',{ascending:false})
+      .limit(80);
+    if(error)throw error;
+    return (data||[])
+      .filter(r=>String(r.id)!==sourceId)
+      .map(r=>{
+        const hay=`${r.ai_title||r.original_title||''} ${r.ai_summary||r.original_summary||''}`.toLowerCase();
+        const score=tokens.reduce((n,t)=>n+(hay.includes(t)?1:0),0);
+        return {r,score};
+      })
+      .filter(x=>x.score>0)
+      .sort((a,b)=>b.score-a.score)
+      .slice(0,limit)
+      .map(x=>x.r);
+  }catch(e){
+    console.warn('[P005 related notices]',e?.message||e);
+    return [];
+  }
+}
+
 function v51NoticeStorageKey(type,id){return `daltownmap:${type}:${String(id||'unknown')}`;}
 function v51GetStoredFlag(type,id){try{return localStorage.getItem(v51NoticeStorageKey(type,id))==='1';}catch{return false;}}
 function v51SetStoredFlag(type,id,value){try{value?localStorage.setItem(v51NoticeStorageKey(type,id),'1'):localStorage.removeItem(v51NoticeStorageKey(type,id));}catch{}}
@@ -3081,6 +3151,9 @@ async function v51OpenPublicNoticeModal(item){
   const title=String(detail?.ai_title||detail?.original_title||item?.title||'공공 알림').trim();
   const summary=String(detail?.ai_content||detail?.ai_summary||detail?.original_summary||item?.summary||item?.subtitle||'상세 내용이 제공되지 않았습니다.').trim();
   const source=String(detail?.source_name||item?.source_name||'공식 기관').trim();
+  const agency=v51AgencyInfo(source,title);
+  const level=v51NoticeLevel(title,summary,detail?.event_data||item||{});
+  const related=await v51LoadRelatedNotices(detail,item,3);
   const area=String(detail?.area||meta.area||'').trim();
   const published=v51FormatModalDate(detail?.source_published_at||detail?.collected_at||item?.published_at||item?.updated_at);
   const updated=v51FormatModalDate(detail?.updated_at||item?.updated_at||detail?.collected_at||item?.published_at);
@@ -3089,13 +3162,25 @@ async function v51OpenPublicNoticeModal(item){
   const action=v51NoticeActionText(detail,item);
   const shareText=`${title}\n${summary.slice(0,180)}\nDalTownMap`;
   content.className='';
+  const sheet=modal.querySelector('.v51-notice-sheet');
+  if(sheet){
+    sheet.classList.remove('level-critical','level-warning','level-info','level-life');
+    sheet.classList.add(`level-${level.key}`);
+  }
   content.innerHTML=`
     <div class="v51-notice-head">
       <div>
-        <span class="v51-notice-badge">${emergency?'🚨 긴급 공지':'📢 공공기관 안내'}</span>
+        <span class="v51-notice-badge">${v51EscapeModalText(`${agency.icon} ${level.label} · ${agency.name}`)}</span>
         <h2 class="v51-notice-title">${v51EscapeModalText(title)}</h2>
       </div>
       <button type="button" class="v51-notice-close" aria-label="닫기">×</button>
+    </div>
+    <div class="v51-agency-row">
+      <div class="v51-agency-icon">${v51EscapeModalText(agency.icon)}</div>
+      <div class="v51-agency-copy">
+        <b>${v51EscapeModalText(agency.name)}</b>
+        <span>${v51EscapeModalText(source)}</span>
+      </div>
     </div>
     <div class="v51-notice-meta">
       ${area?`<div class="v51-notice-meta-row"><b>지역</b><span>${v51EscapeModalText(area)}</span></div>`:''}
@@ -3106,6 +3191,15 @@ async function v51OpenPublicNoticeModal(item){
     </div>
     <div class="v51-notice-body">${v51EscapeModalText(summary)}</div>
     ${action?`<div class="v51-notice-action"><b>확인 사항</b><br>${v51EscapeModalText(action)}</div>`:''}
+    ${related.length?`<div class="v51-related">
+      <h3>관련 공공 알림</h3>
+      <div class="v51-related-list">
+        ${related.map(r=>`<button type="button" class="v51-related-item" data-related-id="${v51EscapeModalText(r.id)}">
+          <b>${v51EscapeModalText(r.ai_title||r.original_title||'관련 알림')}</b>
+          <span>${v51EscapeModalText(r.source_name||'공공기관')} · ${v51EscapeModalText(v51FormatModalDate(r.source_published_at||r.collected_at))}</span>
+        </button>`).join('')}
+      </div>
+    </div>`:''}
     <div class="v51-social-actions">
       <button type="button" class="v51-helpful">👍 도움이 되었어요</button>
       <button type="button" class="v51-share">📤 공유하기</button>
@@ -3115,6 +3209,17 @@ async function v51OpenPublicNoticeModal(item){
     <div class="v51-notice-buttons">
       ${/^https?:\/\//i.test(officialUrl)?`<a class="v51-official-link" href="${v51EscapeModalText(officialUrl)}" target="_blank" rel="noopener noreferrer">공식 원문 보기</a>`:''}
     </div>`;
+  content.querySelectorAll('.v51-related-item').forEach(btn=>btn.addEventListener('click',async()=>{
+    const id=btn.getAttribute('data-related-id');
+    if(!id)return;
+    try{
+      const {data,error}=await supabase.from('newsroom_items')
+        .select('id,original_title,original_summary,original_url,source_name,source_published_at,area,ai_title,ai_summary,ai_content,event_data,collected_at,updated_at')
+        .eq('id',id).maybeSingle();
+      if(error)throw error;
+      if(data)await v51OpenPublicNoticeModal({source_id:String(data.id),title:data.ai_title||data.original_title,summary:data.ai_summary||data.original_summary});
+    }catch(e){console.warn('[P005 related open]',e?.message||e);}
+  }));
   content.querySelector('.v51-notice-close')?.addEventListener('click',v51ClosePublicNoticeModal);
   const noticeId=String(detail?.id||item?.source_id||item?.id||title);
   const feedback=content.querySelector('.v51-social-feedback');
