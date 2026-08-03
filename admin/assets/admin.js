@@ -6690,3 +6690,173 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.P002TodayCandidates={load};
 })();
 
+// === P006: 자동화 진행 현황 · 타임라인 · 7일 통계 ===
+(() => {
+  const P='p006';
+  const el=id=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const fmt=v=>{
+    if(!v)return '-';
+    const d=new Date(v);
+    return Number.isNaN(d.getTime())?'-':d.toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  };
+  const stageName=s=>({collect:'자료 수집',analyze:'AI 기사 생성',publish:'오늘 기사 게시',item:'기사 처리'}[s]||'기타');
+  const statusName=s=>({success:'완료',failed:'실패',running:'실행 중',not_started:'미실행'}[s]||s||'-');
+
+  function ensureStyle(){
+    if(el(P+'Style'))return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      #${P}Panel{margin-top:14px;display:grid;gap:12px}
+      #${P}Panel .p006-pipeline{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+      #${P}Panel .p006-step{border:1px solid #dbe6f7;border-radius:14px;padding:13px;background:#fff}
+      #${P}Panel .p006-step.ok{border-color:#86efac;background:#f0fdf4}
+      #${P}Panel .p006-step.running{border-color:#93c5fd;background:#eff6ff}
+      #${P}Panel .p006-step.failed{border-color:#fda4af;background:#fff1f2}
+      #${P}Panel .p006-step.waiting{border-color:#fed7aa;background:#fff7ed}
+      #${P}Panel .p006-step small{color:#64748b}
+      #${P}Panel .p006-step strong{display:block;margin-top:5px;font-size:15px}
+      #${P}Panel .p006-step span{display:block;margin-top:6px;color:#475569;font-size:12px;line-height:1.45}
+      #${P}Panel .p006-cols{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}
+      #${P}Panel .p006-box{border:1px solid #dbe6f7;border-radius:14px;padding:14px;background:#fff}
+      #${P}Panel .p006-box h3{margin:0 0 10px;font-size:15px}
+      #${P}Panel .p006-line{display:grid;grid-template-columns:120px 90px 1fr;gap:9px;padding:8px 0;border-top:1px solid #edf2f7;font-size:12px;align-items:start}
+      #${P}Panel .p006-line:first-of-type{border-top:0}
+      #${P}Panel .p006-line b{color:#163b70}
+      #${P}Panel .p006-error{padding:9px 10px;margin-top:7px;border-radius:10px;background:#fff1f2;color:#9f1239;font-size:12px}
+      #${P}Panel .p006-history{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+      #${P}Panel .p006-day{border:1px solid #e2e8f0;border-radius:11px;padding:9px;text-align:center;background:#fbfdff}
+      #${P}Panel .p006-day b{display:block;font-size:12px}
+      #${P}Panel .p006-day span{display:block;margin-top:5px;font-size:11px;color:#64748b}
+      @media(max-width:900px){#${P}Panel .p006-pipeline,#${P}Panel .p006-cols{grid-template-columns:1fr}#${P}Panel .p006-history{grid-template-columns:repeat(2,1fr)}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function ensureUI(){
+    const parent=el('p0022Panel');
+    if(!parent)return null;
+    ensureStyle();
+    let box=el(P+'Panel');
+    if(box)return box;
+    box=document.createElement('div');
+    box.id=P+'Panel';
+    box.innerHTML=`
+      <div class="p006-pipeline" id="${P}Pipeline"></div>
+      <div class="p006-cols">
+        <div class="p006-box"><h3>오늘 자동화 실행 타임라인</h3><div id="${P}Timeline">확인 중...</div></div>
+        <div class="p006-box"><h3>오류·주의 사항</h3><div id="${P}Errors">확인 중...</div></div>
+      </div>
+      <div class="p006-box"><h3>최근 7일 실행 현황</h3><div class="p006-history" id="${P}History"></div></div>`;
+    parent.appendChild(box);
+    return box;
+  }
+
+  function stageCard(stage,key){
+    const cls=stage.status==='success'?'ok':stage.status==='running'?'running':stage.status==='failed'?'failed':'waiting';
+    const extra=key==='collect'
+      ? `검색 ${stage.found||0} · 신규 ${stage.inserted||0} · 제외 ${stage.skipped||0}`
+      : key==='analyze'
+      ? `처리 ${stage.inserted||0} · 제외 ${stage.skipped||0}`
+      : `게시 ${stage.inserted||0}건`;
+    return `<div class="p006-step ${cls}">
+      <small>${key==='collect'?'1단계':key==='analyze'?'2단계':'3단계'}</small>
+      <strong>${stageName(key)} · ${statusName(stage.status)}</strong>
+      <span>${extra}<br>${stage.latest?.started_at?`최근 ${esc(fmt(stage.latest.started_at))}`:'실행 기록 없음'}</span>
+    </div>`;
+  }
+
+  async function load(){
+    const panel=ensureUI();
+    if(!panel)return;
+    const refresh=el('p0022Refresh');
+    if(refresh){refresh.disabled=true;refresh.textContent='확인 중...';}
+    try{
+      const data=await newsroomEdgeCall('automation_status',{region:getAppRegion()});
+      const c=data.counts||{};
+      const stages=data.stages||{};
+      const overallText={
+        not_started:'오늘 자동 작업이 아직 시작되지 않았습니다.',
+        running:'오늘 자동 작업이 현재 실행 중입니다.',
+        failed:'오늘 자동 작업 중 오류가 발생했습니다.',
+        partial:'오늘 자동 작업이 일부 단계까지 진행되었습니다.',
+        complete:'오늘 수집·기사 생성·게시 작업이 완료되었습니다.'
+      }[data.overall]||'자동화 상태를 확인했습니다.';
+      const state=el('p0022State');
+      if(state){
+        state.className=`p0022-state ${data.overall==='complete'?'ok':data.overall==='running'?'running':data.overall==='failed'?'failed':data.overall==='partial'?'running':'waiting'}`;
+        state.textContent=overallText;
+      }
+      if(el('p0022Collected'))el('p0022Collected').textContent=String(c.collected||0);
+      if(el('p0022Generated'))el('p0022Generated').textContent=String(c.generated||0);
+      if(el('p0022Published'))el('p0022Published').textContent=String(c.published||0);
+      if(el('p0022Review'))el('p0022Review').textContent=String(c.review||0);
+      if(el('p0022Errors'))el('p0022Errors').textContent=String(c.errors||0);
+
+      const latest=data.latest;
+      if(el('p0022Trigger'))el('p0022Trigger').textContent=latest
+        ? (['scheduled','cron'].includes(String(latest.trigger_type||'').toLowerCase())?'자동 실행':'수동 실행')
+        : '오늘 기록 없음';
+      if(el('p0022Started'))el('p0022Started').textContent=fmt(latest?.started_at);
+      if(el('p0022Finished'))el('p0022Finished').textContent=fmt(latest?.finished_at||latest?.ended_at);
+      if(el('p0022RunCounts'))el('p0022RunCounts').textContent=latest?`${latest.found||0} / ${latest.inserted||0} / ${latest.skipped||0}`:'-';
+      if(el('p0022Memo'))el('p0022Memo').textContent=overallText+' 이 현황은 Edge Function의 서비스 권한으로 조회되어 RLS와 관계없이 표시됩니다.';
+
+      el(P+'Pipeline').innerHTML=[
+        stageCard(stages.collect||{status:'not_started'},'collect'),
+        stageCard(stages.analyze||{status:'not_started'},'analyze'),
+        stageCard(stages.publish||{status:'not_started'},'publish')
+      ].join('');
+
+      const timeline=data.timeline||[];
+      el(P+'Timeline').innerHTML=timeline.length?timeline.map(r=>`
+        <div class="p006-line">
+          <span>${esc(fmt(r.started_at))}</span>
+          <b>${esc(stageName(r.stage))}</b>
+          <span>${esc(statusName(r.status))} · 신규 ${Number(r.inserted||0)} · 제외 ${Number(r.skipped||0)}
+          ${r.note?`<br>${esc(r.note)}`:''}</span>
+        </div>`).join(''):'<div class="p0022-muted">오늘 실행 기록이 없습니다.</div>';
+
+      const errors=data.errors||[];
+      el(P+'Errors').innerHTML=errors.length?errors.map(e=>`
+        <div class="p006-error"><b>${esc(stageName(e.stage))}</b>${e.time?` · ${esc(fmt(e.time))}`:''}<br>${esc(e.message)}</div>`
+      ).join(''):'<div class="p0022-muted">확인된 오류가 없습니다.</div>';
+
+      const history=data.history||[];
+      el(P+'History').innerHTML=history.map(h=>`
+        <div class="p006-day">
+          <b>${esc(String(h.date_key||'').slice(5))}</b>
+          <span>수집 ${Number(h.collected||0)}</span>
+          <span>AI ${Number(h.generated||0)}</span>
+          <span>게시 ${Number(h.published||0)}</span>
+          <span>${h.failed?`실패 ${h.failed}`:`성공 ${h.success||0}`}</span>
+        </div>`).join('');
+
+      const recent=el('p0022Runs');
+      if(recent)recent.innerHTML=timeline.slice(0,5).map(r=>`
+        <div class="p0022-row"><span>${esc(fmt(r.started_at))} · ${esc(stageName(r.stage))}</span><b>${esc(statusName(r.status))}</b></div>`
+      ).join('')||'<div class="p0022-muted">최근 실행 기록이 없습니다.</div>';
+
+      const sub=document.querySelector('#p0022Panel .p0022-sub');
+      if(sub)sub.textContent=`마지막 확인 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})} · 조회 전용이며 자동 재실행하지 않습니다.`;
+    }catch(e){
+      console.error('[P006 automation status]',e);
+      const state=el('p0022State');
+      if(state){state.className='p0022-state failed';state.textContent='자동화 현황 확인에 실패했습니다.';}
+      if(el('p0022Memo'))el('p0022Memo').textContent=e?.message||String(e);
+    }finally{
+      if(refresh){refresh.disabled=false;refresh.textContent='현황 새로고침';}
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.querySelector('[data-section="newsroom"]')?.addEventListener('click',()=>setTimeout(load,450));
+    const refresh=el('p0022Refresh');
+    refresh?.addEventListener('click',()=>setTimeout(load,50));
+    setTimeout(()=>{ensureUI();load();},1900);
+  });
+  window.P002TodayNewsroomStatus={load};
+  window.P006AutomationStatus={load};
+})();
+
