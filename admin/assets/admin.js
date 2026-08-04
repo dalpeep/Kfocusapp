@@ -7622,3 +7622,179 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P011 independent Smart Flyer Center loaded');
 })();
 
+// === P012: 스마트 전단 메인 노출 완성 ===
+(() => {
+  const P='p012';
+  const el=id=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[m]);
+
+  function ensureStyle(){
+    if(el(P+'Style'))return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      #section-smartFlyer .p011-card{overflow:hidden}
+      #section-smartFlyer .p012-cover{display:grid;grid-template-columns:116px 1fr;gap:13px;align-items:start}
+      #section-smartFlyer .p012-thumb{width:116px;height:138px;object-fit:cover;border-radius:13px;border:1px solid #dbe6f7;background:#f8fafc}
+      #section-smartFlyer .p012-live{display:inline-flex;align-items:center;gap:5px;padding:5px 9px;border-radius:999px;background:#dcfce7;color:#166534;font-size:11px;font-weight:900}
+      #section-smartFlyer .p012-live::before{content:'';width:7px;height:7px;border-radius:50%;background:#16a34a}
+      #section-smartFlyer .p012-home-note{margin-top:8px;padding:8px 10px;border-radius:10px;background:#eef4ff;color:#1d4ed8;font-size:11px;font-weight:800}
+      #p012HomePreview{position:fixed;inset:0;z-index:100420;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.68);padding:20px}
+      #p012HomePreview.open{display:flex}
+      #p012HomePreview .p012-phone{width:min(390px,100%);background:#edf4ff;border-radius:34px;padding:13px;box-shadow:0 30px 80px rgba(15,23,42,.4)}
+      #p012HomePreview .p012-screen{background:#fff;border-radius:25px;padding:15px}
+      #p012HomePreview .p012-today{padding:16px;border-radius:20px;background:linear-gradient(135deg,#1664c0,#3285d3);color:#fff}
+      #p012HomePreview .p012-items{display:grid;gap:7px;margin-top:10px}
+      #p012HomePreview .p012-item{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:11px;background:rgba(255,255,255,.13)}
+      @media(max-width:620px){#section-smartFlyer .p012-cover{grid-template-columns:84px 1fr}#section-smartFlyer .p012-thumb{width:84px;height:110px}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function flyerName(f){
+    const b=f?.businesses||{};
+    return b.name||b.name_ko||b.name_en||f?.title||'마트 주간 세일';
+  }
+
+  function sortedItems(f){
+    return (Array.isArray(f?.weekly_flyer_items)?f.weekly_flyer_items:[])
+      .slice().sort((a,b)=>
+        Number(b.is_featured||0)-Number(a.is_featured||0)||
+        Number(b.ai_score||0)-Number(a.ai_score||0)
+      );
+  }
+
+  function notifyPublicRefresh(){
+    try{
+      localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+      localStorage.removeItem('daltownmap_v38_home');
+    }catch{}
+    try{
+      const bc=new BroadcastChannel('daltownmap-content');
+      bc.postMessage({type:'weekly_flyer_changed',at:Date.now()});
+      bc.close();
+    }catch{}
+  }
+
+  async function activate(id,button){
+    button.disabled=true;
+    const old=button.textContent;
+    button.textContent='메인 연결 중...';
+    try{
+      const result=await newsroomEdgeCall('activate_weekly_flyer',{id:Number(id)});
+      notifyPublicRefresh();
+      alert(`활성화 완료\n대표 상품 ${result.item_count||0}개를 앱 메인과 업소 상세에 연결했습니다.`);
+      if(window.P011SmartFlyerCenter?.load)await window.P011SmartFlyerCenter.load();
+      if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
+    }catch(e){
+      alert(`활성화 실패: ${e.message}`);
+    }finally{
+      button.disabled=false;
+      button.textContent=old;
+    }
+  }
+
+  function ensurePreview(){
+    let modal=el('p012HomePreview');
+    if(modal)return modal;
+    modal=document.createElement('div');
+    modal.id='p012HomePreview';
+    modal.innerHTML='<div class="p012-phone"><div class="p012-screen" id="p012HomePreviewBody"></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open');});
+    return modal;
+  }
+
+  function previewFromCard(card){
+    const title=card.querySelector('h3')?.textContent||'마트 주간 세일';
+    const meta=card.querySelector('.p011-meta')?.textContent||'';
+    const products=[...card.querySelectorAll('.p011-product')].slice(0,4).map(node=>({
+      name:node.querySelector('b')?.textContent||'상품',
+      price:node.querySelector('.p011-price')?.textContent||''
+    }));
+    const modal=ensurePreview();
+    const body=el('p012HomePreviewBody');
+    body.innerHTML=`
+      <div style="font-size:12px;color:#64748b;margin-bottom:10px">DalTownMap 앱 메인 미리보기</div>
+      <div class="p012-today">
+        <div style="font-size:12px;font-weight:800">🛒 이번 주 특가 · LIVE</div>
+        <h2 style="margin:8px 0 4px">${esc(title)}</h2>
+        <div style="font-size:12px;opacity:.84">${esc(meta)}</div>
+        <div class="p012-items">
+          ${products.map(x=>`<div class="p012-item"><b>${esc(x.name)}</b><span>${esc(x.price)}</span></div>`).join('')}
+        </div>
+        <div style="margin-top:12px;text-align:right;font-size:12px;font-weight:800">전체 세일 보기 →</div>
+      </div>
+      <button type="button" class="btn primary" style="width:100%;margin-top:12px" id="p012PreviewClose">닫기</button>`;
+    el('p012PreviewClose')?.addEventListener('click',()=>modal.classList.remove('open'));
+    modal.classList.add('open');
+  }
+
+  function enhanceCards(){
+    ensureStyle();
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.dataset.p012Enhanced==='1')return;
+      card.dataset.p012Enhanced='1';
+
+      const originalTop=card.querySelector('.p011-card-top');
+      const products=card.querySelector('.p011-products');
+      const imageLink=card.querySelector('a[href]');
+      const imageUrl=imageLink?.href||'';
+
+      if(originalTop&&imageUrl){
+        const wrapper=document.createElement('div');
+        wrapper.className='p012-cover';
+        const img=document.createElement('img');
+        img.className='p012-thumb';
+        img.src=imageUrl;
+        img.alt='주간 전단';
+        originalTop.parentNode.insertBefore(wrapper,originalTop);
+        wrapper.appendChild(img);
+        wrapper.appendChild(originalTop);
+      }
+
+      const status=card.querySelector('.p011-badge');
+      if(status?.textContent?.trim()==='active'){
+        status.className='p012-live';
+        status.textContent='LIVE · 앱 노출 중';
+        const note=document.createElement('div');
+        note.className='p012-home-note';
+        note.textContent='앱 메인의 오늘의 달타운과 해당 업소 상세에 자동 연결되어 있습니다.';
+        (products||originalTop)?.insertAdjacentElement('afterend',note);
+      }
+
+      const actions=card.querySelector('.p011-actions');
+      if(actions){
+        const id=card.querySelector('[data-id]')?.dataset.id;
+        const statusBtn=card.querySelector('[data-p011-status]');
+        if(statusBtn&&statusBtn.dataset.p011Status==='active'){
+          statusBtn.textContent='활성화 + 앱 메인 노출';
+          statusBtn.replaceWith(statusBtn.cloneNode(true));
+          const newBtn=card.querySelector('[data-p011-status]');
+          newBtn.addEventListener('click',e=>{
+            e.preventDefault();e.stopPropagation();
+            activate(id,newBtn);
+          });
+        }
+
+        const previewBtn=document.createElement('button');
+        previewBtn.type='button';
+        previewBtn.className='btn';
+        previewBtn.textContent='앱 메인 미리보기';
+        previewBtn.addEventListener('click',()=>previewFromCard(card));
+        actions.insertBefore(previewBtn,actions.firstChild);
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhanceCards,1800);
+    const observer=new MutationObserver(()=>enhanceCards());
+    observer.observe(document.body,{childList:true,subtree:true});
+  });
+
+  console.info('[DalTownMap] P012 Smart Flyer home publishing loaded');
+})();
+
