@@ -7840,3 +7840,169 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P014 Smart Flyer public feed status loaded');
 })();
 
+// === P016: 상품 이미지 자동 크롭 ===
+(() => {
+  const P='p016';
+  const el=id=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[m]);
+
+  function ensureStyle(){
+    if(el(P+'Style'))return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      .p016-crop-btn{margin-left:6px}
+      .p016-crop-status{margin-top:8px;padding:8px 10px;border-radius:10px;background:#eef4ff;color:#1d4ed8;font-size:12px}
+      .p016-crop-thumbs{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:9px}
+      .p016-crop-thumb{aspect-ratio:1/1;border-radius:9px;overflow:hidden;background:#f1f5f9;border:1px solid #e2e8f0}
+      .p016-crop-thumb img{width:100%;height:100%;object-fit:cover}
+      @media(max-width:720px){.p016-crop-thumbs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function loadImage(url){
+    return new Promise((resolve,reject)=>{
+      const img=new Image();
+      img.crossOrigin='anonymous';
+      img.onload=()=>resolve(img);
+      img.onerror=()=>reject(new Error('원본 전단 이미지를 불러오지 못했습니다.'));
+      img.src=url+(url.includes('?')?'&':'?')+'crop='+Date.now();
+    });
+  }
+
+  async function canvasBlob(canvas,type='image/jpeg',quality=.88){
+    return await new Promise((resolve,reject)=>{
+      canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('크롭 이미지를 만들지 못했습니다.')),type,quality);
+    });
+  }
+
+  function normalizeBox(box){
+    const x=Math.max(0,Math.min(1,Number(box?.x||0)));
+    const y=Math.max(0,Math.min(1,Number(box?.y||0)));
+    const width=Math.max(0,Math.min(1-x,Number(box?.width||0)));
+    const height=Math.max(0,Math.min(1-y,Number(box?.height||0)));
+    if(width<.03||height<.03)return null;
+    // Add a small visual margin while remaining inside the image.
+    const padX=width*.07, padY=height*.07;
+    const nx=Math.max(0,x-padX);
+    const ny=Math.max(0,y-padY);
+    return {
+      x:nx,y:ny,
+      width:Math.min(1-nx,width+padX*2),
+      height:Math.min(1-ny,height+padY*2)
+    };
+  }
+
+  async function cropOne(img,item,flyerId){
+    const box=normalizeBox(item.source_box);
+    if(!box)return {item_id:item.id,crop_status:'unavailable',crop_error:'상품 위치 좌표 없음'};
+
+    const sx=Math.round(box.x*img.naturalWidth);
+    const sy=Math.round(box.y*img.naturalHeight);
+    const sw=Math.max(1,Math.round(box.width*img.naturalWidth));
+    const sh=Math.max(1,Math.round(box.height*img.naturalHeight));
+
+    const side=Math.min(720,Math.max(300,Math.min(sw,sh)));
+    const canvas=document.createElement('canvas');
+    canvas.width=side;
+    canvas.height=side;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,side,side);
+
+    const scale=Math.min(side/sw,side/sh);
+    const dw=sw*scale, dh=sh*scale;
+    const dx=(side-dw)/2, dy=(side-dh)/2;
+    ctx.drawImage(img,sx,sy,sw,sh,dx,dy,dw,dh);
+
+    const blob=await canvasBlob(canvas);
+    const path=`weekly-flyer-items/${flyerId}/${item.id}-${Date.now()}.jpg`;
+    const bucket='public-images';
+    const {error}=await supabase.storage.from(bucket).upload(path,blob,{
+      upsert:true,cacheControl:'31536000',contentType:'image/jpeg'
+    });
+    if(error)throw error;
+    const {data}=supabase.storage.from(bucket).getPublicUrl(path);
+    return {
+      item_id:item.id,
+      item_image_url:data?.publicUrl||'',
+      crop_status:data?.publicUrl?'complete':'failed',
+      crop_error:data?.publicUrl?'':'공개 URL 생성 실패'
+    };
+  }
+
+  async function cropFlyer(flyerId,button,statusNode){
+    button.disabled=true;
+    const old=button.textContent;
+    button.textContent='상품 이미지 생성 중...';
+    statusNode.textContent='전단 원본과 AI 상품 위치를 확인하고 있습니다.';
+    try{
+      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const flyer=(result.flyers||[]).find(f=>Number(f.id)===Number(flyerId));
+      if(!flyer)throw new Error('전단을 찾지 못했습니다.');
+      const items=(flyer.weekly_flyer_items||[])
+        .filter(x=>x.source_box&&Object.keys(x.source_box).length)
+        .sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.ai_score)-Number(a.ai_score))
+        .slice(0,12);
+      if(!items.length)throw new Error('이 전단에는 상품 위치 좌표가 없습니다. P016 적용 후 새로 AI 분석해야 합니다.');
+
+      const img=await loadImage(flyer.image_url);
+      const crops=[];
+      for(let i=0;i<items.length;i++){
+        statusNode.textContent=`상품 이미지 생성 ${i+1}/${items.length}`;
+        try{
+          crops.push(await cropOne(img,items[i],flyerId));
+        }catch(e){
+          crops.push({item_id:items[i].id,crop_status:'failed',crop_error:e.message});
+        }
+      }
+
+      const saved=await newsroomEdgeCall('save_weekly_flyer_item_crops',{flyer_id:flyerId,crops});
+      const complete=crops.filter(x=>x.crop_status==='complete').length;
+      statusNode.textContent=`완료: 상품 이미지 ${complete}개 생성 · 저장 ${saved.updated||0}개`;
+      if(window.P011SmartFlyerCenter?.load)await window.P011SmartFlyerCenter.load();
+      if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
+    }catch(e){
+      statusNode.textContent=`상품 이미지 생성 실패: ${e.message}`;
+      alert(`상품 이미지 생성 실패: ${e.message}`);
+    }finally{
+      button.disabled=false;
+      button.textContent=old;
+    }
+  }
+
+  function enhanceCards(){
+    ensureStyle();
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.dataset.p016Enhanced==='1')return;
+      card.dataset.p016Enhanced='1';
+      const id=Number(card.querySelector('[data-id]')?.dataset.id||0);
+      const actions=card.querySelector('.p011-actions');
+      if(!id||!actions)return;
+
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='btn p016-crop-btn';
+      btn.textContent='상품 이미지 자동 생성';
+
+      const status=document.createElement('div');
+      status.className='p016-crop-status';
+      status.textContent='AI가 찾은 상품 위치를 이용해 대표상품 이미지를 자동으로 만듭니다.';
+
+      btn.addEventListener('click',()=>cropFlyer(id,btn,status));
+      actions.appendChild(btn);
+      actions.insertAdjacentElement('afterend',status);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhanceCards,1700);
+    new MutationObserver(enhanceCards).observe(document.body,{childList:true,subtree:true});
+  });
+
+  console.info('[DalTownMap] P016 product image crop loaded');
+})();
+
