@@ -2,7 +2,7 @@
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
-console.info('[DalTownMap] P005 public alert modal smart upgrade loaded');
+console.info('[DalTownMap] P007 public alert auto-expiry loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -2926,6 +2926,8 @@ async function v51LoadDirectEditorItems(){
         target_type:linked?targetType:'',target_id:linked?targetId:'',
         link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
         selected_by_admin:true,admin_selected:true,is_manual:true,
+        event_data:meta,
+        expires_at:meta.expires_at||meta.end_at||meta.alert_expires_at||'',
         priority:Number(row.priority_score||999),
         published_at:row.source_published_at||row.collected_at,
         updated_at:row.updated_at||row.collected_at||row.source_published_at,
@@ -2965,8 +2967,45 @@ function v537ApplyAutoCardOverrides(items=[]){
   return (items||[]).map(item=>{const cat=String(item?.category||'').toLowerCase();if(!['weather','traffic'].includes(cat))return item;const o=(overrides[cat]&&typeof overrides[cat]==='object')?overrides[cat]:{};const targetType=String(o.target_type||'').trim();const targetId=String(o.target_id||'').trim();const externalUrl=String(o.external_url||'').trim();const linked=(targetType==='business'&&targetId)||(targetType==='external'&&externalUrl);return {...item,title:String(o.title||'').trim()||item.title,summary:String(o.message||'').trim()||item.summary,subtitle:String(o.message||'').trim()||item.subtitle,admin_message:Boolean(String(o.message||'').trim()),target_type:linked?targetType:(item.target_type||''),target_id:targetType==='business'&&targetId?targetId:(item.target_id||''),url:targetType==='external'&&externalUrl?externalUrl:(item.url||item.link||item.source_url||''),link_label:linked?(String(o.link_label||'자세히 보기').trim()||'자세히 보기'):(item.link_label||'')};});
 }
 
+
+function v51AlertExpiryPolicy(item={}){
+  const meta=(item.event_data&&typeof item.event_data==='object')?item.event_data:{};
+  const explicit=meta.end_at||meta.expires_at||meta.alert_expires_at||item.end_at||item.expires_at||item.alert_expires_at;
+  const explicitTs=Date.parse(explicit||'');
+  if(Number.isFinite(explicitTs)) return {expiresAt:explicitTs,source:'explicit'};
+
+  const base=v51ItemTime(item)||Date.now();
+  const text=`${item.title||''} ${item.summary||''} ${item.subtitle||''} ${item.category||''}`.toLowerCase();
+  let ttl=48*60*60*1000;
+  let kind='general';
+
+  if(/amber alert|active shooter|silver alert|clear alert|blue alert|실종|총격/.test(text)){
+    ttl=24*60*60*1000;kind='critical';
+  }else if(/tornado warning|flash flood warning|evacuation|토네이도 경보|홍수 경보|대피/.test(text)){
+    ttl=6*60*60*1000;kind='warning';
+  }else if(/heat advisory|weather advisory|storm warning|폭염|기상 주의|날씨 경보/.test(text)){
+    ttl=24*60*60*1000;kind='weather';
+  }else if(/road closure|traffic alert|도로 통제|교통 경보|차선 폐쇄/.test(text)){
+    ttl=12*60*60*1000;kind='traffic';
+  }else if(/consulate|영사관|공공기관|시청|county|city of/.test(text)){
+    ttl=7*24*60*60*1000;kind='public';
+  }
+  return {expiresAt:base+ttl,source:'inferred',kind};
+}
+function v51IsAlertExpired(item={}){
+  const meta=(item.event_data&&typeof item.event_data==='object')?item.event_data:{};
+  if(meta.alert_status==='expired'||meta.alert_status==='ended'||meta.home_show===false&&meta.expired_auto===true)return true;
+  if(meta.auto_expire===false)return false;
+  const key=v461NormalizeProposalCategory(item.category);
+  const publicLike=Boolean(item.emergency||item.school||key==='traffic'||key==='weather'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`));
+  if(!publicLike)return false;
+  const policy=v51AlertExpiryPolicy(item);
+  return Number.isFinite(policy.expiresAt)&&Date.now()>=policy.expiresAt;
+}
+
 function v51PrepareTodayItems(items=[]){
   const rows=v537ApplyAutoCardOverrides(items||[]).filter(item=>{
+    if(v51IsAlertExpired(item))return false;
     const key=v461NormalizeProposalCategory(item.category);
     return Boolean(item.emergency||item.school||v51IsAdminSelected(item)||key==='weather'||key==='traffic');
   }).slice().sort((a,b)=>v51CategoryRank(a)-v51CategoryRank(b));
