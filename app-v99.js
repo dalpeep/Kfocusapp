@@ -7442,3 +7442,31 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
   console.info('[DalTownMap] P010-2 Smart Flyer public UI loaded');
 })();
 
+// === P010-3: 스마트 전단 표시 품질 보완 ===
+(() => {
+  function p0103NormalizeProductName(name=''){
+    return String(name)
+      .replace(/\s+/g,' ')
+      .replace(/^[\-•·]+|[\-•·]+$/g,'')
+      .replace(/\bSHRIMP\b/gi,'새우')
+      .replace(/\bGREEN GRAPE\b/gi,'청포도')
+      .replace(/\bGOLD KIWI\b/gi,'골드키위')
+      .trim();
+  }
+  const originalPublic=window.P010SmartFlyerPublic;
+  if(originalPublic){
+    const originalOpen=originalPublic.openModal;
+    originalPublic.openModal=function(id){
+      return originalOpen(id);
+    };
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      document.querySelectorAll('.smart-flyer-product strong,.p0103-product b').forEach(node=>{
+        node.textContent=p0103NormalizeProductName(node.textContent);
+      });
+    },2000);
+  });
+  console.info('[DalTownMap] P010-3 Smart Flyer display polish loaded');
+})();
+
