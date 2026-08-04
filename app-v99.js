@@ -7630,6 +7630,8 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       target_id:String(f.business_id||''),
       business_id:String(f.business_id||''),
       url:f.image_url||'',
+      image_url:f.image_url||'',
+      flyer_image_url:f.image_url||'',
       link_label:'전체 세일 보기 →',
       priority:25,
       selected_by_admin:true,
@@ -7738,5 +7740,115 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   window.P013SmartFlyerHome={refresh:p013Refresh};
   console.info('[DalTownMap] P013 Smart Flyer home stabilization loaded');
+})();
+
+// === P014: 스마트 전단 공개 피드 인증 수정 + 메인 이미지 카드 ===
+(() => {
+  function p014EnsureStyle(){
+    if(document.getElementById('p014SmartFlyerStyle'))return;
+    const style=document.createElement('style');
+    style.id='p014SmartFlyerStyle';
+    style.textContent=`
+      #v37BriefCard.p014-smart-flyer-card{
+        position:relative;
+        overflow:hidden;
+        background:linear-gradient(135deg,#b45309,#f59e0b);
+      }
+      #v37BriefCard.p014-smart-flyer-card::after{
+        content:'';
+        position:absolute;
+        inset:0;
+        z-index:0;
+        background:linear-gradient(90deg,rgba(120,53,15,.96) 0%,rgba(180,83,9,.90) 48%,rgba(180,83,9,.20) 100%);
+        pointer-events:none;
+      }
+      #v37BriefCard.p014-smart-flyer-card > *:not(.p014-flyer-thumb){
+        position:relative;
+        z-index:2;
+      }
+      #v37BriefCard .p014-flyer-thumb{
+        position:absolute;
+        z-index:1;
+        right:12px;
+        top:46px;
+        width:104px;
+        height:122px;
+        border-radius:13px;
+        object-fit:cover;
+        object-position:top center;
+        background:#fff;
+        border:2px solid rgba(255,255,255,.86);
+        box-shadow:0 8px 20px rgba(15,23,42,.24);
+      }
+      #v37BriefCard.p014-smart-flyer-card #v51TodayMain{
+        padding-right:116px;
+      }
+      #v37BriefCard.p014-smart-flyer-card #v37BriefTitle{
+        max-width:235px;
+      }
+      #v37BriefCard.p014-smart-flyer-card #v37BriefSummary{
+        max-width:235px;
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+      }
+      @media(max-width:390px){
+        #v37BriefCard .p014-flyer-thumb{width:86px;height:106px;right:10px;top:53px}
+        #v37BriefCard.p014-smart-flyer-card #v51TodayMain{padding-right:96px}
+        #v37BriefCard.p014-smart-flyer-card #v37BriefTitle,
+        #v37BriefCard.p014-smart-flyer-card #v37BriefSummary{max-width:205px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function p014IsFlyer(item){
+    return Boolean(
+      item?.weekly_flyer_id ||
+      String(item?.id||'').includes('smart-flyer') ||
+      item?.event_data?.selection_source==='smart_flyer'
+    );
+  }
+
+  const p014BasePaint=typeof v51PaintToday==='function'?v51PaintToday:null;
+  if(p014BasePaint){
+    v51PaintToday=function(){
+      p014BasePaint();
+      p014EnsureStyle();
+
+      const card=document.getElementById('v37BriefCard');
+      const category=document.getElementById('v51TodayCategory');
+      const item=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+      if(!card)return;
+
+      card.querySelectorAll('.p014-flyer-thumb').forEach(node=>node.remove());
+      card.classList.remove('p014-smart-flyer-card');
+
+      if(!p014IsFlyer(item))return;
+
+      card.classList.add('p014-smart-flyer-card');
+      if(category)category.textContent='🛒 이번 주 특가 · LIVE';
+
+      const imageUrl=String(
+        item.flyer_image_url ||
+        item.image_url ||
+        item.url ||
+        ''
+      ).trim();
+
+      if(/^https?:\/\//i.test(imageUrl)){
+        const img=document.createElement('img');
+        img.className='p014-flyer-thumb';
+        img.src=imageUrl;
+        img.alt='이번 주 세일 전단';
+        img.loading='eager';
+        img.onerror=()=>img.remove();
+        card.appendChild(img);
+      }
+    };
+  }
+
+  console.info('[DalTownMap] P014 Smart Flyer public image card loaded');
 })();
 
