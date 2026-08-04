@@ -7023,3 +7023,103 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.P010SmartFlyer={load};
 })();
 console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
+
+// === P010-2: 스마트 전단 상품 검토·수정 ===
+(() => {
+  const P='p0102a';
+  const el=id=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+  function ensureStyle(){
+    if(el(P+'Style'))return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      .p0102-edit{margin-top:10px;border-top:1px solid #e2e8f0;padding-top:10px}
+      .p0102-edit-row{display:grid;grid-template-columns:1.5fr 110px 110px 95px 70px;gap:7px;align-items:center;margin-top:7px}
+      .p0102-edit-row input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #dbe6f7;border-radius:9px}
+      .p0102-edit-row label{font-size:11px;color:#64748b}
+      .p0102-save-items{margin-top:9px}
+      @media(max-width:850px){.p0102-edit-row{grid-template-columns:1fr 1fr}.p0102-edit-row .p0102-name{grid-column:1/-1}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function appendEditors(){
+    ensureStyle();
+    document.querySelectorAll('#p010List .p010-card').forEach((card,index)=>{
+      if(card.querySelector('.p0102-edit'))return;
+      const flyer=(window.P010SmartFlyer?.currentFlyers||window.currentFlyers||[])[index];
+      // 기존 P010 closure 변수에 접근할 수 없으므로 카드의 전단 ID를 이용해 다시 조회합니다.
+      const id=Number(card.querySelector('[data-id]')?.dataset.id||0);
+      if(!id)return;
+      const wrap=document.createElement('div');
+      wrap.className='p0102-edit';
+      wrap.innerHTML=`<button type="button" class="btn" data-p0102-load="${id}">상품 검토·수정 열기</button><div data-p0102-body="${id}"></div>`;
+      card.appendChild(wrap);
+    });
+  }
+
+  async function loadItems(id,body){
+    body.innerHTML='<div class="p010-sub">상품을 불러오는 중입니다.</div>';
+    try{
+      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion(),business_id:selectedId});
+      const flyer=(result.flyers||[]).find(f=>Number(f.id)===Number(id));
+      const items=Array.isArray(flyer?.weekly_flyer_items)?flyer.weekly_flyer_items:[];
+      body.innerHTML=items.length?items.map(item=>`
+        <div class="p0102-edit-row" data-item-id="${item.id}">
+          <input class="p0102-name" value="${esc(item.product_name||'')}" placeholder="상품명">
+          <input class="p0102-regular" type="number" step="0.01" value="${item.regular_price??''}" placeholder="정상가">
+          <input class="p0102-sale" type="number" step="0.01" value="${item.sale_price??''}" placeholder="할인가">
+          <input class="p0102-unit" value="${esc(item.unit_text||'')}" placeholder="단위">
+          <label><input class="p0102-featured" type="checkbox" ${item.is_featured?'checked':''}> 대표</label>
+        </div>`).join('')+`<button type="button" class="btn primary p0102-save-items" data-p0102-save="${id}">수정 저장</button>`
+        :'<div class="p010-sub">추출된 상품이 없습니다.</div>';
+    }catch(e){
+      body.innerHTML=`<div class="p010-sub">조회 실패: ${esc(e.message)}</div>`;
+    }
+  }
+
+  async function saveItems(id,body){
+    const items=[...body.querySelectorAll('[data-item-id]')].map(row=>({
+      id:Number(row.dataset.itemId),
+      product_name:row.querySelector('.p0102-name').value.trim(),
+      regular_price:row.querySelector('.p0102-regular').value||null,
+      sale_price:row.querySelector('.p0102-sale').value||null,
+      unit_text:row.querySelector('.p0102-unit').value.trim()||null,
+      is_featured:row.querySelector('.p0102-featured').checked
+    }));
+    try{
+      await newsroomEdgeCall('update_weekly_flyer_items',{id,items});
+      alert('상품 정보를 저장했습니다.');
+      if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
+    }catch(e){alert(`저장 실패: ${e.message}`);}
+  }
+
+  document.addEventListener('click',e=>{
+    const loadBtn=e.target.closest('[data-p0102-load]');
+    if(loadBtn){
+      const id=Number(loadBtn.dataset.p0102Load);
+      const body=document.querySelector(`[data-p0102-body="${id}"]`);
+      if(body)loadItems(id,body);
+    }
+    const saveBtn=e.target.closest('[data-p0102-save]');
+    if(saveBtn){
+      const id=Number(saveBtn.dataset.p0102Save);
+      const body=document.querySelector(`[data-p0102-body="${id}"]`);
+      if(body)saveItems(id,body);
+    }
+  });
+
+  const observer=new MutationObserver(()=>appendEditors());
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      ensureStyle();
+      const list=el('p010List');
+      if(list)observer.observe(list,{childList:true,subtree:true});
+      appendEditors();
+    },2000);
+  });
+  console.info('[DalTownMap] P010-2 Smart Flyer editor loaded');
+})();
+
