@@ -7470,3 +7470,125 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
   console.info('[DalTownMap] P010-3 Smart Flyer display polish loaded');
 })();
 console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
+
+// === P012: 스마트 전단 앱 메인 최종 연결 ===
+(() => {
+  let p012Flyers=[];
+  let p012LoadedAt=0;
+  let p012Loading=null;
+
+  function p012Today(){
+    return new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
+  }
+  function p012Valid(f){
+    const day=p012Today();
+    return String(f?.status||'')==='active' &&
+      f?.show_on_home!==false &&
+      (!f?.start_date||String(f.start_date)<=day) &&
+      (!f?.end_date||String(f.end_date)>=day);
+  }
+  async function p012Load(force=false){
+    if(!force&&Date.now()-p012LoadedAt<45*1000)return p012Flyers;
+    if(p012Loading)return p012Loading;
+    p012Loading=(async()=>{
+      try{
+        const {data,error}=await supabase.from('weekly_flyers')
+          .select('*,weekly_flyer_items(*)')
+          .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
+          .eq('status','active')
+          .eq('show_on_home',true)
+          .order('updated_at',{ascending:false})
+          .limit(20);
+        if(error)throw error;
+        p012Flyers=(data||[]).filter(p012Valid);
+        p012LoadedAt=Date.now();
+        return p012Flyers;
+      }catch(e){
+        console.warn('[P012 flyer load]',e?.message||e);
+        return p012Flyers;
+      }finally{p012Loading=null;}
+    })();
+    return p012Loading;
+  }
+  function p012Items(f){
+    return (Array.isArray(f?.weekly_flyer_items)?f.weekly_flyer_items:[])
+      .slice().sort((a,b)=>
+        Number(b.is_featured||0)-Number(a.is_featured||0)||
+        Number(b.ai_score||0)-Number(a.ai_score||0)
+      );
+  }
+  function p012Money(v){
+    const n=Number(v);
+    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
+  }
+  function p012HomeItem(f){
+    const items=p012Items(f).slice(0,4);
+    return {
+      id:`smart-flyer-${f.id}`,
+      source_id:`smart-flyer-${f.id}`,
+      category:'market',
+      category_label:'이번 주 특가',
+      icon:'🛒',
+      title:f.title||'이번 주 마켓 세일',
+      summary:items.map(x=>`${x.product_name}${x.sale_price!=null?` ${p012Money(x.sale_price)}`:''}`).join(' · ')||f.ai_summary||'이번 주 세일을 확인하세요.',
+      subtitle:items.map(x=>`${x.product_name}${x.sale_price!=null?` ${p012Money(x.sale_price)}`:''}`).join(' · '),
+      target_type:'business',
+      target_id:f.business_id,
+      business_id:f.business_id,
+      link_label:'전체 세일 보기 →',
+      priority:40,
+      selected_by_admin:true,
+      admin_selected:true,
+      is_manual:true,
+      published_at:f.updated_at||f.created_at,
+      created_at:f.created_at,
+      updated_at:f.updated_at,
+      weekly_flyer_id:f.id,
+      event_data:{
+        home_category:'market',
+        expires_at:f.end_date?`${f.end_date}T23:59:59-05:00`:null,
+        end_at:f.end_date?`${f.end_date}T23:59:59-05:00`:null,
+        selection_source:'smart_flyer'
+      }
+    };
+  }
+
+  const p012BasePrepare=typeof v51PrepareTodayItems==='function'?v51PrepareTodayItems:null;
+  if(p012BasePrepare){
+    v51PrepareTodayItems=function(items=[]){
+      const flyerItems=p012Flyers.map(p012HomeItem);
+      const combined=[...flyerItems,...(items||[]).filter(x=>!String(x?.id||'').startsWith('smart-flyer-'))];
+      return p012BasePrepare(combined);
+    };
+  }
+
+  async function p012Refresh(force=false){
+    await p012Load(force);
+    try{localStorage.removeItem('daltownmap_v38_home');}catch{}
+    if(typeof v51RefreshToday==='function')await v51RefreshToday();
+    if(window.P010SmartFlyerPublic?.refresh)await window.P010SmartFlyerPublic.refresh(force);
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>p012Refresh(true),1000);
+    setTimeout(()=>p012Refresh(true),3200);
+    setInterval(()=>{if(!document.hidden)p012Refresh(true);},45*1000);
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')p012Refresh(true);
+  });
+  window.addEventListener('focus',()=>p012Refresh(true));
+  window.addEventListener('storage',e=>{
+    if(e.key==='daltownmap_content_changed')p012Refresh(true);
+  });
+  try{
+    const bc=new BroadcastChannel('daltownmap-content');
+    bc.addEventListener('message',()=>p012Refresh(true));
+  }catch{}
+
+  window.P012SmartFlyerHome={refresh:p012Refresh};
+  console.info('[DalTownMap] P012 Smart Flyer app home loaded');
+})();
+
