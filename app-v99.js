@@ -3,6 +3,7 @@ console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
 console.info('[DalTownMap] P008 public alert status board loaded');
+console.info('[DalTownMap] P009 stability and fast refresh loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -2688,8 +2689,24 @@ function v38FallbackPayload(ctx,candidates){
 async function v38GeneratePayload(ctx,candidates){
   const fallback=v38FallbackPayload(ctx,candidates);
   const dayKey=new Date().toISOString().slice(0,10);
-  const fingerprint=dayKey+'|'+candidates.slice(0,5).map(x=>x.kind+':'+x.id+':'+Math.round(x.score)).join('|');
-  try{const cached=JSON.parse(localStorage.getItem('daltownmap_v38_home')||'null');if(cached?.fingerprint===fingerprint)return cached.payload}catch(e){}
+  const contentSignature=candidates.slice(0,8).map(x=>[
+    x.kind,x.id,Math.round(x.score),
+    String(x.title||'').slice(0,80),
+    String(x.summary||'').slice(0,120),
+    String(x.updated_at||x.created_at||'')
+  ].join(':')).join('|');
+  const configSignature=JSON.stringify({
+    show_today_section:v45HomeConfig?.show_today_section,
+    recommendation_mode:v45HomeConfig?.recommendation_mode,
+    selected_business_ids:v45HomeConfig?.selected_business_ids,
+    ticker_direct:v45HomeConfig?.ticker_direct
+  });
+  const fingerprint=dayKey+'|'+contentSignature+'|'+configSignature;
+  try{
+    const cached=JSON.parse(localStorage.getItem('daltownmap_v38_home')||'null');
+    const age=Date.now()-Date.parse(cached?.updatedAt||0);
+    if(cached?.fingerprint===fingerprint&&Number.isFinite(age)&&age<60*1000)return cached.payload;
+  }catch(e){}
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),4500);
   try{
@@ -3436,7 +3453,10 @@ function v51InitToday(){
   }
   if(v51RelativeTimer)clearInterval(v51RelativeTimer);
   v51RelativeTimer=setInterval(v51PaintToday,30000);
-  if(!v51AutoRefreshTimer)v51AutoRefreshTimer=setInterval(()=>{if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();},5*60*1000);
+  if(v51AutoRefreshTimer)clearInterval(v51AutoRefreshTimer);
+  v51AutoRefreshTimer=setInterval(()=>{
+    if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();
+  },60*1000);
 }
 
 function v119RenderOneLineAds(){
@@ -6256,8 +6276,89 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('focus',()=>refreshBoardPostsSilently());
 setInterval(()=>{
-  if(!document.hidden) refreshBoardPostsSilently();
-},5*60*1000);
+  if(!document.hidden) refreshBoardPostsSilently({force:true});
+},60*1000);
+
+
+// === P009: 메인 안정화 · 빠른 반영 코디네이터 ===
+let p009RefreshTimer=null;
+let p009RefreshRunning=false;
+let p009RealtimeChannel=null;
+
+function p009ClearDerivedCaches(){
+  try{localStorage.removeItem('daltownmap_v38_home');}catch{}
+}
+
+async function p009RefreshHome(reason='manual'){
+  if(p009RefreshRunning)return;
+  p009RefreshRunning=true;
+  try{
+    p009ClearDerivedCaches();
+    const tasks=[];
+    if(typeof loadMainSettings==='function')tasks.push(loadMainSettings(true));
+    if(typeof refreshBoardPostsSilently==='function')tasks.push(refreshBoardPostsSilently({force:true}));
+    await Promise.allSettled(tasks);
+
+    if(typeof v51RefreshToday==='function')await v51RefreshToday();
+    if(typeof renderHomeBusinessTabs==='function')renderHomeBusinessTabs();
+    if(typeof renderDalpicks==='function')renderDalpicks();
+    if(typeof v119RenderOneLineAds==='function')v119RenderOneLineAds();
+    if(typeof renderHomeBoardSection==='function')renderHomeBoardSection(selectedBoardType||'notice');
+    console.info('[P009 home refresh]',reason,new Date().toISOString());
+  }catch(error){
+    console.warn('[P009 home refresh failed]',reason,error);
+  }finally{
+    p009RefreshRunning=false;
+  }
+}
+
+function p009ScheduleRefresh(reason='change',delay=350){
+  if(p009RefreshTimer)clearTimeout(p009RefreshTimer);
+  p009RefreshTimer=setTimeout(()=>p009RefreshHome(reason),delay);
+}
+
+function p009InitRealtime(){
+  if(p009RealtimeChannel||typeof supabase==='undefined'||!supabase?.channel)return;
+  try{
+    const region=String(typeof getAppRegion==='function'?getAppRegion():(currentRegion||'dallas')).toLowerCase();
+    const channel=supabase.channel(`daltown-home-${region}-${Math.random().toString(36).slice(2,7)}`);
+    const tables=['newsroom_settings','posts','businesses','coupons','banners','dalpicks','ads'];
+    tables.forEach(table=>{
+      channel.on('postgres_changes',
+        {event:'*',schema:'public',table,filter:`region=eq.${region}`},
+        ()=>p009ScheduleRefresh(`realtime:${table}`,450)
+      );
+    });
+    channel.subscribe(status=>{
+      if(status==='SUBSCRIBED')console.info('[P009 realtime] connected',region);
+    });
+    p009RealtimeChannel=channel;
+  }catch(error){
+    console.warn('[P009 realtime unavailable]',error);
+  }
+}
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible')p009ScheduleRefresh('visible',150);
+});
+window.addEventListener('focus',()=>p009ScheduleRefresh('focus',150));
+window.addEventListener('online',()=>p009ScheduleRefresh('online',150));
+window.addEventListener('storage',event=>{
+  if(event.key==='daltownmap_content_changed')p009ScheduleRefresh('admin-storage',100);
+});
+try{
+  const bc=new BroadcastChannel('daltownmap-content');
+  bc.addEventListener('message',()=>p009ScheduleRefresh('broadcast',100));
+}catch{}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    p009InitRealtime();
+    p009ScheduleRefresh('startup',250);
+  },1200);
+});
+
+window.DalTownRefreshHome=()=>p009ScheduleRefresh('external',0);
 
 function bindEvents(){
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
