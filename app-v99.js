@@ -2,7 +2,7 @@
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
-console.info('[DalTownMap] P007 public alert auto-expiry loaded');
+console.info('[DalTownMap] P008 public alert status board loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -2992,15 +2992,48 @@ function v51AlertExpiryPolicy(item={}){
   }
   return {expiresAt:base+ttl,source:'inferred',kind};
 }
-function v51IsAlertExpired(item={}){
+function v51AlertDisplayStatus(item={}){
   const meta=(item.event_data&&typeof item.event_data==='object')?item.event_data:{};
-  if(meta.alert_status==='expired'||meta.alert_status==='ended'||meta.home_show===false&&meta.expired_auto===true)return true;
-  if(meta.auto_expire===false)return false;
-  const key=v461NormalizeProposalCategory(item.category);
-  const publicLike=Boolean(item.emergency||item.school||key==='traffic'||key==='weather'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`));
-  if(!publicLike)return false;
+  if(meta.auto_expire===false)return {key:'active',label:'진행 중',icon:'🔴',detail:'관리자가 직접 종료할 때까지 표시됩니다.'};
+
   const policy=v51AlertExpiryPolicy(item);
-  return Number.isFinite(policy.expiresAt)&&Date.now()>=policy.expiresAt;
+  const expiresAt=Date.parse(meta.expires_at||meta.end_at||meta.alert_expires_at||'')||policy.expiresAt;
+  const endedAt=Date.parse(meta.alert_ended_at||'')||(Number.isFinite(expiresAt)?expiresAt:NaN);
+  const removeAt=Date.parse(meta.remove_at||'')||(Number.isFinite(endedAt)?endedAt+12*60*60*1000:NaN);
+  const now=Date.now();
+  const status=String(meta.alert_status||'').toLowerCase();
+
+  if(status==='expired'||meta.home_show===false&&meta.expired_auto===true||Number.isFinite(removeAt)&&now>=removeAt){
+    return {key:'removed',label:'표시 종료',icon:'⚫',expiresAt,endedAt,removeAt,detail:'메인 표시가 종료된 알림입니다.'};
+  }
+  if(status==='ended'||status==='closed'||Number.isFinite(expiresAt)&&now>=expiresAt){
+    return {key:'ended',label:'종료',icon:'⚪',expiresAt,endedAt,removeAt,detail:'종료된 알림이며 잠시 후 메인에서 자동으로 내려갑니다.'};
+  }
+  if(Number.isFinite(expiresAt)){
+    const remain=expiresAt-now;
+    if(remain>0&&remain<=3*60*60*1000){
+      return {key:'ending',label:'종료 예정',icon:'🟠',expiresAt,endedAt,removeAt,detail:`${v51FormatModalDate(expiresAt)} 종료 예정`};
+    }
+  }
+  return {key:'active',label:'진행 중',icon:'🔴',expiresAt,endedAt,removeAt,detail:'현재 유효한 공공 알림입니다.'};
+}
+function v51IsAlertExpired(item={}){
+  return v51AlertDisplayStatus(item).key==='removed';
+}
+function v51EnsureAlertStatusStyle(){
+  if(document.getElementById('v51AlertStatusStyle'))return;
+  const style=document.createElement('style');
+  style.id='v51AlertStatusStyle';
+  style.textContent=`
+    .v51-today-card.v51-alert-status-active{box-shadow:0 12px 30px rgba(220,38,38,.15)}
+    .v51-today-card.v51-alert-status-ending{box-shadow:0 12px 30px rgba(245,158,11,.16)}
+    .v51-today-card.v51-alert-status-ended{filter:saturate(.35);opacity:.9}
+    #v51PublicNoticeModal .v51-alert-status-box{margin-top:12px;padding:11px 13px;border-radius:13px;font-weight:800;font-size:13px}
+    #v51PublicNoticeModal .v51-alert-status-box.active{background:#fee2e2;color:#b91c1c}
+    #v51PublicNoticeModal .v51-alert-status-box.ending{background:#fff7ed;color:#b45309}
+    #v51PublicNoticeModal .v51-alert-status-box.ended{background:#f1f5f9;color:#475569}
+  `;
+  document.head.appendChild(style);
 }
 
 function v51PrepareTodayItems(items=[]){
@@ -3192,6 +3225,7 @@ async function v51OpenPublicNoticeModal(item){
   const source=String(detail?.source_name||item?.source_name||'공식 기관').trim();
   const agency=v51AgencyInfo(source,title);
   const level=v51NoticeLevel(title,summary,detail?.event_data||item||{});
+  const alertStatus=v51AlertDisplayStatus({...item,...detail,event_data:detail?.event_data||item?.event_data||{}});
   const related=await v51LoadRelatedNotices(detail,item,3);
   const area=String(detail?.area||meta.area||'').trim();
   const published=v51FormatModalDate(detail?.source_published_at||detail?.collected_at||item?.published_at||item?.updated_at);
@@ -3213,6 +3247,10 @@ async function v51OpenPublicNoticeModal(item){
         <h2 class="v51-notice-title">${v51EscapeModalText(title)}</h2>
       </div>
       <button type="button" class="v51-notice-close" aria-label="닫기">×</button>
+    </div>
+    <div class="v51-alert-status-box ${v51EscapeModalText(alertStatus.key)}">
+      ${v51EscapeModalText(`${alertStatus.icon} ${alertStatus.label}`)}
+      ${alertStatus.detail?`<br><span style="font-weight:500">${v51EscapeModalText(alertStatus.detail)}</span>`:''}
     </div>
     <div class="v51-agency-row">
       <div class="v51-agency-icon">${v51EscapeModalText(agency.icon)}</div>
@@ -3318,18 +3356,40 @@ function v51PaintToday(){
     if(main){main.disabled=true;main.classList.remove('has-link');}
     return;
   }
+  v51EnsureAlertStatusStyle();
   const key=(item.emergency||item.school)?'emergency':v461NormalizeProposalCategory(item.category);
   const def=v461CategoryDefinition(key);
   const admin=v51IsAdminSelected(item)&&key!=='emergency';
+  const alertStatus=v51AlertDisplayStatus(item);
+  ['active','ending','ended','removed'].forEach(s=>card.classList.remove(`v51-alert-status-${s}`));
+  if(key==='emergency'||key==='weather'||key==='traffic'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`)){
+    card.classList.add(`v51-alert-status-${alertStatus.key}`);
+  }
   const labels={emergency:'긴급 공지',weather:'오늘의 날씨',traffic:'교통 정보',business:'업소 추천',shopping:'쇼핑 정보',event:'행사 정보',education:'교육 정보',real_estate:'부동산 정보',finance:'금융 정보',seminar:'세미나',faith:'커뮤니티 행사'};
   const icons={emergency:'🚨',weather:'☀️',traffic:'🚗',business:'🏪',shopping:'🛒',event:'🎉',education:'🎓',real_estate:'🏠',finance:'🏦',seminar:'📋',faith:'⛪'};
   card.classList.add(`v51-kind-${key||'default'}`);
   if(admin)card.classList.add('v51-admin-selected');
-  if(category)category.textContent=`${admin?'⭐ ':icons[key]||item.icon||'✨ '}${admin?'관리자 추천':(labels[key]||item.category_label||'오늘의 정보')}`;
+  if(category){
+    const isPublicAlert=key==='emergency'||key==='weather'||key==='traffic'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`);
+    const statusPrefix=isPublicAlert?`${alertStatus.icon} ${alertStatus.label} · `:'';
+    category.textContent=`${statusPrefix}${admin?'⭐ ':icons[key]||item.icon||'✨ '}${admin?'관리자 추천':(labels[key]||item.category_label||'오늘의 정보')}`;
+  }
   title.textContent=String(item.title||item.source_title||def?.title||'오늘의 생활 정보').replace(/\s+/g,' ').trim();
   summary.textContent=String(item.subtitle||item.summary||item.original_title||def?.summary||'자세한 내용을 확인해 보세요.').replace(/\s+/g,' ').trim();
   const ts=v51ItemTime(item);
-  if(time){time.textContent=v51RelativeLabel(ts);time.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));}
+  if(time){
+    const isPublicAlert=key==='emergency'||key==='weather'||key==='traffic'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`);
+    if(isPublicAlert&&alertStatus.key==='ending'&&alertStatus.expiresAt){
+      time.textContent=`${v51FormatModalDate(alertStatus.expiresAt)} 종료 예정`;
+    }else if(isPublicAlert&&alertStatus.key==='ended'){
+      time.textContent='종료됨 · 잠시 후 자동 제거';
+    }else if(isPublicAlert&&alertStatus.key==='active'){
+      time.textContent=`${v51RelativeLabel(ts)} · 상태 확인 중`;
+    }else{
+      time.textContent=v51RelativeLabel(ts);
+    }
+    time.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));
+  }
   const hasLink=Boolean((item.target_id&&item.target_type)||(item.url||item.link||item.source_url));
   const hasDetails=Boolean(item);
   if(link)link.textContent=hasLink?(item.link_label||'자세히 보기 →'):'자세히 보기 →';
