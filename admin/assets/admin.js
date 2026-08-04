@@ -7798,3 +7798,25 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P012 Smart Flyer home publishing loaded');
 })();
 
+// === P013: 스마트 전단 메인 연결 상태 확인 ===
+(() => {
+  function enhance(){
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.dataset.p013Enhanced==='1')return;
+      card.dataset.p013Enhanced='1';
+      const live=card.querySelector('.p012-live');
+      if(live){
+        const note=document.createElement('div');
+        note.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#eafaf0;color:#166534;font-size:12px;font-weight:800';
+        note.textContent='공개 전단 API와 앱 메인 캐러셀에 연결된 상태입니다.';
+        live.closest('.p011-card-top')?.insertAdjacentElement('afterend',note);
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1600);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+  console.info('[DalTownMap] P013 Smart Flyer publish status loaded');
+})();
+
