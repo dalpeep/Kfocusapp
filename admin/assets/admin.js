@@ -7123,3 +7123,207 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P010-2 Smart Flyer editor loaded');
 })();
 
+// === P010-3: 스마트 전단 센터 · 미리보기 · 통합 관리 ===
+(() => {
+  const P='p0103';
+  const el=id=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  let allFlyers=[];
+
+  function ensureStyle(){
+    if(el(P+'Style'))return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      #${P}Open{margin-left:8px}
+      #${P}Modal{position:fixed;inset:0;z-index:100200;display:none;background:rgba(15,23,42,.58);padding:20px;overflow:auto}
+      #${P}Modal.open{display:block}
+      #${P}Modal .p0103-shell{max-width:1180px;margin:0 auto;background:#f8fbff;border-radius:20px;min-height:80vh;padding:18px}
+      #${P}Modal .p0103-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      #${P}Modal h2{margin:0;color:#0f2b5b}
+      #${P}Modal .p0103-close{width:42px;height:42px;border:0;border-radius:12px;background:#eaf2ff;font-size:25px;color:#24456f}
+      #${P}Modal .p0103-toolbar{display:grid;grid-template-columns:1fr 180px 150px;gap:9px;margin-top:14px}
+      #${P}Modal .p0103-toolbar input,#${P}Modal .p0103-toolbar select{width:100%;box-sizing:border-box}
+      #${P}List{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}
+      #${P}Modal .p0103-card{border:1px solid #dbe6f7;border-radius:15px;padding:14px;background:#fff}
+      #${P}Modal .p0103-card-top{display:flex;justify-content:space-between;gap:10px}
+      #${P}Modal .p0103-card h3{margin:0;color:#163b70;font-size:16px}
+      #${P}Modal .p0103-meta{margin-top:5px;color:#64748b;font-size:12px}
+      #${P}Modal .p0103-products{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+      #${P}Modal .p0103-product{border:1px solid #edf2f7;border-radius:10px;padding:9px;background:#fbfdff;font-size:12px}
+      #${P}Modal .p0103-price{color:#dc2626;font-weight:900;margin-top:4px}
+      #${P}Modal .p0103-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+      #${P}Preview{position:fixed;inset:0;z-index:100220;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.65);padding:20px}
+      #${P}Preview.open{display:flex}
+      #${P}Preview .p0103-phone{width:min(390px,100%);background:#eef4ff;border-radius:32px;padding:14px;box-shadow:0 25px 70px rgba(15,23,42,.35)}
+      #${P}Preview .p0103-screen{background:#fff;border-radius:24px;padding:15px}
+      #${P}Preview .p0103-preview-products{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+      #${P}Preview .p0103-preview-product{border:1px solid #e2e8f0;border-radius:12px;padding:10px;background:#fff}
+      #${P}Preview .p0103-preview-close{width:100%;margin-top:12px}
+      @media(max-width:800px){#${P}List{grid-template-columns:1fr}#${P}Modal .p0103-toolbar{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function ensureOpenButton(){
+    const panel=el('p010Panel');
+    if(!panel||el(P+'Open'))return;
+    const actions=panel.querySelector('.p010-actions');
+    if(!actions)return;
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.id=P+'Open';
+    btn.className='btn';
+    btn.textContent='전체 스마트 전단 센터';
+    btn.addEventListener('click',openCenter);
+    actions.appendChild(btn);
+  }
+
+  function ensureModal(){
+    ensureStyle();
+    let modal=el(P+'Modal');
+    if(modal)return modal;
+    modal=document.createElement('div');
+    modal.id=P+'Modal';
+    modal.innerHTML=`
+      <div class="p0103-shell">
+        <div class="p0103-head">
+          <div>
+            <h2>AI 스마트 전단 센터</h2>
+            <div class="p0103-meta">모든 마트의 전단 상태, 대표상품, 행사기간을 한 화면에서 관리합니다.</div>
+          </div>
+          <button type="button" class="p0103-close">×</button>
+        </div>
+        <div class="p0103-toolbar">
+          <input id="${P}Search" placeholder="업소명 또는 전단 제목 검색">
+          <select id="${P}Status">
+            <option value="">전체 상태</option>
+            <option value="draft">검토 대기</option>
+            <option value="active">활성</option>
+            <option value="archived">보관</option>
+            <option value="expired">종료</option>
+          </select>
+          <button type="button" class="btn primary" id="${P}Refresh">새로고침</button>
+        </div>
+        <div id="${P}List"></div>
+      </div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('.p0103-close')?.addEventListener('click',closeCenter);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeCenter();});
+    el(P+'Search')?.addEventListener('input',render);
+    el(P+'Status')?.addEventListener('change',render);
+    el(P+'Refresh')?.addEventListener('click',load);
+    return modal;
+  }
+
+  function ensurePreview(){
+    let p=el(P+'Preview');
+    if(p)return p;
+    p=document.createElement('div');
+    p.id=P+'Preview';
+    p.innerHTML='<div class="p0103-phone"><div class="p0103-screen" id="p0103PreviewBody"></div></div>';
+    document.body.appendChild(p);
+    p.addEventListener('click',e=>{if(e.target===p)p.classList.remove('open');});
+    return p;
+  }
+
+  function closeCenter(){
+    el(P+'Modal')?.classList.remove('open');
+    document.body.style.overflow='';
+  }
+
+  async function openCenter(){
+    ensureModal().classList.add('open');
+    document.body.style.overflow='hidden';
+    await load();
+  }
+
+  async function load(){
+    const list=el(P+'List');
+    if(list)list.innerHTML='<div class="p0103-meta">전단을 불러오는 중입니다.</div>';
+    try{
+      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      allFlyers=result.flyers||[];
+      render();
+    }catch(e){
+      if(list)list.innerHTML=`<div class="p0103-meta">조회 실패: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function businessName(f){
+    const b=f.businesses||{};
+    return b.name_ko||b.name||b.name_en||`업소 ${String(f.business_id).slice(0,8)}`;
+  }
+
+  function products(f){
+    return (Array.isArray(f.weekly_flyer_items)?f.weekly_flyer_items:[])
+      .slice().sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.ai_score)-Number(a.ai_score));
+  }
+
+  function render(){
+    const list=el(P+'List');
+    if(!list)return;
+    const q=String(el(P+'Search')?.value||'').trim().toLowerCase();
+    const status=String(el(P+'Status')?.value||'');
+    const rows=allFlyers.filter(f=>{
+      if(status&&f.status!==status)return false;
+      if(q&&!`${businessName(f)} ${f.title||''}`.toLowerCase().includes(q))return false;
+      return true;
+    });
+    list.innerHTML=rows.length?rows.map(f=>{
+      const top=products(f).slice(0,6);
+      return `<article class="p0103-card">
+        <div class="p0103-card-top">
+          <div>
+            <h3>${esc(businessName(f))}</h3>
+            <div class="p0103-meta">${esc(f.title||'주간 세일')} · ${esc(f.start_date||'-')} ~ ${esc(f.end_date||'-')}</div>
+          </div>
+          <b>${esc(f.status||'draft')}</b>
+        </div>
+        <div class="p0103-products">
+          ${top.map(x=>`<div class="p0103-product"><b>${esc(x.product_name||'상품')}</b><div class="p0103-price">${x.sale_price!=null?`$${Number(x.sale_price).toFixed(2)}`:'가격 확인 필요'}</div></div>`).join('')}
+        </div>
+        <div class="p0103-actions">
+          <button type="button" class="btn" data-p0103-preview="${f.id}">사용자 화면 미리보기</button>
+          <button type="button" class="btn" data-p0103-status="${f.status==='active'?'archived':'active'}" data-id="${f.id}">${f.status==='active'?'보관':'활성화'}</button>
+          <a class="btn" href="${esc(f.image_url)}" target="_blank" rel="noopener">원본 보기</a>
+        </div>
+      </article>`;
+    }).join(''):'<div class="p0103-meta">조건에 맞는 전단이 없습니다.</div>';
+
+    list.querySelectorAll('[data-p0103-preview]').forEach(btn=>btn.addEventListener('click',()=>preview(Number(btn.dataset.p0103Preview))));
+    list.querySelectorAll('[data-p0103-status]').forEach(btn=>btn.addEventListener('click',async()=>{
+      await newsroomEdgeCall('set_weekly_flyer_status',{id:Number(btn.dataset.id),status:btn.dataset.p0103Status});
+      await load();
+      if(window.P010SmartFlyer?.load)window.P010SmartFlyer.load();
+    }));
+  }
+
+  function preview(id){
+    const f=allFlyers.find(x=>Number(x.id)===Number(id));
+    if(!f)return;
+    const items=products(f).slice(0,6);
+    const p=ensurePreview();
+    const body=el('p0103PreviewBody');
+    body.innerHTML=`
+      <div style="font-size:12px;color:#64748b">오늘의 달타운 · 이번 주 특가</div>
+      <h2 style="margin:6px 0;color:#0f2b5b">${esc(f.title||businessName(f))}</h2>
+      <div style="font-size:12px;color:#64748b">${esc(businessName(f))} · ${esc(f.start_date||'-')} ~ ${esc(f.end_date||'-')}</div>
+      <div class="p0103-preview-products">
+        ${items.map(x=>`<div class="p0103-preview-product"><b>${esc(x.product_name||'상품')}</b><div class="p0103-price">${x.sale_price!=null?`$${Number(x.sale_price).toFixed(2)}`:''}</div></div>`).join('')}
+      </div>
+      <button type="button" class="btn primary p0103-preview-close">닫기</button>`;
+    body.querySelector('.p0103-preview-close')?.addEventListener('click',()=>p.classList.remove('open'));
+    p.classList.add('open');
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{ensureStyle();ensureOpenButton();},1800);
+    const observer=new MutationObserver(()=>ensureOpenButton());
+    observer.observe(document.body,{childList:true,subtree:true});
+  });
+
+  window.P010SmartFlyerCenter={open:openCenter,load};
+  console.info('[DalTownMap] P010-3 Smart Flyer Center loaded');
+})();
+
