@@ -6860,3 +6860,166 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.P006AutomationStatus={load};
 })();
 
+// === P010-1: AI Smart Flyer 관리자 기반 ===
+(() => {
+  const P='p010';
+  const el=id=>document.getElementById(id);
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  let currentFlyers=[];
+
+  function style(){
+    if(el(P+'Style'))return;
+    const s=document.createElement('style');
+    s.id=P+'Style';
+    s.textContent=`
+      #${P}Panel{margin-top:16px;padding:16px;border:1px solid #cbdcf8;border-radius:16px;background:#f8fbff}
+      #${P}Panel h3{margin:0 0 5px;font-size:17px}
+      #${P}Panel .p010-sub{color:#64748b;font-size:12px;margin-bottom:12px}
+      #${P}Panel .p010-grid{display:grid;grid-template-columns:1fr 150px 150px;gap:9px}
+      #${P}Panel input,#${P}Panel select{width:100%;box-sizing:border-box}
+      #${P}Panel .p010-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+      #${P}Panel .p010-list{display:grid;gap:9px;margin-top:14px}
+      #${P}Panel .p010-card{background:#fff;border:1px solid #dbe6f7;border-radius:13px;padding:12px}
+      #${P}Panel .p010-card b{display:block;color:#163b70}
+      #${P}Panel .p010-meta{margin-top:4px;color:#64748b;font-size:12px}
+      #${P}Panel .p010-products{margin-top:8px;font-size:12px;line-height:1.6;color:#334155}
+      #${P}Panel .p010-card-actions{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+      #${P}Panel .p010-card-actions button{padding:7px 9px}
+      @media(max-width:760px){#${P}Panel .p010-grid{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function panel(){
+    if(el(P+'Panel'))return el(P+'Panel');
+    const anchor=el('description_images')?.closest('.field')||el('description_images')?.parentElement||el('description');
+    if(!anchor)return null;
+    style();
+    const box=document.createElement('section');
+    box.id=P+'Panel';
+    box.innerHTML=`
+      <h3>AI 스마트 전단 · 이번 주 세일</h3>
+      <div class="p010-sub">업소를 저장한 뒤 JPG·PNG·WEBP 전단 이미지를 올리면 상품명과 가격을 자동 추출합니다.</div>
+      <div class="p010-grid">
+        <input type="file" id="${P}File" accept="image/jpeg,image/png,image/webp">
+        <input type="date" id="${P}Start" aria-label="행사 시작일">
+        <input type="date" id="${P}End" aria-label="행사 종료일">
+      </div>
+      <label style="display:flex;gap:7px;align-items:center;margin-top:9px;font-size:13px;">
+        <input type="checkbox" id="${P}Home" checked style="width:auto"> 오늘의 달타운 노출 후보로 사용
+      </label>
+      <div class="p010-actions">
+        <button type="button" class="btn primary" id="${P}Analyze">이미지 업로드·AI 분석</button>
+        <button type="button" class="btn" id="${P}Refresh">전단 목록 새로고침</button>
+      </div>
+      <div id="${P}Status" class="p010-sub" style="margin-top:9px"></div>
+      <div id="${P}List" class="p010-list"></div>`;
+    anchor.insertAdjacentElement('afterend',box);
+    el(P+'Analyze')?.addEventListener('click',analyze);
+    el(P+'Refresh')?.addEventListener('click',load);
+    return box;
+  }
+
+  async function upload(file){
+    const safeBusinessId=String(selectedId||'').replace(/[^a-zA-Z0-9_-]/g,'');
+    const {bucket,path}=makeUploadPath(file,`weekly-flyers/${safeBusinessId}`);
+    const {error}=await supabase.storage.from(bucket).upload(path,file,{
+      upsert:false,cacheControl:'31536000',contentType:file.type||'image/jpeg'
+    });
+    if(error)throw error;
+    const {data}=supabase.storage.from(bucket).getPublicUrl(path);
+    if(!data?.publicUrl)throw new Error('업로드 URL을 만들지 못했습니다.');
+    return data.publicUrl;
+  }
+
+  async function analyze(){
+    if(!selectedId)return alert('먼저 업소를 선택하고 저장하세요.');
+    const file=el(P+'File')?.files?.[0];
+    if(!file)return alert('전단 이미지를 선택하세요.');
+    const btn=el(P+'Analyze');
+    btn.disabled=true;
+    el(P+'Status').textContent='이미지를 업로드하고 AI가 상품과 가격을 분석하고 있습니다...';
+    try{
+      const imageUrl=await upload(file);
+      const result=await newsroomEdgeCall('analyze_weekly_flyer',{
+        region:getAppRegion(),
+        business_id:String(selectedId),
+        image_url:imageUrl,
+        file_type:file.type,
+        start_date:el(P+'Start').value||null,
+        end_date:el(P+'End').value||null,
+        show_on_home:el(P+'Home').checked
+      });
+      el(P+'Status').textContent=`분석 완료: 상품 ${result.item_count||0}개를 찾았습니다. 검토 후 활성화하세요.`;
+      el(P+'File').value='';
+      await load();
+    }catch(e){
+      el(P+'Status').textContent=`분석 실패: ${e.message}`;
+      alert(`스마트 전단 분석 실패: ${e.message}`);
+    }finally{btn.disabled=false;}
+  }
+
+  async function load(){
+    panel();
+    const list=el(P+'List');
+    if(!list||!selectedId)return;
+    list.innerHTML='<div class="p010-sub">전단 목록을 불러오는 중입니다.</div>';
+    try{
+      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion(),business_id:selectedId});
+      currentFlyers=result.flyers||[];
+      if(!currentFlyers.length){
+        list.innerHTML='<div class="p010-sub">등록된 주간 전단이 없습니다.</div>';
+        return;
+      }
+      list.innerHTML=currentFlyers.map(f=>{
+        const items=Array.isArray(f.weekly_flyer_items)?f.weekly_flyer_items:[];
+        const top=items.slice().sort((a,b)=>(Number(b.is_featured)-Number(a.is_featured))||(Number(b.ai_score)-Number(a.ai_score))).slice(0,5);
+        return `<div class="p010-card">
+          <b>${esc(f.title||'주간 세일')}</b>
+          <div class="p010-meta">${esc(f.start_date||'-')} ~ ${esc(f.end_date||'-')} · 상태 ${esc(f.status)} · 상품 ${items.length}개</div>
+          <div class="p010-products">${top.map(x=>`${esc(x.product_name)} ${x.sale_price!=null?`$${Number(x.sale_price).toFixed(2)}`:''}`).join('<br>')||'추출된 대표상품이 없습니다.'}</div>
+          <div class="p010-card-actions">
+            <button type="button" class="btn" data-p010-act="${f.status==='active'?'draft':'active'}" data-id="${f.id}">${f.status==='active'?'비활성화':'활성화'}</button>
+            <button type="button" class="btn" data-p010-act="delete" data-id="${f.id}">삭제</button>
+            <a class="btn" href="${esc(f.image_url)}" target="_blank" rel="noopener">원본 보기</a>
+          </div>
+        </div>`;
+      }).join('');
+      list.querySelectorAll('[data-p010-act]').forEach(btn=>btn.addEventListener('click',async()=>{
+        const id=Number(btn.dataset.id);
+        const act=btn.dataset.p010Act;
+        if(act==='delete'){
+          if(!confirm('이 전단과 추출 상품을 삭제할까요?'))return;
+          await newsroomEdgeCall('delete_weekly_flyer',{id});
+        }else{
+          await newsroomEdgeCall('set_weekly_flyer_status',{id,status:act});
+        }
+        await load();
+      }));
+    }catch(e){
+      list.innerHTML=`<div class="p010-sub">전단 목록 조회 실패: ${esc(e.message)}</div>`;
+    }
+  }
+
+  function onBusinessChanged(){
+    panel();
+    setTimeout(load,100);
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{panel();load();},1600);
+    document.addEventListener('click',e=>{
+      if(e.target.closest('.business-row,.biz-item'))setTimeout(onBusinessChanged,200);
+    });
+  });
+  const originalFill=window.fillBusinessForm||null;
+  if(typeof fillBusinessForm==='function'){
+    const base=fillBusinessForm;
+    window.fillBusinessForm=function(row){
+      const result=base(row);
+      setTimeout(onBusinessChanged,100);
+      return result;
+    };
+  }
+  window.P010SmartFlyer={load};
+})();
+console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
