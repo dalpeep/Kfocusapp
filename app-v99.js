@@ -7469,4 +7469,4 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
   });
   console.info('[DalTownMap] P010-3 Smart Flyer display polish loaded');
 })();
-
+console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
