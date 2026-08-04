@@ -7852,3 +7852,201 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   console.info('[DalTownMap] P014 Smart Flyer public image card loaded');
 })();
 
+// === P015: 스마트 전단 큰 이미지 + 하단 상품명·가격 ===
+(() => {
+  function ensureStyle(){
+    if(document.getElementById('p015SmartFlyerStyle'))return;
+    const style=document.createElement('style');
+    style.id='p015SmartFlyerStyle';
+    style.textContent=`
+      #v37BriefCard.p015-smart-flyer-hero{
+        min-height:248px;
+        background:#b86a12;
+        overflow:hidden;
+      }
+      #v37BriefCard.p015-smart-flyer-hero::after{
+        display:none !important;
+      }
+      #v37BriefCard.p015-smart-flyer-hero .p014-flyer-thumb{
+        display:none !important;
+      }
+      #v37BriefCard.p015-smart-flyer-hero #v37BriefTitle,
+      #v37BriefCard.p015-smart-flyer-hero #v37BriefSummary,
+      #v37BriefCard.p015-smart-flyer-hero #v51TodayTime,
+      #v37BriefCard.p015-smart-flyer-hero #v51TodayLink{
+        opacity:0;
+        pointer-events:none;
+      }
+      #v37BriefCard .p015-flyer-photo{
+        position:absolute;
+        z-index:1;
+        left:12px;
+        right:12px;
+        top:49px;
+        width:calc(100% - 24px);
+        height:128px;
+        border-radius:15px;
+        object-fit:cover;
+        object-position:top center;
+        background:#fff;
+        border:1px solid rgba(255,255,255,.82);
+        box-shadow:0 8px 20px rgba(42,25,8,.22);
+        pointer-events:none;
+      }
+      #v37BriefCard .p015-flyer-shade{
+        position:absolute;
+        z-index:2;
+        left:12px;
+        right:12px;
+        top:121px;
+        height:56px;
+        border-radius:0 0 15px 15px;
+        background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.58));
+        pointer-events:none;
+      }
+      #v37BriefCard .p015-flyer-bottom{
+        position:absolute;
+        z-index:4;
+        left:18px;
+        right:18px;
+        bottom:25px;
+        color:#fff;
+        pointer-events:none;
+      }
+      #v37BriefCard .p015-flyer-market{
+        font-size:12px;
+        font-weight:900;
+        opacity:.92;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+      #v37BriefCard .p015-flyer-products{
+        display:flex;
+        gap:8px;
+        margin-top:7px;
+      }
+      #v37BriefCard .p015-flyer-product{
+        min-width:0;
+        flex:1 1 0;
+        padding:7px 9px;
+        border-radius:11px;
+        background:rgba(255,255,255,.16);
+        border:1px solid rgba(255,255,255,.18);
+        backdrop-filter:blur(5px);
+      }
+      #v37BriefCard .p015-flyer-product b{
+        display:block;
+        font-size:12px;
+        line-height:1.25;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+      #v37BriefCard .p015-flyer-product span{
+        display:block;
+        margin-top:3px;
+        color:#fff4a8;
+        font-size:14px;
+        font-weight:950;
+      }
+      #v37BriefCard .p015-flyer-more{
+        margin-top:6px;
+        text-align:right;
+        font-size:11px;
+        font-weight:850;
+        opacity:.9;
+      }
+      #v37BriefCard.p015-smart-flyer-hero .v51-today-dots,
+      #v37BriefCard.p015-smart-flyer-hero #v51TodayDots{
+        z-index:5;
+      }
+      @media(max-width:390px){
+        #v37BriefCard.p015-smart-flyer-hero{min-height:240px}
+        #v37BriefCard .p015-flyer-photo{height:122px}
+        #v37BriefCard .p015-flyer-bottom{bottom:23px}
+        #v37BriefCard .p015-flyer-product b{font-size:11px}
+        #v37BriefCard .p015-flyer-product span{font-size:13px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function isFlyer(item){
+    return Boolean(
+      item?.weekly_flyer_id ||
+      String(item?.id||'').includes('smart-flyer') ||
+      item?.event_data?.selection_source==='smart_flyer'
+    );
+  }
+
+  function parseProducts(item){
+    const source=String(item?.summary||item?.subtitle||'').trim();
+    return source.split('·').map(v=>v.trim()).filter(Boolean).slice(0,2).map(text=>{
+      const match=text.match(/^(.*?)(\$\s?\d+(?:\.\d{1,2})?)\s*$/);
+      return match
+        ? {name:match[1].trim(),price:match[2].replace(/\s+/g,'')}
+        : {name:text,price:''};
+    });
+  }
+
+  const basePaint=typeof v51PaintToday==='function'?v51PaintToday:null;
+  if(!basePaint)return;
+
+  v51PaintToday=function(){
+    basePaint();
+    ensureStyle();
+
+    const card=document.getElementById('v37BriefCard');
+    const category=document.getElementById('v51TodayCategory');
+    const item=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+    if(!card)return;
+
+    card.querySelectorAll('.p015-flyer-photo,.p015-flyer-shade,.p015-flyer-bottom').forEach(n=>n.remove());
+    card.classList.remove('p015-smart-flyer-hero');
+
+    if(!isFlyer(item))return;
+
+    card.classList.add('p015-smart-flyer-hero');
+    if(category)category.textContent='🛒 이번 주 특가 · LIVE';
+
+    const imageUrl=String(
+      item?.flyer_image_url ||
+      item?.image_url ||
+      item?.url ||
+      ''
+    ).trim();
+
+    if(/^https?:\/\//i.test(imageUrl)){
+      const img=document.createElement('img');
+      img.className='p015-flyer-photo';
+      img.src=imageUrl;
+      img.alt='이번 주 세일 전단';
+      img.loading='eager';
+      img.onerror=()=>img.remove();
+      card.appendChild(img);
+
+      const shade=document.createElement('div');
+      shade.className='p015-flyer-shade';
+      card.appendChild(shade);
+    }
+
+    const products=parseProducts(item);
+    const bottom=document.createElement('div');
+    bottom.className='p015-flyer-bottom';
+    bottom.innerHTML=`
+      <div class="p015-flyer-market">${String(item?.title||'이번 주 마켓 세일')}</div>
+      <div class="p015-flyer-products">
+        ${products.map(p=>`
+          <div class="p015-flyer-product">
+            <b>${String(p.name||'세일 상품').replace(/[<>&"]/g,'')}</b>
+            ${p.price?`<span>${String(p.price).replace(/[<>&"]/g,'')}</span>`:''}
+          </div>`).join('')}
+      </div>
+      <div class="p015-flyer-more">나머지 상품은 상세에서 확인 →</div>`;
+    card.appendChild(bottom);
+  };
+
+  console.info('[DalTownMap] P015 Smart Flyer large image card loaded');
+})();
+
