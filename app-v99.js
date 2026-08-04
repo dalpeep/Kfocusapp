@@ -8050,3 +8050,159 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   console.info('[DalTownMap] P015 Smart Flyer large image card loaded');
 })();
 
+// === P016: 스마트 전단 상품 이미지 슬라이드 ===
+(() => {
+  let timer=null;
+  let index=0;
+  let activeFlyerId=null;
+
+  function ensureStyle(){
+    if(document.getElementById('p016ProductSliderStyle'))return;
+    const s=document.createElement('style');
+    s.id='p016ProductSliderStyle';
+    s.textContent=`
+      #v37BriefCard.p016-product-slider{
+        min-height:286px;
+      }
+      #v37BriefCard.p016-product-slider .p015-flyer-photo,
+      #v37BriefCard.p016-product-slider .p015-flyer-shade,
+      #v37BriefCard.p016-product-slider .p015-flyer-bottom{
+        display:none !important;
+      }
+      #v37BriefCard .p016-slider{
+        position:absolute;z-index:5;left:14px;right:14px;top:54px;bottom:24px;
+        display:flex;flex-direction:column;
+      }
+      #v37BriefCard .p016-slider-head{
+        display:flex;justify-content:space-between;gap:10px;color:#fff;align-items:center;
+      }
+      #v37BriefCard .p016-slider-head b{font-size:14px}
+      #v37BriefCard .p016-slider-head span{font-size:12px;font-weight:800}
+      #v37BriefCard .p016-grid{
+        display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:9px;flex:1;
+      }
+      #v37BriefCard .p016-product{
+        min-width:0;overflow:hidden;border-radius:14px;background:#fff;color:#0f172a;
+        display:flex;flex-direction:column;box-shadow:0 7px 18px rgba(44,24,5,.18);
+      }
+      #v37BriefCard .p016-product img{
+        width:100%;height:112px;object-fit:cover;background:#f8fafc;
+      }
+      #v37BriefCard .p016-info{padding:8px 9px}
+      #v37BriefCard .p016-info b{
+        display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      }
+      #v37BriefCard .p016-info strong{display:block;margin-top:3px;color:#dc2626;font-size:15px}
+      #v37BriefCard .p016-slider-foot{
+        display:flex;justify-content:space-between;align-items:center;margin-top:8px;color:#fff;
+        font-size:11px;font-weight:850;
+      }
+      #v37BriefCard .p016-dots{display:flex;gap:5px}
+      #v37BriefCard .p016-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.38)}
+      #v37BriefCard .p016-dot.active{width:16px;border-radius:6px;background:#fff}
+    `;
+    document.head.appendChild(s);
+  }
+
+  function isFlyer(item){
+    return Boolean(item?.weekly_flyer_id||String(item?.id||'').includes('smart-flyer'));
+  }
+
+  async function loadFlyerItems(flyerId){
+    try{
+      const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||{});
+      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+      const key=String(cfg.SUPABASE_ANON_KEY||'');
+      const region=String(typeof getAppRegion==='function'?getAppRegion():'dallas');
+      const fn=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
+      const res=await fetch(`${base}/functions/v1/${fn}?action=public_weekly_flyers&region=${region}&_=${Date.now()}`,{
+        headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'
+      });
+      const json=await res.json();
+      const flyer=(json.flyers||[]).find(f=>Number(f.id)===Number(flyerId));
+      return (flyer?.weekly_flyer_items||[])
+        .filter(x=>x.item_image_url&&x.crop_status==='complete')
+        .sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.ai_score)-Number(a.ai_score))
+        .slice(0,10);
+    }catch(e){
+      console.warn('[P016 slider items]',e);
+      return [];
+    }
+  }
+
+  function money(v){
+    const n=Number(v);
+    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
+  }
+
+  function stop(){
+    if(timer)clearInterval(timer);
+    timer=null;
+    activeFlyerId=null;
+  }
+
+  function draw(card,item,items){
+    card.querySelectorAll('.p016-slider').forEach(n=>n.remove());
+    const pages=Math.max(1,Math.ceil(items.length/2));
+    index=((index%pages)+pages)%pages;
+    const pageItems=items.slice(index*2,index*2+2);
+    const slider=document.createElement('div');
+    slider.className='p016-slider';
+    slider.innerHTML=`
+      <div class="p016-slider-head">
+        <b>🛒 이번 주 특가 · LIVE</b>
+        <span>${String(item.title||'마켓 세일').replace(/[<>&"]/g,'')}</span>
+      </div>
+      <div class="p016-grid">
+        ${pageItems.map(x=>`
+          <div class="p016-product">
+            <img src="${String(x.item_image_url).replace(/"/g,'')}" alt="">
+            <div class="p016-info">
+              <b>${String(x.product_name||'세일 상품').replace(/[<>&"]/g,'')}</b>
+              <strong>${money(x.sale_price)}</strong>
+            </div>
+          </div>`).join('')}
+      </div>
+      <div class="p016-slider-foot">
+        <div class="p016-dots">${Array.from({length:pages},(_,i)=>`<span class="p016-dot ${i===index?'active':''}"></span>`).join('')}</div>
+        <span>나머지 상품은 상세에서 확인 →</span>
+      </div>`;
+    card.appendChild(slider);
+  }
+
+  const basePaint=typeof v51PaintToday==='function'?v51PaintToday:null;
+  if(!basePaint)return;
+
+  v51PaintToday=async function(){
+    basePaint();
+    ensureStyle();
+    const card=document.getElementById('v37BriefCard');
+    const item=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+    if(!card)return;
+    card.classList.remove('p016-product-slider');
+    card.querySelectorAll('.p016-slider').forEach(n=>n.remove());
+    stop();
+
+    if(!isFlyer(item))return;
+    const items=await loadFlyerItems(item.weekly_flyer_id);
+    if(items.length<1)return; // P015 original-flyer design remains as fallback.
+
+    card.classList.add('p016-product-slider');
+    activeFlyerId=item.weekly_flyer_id;
+    index=0;
+    draw(card,item,items);
+
+    const pages=Math.ceil(items.length/2);
+    if(pages>1){
+      timer=setInterval(()=>{
+        const current=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+        if(!current||Number(current.weekly_flyer_id)!==Number(activeFlyerId)){stop();return;}
+        index=(index+1)%pages;
+        draw(card,current,items);
+      },3500);
+    }
+  };
+
+  console.info('[DalTownMap] P016 product image slider loaded');
+})();
+
