@@ -7174,3 +7174,271 @@ function v61EffectiveHomeConfig(config={}){
 console.info('[DalTownMap] V62 section schedules and scenes loaded');
 
 console.info('[DalTownMap] V87 dual URL compatibility loaded');
+
+// === P010-2: AI Smart Flyer 사용자 화면 연동 ===
+(() => {
+  const P='p0102';
+  const el=id=>document.getElementById(id);
+  const escHtml=(v='')=>String(v).replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[m]);
+
+  let activeFlyers=[];
+  let loadedAt=0;
+  let loadingPromise=null;
+
+  function todayKey(){
+    return new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
+  }
+  function validFlyer(f){
+    if(!f||String(f.status||'').toLowerCase()!=='active')return false;
+    const day=todayKey();
+    if(f.start_date&&String(f.start_date)>day)return false;
+    if(f.end_date&&String(f.end_date)<day)return false;
+    return true;
+  }
+  function businessForFlyer(f){
+    return (businesses||[]).find(b=>String(b.id)===String(f.business_id))||null;
+  }
+  function flyerItems(f){
+    return (Array.isArray(f.weekly_flyer_items)?f.weekly_flyer_items:[])
+      .slice()
+      .sort((a,b)=>
+        Number(b.is_featured||0)-Number(a.is_featured||0)||
+        Number(b.ai_score||0)-Number(a.ai_score||0)||
+        Number(a.source_order||0)-Number(b.source_order||0)
+      );
+  }
+  function money(v){
+    const n=Number(v);
+    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
+  }
+  function dateRange(f){
+    const s=f.start_date||'', e=f.end_date||'';
+    if(s&&e)return `${s.slice(5).replace('-','/')} ~ ${e.slice(5).replace('-','/')}`;
+    if(e)return `${e.slice(5).replace('-','/')}까지`;
+    return '이번 주';
+  }
+
+  async function loadActiveFlyers(force=false){
+    if(!force&&Date.now()-loadedAt<60*1000)return activeFlyers;
+    if(loadingPromise)return loadingPromise;
+    loadingPromise=(async()=>{
+      try{
+        const {data,error}=await supabase.from('weekly_flyers')
+          .select('*,weekly_flyer_items(*)')
+          .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
+          .eq('status','active')
+          .order('created_at',{ascending:false})
+          .limit(30);
+        if(error)throw error;
+        activeFlyers=(data||[]).filter(validFlyer);
+        loadedAt=Date.now();
+        return activeFlyers;
+      }catch(error){
+        console.warn('[P010-2 weekly flyers load]',error?.message||error);
+        return activeFlyers;
+      }finally{
+        loadingPromise=null;
+      }
+    })();
+    return loadingPromise;
+  }
+
+  function ensureStyles(){
+    if(el(P+'Style'))return;
+    const style=document.createElement('style');
+    style.id=P+'Style';
+    style.textContent=`
+      .smart-flyer-section{margin:14px 0;padding:16px;border:1px solid #dbe6f7;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fbff)}
+      .smart-flyer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+      .smart-flyer-head h3{margin:0;font-size:18px;color:#0f2b5b}
+      .smart-flyer-head p{margin:4px 0 0;color:#64748b;font-size:12px}
+      .smart-flyer-original{border:0;background:#eef4ff;color:#1d4ed8;border-radius:11px;padding:8px 11px;font-weight:800;cursor:pointer;white-space:nowrap}
+      .smart-flyer-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+      .smart-flyer-product{position:relative;border:1px solid #e2e8f0;border-radius:14px;padding:11px;background:#fff;min-width:0}
+      .smart-flyer-product strong{display:block;color:#162f57;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .smart-flyer-price{display:flex;align-items:baseline;gap:7px;margin-top:7px}
+      .smart-flyer-sale{font-weight:900;color:#dc2626;font-size:18px}
+      .smart-flyer-regular{text-decoration:line-through;color:#94a3b8;font-size:11px}
+      .smart-flyer-unit{margin-top:4px;color:#64748b;font-size:11px}
+      .smart-flyer-discount{position:absolute;right:8px;top:8px;padding:3px 6px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:900}
+      .smart-flyer-more{width:100%;margin-top:11px;border:0;border-radius:12px;padding:11px;background:#2864e8;color:#fff;font-weight:900;cursor:pointer}
+      #p0102Modal{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.62)}
+      #p0102Modal.open{display:flex}
+      #p0102Modal .p0102-sheet{width:min(100%,620px);max-height:90vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
+      #p0102Modal .p0102-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      #p0102Modal h2{margin:0;color:#0f2b5b;font-size:22px}
+      #p0102Modal .p0102-meta{margin-top:5px;color:#64748b;font-size:12px}
+      #p0102Modal .p0102-close{width:38px;height:38px;border:0;border-radius:12px;background:#eef4ff;color:#24456f;font-size:23px}
+      #p0102Modal .p0102-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
+      #p0102Modal .p0102-original{width:100%;margin-top:14px;border-radius:16px;display:block}
+      #p0102Modal .p0102-original-link{display:block;margin-top:12px;text-align:center;text-decoration:none;padding:12px;border-radius:12px;background:#eef4ff;color:#1d4ed8;font-weight:900}
+      @media(min-width:700px){#p0102Modal{align-items:center;padding:20px}#p0102Modal .p0102-sheet{border-radius:24px}}
+      @media(max-width:360px){.smart-flyer-products,#p0102Modal .p0102-grid{grid-template-columns:1fr}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  function productCard(x){
+    const discount=Number(x.discount_percent);
+    return `<div class="smart-flyer-product">
+      ${Number.isFinite(discount)&&discount>0?`<span class="smart-flyer-discount">${Math.round(discount)}% OFF</span>`:''}
+      <strong>${escHtml(x.product_name||'세일 상품')}</strong>
+      <div class="smart-flyer-price">
+        ${x.sale_price!=null?`<span class="smart-flyer-sale">${money(x.sale_price)}</span>`:''}
+        ${x.regular_price!=null?`<span class="smart-flyer-regular">${money(x.regular_price)}</span>`:''}
+      </div>
+      ${x.unit_text?`<div class="smart-flyer-unit">${escHtml(x.unit_text)}</div>`:''}
+    </div>`;
+  }
+
+  function renderFlyerSection(f,business){
+    const items=flyerItems(f);
+    const top=items.slice(0,6);
+    return `<section class="smart-flyer-section" data-flyer-id="${escHtml(f.id)}">
+      <div class="smart-flyer-head">
+        <div>
+          <h3>🛒 이번 주 세일</h3>
+          <p>${escHtml(f.title||business?.name||'주간 세일')} · ${escHtml(dateRange(f))}</p>
+        </div>
+        <button type="button" class="smart-flyer-original" data-smart-flyer-open="${escHtml(f.id)}">전단 보기</button>
+      </div>
+      ${f.ai_summary?`<p style="margin:10px 0 0;color:#475569;font-size:13px;line-height:1.5">${escHtml(f.ai_summary)}</p>`:''}
+      <div class="smart-flyer-products">${top.map(productCard).join('')}</div>
+      <button type="button" class="smart-flyer-more" data-smart-flyer-open="${escHtml(f.id)}">전체 세일 ${items.length}개 보기</button>
+    </section>`;
+  }
+
+  function injectBusinessFlyer(businessId){
+    ensureStyles();
+    const card=detailCard;
+    if(!card)return;
+    card.querySelectorAll('.smart-flyer-section').forEach(x=>x.remove());
+    const flyer=activeFlyers.find(f=>String(f.business_id)===String(businessId));
+    if(!flyer)return;
+    const business=businessForFlyer(flyer);
+    const intro=card.querySelector('.biz-detail-card');
+    if(intro)intro.insertAdjacentHTML('afterend',renderFlyerSection(flyer,business));
+    else card.insertAdjacentHTML('beforeend',renderFlyerSection(flyer,business));
+  }
+
+  function ensureModal(){
+    ensureStyles();
+    let modal=el('p0102Modal');
+    if(modal)return modal;
+    modal=document.createElement('div');
+    modal.id='p0102Modal';
+    modal.innerHTML='<div class="p0102-sheet"><div id="p0102Content"></div></div>';
+    document.body.appendChild(modal);
+    modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))closeModal();});
+    return modal;
+  }
+  function closeModal(){
+    el('p0102Modal')?.classList.remove('open');
+    document.body.style.overflow='';
+  }
+  function openModal(id){
+    const f=activeFlyers.find(x=>String(x.id)===String(id));
+    if(!f)return;
+    const business=businessForFlyer(f);
+    const items=flyerItems(f);
+    const modal=ensureModal();
+    const content=el('p0102Content');
+    content.innerHTML=`
+      <div class="p0102-top">
+        <div>
+          <h2>${escHtml(f.title||`${business?.name||'마켓'} 주간 세일`)}</h2>
+          <div class="p0102-meta">${escHtml(business?.name||business?.name_ko||'')} · ${escHtml(dateRange(f))} · 상품 ${items.length}개</div>
+        </div>
+        <button type="button" class="p0102-close">×</button>
+      </div>
+      ${f.ai_summary?`<p style="line-height:1.6;color:#475569">${escHtml(f.ai_summary)}</p>`:''}
+      <div class="p0102-grid">${items.map(productCard).join('')}</div>
+      <img class="p0102-original" src="${escHtml(f.image_url)}" alt="${escHtml(f.title||'주간 전단')}">
+      <a class="p0102-original-link" href="${escHtml(f.image_url)}" target="_blank" rel="noopener">원본 전단 크게 보기</a>`;
+    content.querySelector('.p0102-close')?.addEventListener('click',closeModal);
+    modal.classList.add('open');
+    document.body.style.overflow='hidden';
+  }
+
+  function flyerTodayItem(f){
+    const b=businessForFlyer(f);
+    const items=flyerItems(f).slice(0,3);
+    const summary=items.map(x=>`${x.product_name}${x.sale_price!=null?` ${money(x.sale_price)}`:''}`).join(' · ');
+    return {
+      id:`weekly-flyer-${f.id}`,
+      source_id:`weekly-flyer-${f.id}`,
+      category:'market',
+      category_label:'이번 주 특가',
+      icon:'🛒',
+      title:f.title||`${b?.name||b?.name_ko||'마켓'} 주간 세일`,
+      summary:summary||f.ai_summary||'이번 주 마켓 세일 정보를 확인하세요.',
+      subtitle:summary||f.ai_summary||'대표 할인 상품을 확인하세요.',
+      business_id:f.business_id,
+      target_type:'business',
+      target_id:f.business_id,
+      url:f.image_url,
+      link_label:'전체 세일 보기 →',
+      priority:220,
+      selected_by_admin:Boolean(f.show_on_home),
+      admin_selected:Boolean(f.show_on_home),
+      published_at:f.updated_at||f.created_at,
+      created_at:f.created_at,
+      updated_at:f.updated_at,
+      weekly_flyer_id:f.id,
+      event_data:{end_at:f.end_date?`${f.end_date}T23:59:59-05:00`:null}
+    };
+  }
+
+  const basePrepare=typeof v51PrepareTodayItems==='function'?v51PrepareTodayItems:null;
+  if(basePrepare){
+    v51PrepareTodayItems=function(items=[]){
+      const flyerRows=activeFlyers.filter(f=>f.show_on_home!==false).map(flyerTodayItem);
+      const combined=[...flyerRows,...(items||[])];
+      const result=basePrepare(combined);
+      const seen=new Set();
+      return result.filter(x=>{
+        const key=String(x.id||x.source_id||x.title);
+        if(seen.has(key))return false;
+        seen.add(key);return true;
+      });
+    };
+  }
+
+  const baseRenderDetail=typeof renderDetail==='function'?renderDetail:null;
+  if(baseRenderDetail){
+    renderDetail=function(id){
+      const result=baseRenderDetail(id);
+      loadActiveFlyers().then(()=>injectBusinessFlyer(id));
+      return result;
+    };
+  }
+
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest('[data-smart-flyer-open]');
+    if(btn)openModal(btn.getAttribute('data-smart-flyer-open'));
+  });
+
+  async function refresh(force=false){
+    await loadActiveFlyers(force);
+    if(selectedBizId&&currentPage==='business-detail')injectBusinessFlyer(selectedBizId);
+    if(typeof v51RefreshToday==='function')await v51RefreshToday();
+  }
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')refresh(true);
+  });
+  window.addEventListener('focus',()=>refresh(true));
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>refresh(true),1600);
+    setInterval(()=>{if(!document.hidden)refresh(true);},60*1000);
+  });
+
+  window.P010SmartFlyerPublic={refresh,openModal};
+  console.info('[DalTownMap] P010-2 Smart Flyer public UI loaded');
+})();
+
