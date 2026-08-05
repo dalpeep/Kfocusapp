@@ -8122,7 +8122,16 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
         id:Number(flyerId),region:getAppRegion()
       });
 
-      status.textContent=`2/3 상품 위치 ${result.positions_updated||0}개 확인 · 이미지를 생성하고 있습니다...`;
+      const found=Number(result.positions_updated||0);
+      const returned=Number(result.matches_returned||0);
+      if(found<1){
+        throw new Error(
+          `AI 응답 ${returned}건을 받았지만 유효한 상품 위치를 찾지 못했습니다. `+
+          `원본 전단 해상도와 Edge Function P021 배포 상태를 확인하세요.`
+        );
+      }
+
+      status.textContent=`2/3 상품 위치 ${found}개 확인 · 이미지를 생성하고 있습니다...`;
 
       if(!window.P016SmartFlyerCrop?.run){
         throw new Error('상품 이미지 생성 모듈이 없습니다. 관리자 파일을 다시 배포하세요.');
@@ -8173,7 +8182,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
 
       const status=document.createElement('div');
       status.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:800';
-      status.textContent='기존 원본을 다시 업로드하지 않고 상품 위치와 이미지를 새 형식으로 생성합니다.';
+      status.textContent='기존 원본을 다시 업로드하지 않고 AI가 상품 위치를 다시 찾은 뒤 상품 이미지를 생성합니다. P021 Edge Function 재배포가 필요합니다.';
 
       button.addEventListener('click',()=>run(id,button,status));
       actions.appendChild(button);
@@ -8188,4 +8197,4 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
 
   console.info('[DalTownMap] P020 existing flyer reanalysis loaded');
 })();
-
+console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
