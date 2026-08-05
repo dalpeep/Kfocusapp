@@ -8198,3 +8198,25 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P020 existing flyer reanalysis loaded');
 })();
 console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
+
+// === P022: 관리자 중복 노출 안내 ===
+(() => {
+  function enhance(){
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.querySelector('.p022-note'))return;
+      const live=card.querySelector('.p012-live');
+      if(!live)return;
+      const note=document.createElement('div');
+      note.className='p022-note';
+      note.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#eefdf6;color:#166534;font-size:12px;font-weight:800';
+      note.textContent='동일 전단은 앱 메인에서 1회만 노출되도록 중복 제거가 적용됩니다.';
+      live.closest('.p011-card-top')?.insertAdjacentElement('afterend',note);
+    });
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1500);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+  console.info('[DalTownMap] P022 duplicate-status notice loaded');
+})();
+
