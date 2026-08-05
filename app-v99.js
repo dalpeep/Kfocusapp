@@ -7619,3 +7619,47 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   window.P031UsEmergencyOnly={enforce,isUsEmergency};
   console.info('[DalTownMap] P031 US-local emergency-only Today card loaded');
 })();
+
+
+// === P032: 메인 긴급 카드 최종 표시 정책 ===
+// 평소에는 숨기고, 미국 내 실제 생명·안전 긴급 경보만 조건부 표시합니다.
+(() => {
+  const criticalUsRe=/(amber alert|silver alert|clear alert|blue alert|active shooter|shelter in place|evacuation|tornado warning|flash flood warning|severe thunderstorm warning|ice storm warning|winter storm warning|wildfire warning|긴급 대피|토네이도 경보|홍수 경보|총격|실종 경보)/i;
+  const usContextRe=/(national weather service|weather\.gov|texas dps|txdot|511dfw|dart|dallas|dfw|fort worth|plano|frisco|carrollton|lewisville|irving|garland|richardson|mckinney|allen|collin|denton|tarrant|texas|tx\b|united states|u\.s\.|미국|텍사스|달라스|포트워스|플레이노|프리스코|캐럴턴|루이스빌)/i;
+  const koreaRe=/(세월호|이태원|대한민국|한국|서울|부산|제주|인천|대구|광주|대전|세종|경기도|강원도|충청|전라|경상|한국인 사망|참사 사망자)/i;
+
+  function currentItem(){
+    return Array.isArray(window.v51TodayItems||v51TodayItems)
+      ? (window.v51TodayItems||v51TodayItems)[Number(window.v51TodayIndex??v51TodayIndex)||0]
+      : null;
+  }
+  function isCriticalUs(item){
+    if(!item)return false;
+    const text=[item.title,item.summary,item.subtitle,item.source_title,item.source_name,item.area,item.url,item.link].filter(Boolean).join(' ');
+    if(koreaRe.test(text) && !usContextRe.test(text))return false;
+    return criticalUsRe.test(text) && usContextRe.test(text);
+  }
+  function apply(){
+    const card=document.getElementById('v37BriefCard');
+    if(!card)return;
+    const show=isCriticalUs(currentItem());
+    card.hidden=!show;
+    card.style.display=show?'':'none';
+    card.setAttribute('aria-hidden',show?'false':'true');
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(apply,300);
+    setTimeout(apply,1800);
+    setTimeout(apply,4000);
+    const card=document.getElementById('v37BriefCard');
+    if(card){
+      new MutationObserver(()=>apply()).observe(card,{subtree:true,childList:true,characterData:true,attributes:true});
+    }
+  });
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(apply,100);});
+  window.addEventListener('focus',()=>setTimeout(apply,100));
+  setInterval(()=>{if(!document.hidden)apply();},1500);
+  window.P032CriticalUsAlertPolicy={apply,isCriticalUs};
+  console.info('[DalTownMap] P032 critical-US-alert-only home card loaded');
+})();
