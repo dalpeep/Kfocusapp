@@ -8107,3 +8107,85 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P019 final slider status loaded');
 })();
 
+// === P020: 기존 전단 상품 이미지 재분석 ===
+(() => {
+  const el=id=>document.getElementById(id);
+
+  async function run(flyerId,button,status){
+    const old=button.textContent;
+    button.disabled=true;
+    try{
+      status.textContent='1/3 기존 전단에서 상품 위치를 다시 찾고 있습니다...';
+      button.textContent='재분석 중...';
+
+      const result=await newsroomEdgeCall('reanalyze_weekly_flyer_positions',{
+        id:Number(flyerId),region:getAppRegion()
+      });
+
+      status.textContent=`2/3 상품 위치 ${result.positions_updated||0}개 확인 · 이미지를 생성하고 있습니다...`;
+
+      if(!window.P016SmartFlyerCrop?.run){
+        throw new Error('상품 이미지 생성 모듈이 없습니다. 관리자 파일을 다시 배포하세요.');
+      }
+      const crop=await window.P016SmartFlyerCrop.run(Number(flyerId),message=>{
+        status.textContent=`2/3 ${message}`;
+      });
+
+      status.textContent='3/3 앱 메인 연결을 갱신하고 있습니다...';
+      await newsroomEdgeCall('activate_weekly_flyer',{id:Number(flyerId)});
+
+      try{
+        localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+        localStorage.removeItem('daltownmap_v38_home');
+      }catch{}
+      try{
+        const bc=new BroadcastChannel('daltownmap-content');
+        bc.postMessage({type:'weekly_flyer_changed',flyer_id:Number(flyerId),at:Date.now()});
+        bc.close();
+      }catch{}
+
+      status.textContent=`완료: 위치 ${result.positions_updated||0}개 · 상품 이미지 ${crop.complete||0}개 · 메인 슬라이드 연결됨`;
+      if(window.P011SmartFlyerCenter?.load)await window.P011SmartFlyerCenter.load();
+      if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
+      alert(`기존 전단 재분석 완료\n상품 위치 ${result.positions_updated||0}개\n상품 이미지 ${crop.complete||0}개`);
+    }catch(e){
+      status.textContent=`재분석 실패: ${e.message}`;
+      alert(`기존 전단 재분석 실패: ${e.message}`);
+    }finally{
+      button.disabled=false;
+      button.textContent=old;
+    }
+  }
+
+  function enhance(){
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.dataset.p020==='1')return;
+      card.dataset.p020='1';
+      const id=Number(card.querySelector('[data-id]')?.dataset.id||0);
+      const actions=card.querySelector('.p011-actions');
+      if(!id||!actions)return;
+
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='btn';
+      button.style.cssText='background:#fff7ed;color:#9a3412;border:1px solid #fed7aa';
+      button.textContent='기존 전단 상품 이미지 재분석';
+
+      const status=document.createElement('div');
+      status.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:800';
+      status.textContent='기존 원본을 다시 업로드하지 않고 상품 위치와 이미지를 새 형식으로 생성합니다.';
+
+      button.addEventListener('click',()=>run(id,button,status));
+      actions.appendChild(button);
+      actions.insertAdjacentElement('afterend',status);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1600);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+
+  console.info('[DalTownMap] P020 existing flyer reanalysis loaded');
+})();
+
