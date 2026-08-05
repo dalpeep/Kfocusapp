@@ -8450,3 +8450,135 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   console.info('[DalTownMap] P039 unified one-line ad label enforced');
 })();
+
+
+
+// === P040: 모바일 마켓 카드 정렬 + 1.9인치 이미지 높이 보정 ===
+(() => {
+  function install(){
+    if(document.getElementById('p040MarketMobileFix')) return;
+    const style = document.createElement('style');
+    style.id = 'p040MarketMobileFix';
+    style.textContent = `
+      @media (max-width: 640px){
+        #v37RecommendCard.p032-market{
+          width:100%!important;
+          margin-left:0!important;
+          margin-right:0!important;
+          transform:none!important;
+          overflow:hidden!important;
+        }
+
+        #v37RecommendCard .p032-shell{
+          width:100%!important;
+          margin:0!important;
+          overflow:hidden!important;
+        }
+
+        #v37RecommendCard .p032-storebar,
+        #v37RecommendCard .p032-titlebar,
+        #v37RecommendCard .p032-viewport{
+          width:100%!important;
+          margin-left:0!important;
+          margin-right:0!important;
+          box-sizing:border-box!important;
+        }
+
+        #v37RecommendCard .p032-titlebar{
+          display:grid!important;
+          grid-template-columns:minmax(0,1fr) auto!important;
+          align-items:center!important;
+          gap:8px!important;
+          padding-left:12px!important;
+          padding-right:12px!important;
+        }
+
+        #v37RecommendCard .p032-title-main{
+          min-width:0!important;
+          display:flex!important;
+          align-items:center!important;
+          gap:7px!important;
+          overflow:hidden!important;
+        }
+
+        #v37RecommendCard .p032-title-main > span:last-of-type{
+          flex:0 1 auto!important;
+          min-width:0!important;
+          overflow:hidden!important;
+          text-overflow:ellipsis!important;
+          white-space:nowrap!important;
+        }
+
+        #v37RecommendCard .p032-business-link{
+          flex:0 1 auto!important;
+          max-width:116px!important;
+          min-width:0!important;
+          padding:4px 7px!important;
+        }
+
+        #v37RecommendCard .p032-business-link span{
+          max-width:82px!important;
+        }
+
+        #v37RecommendCard .p032-period{
+          justify-self:end!important;
+          text-align:right!important;
+          font-size:11px!important;
+          letter-spacing:-.2px!important;
+        }
+
+        /* 1.9 inch ≈ 182px at 96dpi */
+        #v37RecommendCard .p032-viewport{
+          height:182px!important;
+          min-height:182px!important;
+          max-height:182px!important;
+          padding:0!important;
+          line-height:0!important;
+          background:#fff!important;
+        }
+
+        #v37RecommendCard .p032-track{
+          height:182px!important;
+          min-height:182px!important;
+          max-height:182px!important;
+          align-items:stretch!important;
+        }
+
+        #v37RecommendCard .p032-strip{
+          height:182px!important;
+          min-height:182px!important;
+          max-height:182px!important;
+          background-size:auto 182px!important;
+          background-repeat:repeat-x!important;
+          background-position:center center!important;
+          background-color:#fff!important;
+        }
+
+        #v37RecommendCard .p032-open{
+          bottom:10px!important;
+          right:10px!important;
+        }
+      }
+
+      @media (max-width: 390px){
+        #v37RecommendCard .p032-title-main{
+          font-size:15px!important;
+        }
+        #v37RecommendCard .p032-business-link{
+          max-width:106px!important;
+        }
+        #v37RecommendCard .p032-business-link span{
+          max-width:72px!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', install, {once:true});
+  }else{
+    install();
+  }
+  console.info('[DalTownMap] P040 mobile market alignment and 1.9-inch crop fix loaded');
+})();
