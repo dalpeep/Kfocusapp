@@ -8277,7 +8277,10 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     crop: null,
     dragging: false,
     startX: 0,
-    startY: 0
+    startY: 0,
+    zoom: 1,
+    baseWidth: 0,
+    baseHeight: 0
   };
   const el = id => document.getElementById(id);
   const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
@@ -8338,22 +8341,47 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         width:40px;height:40px;border:0;border-radius:12px;
         background:#eaf2ff;color:#24456f;font-size:24px;
       }
+      #p032CropModal .p032a-stage-wrap{
+        position:relative;
+        margin-top:14px;
+        height:68vh;
+        min-height:420px;
+        overflow:auto;
+        border-radius:14px;
+        background:#cfd8e6;
+        text-align:left;
+      }
       #p032CropModal .p032a-stage{
         position:relative;
         display:inline-block;
-        max-width:100%;
-        margin-top:14px;
         user-select:none;
         touch-action:none;
         line-height:0;
         background:#dbe6f7;
+        transform-origin:top left;
       }
       #p032CropModal .p032a-stage img{
         display:block;
-        max-width:100%;
-        max-height:65vh;
         width:auto;
         height:auto;
+        max-width:none;
+        max-height:none;
+      }
+      #p032CropModal .p032a-zoom{
+        display:flex;
+        align-items:center;
+        gap:8px;
+        flex-wrap:wrap;
+        margin-top:10px;
+      }
+      #p032CropModal .p032a-zoom button{
+        min-width:42px;
+      }
+      #p032CropModal .p032a-zoom-value{
+        min-width:56px;
+        text-align:center;
+        font-weight:800;
+        color:#173a6a;
       }
       #p032CropModal .p032a-overlay{
         position:absolute;
@@ -8415,11 +8443,18 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
           </div>
           <button type="button" class="p032a-close" aria-label="닫기">×</button>
         </div>
-        <div style="text-align:center">
+        <div class="p032a-stage-wrap" id="p032CropStageWrap">
           <div class="p032a-stage" id="p032CropStage">
             <img id="p032CropImage" alt="전단 원본">
             <div class="p032a-overlay" id="p032CropOverlay"></div>
           </div>
+        </div>
+        <div class="p032a-zoom">
+          <button type="button" class="btn" id="p032ZoomOut">−</button>
+          <button type="button" class="btn" id="p032ZoomFit">맞춤</button>
+          <button type="button" class="btn" id="p032ZoomIn">＋</button>
+          <span class="p032a-zoom-value" id="p032ZoomValue">100%</span>
+          <span style="font-size:12px;color:#64748b">확대한 뒤 마우스로 가로 영역을 드래그하세요.</span>
         </div>
         <div class="p032a-tip">
           상품이 여러 개 한 줄로 보이는 가로 영역을 선택하세요. 너무 좁거나 세로형 영역은 저장되지 않습니다.
@@ -8442,6 +8477,9 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     });
     el('p032CropClear')?.addEventListener('click', ()=>save(true));
     el('p032CropSave')?.addEventListener('click', ()=>save(false));
+    el('p032ZoomIn')?.addEventListener('click', ()=>applyZoom(state.zoom*1.25));
+    el('p032ZoomOut')?.addEventListener('click', ()=>applyZoom(state.zoom/1.25));
+    el('p032ZoomFit')?.addEventListener('click', fitZoom);
 
     const stage = el('p032CropStage');
     stage?.addEventListener('pointerdown', pointerDown);
@@ -8449,6 +8487,38 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     stage?.addEventListener('pointerup', pointerUp);
     stage?.addEventListener('pointercancel', pointerUp);
     return modal;
+  }
+
+
+  function applyZoom(next){
+    const img=el('p032CropImage');
+    const stage=el('p032CropStage');
+    const wrap=el('p032CropStageWrap');
+    if(!img||!stage||!wrap||!state.baseWidth||!state.baseHeight)return;
+    state.zoom=Math.max(.35,Math.min(4,Number(next)||1));
+    const width=Math.round(state.baseWidth*state.zoom);
+    const height=Math.round(state.baseHeight*state.zoom);
+    img.style.width=`${width}px`;
+    img.style.height=`${height}px`;
+    stage.style.width=`${width}px`;
+    stage.style.height=`${height}px`;
+    const value=el('p032ZoomValue');
+    if(value)value.textContent=`${Math.round(state.zoom*100)}%`;
+    paint();
+  }
+
+  function fitZoom(){
+    const img=el('p032CropImage');
+    const wrap=el('p032CropStageWrap');
+    if(!img||!wrap||!img.naturalWidth||!img.naturalHeight)return;
+    state.baseWidth=img.naturalWidth;
+    state.baseHeight=img.naturalHeight;
+    const available=Math.max(260,wrap.clientWidth-18);
+    // 세로 전단은 처음부터 너무 작지 않게 최소 140% 수준으로 표시합니다.
+    const fit=Math.min(1,available/state.baseWidth);
+    applyZoom(Math.max(fit,1.4));
+    wrap.scrollTop=0;
+    wrap.scrollLeft=Math.max(0,(state.baseWidth*state.zoom-wrap.clientWidth)/2);
   }
 
   function close(){
@@ -8460,21 +8530,26 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   function point(event){
     const img = el('p032CropImage');
     const rect = img.getBoundingClientRect();
-    return {
-      x: Math.max(0,Math.min(rect.width,event.clientX-rect.left)),
-      y: Math.max(0,Math.min(rect.height,event.clientY-rect.top)),
-      width:rect.width,
-      height:rect.height
-    };
+    const x = Math.max(0,Math.min(rect.width,event.clientX-rect.left));
+    const y = Math.max(0,Math.min(rect.height,event.clientY-rect.top));
+    return {x,y,width:rect.width,height:rect.height};
   }
 
   function pointerDown(event){
-    if(!state.flyer) return;
+    if(!state.flyer || event.button>0) return;
     const p = point(event);
     state.dragging = true;
     state.startX = p.x;
     state.startY = p.y;
-    state.crop = {x:p.x/p.width,y:p.y/p.height,width:0,height:0};
+    const minW=Math.min(p.width*.22,180);
+    const minH=minW/3.6;
+    state.crop = {
+      x:Math.max(0,(p.x-minW/2)/p.width),
+      y:Math.max(0,(p.y-minH/2)/p.height),
+      width:minW/p.width,
+      height:minH/p.height
+    };
+    event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     paint();
   }
@@ -8482,26 +8557,24 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   function pointerMove(event){
     if(!state.dragging) return;
     const p = point(event);
-    const left = Math.min(state.startX,p.x);
-    const top = Math.min(state.startY,p.y);
-    let width = Math.abs(p.x-state.startX);
-    let height = Math.abs(p.y-state.startY);
+    const dx=p.x-state.startX;
+    const dy=p.y-state.startY;
+    let width=Math.max(Math.abs(dx),Math.min(p.width*.22,180));
+    let height=width/3.6;
 
-    // 메인 마퀴에 맞는 가로형 비율을 유지합니다.
-    const targetRatio = 3.6;
-    if(width / Math.max(1,height) < targetRatio){
-      height = width / targetRatio;
-    }else{
-      width = height * targetRatio;
-    }
-    width = Math.min(width,p.width-left);
-    height = Math.min(height,p.height-top);
-    state.crop = {
+    let left=dx>=0?state.startX:state.startX-width;
+    let top=dy>=0?state.startY:state.startY-height;
+
+    left=Math.max(0,Math.min(p.width-width,left));
+    top=Math.max(0,Math.min(p.height-height,top));
+
+    state.crop={
       x:left/p.width,
       y:top/p.height,
       width:width/p.width,
       height:height/p.height
     };
+    event.preventDefault();
     paint();
   }
 
@@ -8562,15 +8635,22 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
 
       const img = el('p032CropImage');
       img.onload = ()=>{
+        state.baseWidth=img.naturalWidth;
+        state.baseHeight=img.naturalHeight;
+        fitZoom();
         paint();
         status.textContent = state.crop
-          ? '저장된 대표 구간이 표시되었습니다.'
-          : '상품이 여러 개 한 줄로 보이는 영역을 드래그하세요.';
+          ? '저장된 대표 구간이 표시되었습니다. 확대 후 다시 드래그할 수 있습니다.'
+          : '이미지를 확대하고 상품이 여러 개 한 줄로 보이는 영역을 드래그하세요.';
       };
       img.onerror = ()=>{ status.textContent='전단 이미지를 불러오지 못했습니다.'; };
       img.src = flyer.image_url;
       modal.classList.add('open');
       document.body.style.overflow='hidden';
+      setTimeout(()=>{
+        const wrap=el('p032CropStageWrap');
+        if(wrap){wrap.scrollTop=0;wrap.scrollLeft=0;}
+      },0);
     }catch(error){
       status.textContent=`불러오기 실패: ${error.message}`;
       modal.classList.add('open');
