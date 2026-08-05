@@ -7566,3 +7566,56 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   setInterval(()=>{if(!document.hidden)start();},30000);
   console.info('[DalTownMap] P030 Weather and traffic one-line ticker loaded');
 })();
+
+
+// === P031: 오늘의 달타운은 미국 내 긴급 공지만 표시 ===
+(() => {
+  const localEmergencyRe=/(dallas|dfw|fort worth|plano|frisco|carrollton|lewisville|irving|garland|richardson|mckinney|allen|collin|denton|tarrant|texas|tx\b|united states|u\.s\.|미국|텍사스|달라스|포트워스|플레이노|프리스코|캐럴턴|루이스빌|어빙|갈랜드|리처드슨|맥키니|알렌|콜린|덴턴|태런트)/i;
+  const officialUsAlertRe=/(national weather service|weather\.gov|texas dps|txdot|511dfw|dart|amber alert|silver alert|clear alert|blue alert|shelter in place|evacuation|tornado warning|flash flood warning|severe thunderstorm warning|heat advisory|road closure|school closure|delayed start|active shooter)/i;
+  const foreignKoreaRe=/(대한민국|한국|서울|부산|제주|인천|대구|광주|대전|세종|경기[도 ]|강원[도 ]|충청|전라|경상|세월호|이태원|한국인 사망|재외국민)/i;
+
+  function isUsEmergency(item={}){
+    const category=String(item.category||item.category_key||'').toLowerCase();
+    const text=[item.title,item.summary,item.subtitle,item.source_title,item.source_name,item.area,item.url].filter(Boolean).join(' ');
+    const emergency=Boolean(item.emergency||item.school||category==='emergency'||/(긴급|경보|주의보|대피|통제|실종|총격|폭풍|홍수|토네이도|amber alert|warning|advisory|evacuation|closure|active shooter)/i.test(text));
+    if(!emergency)return false;
+    if(foreignKoreaRe.test(text)&&!localEmergencyRe.test(text)&&!officialUsAlertRe.test(text))return false;
+    return localEmergencyRe.test(text)||officialUsAlertRe.test(text);
+  }
+
+  const originalPrepare=typeof v51PrepareTodayItems==='function'?v51PrepareTodayItems:null;
+  if(originalPrepare){
+    window.v51PrepareTodayItems=function(items=[]){
+      const prepared=originalPrepare(items||[]);
+      return prepared.filter(isUsEmergency).slice(0,8);
+    };
+  }
+
+  const originalPaint=typeof v51PaintToday==='function'?v51PaintToday:null;
+  if(originalPaint){
+    window.v51PaintToday=function(...args){
+      const card=document.getElementById('v37BriefCard');
+      const result=originalPaint.apply(this,args);
+      const current=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+      if(card){
+        const show=Boolean(current&&isUsEmergency(current));
+        card.hidden=!show;
+        card.style.display=show?'':'';
+      }
+      return result;
+    };
+  }
+
+  function enforce(){
+    if(Array.isArray(v51TodayItems)){
+      v51TodayItems=v51TodayItems.filter(isUsEmergency);
+      if(v51TodayIndex>=v51TodayItems.length)v51TodayIndex=0;
+    }
+    if(typeof v51PaintToday==='function')v51PaintToday();
+  }
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(enforce,2800));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(enforce,400);});
+  setInterval(()=>{if(!document.hidden)enforce();},30000);
+  window.P031UsEmergencyOnly={enforce,isUsEmergency};
+  console.info('[DalTownMap] P031 US-local emergency-only Today card loaded');
+})();
