@@ -8220,3 +8220,27 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   console.info('[DalTownMap] P022 duplicate-status notice loaded');
 })();
 
+// === P023: 메인 단일 전단 피드 안내 ===
+(() => {
+  function enhance(){
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.querySelector('.p023-note'))return;
+      const live=card.querySelector('.p012-live');
+      if(!live)return;
+
+      const note=document.createElement('div');
+      note.className='p023-note';
+      note.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#eef4ff;color:#1d4ed8;font-size:12px;font-weight:800';
+      note.textContent='앱 메인은 공개 전단 피드에서 이 전단을 한 번만 불러오며, 상품 이미지가 있으면 상품 슬라이드로 표시합니다.';
+      live.closest('.p011-card-top')?.insertAdjacentElement('afterend',note);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1500);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+
+  console.info('[DalTownMap] P023 canonical-feed notice loaded');
+})();
+
