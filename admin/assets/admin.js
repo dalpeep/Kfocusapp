@@ -8281,7 +8281,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     zoom: 1,
     baseWidth: 0,
     baseHeight: 0,
-    boxWidth: 0.72
+    boxWidth: 0.38
   };
   const el = id => document.getElementById(id);
   const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
@@ -8457,6 +8457,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
           <span class="p032a-zoom-value" id="p032ZoomValue">100%</span>
           <button type="button" class="btn" id="p032BoxSmall">박스 작게</button>
           <button type="button" class="btn" id="p032BoxLarge">박스 크게</button>
+          <span class="p032a-zoom-value" id="p032BoxValue">박스 38%</span>
           <span style="font-size:12px;color:#64748b">확대한 뒤 원하는 상품 줄의 가운데를 클릭하세요.</span>
         </div>
         <div class="p032a-tip">
@@ -8484,12 +8485,14 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     el('p032ZoomOut')?.addEventListener('click', ()=>applyZoom(state.zoom/1.25));
     el('p032ZoomFit')?.addEventListener('click', fitZoom);
     el('p032BoxSmall')?.addEventListener('click', ()=>{
-      state.boxWidth=Math.max(.36,state.boxWidth-.08);
+      state.boxWidth=Math.max(.22,state.boxWidth-.05);
       repositionCurrentBox();
+      updateBoxSizeLabel();
     });
     el('p032BoxLarge')?.addEventListener('click', ()=>{
-      state.boxWidth=Math.min(.92,state.boxWidth+.08);
+      state.boxWidth=Math.min(.78,state.boxWidth+.05);
       repositionCurrentBox();
+      updateBoxSizeLabel();
     });
 
     const stage = el('p032CropStage');
@@ -8546,8 +8549,13 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     return {x,y,width:rect.width,height:rect.height};
   }
 
+  function updateBoxSizeLabel(){
+    const node=el('p032BoxValue');
+    if(node)node.textContent=`박스 ${Math.round((Number(state.boxWidth)||.38)*100)}%`;
+  }
+
   function placeFixedBoxAt(normalizedX,normalizedY){
-    const width=Math.max(.36,Math.min(.92,Number(state.boxWidth)||.72));
+    const width=Math.max(.22,Math.min(.78,Number(state.boxWidth)||.38));
     const height=width/3.6;
     const x=Math.max(0,Math.min(1-width,normalizedX-width/2));
     const y=Math.max(0,Math.min(1-height,normalizedY-height/2));
@@ -8570,7 +8578,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     event.preventDefault();
     placeFixedBoxAt(p.x/p.width,p.y/p.height);
     const status=el('p032CropStatus');
-    if(status)status.textContent='선택 위치가 변경되었습니다. 아래 미리보기를 확인하고 저장하세요.';
+    if(status)status.textContent='선택 위치가 변경되었습니다. 박스 작게/크게로 조절한 뒤 미리보기를 확인하세요.';
   }
 
   function pointerMove(event){
@@ -8628,7 +8636,9 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
       if(!flyer) throw new Error('전단을 찾지 못했습니다.');
       state.flyer = flyer;
       state.crop = normalizeCrop(flyer.featured_crop);
-      if(state.crop)state.boxWidth=Math.max(.36,Math.min(.92,state.crop.width));
+      if(state.crop)state.boxWidth=Math.max(.22,Math.min(.78,state.crop.width));
+      else state.boxWidth=.38;
+      updateBoxSizeLabel();
 
       const img = el('p032CropImage');
       img.onload = ()=>{
@@ -8661,7 +8671,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     if(!clear){
       if(!crop) return alert('대표 구간을 먼저 선택하세요.');
       const ratio=crop.width/crop.height;
-      if(crop.width<.30 || crop.height<.04 || ratio<3.2 || ratio>4.2){
+      if(crop.width<.22 || crop.height<.035 || ratio<3.2 || ratio>4.2){
         return alert('전단 이미지에서 원하는 상품 줄의 가운데를 한 번 클릭해 주세요.');
       }
     }
