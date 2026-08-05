@@ -8222,3 +8222,231 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     install();
   }
 })();
+
+
+
+// === P039: 한 줄 광고 UI 완전 통일 · 중복 라벨 제거 ===
+(() => {
+  const LABEL_TEXT = '한 줄 광고';
+
+  function ensureStyle(){
+    if(document.getElementById('p039UnifiedTickerStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'p039UnifiedTickerStyle';
+    style.textContent = `
+      #homeAdTickerSection{
+        display:block!important;
+        margin:0!important;
+      }
+      #homeAdTickerList{
+        width:100%!important;
+        overflow:hidden!important;
+      }
+      #homeAdTickerList .p039-shell{
+        display:flex!important;
+        align-items:stretch!important;
+        width:100%!important;
+        min-height:44px!important;
+        max-height:44px!important;
+        overflow:hidden!important;
+        border:1px solid #d9e4f5!important;
+        border-radius:14px!important;
+        background:#fff!important;
+        box-shadow:none!important;
+      }
+      #homeAdTickerList .p039-label{
+        position:relative!important;
+        z-index:2!important;
+        flex:0 0 98px!important;
+        display:flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        gap:6px!important;
+        min-width:98px!important;
+        padding:0 12px!important;
+        border-radius:13px 0 0 13px!important;
+        background:linear-gradient(135deg,#1764d7 0%,#245eea 100%)!important;
+        color:#fff!important;
+        font-size:12px!important;
+        font-weight:900!important;
+        white-space:nowrap!important;
+      }
+      #homeAdTickerList .p039-label:after{
+        content:''!important;
+        position:absolute!important;
+        right:-7px!important;
+        top:50%!important;
+        width:14px!important;
+        height:14px!important;
+        background:#245eea!important;
+        transform:translateY(-50%) rotate(45deg)!important;
+        z-index:-1!important;
+      }
+      #homeAdTickerList .p039-viewport{
+        flex:1 1 auto!important;
+        min-width:0!important;
+        overflow:hidden!important;
+        padding-left:12px!important;
+      }
+      #homeAdTickerList .p039-track{
+        display:flex!important;
+        align-items:center!important;
+        width:max-content!important;
+        min-width:200%!important;
+        height:44px!important;
+        animation:p039Flow 30s linear infinite!important;
+        will-change:transform!important;
+      }
+      #homeAdTickerList .p039-item{
+        flex:0 0 auto!important;
+        display:flex!important;
+        align-items:center!important;
+        gap:8px!important;
+        height:44px!important;
+        padding:0 22px 0 2px!important;
+        border:0!important;
+        border-radius:0!important;
+        background:transparent!important;
+        box-shadow:none!important;
+        color:inherit!important;
+        font:inherit!important;
+        white-space:nowrap!important;
+      }
+      #homeAdTickerList .p039-badge{
+        display:inline-flex!important;
+        align-items:center!important;
+        padding:4px 8px!important;
+        border-radius:999px!important;
+        background:#fff2d8!important;
+        color:#9a5b00!important;
+        font-size:11px!important;
+        font-weight:900!important;
+      }
+      #homeAdTickerList .p039-title{
+        color:#172b4d!important;
+        font-size:13px!important;
+        font-weight:800!important;
+      }
+      #homeAdTickerList .p039-detail{
+        max-width:300px!important;
+        overflow:hidden!important;
+        text-overflow:ellipsis!important;
+        color:#64748b!important;
+        font-size:12px!important;
+      }
+      #homeAdTickerList .p039-sep{
+        flex:0 0 auto!important;
+        padding-right:18px!important;
+        color:#cbd5e1!important;
+      }
+      #homeAdTickerList:hover .p039-track,
+      #homeAdTickerList:active .p039-track{
+        animation-play-state:paused!important;
+      }
+      @keyframes p039Flow{
+        from{transform:translate3d(0,0,0)}
+        to{transform:translate3d(-50%,0,0)}
+      }
+      @media(max-width:390px){
+        #homeAdTickerList .p039-label{
+          flex-basis:94px!important;
+          min-width:94px!important;
+          font-size:11px!important;
+        }
+        #homeAdTickerList .p039-detail{max-width:190px!important}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function normalizeRows(){
+    const source = Array.isArray(v51TodayItems) ? v51TodayItems : [];
+    const rows = source
+      .filter(item => ['weather','traffic'].includes(String(item?.category||'').toLowerCase()))
+      .slice(0,4);
+
+    const ads = [];
+    document.querySelectorAll('#homeAdTickerList [data-ad-id], #homeAdTickerList .ticker-ad-item').forEach(node=>{
+      const title = String(node.querySelector('strong')?.textContent || node.textContent || '').trim();
+      if(title) ads.push({category:'ad',title,summary:''});
+    });
+
+    const merged = [...ads, ...rows];
+    const seen = new Set();
+    return merged.filter(row=>{
+      const key = `${row.category}|${row.title}`;
+      if(seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0,6);
+  }
+
+  function render(){
+    ensureStyle();
+    const section = document.getElementById('homeAdTickerSection');
+    const box = document.getElementById('homeAdTickerList');
+    if(!section || !box) return false;
+
+    let rows = normalizeRows();
+    if(!rows.length) return false;
+
+    section.hidden = false;
+    const base = rows.length === 1 ? [rows[0], rows[0]] : rows;
+    const loop = [...base, ...base];
+
+    box.innerHTML = `
+      <div class="p039-shell">
+        <div class="p039-label"><span>📣</span><b>${LABEL_TEXT}</b></div>
+        <div class="p039-viewport">
+          <div class="p039-track">
+            ${loop.map((row,index)=>{
+              const key = String(row.category||'').toLowerCase();
+              const isWeather = key === 'weather';
+              const isTraffic = key === 'traffic';
+              const badge = isWeather ? '☀️ 날씨' : isTraffic ? '🚗 교통' : '광고';
+              return `
+                <button type="button" class="p039-item" data-p039-index="${index%base.length}">
+                  <span class="p039-badge">${badge}</span>
+                  <strong class="p039-title">${String(row.title||'')}</strong>
+                  ${row.summary ? `<span class="p039-detail">${String(row.summary)}</span>` : ''}
+                </button>
+                <span class="p039-sep" aria-hidden="true">•</span>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    box.querySelectorAll('[data-p039-index]').forEach(button=>{
+      button.addEventListener('click',()=>{
+        const row = base[Number(button.dataset.p039Index)||0];
+        if(typeof v51OpenItem === 'function' && row.category !== 'ad') v51OpenItem(row);
+      });
+    });
+    return true;
+  }
+
+  function enforce(){
+    const box = document.getElementById('homeAdTickerList');
+    if(!box) return;
+    const currentLabel = box.querySelector('.p039-label b')?.textContent?.trim();
+    const hasWrongText = /달타운\s*알림|오늘의\s*달타운/i.test(box.textContent || '');
+    if(currentLabel !== LABEL_TEXT || hasWrongText) render();
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(render,1200);
+    setTimeout(render,3000);
+    const box=document.getElementById('homeAdTickerList');
+    if(box){
+      const observer=new MutationObserver(()=>setTimeout(enforce,0));
+      observer.observe(box,{childList:true,subtree:true,characterData:true});
+    }
+  });
+  window.addEventListener('focus',render);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) render(); });
+  setInterval(()=>{ if(!document.hidden) enforce(); },2000);
+
+  console.info('[DalTownMap] P039 unified one-line ad label enforced');
+})();
