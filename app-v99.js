@@ -7612,6 +7612,31 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         text-overflow:ellipsis;
         white-space:nowrap;
       }
+      #v37RecommendCard .p032-business-link{
+        flex:0 1 auto;
+        min-width:0;
+        display:inline-flex;
+        align-items:center;
+        gap:5px;
+        padding:5px 9px;
+        border:0;
+        border-radius:999px;
+        background:#fff;
+        color:#0f4bb8;
+        box-shadow:0 1px 5px rgba(15,75,184,.12);
+        font-size:12px;
+        font-weight:900;
+        white-space:nowrap;
+        cursor:pointer;
+      }
+      #v37RecommendCard .p032-business-link span{
+        max-width:118px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+      #v37RecommendCard .p032-business-link:hover{
+        background:#eff6ff;
+      }
       #v37RecommendCard .p032-period{
         flex:0 0 auto;
         color:#315a91;
@@ -7796,6 +7821,22 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     return '';
   }
 
+
+  function openBusinessDetail(event){
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const businessId=String(state.flyer?.business_id||'').trim();
+    if(!businessId)return openFlyer();
+    try{
+      selectedBizId=businessId;
+      renderDetail(selectedBizId);
+      showPage('business-detail');
+    }catch(error){
+      console.warn('[P035 business detail]',error);
+      openFlyer();
+    }
+  }
+
   function draw(){
     ensureStyle();
     const card = document.getElementById('v37RecommendCard');
@@ -7811,13 +7852,19 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     card.querySelectorAll('.p032-shell').forEach(node => node.remove());
 
     const business = flyer?.business || flyer?.businesses || {};
-    const businessName =
-      business?.name ||
+    const businessNameKo =
       business?.name_ko ||
+      business?.name ||
       business?.title ||
+      flyer?.business_name_ko ||
       flyer?.business_name ||
       flyer?.title ||
       '마켓';
+    const businessNameEn =
+      business?.name_en ||
+      business?.name ||
+      business?.title ||
+      '';
 
     const businessMeta =
       business?.city ||
@@ -7831,12 +7878,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     shell.className = 'p032-shell';
     shell.tabIndex = 0;
     shell.setAttribute('role','button');
-    shell.setAttribute('aria-label',`${businessName} 이번 주 마켓 정보 보기`);
+    shell.setAttribute('aria-label',`${businessNameKo} 이번 주 마켓 정보 보기`);
     shell.innerHTML = `
       <div class="p032-storebar">
         <div class="p032-store-main">
           <span class="p032-store-icon">🛒</span>
-          <strong class="p032-store-name">${esc(businessName)}</strong>
+          <strong class="p032-store-name">${esc(businessNameKo)}</strong>
         </div>
         ${businessMeta ? `<span class="p032-store-meta">${esc(businessMeta)}</span>` : ''}
       </div>
@@ -7844,6 +7891,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         <div class="p032-title-main">
           <span>📅</span>
           <span>이번 주 마켓 정보</span>
+          <button type="button" class="p032-business-link" aria-label="${esc(businessNameKo)} 업소 상세 보기">
+            <span>${esc(businessNameKo)}</span><b>›</b>
+          </button>
         </div>
         ${period ? `<span class="p032-period">${esc(period)}</span>` : ''}
       </div>
@@ -7856,6 +7906,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     `;
     card.appendChild(shell);
 
+    shell.querySelector('.p032-business-link')?.addEventListener('click',openBusinessDetail);
     shell.addEventListener('click', openFlyer);
     shell.addEventListener('keydown', e => {
       if(e.key === 'Enter' || e.key === ' '){
@@ -7903,7 +7954,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   },2500);
 
   window.P032MarketFeaturedCrop = { refresh };
-  console.info('[DalTownMap] P032 administrator-selected market crop marquee loaded');
+  console.info('[DalTownMap] P035 Korean business link in market header loaded');
 })();
 
 // === P030B: 날씨·교통 한 줄 연속 슬라이드 ===
