@@ -8280,7 +8280,8 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     startY: 0,
     zoom: 1,
     baseWidth: 0,
-    baseHeight: 0
+    baseHeight: 0,
+    boxWidth: 0.72
   };
   const el = id => document.getElementById(id);
   const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
@@ -8439,7 +8440,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         <div class="p032a-head">
           <div>
             <h2>메인 대표 구간 지정</h2>
-            <p>전단에서 메인에 계속 흐르게 보여줄 가로 구간을 드래그하세요.</p>
+            <p>전단에서 원하는 위치를 클릭하면 정해진 크기의 가로 선택 박스가 이동합니다.</p>
           </div>
           <button type="button" class="p032a-close" aria-label="닫기">×</button>
         </div>
@@ -8454,10 +8455,12 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
           <button type="button" class="btn" id="p032ZoomFit">맞춤</button>
           <button type="button" class="btn" id="p032ZoomIn">＋</button>
           <span class="p032a-zoom-value" id="p032ZoomValue">100%</span>
-          <span style="font-size:12px;color:#64748b">확대한 뒤 마우스로 가로 영역을 드래그하세요.</span>
+          <button type="button" class="btn" id="p032BoxSmall">박스 작게</button>
+          <button type="button" class="btn" id="p032BoxLarge">박스 크게</button>
+          <span style="font-size:12px;color:#64748b">확대한 뒤 원하는 상품 줄의 가운데를 클릭하세요.</span>
         </div>
         <div class="p032a-tip">
-          상품이 여러 개 한 줄로 보이는 가로 영역을 선택하세요. 너무 좁거나 세로형 영역은 저장되지 않습니다.
+          상품이 여러 개 한 줄로 보이는 위치를 클릭하세요. 선택 박스 크기는 메인 화면 비율에 맞게 자동 고정됩니다.
         </div>
         <div class="p032a-preview"><div id="p032CropPreview"></div></div>
         <div class="p032a-actions">
@@ -8480,6 +8483,14 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     el('p032ZoomIn')?.addEventListener('click', ()=>applyZoom(state.zoom*1.25));
     el('p032ZoomOut')?.addEventListener('click', ()=>applyZoom(state.zoom/1.25));
     el('p032ZoomFit')?.addEventListener('click', fitZoom);
+    el('p032BoxSmall')?.addEventListener('click', ()=>{
+      state.boxWidth=Math.max(.36,state.boxWidth-.08);
+      repositionCurrentBox();
+    });
+    el('p032BoxLarge')?.addEventListener('click', ()=>{
+      state.boxWidth=Math.min(.92,state.boxWidth+.08);
+      repositionCurrentBox();
+    });
 
     const stage = el('p032CropStage');
     stage?.addEventListener('pointerdown', pointerDown);
@@ -8535,54 +8546,39 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     return {x,y,width:rect.width,height:rect.height};
   }
 
+  function placeFixedBoxAt(normalizedX,normalizedY){
+    const width=Math.max(.36,Math.min(.92,Number(state.boxWidth)||.72));
+    const height=width/3.6;
+    const x=Math.max(0,Math.min(1-width,normalizedX-width/2));
+    const y=Math.max(0,Math.min(1-height,normalizedY-height/2));
+    state.crop={x,y,width,height};
+    paint();
+  }
+
+  function repositionCurrentBox(){
+    const crop=normalizeCrop(state.crop);
+    if(crop){
+      placeFixedBoxAt(crop.x+crop.width/2,crop.y+crop.height/2);
+    }else{
+      placeFixedBoxAt(.5,.5);
+    }
+  }
+
   function pointerDown(event){
     if(!state.flyer || event.button>0) return;
-    const p = point(event);
-    state.dragging = true;
-    state.startX = p.x;
-    state.startY = p.y;
-    const minW=Math.min(p.width*.22,180);
-    const minH=minW/3.6;
-    state.crop = {
-      x:Math.max(0,(p.x-minW/2)/p.width),
-      y:Math.max(0,(p.y-minH/2)/p.height),
-      width:minW/p.width,
-      height:minH/p.height
-    };
+    const p=point(event);
     event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    paint();
+    placeFixedBoxAt(p.x/p.width,p.y/p.height);
+    const status=el('p032CropStatus');
+    if(status)status.textContent='선택 위치가 변경되었습니다. 아래 미리보기를 확인하고 저장하세요.';
   }
 
   function pointerMove(event){
-    if(!state.dragging) return;
-    const p = point(event);
-    const dx=p.x-state.startX;
-    const dy=p.y-state.startY;
-    let width=Math.max(Math.abs(dx),Math.min(p.width*.22,180));
-    let height=width/3.6;
-
-    let left=dx>=0?state.startX:state.startX-width;
-    let top=dy>=0?state.startY:state.startY-height;
-
-    left=Math.max(0,Math.min(p.width-width,left));
-    top=Math.max(0,Math.min(p.height-height,top));
-
-    state.crop={
-      x:left/p.width,
-      y:top/p.height,
-      width:width/p.width,
-      height:height/p.height
-    };
-    event.preventDefault();
-    paint();
+    // 고정 박스 방식: 드래그하지 않고 클릭한 위치로 선택 박스를 이동합니다.
   }
 
   function pointerUp(event){
-    if(!state.dragging) return;
-    state.dragging = false;
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    paint();
+    state.dragging=false;
   }
 
   function paint(){
@@ -8632,6 +8628,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
       if(!flyer) throw new Error('전단을 찾지 못했습니다.');
       state.flyer = flyer;
       state.crop = normalizeCrop(flyer.featured_crop);
+      if(state.crop)state.boxWidth=Math.max(.36,Math.min(.92,state.crop.width));
 
       const img = el('p032CropImage');
       img.onload = ()=>{
@@ -8641,7 +8638,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         paint();
         status.textContent = state.crop
           ? '저장된 대표 구간이 표시되었습니다. 확대 후 다시 드래그할 수 있습니다.'
-          : '이미지를 확대하고 상품이 여러 개 한 줄로 보이는 영역을 드래그하세요.';
+          : '이미지를 확대하고 상품이 여러 개 한 줄로 보이는 위치를 클릭하세요.';
       };
       img.onerror = ()=>{ status.textContent='전단 이미지를 불러오지 못했습니다.'; };
       img.src = flyer.image_url;
@@ -8664,8 +8661,8 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     if(!clear){
       if(!crop) return alert('대표 구간을 먼저 선택하세요.');
       const ratio=crop.width/crop.height;
-      if(crop.width<.22 || crop.height<.04 || ratio<2.5 || ratio>6.5){
-        return alert('상품 여러 개가 보이는 넓은 가로 구간으로 다시 선택하세요.');
+      if(crop.width<.30 || crop.height<.04 || ratio<3.2 || ratio>4.2){
+        return alert('전단 이미지에서 원하는 상품 줄의 가운데를 한 번 클릭해 주세요.');
       }
     }
     status.textContent=clear?'대표 구간을 제거하고 있습니다.':'대표 구간을 저장하고 있습니다.';
