@@ -7526,7 +7526,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         overflow:hidden;
         padding:0!important;
         background:#fff;
-        min-height:142px;
+        min-height:292px;
+        border-radius:22px;
+        border:1px solid #d9e4f5;
+        box-shadow:0 8px 24px rgba(30,64,175,.08);
       }
       #v37RecommendCard.p032-market>.v37-recommend-main,
       #v37RecommendCard.p032-market>.v37-recommend-dots{
@@ -7534,16 +7537,93 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       }
       #v37RecommendCard .p032-shell{
         position:relative;
-        height:142px;
+        min-height:292px;
         overflow:hidden;
         border-radius:inherit;
-        background:#eef2f7;
+        background:#fff;
         cursor:pointer;
       }
-      #v37RecommendCard .p032-viewport{
-        position:absolute;
-        inset:0;
+      #v37RecommendCard .p032-storebar{
+        min-height:58px;
+        padding:11px 15px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        color:#fff;
+        background:linear-gradient(135deg,#0f4bb8 0%,#174fd1 55%,#2563eb 100%);
+      }
+      #v37RecommendCard .p032-store-main{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:10px;
+      }
+      #v37RecommendCard .p032-store-icon{
+        flex:0 0 auto;
+        width:30px;
+        height:30px;
+        display:grid;
+        place-items:center;
+        border-radius:10px;
+        background:rgba(255,255,255,.16);
+        font-size:17px;
+      }
+      #v37RecommendCard .p032-store-name{
         overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:18px;
+        font-weight:900;
+        letter-spacing:.1px;
+      }
+      #v37RecommendCard .p032-store-meta{
+        flex:0 0 auto;
+        max-width:42%;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        color:rgba(255,255,255,.88);
+        font-size:11px;
+        font-weight:700;
+        text-align:right;
+      }
+      #v37RecommendCard .p032-titlebar{
+        min-height:48px;
+        padding:9px 15px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        color:#15386d;
+        background:linear-gradient(180deg,#f8fbff 0%,#eaf2ff 100%);
+        border-bottom:1px solid #dbe7f7;
+      }
+      #v37RecommendCard .p032-title-main{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:9px;
+        font-size:18px;
+        font-weight:900;
+      }
+      #v37RecommendCard .p032-title-main span:last-child{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+      }
+      #v37RecommendCard .p032-period{
+        flex:0 0 auto;
+        color:#315a91;
+        font-size:12px;
+        font-weight:800;
+        white-space:nowrap;
+      }
+      #v37RecommendCard .p032-viewport{
+        position:relative;
+        height:186px;
+        overflow:hidden;
+        background:#fff;
       }
       #v37RecommendCard .p032-track{
         display:flex;
@@ -7563,46 +7643,18 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       #v37RecommendCard .p032-shell.is-paused .p032-track{
         animation-play-state:paused;
       }
-      #v37RecommendCard .p032-label{
-        position:absolute;
-        left:10px;
-        bottom:9px;
-        z-index:3;
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        max-width:calc(100% - 55px);
-        padding:6px 9px;
-        border-radius:999px;
-        background:rgba(15,23,42,.78);
-        color:#fff;
-        box-shadow:0 2px 10px rgba(0,0,0,.18);
-        backdrop-filter:blur(5px);
-        -webkit-backdrop-filter:blur(5px);
-      }
-      #v37RecommendCard .p032-label b{
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-        font-size:12px;
-      }
-      #v37RecommendCard .p032-label span{
-        flex:0 0 auto;
-        font-size:10px;
-        opacity:.9;
-      }
       #v37RecommendCard .p032-open{
         position:absolute;
-        right:10px;
-        bottom:9px;
+        right:11px;
+        bottom:11px;
         z-index:4;
-        width:32px;
-        height:32px;
+        width:36px;
+        height:36px;
         border:0;
         border-radius:50%;
-        background:rgba(255,255,255,.94);
+        background:rgba(255,255,255,.96);
         color:#173a6a;
-        font-size:20px;
+        font-size:22px;
         font-weight:900;
         display:grid;
         place-items:center;
@@ -7613,7 +7665,13 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         to{ transform:translate3d(-50%,0,0); }
       }
       @media(max-width:390px){
-        #v37RecommendCard .p032-shell{height:136px}
+        #v37RecommendCard.p032-market,
+        #v37RecommendCard .p032-shell{min-height:278px}
+        #v37RecommendCard .p032-storebar{min-height:54px;padding:10px 13px}
+        #v37RecommendCard .p032-store-name{font-size:16px}
+        #v37RecommendCard .p032-titlebar{min-height:44px;padding:8px 13px}
+        #v37RecommendCard .p032-title-main{font-size:16px}
+        #v37RecommendCard .p032-viewport{height:180px}
       }
       @media(prefers-reduced-motion:reduce){
         #v37RecommendCard .p032-track{animation:none}
@@ -7721,6 +7779,23 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
   }
 
+
+  function formatFlyerDate(value){
+    const raw=String(value||'').trim();
+    const match=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!match)return '';
+    return `${Number(match[2])}/${Number(match[3])}`;
+  }
+
+  function flyerPeriod(flyer){
+    const start=formatFlyerDate(flyer?.start_date);
+    const end=formatFlyerDate(flyer?.end_date);
+    if(start&&end)return `${start} ~ ${end}`;
+    if(start)return `${start}부터`;
+    if(end)return `${end}까지`;
+    return '';
+  }
+
   function draw(){
     ensureStyle();
     const card = document.getElementById('v37RecommendCard');
@@ -7735,26 +7810,48 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     card.classList.add('p032-market');
     card.querySelectorAll('.p032-shell').forEach(node => node.remove());
 
+    const business = flyer?.business || flyer?.businesses || {};
     const businessName =
-      flyer?.business?.name ||
-      flyer?.business?.name_ko ||
+      business?.name ||
+      business?.name_ko ||
+      business?.title ||
       flyer?.business_name ||
       flyer?.title ||
-      '이번 주 마트 전단';
+      '마켓';
 
+    const businessMeta =
+      business?.city ||
+      flyer?.city ||
+      '';
+
+    const period = flyerPeriod(flyer);
     const bg = backgroundStyle(flyer, crop);
+
     const shell = document.createElement('div');
     shell.className = 'p032-shell';
     shell.tabIndex = 0;
     shell.setAttribute('role','button');
-    shell.setAttribute('aria-label','마트 전단 전체 보기');
+    shell.setAttribute('aria-label',`${businessName} 이번 주 마켓 정보 보기`);
     shell.innerHTML = `
+      <div class="p032-storebar">
+        <div class="p032-store-main">
+          <span class="p032-store-icon">🛒</span>
+          <strong class="p032-store-name">${esc(businessName)}</strong>
+        </div>
+        ${businessMeta ? `<span class="p032-store-meta">${esc(businessMeta)}</span>` : ''}
+      </div>
+      <div class="p032-titlebar">
+        <div class="p032-title-main">
+          <span>📅</span>
+          <span>이번 주 마켓 정보</span>
+        </div>
+        ${period ? `<span class="p032-period">${esc(period)}</span>` : ''}
+      </div>
       <div class="p032-viewport">
         <div class="p032-track">
           ${Array.from({length:6},()=>`<div class="p032-strip" style="${bg}"></div>`).join('')}
         </div>
       </div>
-      <div class="p032-label"><span>🛒 이번 주 전단</span><b>${esc(businessName)}</b></div>
       <button class="p032-open" type="button" aria-label="전단 전체 보기">›</button>
     `;
     card.appendChild(shell);
