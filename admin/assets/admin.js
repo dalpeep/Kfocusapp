@@ -8460,6 +8460,17 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         <div class="p032a-tip">
           원하는 상품 줄의 가운데를 클릭하세요. 선택 폭은 전단 전체 너비, 높이는 약 2인치로 고정됩니다.
         </div>
+        <div style="margin-top:12px;padding:12px;border:1px solid #dbe6f7;border-radius:12px;background:#fff">
+          <label for="p032BusinessTarget" style="display:block;margin-bottom:6px;font-weight:800;color:#173a6a">
+            클릭 시 이동할 업소
+          </label>
+          <select id="p032BusinessTarget" style="width:100%;min-height:42px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;background:#fff">
+            <option value="">전단에 연결된 기본 업소 사용</option>
+          </select>
+          <div style="margin-top:6px;font-size:12px;color:#64748b">
+            메인의 마켓 카드나 업소명을 누르면 선택한 업소 상세로 이동합니다.
+          </div>
+        </div>
         <div class="p032a-preview"><div id="p032CropPreview"></div></div>
         <div class="p032a-actions">
           <button type="button" class="btn primary" id="p032CropSave">대표 구간 저장</button>
