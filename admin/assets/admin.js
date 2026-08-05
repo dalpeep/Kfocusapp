@@ -8439,7 +8439,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         <div class="p032a-head">
           <div>
             <h2>메인 대표 구간 지정</h2>
-            <p>전단에서 원하는 상품 줄의 가운데를 클릭하면 세로 약 2인치 높이의 고정 박스가 이동합니다.</p>
+            <p>전단에서 원하는 상품 줄의 가운데를 클릭하면 전단 전체 폭과 같은 너비의 선택 박스가 이동합니다.</p>
           </div>
           <button type="button" class="p032a-close" aria-label="닫기">×</button>
         </div>
@@ -8454,11 +8454,11 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
           <button type="button" class="btn" id="p032ZoomFit">맞춤</button>
           <button type="button" class="btn" id="p032ZoomIn">＋</button>
           <span class="p032a-zoom-value" id="p032ZoomValue">100%</span>
-          <span class="p032a-zoom-value">선택 높이 약 2인치</span>
+          <span class="p032a-zoom-value">전체 폭 · 높이 약 2인치</span>
           <span style="font-size:12px;color:#64748b">확대한 뒤 원하는 상품 줄의 가운데를 클릭하세요.</span>
         </div>
         <div class="p032a-tip">
-          상품이 여러 개 한 줄로 보이는 위치를 클릭하세요. 선택 높이는 약 2인치로 고정됩니다.
+          원하는 상품 줄의 가운데를 클릭하세요. 선택 폭은 전단 전체 너비, 높이는 약 2인치로 고정됩니다.
         </div>
         <div class="p032a-preview"><div id="p032CropPreview"></div></div>
         <div class="p032a-actions">
@@ -8541,11 +8541,11 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     const rect=img?.getBoundingClientRect?.();
     if(!rect?.width||!rect?.height)return;
 
-    // 화면에서 약 2인치(192px) 높이를 유지합니다.
+    // 전단 전체 폭을 사용하고, 화면 기준 약 2인치(192px) 높이만 고정합니다.
     const fixedDisplayHeight=Math.min(192,Math.max(110,rect.height*.22));
     const height=Math.max(.008,Math.min(.35,fixedDisplayHeight/rect.height));
-    const width=.92;
-    const x=Math.max(0,Math.min(1-width,normalizedX-width/2));
+    const width=1;
+    const x=0;
     const y=Math.max(0,Math.min(1-height,normalizedY-height/2));
     state.crop={x,y,width,height};
     paint();
@@ -8553,7 +8553,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
 
   function repositionCurrentBox(){
     const crop=normalizeCrop(state.crop);
-    if(crop)placeFixedBoxAt(crop.x+crop.width/2,crop.y+crop.height/2);
+    if(crop)placeFixedBoxAt(.5,crop.y+crop.height/2);
     else placeFixedBoxAt(.5,.5);
   }
 
@@ -8563,7 +8563,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     event.preventDefault();
     placeFixedBoxAt(p.x/p.width,p.y/p.height);
     const status=el('p032CropStatus');
-    if(status)status.textContent='선택 위치가 변경되었습니다. 아래 미리보기를 확인하고 저장하세요.';
+    if(status)status.textContent='전단 전체 폭으로 선택되었습니다. 아래 미리보기를 확인하고 저장하세요.';
   }
 
   function pointerMove(event){
@@ -8653,7 +8653,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     if(!clear){
       if(!crop) return alert('대표 구간을 먼저 선택하세요.');
       const ratio=crop.width/crop.height;
-      if(crop.width<.80 || crop.height<.008 || ratio<3 || ratio>30){
+      if(crop.width<.98 || crop.height<.008 || ratio<3 || ratio>60){
         return alert('전단에서 원하는 상품 줄의 가운데를 한 번 클릭해 주세요.');
       }
     }
