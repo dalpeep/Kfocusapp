@@ -8206,3 +8206,41 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   console.info('[DalTownMap] P016 product image slider loaded');
 })();
 
+// === P017: 상품 이미지 슬라이드 운영 보완 ===
+(() => {
+  function ensureStyle(){
+    if(document.getElementById('p017SliderPolish'))return;
+    const s=document.createElement('style');
+    s.id='p017SliderPolish';
+    s.textContent=`
+      #v37BriefCard.p016-product-slider{
+        height:286px !important;
+        min-height:286px !important;
+        max-height:286px !important;
+      }
+      #v37BriefCard.p016-product-slider .p016-product img{
+        height:122px;
+        object-fit:cover;
+        object-position:center;
+      }
+      #v37BriefCard.p016-product-slider .p016-info{
+        min-height:47px;
+      }
+      #v37BriefCard.p016-product-slider .p016-info b{
+        line-height:1.25;
+        min-height:14px;
+      }
+      #v37BriefCard.p016-product-slider .p016-slider-head span{
+        max-width:48%;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        text-align:right;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+  document.addEventListener('DOMContentLoaded',ensureStyle);
+  console.info('[DalTownMap] P017 Smart Flyer slider polish loaded');
+})();
+
