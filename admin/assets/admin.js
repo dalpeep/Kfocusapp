@@ -8244,3 +8244,27 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   console.info('[DalTownMap] P023 canonical-feed notice loaded');
 })();
 
+// === P024: 메인 레이아웃 충돌 수정 안내 ===
+(() => {
+  function enhance(){
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.querySelector('.p024-note'))return;
+      const live=card.querySelector('.p012-live');
+      if(!live)return;
+
+      const note=document.createElement('div');
+      note.className='p024-note';
+      note.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#f0fdf4;color:#166534;font-size:12px;font-weight:800';
+      note.textContent='메인 전단 카드는 기존 카드 요소를 완전히 가리고 상품 이미지 전용 고정 레이아웃으로 표시됩니다.';
+      live.closest('.p011-card-top')?.insertAdjacentElement('afterend',note);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1500);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+
+  console.info('[DalTownMap] P024 final-layout notice loaded');
+})();
+
