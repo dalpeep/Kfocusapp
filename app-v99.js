@@ -8243,4 +8243,4 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   document.addEventListener('DOMContentLoaded',ensureStyle);
   console.info('[DalTownMap] P017 Smart Flyer slider polish loaded');
 })();
-
+console.info('[DalTownMap] P018 integrated Smart Flyer product-image home loaded');
