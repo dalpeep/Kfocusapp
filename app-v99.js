@@ -8548,9 +8548,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
           height:182px!important;
           min-height:182px!important;
           max-height:182px!important;
-          background-size:auto 182px!important;
-          background-repeat:repeat-x!important;
-          background-position:center center!important;
+          background-repeat:no-repeat!important;
           background-color:#fff!important;
         }
 
@@ -8581,4 +8579,72 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     install();
   }
   console.info('[DalTownMap] P040 mobile market alignment and 1.9-inch crop fix loaded');
+})();
+
+
+
+// === P041: 모바일 대표 구간 crop 좌표 보존 수정 ===
+(() => {
+  function install(){
+    if(document.getElementById('p041MobileCropPreserve')) return;
+    const style = document.createElement('style');
+    style.id = 'p041MobileCropPreserve';
+    style.textContent = `
+      @media (max-width:640px){
+        #v37RecommendCard .p032-viewport,
+        #v37RecommendCard .p032-track,
+        #v37RecommendCard .p032-strip{
+          height:182px!important;
+          min-height:182px!important;
+          max-height:182px!important;
+        }
+
+        #v37RecommendCard .p032-strip{
+          background-repeat:no-repeat!important;
+          background-color:#fff!important;
+        }
+
+        #v37RecommendCard .p032-track{
+          align-items:stretch!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function restoreInlineCrop(){
+    const flyer=window.P032MarketFeaturedCrop;
+    const strips=document.querySelectorAll('#v37RecommendCard .p032-strip');
+    strips.forEach(strip=>{
+      // 모바일 보정 코드가 background-size/position을 덮어쓰지 않도록
+      // 인라인 스타일 값을 우선 적용합니다.
+      const inline=strip.getAttribute('style')||'';
+      const size=inline.match(/background-size\s*:\s*([^;]+)/i)?.[1];
+      const position=inline.match(/background-position\s*:\s*([^;]+)/i)?.[1];
+      if(size) strip.style.setProperty('background-size',size,'important');
+      if(position) strip.style.setProperty('background-position',position,'important');
+      strip.style.setProperty('background-repeat','no-repeat','important');
+    });
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      install();
+      setTimeout(restoreInlineCrop,1200);
+      setTimeout(restoreInlineCrop,3200);
+    },{once:true});
+  }else{
+    install();
+    setTimeout(restoreInlineCrop,300);
+  }
+
+  const observer=new MutationObserver(()=>setTimeout(restoreInlineCrop,0));
+  document.addEventListener('DOMContentLoaded',()=>{
+    const card=document.getElementById('v37RecommendCard');
+    if(card) observer.observe(card,{childList:true,subtree:true});
+  });
+
+  window.addEventListener('focus',restoreInlineCrop);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)restoreInlineCrop()});
+  console.info('[DalTownMap] P041 mobile crop coordinates preserved');
 })();
