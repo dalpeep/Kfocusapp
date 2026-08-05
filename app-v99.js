@@ -7997,34 +7997,83 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   console.info('[DalTownMap] P037 selectable market business destination loaded');
 })();
 
-// === P030B: 날씨·교통 한 줄 연속 슬라이드 ===
+// === P030C: 광고·날씨·교통 공통 한 줄 광고 UI ===
 (() => {
   const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
 
   function ensureStyle(){
-    if(document.getElementById('p030bTickerStyle'))return;
+    if(document.getElementById('p030cTickerStyle'))return;
     const style=document.createElement('style');
-    style.id='p030bTickerStyle';
+    style.id='p030cTickerStyle';
     style.textContent=`
-      #homeAdTickerSection.p030b-running{display:block!important;overflow:hidden}
-      #homeAdTickerList.p030b-list{overflow:hidden!important;white-space:nowrap}
-      #homeAdTickerList .p030b-track{
+      #homeAdTickerSection.p030c-running{
+        display:block!important;
+        overflow:hidden;
+      }
+      #homeAdTickerList.p030c-list{
+        overflow:hidden!important;
+      }
+      #homeAdTickerList .p030c-shell{
+        display:flex;
+        align-items:center;
+        min-height:44px;
+        width:100%;
+        overflow:hidden;
+        border-radius:14px;
+        background:#fff;
+      }
+      #homeAdTickerList .p030c-live-label{
+        position:relative;
+        z-index:3;
+        flex:0 0 auto;
+        align-self:stretch;
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        min-width:98px;
+        padding:0 13px;
+        background:linear-gradient(135deg,#1764d7 0%,#245eea 100%);
+        color:#fff;
+        font-size:12px;
+        font-weight:900;
+        white-space:nowrap;
+        box-shadow:6px 0 14px rgba(37,99,235,.12);
+      }
+      #homeAdTickerList .p030c-live-label::after{
+        content:'';
+        position:absolute;
+        right:-8px;
+        top:50%;
+        width:16px;
+        height:16px;
+        background:#245eea;
+        transform:translateY(-50%) rotate(45deg);
+        border-radius:2px;
+        z-index:-1;
+      }
+      #homeAdTickerList .p030c-viewport{
+        flex:1 1 auto;
+        min-width:0;
+        overflow:hidden;
+        padding-left:12px;
+      }
+      #homeAdTickerList .p030c-track{
         display:flex;
         align-items:center;
         width:max-content;
         min-width:200%;
-        animation:p030bFlow 28s linear infinite;
+        animation:p030cFlow 30s linear infinite;
         will-change:transform;
       }
-      #homeAdTickerList .p030b-item{
+      #homeAdTickerList .p030c-item{
         flex:0 0 auto;
         display:flex;
         align-items:center;
-        gap:9px;
-        min-height:42px;
-        padding:0 22px 0 4px;
+        gap:8px;
+        min-height:44px;
+        padding:0 22px 0 2px;
         border:0;
         background:transparent;
         color:inherit;
@@ -8032,7 +8081,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         white-space:nowrap;
         cursor:pointer;
       }
-      #homeAdTickerList .p030b-badge{
+      #homeAdTickerList .p030c-badge{
         display:inline-flex;
         align-items:center;
         padding:4px 8px;
@@ -8040,24 +8089,42 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         background:#fff2d8;
         color:#9a5b00;
         font-size:11px;
-        font-weight:800;
+        font-weight:900;
       }
-      #homeAdTickerList .p030b-item strong{font-size:13px}
-      #homeAdTickerList .p030b-item span:last-child{
+      #homeAdTickerList .p030c-item strong{
+        font-size:13px;
+        color:#172b4d;
+      }
+      #homeAdTickerList .p030c-detail{
         max-width:300px;
         overflow:hidden;
         text-overflow:ellipsis;
         color:#64748b;
         font-size:12px;
       }
-      #homeAdTickerList:hover .p030b-track,
-      #homeAdTickerList:active .p030b-track{animation-play-state:paused}
-      @keyframes p030bFlow{
+      #homeAdTickerList .p030c-separator{
+        flex:0 0 auto;
+        padding-right:18px;
+        color:#cbd5e1;
+      }
+      #homeAdTickerList:hover .p030c-track,
+      #homeAdTickerList:active .p030c-track{
+        animation-play-state:paused;
+      }
+      @keyframes p030cFlow{
         from{transform:translate3d(0,0,0)}
         to{transform:translate3d(-50%,0,0)}
       }
+      @media(max-width:390px){
+        #homeAdTickerList .p030c-live-label{
+          min-width:88px;
+          padding:0 10px;
+          font-size:11px;
+        }
+        #homeAdTickerList .p030c-detail{max-width:210px}
+      }
       @media(prefers-reduced-motion:reduce){
-        #homeAdTickerList .p030b-track{animation-duration:60s}
+        #homeAdTickerList .p030c-track{animation-duration:60s}
       }
     `;
     document.head.appendChild(style);
@@ -8086,26 +8153,34 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(!rows.length)return false;
 
     section.hidden=false;
-    section.classList.add('p030b-running');
-    box.classList.add('p030b-list');
+    section.classList.add('p030c-running');
+    box.classList.add('p030c-list');
 
-    // 한 항목뿐이어도 반복 복제하여 계속 흐르게 합니다.
     const base=rows.length===1?[rows[0],rows[0]]:rows;
     const loop=[...base,...base];
-    box.innerHTML=`<div class="p030b-track">${loop.map((row,index)=>{
+
+    const items=loop.map((row,index)=>{
       const key=String(row.category||'').toLowerCase();
       const label=key==='weather'?'날씨':'교통';
       const icon=key==='weather'?'☀️':'🚗';
-      return `<button type="button" class="p030b-item" data-p030b-index="${index%base.length}">
-        <span class="p030b-badge">${icon} ${label}</span>
+      return `<button type="button" class="p030c-item" data-p030c-index="${index%base.length}">
+        <span class="p030c-badge">${icon} ${label}</span>
         <strong>${esc(row.title||'')}</strong>
-        <span>${esc(row.summary||'')}</span>
-      </button>`;
-    }).join('')}</div>`;
+        ${row.summary?`<span class="p030c-detail">${esc(row.summary)}</span>`:''}
+      </button><span class="p030c-separator" aria-hidden="true">•</span>`;
+    }).join('');
 
-    box.querySelectorAll('[data-p030b-index]').forEach(button=>{
+    box.innerHTML=`
+      <div class="p030c-shell">
+        <span class="p030c-live-label"><span>📣</span><b>한 줄 광고</b></span>
+        <div class="p030c-viewport">
+          <div class="p030c-track">${items}</div>
+        </div>
+      </div>`;
+
+    box.querySelectorAll('[data-p030c-index]').forEach(button=>{
       button.addEventListener('click',()=>{
-        const row=base[Number(button.dataset.p030bIndex)||0];
+        const row=base[Number(button.dataset.p030cIndex)||0];
         if(typeof v51OpenItem==='function')v51OpenItem(row);
       });
     });
@@ -8124,7 +8199,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   window.addEventListener('focus',paint);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)paint()});
   setInterval(()=>{if(!document.hidden)paint()},30000);
-  console.info('[DalTownMap] P030B continuous weather/traffic ticker loaded');
+  console.info('[DalTownMap] P030C unified one-line ad ticker loaded');
 })();
 
 // === P031-SAFE: 큰 오늘의 달타운 카드 숨김 ===
