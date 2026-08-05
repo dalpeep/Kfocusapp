@@ -8244,3 +8244,400 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   console.info('[DalTownMap] P017 Smart Flyer slider polish loaded');
 })();
 console.info('[DalTownMap] P018 integrated Smart Flyer product-image home loaded');
+
+// === P019: 스마트 전단 최종 메인 UI · 화살표·스와이프·AI 추천 ===
+(() => {
+  const STATE = {
+    timer: null,
+    index: 0,
+    flyerId: null,
+    items: [],
+    touchStartX: 0,
+    touchStartY: 0,
+    busy: false
+  };
+
+  function ensureStyle(){
+    if(document.getElementById('p019SmartFlyerFinalStyle'))return;
+    const s=document.createElement('style');
+    s.id='p019SmartFlyerFinalStyle';
+    s.textContent=`
+      #v37BriefCard.p019-smart-flyer-final{
+        position:relative;
+        height:286px !important;
+        min-height:286px !important;
+        max-height:286px !important;
+        overflow:hidden;
+        background:linear-gradient(145deg,#b75b05 0%,#d57a03 52%,#a94d00 100%);
+      }
+      #v37BriefCard.p019-smart-flyer-final::after{display:none!important}
+      #v37BriefCard.p019-smart-flyer-final .p014-flyer-thumb,
+      #v37BriefCard.p019-smart-flyer-final .p015-flyer-photo,
+      #v37BriefCard.p019-smart-flyer-final .p015-flyer-shade,
+      #v37BriefCard.p019-smart-flyer-final .p015-flyer-bottom,
+      #v37BriefCard.p019-smart-flyer-final .p016-slider{
+        display:none!important;
+      }
+      #v37BriefCard .p019-wrap{
+        position:absolute;
+        z-index:8;
+        left:12px;
+        right:12px;
+        top:45px;
+        bottom:17px;
+        display:flex;
+        flex-direction:column;
+      }
+      #v37BriefCard .p019-head{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:10px;
+        color:#fff;
+        padding:0 5px;
+      }
+      #v37BriefCard .p019-head-left{
+        display:flex;
+        align-items:center;
+        gap:7px;
+        min-width:0;
+        font-size:13px;
+        font-weight:900;
+      }
+      #v37BriefCard .p019-live{
+        padding:3px 7px;
+        border-radius:999px;
+        background:#ef4444;
+        color:#fff;
+        font-size:9px;
+        font-weight:950;
+      }
+      #v37BriefCard .p019-market{
+        max-width:46%;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        color:#fff;
+        font-size:13px;
+        font-weight:900;
+      }
+      #v37BriefCard .p019-stage{
+        position:relative;
+        flex:1;
+        margin-top:8px;
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+        min-height:0;
+      }
+      #v37BriefCard .p019-product{
+        position:relative;
+        overflow:hidden;
+        border-radius:14px;
+        background:#fff;
+        color:#111827;
+        box-shadow:0 8px 18px rgba(66,28,1,.22);
+        display:flex;
+        flex-direction:column;
+        min-width:0;
+      }
+      #v37BriefCard .p019-product-image{
+        position:relative;
+        height:123px;
+        overflow:hidden;
+        background:#f8fafc;
+      }
+      #v37BriefCard .p019-product-image img{
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        object-position:center;
+        display:block;
+      }
+      #v37BriefCard .p019-ai-badge{
+        position:absolute;
+        z-index:2;
+        left:7px;
+        top:7px;
+        padding:4px 7px;
+        border-radius:999px;
+        background:#22c55e;
+        color:#fff;
+        font-size:9px;
+        font-weight:950;
+        box-shadow:0 3px 8px rgba(0,0,0,.15);
+      }
+      #v37BriefCard .p019-info{
+        padding:7px 9px 8px;
+        min-height:48px;
+      }
+      #v37BriefCard .p019-name{
+        display:-webkit-box;
+        -webkit-line-clamp:2;
+        -webkit-box-orient:vertical;
+        overflow:hidden;
+        min-height:28px;
+        font-size:11px;
+        line-height:1.25;
+        font-weight:850;
+      }
+      #v37BriefCard .p019-price{
+        margin-top:3px;
+        color:#dc2626;
+        font-size:15px;
+        font-weight:950;
+      }
+      #v37BriefCard .p019-nav{
+        position:absolute;
+        z-index:10;
+        top:50%;
+        transform:translateY(-50%);
+        width:34px;
+        height:34px;
+        border:0;
+        border-radius:50%;
+        background:rgba(255,255,255,.95);
+        color:#111827;
+        box-shadow:0 4px 12px rgba(0,0,0,.18);
+        font-size:22px;
+        line-height:1;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+      }
+      #v37BriefCard .p019-prev{left:-4px}
+      #v37BriefCard .p019-next{right:-4px}
+      #v37BriefCard .p019-foot{
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        gap:9px;
+        margin-top:7px;
+        padding:0 5px;
+        color:#fff;
+        font-size:10px;
+        font-weight:850;
+      }
+      #v37BriefCard .p019-dots{
+        display:flex;
+        align-items:center;
+        gap:5px;
+      }
+      #v37BriefCard .p019-dot{
+        width:6px;
+        height:6px;
+        border-radius:999px;
+        background:rgba(255,255,255,.38);
+        transition:.18s ease;
+      }
+      #v37BriefCard .p019-dot.active{
+        width:18px;
+        background:#fff;
+      }
+      #v37BriefCard .p019-more{
+        white-space:nowrap;
+      }
+      @media(max-width:390px){
+        #v37BriefCard.p019-smart-flyer-final{
+          height:278px!important;
+          min-height:278px!important;
+          max-height:278px!important;
+        }
+        #v37BriefCard .p019-wrap{left:10px;right:10px}
+        #v37BriefCard .p019-product-image{height:117px}
+        #v37BriefCard .p019-name{font-size:10.5px}
+        #v37BriefCard .p019-price{font-size:14px}
+        #v37BriefCard .p019-nav{width:31px;height:31px;font-size:20px}
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function isFlyer(item){
+    return Boolean(
+      item?.weekly_flyer_id ||
+      String(item?.id||'').includes('smart-flyer') ||
+      item?.event_data?.selection_source==='smart_flyer'
+    );
+  }
+
+  function money(v){
+    const n=Number(v);
+    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
+  }
+
+  function stopTimer(){
+    if(STATE.timer)clearInterval(STATE.timer);
+    STATE.timer=null;
+  }
+
+  async function fetchFlyer(flyerId){
+    try{
+      const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+      const region=String(typeof getAppRegion==='function'?getAppRegion():'dallas').toLowerCase();
+      const fn=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
+      if(!base||!key)return null;
+
+      const res=await fetch(
+        `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
+        {
+          headers:{apikey:key,Authorization:`Bearer ${key}`},
+          cache:'no-store'
+        }
+      );
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok)return null;
+      return (json.flyers||[]).find(f=>Number(f.id)===Number(flyerId))||null;
+    }catch(error){
+      console.warn('[P019 flyer fetch]',error);
+      return null;
+    }
+  }
+
+  function sortedItems(flyer){
+    return (Array.isArray(flyer?.weekly_flyer_items)?flyer.weekly_flyer_items:[])
+      .filter(x=>x.item_image_url&&String(x.crop_status||'')==='complete')
+      .slice()
+      .sort((a,b)=>
+        Number(b.is_featured||0)-Number(a.is_featured||0) ||
+        Number(b.ai_score||0)-Number(a.ai_score||0) ||
+        Number(a.source_order||0)-Number(b.source_order||0)
+      )
+      .slice(0,10);
+  }
+
+  function safeText(v=''){
+    return String(v).replace(/[<>&"]/g,'').trim();
+  }
+
+  function draw(card,item){
+    card.querySelectorAll('.p019-wrap').forEach(n=>n.remove());
+    const pages=Math.max(1,Math.ceil(STATE.items.length/2));
+    STATE.index=((STATE.index%pages)+pages)%pages;
+    const products=STATE.items.slice(STATE.index*2,STATE.index*2+2);
+
+    const wrap=document.createElement('div');
+    wrap.className='p019-wrap';
+    wrap.innerHTML=`
+      <div class="p019-head">
+        <div class="p019-head-left">
+          <span>🛒 이번 주 특가</span>
+          <span class="p019-live">LIVE</span>
+        </div>
+        <div class="p019-market">${safeText(item?.title||'마켓 세일')} →</div>
+      </div>
+
+      <div class="p019-stage">
+        ${products.map((p,i)=>`
+          <article class="p019-product">
+            <div class="p019-product-image">
+              ${i===0&&Number(p.is_featured)?'<span class="p019-ai-badge">AI 추천</span>':''}
+              <img src="${String(p.item_image_url||'').replace(/"/g,'')}" alt="${safeText(p.product_name||'상품')}">
+            </div>
+            <div class="p019-info">
+              <div class="p019-name">${safeText(p.product_name||'세일 상품')}</div>
+              <div class="p019-price">${money(p.sale_price)}</div>
+            </div>
+          </article>`).join('')}
+
+        ${pages>1?`
+          <button type="button" class="p019-nav p019-prev" aria-label="이전 상품">‹</button>
+          <button type="button" class="p019-nav p019-next" aria-label="다음 상품">›</button>`:''}
+      </div>
+
+      <div class="p019-foot">
+        <div class="p019-dots">
+          ${Array.from({length:pages},(_,i)=>`<span class="p019-dot ${i===STATE.index?'active':''}"></span>`).join('')}
+        </div>
+        <span class="p019-more">나머지 상품은 상세에서 확인 →</span>
+      </div>`;
+
+    card.appendChild(wrap);
+
+    const move=delta=>{
+      STATE.index=(STATE.index+delta+pages)%pages;
+      draw(card,item);
+      restartAuto(card,item);
+    };
+
+    wrap.querySelector('.p019-prev')?.addEventListener('click',e=>{
+      e.stopPropagation();
+      move(-1);
+    });
+    wrap.querySelector('.p019-next')?.addEventListener('click',e=>{
+      e.stopPropagation();
+      move(1);
+    });
+
+    wrap.addEventListener('touchstart',e=>{
+      const t=e.touches?.[0];
+      if(!t)return;
+      STATE.touchStartX=t.clientX;
+      STATE.touchStartY=t.clientY;
+    },{passive:true});
+
+    wrap.addEventListener('touchend',e=>{
+      const t=e.changedTouches?.[0];
+      if(!t)return;
+      const dx=t.clientX-STATE.touchStartX;
+      const dy=t.clientY-STATE.touchStartY;
+      if(Math.abs(dx)<38||Math.abs(dx)<Math.abs(dy))return;
+      move(dx<0?1:-1);
+    },{passive:true});
+  }
+
+  function restartAuto(card,item){
+    stopTimer();
+    const pages=Math.ceil(STATE.items.length/2);
+    if(pages<=1)return;
+    STATE.timer=setInterval(()=>{
+      const current=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+      if(!current||Number(current.weekly_flyer_id)!==Number(STATE.flyerId)){
+        stopTimer();
+        return;
+      }
+      STATE.index=(STATE.index+1)%pages;
+      draw(card,current);
+    },3800);
+  }
+
+  const basePaint=typeof v51PaintToday==='function'?v51PaintToday:null;
+  if(!basePaint)return;
+
+  v51PaintToday=async function(){
+    basePaint();
+    ensureStyle();
+    stopTimer();
+
+    const card=document.getElementById('v37BriefCard');
+    const item=Array.isArray(v51TodayItems)?v51TodayItems[v51TodayIndex]:null;
+    if(!card)return;
+
+    card.classList.remove('p019-smart-flyer-final');
+    card.querySelectorAll('.p019-wrap').forEach(n=>n.remove());
+
+    if(!isFlyer(item))return;
+
+    const flyer=await fetchFlyer(item.weekly_flyer_id);
+    const products=sortedItems(flyer);
+    if(!products.length)return; // 기존 원본 전단 카드가 fallback으로 남습니다.
+
+    STATE.flyerId=item.weekly_flyer_id;
+    STATE.items=products;
+    STATE.index=0;
+
+    card.classList.add('p019-smart-flyer-final');
+    draw(card,item);
+    restartAuto(card,item);
+  };
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)stopTimer();
+  });
+
+  console.info('[DalTownMap] P019 Smart Flyer final product UI loaded');
+})();
+
