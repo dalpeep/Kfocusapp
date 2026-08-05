@@ -7471,115 +7471,415 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
 })();
 console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
-// === P029: 마트 전단 랜덤 뷰포트 추천 카드 ===
+
+// === P032: 관리자 지정 대표 구간 · 연속 마트 전단 슬라이드 ===
 (() => {
-  const S={flyers:[],flyer:null,positions:[],index:0,timer:null,busy:false,last:0,touchX:0,touchY:0};
-  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-  const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  const valid=f=>String(f?.status||'')==='active'&&f?.show_on_home!==false&&(!f?.start_date||String(f.start_date)<=today())&&(!f?.end_date||String(f.end_date)>=today())&&/^https?:\/\//i.test(String(f?.image_url||''));
+  const state = {
+    flyers: [],
+    flyer: null,
+    busy: false,
+    loadedAt: 0
+  };
+
+  const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+
+  const today = () => new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+
+  function normalizeCrop(value){
+    let c = value;
+    if(typeof c === 'string'){
+      try { c = JSON.parse(c); } catch { c = null; }
+    }
+    if(!c || typeof c !== 'object') return null;
+    const x = Number(c.x), y = Number(c.y);
+    const width = Number(c.width), height = Number(c.height);
+    if(![x,y,width,height].every(Number.isFinite)) return null;
+    if(x < 0 || y < 0 || width <= 0 || height <= 0) return null;
+    if(x + width > 1.001 || y + height > 1.001) return null;
+    if(width < .18 || height < .035) return null;
+    return { x, y, width, height };
+  }
+
+  function validFlyer(f){
+    return String(f?.status || '') === 'active'
+      && f?.show_on_home !== false
+      && (!f?.start_date || String(f.start_date) <= today())
+      && (!f?.end_date || String(f.end_date) >= today())
+      && /^https?:\/\//i.test(String(f?.image_url || ''))
+      && Boolean(normalizeCrop(f?.featured_crop));
+  }
 
   function ensureStyle(){
-    if(document.getElementById('p029-style'))return;
-    const st=document.createElement('style');st.id='p029-style';st.textContent=`
-      #v37RecommendCard.p029-active{position:relative;overflow:hidden;padding:0!important;min-height:142px;background:#fff}
-      #v37RecommendCard.p029-active>.v37-recommend-main,#v37RecommendCard.p029-active>.v37-recommend-dots{display:none!important}
-      #v37RecommendCard .p029-shell{height:142px;position:relative;border-radius:inherit;overflow:hidden;background:#eef2f7;cursor:pointer;isolation:isolate}
-      #v37RecommendCard .p029-image{position:absolute;inset:0;background-repeat:no-repeat;background-size:100% auto;background-position:50% var(--p029-y,50%);transition:opacity .25s ease,background-position .45s ease;transform:scale(1.02)}
-      #v37RecommendCard .p029-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.05) 58%,rgba(0,0,0,.56));z-index:1}
-      #v37RecommendCard .p029-copy{position:absolute;left:14px;right:44px;bottom:11px;z-index:2;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.45)}
-      #v37RecommendCard .p029-copy small{display:block;font-size:10px;font-weight:800;letter-spacing:.02em;opacity:.94}
-      #v37RecommendCard .p029-copy strong{display:block;margin-top:2px;font-size:15px;line-height:1.2;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      #v37RecommendCard .p029-open{position:absolute;right:11px;bottom:12px;z-index:3;width:30px;height:30px;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:#173a6a;font-size:18px;font-weight:900;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.18)}
-      #v37RecommendCard .p029-dots{position:absolute;top:9px;right:10px;z-index:3;display:flex;gap:4px}
-      #v37RecommendCard .p029-dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.55)}
-      #v37RecommendCard .p029-dots i.active{width:14px;border-radius:999px;background:#fff}
-      @media(max-width:390px){#v37RecommendCard .p029-shell{height:136px}}
-    `;document.head.appendChild(st);
-  }
-  function stop(){if(S.timer){clearInterval(S.timer);S.timer=null;}}
-  function hide(){stop();const card=document.getElementById('v37RecommendCard');if(!card)return;card.classList.remove('p029-active');card.querySelectorAll('.p029-shell').forEach(n=>n.remove());card.hidden=true;}
-  function buildPositions(){
-    // 전단 상단/하단의 로고·채용 영역을 피하고 상품 밀도가 높은 구간을 골고루 보여줍니다.
-    const base=[12,20,28,36,44,52,60,68,76,84];
-    for(let i=base.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[base[i],base[j]]=[base[j],base[i]];}
-    return base.slice(0,8);
-  }
-  async function load(force=false){
-    if(S.busy)return S.flyers;if(!force&&Date.now()-S.last<45000)return S.flyers;S.busy=true;
-    try{
-      const region=typeof getAppRegion==='function'?getAppRegion():'dallas';let rows=[];
-      if(typeof supabase!=='undefined'&&supabase?.from){
-        const {data,error}=await supabase.from('weekly_flyers').select('*,weekly_flyer_items(*)').eq('region',region).eq('status','active').eq('show_on_home',true).order('updated_at',{ascending:false}).limit(20);
-        if(error)throw error;rows=Array.isArray(data)?data:[];
-      }else{
-        const cfg=typeof getConfig==='function'?getConfig():(window.APP_CONFIG||window.KFOCUS_CONFIG||{});const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-        if(!base||!key)throw new Error('Supabase public config missing');const fn=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
-        const res=await fetch(`${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,{headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'});
-        const json=await res.json().catch(()=>({}));if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);rows=Array.isArray(json.flyers)?json.flyers:[];
+    if(document.getElementById('p032-market-crop-style')) return;
+    const style = document.createElement('style');
+    style.id = 'p032-market-crop-style';
+    style.textContent = `
+      #v37RecommendCard.p032-market{
+        position:relative;
+        overflow:hidden;
+        padding:0!important;
+        background:#fff;
+        min-height:142px;
       }
-      S.flyers=rows.filter(valid);S.last=Date.now();return S.flyers;
-    }catch(e){console.warn('[P029 flyer load]',e?.message||e);return S.flyers;}finally{S.busy=false;}
+      #v37RecommendCard.p032-market>.v37-recommend-main,
+      #v37RecommendCard.p032-market>.v37-recommend-dots{
+        display:none!important;
+      }
+      #v37RecommendCard .p032-shell{
+        position:relative;
+        height:142px;
+        overflow:hidden;
+        border-radius:inherit;
+        background:#eef2f7;
+        cursor:pointer;
+      }
+      #v37RecommendCard .p032-viewport{
+        position:absolute;
+        inset:0;
+        overflow:hidden;
+      }
+      #v37RecommendCard .p032-track{
+        display:flex;
+        width:600%;
+        height:100%;
+        will-change:transform;
+        animation:p032MarketFlow 30s linear infinite;
+      }
+      #v37RecommendCard .p032-strip{
+        flex:0 0 calc(100% / 6);
+        height:100%;
+        background-repeat:no-repeat;
+        background-color:#fff;
+      }
+      #v37RecommendCard .p032-shell:hover .p032-track,
+      #v37RecommendCard .p032-shell:active .p032-track,
+      #v37RecommendCard .p032-shell.is-paused .p032-track{
+        animation-play-state:paused;
+      }
+      #v37RecommendCard .p032-label{
+        position:absolute;
+        left:10px;
+        bottom:9px;
+        z-index:3;
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        max-width:calc(100% - 55px);
+        padding:6px 9px;
+        border-radius:999px;
+        background:rgba(15,23,42,.78);
+        color:#fff;
+        box-shadow:0 2px 10px rgba(0,0,0,.18);
+        backdrop-filter:blur(5px);
+        -webkit-backdrop-filter:blur(5px);
+      }
+      #v37RecommendCard .p032-label b{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:12px;
+      }
+      #v37RecommendCard .p032-label span{
+        flex:0 0 auto;
+        font-size:10px;
+        opacity:.9;
+      }
+      #v37RecommendCard .p032-open{
+        position:absolute;
+        right:10px;
+        bottom:9px;
+        z-index:4;
+        width:32px;
+        height:32px;
+        border:0;
+        border-radius:50%;
+        background:rgba(255,255,255,.94);
+        color:#173a6a;
+        font-size:20px;
+        font-weight:900;
+        display:grid;
+        place-items:center;
+        box-shadow:0 3px 12px rgba(0,0,0,.2);
+      }
+      @keyframes p032MarketFlow{
+        from{ transform:translate3d(0,0,0); }
+        to{ transform:translate3d(-50%,0,0); }
+      }
+      @media(max-width:390px){
+        #v37RecommendCard .p032-shell{height:136px}
+      }
+      @media(prefers-reduced-motion:reduce){
+        #v37RecommendCard .p032-track{animation:none}
+      }
+    `;
+    document.head.appendChild(style);
   }
+
+  function backgroundStyle(flyer, crop){
+    const sizeX = 100 / crop.width;
+    const posX = crop.width >= .999 ? 50 : (crop.x / (1 - crop.width)) * 100;
+    const posY = crop.height >= .999 ? 50 : (crop.y / (1 - crop.height)) * 100;
+    const url = String(flyer.image_url || '').replace(/'/g, '%27');
+    return [
+      `background-image:url('${url}')`,
+      `background-size:${sizeX}% auto`,
+      `background-position:${Math.max(0,Math.min(100,posX))}% ${Math.max(0,Math.min(100,posY))}%`
+    ].join(';');
+  }
+
+  async function load(force=false){
+    if(state.busy) return state.flyers;
+    if(!force && Date.now() - state.loadedAt < 45000) return state.flyers;
+    state.busy = true;
+    try{
+      const region = typeof getAppRegion === 'function' ? getAppRegion() : 'dallas';
+      let rows = [];
+      if(typeof supabase !== 'undefined' && supabase?.from){
+        const { data, error } = await supabase
+          .from('weekly_flyers')
+          .select('*')
+          .eq('region', region)
+          .eq('status', 'active')
+          .eq('show_on_home', true)
+          .order('updated_at', { ascending:false })
+          .limit(20);
+        if(error) throw error;
+        rows = Array.isArray(data) ? data : [];
+      }else{
+        const cfg = typeof getConfig === 'function'
+          ? getConfig()
+          : (window.APP_CONFIG || window.KFOCUS_CONFIG || {});
+        const base = String(cfg.SUPABASE_URL || '').replace(/\/$/,'');
+        const key = String(cfg.SUPABASE_ANON_KEY || '').trim();
+        const fn = String(cfg.NEWSROOM_FUNCTION_NAME || 'newsroom');
+        if(!base || !key) throw new Error('Supabase public config missing');
+        const response = await fetch(
+          `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
+          { headers:{ apikey:key, Authorization:`Bearer ${key}` }, cache:'no-store' }
+        );
+        const json = await response.json().catch(()=>({}));
+        if(!response.ok || json.ok === false) throw new Error(json.error || `HTTP ${response.status}`);
+        rows = Array.isArray(json.flyers) ? json.flyers : [];
+      }
+      state.flyers = rows.filter(validFlyer);
+      state.loadedAt = Date.now();
+      return state.flyers;
+    }catch(error){
+      console.warn('[P032 featured crop load]', error?.message || error);
+      return state.flyers;
+    }finally{
+      state.busy = false;
+    }
+  }
+
+  function hide(){
+    const card = document.getElementById('v37RecommendCard');
+    if(!card) return;
+    card.classList.remove('p032-market');
+    card.querySelectorAll('.p032-shell').forEach(node => node.remove());
+    card.hidden = true;
+  }
+
   function openFlyer(){
-    if(window.P010SmartFlyerPublic?.openModal&&S.flyer?.id){window.P010SmartFlyerPublic.openModal(S.flyer.id);return;}
-    const external=String(S.flyer?.link_url||S.flyer?.external_url||'').trim();if(/^https?:\/\//i.test(external)){window.open(external,'_blank','noopener');return;}
-    if(S.flyer?.business_id){selectedBizId=String(S.flyer.business_id);renderDetail(selectedBizId);showPage('business-detail');}
+    const flyer = state.flyer;
+    if(!flyer) return;
+    if(window.P010SmartFlyerPublic?.openModal && flyer.id){
+      window.P010SmartFlyerPublic.openModal(flyer.id);
+      return;
+    }
+    const external = String(flyer.link_url || flyer.external_url || '').trim();
+    if(/^https?:\/\//i.test(external)){
+      window.open(external, '_blank', 'noopener');
+      return;
+    }
+    if(flyer.business_id){
+      selectedBizId = String(flyer.business_id);
+      renderDetail(selectedBizId);
+      showPage('business-detail');
+      return;
+    }
+    if(/^https?:\/\//i.test(String(flyer.image_url || ''))){
+      window.open(flyer.image_url, '_blank', 'noopener');
+    }
   }
+
   function draw(){
-    const card=document.getElementById('v37RecommendCard');if(!card||!S.flyer)return;
-    card.hidden=false;card.classList.add('p029-active');card.querySelectorAll('.p029-shell').forEach(n=>n.remove());
-    const y=S.positions[S.index]??50;const store=S.flyer?.business?.name||S.flyer?.business_name||S.flyer?.title||'이번 주 마트 전단';
-    const shell=document.createElement('div');shell.className='p029-shell';shell.setAttribute('role','button');shell.tabIndex=0;
-    shell.innerHTML=`<div class="p029-image" style="background-image:url('${esc(String(S.flyer.image_url).replace(/'/g,'%27'))}');--p029-y:${y}%"></div><div class="p029-shade"></div><div class="p029-dots">${S.positions.map((_,i)=>`<i class="${i===S.index?'active':''}"></i>`).join('')}</div><div class="p029-copy"><small>이번 주 마트 전단</small><strong>${esc(store)}</strong></div><button class="p029-open" type="button" aria-label="전단 전체 보기">›</button>`;
+    ensureStyle();
+    const card = document.getElementById('v37RecommendCard');
+    const flyer = state.flyer;
+    const crop = normalizeCrop(flyer?.featured_crop);
+    if(!card || !flyer || !crop){
+      hide();
+      return;
+    }
+
+    card.hidden = false;
+    card.classList.add('p032-market');
+    card.querySelectorAll('.p032-shell').forEach(node => node.remove());
+
+    const businessName =
+      flyer?.business?.name ||
+      flyer?.business?.name_ko ||
+      flyer?.business_name ||
+      flyer?.title ||
+      '이번 주 마트 전단';
+
+    const bg = backgroundStyle(flyer, crop);
+    const shell = document.createElement('div');
+    shell.className = 'p032-shell';
+    shell.tabIndex = 0;
+    shell.setAttribute('role','button');
+    shell.setAttribute('aria-label','마트 전단 전체 보기');
+    shell.innerHTML = `
+      <div class="p032-viewport">
+        <div class="p032-track">
+          ${Array.from({length:6},()=>`<div class="p032-strip" style="${bg}"></div>`).join('')}
+        </div>
+      </div>
+      <div class="p032-label"><span>🛒 이번 주 전단</span><b>${esc(businessName)}</b></div>
+      <button class="p032-open" type="button" aria-label="전단 전체 보기">›</button>
+    `;
     card.appendChild(shell);
-    const move=d=>{S.index=(S.index+d+S.positions.length)%S.positions.length;draw();start();};
-    shell.addEventListener('click',openFlyer);shell.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openFlyer();}});
-    shell.addEventListener('touchstart',e=>{S.touchX=e.touches[0]?.clientX||0;S.touchY=e.touches[0]?.clientY||0;},{passive:true});
-    shell.addEventListener('touchend',e=>{const dx=(e.changedTouches[0]?.clientX||0)-S.touchX,dy=(e.changedTouches[0]?.clientY||0)-S.touchY;if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy))move(dx<0?1:-1);},{passive:true});
+
+    shell.addEventListener('click', openFlyer);
+    shell.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        openFlyer();
+      }
+    });
+    shell.addEventListener('touchstart', ()=>shell.classList.add('is-paused'), {passive:true});
+    shell.addEventListener('touchend', ()=>setTimeout(()=>shell.classList.remove('is-paused'), 700), {passive:true});
   }
-  function start(){stop();if(S.positions.length<2||document.hidden)return;S.timer=setInterval(()=>{S.index=(S.index+1)%S.positions.length;draw();},4200);}
-  async function refresh(force=false){ensureStyle();const rows=await load(force);const flyer=rows[0]||null;if(!flyer){hide();return false;}const changed=String(S.flyer?.id||'')!==String(flyer.id);S.flyer=flyer;if(changed||!S.positions.length){S.positions=buildPositions();S.index=0;}draw();start();return true;}
-  document.addEventListener('DOMContentLoaded',()=>{setTimeout(()=>refresh(true),1100);setTimeout(()=>refresh(true),3200);});
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();else refresh(true);});window.addEventListener('focus',()=>refresh(true));
-  window.addEventListener('storage',e=>{if(e.key==='daltownmap_content_changed')refresh(true);});
-  try{const bc=new BroadcastChannel('daltownmap-content');bc.addEventListener('message',()=>refresh(true));}catch{}
-  setInterval(()=>{if(!document.hidden)refresh(true);},60000);
-  window.P029MarketFlyerViewport={refresh,stop};
-  console.info('[DalTownMap] P029 Market flyer random viewport recommendation loaded');
+
+  async function refresh(force=false){
+    const rows = await load(force);
+    const flyer = rows[0] || null;
+    state.flyer = flyer;
+    if(!flyer){
+      hide();
+      return false;
+    }
+    draw();
+    return true;
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    setTimeout(()=>refresh(true), 1100);
+    setTimeout(()=>refresh(true), 3200);
+  });
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden) refresh(true);
+  });
+  window.addEventListener('focus', ()=>refresh(true));
+  window.addEventListener('storage', e=>{
+    if(e.key === 'daltownmap_content_changed') refresh(true);
+  });
+  try{
+    const channel = new BroadcastChannel('daltownmap-content');
+    channel.addEventListener('message', ()=>refresh(true));
+  }catch{}
+  setInterval(()=>{ if(!document.hidden) refresh(true); }, 60000);
+
+  window.P032MarketFeaturedCrop = { refresh };
+  console.info('[DalTownMap] P032 administrator-selected market crop marquee loaded');
 })();
 
 // === P030: 날씨·교통을 한 줄 광고 영역으로 이동 ===
 (() => {
-  let timer=null,index=0;
-  function rows(){return (Array.isArray(v51TodayItems)?v51TodayItems:[]).filter(x=>{const k=String(x?.category||'').toLowerCase();return k==='weather'||k==='traffic';}).slice(0,4);}
-  function draw(){
-    const section=document.getElementById('homeAdTickerSection'),box=document.getElementById('homeAdTickerList');if(!section||!box)return;
-    const list=rows();if(!list.length){section.hidden=true;box.innerHTML='';return;}section.hidden=false;if(index>=list.length)index=0;const r=list[index];
-    const k=String(r.category||'').toLowerCase(),label=k==='weather'?'날씨':'교통',icon=k==='weather'?'☀️':'🚗';
-    box.innerHTML=`<button type="button" class="ticker-ad-item p030-item"><span class="ticker-ad-badge">${icon} ${label}</span><strong>${esc(String(r.title||''))}</strong>${r.summary?`<span class="ticker-ad-detail">${esc(String(r.summary))}</span>`:''}<span class="ticker-ad-arrow">›</span></button>`;
-    box.querySelector('button')?.addEventListener('click',()=>{if(typeof v51OpenItem==='function')v51OpenItem(r);});
+  let timer = null;
+  let index = 0;
+  const escTicker = (v='') => String(v).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+
+  function rows(){
+    return (Array.isArray(v51TodayItems) ? v51TodayItems : [])
+      .filter(item => {
+        const key = String(item?.category || '').toLowerCase();
+        return key === 'weather' || key === 'traffic';
+      })
+      .slice(0,4);
   }
-  function start(){if(timer)clearInterval(timer);draw();const list=rows();if(list.length>1)timer=setInterval(()=>{index=(index+1)%list.length;draw();},6000);}
-  const oldPaint=typeof v51PaintToday==='function'?v51PaintToday:null;
-  if(oldPaint)window.v51PaintToday=function(...args){const out=oldPaint.apply(this,args);setTimeout(start,0);return out;};
-  document.addEventListener('DOMContentLoaded',()=>setTimeout(start,2500));
-  setInterval(()=>{if(!document.hidden)start();},30000);
-  console.info('[DalTownMap] P030 Weather and traffic one-line ticker loaded');
+
+  function draw(){
+    const section = document.getElementById('homeAdTickerSection');
+    const box = document.getElementById('homeAdTickerList');
+    if(!section || !box) return;
+    const list = rows();
+    if(!list.length){
+      section.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+    section.hidden = false;
+    if(index >= list.length) index = 0;
+    const row = list[index];
+    const key = String(row.category || '').toLowerCase();
+    const label = key === 'weather' ? '날씨' : '교통';
+    const icon = key === 'weather' ? '☀️' : '🚗';
+    box.innerHTML = `
+      <button type="button" class="ticker-ad-item p030-item">
+        <span class="ticker-ad-badge">${icon} ${label}</span>
+        <strong>${escTicker(row.title || '')}</strong>
+        ${row.summary ? `<span class="ticker-ad-detail">${escTicker(row.summary)}</span>` : ''}
+        <span class="ticker-ad-arrow">›</span>
+      </button>`;
+    box.querySelector('button')?.addEventListener('click', ()=>{
+      if(typeof v51OpenItem === 'function') v51OpenItem(row);
+    });
+  }
+
+  function start(){
+    if(timer) clearInterval(timer);
+    draw();
+    const list = rows();
+    if(list.length > 1){
+      timer = setInterval(()=>{
+        index = (index + 1) % list.length;
+        draw();
+      }, 6000);
+    }
+  }
+
+  const oldPaint = typeof v51PaintToday === 'function' ? v51PaintToday : null;
+  if(oldPaint){
+    window.v51PaintToday = function(...args){
+      const output = oldPaint.apply(this,args);
+      setTimeout(start,0);
+      return output;
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>setTimeout(start,2500));
+  setInterval(()=>{ if(!document.hidden) start(); },30000);
+  console.info('[DalTownMap] P030 weather and traffic ticker loaded');
 })();
 
-// === P031-SAFE: 큰 오늘의 달타운/긴급 공지 카드 완전 제거 ===
-// MutationObserver를 사용하지 않고 CSS로만 제거하여 메인 초기화가 멈추지 않게 합니다.
+// === P031-SAFE: 큰 오늘의 달타운 카드 숨김 ===
 (() => {
   function install(){
     if(document.getElementById('p031SafeHideTodayCard')) return;
-    const style=document.createElement('style');
-    style.id='p031SafeHideTodayCard';
-    style.textContent='#v37BriefCard{display:none!important}';
+    const style = document.createElement('style');
+    style.id = 'p031SafeHideTodayCard';
+    style.textContent = '#v37BriefCard{display:none!important}';
     document.head.appendChild(style);
-    const card=document.getElementById('v37BriefCard');
-    if(card){card.hidden=true;card.setAttribute('aria-hidden','true');}
+    const card = document.getElementById('v37BriefCard');
+    if(card){
+      card.hidden = true;
+      card.setAttribute('aria-hidden','true');
+    }
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install,{once:true});
-  else install();
-  console.info('[DalTownMap] P031-SAFE Today alert card hidden');
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded',install,{once:true});
+  }else{
+    install();
+  }
 })();
