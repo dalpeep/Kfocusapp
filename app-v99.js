@@ -8641,3 +8641,4 @@ console.info('[DalTownMap] P018 integrated Smart Flyer product-image home loaded
   console.info('[DalTownMap] P019 Smart Flyer final product UI loaded');
 })();
 console.info('[DalTownMap] P020 existing-flyer image compatibility loaded');
+console.info('[DalTownMap] P021 reanalysis image-slider compatibility loaded');
