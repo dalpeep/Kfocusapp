@@ -8068,3 +8068,21 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P017 one-click Smart Flyer workflow loaded');
 })();
 
+// === P018: 통합 스마트 전단 설치 상태 안내 ===
+(() => {
+  function addNotice(){
+    const panel=document.getElementById('p010Panel');
+    if(!panel || panel.querySelector('.p018-install-note'))return;
+    const note=document.createElement('div');
+    note.className='p018-install-note';
+    note.style.cssText='margin:9px 0;padding:9px 11px;border-radius:11px;background:#eff6ff;color:#1e40af;font-size:12px;line-height:1.55';
+    note.innerHTML='<b>P018 통합 버전</b> · 최초 1회 Supabase에서 <code>P018_AI_Smart_Flyer_MASTER.sql</code>을 실행해야 상품 이미지 자동 생성이 작동합니다.';
+    panel.querySelector('.p017-flow')?.insertAdjacentElement('afterend',note);
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(addNotice,1300);
+    new MutationObserver(addNotice).observe(document.body,{childList:true,subtree:true});
+  });
+  console.info('[DalTownMap] P018 integrated Smart Flyer admin loaded');
+})();
+
