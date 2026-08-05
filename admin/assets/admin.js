@@ -8086,3 +8086,24 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   console.info('[DalTownMap] P018 integrated Smart Flyer admin loaded');
 })();
 
+// === P019: 메인 상품 슬라이드 상태 안내 ===
+(() => {
+  function enhance(){
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      if(card.querySelector('.p019-ui-note'))return;
+      const live=card.querySelector('.p012-live');
+      if(!live)return;
+      const note=document.createElement('div');
+      note.className='p019-ui-note';
+      note.style.cssText='margin-top:8px;padding:9px 11px;border-radius:10px;background:#fff7ed;color:#9a3412;font-size:12px;font-weight:800';
+      note.textContent='메인에서는 상품 이미지 2개씩 자동 슬라이드되며, 화살표와 좌우 스와이프도 지원합니다.';
+      live.closest('.p011-card-top')?.insertAdjacentElement('afterend',note);
+    });
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1500);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+  console.info('[DalTownMap] P019 final slider status loaded');
+})();
+
