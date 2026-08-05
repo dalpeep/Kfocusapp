@@ -8642,3 +8642,132 @@ console.info('[DalTownMap] P018 integrated Smart Flyer product-image home loaded
 })();
 console.info('[DalTownMap] P020 existing-flyer image compatibility loaded');
 console.info('[DalTownMap] P021 reanalysis image-slider compatibility loaded');
+
+// === P022: 스마트 전단 중복 노출 제거 ===
+(() => {
+  function isFlyer(item){
+    return Boolean(
+      item?.weekly_flyer_id ||
+      String(item?.id||'').includes('smart-flyer') ||
+      String(item?.id||'').includes('weekly-flyer') ||
+      item?.event_data?.selection_source==='smart_flyer'
+    );
+  }
+
+  function flyerKey(item){
+    if(!isFlyer(item))return '';
+    const flyerId=String(item?.weekly_flyer_id||'').trim();
+    if(flyerId)return `flyer:${flyerId}`;
+
+    const businessId=String(item?.business_id||item?.target_id||'').trim();
+    const title=String(item?.title||'').trim().toLowerCase();
+    return `legacy:${businessId}:${title}`;
+  }
+
+  function score(item){
+    let value=0;
+    if(item?.weekly_flyer_id)value+=100;
+    if(String(item?.id||'').startsWith('p013-smart-flyer-'))value+=80;
+    if(item?.flyer_image_url||item?.image_url)value+=30;
+    if(item?.event_data?.selection_source==='smart_flyer')value+=20;
+    if(item?.business_id)value+=10;
+    if(item?.summary)value+=5;
+    return value;
+  }
+
+  function dedupe(items){
+    const normal=[];
+    const flyerMap=new Map();
+
+    for(const item of Array.isArray(items)?items:[]){
+      const key=flyerKey(item);
+      if(!key){
+        normal.push(item);
+        continue;
+      }
+      const existing=flyerMap.get(key);
+      if(!existing || score(item)>score(existing)){
+        flyerMap.set(key,item);
+      }
+    }
+
+    return [...flyerMap.values(),...normal];
+  }
+
+  function dedupeCurrentItems(){
+    if(!Array.isArray(window.v51TodayItems))return false;
+    const before=window.v51TodayItems.length;
+    const currentId=window.v51TodayItems[window.v51TodayIndex]?.id;
+    const cleaned=dedupe(window.v51TodayItems);
+
+    if(cleaned.length===before)return false;
+
+    window.v51TodayItems=cleaned;
+    const keepIndex=currentId
+      ? cleaned.findIndex(x=>String(x?.id||'')===String(currentId))
+      : -1;
+    window.v51TodayIndex=keepIndex>=0?keepIndex:0;
+    console.info('[P022 flyer dedupe]',{before,after:cleaned.length});
+    return true;
+  }
+
+  const basePrepare=typeof window.v51PrepareTodayItems==='function'
+    ? window.v51PrepareTodayItems
+    : null;
+
+  if(basePrepare){
+    window.v51PrepareTodayItems=function(items=[]){
+      return dedupe(basePrepare(dedupe(items)));
+    };
+  }
+
+  const baseRefresh=typeof window.v51RefreshToday==='function'
+    ? window.v51RefreshToday
+    : null;
+
+  if(baseRefresh){
+    window.v51RefreshToday=async function(){
+      const result=await baseRefresh();
+      if(dedupeCurrentItems()){
+        if(typeof window.v51PaintToday==='function')window.v51PaintToday();
+        if(typeof window.v51StartTodayTimer==='function')window.v51StartTodayTimer(5000);
+      }
+      return result;
+    };
+  }
+
+  const basePaint=typeof window.v51PaintToday==='function'
+    ? window.v51PaintToday
+    : null;
+
+  if(basePaint){
+    window.v51PaintToday=function(){
+      dedupeCurrentItems();
+      return basePaint();
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      if(dedupeCurrentItems() && typeof window.v51PaintToday==='function'){
+        window.v51PaintToday();
+      }
+    },1800);
+
+    setTimeout(()=>{
+      if(dedupeCurrentItems() && typeof window.v51PaintToday==='function'){
+        window.v51PaintToday();
+      }
+    },4500);
+
+    setInterval(()=>{
+      if(!document.hidden && dedupeCurrentItems() && typeof window.v51PaintToday==='function'){
+        window.v51PaintToday();
+      }
+    },15000);
+  });
+
+  window.P022SmartFlyerDedupe={run:dedupeCurrentItems};
+  console.info('[DalTownMap] P022 Smart Flyer duplicate removal loaded');
+})();
+
