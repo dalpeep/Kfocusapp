@@ -8268,3 +8268,398 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   console.info('[DalTownMap] P024 final-layout notice loaded');
 })();
 
+
+
+// === P032-ADMIN: 스마트 전단 대표 구간 직접 지정 ===
+(() => {
+  const state = {
+    flyer: null,
+    crop: null,
+    dragging: false,
+    startX: 0,
+    startY: 0
+  };
+  const el = id => document.getElementById(id);
+  const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+
+  function normalizeCrop(value){
+    let crop = value;
+    if(typeof crop === 'string'){
+      try { crop = JSON.parse(crop); } catch { crop = null; }
+    }
+    if(!crop || typeof crop !== 'object') return null;
+    const x=Number(crop.x), y=Number(crop.y), width=Number(crop.width), height=Number(crop.height);
+    if(![x,y,width,height].every(Number.isFinite)) return null;
+    if(width <= 0 || height <= 0) return null;
+    return {
+      x:Math.max(0,Math.min(1,x)),
+      y:Math.max(0,Math.min(1,y)),
+      width:Math.max(.01,Math.min(1-x,width)),
+      height:Math.max(.01,Math.min(1-y,height))
+    };
+  }
+
+  function ensureStyle(){
+    if(el('p032AdminStyle')) return;
+    const style = document.createElement('style');
+    style.id = 'p032AdminStyle';
+    style.textContent = `
+      #p032CropModal{
+        position:fixed;
+        inset:0;
+        z-index:100500;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        padding:18px;
+        background:rgba(15,23,42,.72);
+      }
+      #p032CropModal.open{display:flex}
+      #p032CropModal .p032a-sheet{
+        width:min(980px,100%);
+        max-height:94vh;
+        overflow:auto;
+        border-radius:20px;
+        background:#f8fbff;
+        padding:16px;
+        box-shadow:0 28px 80px rgba(0,0,0,.36);
+      }
+      #p032CropModal .p032a-head{
+        display:flex;
+        justify-content:space-between;
+        gap:14px;
+        align-items:flex-start;
+      }
+      #p032CropModal .p032a-head h2{margin:0;color:#163b70}
+      #p032CropModal .p032a-head p{margin:5px 0 0;color:#64748b;font-size:13px}
+      #p032CropModal .p032a-close{
+        width:40px;height:40px;border:0;border-radius:12px;
+        background:#eaf2ff;color:#24456f;font-size:24px;
+      }
+      #p032CropModal .p032a-stage{
+        position:relative;
+        display:inline-block;
+        max-width:100%;
+        margin-top:14px;
+        user-select:none;
+        touch-action:none;
+        line-height:0;
+        background:#dbe6f7;
+      }
+      #p032CropModal .p032a-stage img{
+        display:block;
+        max-width:100%;
+        max-height:65vh;
+        width:auto;
+        height:auto;
+      }
+      #p032CropModal .p032a-overlay{
+        position:absolute;
+        border:3px solid #ff4d4f;
+        background:rgba(255,255,255,.16);
+        box-shadow:0 0 0 9999px rgba(15,23,42,.46);
+        pointer-events:none;
+        display:none;
+      }
+      #p032CropModal .p032a-tip{
+        margin-top:10px;
+        padding:10px 12px;
+        border-radius:11px;
+        background:#fff7ed;
+        color:#9a3412;
+        font-size:13px;
+        line-height:1.5;
+      }
+      #p032CropModal .p032a-preview{
+        margin-top:12px;
+        height:135px;
+        overflow:hidden;
+        border:1px solid #dbe6f7;
+        border-radius:14px;
+        background:#fff;
+      }
+      #p032CropModal .p032a-preview div{
+        width:100%;
+        height:100%;
+        background-repeat:no-repeat;
+      }
+      #p032CropModal .p032a-actions{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin-top:12px;
+      }
+      .p032-featured-crop-btn{background:#ecfdf3!important;color:#047857!important}
+      @media(max-width:700px){
+        #p032CropModal{padding:8px}
+        #p032CropModal .p032a-sheet{border-radius:16px;padding:12px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureModal(){
+    ensureStyle();
+    let modal = el('p032CropModal');
+    if(modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'p032CropModal';
+    modal.innerHTML = `
+      <div class="p032a-sheet">
+        <div class="p032a-head">
+          <div>
+            <h2>메인 대표 구간 지정</h2>
+            <p>전단에서 메인에 계속 흐르게 보여줄 가로 구간을 드래그하세요.</p>
+          </div>
+          <button type="button" class="p032a-close" aria-label="닫기">×</button>
+        </div>
+        <div style="text-align:center">
+          <div class="p032a-stage" id="p032CropStage">
+            <img id="p032CropImage" alt="전단 원본">
+            <div class="p032a-overlay" id="p032CropOverlay"></div>
+          </div>
+        </div>
+        <div class="p032a-tip">
+          상품이 여러 개 한 줄로 보이는 가로 영역을 선택하세요. 너무 좁거나 세로형 영역은 저장되지 않습니다.
+        </div>
+        <div class="p032a-preview"><div id="p032CropPreview"></div></div>
+        <div class="p032a-actions">
+          <button type="button" class="btn primary" id="p032CropSave">대표 구간 저장</button>
+          <button type="button" class="btn" id="p032CropReset">선택 초기화</button>
+          <button type="button" class="btn" id="p032CropClear">대표 구간 제거</button>
+        </div>
+        <div id="p032CropStatus" style="margin-top:9px;color:#64748b;font-size:13px"></div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    modal.querySelector('.p032a-close')?.addEventListener('click', close);
+    modal.addEventListener('click', e => { if(e.target === modal) close(); });
+    el('p032CropReset')?.addEventListener('click', ()=>{
+      state.crop = null;
+      paint();
+    });
+    el('p032CropClear')?.addEventListener('click', ()=>save(true));
+    el('p032CropSave')?.addEventListener('click', ()=>save(false));
+
+    const stage = el('p032CropStage');
+    stage?.addEventListener('pointerdown', pointerDown);
+    stage?.addEventListener('pointermove', pointerMove);
+    stage?.addEventListener('pointerup', pointerUp);
+    stage?.addEventListener('pointercancel', pointerUp);
+    return modal;
+  }
+
+  function close(){
+    el('p032CropModal')?.classList.remove('open');
+    document.body.style.overflow = '';
+    state.dragging = false;
+  }
+
+  function point(event){
+    const img = el('p032CropImage');
+    const rect = img.getBoundingClientRect();
+    return {
+      x: Math.max(0,Math.min(rect.width,event.clientX-rect.left)),
+      y: Math.max(0,Math.min(rect.height,event.clientY-rect.top)),
+      width:rect.width,
+      height:rect.height
+    };
+  }
+
+  function pointerDown(event){
+    if(!state.flyer) return;
+    const p = point(event);
+    state.dragging = true;
+    state.startX = p.x;
+    state.startY = p.y;
+    state.crop = {x:p.x/p.width,y:p.y/p.height,width:0,height:0};
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    paint();
+  }
+
+  function pointerMove(event){
+    if(!state.dragging) return;
+    const p = point(event);
+    const left = Math.min(state.startX,p.x);
+    const top = Math.min(state.startY,p.y);
+    let width = Math.abs(p.x-state.startX);
+    let height = Math.abs(p.y-state.startY);
+
+    // 메인 마퀴에 맞는 가로형 비율을 유지합니다.
+    const targetRatio = 3.6;
+    if(width / Math.max(1,height) < targetRatio){
+      height = width / targetRatio;
+    }else{
+      width = height * targetRatio;
+    }
+    width = Math.min(width,p.width-left);
+    height = Math.min(height,p.height-top);
+    state.crop = {
+      x:left/p.width,
+      y:top/p.height,
+      width:width/p.width,
+      height:height/p.height
+    };
+    paint();
+  }
+
+  function pointerUp(event){
+    if(!state.dragging) return;
+    state.dragging = false;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    paint();
+  }
+
+  function paint(){
+    const overlay = el('p032CropOverlay');
+    const preview = el('p032CropPreview');
+    const img = el('p032CropImage');
+    const crop = normalizeCrop(state.crop);
+
+    if(!crop || !img?.naturalWidth){
+      if(overlay) overlay.style.display='none';
+      if(preview){
+        preview.style.backgroundImage='none';
+        preview.textContent='위 전단에서 대표 구간을 선택하세요.';
+        preview.style.display='grid';
+        preview.style.placeItems='center';
+        preview.style.color='#64748b';
+      }
+      return;
+    }
+
+    overlay.style.display='block';
+    overlay.style.left=`${crop.x*100}%`;
+    overlay.style.top=`${crop.y*100}%`;
+    overlay.style.width=`${crop.width*100}%`;
+    overlay.style.height=`${crop.height*100}%`;
+
+    const sizeX=100/crop.width;
+    const posX=crop.width>=.999?50:(crop.x/(1-crop.width))*100;
+    const posY=crop.height>=.999?50:(crop.y/(1-crop.height))*100;
+    preview.textContent='';
+    preview.style.display='block';
+    preview.style.backgroundImage=`url('${String(state.flyer.image_url).replace(/'/g,'%27')}')`;
+    preview.style.backgroundSize=`${sizeX}% auto`;
+    preview.style.backgroundPosition=`${Math.max(0,Math.min(100,posX))}% ${Math.max(0,Math.min(100,posY))}%`;
+  }
+
+  async function open(flyerId){
+    const modal = ensureModal();
+    const status = el('p032CropStatus');
+    status.textContent='전단 정보를 불러오는 중입니다.';
+    try{
+      const result = await newsroomEdgeCall('list_weekly_flyers',{
+        region:getAppRegion(),
+        business_id:selectedId || undefined
+      });
+      const flyer = (result.flyers || []).find(row=>Number(row.id)===Number(flyerId));
+      if(!flyer) throw new Error('전단을 찾지 못했습니다.');
+      state.flyer = flyer;
+      state.crop = normalizeCrop(flyer.featured_crop);
+
+      const img = el('p032CropImage');
+      img.onload = ()=>{
+        paint();
+        status.textContent = state.crop
+          ? '저장된 대표 구간이 표시되었습니다.'
+          : '상품이 여러 개 한 줄로 보이는 영역을 드래그하세요.';
+      };
+      img.onerror = ()=>{ status.textContent='전단 이미지를 불러오지 못했습니다.'; };
+      img.src = flyer.image_url;
+      modal.classList.add('open');
+      document.body.style.overflow='hidden';
+    }catch(error){
+      status.textContent=`불러오기 실패: ${error.message}`;
+      modal.classList.add('open');
+    }
+  }
+
+  async function save(clear){
+    if(!state.flyer) return;
+    const status=el('p032CropStatus');
+    const crop=clear?null:normalizeCrop(state.crop);
+    if(!clear){
+      if(!crop) return alert('대표 구간을 먼저 선택하세요.');
+      const ratio=crop.width/crop.height;
+      if(crop.width<.22 || crop.height<.04 || ratio<2.5 || ratio>6.5){
+        return alert('상품 여러 개가 보이는 넓은 가로 구간으로 다시 선택하세요.');
+      }
+    }
+    status.textContent=clear?'대표 구간을 제거하고 있습니다.':'대표 구간을 저장하고 있습니다.';
+    try{
+      await newsroomEdgeCall('save_weekly_flyer_featured_crop',{
+        flyer_id:Number(state.flyer.id),
+        featured_crop:crop
+      });
+      state.flyer.featured_crop=crop;
+      state.crop=crop;
+      status.textContent=clear?'대표 구간을 제거했습니다.':'대표 구간을 저장했습니다. 메인에 바로 반영됩니다.';
+      try{
+        localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+        const channel=new BroadcastChannel('daltownmap-content');
+        channel.postMessage({type:'weekly_flyer_featured_crop_changed',flyer_id:state.flyer.id,at:Date.now()});
+        channel.close();
+      }catch{}
+      if(window.P010SmartFlyer?.load) setTimeout(()=>window.P010SmartFlyer.load(),200);
+      paint();
+    }catch(error){
+      status.textContent=`저장 실패: ${error.message}`;
+      alert(`대표 구간 저장 실패: ${error.message}`);
+    }
+  }
+
+  function injectButtons(){
+    document.querySelectorAll('#p010List .p010-card').forEach(card=>{
+      if(card.querySelector('.p032-featured-crop-btn')) return;
+      const id=Number(card.querySelector('[data-id]')?.dataset.id||0);
+      const actions=card.querySelector('.p010-card-actions');
+      if(!id||!actions) return;
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='btn p032-featured-crop-btn';
+      button.textContent='대표 구간 지정';
+      button.dataset.p032CropId=String(id);
+      actions.prepend(button);
+    });
+
+    document.querySelectorAll('[data-p0103-card-id]').forEach(card=>{
+      if(card.querySelector('.p032-featured-crop-btn')) return;
+      const id=Number(card.getAttribute('data-p0103-card-id')||0);
+      const actions=card.querySelector('.p0103-actions');
+      if(!id||!actions) return;
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='btn p032-featured-crop-btn';
+      button.textContent='대표 구간 지정';
+      button.dataset.p032CropId=String(id);
+      actions.prepend(button);
+    });
+  }
+
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('[data-p032-crop-id]');
+    if(button){
+      event.preventDefault();
+      open(Number(button.dataset.p032CropId));
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    ensureStyle();
+    ensureModal();
+    const observer=new MutationObserver(injectButtons);
+    setTimeout(()=>{
+      injectButtons();
+      const list=el('p010List');
+      if(list) observer.observe(list,{childList:true,subtree:true});
+      const center=el('p0103List');
+      if(center) observer.observe(center,{childList:true,subtree:true});
+    },1800);
+  });
+
+  window.P032FeaturedCropAdmin={open,injectButtons};
+  console.info('[DalTownMap] P032 administrator crop selector loaded');
+})();
