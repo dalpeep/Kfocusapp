@@ -6899,7 +6899,7 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
     box.id=P+'Panel';
     box.innerHTML=`
       <h3>AI 스마트 전단 · 이번 주 세일</h3>
-      <div class="p010-sub">업소를 저장한 뒤 JPG·PNG·WEBP 전단 이미지를 올리면 상품명과 가격을 자동 추출합니다.</div>
+      <div class="p010-sub">전단 이미지 한 장을 올리면 상품 분석·이미지 생성·앱 메인 연결까지 자동으로 처리합니다.</div>
       <div class="p010-grid">
         <input type="file" id="${P}File" accept="image/jpeg,image/png,image/webp">
         <input type="date" id="${P}Start" aria-label="행사 시작일">
@@ -6909,7 +6909,7 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
         <input type="checkbox" id="${P}Home" checked style="width:auto"> 오늘의 달타운 노출 후보로 사용
       </label>
       <div class="p010-actions">
-        <button type="button" class="btn primary" id="${P}Analyze">이미지 업로드·AI 분석</button>
+        <button type="button" class="btn primary" id="${P}Analyze">전단 업로드·자동 게시 준비</button>
         <button type="button" class="btn" id="${P}Refresh">전단 목록 새로고침</button>
       </div>
       <div id="${P}Status" class="p010-sub" style="margin-top:9px"></div>
@@ -6950,8 +6950,34 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
         end_date:el(P+'End').value||null,
         show_on_home:el(P+'Home').checked
       });
-      el(P+'Status').textContent=`분석 완료: 상품 ${result.item_count||0}개를 찾았습니다. 검토 후 활성화하세요.`;
+      const flyerId=Number(result?.flyer?.id||0);
+      el(P+'Status').textContent=`1/3 AI 분석 완료: 상품 ${result.item_count||0}개 · 상품 이미지를 만들고 있습니다.`;
       el(P+'File').value='';
+      await load();
+
+      let cropResult={ok:false,complete:0};
+      if(flyerId&&window.P016SmartFlyerCrop?.run){
+        cropResult=await window.P016SmartFlyerCrop.run(flyerId,(message)=>{
+          el(P+'Status').textContent=`2/3 ${message}`;
+        });
+      }
+
+      el(P+'Status').textContent=`3/3 앱 메인 연결을 준비하고 있습니다.`;
+      if(flyerId){
+        await newsroomEdgeCall('activate_weekly_flyer',{id:flyerId});
+        try{
+          localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+          localStorage.removeItem('daltownmap_v38_home');
+        }catch{}
+        try{
+          const bc=new BroadcastChannel('daltownmap-content');
+          bc.postMessage({type:'weekly_flyer_changed',flyer_id:flyerId,at:Date.now()});
+          bc.close();
+        }catch{}
+      }
+
+      el(P+'Status').textContent=
+        `자동 처리 완료: 상품 ${result.item_count||0}개 · 이미지 ${cropResult.complete||0}개 · 앱 메인 노출 중`;
       await load();
     }catch(e){
       el(P+'Status').textContent=`분석 실패: ${e.message}`;
@@ -7965,9 +7991,11 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       statusNode.textContent=`완료: 상품 이미지 ${complete}개 생성 · 저장 ${saved.updated||0}개`;
       if(window.P011SmartFlyerCenter?.load)await window.P011SmartFlyerCenter.load();
       if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
+      return {ok:true,complete,updated:saved.updated||0,crops};
     }catch(e){
       statusNode.textContent=`상품 이미지 생성 실패: ${e.message}`;
       alert(`상품 이미지 생성 실패: ${e.message}`);
+      return {ok:false,error:e.message,complete:0,updated:0};
     }finally{
       button.disabled=false;
       button.textContent=old;
@@ -8003,6 +8031,40 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     new MutationObserver(enhanceCards).observe(document.body,{childList:true,subtree:true});
   });
 
+  window.P016SmartFlyerCrop={
+    run:async(flyerId,onProgress)=>{
+      const button={disabled:false,textContent:'자동 크롭'};
+      const statusNode={
+        _text:'',
+        get textContent(){return this._text;},
+        set textContent(value){
+          this._text=String(value||'');
+          if(typeof onProgress==='function')onProgress(this._text);
+        }
+      };
+      return await cropFlyer(Number(flyerId),button,statusNode);
+    }
+  };
+
   console.info('[DalTownMap] P016 product image crop loaded');
+})();
+
+// === P017: 원본 전단 한 장 자동 게시 흐름 ===
+(() => {
+  function enhance(){
+    const panel=document.getElementById('p010Panel');
+    if(!panel || panel.querySelector('.p017-flow'))return;
+    const flow=document.createElement('div');
+    flow.className='p017-flow';
+    flow.style.cssText='margin:10px 0;padding:10px 12px;border-radius:12px;background:#ecfdf3;color:#166534;font-size:12px;font-weight:800;line-height:1.65';
+    flow.innerHTML='전단 1장 업로드 → AI 상품·가격 분석 → 상품 이미지 자동 생성 → 대표상품 우선 슬라이드 → 앱 메인 자동 노출';
+    const actions=panel.querySelector('.p010-actions');
+    actions?.insertAdjacentElement('beforebegin',flow);
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enhance,1400);
+    new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});
+  });
+  console.info('[DalTownMap] P017 one-click Smart Flyer workflow loaded');
 })();
 
