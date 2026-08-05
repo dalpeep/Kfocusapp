@@ -8608,6 +8608,24 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     preview.style.backgroundPosition=`${Math.max(0,Math.min(100,posX))}% ${Math.max(0,Math.min(100,posY))}%`;
   }
 
+
+  function fillBusinessTargetSelect(selectedValue=''){
+    const select=el('p032BusinessTarget');
+    if(!select)return;
+    const rows=Array.isArray(businesses)?businesses.slice():[];
+    rows.sort((a,b)=>String(a.name_ko||a.name||a.title||'').localeCompare(
+      String(b.name_ko||b.name||b.title||''),'ko'
+    ));
+    select.innerHTML='<option value="">전단에 연결된 기본 업소 사용</option>'+
+      rows.map(row=>{
+        const id=String(row.id||'');
+        const label=String(row.name_ko||row.name||row.title||row.name_en||id);
+        const city=String(row.city||'').trim();
+        return `<option value="${esc(id)}">${esc(label)}${city?` · ${esc(city)}`:''}</option>`;
+      }).join('');
+    select.value=String(selectedValue||'');
+  }
+
   async function open(flyerId){
     const modal = ensureModal();
     const status = el('p032CropStatus');
@@ -8621,6 +8639,12 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
       if(!flyer) throw new Error('전단을 찾지 못했습니다.');
       state.flyer = flyer;
       state.crop = normalizeCrop(flyer.featured_crop);
+      fillBusinessTargetSelect(
+        flyer.featured_business_id||
+        flyer.destination_business_id||
+        flyer.business_id||
+        ''
+      );
 
       const img = el('p032CropImage');
       img.onload = ()=>{
@@ -8659,11 +8683,14 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     }
     status.textContent=clear?'대표 구간을 제거하고 있습니다.':'대표 구간을 저장하고 있습니다.';
     try{
+      const featuredBusinessId=String(el('p032BusinessTarget')?.value||'').trim()||null;
       await newsroomEdgeCall('save_weekly_flyer_featured_crop',{
         flyer_id:Number(state.flyer.id),
-        featured_crop:crop
+        featured_crop:crop,
+        featured_business_id:featuredBusinessId
       });
       state.flyer.featured_crop=crop;
+      state.flyer.featured_business_id=featuredBusinessId;
       state.crop=crop;
       status.textContent=clear?'대표 구간을 제거했습니다.':'대표 구간을 저장했습니다. 메인에 바로 반영됩니다.';
       try{
