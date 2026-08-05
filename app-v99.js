@@ -7781,26 +7781,61 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     card.hidden = true;
   }
 
-  function openFlyer(){
-    const flyer = state.flyer;
-    if(!flyer) return;
+  async function openInternalBusiness(businessId){
+    const id=String(businessId||'').trim();
+    if(!id)return false;
+    try{
+      let found=Array.isArray(businesses)
+        ? businesses.find(row=>String(row?.id)===id)
+        : null;
+
+      if(!found && typeof supabase!=='undefined' && supabase?.from){
+        const {data,error}=await supabase.from('businesses').select('*').eq('id',id).maybeSingle();
+        if(error)throw error;
+        if(data){
+          found=data;
+          if(Array.isArray(businesses))businesses.push(data);
+        }
+      }
+
+      if(!found)return false;
+      selectedBizId=id;
+      currentDetailVideoOverride='';
+      renderDetail(id);
+      showPage('business-detail');
+      return true;
+    }catch(error){
+      console.warn('[P037 market business navigation]',error);
+      return false;
+    }
+  }
+
+  async function openFlyer(){
+    const flyer=state.flyer;
+    if(!flyer)return;
+
+    const targetBusinessId=String(
+      flyer.featured_business_id||
+      flyer.destination_business_id||
+      flyer.business_id||
+      ''
+    ).trim();
+
+    if(targetBusinessId && await openInternalBusiness(targetBusinessId))return;
+
     if(window.P010SmartFlyerPublic?.openModal && flyer.id){
       window.P010SmartFlyerPublic.openModal(flyer.id);
       return;
     }
-    const external = String(flyer.link_url || flyer.external_url || '').trim();
+
+    const external=String(flyer.link_url||flyer.external_url||'').trim();
     if(/^https?:\/\//i.test(external)){
-      window.open(external, '_blank', 'noopener');
+      window.open(external,'_blank','noopener');
       return;
     }
-    if(flyer.business_id){
-      selectedBizId = String(flyer.business_id);
-      renderDetail(selectedBizId);
-      showPage('business-detail');
-      return;
-    }
-    if(/^https?:\/\//i.test(String(flyer.image_url || ''))){
-      window.open(flyer.image_url, '_blank', 'noopener');
+
+    if(/^https?:\/\//i.test(String(flyer.image_url||''))){
+      window.open(flyer.image_url,'_blank','noopener');
     }
   }
 
@@ -7822,19 +7857,19 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }
 
 
-  function openBusinessDetail(event){
+  async function openBusinessDetail(event){
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    const businessId=String(state.flyer?.business_id||'').trim();
+    const flyer=state.flyer;
+    const businessId=String(
+      flyer?.featured_business_id||
+      flyer?.destination_business_id||
+      flyer?.business_id||
+      ''
+    ).trim();
     if(!businessId)return openFlyer();
-    try{
-      selectedBizId=businessId;
-      renderDetail(selectedBizId);
-      showPage('business-detail');
-    }catch(error){
-      console.warn('[P035 business detail]',error);
-      openFlyer();
-    }
+    const opened=await openInternalBusiness(businessId);
+    if(!opened)openFlyer();
   }
 
   function draw(){
@@ -7851,7 +7886,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     card.classList.add('p032-market');
     card.querySelectorAll('.p032-shell').forEach(node => node.remove());
 
-    const business = flyer?.business || flyer?.businesses || {};
+    const business =
+      flyer?.featured_business ||
+      flyer?.destination_business ||
+      flyer?.business ||
+      flyer?.businesses ||
+      {};
     const businessNameKo =
       business?.name_ko ||
       business?.name ||
@@ -7954,7 +7994,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   },2500);
 
   window.P032MarketFeaturedCrop = { refresh };
-  console.info('[DalTownMap] P035 Korean business link in market header loaded');
+  console.info('[DalTownMap] P037 selectable market business destination loaded');
 })();
 
 // === P030B: 날씨·교통 한 줄 연속 슬라이드 ===
