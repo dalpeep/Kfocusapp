@@ -7636,38 +7636,49 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   async function load(force=false){
     if(state.busy) return state.flyers;
-    if(!force && Date.now() - state.loadedAt < 45000) return state.flyers;
+    if(!force && Date.now() - state.loadedAt < 30000) return state.flyers;
     state.busy = true;
     try{
       const region = typeof getAppRegion === 'function' ? getAppRegion() : 'dallas';
+      const cfg = typeof getConfig === 'function'
+        ? getConfig()
+        : (window.APP_CONFIG || window.KFOCUS_CONFIG || {});
+      const base = String(cfg.SUPABASE_URL || '').replace(/\/$/,'');
+      const key = String(cfg.SUPABASE_ANON_KEY || '').trim();
+      const fn = String(cfg.NEWSROOM_FUNCTION_NAME || 'newsroom');
       let rows = [];
-      if(typeof supabase !== 'undefined' && supabase?.from){
-        const { data, error } = await supabase
-          .from('weekly_flyers')
-          .select('*')
-          .eq('region', region)
-          .eq('status', 'active')
-          .eq('show_on_home', true)
-          .order('updated_at', { ascending:false })
-          .limit(20);
-        if(error) throw error;
-        rows = Array.isArray(data) ? data : [];
-      }else{
-        const cfg = typeof getConfig === 'function'
-          ? getConfig()
-          : (window.APP_CONFIG || window.KFOCUS_CONFIG || {});
-        const base = String(cfg.SUPABASE_URL || '').replace(/\/$/,'');
-        const key = String(cfg.SUPABASE_ANON_KEY || '').trim();
-        const fn = String(cfg.NEWSROOM_FUNCTION_NAME || 'newsroom');
-        if(!base || !key) throw new Error('Supabase public config missing');
+
+      // Edge Function 공개 API를 우선 사용합니다. featured_crop과 업소명이 함께 반환됩니다.
+      if(base && key){
         const response = await fetch(
           `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
-          { headers:{ apikey:key, Authorization:`Bearer ${key}` }, cache:'no-store' }
+          {
+            headers:{apikey:key,Authorization:`Bearer ${key}`},
+            cache:'no-store'
+          }
         );
-        const json = await response.json().catch(()=>({}));
-        if(!response.ok || json.ok === false) throw new Error(json.error || `HTTP ${response.status}`);
-        rows = Array.isArray(json.flyers) ? json.flyers : [];
+        const payload = await response.json().catch(()=>({}));
+        if(response.ok && payload.ok !== false){
+          rows = Array.isArray(payload.flyers) ? payload.flyers : [];
+        }else{
+          console.warn('[P032 public_weekly_flyers]',payload.error||response.status);
+        }
       }
+
+      // 공개 API가 비어 있을 때만 직접 조회합니다.
+      if(!rows.length && typeof supabase !== 'undefined' && supabase?.from){
+        const {data,error}=await supabase
+          .from('weekly_flyers')
+          .select('*')
+          .eq('region',region)
+          .eq('status','active')
+          .eq('show_on_home',true)
+          .order('updated_at',{ascending:false})
+          .limit(20);
+        if(error)throw error;
+        rows=Array.isArray(data)?data:[];
+      }
+
       state.flyers = rows.filter(validFlyer);
       state.loadedAt = Date.now();
       return state.flyers;
@@ -7786,81 +7797,146 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     const channel = new BroadcastChannel('daltownmap-content');
     channel.addEventListener('message', ()=>refresh(true));
   }catch{}
-  setInterval(()=>{ if(!document.hidden) refresh(true); }, 60000);
+  setInterval(()=>{ if(!document.hidden) refresh(true); }, 30000);
+  // 기존 홈 렌더러가 추천 카드를 다시 그린 뒤에도 대표 전단을 복원합니다.
+  setInterval(()=>{
+    if(document.hidden||!state.flyer)return;
+    const card=document.getElementById('v37RecommendCard');
+    if(!card?.querySelector('.p032-shell'))draw();
+  },2500);
 
   window.P032MarketFeaturedCrop = { refresh };
   console.info('[DalTownMap] P032 administrator-selected market crop marquee loaded');
 })();
 
-// === P030: 날씨·교통을 한 줄 광고 영역으로 이동 ===
+// === P030B: 날씨·교통 한 줄 연속 슬라이드 ===
 (() => {
-  let timer = null;
-  let index = 0;
-  const escTicker = (v='') => String(v).replace(/[&<>"']/g, m => ({
+  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
 
-  function rows(){
-    return (Array.isArray(v51TodayItems) ? v51TodayItems : [])
-      .filter(item => {
-        const key = String(item?.category || '').toLowerCase();
-        return key === 'weather' || key === 'traffic';
-      })
-      .slice(0,4);
+  function ensureStyle(){
+    if(document.getElementById('p030bTickerStyle'))return;
+    const style=document.createElement('style');
+    style.id='p030bTickerStyle';
+    style.textContent=`
+      #homeAdTickerSection.p030b-running{display:block!important;overflow:hidden}
+      #homeAdTickerList.p030b-list{overflow:hidden!important;white-space:nowrap}
+      #homeAdTickerList .p030b-track{
+        display:flex;
+        align-items:center;
+        width:max-content;
+        min-width:200%;
+        animation:p030bFlow 28s linear infinite;
+        will-change:transform;
+      }
+      #homeAdTickerList .p030b-item{
+        flex:0 0 auto;
+        display:flex;
+        align-items:center;
+        gap:9px;
+        min-height:42px;
+        padding:0 22px 0 4px;
+        border:0;
+        background:transparent;
+        color:inherit;
+        font:inherit;
+        white-space:nowrap;
+        cursor:pointer;
+      }
+      #homeAdTickerList .p030b-badge{
+        display:inline-flex;
+        align-items:center;
+        padding:4px 8px;
+        border-radius:999px;
+        background:#fff2d8;
+        color:#9a5b00;
+        font-size:11px;
+        font-weight:800;
+      }
+      #homeAdTickerList .p030b-item strong{font-size:13px}
+      #homeAdTickerList .p030b-item span:last-child{
+        max-width:300px;
+        overflow:hidden;
+        text-overflow:ellipsis;
+        color:#64748b;
+        font-size:12px;
+      }
+      #homeAdTickerList:hover .p030b-track,
+      #homeAdTickerList:active .p030b-track{animation-play-state:paused}
+      @keyframes p030bFlow{
+        from{transform:translate3d(0,0,0)}
+        to{transform:translate3d(-50%,0,0)}
+      }
+      @media(prefers-reduced-motion:reduce){
+        #homeAdTickerList .p030b-track{animation-duration:60s}
+      }
+    `;
+    document.head.appendChild(style);
   }
 
-  function draw(){
-    const section = document.getElementById('homeAdTickerSection');
-    const box = document.getElementById('homeAdTickerList');
-    if(!section || !box) return;
-    const list = rows();
-    if(!list.length){
-      section.hidden = true;
-      box.innerHTML = '';
-      return;
+  function sourceRows(){
+    const list=(Array.isArray(v51TodayItems)?v51TodayItems:[])
+      .filter(item=>['weather','traffic'].includes(String(item?.category||'').toLowerCase()));
+    const unique=[];
+    const seen=new Set();
+    for(const row of list){
+      const key=`${row.category}|${row.title}`;
+      if(seen.has(key))continue;
+      seen.add(key);
+      unique.push(row);
     }
-    section.hidden = false;
-    if(index >= list.length) index = 0;
-    const row = list[index];
-    const key = String(row.category || '').toLowerCase();
-    const label = key === 'weather' ? '날씨' : '교통';
-    const icon = key === 'weather' ? '☀️' : '🚗';
-    box.innerHTML = `
-      <button type="button" class="ticker-ad-item p030-item">
-        <span class="ticker-ad-badge">${icon} ${label}</span>
-        <strong>${escTicker(row.title || '')}</strong>
-        ${row.summary ? `<span class="ticker-ad-detail">${escTicker(row.summary)}</span>` : ''}
-        <span class="ticker-ad-arrow">›</span>
+    return unique.slice(0,4);
+  }
+
+  function paint(){
+    ensureStyle();
+    const section=document.getElementById('homeAdTickerSection');
+    const box=document.getElementById('homeAdTickerList');
+    if(!section||!box)return false;
+    const rows=sourceRows();
+    if(!rows.length)return false;
+
+    section.hidden=false;
+    section.classList.add('p030b-running');
+    box.classList.add('p030b-list');
+
+    // 한 항목뿐이어도 반복 복제하여 계속 흐르게 합니다.
+    const base=rows.length===1?[rows[0],rows[0]]:rows;
+    const loop=[...base,...base];
+    box.innerHTML=`<div class="p030b-track">${loop.map((row,index)=>{
+      const key=String(row.category||'').toLowerCase();
+      const label=key==='weather'?'날씨':'교통';
+      const icon=key==='weather'?'☀️':'🚗';
+      return `<button type="button" class="p030b-item" data-p030b-index="${index%base.length}">
+        <span class="p030b-badge">${icon} ${label}</span>
+        <strong>${esc(row.title||'')}</strong>
+        <span>${esc(row.summary||'')}</span>
       </button>`;
-    box.querySelector('button')?.addEventListener('click', ()=>{
-      if(typeof v51OpenItem === 'function') v51OpenItem(row);
+    }).join('')}</div>`;
+
+    box.querySelectorAll('[data-p030b-index]').forEach(button=>{
+      button.addEventListener('click',()=>{
+        const row=base[Number(button.dataset.p030bIndex)||0];
+        if(typeof v51OpenItem==='function')v51OpenItem(row);
+      });
     });
+    return true;
   }
 
-  function start(){
-    if(timer) clearInterval(timer);
-    draw();
-    const list = rows();
-    if(list.length > 1){
-      timer = setInterval(()=>{
-        index = (index + 1) % list.length;
-        draw();
-      }, 6000);
-    }
+  function retry(){
+    let count=0;
+    const timer=setInterval(()=>{
+      count++;
+      if(paint()||count>20)clearInterval(timer);
+    },500);
   }
 
-  const oldPaint = typeof v51PaintToday === 'function' ? v51PaintToday : null;
-  if(oldPaint){
-    window.v51PaintToday = function(...args){
-      const output = oldPaint.apply(this,args);
-      setTimeout(start,0);
-      return output;
-    };
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>setTimeout(start,2500));
-  setInterval(()=>{ if(!document.hidden) start(); },30000);
-  console.info('[DalTownMap] P030 weather and traffic ticker loaded');
+  document.addEventListener('DOMContentLoaded',retry);
+  window.addEventListener('focus',paint);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)paint()});
+  setInterval(()=>{if(!document.hidden)paint()},30000);
+  console.info('[DalTownMap] P030B continuous weather/traffic ticker loaded');
 })();
 
 // === P031-SAFE: 큰 오늘의 달타운 카드 숨김 ===
