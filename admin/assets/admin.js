@@ -8611,31 +8611,67 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     }
   }
 
+  function addCropButton(card,actions,id){
+    if(!card||!actions||!id||card.querySelector('.p032-featured-crop-btn'))return;
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='btn p032-featured-crop-btn';
+    button.textContent='대표 구간 지정';
+    button.dataset.p032CropId=String(id);
+
+    // 원본 보기 앞에 배치해 사용자가 쉽게 찾을 수 있게 합니다.
+    const originalLink=[...actions.querySelectorAll('a,button')]
+      .find(node=>String(node.textContent||'').trim()==='원본 보기');
+    if(originalLink)actions.insertBefore(button,originalLink);
+    else actions.prepend(button);
+  }
+
   function injectButtons(){
+    // 구형 스마트 전단 카드
     document.querySelectorAll('#p010List .p010-card').forEach(card=>{
-      if(card.querySelector('.p032-featured-crop-btn')) return;
-      const id=Number(card.querySelector('[data-id]')?.dataset.id||0);
-      const actions=card.querySelector('.p010-card-actions');
-      if(!id||!actions) return;
-      const button=document.createElement('button');
-      button.type='button';
-      button.className='btn p032-featured-crop-btn';
-      button.textContent='대표 구간 지정';
-      button.dataset.p032CropId=String(id);
-      actions.prepend(button);
+      const id=Number(
+        card.querySelector('[data-p010-preview]')?.dataset.p010Preview||
+        card.querySelector('[data-id]')?.dataset.id||0
+      );
+      addCropButton(card,card.querySelector('.p010-card-actions,.p010-actions'),id);
     });
 
-    document.querySelectorAll('[data-p0103-card-id]').forEach(card=>{
-      if(card.querySelector('.p032-featured-crop-btn')) return;
-      const id=Number(card.getAttribute('data-p0103-card-id')||0);
-      const actions=card.querySelector('.p0103-actions');
-      if(!id||!actions) return;
-      const button=document.createElement('button');
-      button.type='button';
-      button.className='btn p032-featured-crop-btn';
-      button.textContent='대표 구간 지정';
-      button.dataset.p032CropId=String(id);
-      actions.prepend(button);
+    // 통합 스마트 전단 센터 카드
+    document.querySelectorAll('#p0103List .p0103-card,.p0103-card').forEach(card=>{
+      const id=Number(
+        card.getAttribute('data-p0103-card-id')||
+        card.querySelector('[data-p0103-preview]')?.dataset.p0103Preview||
+        card.querySelector('[data-id]')?.dataset.id||0
+      );
+      addCropButton(card,card.querySelector('.p0103-actions'),id);
+    });
+
+    // 현재 화면에서 사용 중인 독립 AI 스마트 전단 카드
+    document.querySelectorAll('#p011List .p011-card,.p011-card').forEach(card=>{
+      const id=Number(
+        card.querySelector('[data-p011-preview]')?.dataset.p011Preview||
+        card.querySelector('[data-p011-status]')?.dataset.id||
+        card.querySelector('[data-p011-home]')?.dataset.id||0
+      );
+      addCropButton(card,card.querySelector('.p011-actions'),id);
+    });
+
+    // 이후 레이아웃 이름이 바뀌어도 버튼 문구를 기준으로 보조 탐색
+    document.querySelectorAll('article').forEach(card=>{
+      if(card.querySelector('.p032-featured-crop-btn'))return;
+      const actions=[...card.querySelectorAll('div')]
+        .find(div=>[...div.children].some(node=>String(node.textContent||'').trim()==='원본 보기'));
+      if(!actions)return;
+      const source=card.querySelector(
+        '[data-p011-preview],[data-p0103-preview],[data-p010-preview],[data-p011-status][data-id],[data-id]'
+      );
+      const id=Number(
+        source?.dataset?.p011Preview||
+        source?.dataset?.p0103Preview||
+        source?.dataset?.p010Preview||
+        source?.dataset?.id||0
+      );
+      addCropButton(card,actions,id);
     });
   }
 
@@ -8657,6 +8693,12 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
       if(list) observer.observe(list,{childList:true,subtree:true});
       const center=el('p0103List');
       if(center) observer.observe(center,{childList:true,subtree:true});
+      const independent=el('p011List');
+      if(independent) observer.observe(independent,{childList:true,subtree:true});
+      // 카드가 탭 전환 후 늦게 생성되는 경우를 대비합니다.
+      observer.observe(document.body,{childList:true,subtree:true});
+      setTimeout(injectButtons,1200);
+      setTimeout(injectButtons,3000);
     },1800);
   });
 
