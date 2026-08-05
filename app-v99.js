@@ -8771,3 +8771,187 @@ console.info('[DalTownMap] P021 reanalysis image-slider compatibility loaded');
   console.info('[DalTownMap] P022 Smart Flyer duplicate removal loaded');
 })();
 
+// === P023: 스마트 전단 메인 항목 단일화 ===
+(() => {
+  let busy=false;
+  let lastRun=0;
+
+  function isFlyer(item){
+    return Boolean(
+      item?.weekly_flyer_id ||
+      String(item?.id||'').includes('smart-flyer') ||
+      String(item?.id||'').includes('weekly-flyer') ||
+      item?.event_data?.selection_source==='smart_flyer'
+    );
+  }
+
+  function money(value){
+    const n=Number(value);
+    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
+  }
+
+  function sortedItems(flyer){
+    return (Array.isArray(flyer?.weekly_flyer_items)?flyer.weekly_flyer_items:[])
+      .slice()
+      .sort((a,b)=>
+        Number(b.is_featured||0)-Number(a.is_featured||0) ||
+        Number(b.ai_score||0)-Number(a.ai_score||0) ||
+        Number(a.source_order||0)-Number(b.source_order||0)
+      );
+  }
+
+  function canonicalItem(flyer){
+    const items=sortedItems(flyer).slice(0,4);
+    const businessName=
+      flyer?.business?.name ||
+      flyer?.title ||
+      '이번 주 마켓 세일';
+
+    const summary=items.map(x=>
+      `${x.product_name||'세일 상품'}${x.sale_price!=null?` ${money(x.sale_price)}`:''}`
+    ).join(' · ');
+
+    return {
+      id:`p023-smart-flyer-${flyer.id}`,
+      source_id:`p023-smart-flyer-${flyer.id}`,
+      category:'shopping',
+      category_label:'이번 주 특가',
+      icon:'🛒',
+      title:flyer.title||businessName,
+      summary:summary||flyer.ai_summary||'이번 주 할인 상품을 확인하세요.',
+      subtitle:summary||flyer.ai_summary||'이번 주 할인 상품을 확인하세요.',
+      target_type:'business',
+      target_id:String(flyer.business_id||''),
+      business_id:String(flyer.business_id||''),
+      weekly_flyer_id:Number(flyer.id),
+      flyer_image_url:flyer.image_url||'',
+      image_url:flyer.image_url||'',
+      url:flyer.image_url||'',
+      link_label:'전체 세일 보기 →',
+      priority:25,
+      selected_by_admin:true,
+      admin_selected:true,
+      is_manual:true,
+      published_at:flyer.updated_at||flyer.created_at,
+      updated_at:flyer.updated_at||flyer.created_at,
+      created_at:flyer.created_at,
+      event_data:{
+        home_category:'shopping',
+        selection_source:'smart_flyer',
+        expires_at:flyer.end_date?`${flyer.end_date}T23:59:59-05:00`:null,
+        end_at:flyer.end_date?`${flyer.end_date}T23:59:59-05:00`:null
+      }
+    };
+  }
+
+  async function fetchFlyers(){
+    const cfg=typeof getConfig==='function'
+      ? getConfig()
+      : (window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+
+    const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+    const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+    const fn=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
+    const region=String(
+      typeof getAppRegion==='function'?getAppRegion():'dallas'
+    ).toLowerCase();
+
+    if(!base||!key)return [];
+
+    const response=await fetch(
+      `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
+      {
+        headers:{apikey:key,Authorization:`Bearer ${key}`},
+        cache:'no-store'
+      }
+    );
+
+    const json=await response.json().catch(()=>({}));
+    if(!response.ok){
+      throw new Error(json?.error?.message||json?.message||`HTTP ${response.status}`);
+    }
+    return Array.isArray(json.flyers)?json.flyers:[];
+  }
+
+  async function canonicalize(force=false){
+    if(busy)return;
+    if(!force&&Date.now()-lastRun<15000)return;
+    busy=true;
+
+    try{
+      const flyers=await fetchFlyers();
+      const canonical=flyers.map(canonicalItem);
+
+      if(!Array.isArray(window.v51TodayItems))return;
+
+      const current=window.v51TodayItems[window.v51TodayIndex]||null;
+      const currentFlyerId=Number(current?.weekly_flyer_id||0);
+
+      const nonFlyers=window.v51TodayItems.filter(item=>!isFlyer(item));
+      const prepared=typeof window.v51PrepareTodayItems==='function'
+        ? window.v51PrepareTodayItems([...canonical,...nonFlyers])
+        : [...canonical,...nonFlyers];
+
+      window.v51TodayItems=prepared;
+
+      const keep=currentFlyerId
+        ? prepared.findIndex(x=>Number(x?.weekly_flyer_id||0)===currentFlyerId)
+        : -1;
+
+      window.v51TodayIndex=keep>=0
+        ? keep
+        : Math.min(window.v51TodayIndex||0,Math.max(0,prepared.length-1));
+
+      lastRun=Date.now();
+
+      if(typeof window.v51PaintToday==='function'){
+        window.v51PaintToday();
+      }
+      if(typeof window.v51StartTodayTimer==='function'){
+        window.v51StartTodayTimer(5000);
+      }
+
+      console.info('[P023 canonical flyer feed]',{
+        flyers:flyers.length,
+        total:prepared.length
+      });
+    }catch(error){
+      console.warn('[P023 canonical flyer feed failed]',error?.message||error);
+    }finally{
+      busy=false;
+    }
+  }
+
+  const baseRefresh=typeof window.v51RefreshToday==='function'
+    ? window.v51RefreshToday
+    : null;
+
+  if(baseRefresh){
+    window.v51RefreshToday=async function(){
+      const result=await baseRefresh();
+      await canonicalize(true);
+      return result;
+    };
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>canonicalize(true),1600);
+    setTimeout(()=>canonicalize(true),4200);
+    setTimeout(()=>canonicalize(true),8000);
+
+    setInterval(()=>{
+      if(!document.hidden)canonicalize(true);
+    },30000);
+  });
+
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible')canonicalize(true);
+  });
+
+  window.addEventListener('focus',()=>canonicalize(true));
+  window.addEventListener('online',()=>canonicalize(true));
+
+  window.P023CanonicalFlyerFeed={refresh:()=>canonicalize(true)};
+  console.info('[DalTownMap] P023 canonical Smart Flyer feed loaded');
+})();
+
