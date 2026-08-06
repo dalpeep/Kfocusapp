@@ -7477,6 +7477,8 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   const state = {
     flyers: [],
     flyer: null,
+    index: 0,
+    timer: null,
     busy: false,
     loadedAt: 0
   };
@@ -7682,6 +7684,35 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       #v37RecommendCard .p032-shell.is-paused .p032-track{
         animation-play-state:paused;
       }
+      #v37RecommendCard .p046-market-dots{
+        position:absolute;
+        left:50%;
+        bottom:9px;
+        z-index:5;
+        display:flex;
+        gap:5px;
+        transform:translateX(-50%);
+      }
+      #v37RecommendCard .p046-market-dot{
+        width:6px;
+        height:6px;
+        border:0;
+        border-radius:999px;
+        padding:0;
+        background:rgba(255,255,255,.58);
+        box-shadow:0 1px 4px rgba(0,0,0,.16);
+      }
+      #v37RecommendCard .p046-market-dot.active{
+        width:18px;
+        background:#2563eb;
+      }
+      #v37RecommendCard .p032-shell{
+        animation:p046MarketFade .28s ease;
+      }
+      @keyframes p046MarketFade{
+        from{opacity:.45;transform:translateY(3px)}
+        to{opacity:1;transform:translateY(0)}
+      }
       #v37RecommendCard .p032-open{
         position:absolute;
         right:11px;
@@ -7736,6 +7767,107 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     ].join(';');
   }
 
+
+  function targetBusinessId(flyer){
+    return String(
+      flyer?.featured_business_id ||
+      flyer?.destination_business_id ||
+      flyer?.business_id ||
+      ''
+    ).trim();
+  }
+
+  async function enrichBusinesses(rows){
+    const list=Array.isArray(rows)?rows:[];
+    const ids=[...new Set(list.map(targetBusinessId).filter(Boolean))];
+    if(!ids.length)return list;
+
+    const map=new Map();
+
+    // 공개 업소 목록에서 먼저 찾습니다.
+    if(Array.isArray(businesses)){
+      businesses.forEach(row=>{
+        if(row?.id!==undefined&&row?.id!==null){
+          map.set(String(row.id),row);
+        }
+      });
+    }
+
+    const missing=ids.filter(id=>!map.has(id));
+    if(missing.length && typeof supabase!=='undefined' && supabase?.from){
+      try{
+        const {data,error}=await supabase.from('businesses').select('*').in('id',missing);
+        if(!error){
+          (data||[]).forEach(row=>map.set(String(row.id),row));
+        }
+      }catch(error){
+        console.warn('[P046 business enrichment]',error);
+      }
+    }
+
+    return list.map(flyer=>{
+      const id=targetBusinessId(flyer);
+      const found=map.get(id);
+      return found ? {...flyer,featured_business:found} : flyer;
+    });
+  }
+
+  function uniqueMarketFlyers(rows){
+    const result=[];
+    const seen=new Set();
+
+    for(const flyer of rows){
+      const id=targetBusinessId(flyer);
+      const name=String(
+        flyer?.featured_business?.name_ko ||
+        flyer?.featured_business?.name ||
+        flyer?.business?.name_ko ||
+        flyer?.business?.name ||
+        flyer?.business_name_ko ||
+        flyer?.business_name ||
+        ''
+      ).trim();
+
+      const key=id || name.toLowerCase() || String(flyer?.id||'');
+      if(seen.has(key))continue;
+      seen.add(key);
+      result.push(flyer);
+    }
+    return result;
+  }
+
+  function currentFlyer(){
+    if(!state.flyers.length)return null;
+    if(state.index<0||state.index>=state.flyers.length)state.index=0;
+    return state.flyers[state.index];
+  }
+
+  function stopRotation(){
+    if(state.timer){
+      clearInterval(state.timer);
+      state.timer=null;
+    }
+  }
+
+  function startRotation(){
+    stopRotation();
+    if(state.flyers.length<2)return;
+    state.timer=setInterval(()=>{
+      if(document.hidden)return;
+      state.index=(state.index+1)%state.flyers.length;
+      state.flyer=currentFlyer();
+      draw();
+    },7000);
+  }
+
+  function goToMarket(index){
+    if(!state.flyers.length)return;
+    state.index=(Number(index)||0+state.flyers.length)%state.flyers.length;
+    state.flyer=currentFlyer();
+    draw();
+    startRotation();
+  }
+
   async function load(force=false){
     if(state.busy) return state.flyers;
     if(!force && Date.now() - state.loadedAt < 30000) return state.flyers;
@@ -7781,7 +7913,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         rows=Array.isArray(data)?data:[];
       }
 
-      state.flyers = rows.filter(validFlyer);
+      const valid=rows.filter(validFlyer);
+      const enriched=await enrichBusinesses(valid);
+      state.flyers=uniqueMarketFlyers(enriched);
+      if(state.index>=state.flyers.length)state.index=0;
       state.loadedAt = Date.now();
       return state.flyers;
     }catch(error){
@@ -7961,7 +8096,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       business?.title ||
       flyer?.business_name_ko ||
       flyer?.business_name ||
-      '마켓';
+      (targetBusinessId(flyer) ? '등록 마트' : '마켓');
     const businessNameEn =
       business?.name_en ||
       business?.name ||
@@ -8010,12 +8145,29 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
             </div>`).join('')}
         </div>
       </div>
+      ${state.flyers.length>1 ? `
+        <div class="p046-market-dots" aria-label="마트 슬라이드">
+          ${state.flyers.map((_,index)=>`
+            <button
+              type="button"
+              class="p046-market-dot ${index===state.index?'active':''}"
+              data-p046-market="${index}"
+              aria-label="${index+1}번째 마트 보기"
+            ></button>`).join('')}
+        </div>` : ''}
       <button class="p032-open" type="button" aria-label="업소 상세 보기">›</button>
     `;
     card.appendChild(shell);
     requestAnimationFrame(()=>fitAllCropImages());
     setTimeout(()=>fitAllCropImages(),250);
 
+    shell.querySelectorAll('[data-p046-market]').forEach(button=>{
+      button.addEventListener('click',event=>{
+        event.preventDefault();
+        event.stopPropagation();
+        goToMarket(Number(button.dataset.p046Market||0));
+      });
+    });
     shell.addEventListener('click', openBusinessDetail);
     shell.addEventListener('keydown', e => {
       if(e.key === 'Enter' || e.key === ' '){
@@ -8028,14 +8180,15 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }
 
   async function refresh(force=false){
-    const rows = await load(force);
-    const flyer = rows[0] || null;
-    state.flyer = flyer;
-    if(!flyer){
+    await load(force);
+    state.flyer=currentFlyer();
+    if(!state.flyer){
+      stopRotation();
       hide();
       return false;
     }
     draw();
+    startRotation();
     return true;
   }
 
@@ -8044,7 +8197,8 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     setTimeout(()=>refresh(true), 3200);
   });
   document.addEventListener('visibilitychange', ()=>{
-    if(!document.hidden) refresh(true);
+    if(document.hidden)stopRotation();
+    else refresh(true);
   });
   window.addEventListener('focus', ()=>refresh(true));
   window.addEventListener('storage', e=>{
@@ -8062,8 +8216,24 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(!card?.querySelector('.p032-shell'))draw();
   },2500);
 
-  window.P032MarketFeaturedCrop = { refresh };
-  console.info('[DalTownMap] P037 selectable market business destination loaded');
+  window.P032MarketFeaturedCrop = {
+    refresh,
+    next(){
+      if(state.flyers.length<2)return;
+      state.index=(state.index+1)%state.flyers.length;
+      state.flyer=currentFlyer();
+      draw();
+      startRotation();
+    },
+    previous(){
+      if(state.flyers.length<2)return;
+      state.index=(state.index-1+state.flyers.length)%state.flyers.length;
+      state.flyer=currentFlyer();
+      draw();
+      startRotation();
+    }
+  };
+  console.info('[DalTownMap] P046 multiple market rotation and business name enrichment loaded');
 })();
 
 // === P030C: 광고·날씨·교통 공통 한 줄 광고 UI ===
