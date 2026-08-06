@@ -7602,7 +7602,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         });
 
         const response = await fetch(
-          `${base}/rest/v1/weekly_flyers?${params.toString()}&_=${Date.now()}`,
+          `${base}/rest/v1/weekly_flyers?${params.toString()}`,
           {
             cache:'no-store',
             headers:{
@@ -8030,7 +8030,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
   };
 
-  console.info('[DalTownMap] P068 fixed main-image-only market card loaded');
+  console.info('[DalTownMap] P069 PostgREST cache-buster fix loaded');
 })();
 
 
