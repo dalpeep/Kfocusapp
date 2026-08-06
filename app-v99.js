@@ -7201,11 +7201,7 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     }).format(new Date());
   }
   function validFlyer(f){
-    const mainImage=String(
-      f?.market_main_image_url ||
-      f?.main_market_image_url ||
-      ''
-    ).trim();
+    const mainImage=resolveMarketMainImage(f);
 
     return String(f?.status || '') === 'active'
       && f?.show_on_home !== false
@@ -7563,6 +7559,42 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     return { x, y, width, height };
   }
 
+  function parseImageList(value){
+    if(Array.isArray(value))return value;
+    if(typeof value==='string'){
+      try{
+        const parsed=JSON.parse(value);
+        if(Array.isArray(parsed))return parsed;
+      }catch{}
+      if(/^https?:\/\//i.test(value.trim()))return [value.trim()];
+    }
+    return [];
+  }
+
+  function resolveMarketMainImage(f){
+    const business=
+      f?.featured_business ||
+      f?.destination_business ||
+      f?.business ||
+      f?.businesses ||
+      {};
+
+    const candidates=[
+      f?.market_main_image_url,
+      f?.main_market_image_url,
+      ...parseImageList(business?.description_images),
+      business?.image_url,
+      business?.image,
+      business?.photo_url,
+      business?.logo_url
+    ];
+
+    return String(
+      candidates.find(value=>/^https?:\/\//i.test(String(value||'').trim()))||
+      ''
+    ).trim();
+  }
+
   function validFlyer(f){
     const mainImage=String(
       f?.market_main_image_url ||
@@ -7577,13 +7609,13 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       && /^https?:\/\//i.test(mainImage);
 
     if(!result){
-      console.info('[P063 flyer excluded]',{
+      console.info('[P066 flyer excluded]',{
         id:f?.id,
         status:f?.status,
         show_on_home:f?.show_on_home,
         start_date:f?.start_date,
         end_date:f?.end_date,
-        market_main_image_url:mainImage
+        resolved_main_image:mainImage
       });
     }
     return result;
@@ -8047,19 +8079,27 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       }
       const rows=[...byId.values()];
 
-      // 날짜 필터는 서버 데이터가 서로 다른 포맷이어도 전단을 숨기지 않도록 완화합니다.
-      const valid=rows.filter(validFlyer);
+      // 먼저 연결 업소 정보를 합친 뒤 메인 이미지를 판정합니다.
+      // 전단 전용 URL이 아직 NULL이어도 업소 소개 이미지가 있으면 메인에 표시합니다.
+      const enrichedRows=await enrichBusinesses(rows);
+      const valid=enrichedRows.filter(validFlyer);
 
-      console.info('[P063 market flyers]',{
+      console.info('[P066 market flyers]',{
         collected:collected.length,
         unique:rows.length,
         valid:valid.length,
         ids:valid.map(row=>row.id),
-        mainImages:valid.map(row=>row.market_main_image_url||row.main_market_image_url||'')
+        mainImages:valid.map(row=>resolveMarketMainImage(row)),
+        sources:valid.map(row=>
+          row?.market_main_image_url ? 'flyer' :
+          parseImageList(
+            row?.featured_business?.description_images||
+            row?.business?.description_images
+          ).length ? 'business-description' : 'business-image'
+        )
       });
 
-      const enriched=await enrichBusinesses(valid);
-      state.flyers=enriched;
+      state.flyers=valid;
 
       if(state.flyers.length){
         state.lastGoodFlyers=state.flyers.slice();
@@ -8234,11 +8274,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     ensureStyle();
     const card=document.getElementById('v37RecommendCard');
     const flyer=state.flyer;
-    const mainImage=String(
-      flyer?.market_main_image_url ||
-      flyer?.main_market_image_url ||
-      ''
-    ).trim();
+    const mainImage=resolveMarketMainImage(flyer);
 
     if(!card||!flyer||!/^https?:\/\//i.test(mainImage)){
       hide();
@@ -9456,4 +9492,11 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   });
 
   console.info('[DalTownMap] P065 fixed market image refresh loaded');
+})();
+
+
+
+// === P066: 업소 소개 이미지 메인 마트 fallback ===
+(() => {
+  console.info('[DalTownMap] P066 market image fallback loaded');
 })();
