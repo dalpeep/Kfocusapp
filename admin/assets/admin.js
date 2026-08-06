@@ -6001,6 +6001,47 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
       if(showMessage) setStatus('서버의 최신 브리핑을 불러왔습니다.');
     }catch(e){console.error('[V90 briefing load]',e);setStatus(`불러오기 실패: ${e.message}`,true);}
   }
+
+  async function saveMainImageUrlDirect(imageUrl){
+    const {base,anon}=getP057Config();
+    if(!base||!anon)throw new Error('Supabase 설정을 찾지 못했습니다.');
+
+    const accessToken=await getP057AccessToken();
+    if(!accessToken){
+      throw new Error('관리자 로그인 세션을 찾지 못했습니다. 다시 로그인해 주세요.');
+    }
+
+    const response=await fetch(
+      `${base}/rest/v1/weekly_flyers?id=eq.${encodeURIComponent(currentFlyerId)}`,
+      {
+        method:'PATCH',
+        headers:{
+          apikey:anon,
+          Authorization:`Bearer ${accessToken}`,
+          'Content-Type':'application/json',
+          Prefer:'return=representation'
+        },
+        body:JSON.stringify({
+          market_main_image_url:imageUrl||null,
+          market_main_image_updated_at:new Date().toISOString(),
+          updated_at:new Date().toISOString()
+        })
+      }
+    );
+
+    const payload=await response.json().catch(()=>[]);
+    if(!response.ok){
+      throw new Error(`전단 URL 저장 실패 (${response.status}): ${JSON.stringify(payload)}`);
+    }
+
+    const row=Array.isArray(payload)?payload[0]:payload;
+    const savedUrl=String(row?.market_main_image_url||'').trim();
+    if(imageUrl && !savedUrl){
+      throw new Error('DB 응답에 market_main_image_url이 없습니다.');
+    }
+    return row||{};
+  }
+
   async function save(){
     const btn=el('v90BriefingSaveBtn');if(btn)btn.disabled=true;
     try{
@@ -9171,22 +9212,35 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     status.textContent='이미지를 업로드하고 있습니다.';
     try{
       const imageUrl=await upload(selectedFile);
-      const saved=await newsroomEdgeCall('save_weekly_flyer_main_image',{
-        flyer_id:currentFlyerId,
-        market_main_image_url:imageUrl
-      });
+      let saved=null;
+      let edgeError=null;
 
-      const savedUrl=String(
+      try{
+        saved=await newsroomEdgeCall('save_weekly_flyer_main_image',{
+          flyer_id:currentFlyerId,
+          market_main_image_url:imageUrl
+        });
+      }catch(error){
+        edgeError=error;
+        console.warn('[P061 edge save failed, using direct REST]',error);
+      }
+
+      let savedUrl=String(
         saved?.market_main_image_url||
         saved?.flyer?.market_main_image_url||
         ''
       ).trim();
 
       if(!savedUrl){
-        throw new Error('이미지는 업로드됐지만 전단 데이터에 URL이 저장되지 않았습니다.');
+        const direct=await saveMainImageUrlDirect(imageUrl);
+        savedUrl=String(direct?.market_main_image_url||'').trim();
       }
 
-      status.textContent='메인 이미지를 저장했습니다. 메인에 곧 반영됩니다.';
+      if(!savedUrl){
+        throw edgeError||new Error('이미지는 업로드됐지만 전단 데이터에 URL이 저장되지 않았습니다.');
+      }
+
+      status.textContent='메인 이미지와 전단 연결을 저장했습니다. 메인에 곧 반영됩니다.';
       try{
         localStorage.setItem('daltownmap_content_changed',String(Date.now()));
         const channel=new BroadcastChannel('daltownmap-content');
@@ -9207,10 +9261,15 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     if(!confirm('이 전단의 메인 이미지를 제거할까요?'))return;
     const status=document.getElementById('p057MainImageStatus');
     try{
-      await newsroomEdgeCall('save_weekly_flyer_main_image',{
-        flyer_id:currentFlyerId,
-        market_main_image_url:null
-      });
+      try{
+        await newsroomEdgeCall('save_weekly_flyer_main_image',{
+          flyer_id:currentFlyerId,
+          market_main_image_url:null
+        });
+      }catch(error){
+        console.warn('[P061 edge clear failed, using direct REST]',error);
+        await saveMainImageUrlDirect(null);
+      }
       status.textContent='메인 이미지를 제거했습니다.';
     }catch(error){
       status.textContent=`제거 실패: ${error.message}`;
@@ -9291,3 +9350,6 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     },800);
   });
 })();
+
+
+console.info('[DalTownMap] P061 robust market image DB link loaded');
