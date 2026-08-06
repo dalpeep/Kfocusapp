@@ -8589,7 +8589,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     const rect=img?.getBoundingClientRect?.();
     if(!rect?.width||!rect?.height)return;
 
-    // 전단 전체 폭을 사용하고, 화면 기준 약 1.5인치(192px) 높이만 고정합니다.
+    // 전단 전체 폭을 사용하고, 화면 기준 약 1.5인치(144px) 높이만 고정합니다.
     const fixedDisplayHeight=Math.min(144,Math.max(86,rect.height*.17));
     const height=Math.max(.008,Math.min(.35,fixedDisplayHeight/rect.height));
     const width=1;
@@ -8852,22 +8852,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
 
 
 
-// === P048-ADMIN: 대표 구간 높이 1.5인치 안내 보정 ===
+// === P048-SAFE: 대표 구간 높이 1.5인치 ===
 (() => {
-  function fixLabels(){
-    const modal=document.getElementById('p032CropModal');
-    if(!modal)return;
-    modal.querySelectorAll('*').forEach(node=>{
-      if(node.children.length===0 && typeof node.textContent==='string'){
-        node.textContent=node.textContent
-          .replace(/약 2인치/g,'약 1.5인치')
-          .replace(/2인치 높이/g,'1.5인치 높이');
-      }
-    });
-  }
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(fixLabels,1200);
-    const observer=new MutationObserver(fixLabels);
-    observer.observe(document.body,{childList:true,subtree:true});
-  });
+  console.info('[DalTownMap] P048 safe 1.5-inch crop selector loaded');
 })();
