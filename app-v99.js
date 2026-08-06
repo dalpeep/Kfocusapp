@@ -7663,6 +7663,20 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         background-repeat:no-repeat;
         background-color:#fff;
       }
+      #v37RecommendCard .p043-strip{
+        position:relative;
+        overflow:hidden;
+        background:#fff;
+      }
+      #v37RecommendCard .p043-crop-img{
+        position:absolute;
+        display:block;
+        max-width:none!important;
+        max-height:none!important;
+        object-fit:initial!important;
+        user-select:none;
+        pointer-events:none;
+      }
       #v37RecommendCard .p032-shell:hover .p032-track,
       #v37RecommendCard .p032-shell:active .p032-track,
       #v37RecommendCard .p032-shell.is-paused .p032-track{
@@ -7877,6 +7891,50 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(!opened)openFlyer();
   }
 
+
+  function fitCropImage(img,crop){
+    if(!img||!crop)return;
+    const apply=()=>{
+      const box=img.closest('.p043-strip');
+      if(!box||!img.naturalWidth||!img.naturalHeight)return;
+
+      const cw=box.clientWidth;
+      const ch=box.clientHeight;
+      if(!cw||!ch)return;
+
+      const iw=img.naturalWidth;
+      const ih=img.naturalHeight;
+      const cropW=iw*crop.width;
+      const cropH=ih*crop.height;
+
+      // 선택 구간을 카드에 꽉 채우되 원본 비율은 절대 변경하지 않습니다.
+      const scale=Math.max(cw/cropW,ch/cropH);
+      const renderedW=iw*scale;
+      const renderedH=ih*scale;
+      const selectedW=cropW*scale;
+      const selectedH=cropH*scale;
+
+      const left=-(iw*crop.x*scale)+(cw-selectedW)/2;
+      const top=-(ih*crop.y*scale)+(ch-selectedH)/2;
+
+      img.style.width=`${renderedW}px`;
+      img.style.height=`${renderedH}px`;
+      img.style.left=`${left}px`;
+      img.style.top=`${top}px`;
+      img.style.transform='none';
+    };
+
+    if(img.complete&&img.naturalWidth)apply();
+    else img.addEventListener('load',apply,{once:true});
+  }
+
+  function fitAllCropImages(){
+    const crop=normalizeCrop(state.flyer?.featured_crop);
+    if(!crop)return;
+    document.querySelectorAll('#v37RecommendCard .p043-crop-img')
+      .forEach(img=>fitCropImage(img,crop));
+  }
+
   function draw(){
     ensureStyle();
     const card = document.getElementById('v37RecommendCard');
@@ -7944,12 +8002,23 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       </div>
       <div class="p032-viewport">
         <div class="p032-track">
-          ${Array.from({length:6},()=>`<div class="p032-strip" style="${bg}"></div>`).join('')}
+          ${Array.from({length:6},()=>`
+            <div class="p032-strip p043-strip">
+              <img
+                class="p043-crop-img"
+                src="${esc(flyer.image_url || '')}"
+                alt="${esc(businessNameKo || businessNameEn || '마켓 전단')}"
+                loading="eager"
+                draggable="false"
+              >
+            </div>`).join('')}
         </div>
       </div>
       <button class="p032-open" type="button" aria-label="전단 전체 보기">›</button>
     `;
     card.appendChild(shell);
+    requestAnimationFrame(()=>fitAllCropImages());
+    setTimeout(()=>fitAllCropImages(),250);
 
     shell.querySelector('.p032-business-link')?.addEventListener('click',openBusinessDetail);
     shell.addEventListener('click', openFlyer);
@@ -8553,8 +8622,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
           height:182px!important;
           min-height:182px!important;
           max-height:182px!important;
-          background-repeat:no-repeat!important;
-          background-color:#fff!important;
+          background:#fff!important;
         }
 
         #v37RecommendCard .p032-open{
@@ -8680,4 +8748,26 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   });
   window.addEventListener('focus',enforceExactCrop);
   console.info('[DalTownMap] P042 exact featured crop mapping loaded');
+})();
+
+
+
+// === P043: 전단 비율 보존 · 반응형 대표 구간 맞춤 ===
+(() => {
+  let timer=null;
+  function refit(){
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      if(window.P032MarketFeaturedCrop?.refresh){
+        document.querySelectorAll('#v37RecommendCard .p043-crop-img').forEach(img=>{
+          const event=new Event('load');
+          if(img.complete)img.dispatchEvent(event);
+        });
+      }
+    },120);
+  }
+
+  window.addEventListener('resize',refit);
+  window.addEventListener('orientationchange',refit);
+  console.info('[DalTownMap] P043 aspect-ratio-safe market crop loaded');
 })();
