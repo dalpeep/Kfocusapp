@@ -7528,7 +7528,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         overflow:hidden;
         padding:0!important;
         background:#fff;
-        min-height:292px;
+        min-height:250px;
         border-radius:22px;
         border:1px solid #d9e4f5;
         box-shadow:0 8px 24px rgba(30,64,175,.08);
@@ -7539,7 +7539,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       }
       #v37RecommendCard .p032-shell{
         position:relative;
-        min-height:292px;
+        min-height:250px;
         overflow:hidden;
         border-radius:inherit;
         background:#fff;
@@ -7648,7 +7648,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       }
       #v37RecommendCard .p032-viewport{
         position:relative;
-        height:186px;
+        height:144px;
         overflow:hidden;
         background:#fff;
       }
@@ -7736,12 +7736,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       }
       @media(max-width:390px){
         #v37RecommendCard.p032-market,
-        #v37RecommendCard .p032-shell{min-height:278px}
+        #v37RecommendCard .p032-shell{min-height:242px}
         #v37RecommendCard .p032-storebar{min-height:54px;padding:10px 13px}
         #v37RecommendCard .p032-store-name{font-size:16px}
         #v37RecommendCard .p032-titlebar{min-height:44px;padding:8px 13px}
         #v37RecommendCard .p032-title-main{font-size:16px}
-        #v37RecommendCard .p032-viewport{height:180px}
+        #v37RecommendCard .p032-viewport{height:144px}
       }
       @media(prefers-reduced-motion:reduce){
         #v37RecommendCard .p032-track{animation:none}
@@ -8768,25 +8768,25 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
         /* 1.9 inch ≈ 182px at 96dpi */
         #v37RecommendCard .p032-viewport{
-          height:182px!important;
-          min-height:182px!important;
-          max-height:182px!important;
+          height:144px!important;
+          min-height:144px!important;
+          max-height:144px!important;
           padding:0!important;
           line-height:0!important;
           background:#fff!important;
         }
 
         #v37RecommendCard .p032-track{
-          height:182px!important;
-          min-height:182px!important;
-          max-height:182px!important;
+          height:144px!important;
+          min-height:144px!important;
+          max-height:144px!important;
           align-items:stretch!important;
         }
 
         #v37RecommendCard .p032-strip{
-          height:182px!important;
-          min-height:182px!important;
-          max-height:182px!important;
+          height:144px!important;
+          min-height:144px!important;
+          max-height:144px!important;
           background:#fff!important;
         }
 
@@ -8832,9 +8832,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         #v37RecommendCard .p032-viewport,
         #v37RecommendCard .p032-track,
         #v37RecommendCard .p032-strip{
-          height:182px!important;
-          min-height:182px!important;
-          max-height:182px!important;
+          height:144px!important;
+          min-height:144px!important;
+          max-height:144px!important;
         }
 
         #v37RecommendCard .p032-strip{
@@ -8965,4 +8965,41 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     install();
   }
   console.info('[DalTownMap] P045 market business header cleanup loaded');
+})();
+
+
+
+// === P048: 마켓 대표 이미지 높이 1.5인치 통일 ===
+(() => {
+  function install(){
+    if(document.getElementById('p048MarketCropHeight')) return;
+    const style=document.createElement('style');
+    style.id='p048MarketCropHeight';
+    style.textContent=`
+      #v37RecommendCard .p032-viewport,
+      #v37RecommendCard .p032-track,
+      #v37RecommendCard .p032-strip,
+      #v37RecommendCard .p043-strip{
+        height:144px!important;
+        min-height:144px!important;
+        max-height:144px!important;
+      }
+      #v37RecommendCard.p032-market,
+      #v37RecommendCard .p032-shell{
+        min-height:250px!important;
+      }
+      @media(max-width:390px){
+        #v37RecommendCard.p032-market,
+        #v37RecommendCard .p032-shell{
+          min-height:242px!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',install,{once:true});
+  }else{
+    install();
+  }
 })();
