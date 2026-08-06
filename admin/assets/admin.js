@@ -7395,6 +7395,14 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       #section-smartFlyer .p011-product b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
       #section-smartFlyer .p011-price{margin-top:5px;color:#dc2626;font-weight:900}
       #section-smartFlyer .p011-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+      #section-smartFlyer .p011-actions .btn.danger{
+        background:#fff1f2!important;
+        color:#be123c!important;
+        border-color:#fecdd3!important;
+      }
+      #section-smartFlyer .p011-actions .btn.danger:hover{
+        background:#ffe4e6!important;
+      }
       #section-smartFlyer .p011-empty{padding:32px;text-align:center;color:#64748b;border:1px dashed #cbd5e1;border-radius:14px;background:#fff}
       #p011Preview{position:fixed;inset:0;z-index:100300;display:none;align-items:center;justify-content:center;background:rgba(15,23,42,.65);padding:20px}
       #p011Preview.open{display:flex}
@@ -7557,6 +7565,9 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
           <button type="button" class="btn" data-p011-home="${f.show_on_home?'false':'true'}" data-id="${f.id}">
             오늘의 달타운 ${f.show_on_home?'해제':'사용'}
           </button>
+          <button type="button" class="btn danger" data-p011-delete="${f.id}" data-title="${esc(f.title||businessName(f)||'지난 전단')}">
+            전단 삭제
+          </button>
           <a class="btn" href="${esc(f.image_url)}" target="_blank" rel="noopener">원본 보기</a>
         </div>
       </article>`;
@@ -7590,6 +7601,32 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
           await load();
         }catch(e){alert(`노출 설정 실패: ${e.message}`);}
         finally{btn.disabled=false;}
+      });
+    });
+
+    list.querySelectorAll('[data-p011-delete]').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const id=Number(btn.dataset.p011Delete||0);
+        const title=String(btn.dataset.title||'지난 전단');
+        if(!id)return;
+        if(!confirm(`“${title}” 전단을 완전히 삭제할까요?\n\n전단 정보와 분석된 상품 데이터가 함께 삭제됩니다.`))return;
+        btn.disabled=true;
+        try{
+          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          try{
+            localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+            const bc=new BroadcastChannel('daltownmap-content');
+            bc.postMessage({type:'weekly_flyer_deleted',flyer_id:id,at:Date.now()});
+            bc.close();
+          }catch{}
+          await load();
+          if(window.P010SmartFlyer?.load)window.P010SmartFlyer.load();
+          alert('전단을 삭제했습니다.');
+        }catch(e){
+          alert(`전단 삭제 실패: ${e.message}`);
+        }finally{
+          btn.disabled=false;
+        }
       });
     });
   }
