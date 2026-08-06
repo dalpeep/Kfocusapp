@@ -8151,32 +8151,44 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function fitCropImage(img,crop){
     if(!img||!crop)return;
+
     const apply=()=>{
-      const box=img.closest('.p043-strip');
-      if(!box||!img.naturalWidth||!img.naturalHeight)return;
+      const strip=img.closest('.p043-strip');
+      const viewport=img.closest('.p032-viewport');
+      const track=img.closest('.p032-track');
+      if(!strip||!viewport||!track||!img.naturalWidth||!img.naturalHeight)return;
 
-      const cw=box.clientWidth;
-      const ch=box.clientHeight;
-      if(!cw||!ch)return;
+      const cropWidthPx=img.naturalWidth*crop.width;
+      const cropHeightPx=img.naturalHeight*crop.height;
+      const displayWidth=strip.clientWidth||viewport.clientWidth;
+      if(!cropWidthPx||!cropHeightPx||!displayWidth)return;
 
-      const iw=img.naturalWidth;
-      const ih=img.naturalHeight;
-      const cropW=iw*crop.width;
-      const cropH=ih*crop.height;
+      // 관리자에서 지정한 crop 사각형의 비율을 그대로 사용합니다.
+      // 카드 너비에 맞춰 확대하고, 계산된 높이를 메인 카드에 직접 적용합니다.
+      const scale=displayWidth/cropWidthPx;
+      const exactHeight=Math.max(72,Math.round(cropHeightPx*scale));
 
-      // 선택한 대표 구간 전체가 보이도록 contain 방식으로 맞춥니다.
-      // 상품명과 가격이 좌우에서 잘리지 않도록 cover 확대를 사용하지 않습니다.
-      const scale=Math.min(cw/cropW,ch/cropH);
-      const renderedW=iw*scale;
-      const renderedH=ih*scale;
-      const selectedW=cropW*scale;
-      const selectedH=cropH*scale;
+      viewport.style.setProperty('height',`${exactHeight}px`,'important');
+      viewport.style.setProperty('min-height',`${exactHeight}px`,'important');
+      viewport.style.setProperty('max-height',`${exactHeight}px`,'important');
 
-      const left=-(iw*crop.x*scale)+(cw-selectedW)/2;
-      const top=-(ih*crop.y*scale)+(ch-selectedH)/2;
+      track.style.setProperty('height',`${exactHeight}px`,'important');
+      track.style.setProperty('min-height',`${exactHeight}px`,'important');
+      track.style.setProperty('max-height',`${exactHeight}px`,'important');
 
-      img.style.width=`${renderedW}px`;
-      img.style.height=`${renderedH}px`;
+      track.querySelectorAll('.p043-strip').forEach(node=>{
+        node.style.setProperty('height',`${exactHeight}px`,'important');
+        node.style.setProperty('min-height',`${exactHeight}px`,'important');
+        node.style.setProperty('max-height',`${exactHeight}px`,'important');
+      });
+
+      const renderedWidth=img.naturalWidth*scale;
+      const renderedHeight=img.naturalHeight*scale;
+      const left=-(img.naturalWidth*crop.x*scale);
+      const top=-(img.naturalHeight*crop.y*scale);
+
+      img.style.width=`${renderedWidth}px`;
+      img.style.height=`${renderedHeight}px`;
       img.style.left=`${left}px`;
       img.style.top=`${top}px`;
       img.style.transform='none';
@@ -9269,4 +9281,55 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(hasMarket||attempts>=12)clearInterval(timer);
   },1500);
   console.info('[DalTownMap] P054 REST-first market loader started');
+})();
+
+
+
+// === P056: 관리자 crop 비율과 메인 이미지 높이 정확 일치 ===
+(() => {
+  function install(){
+    if(document.getElementById('p056ExactCropAspect'))return;
+    const style=document.createElement('style');
+    style.id='p056ExactCropAspect';
+    style.textContent=`
+      #v37RecommendCard.p032-market,
+      #v37RecommendCard .p032-shell{
+        min-height:0!important;
+        height:auto!important;
+      }
+      #v37RecommendCard .p032-viewport,
+      #v37RecommendCard .p032-track,
+      #v37RecommendCard .p032-strip,
+      #v37RecommendCard .p043-strip{
+        min-height:0;
+        max-height:none;
+      }
+      #v37RecommendCard .p043-strip{
+        position:relative!important;
+        overflow:hidden!important;
+        background:#fff!important;
+      }
+      #v37RecommendCard .p043-crop-img{
+        position:absolute!important;
+        max-width:none!important;
+        max-height:none!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function refit(){
+    const api=window.P032MarketFeaturedCrop;
+    if(!document.querySelector('#v37RecommendCard .p043-crop-img'))return;
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',install,{once:true});
+  }else{
+    install();
+  }
+
+  window.addEventListener('orientationchange',()=>setTimeout(refit,250));
+  console.info('[DalTownMap] P056 exact admin crop aspect loaded');
 })();
