@@ -9422,3 +9422,38 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 (() => {
   console.info('[DalTownMap] P063 fixed market image validator loaded');
 })();
+
+
+
+// === P065: 고정 마트 이미지 새 데이터 즉시 반영 ===
+(() => {
+  function refreshMarket(){
+    window.P032MarketFeaturedCrop?.refresh?.(true);
+    window.P010SmartFlyer?.load?.(true);
+  }
+
+  window.addEventListener('storage',event=>{
+    if(event.key==='daltownmap_content_changed'){
+      setTimeout(refreshMarket,250);
+    }
+  });
+
+  try{
+    const channel=new BroadcastChannel('daltownmap-content');
+    channel.addEventListener('message',event=>{
+      if(
+        event?.data?.type==='weekly_flyer_main_image_changed'||
+        event?.data?.type==='weekly_flyer_deleted'
+      ){
+        setTimeout(refreshMarket,250);
+      }
+    });
+  }catch{}
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(refreshMarket,800);
+    setTimeout(refreshMarket,2600);
+  });
+
+  console.info('[DalTownMap] P065 fixed market image refresh loaded');
+})();
