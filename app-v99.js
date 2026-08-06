@@ -7518,7 +7518,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(![x,y,width,height].every(Number.isFinite)) return null;
     if(x < 0 || y < 0 || width <= 0 || height <= 0) return null;
     if(x + width > 1.001 || y + height > 1.001) return null;
-    if(width < .18 || height < .008) return null;
+    if(width < .18 || height < .001) return null;
     return { x, y, width, height };
   }
 
@@ -7916,39 +7916,68 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   async function load(force=false){
     if(state.busy) return state.flyers;
-    if(!force && Date.now() - state.loadedAt < 30000) return state.flyers;
-    state.busy = true;
-    try{
-      const region = typeof getAppRegion === 'function' ? getAppRegion() : 'dallas';
-      const cfg = typeof getConfig === 'function'
-        ? getConfig()
-        : (window.APP_CONFIG || window.KFOCUS_CONFIG || {});
-      const base = String(cfg.SUPABASE_URL || '').replace(/\/$/,'');
-      const key = String(cfg.SUPABASE_ANON_KEY || '').trim();
-      const fn = String(cfg.NEWSROOM_FUNCTION_NAME || 'newsroom');
-      let rows = [];
+    if(!force && Date.now()-state.loadedAt<30000 && state.flyers.length) return state.flyers;
 
-      // Edge Function 공개 API를 우선 사용합니다. featured_crop과 업소명이 함께 반환됩니다.
-      if(base && key){
-        const response = await fetch(
-          `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
-          {
-            headers:{apikey:key,Authorization:`Bearer ${key}`},
+    state.busy=true;
+    try{
+      const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+      const cfg=typeof getConfig==='function'
+        ? getConfig()
+        : (window.APP_CONFIG||window.KFOCUS_CONFIG||{});
+      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+      const fn=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
+      const collected=[];
+
+      // 1. Supabase REST를 직접 조회합니다. SDK 변수 충돌과 무관하게 작동합니다.
+      if(base&&key){
+        try{
+          const params=new URLSearchParams({
+            select:'*',
+            region:`eq.${region}`,
+            status:'eq.active',
+            show_on_home:'eq.true',
+            order:'updated_at.desc',
+            limit:'50'
+          });
+          const response=await fetch(`${base}/rest/v1/weekly_flyers?${params.toString()}`,{
+            headers:{
+              apikey:key,
+              Authorization:`Bearer ${key}`,
+              Accept:'application/json'
+            },
             cache:'no-store'
+          });
+          const rows=await response.json().catch(()=>[]);
+          if(response.ok&&Array.isArray(rows))collected.push(...rows);
+          else console.warn('[P054 REST weekly_flyers]',response.status,rows);
+        }catch(error){
+          console.warn('[P054 REST weekly_flyers]',error);
+        }
+
+        // 2. Edge Function 결과도 보조적으로 합칩니다.
+        try{
+          const response=await fetch(
+            `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
+            {
+              headers:{apikey:key,Authorization:`Bearer ${key}`},
+              cache:'no-store'
+            }
+          );
+          const payload=await response.json().catch(()=>({}));
+          if(response.ok&&payload.ok!==false&&Array.isArray(payload.flyers)){
+            collected.push(...payload.flyers);
+          }else{
+            console.warn('[P054 public_weekly_flyers]',response.status,payload?.error||payload);
           }
-        );
-        const payload = await response.json().catch(()=>({}));
-        if(response.ok && payload.ok !== false){
-          rows = Array.isArray(payload.flyers) ? payload.flyers : [];
-        }else{
-          console.warn('[P032 public_weekly_flyers]',payload.error||response.status);
+        }catch(error){
+          console.warn('[P054 public_weekly_flyers]',error);
         }
       }
 
-      // Edge Function 결과와 직접 조회 결과를 항상 합칩니다.
-      // Edge Function이 캐시된 한 개 전단만 반환해도 다른 활성 전단이 누락되지 않습니다.
-      const client=getDataClient();
-      if(client){
+      // 3. 실제 Supabase client가 있으면 한 번 더 보조 조회합니다.
+      const client=typeof getDataClient==='function'?getDataClient():null;
+      if(client?.from){
         try{
           const {data,error}=await client
             .from('weekly_flyers')
@@ -7959,57 +7988,63 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
             .order('updated_at',{ascending:false})
             .limit(50);
           if(error)throw error;
-          const directRows=Array.isArray(data)?data:[];
-          const merged=[...rows,...directRows];
-          const seen=new Set();
-          rows=merged.filter(row=>{
-            const key=String(row?.id||'');
-            if(!key||seen.has(key))return false;
-            seen.add(key);
-            return true;
-          });
+          if(Array.isArray(data))collected.push(...data);
         }catch(error){
-          console.warn('[P050 direct weekly flyer merge]',error);
+          console.warn('[P054 SDK weekly_flyers]',error);
         }
       }
 
-      const valid=rows.filter(validFlyer);
-      console.info('[P053 weekly flyers]',{
-        returned:rows.length,
-        valid:valid.length,
-        ids:valid.map(row=>row.id)
-      });
-      const enriched=await enrichBusinesses(valid);
+      // ID 기준으로 합치되, 더 많은 필드를 가진 행을 우선 병합합니다.
+      const byId=new Map();
+      for(const row of collected){
+        const id=String(row?.id||'').trim();
+        if(!id)continue;
+        const previous=byId.get(id)||{};
+        byId.set(id,{...previous,...row});
+      }
+      const rows=[...byId.values()];
 
-      // 현재 유효한 전단은 모두 유지합니다.
-      // 잘못 연결된 business_id 때문에 H마트와 시온마트가 하나로 합쳐지는 문제를 방지합니다.
-      state.flyers=enriched.filter((flyer,index,list)=>{
-        const flyerId=String(flyer?.id||'');
-        return list.findIndex(row=>String(row?.id||'')===flyerId)===index;
+      // 날짜 필터는 서버 데이터가 서로 다른 포맷이어도 전단을 숨기지 않도록 완화합니다.
+      const valid=rows.filter(row=>{
+        const crop=normalizeCrop(row?.featured_crop);
+        return String(row?.status||'active')==='active'
+          && row?.show_on_home!==false
+          && /^https?:\/\//i.test(String(row?.image_url||''))
+          && Boolean(crop);
       });
+
+      console.info('[P054 market flyers]',{
+        collected:collected.length,
+        unique:rows.length,
+        valid:valid.length,
+        ids:valid.map(row=>row.id),
+        crops:valid.map(row=>normalizeCrop(row.featured_crop))
+      });
+
+      const enriched=await enrichBusinesses(valid);
+      state.flyers=enriched;
 
       if(state.flyers.length){
         state.lastGoodFlyers=state.flyers.slice();
         if(state.index>=state.flyers.length)state.index=0;
         state.lastGoodFlyer=state.flyers[state.index]||state.flyers[0]||null;
       }else if(state.lastGoodFlyers.length){
-        // 일시적으로 빈 응답이 와도 기존 정상 데이터를 유지합니다.
         state.flyers=state.lastGoodFlyers.slice();
         if(state.index>=state.flyers.length)state.index=0;
       }
 
-      state.loadedAt = Date.now();
+      state.loadedAt=Date.now();
       return state.flyers;
     }catch(error){
       state.lastErrorAt=Date.now();
-      console.warn('[P051 featured crop load]', error?.message || error);
+      console.warn('[P054 market load fatal]',error);
       if(state.lastGoodFlyers.length){
         state.flyers=state.lastGoodFlyers.slice();
         if(state.index>=state.flyers.length)state.index=0;
       }
       return state.flyers;
     }finally{
-      state.busy = false;
+      state.busy=false;
     }
   }
 
@@ -8289,8 +8324,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    setTimeout(()=>refresh(true), 1100);
-    setTimeout(()=>refresh(true), 3200);
+    setTimeout(()=>refresh(true),500);
+    setTimeout(()=>refresh(true),1600);
+    setTimeout(()=>refresh(true),3500);
+    setTimeout(()=>refresh(true),7000);
   });
   document.addEventListener('visibilitychange', ()=>{
     if(document.hidden){
@@ -9215,4 +9252,21 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 // === P053: 1.5인치 대표 구간 최소 높이 호환 수정 ===
 (() => {
   console.info('[DalTownMap] P053 1.5-inch crop minimum height compatibility loaded');
+})();
+
+
+
+// === P054: 마트 전단 REST 직접 조회 · 강제 복구 ===
+(() => {
+  let attempts=0;
+  const timer=setInterval(async()=>{
+    attempts++;
+    const card=document.getElementById('v37RecommendCard');
+    const hasMarket=Boolean(card?.querySelector('.p032-shell'));
+    if(!hasMarket){
+      await window.P032MarketFeaturedCrop?.refresh?.(true);
+    }
+    if(hasMarket||attempts>=12)clearInterval(timer);
+  },1500);
+  console.info('[DalTownMap] P054 REST-first market loader started');
 })();
