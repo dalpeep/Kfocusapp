@@ -7684,6 +7684,23 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       #v37RecommendCard .p032-shell.is-paused .p032-track{
         animation-play-state:paused;
       }
+      #v37RecommendCard .p049-market-count{
+        position:absolute;
+        right:10px;
+        top:10px;
+        z-index:6;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-width:28px;
+        height:22px;
+        padding:0 7px;
+        border-radius:999px;
+        background:rgba(15,23,42,.72);
+        color:#fff;
+        font-size:10px;
+        font-weight:900;
+      }
       #v37RecommendCard .p046-market-dots{
         position:absolute;
         left:50%;
@@ -7857,12 +7874,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       state.index=(state.index+1)%state.flyers.length;
       state.flyer=currentFlyer();
       draw();
-    },7000);
+    },6000);
   }
 
   function goToMarket(index){
     if(!state.flyers.length)return;
-    state.index=(Number(index)||0+state.flyers.length)%state.flyers.length;
+    state.index=((Number(index)||0)+state.flyers.length)%state.flyers.length;
     state.flyer=currentFlyer();
     draw();
     startRotation();
@@ -7915,7 +7932,14 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
       const valid=rows.filter(validFlyer);
       const enriched=await enrichBusinesses(valid);
-      state.flyers=uniqueMarketFlyers(enriched);
+
+      // 현재 유효한 전단은 모두 유지합니다.
+      // 잘못 연결된 business_id 때문에 H마트와 시온마트가 하나로 합쳐지는 문제를 방지합니다.
+      state.flyers=enriched.filter((flyer,index,list)=>{
+        const flyerId=String(flyer?.id||'');
+        return list.findIndex(row=>String(row?.id||'')===flyerId)===index;
+      });
+
       if(state.index>=state.flyers.length)state.index=0;
       state.loadedAt = Date.now();
       return state.flyers;
@@ -8146,6 +8170,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         </div>
       </div>
       ${state.flyers.length>1 ? `
+        <span class="p049-market-count">${state.index+1}/${state.flyers.length}</span>
         <div class="p046-market-dots" aria-label="마트 슬라이드">
           ${state.flyers.map((_,index)=>`
             <button
@@ -8218,6 +8243,22 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   window.P032MarketFeaturedCrop = {
     refresh,
+    getState(){
+      return {
+        count:state.flyers.length,
+        index:state.index,
+        ids:state.flyers.map(row=>row.id),
+        names:state.flyers.map(row=>
+          row?.featured_business?.name_ko||
+          row?.featured_business?.name||
+          row?.business?.name_ko||
+          row?.business?.name||
+          row?.business_name||
+          row?.title||
+          ''
+        )
+      };
+    },
     next(){
       if(state.flyers.length<2)return;
       state.index=(state.index+1)%state.flyers.length;
@@ -9002,4 +9043,11 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }else{
     install();
   }
+})();
+
+
+
+// === P049: 활성 마트 전단 모두 순환 ===
+(() => {
+  console.info('[DalTownMap] P049 all active market flyers rotation loaded');
 })();
