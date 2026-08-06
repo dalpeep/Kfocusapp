@@ -7593,7 +7593,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
       try{
         const params = new URLSearchParams({
-          select:'id,title,status,show_on_home,start_date,end_date,market_main_image_url,business_id,featured_business_id,destination_business_id,business_name,business_name_ko,updated_at',
+          select:'id,title,status,show_on_home,start_date,end_date,market_main_image_url,business_id,featured_business_id,updated_at,region',
           region:`eq.${region}`,
           status:'eq.active',
           show_on_home:'eq.true',
@@ -8030,7 +8030,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
   };
 
-  console.info('[DalTownMap] P069 PostgREST cache-buster fix loaded');
+  console.info('[DalTownMap] P070 weekly_flyers schema-safe loader loaded');
 })();
 
 
