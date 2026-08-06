@@ -7200,133 +7200,60 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
       timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
     }).format(new Date());
   }
-  function parseP062ImageList(value){
-    if(Array.isArray(value))return value;
-    if(typeof value==='string'){
-      try{
-        const parsed=JSON.parse(value);
-        if(Array.isArray(parsed))return parsed;
-      }catch{}
-      if(/^https?:\/\//i.test(value.trim()))return [value.trim()];
-    }
-    return [];
-  }
-
-  function resolveP062MarketMainImage(f){
-    const business=
-      f?.featured_business ||
-      f?.destination_business ||
-      f?.business ||
-      f?.businesses ||
-      {};
-
-    const candidates=[
-      f?.market_main_image_url,
-      f?.main_market_image_url,
-      ...parseP062ImageList(business?.description_images),
-      business?.image_url,
-      business?.image,
-      business?.photo_url,
-      business?.logo_url
-    ];
-
-    return String(
-      candidates.find(value=>/^https?:\/\//i.test(String(value||'').trim()))||
-      ''
-    ).trim();
-  }
-
   function validFlyer(f){
-    const mainImage=resolveP062MarketMainImage(f);
-
-    return String(f?.status || '') === 'active'
-      && f?.show_on_home !== false
-      && (!f?.start_date || String(f.start_date) <= todayKey())
-      && (!f?.end_date || String(f.end_date) >= todayKey())
-      && /^https?:\/\//i.test(mainImage);
+    if(!f||String(f.status||'').toLowerCase()!=='active')return false;
+    const day=todayKey();
+    if(f.start_date&&String(f.start_date)>day)return false;
+    if(f.end_date&&String(f.end_date)<day)return false;
+    return true;
+  }
+  function businessForFlyer(f){
+    return (businesses||[]).find(b=>String(b.id)===String(f.business_id))||null;
+  }
+  function flyerItems(f){
+    return (Array.isArray(f.weekly_flyer_items)?f.weekly_flyer_items:[])
+      .slice()
+      .sort((a,b)=>
+        Number(b.is_featured||0)-Number(a.is_featured||0)||
+        Number(b.ai_score||0)-Number(a.ai_score||0)||
+        Number(a.source_order||0)-Number(b.source_order||0)
+      );
+  }
+  function money(v){
+    const n=Number(v);
+    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
+  }
+  function dateRange(f){
+    const s=f.start_date||'', e=f.end_date||'';
+    if(s&&e)return `${s.slice(5).replace('-','/')} ~ ${e.slice(5).replace('-','/')}`;
+    if(e)return `${e.slice(5).replace('-','/')}까지`;
+    return '이번 주';
   }
 
   async function loadActiveFlyers(force=false){
-    if(!force && activeFlyers.length && Date.now()-loadedAt<30000){
-      return activeFlyers;
-    }
+    if(!force&&Date.now()-loadedAt<60*1000)return activeFlyers;
     if(loadingPromise)return loadingPromise;
-
     loadingPromise=(async()=>{
       try{
-        const cfg=
-          (typeof getConfig==='function' ? getConfig() : null) ||
-          window.APP_CONFIG ||
-          window.KFOCUS_CONFIG ||
-          {};
-
-        const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-        const anon=String(cfg.SUPABASE_ANON_KEY||'').trim();
-        const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-        const functionName=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
-        let rows=[];
-
-        if(base&&anon){
-          try{
-            const response=await fetch(
-              `${base}/functions/v1/${encodeURIComponent(functionName)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
-              {
-                headers:{
-                  apikey:anon,
-                  Authorization:`Bearer ${anon}`
-                },
-                cache:'no-store'
-              }
-            );
-            const payload=await response.json().catch(()=>({}));
-            if(response.ok&&Array.isArray(payload?.flyers)){
-              rows=payload.flyers;
-            }
-          }catch(error){
-            console.warn('[P062 smart flyer edge load]',error);
-          }
-
-          if(!rows.length){
-            try{
-              const params=new URLSearchParams({
-                select:'*,weekly_flyer_items(*)',
-                region:`eq.${region}`,
-                status:'eq.active',
-                show_on_home:'eq.true',
-                order:'updated_at.desc',
-                limit:'50'
-              });
-              const response=await fetch(
-                `${base}/rest/v1/weekly_flyers?${params.toString()}`,
-                {
-                  headers:{
-                    apikey:anon,
-                    Authorization:`Bearer ${anon}`,
-                    Accept:'application/json'
-                  },
-                  cache:'no-store'
-                }
-              );
-              const payload=await response.json().catch(()=>[]);
-              if(response.ok&&Array.isArray(payload))rows=payload;
-            }catch(error){
-              console.warn('[P062 smart flyer REST load]',error);
-            }
-          }
-        }
-
-        activeFlyers=rows.filter(validFlyer);
+        const client=getDataClient();
+        if(!client)throw new Error('Supabase data client unavailable');
+        const {data,error}=await client.from('weekly_flyers')
+          .select('*,weekly_flyer_items(*)')
+          .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
+          .eq('status','active')
+          .order('created_at',{ascending:false})
+          .limit(30);
+        if(error)throw error;
+        activeFlyers=(data||[]).filter(validFlyer);
         loadedAt=Date.now();
-        console.info('[P062 smart flyers loaded]',activeFlyers.length);
         return activeFlyers;
       }catch(error){
-        console.warn('[P062 loadActiveFlyers]',error);
+        console.warn('[P010-2 weekly flyers load]',error?.message||error);
         return activeFlyers;
       }finally{
         loadingPromise=null;
       }
     })();
-
     return loadingPromise;
   }
 
@@ -7555,376 +7482,38 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
 console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
 
-// === P032: 관리자 지정 대표 구간 · 연속 마트 전단 슬라이드 ===
+// === P068: 고정 메인 이미지 전용 마트 카드 ===
 (() => {
   const state = {
     flyers: [],
-    flyer: null,
-    lastGoodFlyers: [],
-    lastGoodFlyer: null,
     index: 0,
     timer: null,
-    busy: false,
-    loadedAt: 0,
-    lastErrorAt: 0
+    loading: null,
+    loadedAt: 0
   };
 
-  const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[m]));
+  const esc068 = (value='') => String(value).replace(/[&<>"']/g, char => ({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[char]));
 
-  const today = () => new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Chicago',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
-
-  function normalizeCrop(value){
-    let c = value;
-    if(typeof c === 'string'){
-      try { c = JSON.parse(c); } catch { c = null; }
-    }
-    if(!c || typeof c !== 'object') return null;
-    const x = Number(c.x), y = Number(c.y);
-    const width = Number(c.width), height = Number(c.height);
-    if(![x,y,width,height].every(Number.isFinite)) return null;
-    if(x < 0 || y < 0 || width <= 0 || height <= 0) return null;
-    if(x + width > 1.001 || y + height > 1.001) return null;
-    if(width < .18 || height < .001) return null;
-    return { x, y, width, height };
+  function today068(){
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone:'America/Chicago',
+      year:'numeric',
+      month:'2-digit',
+      day:'2-digit'
+    }).format(new Date());
   }
 
-  function parseImageList(value){
-    if(Array.isArray(value))return value;
-    if(typeof value==='string'){
-      try{
-        const parsed=JSON.parse(value);
-        if(Array.isArray(parsed))return parsed;
-      }catch{}
-      if(/^https?:\/\//i.test(value.trim()))return [value.trim()];
-    }
-    return [];
+  function mainImage068(flyer){
+    return String(flyer?.market_main_image_url || '').trim();
   }
 
-  function resolveMarketMainImage(f){
-    const business=
-      f?.featured_business ||
-      f?.destination_business ||
-      f?.business ||
-      f?.businesses ||
-      {};
-
-    const candidates=[
-      f?.market_main_image_url,
-      f?.main_market_image_url,
-      ...parseImageList(business?.description_images),
-      business?.image_url,
-      business?.image,
-      business?.photo_url,
-      business?.logo_url
-    ];
-
-    return String(
-      candidates.find(value=>/^https?:\/\//i.test(String(value||'').trim()))||
-      ''
-    ).trim();
-  }
-
-  function validFlyer(f){
-    const mainImage=String(
-      f?.market_main_image_url ||
-      f?.main_market_image_url ||
-      ''
-    ).trim();
-
-    const result=String(f?.status || '') === 'active'
-      && f?.show_on_home !== false
-      && (!f?.start_date || String(f.start_date) <= today())
-      && (!f?.end_date || String(f.end_date) >= today())
-      && /^https?:\/\//i.test(mainImage);
-
-    if(!result){
-      console.info('[P066 flyer excluded]',{
-        id:f?.id,
-        status:f?.status,
-        show_on_home:f?.show_on_home,
-        start_date:f?.start_date,
-        end_date:f?.end_date,
-        resolved_main_image:mainImage
-      });
-    }
-    return result;
-  }
-
-  function ensureStyle(){
-    if(document.getElementById('p032-market-crop-style')) return;
-    const style = document.createElement('style');
-    style.id = 'p032-market-crop-style';
-    style.textContent = `
-      #v37RecommendCard.p032-market{
-        position:relative;
-        overflow:hidden;
-        padding:0!important;
-        background:#fff;
-        min-height:250px;
-        border-radius:22px;
-        border:1px solid #d9e4f5;
-        box-shadow:0 8px 24px rgba(30,64,175,.08);
-      }
-      #v37RecommendCard.p032-market>.v37-recommend-main,
-      #v37RecommendCard.p032-market>.v37-recommend-dots{
-        display:none!important;
-      }
-      #v37RecommendCard .p032-shell{
-        position:relative;
-        min-height:250px;
-        overflow:hidden;
-        border-radius:inherit;
-        background:#fff;
-        cursor:pointer;
-      }
-      #v37RecommendCard .p032-storebar{
-        min-height:58px;
-        padding:11px 15px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        color:#fff;
-        background:linear-gradient(135deg,#0f4bb8 0%,#174fd1 55%,#2563eb 100%);
-      }
-      #v37RecommendCard .p032-store-main{
-        min-width:0;
-        display:flex;
-        align-items:center;
-        gap:10px;
-      }
-      #v37RecommendCard .p032-store-icon{
-        flex:0 0 auto;
-        width:30px;
-        height:30px;
-        display:grid;
-        place-items:center;
-        border-radius:10px;
-        background:rgba(255,255,255,.16);
-        font-size:17px;
-      }
-      #v37RecommendCard .p032-store-name{
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-        font-size:18px;
-        font-weight:900;
-        letter-spacing:.1px;
-      }
-      #v37RecommendCard .p032-store-meta{
-        flex:0 0 auto;
-        max-width:42%;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-        color:rgba(255,255,255,.88);
-        font-size:11px;
-        font-weight:700;
-        text-align:right;
-      }
-      #v37RecommendCard .p032-titlebar{
-        min-height:48px;
-        padding:9px 15px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        color:#15386d;
-        background:linear-gradient(180deg,#f8fbff 0%,#eaf2ff 100%);
-        border-bottom:1px solid #dbe7f7;
-      }
-      #v37RecommendCard .p032-title-main{
-        min-width:0;
-        display:flex;
-        align-items:center;
-        gap:9px;
-        font-size:18px;
-        font-weight:900;
-      }
-      #v37RecommendCard .p032-title-main span:last-child{
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-      }
-      #v37RecommendCard .p032-business-link{
-        flex:0 1 auto;
-        min-width:0;
-        display:inline-flex;
-        align-items:center;
-        gap:5px;
-        padding:5px 9px;
-        border:0;
-        border-radius:999px;
-        background:#fff;
-        color:#0f4bb8;
-        box-shadow:0 1px 5px rgba(15,75,184,.12);
-        font-size:12px;
-        font-weight:900;
-        white-space:nowrap;
-        cursor:pointer;
-      }
-      #v37RecommendCard .p032-business-link span{
-        max-width:118px;
-        overflow:hidden;
-        text-overflow:ellipsis;
-      }
-      #v37RecommendCard .p032-business-link:hover{
-        background:#eff6ff;
-      }
-      #v37RecommendCard .p032-period{
-        flex:0 0 auto;
-        color:#315a91;
-        font-size:12px;
-        font-weight:800;
-        white-space:nowrap;
-      }
-      #v37RecommendCard .p032-viewport{
-        position:relative;
-        height:144px;
-        overflow:hidden;
-        background:#fff;
-      }
-      #v37RecommendCard .p032-track{
-        display:flex;
-        width:600%;
-        height:100%;
-        will-change:transform;
-        animation:p032MarketFlow 30s linear infinite;
-      }
-      #v37RecommendCard .p032-strip{
-        flex:0 0 calc(100% / 6);
-        height:100%;
-        background-repeat:no-repeat;
-        background-color:#fff;
-      }
-      #v37RecommendCard .p043-strip{
-        position:relative;
-        overflow:hidden;
-        background:#fff;
-      }
-      #v37RecommendCard .p043-crop-img{
-        position:absolute;
-        display:block;
-        max-width:none!important;
-        max-height:none!important;
-        object-fit:initial!important;
-        user-select:none;
-        pointer-events:none;
-      }
-      #v37RecommendCard .p032-shell:hover .p032-track,
-      #v37RecommendCard .p032-shell:active .p032-track,
-      #v37RecommendCard .p032-shell.is-paused .p032-track{
-        animation-play-state:paused;
-      }
-      #v37RecommendCard .p049-market-count{
-        position:absolute;
-        right:10px;
-        top:10px;
-        z-index:6;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-width:28px;
-        height:22px;
-        padding:0 7px;
-        border-radius:999px;
-        background:rgba(15,23,42,.72);
-        color:#fff;
-        font-size:10px;
-        font-weight:900;
-      }
-      #v37RecommendCard .p046-market-dots{
-        position:absolute;
-        left:50%;
-        bottom:9px;
-        z-index:5;
-        display:flex;
-        gap:5px;
-        transform:translateX(-50%);
-      }
-      #v37RecommendCard .p046-market-dot{
-        width:6px;
-        height:6px;
-        border:0;
-        border-radius:999px;
-        padding:0;
-        background:rgba(255,255,255,.58);
-        box-shadow:0 1px 4px rgba(0,0,0,.16);
-      }
-      #v37RecommendCard .p046-market-dot.active{
-        width:18px;
-        background:#2563eb;
-      }
-      #v37RecommendCard .p032-shell{
-        animation:p046MarketFade .28s ease;
-      }
-      @keyframes p046MarketFade{
-        from{opacity:.45;transform:translateY(3px)}
-        to{opacity:1;transform:translateY(0)}
-      }
-      #v37RecommendCard .p032-open{
-        position:absolute;
-        right:11px;
-        bottom:11px;
-        z-index:4;
-        width:36px;
-        height:36px;
-        border:0;
-        border-radius:50%;
-        background:rgba(255,255,255,.96);
-        color:#173a6a;
-        font-size:22px;
-        font-weight:900;
-        display:grid;
-        place-items:center;
-        box-shadow:0 3px 12px rgba(0,0,0,.2);
-      }
-      @keyframes p032MarketFlow{
-        from{ transform:translate3d(0,0,0); }
-        to{ transform:translate3d(-50%,0,0); }
-      }
-      @media(max-width:390px){
-        #v37RecommendCard.p032-market,
-        #v37RecommendCard .p032-shell{min-height:242px}
-        #v37RecommendCard .p032-storebar{min-height:54px;padding:10px 13px}
-        #v37RecommendCard .p032-store-name{font-size:16px}
-        #v37RecommendCard .p032-titlebar{min-height:44px;padding:8px 13px}
-        #v37RecommendCard .p032-title-main{font-size:16px}
-        #v37RecommendCard .p032-viewport{height:144px}
-      }
-      @media(prefers-reduced-motion:reduce){
-        #v37RecommendCard .p032-track{animation:none}
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function backgroundStyle(flyer, crop){
-    const sizeX = 100 / crop.width;
-    const sizeY = 100 / crop.height;
-    const posX = crop.width >= .999 ? 50 : (crop.x / (1 - crop.width)) * 100;
-    const posY = crop.height >= .999 ? 50 : (crop.y / (1 - crop.height)) * 100;
-    const url = String(flyer.image_url || '').replace(/'/g, '%27');
-
-    // 선택한 사각형 자체가 카드 전체를 채우도록 X/Y 축을 모두 확대합니다.
-    // 이전 코드는 가로축만 확대해 가로형 전단에서 원본 전체가 보이는 문제가 있었습니다.
-    return [
-      `background-image:url('${url}')`,
-      `background-size:${sizeX}% ${sizeY}%`,
-      `background-position:${Math.max(0,Math.min(100,posX))}% ${Math.max(0,Math.min(100,posY))}%`,
-      'background-repeat:no-repeat'
-    ].join(';');
-  }
-
-
-  function targetBusinessId(flyer){
+  function businessId068(flyer){
     return String(
       flyer?.featured_business_id ||
       flyer?.destination_business_id ||
@@ -7933,569 +7522,517 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     ).trim();
   }
 
-  async function enrichBusinesses(rows){
-    const list=Array.isArray(rows)?rows:[];
-    const ids=[...new Set(list.map(targetBusinessId).filter(Boolean))];
-    if(!ids.length)return list;
+  function business068(flyer){
+    const id = businessId068(flyer);
+    const linked = Array.isArray(window.businesses)
+      ? window.businesses.find(row => String(row?.id || '') === id)
+      : null;
 
-    const map=new Map();
-
-    // 공개 업소 목록에서 먼저 찾습니다.
-    if(Array.isArray(businesses)){
-      businesses.forEach(row=>{
-        if(row?.id!==undefined&&row?.id!==null){
-          map.set(String(row.id),row);
-        }
-      });
-    }
-
-    const missing=ids.filter(id=>!map.has(id));
-    const client=getDataClient();
-    if(missing.length && client){
-      try{
-        const {data,error}=await client.from('businesses').select('*').in('id',missing);
-        if(!error){
-          (data||[]).forEach(row=>map.set(String(row.id),row));
-        }
-      }catch(error){
-        console.warn('[P046 business enrichment]',error);
-      }
-    }
-
-    return list.map(flyer=>{
-      const id=targetBusinessId(flyer);
-      const found=map.get(id);
-      return found ? {...flyer,featured_business:found} : flyer;
-    });
-  }
-
-  function uniqueMarketFlyers(rows){
-    const result=[];
-    const seen=new Set();
-
-    for(const flyer of rows){
-      const id=targetBusinessId(flyer);
-      const name=String(
-        flyer?.featured_business?.name_ko ||
-        flyer?.featured_business?.name ||
-        flyer?.business?.name_ko ||
-        flyer?.business?.name ||
-        flyer?.business_name_ko ||
-        flyer?.business_name ||
-        ''
-      ).trim();
-
-      const key=id || name.toLowerCase() || String(flyer?.id||'');
-      if(seen.has(key))continue;
-      seen.add(key);
-      result.push(flyer);
-    }
-    return result;
-  }
-
-  function currentFlyer(){
-    if(!state.flyers.length)return null;
-    if(state.index<0||state.index>=state.flyers.length)state.index=0;
-    return state.flyers[state.index];
-  }
-
-  function stopRotation(){
-    if(state.timer){
-      clearInterval(state.timer);
-      state.timer=null;
-    }
-  }
-
-  function startRotation(){
-    stopRotation();
-    if(state.flyers.length<2)return;
-    state.timer=setInterval(()=>{
-      if(document.hidden)return;
-      state.index=(state.index+1)%state.flyers.length;
-      state.flyer=currentFlyer();
-      draw();
-    },6000);
-  }
-
-  function goToMarket(index){
-    if(!state.flyers.length)return;
-    state.index=((Number(index)||0)+state.flyers.length)%state.flyers.length;
-    state.flyer=currentFlyer();
-    draw();
-    startRotation();
-  }
-
-  async function load(force=false){
-    if(state.busy) return state.flyers;
-    if(!force && Date.now()-state.loadedAt<30000 && state.flyers.length) return state.flyers;
-
-    state.busy=true;
-    try{
-      const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-      const cfg=typeof getConfig==='function'
-        ? getConfig()
-        : (window.APP_CONFIG||window.KFOCUS_CONFIG||{});
-      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-      const fn=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
-      const collected=[];
-
-      // 1. Supabase REST를 직접 조회합니다. SDK 변수 충돌과 무관하게 작동합니다.
-      if(base&&key){
-        try{
-          const params=new URLSearchParams({
-            select:'*',
-            region:`eq.${region}`,
-            status:'eq.active',
-            show_on_home:'eq.true',
-            order:'updated_at.desc',
-            limit:'50'
-          });
-          const response=await fetch(`${base}/rest/v1/weekly_flyers?${params.toString()}`,{
-            headers:{
-              apikey:key,
-              Authorization:`Bearer ${key}`,
-              Accept:'application/json'
-            },
-            cache:'no-store'
-          });
-          const rows=await response.json().catch(()=>[]);
-          if(response.ok&&Array.isArray(rows))collected.push(...rows);
-          else console.warn('[P054 REST weekly_flyers]',response.status,rows);
-        }catch(error){
-          console.warn('[P054 REST weekly_flyers]',error);
-        }
-
-        // 2. Edge Function 결과도 보조적으로 합칩니다.
-        try{
-          const response=await fetch(
-            `${base}/functions/v1/${encodeURIComponent(fn)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
-            {
-              headers:{apikey:key,Authorization:`Bearer ${key}`},
-              cache:'no-store'
-            }
-          );
-          const payload=await response.json().catch(()=>({}));
-          if(response.ok&&payload.ok!==false&&Array.isArray(payload.flyers)){
-            collected.push(...payload.flyers);
-          }else{
-            console.warn('[P054 public_weekly_flyers]',response.status,payload?.error||payload);
-          }
-        }catch(error){
-          console.warn('[P054 public_weekly_flyers]',error);
-        }
-      }
-
-      // 3. 실제 Supabase client가 있으면 한 번 더 보조 조회합니다.
-      const client=typeof getDataClient==='function'?getDataClient():null;
-      if(client?.from){
-        try{
-          const {data,error}=await client
-            .from('weekly_flyers')
-            .select('*')
-            .eq('region',region)
-            .eq('status','active')
-            .eq('show_on_home',true)
-            .order('updated_at',{ascending:false})
-            .limit(50);
-          if(error)throw error;
-          if(Array.isArray(data))collected.push(...data);
-        }catch(error){
-          console.warn('[P054 SDK weekly_flyers]',error);
-        }
-      }
-
-      // ID 기준으로 합치되, 더 많은 필드를 가진 행을 우선 병합합니다.
-      const byId=new Map();
-      for(const row of collected){
-        const id=String(row?.id||'').trim();
-        if(!id)continue;
-        const previous=byId.get(id)||{};
-        byId.set(id,{...previous,...row});
-      }
-      const rows=[...byId.values()];
-
-      // 먼저 연결 업소 정보를 합친 뒤 메인 이미지를 판정합니다.
-      // 전단 전용 URL이 아직 NULL이어도 업소 소개 이미지가 있으면 메인에 표시합니다.
-      const enrichedRows=await enrichBusinesses(rows);
-      const valid=enrichedRows.filter(validFlyer);
-
-      console.info('[P066 market flyers]',{
-        collected:collected.length,
-        unique:rows.length,
-        valid:valid.length,
-        ids:valid.map(row=>row.id),
-        mainImages:valid.map(row=>resolveMarketMainImage(row)),
-        sources:valid.map(row=>
-          row?.market_main_image_url ? 'flyer' :
-          parseImageList(
-            row?.featured_business?.description_images||
-            row?.business?.description_images
-          ).length ? 'business-description' : 'business-image'
-        )
-      });
-
-      state.flyers=valid;
-
-      if(state.flyers.length){
-        state.lastGoodFlyers=state.flyers.slice();
-        if(state.index>=state.flyers.length)state.index=0;
-        state.lastGoodFlyer=state.flyers[state.index]||state.flyers[0]||null;
-      }else if(state.lastGoodFlyers.length){
-        state.flyers=state.lastGoodFlyers.slice();
-        if(state.index>=state.flyers.length)state.index=0;
-      }
-
-      state.loadedAt=Date.now();
-      return state.flyers;
-    }catch(error){
-      state.lastErrorAt=Date.now();
-      console.warn('[P054 market load fatal]',error);
-      if(state.lastGoodFlyers.length){
-        state.flyers=state.lastGoodFlyers.slice();
-        if(state.index>=state.flyers.length)state.index=0;
-      }
-      return state.flyers;
-    }finally{
-      state.busy=false;
-    }
-  }
-
-  function hide(){
-    const card = document.getElementById('v37RecommendCard');
-    if(!card) return;
-    card.classList.remove('p032-market');
-    card.querySelectorAll('.p032-shell').forEach(node => node.remove());
-    card.hidden = true;
-  }
-
-  async function openInternalBusiness(businessId){
-    const id=String(businessId||'').trim();
-    if(!id)return false;
-    try{
-      let found=Array.isArray(businesses)
-        ? businesses.find(row=>String(row?.id)===id)
-        : null;
-
-      const client=getDataClient();
-      if(!found && client){
-        const {data,error}=await client.from('businesses').select('*').eq('id',id).maybeSingle();
-        if(error)throw error;
-        if(data){
-          found=data;
-          if(Array.isArray(businesses))businesses.push(data);
-        }
-      }
-
-      if(!found)return false;
-      selectedBizId=id;
-      currentDetailVideoOverride='';
-      renderDetail(id);
-      showPage('business-detail');
-      return true;
-    }catch(error){
-      console.warn('[P037 market business navigation]',error);
-      return false;
-    }
-  }
-
-  async function openFlyer(){
-    const flyer=state.flyer;
-    if(!flyer)return;
-
-    const targetBusinessId=String(
-      flyer.featured_business_id||
-      flyer.destination_business_id||
-      flyer.business_id||
-      ''
-    ).trim();
-
-    if(targetBusinessId && await openInternalBusiness(targetBusinessId))return;
-
-    if(window.P010SmartFlyerPublic?.openModal && flyer.id){
-      window.P010SmartFlyerPublic.openModal(flyer.id);
-      return;
-    }
-
-    const external=String(flyer.link_url||flyer.external_url||'').trim();
-    if(/^https?:\/\//i.test(external)){
-      window.open(external,'_blank','noopener');
-      return;
-    }
-
-    if(/^https?:\/\//i.test(String(flyer.image_url||''))){
-      window.open(flyer.image_url,'_blank','noopener');
-    }
-  }
-
-
-  function formatFlyerDate(value){
-    const raw=String(value||'').trim();
-    const match=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(!match)return '';
-    return `${Number(match[2])}/${Number(match[3])}`;
-  }
-
-  function flyerPeriod(flyer){
-    const start=formatFlyerDate(flyer?.start_date);
-    const end=formatFlyerDate(flyer?.end_date);
-    if(start&&end)return `${start} ~ ${end}`;
-    if(start)return `${start}부터`;
-    if(end)return `${end}까지`;
-    return '';
-  }
-
-
-  async function openBusinessDetail(event){
-    event?.preventDefault?.();
-    event?.stopPropagation?.();
-    const flyer=state.flyer;
-    const businessId=String(
-      flyer?.featured_business_id||
-      flyer?.destination_business_id||
-      flyer?.business_id||
-      ''
-    ).trim();
-    if(!businessId)return openFlyer();
-    const opened=await openInternalBusiness(businessId);
-    if(!opened)openFlyer();
-  }
-
-
-  function fitCropImage(img,crop){
-    if(!img||!crop)return;
-    const apply=()=>{
-      const box=img.closest('.p043-strip');
-      if(!box||!img.naturalWidth||!img.naturalHeight)return;
-
-      const cw=box.clientWidth;
-      const ch=box.clientHeight;
-      if(!cw||!ch)return;
-
-      const iw=img.naturalWidth;
-      const ih=img.naturalHeight;
-      const cropW=iw*crop.width;
-      const cropH=ih*crop.height;
-
-      // 선택한 대표 구간 전체가 보이도록 contain 방식으로 맞춥니다.
-      // 상품명과 가격이 좌우에서 잘리지 않도록 cover 확대를 사용하지 않습니다.
-      const scale=Math.min(cw/cropW,ch/cropH);
-      const renderedW=iw*scale;
-      const renderedH=ih*scale;
-      const selectedW=cropW*scale;
-      const selectedH=cropH*scale;
-
-      const left=-(iw*crop.x*scale)+(cw-selectedW)/2;
-      const top=-(ih*crop.y*scale)+(ch-selectedH)/2;
-
-      img.style.width=`${renderedW}px`;
-      img.style.height=`${renderedH}px`;
-      img.style.left=`${left}px`;
-      img.style.top=`${top}px`;
-      img.style.transform='none';
-    };
-
-    if(img.complete&&img.naturalWidth)apply();
-    else img.addEventListener('load',apply,{once:true});
-  }
-
-  function fitAllCropImages(){
-    const crop=normalizeCrop(state.flyer?.featured_crop);
-    if(!crop)return;
-    document.querySelectorAll('#v37RecommendCard .p043-crop-img')
-      .forEach(img=>fitCropImage(img,crop));
-  }
-
-  function draw(){
-    ensureStyle();
-    const card=document.getElementById('v37RecommendCard');
-    const flyer=state.flyer;
-    const mainImage=resolveMarketMainImage(flyer);
-
-    if(!card||!flyer||!/^https?:\/\//i.test(mainImage)){
-      hide();
-      return;
-    }
-
-    card.hidden=false;
-    card.classList.add('p032-market','p057-fixed-market');
-    card.querySelectorAll('.p032-shell').forEach(node=>node.remove());
-
-    const business=
+    return (
+      linked ||
       flyer?.featured_business ||
       flyer?.destination_business ||
       flyer?.business ||
       flyer?.businesses ||
-      {};
+      {}
+    );
+  }
 
-    const businessNameKo=
+  function businessName068(flyer){
+    const business = business068(flyer);
+    return String(
       business?.name_ko ||
       business?.name ||
-      business?.title ||
+      business?.name_en ||
       flyer?.business_name_ko ||
       flyer?.business_name ||
-      '마켓';
+      '마켓'
+    ).trim();
+  }
 
-    const businessMeta=business?.city || flyer?.city || '';
-    const period=flyerPeriod(flyer);
+  function isValid068(flyer){
+    const image = mainImage068(flyer);
+    const today = today068();
 
-    const shell=document.createElement('div');
-    shell.className='p032-shell p057-shell';
-    shell.tabIndex=0;
-    shell.setAttribute('role','button');
-    shell.setAttribute('aria-label',`${businessNameKo} 업소 상세 보기`);
+    return String(flyer?.status || '') === 'active'
+      && flyer?.show_on_home !== false
+      && (!flyer?.start_date || String(flyer.start_date).slice(0,10) <= today)
+      && (!flyer?.end_date || String(flyer.end_date).slice(0,10) >= today)
+      && /^https?:\/\//i.test(image);
+  }
 
-    shell.innerHTML=`
-      <div class="p032-storebar">
-        <div class="p032-store-main">
-          <span class="p032-store-icon">🛒</span>
-          <strong class="p032-store-name">${esc(businessNameKo)}</strong>
-        </div>
-        ${state.flyers.length>1
-          ? `<span class="p057-count">${state.index+1}/${state.flyers.length}</span>`
-          : businessMeta
-            ? `<span class="p032-store-meta">${esc(businessMeta)}</span>`
-            : ''}
-      </div>
-
-      <div class="p032-titlebar">
-        <div class="p032-title-main">
-          <span>📅</span>
-          <span>이번 주 마켓 정보</span>
-        </div>
-        ${period?`<span class="p032-period">${esc(period)}</span>`:''}
-      </div>
-
-      <div class="p057-image-frame">
-        <img
-          class="p057-main-image"
-          src="${esc(mainImage)}"
-          alt="${esc(businessNameKo)} 메인 마켓 정보"
-          loading="eager"
-          draggable="false"
-        >
-        <button class="p032-open" type="button" aria-label="업소 상세 보기">›</button>
-      </div>
-
-      ${state.flyers.length>1?`
-        <div class="p057-dots" aria-label="마트 이미지 선택">
-          ${state.flyers.map((_,index)=>`
-            <button
-              type="button"
-              class="p057-dot ${index===state.index?'active':''}"
-              data-p046-market="${index}"
-              aria-label="${index+1}번째 마트 보기"
-            ></button>`).join('')}
-        </div>`:''}
-    `;
-
-    card.appendChild(shell);
-
-    shell.querySelectorAll('[data-p046-market]').forEach(button=>{
-      button.addEventListener('click',event=>{
-        event.preventDefault();
-        event.stopPropagation();
-        goToMarket(Number(button.dataset.p046Market||0));
-      });
-    });
-
-    shell.addEventListener('click',openBusinessDetail);
-    shell.addEventListener('keydown',event=>{
-      if(event.key==='Enter'||event.key===' '){
-        event.preventDefault();
-        openBusinessDetail(event);
-      }
+  function dedupe068(rows){
+    const seen = new Set();
+    return rows.filter(row => {
+      const key = String(row?.id || '').trim();
+      if(!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
   }
 
-  async function refresh(force=false){
-    await load(force);
-    state.flyer=currentFlyer()||state.lastGoodFlyer||state.lastGoodFlyers[0]||null;
+  async function load068(force=false){
+    if(state.loading) return state.loading;
+    if(!force && state.flyers.length && Date.now() - state.loadedAt < 30000){
+      return state.flyers;
+    }
 
-    if(!state.flyer){
-      // 최초 로딩 때만 숨깁니다. 이미 정상 표시된 적이 있으면 그대로 유지합니다.
-      const card=document.getElementById('v37RecommendCard');
-      if(!card?.querySelector('.p032-shell')){
-        stopRotation();
-        hide();
+    state.loading = (async() => {
+      const cfg = typeof getConfig === 'function'
+        ? getConfig()
+        : (window.KFOCUS_CONFIG || window.APP_CONFIG || {});
+
+      const base = String(cfg.SUPABASE_URL || '').replace(/\/$/,'');
+      const key = String(cfg.SUPABASE_ANON_KEY || '').trim();
+      const region = typeof getAppRegion === 'function' ? getAppRegion() : 'dallas';
+
+      if(!base || !key){
+        console.warn('[P068] Supabase 설정이 없습니다.');
+        return state.flyers;
+      }
+
+      try{
+        const params = new URLSearchParams({
+          select:'id,title,status,show_on_home,start_date,end_date,market_main_image_url,business_id,featured_business_id,destination_business_id,business_name,business_name_ko,updated_at',
+          region:`eq.${region}`,
+          status:'eq.active',
+          show_on_home:'eq.true',
+          order:'updated_at.desc',
+          limit:'50'
+        });
+
+        const response = await fetch(
+          `${base}/rest/v1/weekly_flyers?${params.toString()}&_=${Date.now()}`,
+          {
+            cache:'no-store',
+            headers:{
+              apikey:key,
+              Authorization:`Bearer ${key}`,
+              Accept:'application/json',
+              'Cache-Control':'no-cache'
+            }
+          }
+        );
+
+        const payload = await response.json().catch(() => []);
+        if(!response.ok){
+          throw new Error(`weekly_flyers ${response.status}: ${JSON.stringify(payload)}`);
+        }
+
+        const valid = dedupe068(Array.isArray(payload) ? payload : [])
+          .filter(isValid068);
+
+        state.flyers = valid;
+        if(state.index >= valid.length) state.index = 0;
+        state.loadedAt = Date.now();
+
+        console.info('[P068 market flyers]', {
+          returned:Array.isArray(payload) ? payload.length : 0,
+          valid:valid.length,
+          ids:valid.map(row => row.id),
+          images:valid.map(mainImage068)
+        });
+
+        return state.flyers;
+      }catch(error){
+        console.warn('[P068 market load]', error);
+        return state.flyers;
+      }finally{
+        state.loading = null;
+      }
+    })();
+
+    return state.loading;
+  }
+
+  function installStyle068(){
+    if(document.getElementById('p068FixedMarketStyle')) return;
+
+    const style = document.createElement('style');
+    style.id = 'p068FixedMarketStyle';
+    style.textContent = `
+      #v37RecommendCard.p068-market{
+        display:block!important;
+        padding:0!important;
+        min-height:0!important;
+        height:auto!important;
+        overflow:hidden!important;
+        border:1px solid #d9e4f5!important;
+        border-radius:22px!important;
+        background:#fff!important;
+        box-shadow:0 8px 24px rgba(30,64,175,.08)!important;
+      }
+      #v37RecommendCard.p068-market > .v37-recommend-main,
+      #v37RecommendCard.p068-market > .v37-recommend-dots{
+        display:none!important;
+      }
+      #v37RecommendCard .p068-shell{
+        position:relative;
+        overflow:hidden;
+        border-radius:inherit;
+        background:#fff;
+        cursor:pointer;
+      }
+      #v37RecommendCard .p068-storebar{
+        min-height:56px;
+        padding:11px 15px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        color:#fff;
+        background:linear-gradient(135deg,#0f4bb8,#2563eb);
+      }
+      #v37RecommendCard .p068-store-left{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:10px;
+      }
+      #v37RecommendCard .p068-store-icon{
+        width:30px;
+        height:30px;
+        flex:0 0 auto;
+        display:grid;
+        place-items:center;
+        border-radius:10px;
+        background:rgba(255,255,255,.16);
+      }
+      #v37RecommendCard .p068-store-name{
+        overflow:hidden;
+        text-overflow:ellipsis;
+        white-space:nowrap;
+        font-size:18px;
+        font-weight:900;
+      }
+      #v37RecommendCard .p068-count{
+        flex:0 0 auto;
+        min-width:34px;
+        height:24px;
+        padding:0 8px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:999px;
+        background:rgba(15,23,42,.36);
+        font-size:11px;
+        font-weight:900;
+      }
+      #v37RecommendCard .p068-titlebar{
+        min-height:46px;
+        padding:9px 15px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        color:#15386d;
+        background:linear-gradient(180deg,#f8fbff,#eaf2ff);
+        border-bottom:1px solid #dbe7f7;
+      }
+      #v37RecommendCard .p068-title{
+        min-width:0;
+        display:flex;
+        align-items:center;
+        gap:8px;
+        font-size:17px;
+        font-weight:900;
+        white-space:nowrap;
+      }
+      #v37RecommendCard .p068-period{
+        flex:0 0 auto;
+        color:#64748b;
+        font-size:12px;
+        font-weight:800;
+      }
+      #v37RecommendCard .p068-image-frame{
+        position:relative;
+        width:100%;
+        aspect-ratio:20 / 7;
+        overflow:hidden;
+        background:#eef3fb;
+      }
+      #v37RecommendCard .p068-image{
+        display:block;
+        width:100%;
+        height:100%;
+        object-fit:cover;
+        object-position:center;
+      }
+      #v37RecommendCard .p068-arrow{
+        position:absolute;
+        right:12px;
+        bottom:12px;
+        width:36px;
+        height:36px;
+        display:grid;
+        place-items:center;
+        border:0;
+        border-radius:50%;
+        color:#174fb8;
+        background:rgba(255,255,255,.92);
+        box-shadow:0 5px 16px rgba(15,23,42,.18);
+        font-size:25px;
+        font-weight:900;
+      }
+      #v37RecommendCard .p068-dots{
+        min-height:22px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:5px;
+        background:#fff;
+      }
+      #v37RecommendCard .p068-dot{
+        width:7px;
+        height:7px;
+        padding:0;
+        border:0;
+        border-radius:999px;
+        background:#cbd5e1;
+      }
+      #v37RecommendCard .p068-dot.active{
+        width:20px;
+        background:#2563eb;
+      }
+      @media(max-width:640px){
+        #v37RecommendCard .p068-storebar{
+          min-height:52px;
+          padding:9px 13px;
+        }
+        #v37RecommendCard .p068-titlebar{
+          min-height:43px;
+          padding:8px 13px;
+        }
+        #v37RecommendCard .p068-store-name{
+          font-size:17px;
+        }
+        #v37RecommendCard .p068-title{
+          font-size:16px;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function formatDate068(value){
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${Number(match[2])}/${Number(match[3])}` : '';
+  }
+
+  function period068(flyer){
+    const start = formatDate068(flyer?.start_date);
+    const end = formatDate068(flyer?.end_date);
+    if(start && end) return `${start} ~ ${end}`;
+    if(start) return `${start}부터`;
+    if(end) return `${end}까지`;
+    return '';
+  }
+
+  async function openBusiness068(flyer){
+    const id = businessId068(flyer);
+    if(!id) return;
+
+    const found = Array.isArray(window.businesses)
+      ? window.businesses.find(row => String(row?.id || '') === id)
+      : null;
+
+    if(found && typeof renderDetail === 'function' && typeof showPage === 'function'){
+      window.selectedBizId = id;
+      try{ selectedBizId = id; }catch{}
+      try{ currentDetailVideoOverride = ''; }catch{}
+      renderDetail(id);
+      showPage('business-detail');
+    }
+  }
+
+  function current068(){
+    if(!state.flyers.length) return null;
+    if(state.index < 0 || state.index >= state.flyers.length) state.index = 0;
+    return state.flyers[state.index];
+  }
+
+  function draw068(){
+    installStyle068();
+
+    const card = document.getElementById('v37RecommendCard');
+    const flyer = current068();
+
+    if(!card || !flyer){
+      if(card){
+        card.classList.remove('p068-market');
+        card.querySelectorAll('.p068-shell').forEach(node => node.remove());
+        card.hidden = true;
       }
       return false;
     }
 
-    state.lastGoodFlyer=state.flyer;
-    draw();
-    startRotation();
+    const image = mainImage068(flyer);
+    const name = businessName068(flyer);
+    const period = period068(flyer);
+
+    card.hidden = false;
+    card.classList.add('p068-market');
+    card.querySelectorAll('.p068-shell').forEach(node => node.remove());
+
+    const shell = document.createElement('div');
+    shell.className = 'p068-shell';
+    shell.tabIndex = 0;
+    shell.setAttribute('role','button');
+    shell.setAttribute('aria-label',`${name} 업소 상세 보기`);
+
+    shell.innerHTML = `
+      <div class="p068-storebar">
+        <div class="p068-store-left">
+          <span class="p068-store-icon">🛒</span>
+          <strong class="p068-store-name">${esc068(name)}</strong>
+        </div>
+        ${state.flyers.length > 1
+          ? `<span class="p068-count">${state.index + 1}/${state.flyers.length}</span>`
+          : ''}
+      </div>
+
+      <div class="p068-titlebar">
+        <div class="p068-title"><span>📅</span><span>이번 주 마켓 정보</span></div>
+        ${period ? `<span class="p068-period">${esc068(period)}</span>` : ''}
+      </div>
+
+      <div class="p068-image-frame">
+        <img
+          class="p068-image"
+          src="${esc068(image)}"
+          alt="${esc068(name)} 메인 마켓 이미지"
+          loading="eager"
+          draggable="false"
+        >
+        <button class="p068-arrow" type="button" aria-label="업소 상세 보기">›</button>
+      </div>
+
+      ${state.flyers.length > 1 ? `
+        <div class="p068-dots">
+          ${state.flyers.map((_, index) => `
+            <button
+              class="p068-dot ${index === state.index ? 'active' : ''}"
+              type="button"
+              data-p068-index="${index}"
+              aria-label="${index + 1}번째 마트 보기"
+            ></button>
+          `).join('')}
+        </div>
+      ` : ''}
+    `;
+
+    card.appendChild(shell);
+
+    shell.querySelectorAll('[data-p068-index]').forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        state.index = Number(button.dataset.p068Index || 0);
+        draw068();
+        startRotation068();
+      });
+    });
+
+    const open = event => {
+      event?.preventDefault?.();
+      openBusiness068(flyer);
+    };
+
+    shell.addEventListener('click', open);
+    shell.addEventListener('keydown', event => {
+      if(event.key === 'Enter' || event.key === ' '){
+        event.preventDefault();
+        open(event);
+      }
+    });
+
     return true;
   }
 
-  document.addEventListener('DOMContentLoaded', ()=>{
-    setTimeout(()=>refresh(true),500);
-    setTimeout(()=>refresh(true),1600);
-    setTimeout(()=>refresh(true),3500);
-    setTimeout(()=>refresh(true),7000);
+  function stopRotation068(){
+    if(state.timer){
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+  }
+
+  function startRotation068(){
+    stopRotation068();
+    if(state.flyers.length < 2) return;
+
+    state.timer = setInterval(() => {
+      if(document.hidden) return;
+      state.index = (state.index + 1) % state.flyers.length;
+      draw068();
+    }, 7000);
+  }
+
+  async function refresh068(force=false){
+    await load068(force);
+    const shown = draw068();
+    if(shown) startRotation068();
+    else stopRotation068();
+    return shown;
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => refresh068(true), 500);
+    setTimeout(() => refresh068(true), 1800);
   });
-  document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden){
-      stopRotation();
-    }else{
-      startRotation();
-      setTimeout(()=>refresh(false),300);
+
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden) stopRotation068();
+    else {
+      refresh068(false);
+      startRotation068();
     }
   });
-  window.addEventListener('focus', ()=>{
-    startRotation();
-    setTimeout(()=>refresh(false),300);
+
+  window.addEventListener('storage', event => {
+    if(event.key === 'daltownmap_content_changed'){
+      refresh068(true);
+    }
   });
-  window.addEventListener('storage', e=>{
-    if(e.key === 'daltownmap_content_changed') refresh(true);
-  });
+
   try{
     const channel = new BroadcastChannel('daltownmap-content');
-    channel.addEventListener('message', ()=>refresh(true));
+    channel.addEventListener('message', event => {
+      if(
+        event?.data?.type === 'weekly_flyer_main_image_changed' ||
+        event?.data?.type === 'weekly_flyer_deleted'
+      ){
+        refresh068(true);
+      }
+    });
   }catch{}
-  setInterval(()=>{ if(!document.hidden) refresh(false); }, 90000);
-  // 기존 홈 렌더러가 추천 카드를 다시 그린 뒤에도 대표 전단을 복원합니다.
-  setInterval(()=>{
-    if(document.hidden||!state.flyer)return;
-    const card=document.getElementById('v37RecommendCard');
-    if(!card?.querySelector('.p032-shell'))draw();
-  },2500);
 
   window.P032MarketFeaturedCrop = {
-    refresh,
+    refresh:refresh068,
+    next(){
+      if(state.flyers.length < 2) return;
+      state.index = (state.index + 1) % state.flyers.length;
+      draw068();
+      startRotation068();
+    },
+    previous(){
+      if(state.flyers.length < 2) return;
+      state.index = (state.index - 1 + state.flyers.length) % state.flyers.length;
+      draw068();
+      startRotation068();
+    },
     getState(){
       return {
         count:state.flyers.length,
         index:state.index,
-        ids:state.flyers.map(row=>row.id),
-        names:state.flyers.map(row=>
-          row?.featured_business?.name_ko||
-          row?.featured_business?.name||
-          row?.business?.name_ko||
-          row?.business?.name||
-          row?.business_name||
-          row?.title||
-          ''
-        )
+        ids:state.flyers.map(row => row.id),
+        images:state.flyers.map(mainImage068)
       };
-    },
-    next(){
-      if(state.flyers.length<2)return;
-      state.index=(state.index+1)%state.flyers.length;
-      state.flyer=currentFlyer();
-      draw();
-      startRotation();
-    },
-    previous(){
-      if(state.flyers.length<2)return;
-      state.index=(state.index-1+state.flyers.length)%state.flyers.length;
-      state.flyer=currentFlyer();
-      draw();
-      startRotation();
     }
   };
-  console.info('[DalTownMap] P046 multiple market rotation and business name enrichment loaded');
+
+  console.info('[DalTownMap] P068 fixed main-image-only market card loaded');
 })();
+
 
 // === P030C: 광고·날씨·교통 공통 한 줄 광고 UI ===
 (() => {
@@ -8949,604 +8486,4 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   setInterval(()=>{ if(!document.hidden) enforce(); },2000);
 
   console.info('[DalTownMap] P039 unified one-line ad label enforced');
-})();
-
-
-
-// === P040: 모바일 마켓 카드 정렬 + 1.9인치 이미지 높이 보정 ===
-(() => {
-  function install(){
-    if(document.getElementById('p040MarketMobileFix')) return;
-    const style = document.createElement('style');
-    style.id = 'p040MarketMobileFix';
-    style.textContent = `
-      @media (max-width: 640px){
-        #v37RecommendCard.p032-market{
-          width:100%!important;
-          margin-left:0!important;
-          margin-right:0!important;
-          transform:none!important;
-          overflow:hidden!important;
-        }
-
-        #v37RecommendCard .p032-shell{
-          width:100%!important;
-          margin:0!important;
-          overflow:hidden!important;
-        }
-
-        #v37RecommendCard .p032-storebar,
-        #v37RecommendCard .p032-titlebar,
-        #v37RecommendCard .p032-viewport{
-          width:100%!important;
-          margin-left:0!important;
-          margin-right:0!important;
-          box-sizing:border-box!important;
-        }
-
-        #v37RecommendCard .p032-titlebar{
-          display:grid!important;
-          grid-template-columns:minmax(0,1fr) auto!important;
-          align-items:center!important;
-          gap:8px!important;
-          padding-left:12px!important;
-          padding-right:12px!important;
-        }
-
-        #v37RecommendCard .p032-title-main{
-          min-width:0!important;
-          display:flex!important;
-          align-items:center!important;
-          gap:7px!important;
-          overflow:hidden!important;
-        }
-
-        #v37RecommendCard .p032-title-main > span:last-of-type{
-          flex:0 1 auto!important;
-          min-width:0!important;
-          overflow:hidden!important;
-          text-overflow:ellipsis!important;
-          white-space:nowrap!important;
-        }
-
-        #v37RecommendCard .p032-business-link{
-          flex:0 1 auto!important;
-          max-width:116px!important;
-          min-width:0!important;
-          padding:4px 7px!important;
-        }
-
-        #v37RecommendCard .p032-business-link span{
-          max-width:82px!important;
-        }
-
-        #v37RecommendCard .p032-period{
-          justify-self:end!important;
-          text-align:right!important;
-          font-size:11px!important;
-          letter-spacing:-.2px!important;
-        }
-
-        /* 1.9 inch ≈ 182px at 96dpi */
-        #v37RecommendCard .p032-viewport{
-          height:144px!important;
-          min-height:144px!important;
-          max-height:144px!important;
-          padding:0!important;
-          line-height:0!important;
-          background:#fff!important;
-        }
-
-        #v37RecommendCard .p032-track{
-          height:144px!important;
-          min-height:144px!important;
-          max-height:144px!important;
-          align-items:stretch!important;
-        }
-
-        #v37RecommendCard .p032-strip{
-          height:144px!important;
-          min-height:144px!important;
-          max-height:144px!important;
-          background:#fff!important;
-        }
-
-        #v37RecommendCard .p032-open{
-          bottom:10px!important;
-          right:10px!important;
-        }
-      }
-
-      @media (max-width: 390px){
-        #v37RecommendCard .p032-title-main{
-          font-size:15px!important;
-        }
-        #v37RecommendCard .p032-business-link{
-          max-width:106px!important;
-        }
-        #v37RecommendCard .p032-business-link span{
-          max-width:72px!important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', install, {once:true});
-  }else{
-    install();
-  }
-  console.info('[DalTownMap] P040 mobile market alignment and 1.9-inch crop fix loaded');
-})();
-
-
-
-// === P041: 모바일 대표 구간 crop 좌표 보존 수정 ===
-(() => {
-  function install(){
-    if(document.getElementById('p041MobileCropPreserve')) return;
-    const style = document.createElement('style');
-    style.id = 'p041MobileCropPreserve';
-    style.textContent = `
-      @media (max-width:640px){
-        #v37RecommendCard .p032-viewport,
-        #v37RecommendCard .p032-track,
-        #v37RecommendCard .p032-strip{
-          height:144px!important;
-          min-height:144px!important;
-          max-height:144px!important;
-        }
-
-        #v37RecommendCard .p032-strip{
-          background-repeat:no-repeat!important;
-          background-color:#fff!important;
-        }
-
-        #v37RecommendCard .p032-track{
-          align-items:stretch!important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function restoreInlineCrop(){
-    const flyer=window.P032MarketFeaturedCrop;
-    const strips=document.querySelectorAll('#v37RecommendCard .p032-strip');
-    strips.forEach(strip=>{
-      // 모바일 보정 코드가 background-size/position을 덮어쓰지 않도록
-      // 인라인 스타일 값을 우선 적용합니다.
-      const inline=strip.getAttribute('style')||'';
-      const size=inline.match(/background-size\s*:\s*([^;]+)/i)?.[1];
-      const position=inline.match(/background-position\s*:\s*([^;]+)/i)?.[1];
-      if(size) strip.style.setProperty('background-size',size,'important');
-      if(position) strip.style.setProperty('background-position',position,'important');
-      strip.style.setProperty('background-repeat','no-repeat','important');
-    });
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',()=>{
-      install();
-      setTimeout(restoreInlineCrop,1200);
-      setTimeout(restoreInlineCrop,3200);
-    },{once:true});
-  }else{
-    install();
-    setTimeout(restoreInlineCrop,300);
-  }
-
-  const observer=new MutationObserver(()=>setTimeout(restoreInlineCrop,0));
-  document.addEventListener('DOMContentLoaded',()=>{
-    const card=document.getElementById('v37RecommendCard');
-    if(card) observer.observe(card,{childList:true,subtree:true});
-  });
-
-  window.addEventListener('focus',restoreInlineCrop);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)restoreInlineCrop()});
-  console.info('[DalTownMap] P041 mobile crop coordinates preserved');
-})();
-
-
-
-// === P042: 대표 구간 정확 매핑 보정 ===
-(() => {
-  function enforceExactCrop(){
-    document.querySelectorAll('#v37RecommendCard .p032-strip').forEach(strip=>{
-      const inline=strip.getAttribute('style')||'';
-      const size=inline.match(/background-size\s*:\s*([^;]+)/i)?.[1];
-      const position=inline.match(/background-position\s*:\s*([^;]+)/i)?.[1];
-      if(size)strip.style.setProperty('background-size',size,'important');
-      if(position)strip.style.setProperty('background-position',position,'important');
-      strip.style.setProperty('background-repeat','no-repeat','important');
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(enforceExactCrop,1200);
-    setTimeout(enforceExactCrop,3200);
-    const card=document.getElementById('v37RecommendCard');
-    if(card){
-      new MutationObserver(()=>setTimeout(enforceExactCrop,0))
-        .observe(card,{childList:true,subtree:true});
-    }
-  });
-  window.addEventListener('focus',enforceExactCrop);
-  console.info('[DalTownMap] P042 exact featured crop mapping loaded');
-})();
-
-
-
-// === P043: 전단 비율 보존 · 반응형 대표 구간 맞춤 ===
-(() => {
-  let timer=null;
-  function refit(){
-    clearTimeout(timer);
-    timer=setTimeout(()=>{
-      if(window.P032MarketFeaturedCrop?.refresh){
-        document.querySelectorAll('#v37RecommendCard .p043-crop-img').forEach(img=>{
-          const event=new Event('load');
-          if(img.complete)img.dispatchEvent(event);
-        });
-      }
-    },120);
-  }
-
-  window.addEventListener('resize',refit);
-  window.addEventListener('orientationchange',refit);
-  console.info('[DalTownMap] P043 aspect-ratio-safe market crop loaded');
-})();
-
-
-
-// === P045: 마켓 카드 상단 업소명 통일 · 중복 버튼 제거 ===
-(() => {
-  function install(){
-    if(document.getElementById('p045MarketHeaderCleanup')) return;
-    const style=document.createElement('style');
-    style.id='p045MarketHeaderCleanup';
-    style.textContent=`
-      #v37RecommendCard .p032-business-link{
-        display:none!important;
-      }
-      #v37RecommendCard .p032-title-main{
-        min-width:0!important;
-        overflow:visible!important;
-      }
-      #v37RecommendCard .p032-title-main > span:last-child{
-        white-space:nowrap!important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',install,{once:true});
-  }else{
-    install();
-  }
-  console.info('[DalTownMap] P045 market business header cleanup loaded');
-})();
-
-
-
-// === P048: 마켓 대표 이미지 높이 1.5인치 통일 ===
-(() => {
-  function install(){
-    if(document.getElementById('p048MarketCropHeight')) return;
-    const style=document.createElement('style');
-    style.id='p048MarketCropHeight';
-    style.textContent=`
-      #v37RecommendCard .p032-viewport,
-      #v37RecommendCard .p032-track,
-      #v37RecommendCard .p032-strip,
-      #v37RecommendCard .p043-strip{
-        height:144px!important;
-        min-height:144px!important;
-        max-height:144px!important;
-      }
-      #v37RecommendCard.p032-market,
-      #v37RecommendCard .p032-shell{
-        min-height:250px!important;
-      }
-      @media(max-width:390px){
-        #v37RecommendCard.p032-market,
-        #v37RecommendCard .p032-shell{
-          min-height:242px!important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',install,{once:true});
-  }else{
-    install();
-  }
-})();
-
-
-
-// === P049: 활성 마트 전단 모두 순환 ===
-(() => {
-  console.info('[DalTownMap] P049 all active market flyers rotation loaded');
-})();
-
-
-
-// === P050: 대표 구간 전체 표시 + 활성 마트 전단 병합 ===
-(() => {
-  function install(){
-    if(document.getElementById('p050MarketCropExactFit'))return;
-    const style=document.createElement('style');
-    style.id='p050MarketCropExactFit';
-    style.textContent=`
-      #v37RecommendCard .p043-strip{
-        position:relative!important;
-        overflow:hidden!important;
-        background:#fff!important;
-      }
-      #v37RecommendCard .p043-crop-img{
-        position:absolute!important;
-        display:block!important;
-        max-width:none!important;
-        max-height:none!important;
-        object-fit:initial!important;
-      }
-      #v37RecommendCard .p032-track{
-        align-items:stretch!important;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',install,{once:true});
-  }else{
-    install();
-  }
-  console.info('[DalTownMap] P050 exact crop fit and all-market merge loaded');
-})();
-
-
-
-// === P051: 마켓 정보 간헐적 사라짐 방지 ===
-(() => {
-  function restore(){
-    const card=document.getElementById('v37RecommendCard');
-    if(!card)return;
-    const api=window.P032MarketFeaturedCrop;
-    if(card.hidden || !card.querySelector('.p032-shell')){
-      api?.refresh?.(false);
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(restore,1800);
-    setTimeout(restore,4200);
-
-    const card=document.getElementById('v37RecommendCard');
-    if(card){
-      const observer=new MutationObserver(()=>{
-        clearTimeout(window.__p051RestoreTimer);
-        window.__p051RestoreTimer=setTimeout(restore,120);
-      });
-      observer.observe(card,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class']});
-    }
-  });
-
-  setInterval(()=>{
-    if(!document.hidden)restore();
-  },10000);
-
-  console.info('[DalTownMap] P051 stable market visibility loaded');
-})();
-
-
-
-// === P052: Supabase SDK/Client 충돌 수정 ===
-(() => {
-  const client=getDataClient();
-  console.info('[DalTownMap] P052 data client resolved',Boolean(client?.from));
-  if(!client?.from){
-    console.warn('[DalTownMap] P052 Supabase data client unavailable');
-  }
-})();
-
-
-
-// === P053: 1.5인치 대표 구간 최소 높이 호환 수정 ===
-(() => {
-  console.info('[DalTownMap] P053 1.5-inch crop minimum height compatibility loaded');
-})();
-
-
-
-// === P054: 마트 전단 REST 직접 조회 · 강제 복구 ===
-(() => {
-  let attempts=0;
-  const timer=setInterval(async()=>{
-    attempts++;
-    const card=document.getElementById('v37RecommendCard');
-    const hasMarket=Boolean(card?.querySelector('.p032-shell'));
-    if(!hasMarket){
-      await window.P032MarketFeaturedCrop?.refresh?.(true);
-    }
-    if(hasMarket||attempts>=12)clearInterval(timer);
-  },1500);
-  console.info('[DalTownMap] P054 REST-first market loader started');
-})();
-
-
-
-// === P057: 고정 규격 마트 메인 이미지 UI ===
-(() => {
-  function install(){
-    if(document.getElementById('p057FixedMarketImageStyle'))return;
-    const style=document.createElement('style');
-    style.id='p057FixedMarketImageStyle';
-    style.textContent=`
-      #v37RecommendCard.p057-fixed-market{
-        min-height:0!important;
-        height:auto!important;
-        overflow:hidden!important;
-        border-radius:22px!important;
-      }
-      #v37RecommendCard .p057-shell{
-        min-height:0!important;
-        height:auto!important;
-        overflow:hidden!important;
-        background:#fff!important;
-      }
-      #v37RecommendCard .p057-image-frame{
-        position:relative!important;
-        width:100%!important;
-        aspect-ratio:20 / 7!important;
-        overflow:hidden!important;
-        background:#eef3fb!important;
-      }
-      #v37RecommendCard .p057-main-image{
-        display:block!important;
-        width:100%!important;
-        height:100%!important;
-        object-fit:cover!important;
-        object-position:center!important;
-        max-width:none!important;
-        max-height:none!important;
-      }
-      #v37RecommendCard .p057-count{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-width:34px;
-        height:24px;
-        padding:0 8px;
-        border-radius:999px;
-        background:rgba(15,23,42,.72);
-        color:#fff;
-        font-size:11px;
-        font-weight:900;
-      }
-      #v37RecommendCard .p057-dots{
-        height:20px;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:5px;
-        background:#fff;
-      }
-      #v37RecommendCard .p057-dot{
-        width:7px;
-        height:7px;
-        padding:0;
-        border:0;
-        border-radius:999px;
-        background:#cbd5e1;
-      }
-      #v37RecommendCard .p057-dot.active{
-        width:20px;
-        background:#2563eb;
-      }
-      #v37RecommendCard .p057-image-frame .p032-open{
-        right:11px!important;
-        bottom:11px!important;
-      }
-      @media(max-width:640px){
-        #v37RecommendCard .p032-storebar{
-          min-height:54px!important;
-          padding:10px 13px!important;
-        }
-        #v37RecommendCard .p032-titlebar{
-          min-height:44px!important;
-          padding:8px 13px!important;
-        }
-        #v37RecommendCard .p057-image-frame{
-          aspect-ratio:20 / 7!important;
-        }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',install,{once:true});
-  }else{
-    install();
-  }
-  console.info('[DalTownMap] P057 fixed 1200x420 market image UI loaded');
-})();
-
-
-
-// === P062: Smart Flyer loader compatibility guard ===
-(() => {
-  window.addEventListener('unhandledrejection',event=>{
-    const message=String(event?.reason?.message||event?.reason||'');
-    if(message.includes('loadActiveFlyers is not defined')){
-      console.warn('[DalTownMap] P062 blocked legacy loadActiveFlyers error');
-      event.preventDefault?.();
-    }
-  });
-  console.info('[DalTownMap] P062 Smart Flyer loader restored');
-})();
-
-
-
-// === P063: 고정 메인 이미지 전단 필터 수정 ===
-(() => {
-  console.info('[DalTownMap] P063 fixed market image validator loaded');
-})();
-
-
-
-// === P065: 고정 마트 이미지 새 데이터 즉시 반영 ===
-(() => {
-  function refreshMarket(){
-    window.P032MarketFeaturedCrop?.refresh?.(true);
-    window.P010SmartFlyer?.load?.(true);
-  }
-
-  window.addEventListener('storage',event=>{
-    if(event.key==='daltownmap_content_changed'){
-      setTimeout(refreshMarket,250);
-    }
-  });
-
-  try{
-    const channel=new BroadcastChannel('daltownmap-content');
-    channel.addEventListener('message',event=>{
-      if(
-        event?.data?.type==='weekly_flyer_main_image_changed'||
-        event?.data?.type==='weekly_flyer_deleted'
-      ){
-        setTimeout(refreshMarket,250);
-      }
-    });
-  }catch{}
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(refreshMarket,800);
-    setTimeout(refreshMarket,2600);
-  });
-
-  console.info('[DalTownMap] P065 fixed market image refresh loaded');
-})();
-
-
-
-// === P066: 업소 소개 이미지 메인 마트 fallback ===
-(() => {
-  console.info('[DalTownMap] P066 market image fallback loaded');
-})();
-
-
-
-// === P067: P062 Smart Flyer 이미지 resolver 범위 수정 ===
-(() => {
-  window.addEventListener('unhandledrejection',event=>{
-    const message=String(event?.reason?.message||event?.reason||'');
-    if(message.includes('resolveMarketMainImage is not defined')){
-      console.warn('[DalTownMap] P067 blocked legacy resolver error');
-      event.preventDefault?.();
-    }
-  });
-  console.info('[DalTownMap] P067 Smart Flyer image resolver fixed');
 })();
