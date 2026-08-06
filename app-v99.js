@@ -7518,17 +7518,32 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(![x,y,width,height].every(Number.isFinite)) return null;
     if(x < 0 || y < 0 || width <= 0 || height <= 0) return null;
     if(x + width > 1.001 || y + height > 1.001) return null;
-    if(width < .18 || height < .035) return null;
+    if(width < .18 || height < .008) return null;
     return { x, y, width, height };
   }
 
   function validFlyer(f){
-    return String(f?.status || '') === 'active'
+    const crop=normalizeCrop(f?.featured_crop);
+    const result=String(f?.status || '') === 'active'
       && f?.show_on_home !== false
       && (!f?.start_date || String(f.start_date) <= today())
       && (!f?.end_date || String(f.end_date) >= today())
       && /^https?:\/\//i.test(String(f?.image_url || ''))
-      && Boolean(normalizeCrop(f?.featured_crop));
+      && Boolean(crop);
+
+    if(!result){
+      console.info('[P053 flyer excluded]',{
+        id:f?.id,
+        status:f?.status,
+        show_on_home:f?.show_on_home,
+        start_date:f?.start_date,
+        end_date:f?.end_date,
+        has_image:/^https?:\/\//i.test(String(f?.image_url||'')),
+        crop:f?.featured_crop,
+        normalized_crop:crop
+      });
+    }
+    return result;
   }
 
   function ensureStyle(){
@@ -7959,6 +7974,11 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       }
 
       const valid=rows.filter(validFlyer);
+      console.info('[P053 weekly flyers]',{
+        returned:rows.length,
+        valid:valid.length,
+        ids:valid.map(row=>row.id)
+      });
       const enriched=await enrichBusinesses(valid);
 
       // 현재 유효한 전단은 모두 유지합니다.
@@ -9188,4 +9208,11 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   if(!client?.from){
     console.warn('[DalTownMap] P052 Supabase data client unavailable');
   }
+})();
+
+
+
+// === P053: 1.5인치 대표 구간 최소 높이 호환 수정 ===
+(() => {
+  console.info('[DalTownMap] P053 1.5-inch crop minimum height compatibility loaded');
 })();
