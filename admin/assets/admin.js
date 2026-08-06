@@ -8860,6 +8860,17 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   let currentFlyerId=0;
   let selectedFile=null;
 
+  function getP057Client(){
+    if(window.supabaseClient?.from && window.supabaseClient?.storage) return window.supabaseClient;
+    if(window.authClient?.from && window.authClient?.storage) return window.authClient;
+    try{
+      const client=typeof getAuthClient==='function'?getAuthClient():null;
+      if(client?.from && client?.storage) return client;
+    }catch{}
+    if(window.supabase?.from && window.supabase?.storage) return window.supabase;
+    return null;
+  }
+
   const esc057=(v='')=>String(v).replace(/[&<>"']/g,m=>({
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
@@ -9056,16 +9067,26 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   }
 
   async function upload(file){
+    const client=getP057Client();
+    if(!client)throw new Error('Supabase 저장소 클라이언트를 찾지 못했습니다.');
+
     const bucket='public-images';
     const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
     const path=`weekly-flyers/main/${currentFlyerId}-${Date.now()}.${ext}`;
-    const result=await supabase.storage.from(bucket).upload(path,file,{
+
+    const result=await client.storage.from(bucket).upload(path,file,{
       upsert:false,
       cacheControl:'3600',
       contentType:file.type||'image/jpeg'
     });
     if(result.error)throw result.error;
-    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+
+    const publicResult=client.storage.from(bucket).getPublicUrl(path);
+    const publicUrl=String(publicResult?.data?.publicUrl||'').trim();
+    if(!/^https?:\/\//i.test(publicUrl)){
+      throw new Error('업로드된 이미지의 공개 URL을 만들지 못했습니다.');
+    }
+    return publicUrl;
   }
 
   async function save(){
@@ -9077,11 +9098,22 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     status.textContent='이미지를 업로드하고 있습니다.';
     try{
       const imageUrl=await upload(selectedFile);
-      await newsroomEdgeCall('save_weekly_flyer_main_image',{
+      const saved=await newsroomEdgeCall('save_weekly_flyer_main_image',{
         flyer_id:currentFlyerId,
         market_main_image_url:imageUrl
       });
-      status.textContent='메인 이미지를 저장했습니다.';
+
+      const savedUrl=String(
+        saved?.market_main_image_url||
+        saved?.flyer?.market_main_image_url||
+        ''
+      ).trim();
+
+      if(!savedUrl){
+        throw new Error('이미지는 업로드됐지만 전단 데이터에 URL이 저장되지 않았습니다.');
+      }
+
+      status.textContent='메인 이미지를 저장했습니다. 메인에 곧 반영됩니다.';
       try{
         localStorage.setItem('daltownmap_content_changed',String(Date.now()));
         const channel=new BroadcastChannel('daltownmap-content');
@@ -9170,4 +9202,19 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   });
 
   console.info('[DalTownMap] P057 fixed market main image uploader loaded');
+})();
+
+
+
+// === P058: 메인 마트 이미지 업로드 Supabase client 수정 ===
+(() => {
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      const client=
+        window.supabaseClient?.storage ? window.supabaseClient :
+        window.authClient?.storage ? window.authClient :
+        null;
+      console.info('[DalTownMap] P058 market image upload client',Boolean(client?.storage));
+    },800);
+  });
 })();
