@@ -8491,11 +8491,11 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
           <button type="button" class="btn" id="p032ZoomFit">맞춤</button>
           <button type="button" class="btn" id="p032ZoomIn">＋</button>
           <span class="p032a-zoom-value" id="p032ZoomValue">100%</span>
-          <span class="p032a-zoom-value">전체 폭 · 높이 약 1.5인치</span>
+          <span class="p032a-zoom-value">전체 폭 · 높이 약 2인치</span>
           <span style="font-size:12px;color:#64748b">확대한 뒤 원하는 상품 줄의 가운데를 클릭하세요.</span>
         </div>
         <div class="p032a-tip">
-          원하는 상품 줄의 가운데를 클릭하세요. 선택 폭은 전단 전체 너비, 높이는 약 1.5인치로 고정됩니다.
+          원하는 상품 줄의 가운데를 클릭하세요. 선택 폭은 전단 전체 너비, 높이는 약 2인치로 고정됩니다.
         </div>
         <div style="margin-top:12px;padding:12px;border:1px solid #dbe6f7;border-radius:12px;background:#fff">
           <label for="p032BusinessTarget" style="display:block;margin-bottom:6px;font-weight:800;color:#173a6a">
@@ -8589,8 +8589,8 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     const rect=img?.getBoundingClientRect?.();
     if(!rect?.width||!rect?.height)return;
 
-    // 전단 전체 폭을 사용하고, 화면 기준 약 1.5인치(144px) 높이만 고정합니다.
-    const fixedDisplayHeight=Math.min(144,Math.max(86,rect.height*.17));
+    // 전단 전체 폭을 사용하고, 화면 기준 약 2인치(192px) 높이만 고정합니다.
+    const fixedDisplayHeight=Math.min(192,Math.max(110,rect.height*.22));
     const height=Math.max(.008,Math.min(.35,fixedDisplayHeight/rect.height));
     const width=1;
     const x=0;
@@ -8852,7 +8852,322 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
 
 
 
-// === P048-SAFE: 대표 구간 높이 1.5인치 ===
+// === P057-ADMIN: 고정 규격 마트 메인 이미지 업로드 ===
 (() => {
-  console.info('[DalTownMap] P048 safe 1.5-inch crop selector loaded');
+  const REQUIRED_WIDTH=1200;
+  const REQUIRED_HEIGHT=420;
+  const RATIO=REQUIRED_WIDTH/REQUIRED_HEIGHT;
+  let currentFlyerId=0;
+  let selectedFile=null;
+
+  const esc057=(v='')=>String(v).replace(/[&<>"']/g,m=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+
+  function ensureStyle(){
+    if(document.getElementById('p057AdminStyle'))return;
+    const style=document.createElement('style');
+    style.id='p057AdminStyle';
+    style.textContent=`
+      .p057-main-image-btn{
+        background:#eaf2ff!important;
+        color:#174fb8!important;
+        border-color:#bfd3fb!important;
+      }
+      #p057MainImageModal{
+        position:fixed;
+        inset:0;
+        z-index:100040;
+        display:none;
+        padding:18px;
+        background:rgba(15,23,42,.64);
+        overflow:auto;
+      }
+      #p057MainImageModal.open{display:block}
+      #p057MainImageModal .p057-sheet{
+        width:min(920px,100%);
+        margin:2vh auto;
+        padding:18px;
+        border-radius:20px;
+        background:#f8fbff;
+        box-shadow:0 28px 80px rgba(15,23,42,.32);
+      }
+      #p057MainImageModal .p057-head{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+      }
+      #p057MainImageModal h2{margin:0;color:#12396f}
+      #p057MainImageModal p{margin:6px 0 0;color:#64748b}
+      #p057MainImageModal .p057-close{
+        width:42px;height:42px;border:0;border-radius:13px;
+        background:#eaf2ff;color:#174fb8;font-size:23px;
+      }
+      #p057MainImageModal .p057-spec{
+        margin-top:14px;
+        padding:12px 14px;
+        border-radius:13px;
+        background:#eaf2ff;
+        color:#174fb8;
+        font-weight:900;
+      }
+      #p057MainImageModal .p057-upload{
+        margin-top:14px;
+        padding:16px;
+        border:2px dashed #9db8e8;
+        border-radius:16px;
+        background:#fff;
+      }
+      #p057MainImageModal input[type=file]{width:100%}
+      #p057MainImageModal .p057-preview{
+        margin-top:14px;
+        width:100%;
+        aspect-ratio:20/7;
+        overflow:hidden;
+        border:1px solid #cbd8ec;
+        border-radius:16px;
+        background:
+          linear-gradient(45deg,#eef2f7 25%,transparent 25%),
+          linear-gradient(-45deg,#eef2f7 25%,transparent 25%),
+          linear-gradient(45deg,transparent 75%,#eef2f7 75%),
+          linear-gradient(-45deg,transparent 75%,#eef2f7 75%);
+        background-size:24px 24px;
+        background-position:0 0,0 12px,12px -12px,-12px 0;
+        display:grid;
+        place-items:center;
+        color:#64748b;
+      }
+      #p057MainImageModal .p057-preview img{
+        width:100%;height:100%;object-fit:cover;display:none;
+      }
+      #p057MainImageModal .p057-info{
+        margin-top:9px;color:#64748b;font-size:13px;
+      }
+      #p057MainImageModal .p057-actions{
+        display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;
+      }
+      #p057MainImageModal .p057-status{
+        margin-top:10px;color:#475569;font-size:13px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureModal(){
+    ensureStyle();
+    let modal=document.getElementById('p057MainImageModal');
+    if(modal)return modal;
+
+    modal=document.createElement('div');
+    modal.id='p057MainImageModal';
+    modal.innerHTML=`
+      <div class="p057-sheet">
+        <div class="p057-head">
+          <div>
+            <h2>메인 마트 이미지 업로드</h2>
+            <p>전단 crop 대신 완성된 메인용 이미지를 업로드합니다.</p>
+          </div>
+          <button type="button" class="p057-close" aria-label="닫기">×</button>
+        </div>
+
+        <div class="p057-spec">
+          권장 규격: 1200 × 420px · 비율 20:7 · JPG/PNG/WebP
+        </div>
+
+        <div class="p057-upload">
+          <input id="p057MainImageFile" type="file" accept="image/jpeg,image/png,image/webp">
+          <div class="p057-info" id="p057MainImageInfo">
+            이미지 안에 상품과 가격이 모두 들어오도록 미리 제작한 뒤 업로드하세요.
+          </div>
+        </div>
+
+        <div class="p057-preview" id="p057MainImagePreview">
+          <span>1200 × 420 메인 미리보기</span>
+          <img id="p057MainImagePreviewImg" alt="메인 이미지 미리보기">
+        </div>
+
+        <div class="p057-actions">
+          <button type="button" class="btn primary" id="p057MainImageSave">메인 이미지 저장</button>
+          <button type="button" class="btn" id="p057MainImageClear">메인 이미지 제거</button>
+        </div>
+        <div class="p057-status" id="p057MainImageStatus"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector('.p057-close')?.addEventListener('click',close);
+    modal.addEventListener('click',e=>{if(e.target===modal)close()});
+    document.getElementById('p057MainImageFile')?.addEventListener('change',onFile);
+    document.getElementById('p057MainImageSave')?.addEventListener('click',save);
+    document.getElementById('p057MainImageClear')?.addEventListener('click',clearImage);
+    return modal;
+  }
+
+  function close(){
+    document.getElementById('p057MainImageModal')?.classList.remove('open');
+    document.body.style.overflow='';
+    selectedFile=null;
+  }
+
+  function open(flyerId){
+    currentFlyerId=Number(flyerId||0);
+    selectedFile=null;
+    const modal=ensureModal();
+    const input=document.getElementById('p057MainImageFile');
+    const img=document.getElementById('p057MainImagePreviewImg');
+    const preview=document.getElementById('p057MainImagePreview');
+    const status=document.getElementById('p057MainImageStatus');
+    if(input)input.value='';
+    if(img){img.removeAttribute('src');img.style.display='none'}
+    preview?.querySelector('span')?.style.setProperty('display','block');
+    if(status)status.textContent='';
+    modal.classList.add('open');
+    document.body.style.overflow='hidden';
+  }
+
+  function onFile(event){
+    const file=event.target.files?.[0]||null;
+    selectedFile=file;
+    const info=document.getElementById('p057MainImageInfo');
+    const img=document.getElementById('p057MainImagePreviewImg');
+    const placeholder=document.querySelector('#p057MainImagePreview span');
+    if(!file)return;
+
+    const url=URL.createObjectURL(file);
+    const probe=new Image();
+    probe.onload=()=>{
+      const ratio=probe.naturalWidth/probe.naturalHeight;
+      const exact=probe.naturalWidth===REQUIRED_WIDTH&&probe.naturalHeight===REQUIRED_HEIGHT;
+      const ratioOk=Math.abs(ratio-RATIO)<0.015;
+      if(info){
+        info.textContent=`선택 이미지: ${probe.naturalWidth} × ${probe.naturalHeight}px`+
+          (exact?' · 정확한 권장 크기':
+           ratioOk?' · 비율은 맞지만 1200×420으로 제작 권장':
+           ' · 비율이 맞지 않아 메인에서 일부 잘릴 수 있습니다.');
+      }
+      if(img){
+        img.src=url;
+        img.style.display='block';
+      }
+      if(placeholder)placeholder.style.display='none';
+    };
+    probe.src=url;
+  }
+
+  async function upload(file){
+    const bucket='public-images';
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+    const path=`weekly-flyers/main/${currentFlyerId}-${Date.now()}.${ext}`;
+    const result=await supabase.storage.from(bucket).upload(path,file,{
+      upsert:false,
+      cacheControl:'3600',
+      contentType:file.type||'image/jpeg'
+    });
+    if(result.error)throw result.error;
+    return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
+  }
+
+  async function save(){
+    if(!currentFlyerId)return;
+    if(!selectedFile)return alert('메인 이미지를 선택하세요.');
+    const status=document.getElementById('p057MainImageStatus');
+    const button=document.getElementById('p057MainImageSave');
+    button.disabled=true;
+    status.textContent='이미지를 업로드하고 있습니다.';
+    try{
+      const imageUrl=await upload(selectedFile);
+      await newsroomEdgeCall('save_weekly_flyer_main_image',{
+        flyer_id:currentFlyerId,
+        market_main_image_url:imageUrl
+      });
+      status.textContent='메인 이미지를 저장했습니다.';
+      try{
+        localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+        const channel=new BroadcastChannel('daltownmap-content');
+        channel.postMessage({type:'weekly_flyer_main_image_changed',flyer_id:currentFlyerId,at:Date.now()});
+        channel.close();
+      }catch{}
+      if(window.P010SmartFlyer?.load)setTimeout(()=>window.P010SmartFlyer.load(),200);
+    }catch(error){
+      status.textContent=`저장 실패: ${error.message}`;
+      alert(`메인 이미지 저장 실패: ${error.message}`);
+    }finally{
+      button.disabled=false;
+    }
+  }
+
+  async function clearImage(){
+    if(!currentFlyerId)return;
+    if(!confirm('이 전단의 메인 이미지를 제거할까요?'))return;
+    const status=document.getElementById('p057MainImageStatus');
+    try{
+      await newsroomEdgeCall('save_weekly_flyer_main_image',{
+        flyer_id:currentFlyerId,
+        market_main_image_url:null
+      });
+      status.textContent='메인 이미지를 제거했습니다.';
+    }catch(error){
+      status.textContent=`제거 실패: ${error.message}`;
+    }
+  }
+
+  function addButton(card,actions,id){
+    if(!card||!actions||!id||card.querySelector('.p057-main-image-btn'))return;
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='btn p057-main-image-btn';
+    button.textContent='메인 이미지 업로드';
+    button.dataset.p057MainImageId=String(id);
+
+    const crop=actions.querySelector('.p032-featured-crop-btn');
+    if(crop)actions.insertBefore(button,crop);
+    else actions.prepend(button);
+  }
+
+  function inject(){
+    document.querySelectorAll('#p011List .p011-card,.p011-card').forEach(card=>{
+      const id=Number(
+        card.querySelector('[data-p011-preview]')?.dataset.p011Preview||
+        card.querySelector('[data-p011-status]')?.dataset.id||
+        card.querySelector('[data-p011-home]')?.dataset.id||0
+      );
+      addButton(card,card.querySelector('.p011-actions'),id);
+    });
+
+    document.querySelectorAll('#p0103List .p0103-card,.p0103-card').forEach(card=>{
+      const id=Number(
+        card.getAttribute('data-p0103-card-id')||
+        card.querySelector('[data-p0103-preview]')?.dataset.p0103Preview||
+        card.querySelector('[data-id]')?.dataset.id||0
+      );
+      addButton(card,card.querySelector('.p0103-actions'),id);
+    });
+
+    document.querySelectorAll('#p010List .p010-card').forEach(card=>{
+      const id=Number(
+        card.querySelector('[data-p010-preview]')?.dataset.p010Preview||
+        card.querySelector('[data-id]')?.dataset.id||0
+      );
+      addButton(card,card.querySelector('.p010-card-actions,.p010-actions'),id);
+    });
+  }
+
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('[data-p057-main-image-id]');
+    if(!button)return;
+    event.preventDefault();
+    open(Number(button.dataset.p057MainImageId));
+  });
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    ensureModal();
+    inject();
+    const observer=new MutationObserver(()=>inject());
+    observer.observe(document.body,{childList:true,subtree:true});
+    setTimeout(inject,1200);
+    setTimeout(inject,3000);
+  });
+
+  console.info('[DalTownMap] P057 fixed market main image uploader loaded');
 })();
