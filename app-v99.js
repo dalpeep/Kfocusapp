@@ -7707,13 +7707,18 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function backgroundStyle(flyer, crop){
     const sizeX = 100 / crop.width;
+    const sizeY = 100 / crop.height;
     const posX = crop.width >= .999 ? 50 : (crop.x / (1 - crop.width)) * 100;
     const posY = crop.height >= .999 ? 50 : (crop.y / (1 - crop.height)) * 100;
     const url = String(flyer.image_url || '').replace(/'/g, '%27');
+
+    // 선택한 사각형 자체가 카드 전체를 채우도록 X/Y 축을 모두 확대합니다.
+    // 이전 코드는 가로축만 확대해 가로형 전단에서 원본 전체가 보이는 문제가 있었습니다.
     return [
       `background-image:url('${url}')`,
-      `background-size:${sizeX}% auto`,
-      `background-position:${Math.max(0,Math.min(100,posX))}% ${Math.max(0,Math.min(100,posY))}%`
+      `background-size:${sizeX}% ${sizeY}%`,
+      `background-position:${Math.max(0,Math.min(100,posX))}% ${Math.max(0,Math.min(100,posY))}%`,
+      'background-repeat:no-repeat'
     ].join(';');
   }
 
@@ -8647,4 +8652,32 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   window.addEventListener('focus',restoreInlineCrop);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)restoreInlineCrop()});
   console.info('[DalTownMap] P041 mobile crop coordinates preserved');
+})();
+
+
+
+// === P042: 대표 구간 정확 매핑 보정 ===
+(() => {
+  function enforceExactCrop(){
+    document.querySelectorAll('#v37RecommendCard .p032-strip').forEach(strip=>{
+      const inline=strip.getAttribute('style')||'';
+      const size=inline.match(/background-size\s*:\s*([^;]+)/i)?.[1];
+      const position=inline.match(/background-position\s*:\s*([^;]+)/i)?.[1];
+      if(size)strip.style.setProperty('background-size',size,'important');
+      if(position)strip.style.setProperty('background-position',position,'important');
+      strip.style.setProperty('background-repeat','no-repeat','important');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(enforceExactCrop,1200);
+    setTimeout(enforceExactCrop,3200);
+    const card=document.getElementById('v37RecommendCard');
+    if(card){
+      new MutationObserver(()=>setTimeout(enforceExactCrop,0))
+        .observe(card,{childList:true,subtree:true});
+    }
+  });
+  window.addEventListener('focus',enforceExactCrop);
+  console.info('[DalTownMap] P042 exact featured crop mapping loaded');
 })();
