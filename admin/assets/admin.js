@@ -8491,11 +8491,11 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
           <button type="button" class="btn" id="p032ZoomFit">맞춤</button>
           <button type="button" class="btn" id="p032ZoomIn">＋</button>
           <span class="p032a-zoom-value" id="p032ZoomValue">100%</span>
-          <span class="p032a-zoom-value">전체 폭 · 높이 약 2인치</span>
+          <span class="p032a-zoom-value">전체 폭 · 높이 약 1.5인치</span>
           <span style="font-size:12px;color:#64748b">확대한 뒤 원하는 상품 줄의 가운데를 클릭하세요.</span>
         </div>
         <div class="p032a-tip">
-          원하는 상품 줄의 가운데를 클릭하세요. 선택 폭은 전단 전체 너비, 높이는 약 2인치로 고정됩니다.
+          원하는 상품 줄의 가운데를 클릭하세요. 선택 폭은 전단 전체 너비, 높이는 약 1.5인치로 고정됩니다.
         </div>
         <div style="margin-top:12px;padding:12px;border:1px solid #dbe6f7;border-radius:12px;background:#fff">
           <label for="p032BusinessTarget" style="display:block;margin-bottom:6px;font-weight:800;color:#173a6a">
@@ -8589,8 +8589,8 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     const rect=img?.getBoundingClientRect?.();
     if(!rect?.width||!rect?.height)return;
 
-    // 전단 전체 폭을 사용하고, 화면 기준 약 2인치(192px) 높이만 고정합니다.
-    const fixedDisplayHeight=Math.min(192,Math.max(110,rect.height*.22));
+    // 전단 전체 폭을 사용하고, 화면 기준 약 1.5인치(192px) 높이만 고정합니다.
+    const fixedDisplayHeight=Math.min(144,Math.max(86,rect.height*.17));
     const height=Math.max(.008,Math.min(.35,fixedDisplayHeight/rect.height));
     const width=1;
     const x=0;
@@ -8848,4 +8848,26 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
 
   window.P032FeaturedCropAdmin={open,injectButtons};
   console.info('[DalTownMap] P032 administrator crop selector loaded');
+})();
+
+
+
+// === P048-ADMIN: 대표 구간 높이 1.5인치 안내 보정 ===
+(() => {
+  function fixLabels(){
+    const modal=document.getElementById('p032CropModal');
+    if(!modal)return;
+    modal.querySelectorAll('*').forEach(node=>{
+      if(node.children.length===0 && typeof node.textContent==='string'){
+        node.textContent=node.textContent
+          .replace(/약 2인치/g,'약 1.5인치')
+          .replace(/2인치 높이/g,'1.5인치 높이');
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(fixLabels,1200);
+    const observer=new MutationObserver(fixLabels);
+    observer.observe(document.body,{childList:true,subtree:true});
+  });
 })();
