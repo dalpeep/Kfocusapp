@@ -7564,24 +7564,26 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }
 
   function validFlyer(f){
-    const crop=normalizeCrop(f?.featured_crop);
+    const mainImage=String(
+      f?.market_main_image_url ||
+      f?.main_market_image_url ||
+      ''
+    ).trim();
+
     const result=String(f?.status || '') === 'active'
       && f?.show_on_home !== false
       && (!f?.start_date || String(f.start_date) <= today())
       && (!f?.end_date || String(f.end_date) >= today())
-      && /^https?:\/\//i.test(String(f?.image_url || ''))
-      && Boolean(crop);
+      && /^https?:\/\//i.test(mainImage);
 
     if(!result){
-      console.info('[P053 flyer excluded]',{
+      console.info('[P063 flyer excluded]',{
         id:f?.id,
         status:f?.status,
         show_on_home:f?.show_on_home,
         start_date:f?.start_date,
         end_date:f?.end_date,
-        has_image:/^https?:\/\//i.test(String(f?.image_url||'')),
-        crop:f?.featured_crop,
-        normalized_crop:crop
+        market_main_image_url:mainImage
       });
     }
     return result;
@@ -8048,12 +8050,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       // 날짜 필터는 서버 데이터가 서로 다른 포맷이어도 전단을 숨기지 않도록 완화합니다.
       const valid=rows.filter(validFlyer);
 
-      console.info('[P054 market flyers]',{
+      console.info('[P063 market flyers]',{
         collected:collected.length,
         unique:rows.length,
         valid:valid.length,
         ids:valid.map(row=>row.id),
-        crops:valid.map(row=>normalizeCrop(row.featured_crop))
+        mainImages:valid.map(row=>row.market_main_image_url||row.main_market_image_url||'')
       });
 
       const enriched=await enrichBusinesses(valid);
@@ -9412,4 +9414,11 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
   });
   console.info('[DalTownMap] P062 Smart Flyer loader restored');
+})();
+
+
+
+// === P063: 고정 메인 이미지 전단 필터 수정 ===
+(() => {
+  console.info('[DalTownMap] P063 fixed market image validator loaded');
 })();
