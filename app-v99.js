@@ -7477,10 +7477,13 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   const state = {
     flyers: [],
     flyer: null,
+    lastGoodFlyers: [],
+    lastGoodFlyer: null,
     index: 0,
     timer: null,
     busy: false,
-    loadedAt: 0
+    loadedAt: 0,
+    lastErrorAt: 0
   };
 
   const esc = (v='') => String(v).replace(/[&<>"']/g, m => ({
@@ -7953,11 +7956,25 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         return list.findIndex(row=>String(row?.id||'')===flyerId)===index;
       });
 
-      if(state.index>=state.flyers.length)state.index=0;
+      if(state.flyers.length){
+        state.lastGoodFlyers=state.flyers.slice();
+        if(state.index>=state.flyers.length)state.index=0;
+        state.lastGoodFlyer=state.flyers[state.index]||state.flyers[0]||null;
+      }else if(state.lastGoodFlyers.length){
+        // 일시적으로 빈 응답이 와도 기존 정상 데이터를 유지합니다.
+        state.flyers=state.lastGoodFlyers.slice();
+        if(state.index>=state.flyers.length)state.index=0;
+      }
+
       state.loadedAt = Date.now();
       return state.flyers;
     }catch(error){
-      console.warn('[P032 featured crop load]', error?.message || error);
+      state.lastErrorAt=Date.now();
+      console.warn('[P051 featured crop load]', error?.message || error);
+      if(state.lastGoodFlyers.length){
+        state.flyers=state.lastGoodFlyers.slice();
+        if(state.index>=state.flyers.length)state.index=0;
+      }
       return state.flyers;
     }finally{
       state.busy = false;
@@ -8220,12 +8237,19 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   async function refresh(force=false){
     await load(force);
-    state.flyer=currentFlyer();
+    state.flyer=currentFlyer()||state.lastGoodFlyer||state.lastGoodFlyers[0]||null;
+
     if(!state.flyer){
-      stopRotation();
-      hide();
+      // 최초 로딩 때만 숨깁니다. 이미 정상 표시된 적이 있으면 그대로 유지합니다.
+      const card=document.getElementById('v37RecommendCard');
+      if(!card?.querySelector('.p032-shell')){
+        stopRotation();
+        hide();
+      }
       return false;
     }
+
+    state.lastGoodFlyer=state.flyer;
     draw();
     startRotation();
     return true;
@@ -8236,10 +8260,17 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     setTimeout(()=>refresh(true), 3200);
   });
   document.addEventListener('visibilitychange', ()=>{
-    if(document.hidden)stopRotation();
-    else refresh(true);
+    if(document.hidden){
+      stopRotation();
+    }else{
+      startRotation();
+      setTimeout(()=>refresh(false),300);
+    }
   });
-  window.addEventListener('focus', ()=>refresh(true));
+  window.addEventListener('focus', ()=>{
+    startRotation();
+    setTimeout(()=>refresh(false),300);
+  });
   window.addEventListener('storage', e=>{
     if(e.key === 'daltownmap_content_changed') refresh(true);
   });
@@ -8247,7 +8278,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     const channel = new BroadcastChannel('daltownmap-content');
     channel.addEventListener('message', ()=>refresh(true));
   }catch{}
-  setInterval(()=>{ if(!document.hidden) refresh(true); }, 30000);
+  setInterval(()=>{ if(!document.hidden) refresh(false); }, 90000);
   // 기존 홈 렌더러가 추천 카드를 다시 그린 뒤에도 대표 전단을 복원합니다.
   setInterval(()=>{
     if(document.hidden||!state.flyer)return;
@@ -9099,4 +9130,38 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     install();
   }
   console.info('[DalTownMap] P050 exact crop fit and all-market merge loaded');
+})();
+
+
+
+// === P051: 마켓 정보 간헐적 사라짐 방지 ===
+(() => {
+  function restore(){
+    const card=document.getElementById('v37RecommendCard');
+    if(!card)return;
+    const api=window.P032MarketFeaturedCrop;
+    if(card.hidden || !card.querySelector('.p032-shell')){
+      api?.refresh?.(false);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(restore,1800);
+    setTimeout(restore,4200);
+
+    const card=document.getElementById('v37RecommendCard');
+    if(card){
+      const observer=new MutationObserver(()=>{
+        clearTimeout(window.__p051RestoreTimer);
+        window.__p051RestoreTimer=setTimeout(restore,120);
+      });
+      observer.observe(card,{childList:true,subtree:true,attributes:true,attributeFilter:['hidden','class']});
+    }
+  });
+
+  setInterval(()=>{
+    if(!document.hidden)restore();
+  },10000);
+
+  console.info('[DalTownMap] P051 stable market visibility loaded');
 })();
