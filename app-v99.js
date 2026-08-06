@@ -578,6 +578,14 @@ function openUserLoginModal(){
   }
   modal.classList.remove('hidden');
 }
+
+function getDataClient(){
+  if(window.supabaseClient?.from) return window.supabaseClient;
+  if(authClient?.from) return authClient;
+  const client = typeof getAuthClient === 'function' ? getAuthClient() : null;
+  return client?.from ? client : null;
+}
+
 function getAuthClient(){
   if(authClient) return authClient;
 
@@ -7227,7 +7235,9 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     if(loadingPromise)return loadingPromise;
     loadingPromise=(async()=>{
       try{
-        const {data,error}=await supabase.from('weekly_flyers')
+        const client=getDataClient();
+        if(!client)throw new Error('Supabase data client unavailable');
+        const {data,error}=await client.from('weekly_flyers')
           .select('*,weekly_flyer_items(*)')
           .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
           .eq('status','active')
@@ -7814,9 +7824,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
 
     const missing=ids.filter(id=>!map.has(id));
-    if(missing.length && typeof supabase!=='undefined' && supabase?.from){
+    const client=getDataClient();
+    if(missing.length && client){
       try{
-        const {data,error}=await supabase.from('businesses').select('*').in('id',missing);
+        const {data,error}=await client.from('businesses').select('*').in('id',missing);
         if(!error){
           (data||[]).forEach(row=>map.set(String(row.id),row));
         }
@@ -7921,9 +7932,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
       // Edge Function 결과와 직접 조회 결과를 항상 합칩니다.
       // Edge Function이 캐시된 한 개 전단만 반환해도 다른 활성 전단이 누락되지 않습니다.
-      if(typeof supabase !== 'undefined' && supabase?.from){
+      const client=getDataClient();
+      if(client){
         try{
-          const {data,error}=await supabase
+          const {data,error}=await client
             .from('weekly_flyers')
             .select('*')
             .eq('region',region)
@@ -7997,8 +8009,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         ? businesses.find(row=>String(row?.id)===id)
         : null;
 
-      if(!found && typeof supabase!=='undefined' && supabase?.from){
-        const {data,error}=await supabase.from('businesses').select('*').eq('id',id).maybeSingle();
+      const client=getDataClient();
+      if(!found && client){
+        const {data,error}=await client.from('businesses').select('*').eq('id',id).maybeSingle();
         if(error)throw error;
         if(data){
           found=data;
@@ -9164,4 +9177,15 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   },10000);
 
   console.info('[DalTownMap] P051 stable market visibility loaded');
+})();
+
+
+
+// === P052: Supabase SDK/Client 충돌 수정 ===
+(() => {
+  const client=getDataClient();
+  console.info('[DalTownMap] P052 data client resolved',Boolean(client?.from));
+  if(!client?.from){
+    console.warn('[DalTownMap] P052 Supabase data client unavailable');
+  }
 })();
