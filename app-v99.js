@@ -7200,8 +7200,44 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
       timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
     }).format(new Date());
   }
+  function parseP062ImageList(value){
+    if(Array.isArray(value))return value;
+    if(typeof value==='string'){
+      try{
+        const parsed=JSON.parse(value);
+        if(Array.isArray(parsed))return parsed;
+      }catch{}
+      if(/^https?:\/\//i.test(value.trim()))return [value.trim()];
+    }
+    return [];
+  }
+
+  function resolveP062MarketMainImage(f){
+    const business=
+      f?.featured_business ||
+      f?.destination_business ||
+      f?.business ||
+      f?.businesses ||
+      {};
+
+    const candidates=[
+      f?.market_main_image_url,
+      f?.main_market_image_url,
+      ...parseP062ImageList(business?.description_images),
+      business?.image_url,
+      business?.image,
+      business?.photo_url,
+      business?.logo_url
+    ];
+
+    return String(
+      candidates.find(value=>/^https?:\/\//i.test(String(value||'').trim()))||
+      ''
+    ).trim();
+  }
+
   function validFlyer(f){
-    const mainImage=resolveMarketMainImage(f);
+    const mainImage=resolveP062MarketMainImage(f);
 
     return String(f?.status || '') === 'active'
       && f?.show_on_home !== false
@@ -9499,4 +9535,18 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 // === P066: 업소 소개 이미지 메인 마트 fallback ===
 (() => {
   console.info('[DalTownMap] P066 market image fallback loaded');
+})();
+
+
+
+// === P067: P062 Smart Flyer 이미지 resolver 범위 수정 ===
+(() => {
+  window.addEventListener('unhandledrejection',event=>{
+    const message=String(event?.reason?.message||event?.reason||'');
+    if(message.includes('resolveMarketMainImage is not defined')){
+      console.warn('[DalTownMap] P067 blocked legacy resolver error');
+      event.preventDefault?.();
+    }
+  });
+  console.info('[DalTownMap] P067 Smart Flyer image resolver fixed');
 })();
