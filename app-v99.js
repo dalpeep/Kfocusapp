@@ -7209,9 +7209,93 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
 
     return String(f?.status || '') === 'active'
       && f?.show_on_home !== false
-      && (!f?.start_date || String(f.start_date) <= today())
-      && (!f?.end_date || String(f.end_date) >= today())
+      && (!f?.start_date || String(f.start_date) <= todayKey())
+      && (!f?.end_date || String(f.end_date) >= todayKey())
       && /^https?:\/\//i.test(mainImage);
+  }
+
+  async function loadActiveFlyers(force=false){
+    if(!force && activeFlyers.length && Date.now()-loadedAt<30000){
+      return activeFlyers;
+    }
+    if(loadingPromise)return loadingPromise;
+
+    loadingPromise=(async()=>{
+      try{
+        const cfg=
+          (typeof getConfig==='function' ? getConfig() : null) ||
+          window.APP_CONFIG ||
+          window.KFOCUS_CONFIG ||
+          {};
+
+        const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+        const anon=String(cfg.SUPABASE_ANON_KEY||'').trim();
+        const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+        const functionName=String(cfg.NEWSROOM_FUNCTION_NAME||'newsroom');
+        let rows=[];
+
+        if(base&&anon){
+          try{
+            const response=await fetch(
+              `${base}/functions/v1/${encodeURIComponent(functionName)}?action=public_weekly_flyers&region=${encodeURIComponent(region)}&_=${Date.now()}`,
+              {
+                headers:{
+                  apikey:anon,
+                  Authorization:`Bearer ${anon}`
+                },
+                cache:'no-store'
+              }
+            );
+            const payload=await response.json().catch(()=>({}));
+            if(response.ok&&Array.isArray(payload?.flyers)){
+              rows=payload.flyers;
+            }
+          }catch(error){
+            console.warn('[P062 smart flyer edge load]',error);
+          }
+
+          if(!rows.length){
+            try{
+              const params=new URLSearchParams({
+                select:'*,weekly_flyer_items(*)',
+                region:`eq.${region}`,
+                status:'eq.active',
+                show_on_home:'eq.true',
+                order:'updated_at.desc',
+                limit:'50'
+              });
+              const response=await fetch(
+                `${base}/rest/v1/weekly_flyers?${params.toString()}`,
+                {
+                  headers:{
+                    apikey:anon,
+                    Authorization:`Bearer ${anon}`,
+                    Accept:'application/json'
+                  },
+                  cache:'no-store'
+                }
+              );
+              const payload=await response.json().catch(()=>[]);
+              if(response.ok&&Array.isArray(payload))rows=payload;
+            }catch(error){
+              console.warn('[P062 smart flyer REST load]',error);
+            }
+          }
+        }
+
+        activeFlyers=rows.filter(validFlyer);
+        loadedAt=Date.now();
+        console.info('[P062 smart flyers loaded]',activeFlyers.length);
+        return activeFlyers;
+      }catch(error){
+        console.warn('[P062 loadActiveFlyers]',error);
+        return activeFlyers;
+      }finally{
+        loadingPromise=null;
+      }
+    })();
+
+    return loadingPromise;
   }
 
   function ensureStyles(){
@@ -9314,4 +9398,18 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     install();
   }
   console.info('[DalTownMap] P057 fixed 1200x420 market image UI loaded');
+})();
+
+
+
+// === P062: Smart Flyer loader compatibility guard ===
+(() => {
+  window.addEventListener('unhandledrejection',event=>{
+    const message=String(event?.reason?.message||event?.reason||'');
+    if(message.includes('loadActiveFlyers is not defined')){
+      console.warn('[DalTownMap] P062 blocked legacy loadActiveFlyers error');
+      event.preventDefault?.();
+    }
+  });
+  console.info('[DalTownMap] P062 Smart Flyer loader restored');
 })();
