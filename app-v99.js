@@ -7916,18 +7916,31 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         }
       }
 
-      // 공개 API가 비어 있을 때만 직접 조회합니다.
-      if(!rows.length && typeof supabase !== 'undefined' && supabase?.from){
-        const {data,error}=await supabase
-          .from('weekly_flyers')
-          .select('*')
-          .eq('region',region)
-          .eq('status','active')
-          .eq('show_on_home',true)
-          .order('updated_at',{ascending:false})
-          .limit(20);
-        if(error)throw error;
-        rows=Array.isArray(data)?data:[];
+      // Edge Function 결과와 직접 조회 결과를 항상 합칩니다.
+      // Edge Function이 캐시된 한 개 전단만 반환해도 다른 활성 전단이 누락되지 않습니다.
+      if(typeof supabase !== 'undefined' && supabase?.from){
+        try{
+          const {data,error}=await supabase
+            .from('weekly_flyers')
+            .select('*')
+            .eq('region',region)
+            .eq('status','active')
+            .eq('show_on_home',true)
+            .order('updated_at',{ascending:false})
+            .limit(50);
+          if(error)throw error;
+          const directRows=Array.isArray(data)?data:[];
+          const merged=[...rows,...directRows];
+          const seen=new Set();
+          rows=merged.filter(row=>{
+            const key=String(row?.id||'');
+            if(!key||seen.has(key))return false;
+            seen.add(key);
+            return true;
+          });
+        }catch(error){
+          console.warn('[P050 direct weekly flyer merge]',error);
+        }
       }
 
       const valid=rows.filter(validFlyer);
@@ -8066,8 +8079,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       const cropW=iw*crop.width;
       const cropH=ih*crop.height;
 
-      // 선택 구간을 카드에 꽉 채우되 원본 비율은 절대 변경하지 않습니다.
-      const scale=Math.max(cw/cropW,ch/cropH);
+      // 선택한 대표 구간 전체가 보이도록 contain 방식으로 맞춥니다.
+      // 상품명과 가격이 좌우에서 잘리지 않도록 cover 확대를 사용하지 않습니다.
+      const scale=Math.min(cw/cropW,ch/cropH);
       const renderedW=iw*scale;
       const renderedH=ih*scale;
       const selectedW=cropW*scale;
@@ -9050,4 +9064,39 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 // === P049: 활성 마트 전단 모두 순환 ===
 (() => {
   console.info('[DalTownMap] P049 all active market flyers rotation loaded');
+})();
+
+
+
+// === P050: 대표 구간 전체 표시 + 활성 마트 전단 병합 ===
+(() => {
+  function install(){
+    if(document.getElementById('p050MarketCropExactFit'))return;
+    const style=document.createElement('style');
+    style.id='p050MarketCropExactFit';
+    style.textContent=`
+      #v37RecommendCard .p043-strip{
+        position:relative!important;
+        overflow:hidden!important;
+        background:#fff!important;
+      }
+      #v37RecommendCard .p043-crop-img{
+        position:absolute!important;
+        display:block!important;
+        max-width:none!important;
+        max-height:none!important;
+        object-fit:initial!important;
+      }
+      #v37RecommendCard .p032-track{
+        align-items:stretch!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',install,{once:true});
+  }else{
+    install();
+  }
+  console.info('[DalTownMap] P050 exact crop fit and all-market merge loaded');
 })();
