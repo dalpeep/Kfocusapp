@@ -7524,9 +7524,17 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function business068(flyer){
     const id = businessId068(flyer);
-    const linked = Array.isArray(window.businesses)
-      ? window.businesses.find(row => String(row?.id || '') === id)
-      : null;
+
+    let linked = null;
+    try{
+      if(Array.isArray(businesses)){
+        linked = businesses.find(row => String(row?.id || '') === id) || null;
+      }
+    }catch{}
+
+    if(!linked && Array.isArray(window.businesses)){
+      linked = window.businesses.find(row => String(row?.id || '') === id) || null;
+    }
 
     return (
       linked ||
@@ -7832,9 +7840,15 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     const id = businessId068(flyer);
     if(!id) return;
 
-    const found = Array.isArray(window.businesses)
-      ? window.businesses.find(row => String(row?.id || '') === id)
-      : null;
+    let found = null;
+    try{
+      if(Array.isArray(businesses)){
+        found = businesses.find(row => String(row?.id || '') === id) || null;
+      }
+    }catch{}
+    if(!found && Array.isArray(window.businesses)){
+      found = window.businesses.find(row => String(row?.id || '') === id) || null;
+    }
 
     if(found && typeof renderDetail === 'function' && typeof showPage === 'function'){
       window.selectedBizId = id;
@@ -8030,7 +8044,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
   };
 
-  console.info('[DalTownMap] P070 weekly_flyers schema-safe loader loaded');
+  console.info('[DalTownMap] P071 market business-name binding loaded');
 })();
 
 
