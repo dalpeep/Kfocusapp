@@ -7961,7 +7961,6 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       business?.title ||
       flyer?.business_name_ko ||
       flyer?.business_name ||
-      flyer?.title ||
       '마켓';
     const businessNameEn =
       business?.name_en ||
@@ -7981,7 +7980,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     shell.className = 'p032-shell';
     shell.tabIndex = 0;
     shell.setAttribute('role','button');
-    shell.setAttribute('aria-label',`${businessNameKo} 이번 주 마켓 정보 보기`);
+    shell.setAttribute('aria-label',`${businessNameKo} 업소 상세 보기`);
     shell.innerHTML = `
       <div class="p032-storebar">
         <div class="p032-store-main">
@@ -7994,9 +7993,6 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         <div class="p032-title-main">
           <span>📅</span>
           <span>이번 주 마켓 정보</span>
-          <button type="button" class="p032-business-link" aria-label="${esc(businessNameKo)} 업소 상세 보기">
-            <span>${esc(businessNameKo)}</span><b>›</b>
-          </button>
         </div>
         ${period ? `<span class="p032-period">${esc(period)}</span>` : ''}
       </div>
@@ -8014,18 +8010,17 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
             </div>`).join('')}
         </div>
       </div>
-      <button class="p032-open" type="button" aria-label="전단 전체 보기">›</button>
+      <button class="p032-open" type="button" aria-label="업소 상세 보기">›</button>
     `;
     card.appendChild(shell);
     requestAnimationFrame(()=>fitAllCropImages());
     setTimeout(()=>fitAllCropImages(),250);
 
-    shell.querySelector('.p032-business-link')?.addEventListener('click',openBusinessDetail);
-    shell.addEventListener('click', openFlyer);
+    shell.addEventListener('click', openBusinessDetail);
     shell.addEventListener('keydown', e => {
       if(e.key === 'Enter' || e.key === ' '){
         e.preventDefault();
-        openFlyer();
+        openBusinessDetail(e);
       }
     });
     shell.addEventListener('touchstart', ()=>shell.classList.add('is-paused'), {passive:true});
@@ -8770,4 +8765,34 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   window.addEventListener('resize',refit);
   window.addEventListener('orientationchange',refit);
   console.info('[DalTownMap] P043 aspect-ratio-safe market crop loaded');
+})();
+
+
+
+// === P045: 마켓 카드 상단 업소명 통일 · 중복 버튼 제거 ===
+(() => {
+  function install(){
+    if(document.getElementById('p045MarketHeaderCleanup')) return;
+    const style=document.createElement('style');
+    style.id='p045MarketHeaderCleanup';
+    style.textContent=`
+      #v37RecommendCard .p032-business-link{
+        display:none!important;
+      }
+      #v37RecommendCard .p032-title-main{
+        min-width:0!important;
+        overflow:visible!important;
+      }
+      #v37RecommendCard .p032-title-main > span:last-child{
+        white-space:nowrap!important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',install,{once:true});
+  }else{
+    install();
+  }
+  console.info('[DalTownMap] P045 market business header cleanup loaded');
 })();
