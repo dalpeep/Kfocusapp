@@ -8289,6 +8289,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     if(el('p126ManualLinkType')) el('p126ManualLinkType').value='url';
     if(el('p126ManualLinkValue')) el('p126ManualLinkValue').value='';
     if(el('p126ManualEnabled')) el('p126ManualEnabled').checked=true;
+    setTimeout(()=>window.P131TickerLinkPicker?.render?.(false),0);
   }
 
   function render(){
@@ -8316,6 +8317,7 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
     el('p126ManualLinkType').value=x.link_type||'url';
     el('p126ManualLinkValue').value=x.link_value||x.url||'';
     el('p126ManualEnabled').checked=x.enabled!==false;
+    setTimeout(()=>window.P131TickerLinkPicker?.render?.(true),0);
     el('p126ManualTitle')?.focus();
   }
 
@@ -8497,3 +8499,174 @@ console.info('[DalTownMap Admin] P127A browser regex fix loaded');
 console.info('[DalTownMap Admin] P127B flyer-card selector fix loaded');
 
 console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
+
+
+// === P131: 한 줄 광고 연결 방식별 하위 메뉴 ===
+(() => {
+  const $=id=>document.getElementById(id);
+  const esc131=s=>String(s||'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  const INTERNAL_PAGES=[
+    ['business-register','업소 등록 신청'],
+    ['advertise','게시판 및 광고 문의'],
+    ['business','업소 목록'],
+    ['coupon','쿠폰'],
+    ['map','지도'],
+    ['guide','달라스 가이드'],
+    ['home','홈']
+  ];
+
+  function businessOptions(){
+    return (Array.isArray(businesses)?businesses:[])
+      .slice()
+      .sort((a,b)=>String(a.name_ko||a.name||'').localeCompare(String(b.name_ko||b.name||''),'ko'))
+      .map(b=>[
+        String(b.id||''),
+        `${String(b.name_ko||b.name||b.name_en||'업소명 없음')} · ${String(b.area||b.city||'').trim()}`.replace(/\s+·\s*$/,'')
+      ])
+      .filter(x=>x[0]);
+  }
+
+  function boardOptions(){
+    return (Array.isArray(boards)?boards:[])
+      .filter(p=>p && p.id)
+      .slice()
+      .sort((a,b)=>Date.parse(b.created_at||b.updated_at||0)-Date.parse(a.created_at||a.updated_at||0))
+      .map(p=>[
+        String(p.id),
+        `[${String(p.type||p.category||'게시글')}] ${String(p.title||'제목 없음')}`
+      ]);
+  }
+
+  function couponOptions(){
+    return (Array.isArray(coupons)?coupons:[])
+      .filter(c=>c && c.id)
+      .map(c=>{
+        const biz=(Array.isArray(businesses)?businesses:[]).find(b=>String(b.id)===String(c.business_id||c.businessId));
+        const bizName=String(biz?.name_ko||biz?.name||'').trim();
+        return [String(c.id), `${String(c.title||c.name||'쿠폰')}${bizName?` · ${bizName}`:''}`];
+      });
+  }
+
+  function renderPicker(preserveValue=true){
+    const type=String($('p126ManualLinkType')?.value||'url');
+    const input=$('p126ManualLinkValue');
+    const select=$('p131ManualLinkPicker');
+    const label=$('p131LinkPickerLabel');
+    const help=$('p131LinkPickerHelp');
+    if(!input||!select)return;
+
+    const current=preserveValue?String(input.value||select.value||'').trim():'';
+    let options=[];
+    let useSelect=false;
+
+    if(type==='business'){
+      label.textContent='업소 선택';
+      help.textContent='메인에서 클릭하면 선택한 업소 상세로 이동합니다.';
+      options=businessOptions();
+      useSelect=true;
+    }else if(type==='board'){
+      label.textContent='게시글 선택';
+      help.textContent='게시판에 등록된 글 중 연결할 게시글을 선택합니다.';
+      options=boardOptions();
+      useSelect=true;
+    }else if(type==='coupon'){
+      label.textContent='쿠폰 선택';
+      help.textContent='등록된 쿠폰 중 연결할 쿠폰을 선택합니다.';
+      options=couponOptions();
+      useSelect=true;
+    }else if(type==='internal'){
+      label.textContent='앱 화면 선택';
+      help.textContent='도메인 주소를 입력하지 않고 앱 내부 화면으로 바로 이동합니다.';
+      options=INTERNAL_PAGES;
+      useSelect=true;
+    }else if(type==='guide'){
+      label.textContent='연결 대상';
+      help.textContent='달라스 가이드 메인으로 이동합니다.';
+      options=[['guide','달라스 가이드']];
+      useSelect=true;
+    }else if(type==='none'){
+      label.textContent='연결 대상';
+      help.textContent='클릭해도 이동하지 않습니다.';
+      input.value='';
+      input.disabled=true;
+      input.style.display='block';
+      select.style.display='none';
+      return;
+    }else{
+      label.textContent='외부 URL';
+      help.textContent='https:// 로 시작하는 주소를 입력하세요.';
+      input.disabled=false;
+      input.style.display='block';
+      select.style.display='none';
+      input.placeholder='https://example.com';
+      if(current) input.value=current;
+      return;
+    }
+
+    input.disabled=false;
+    select.innerHTML='<option value="">선택하세요</option>'+options.map(([value,text])=>
+      `<option value="${esc131(value)}">${esc131(text)}</option>`
+    ).join('');
+
+    if(current && [...select.options].some(o=>String(o.value)===current)){
+      select.value=current;
+    }else if(options.length===1){
+      select.value=options[0][0];
+    }
+
+    input.value=select.value||current||'';
+    input.style.display='none';
+    select.style.display='block';
+  }
+
+  function syncPickerToValue(){
+    const input=$('p126ManualLinkValue');
+    const select=$('p131ManualLinkPicker');
+    if(input&&select&&select.style.display!=='none'){
+      input.value=select.value||'';
+    }
+  }
+
+  function bind(){
+    const type=$('p126ManualLinkType');
+    const select=$('p131ManualLinkPicker');
+    if(!type||!select)return;
+
+    type.addEventListener('change',()=>renderPicker(false));
+    select.addEventListener('change',syncPickerToValue);
+
+    // 기존 P126 저장 버튼보다 먼저 hidden value를 맞춥니다.
+    $('p126ManualSaveBtn')?.addEventListener('click',syncPickerToValue,{capture:true});
+
+    // boards/businesses/coupons가 늦게 로드되는 경우 목록 갱신
+    window.addEventListener('kfocus:boards-loaded',()=>renderPicker(true));
+    setInterval(()=>{
+      if(document.getElementById('section-dalpick')?.classList.contains('active') ||
+         !document.getElementById('section-dalpick')?.classList.contains('hidden')){
+        const typeNow=String(type.value||'');
+        if(['business','board','coupon'].includes(typeNow)) renderPicker(true);
+      }
+    },4000);
+
+    renderPicker(true);
+  }
+
+  // 기존 수정 버튼이 값을 채운 직후에도 contextual select가 맞춰지도록 감시
+  const observer=new MutationObserver(()=>{
+    if($('p126ManualLinkType')&&$('p131ManualLinkPicker')) renderPicker(true);
+  });
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      bind();
+      const form=$('p126ManualForm');
+      if(form) observer.observe(form,{subtree:true,attributes:true,attributeFilter:['value']});
+    },800);
+  });
+
+  window.P131TickerLinkPicker={render:renderPicker,sync:syncPickerToValue};
+  console.info('[DalTownMap Admin] P131 contextual ticker link picker loaded');
+})();
