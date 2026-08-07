@@ -3029,11 +3029,33 @@ async function v120LoadCoreWeatherTrafficDirect(){
     const byCategory=new Map();
 
     for(const row of rows){
-      const meta=(row?.event_data&&typeof row.event_data==='object')?row.event_data:{};
-      const category=String(meta.category||meta.home_category||'').trim().toLowerCase();
+      let meta={};
+      if(row?.event_data&&typeof row.event_data==='object'){
+        meta=row.event_data;
+      }else if(typeof row?.event_data==='string'&&row.event_data.trim()){
+        try{ meta=JSON.parse(row.event_data); }catch(_){ meta={}; }
+      }
+
+      const duplicateKey=String(row.duplicate_key||'').trim().toLowerCase();
+      const rawCategory=String(meta.category||meta.home_category||'').trim().toLowerCase();
+      const categoryProbe=`${rawCategory} ${duplicateKey} ${row.ai_title||''} ${row.original_title||''} ${row.source_name||''}`.toLowerCase();
+
+      // P121: event_data.category 오타/누락이 있어도 duplicate_key와 출처로 복구합니다.
+      // 예: "trafffic", "traffic_info", 또는 category가 비어 있어도
+      // daily-core-traffic-* / 511DFW / TxDOT이면 traffic으로 처리합니다.
+      let category='';
+      if(
+        /daily-core-weather|\bweather\b|national weather service|\bnws\b|날씨|기상/.test(categoryProbe)
+      ){
+        category='weather';
+      }else if(
+        /daily-core-traffic|tra+f+ic|511dfw|txdot|traffic|교통|도로/.test(categoryProbe)
+      ){
+        category='traffic';
+      }
+
       if(!['weather','traffic'].includes(category)) continue;
 
-      const duplicateKey=String(row.duplicate_key||'');
       const dateMatch=
         duplicateKey.includes(`-${today}`) ||
         String(row.updated_at||row.collected_at||row.created_at||'').slice(0,10)===today;
@@ -3067,10 +3089,16 @@ async function v120LoadCoreWeatherTrafficDirect(){
       .map(key=>byCategory.get(key))
       .filter(Boolean);
 
-    console.info('[V120 daily core direct]',{
+    console.info('[V121 daily core direct]',{
       date:today,
       count:v120CoreWeatherTrafficItems.length,
-      items:v120CoreWeatherTrafficItems.map(x=>({category:x.category,title:x.title,source_id:x.source_id}))
+      categories:v120CoreWeatherTrafficItems.map(x=>x.category),
+      items:v120CoreWeatherTrafficItems.map(x=>({
+        category:x.category,
+        title:x.title,
+        source_id:x.source_id,
+        duplicate_key:x.duplicate_key
+      }))
     });
 
     return v120CoreWeatherTrafficItems;
@@ -8553,6 +8581,11 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     let rows = normalizeRows();
     if(!rows.length) return false;
 
+    console.info('[P121 one-line rows]', rows.map(row=>({
+      category:String(row?.category||''),
+      title:String(row?.title||'')
+    })));
+
     section.hidden = false;
     const base = rows.length === 1 ? [rows[0], rows[0]] : rows;
     const loop = [...base, ...base];
@@ -8616,3 +8649,5 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 })();
 
 console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
+
+console.info('[DalTownMap] P121 traffic-category recovery loaded');
