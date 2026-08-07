@@ -8695,3 +8695,161 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
 console.info('[DalTownMap Admin] P132 guide detail picker loaded');
 
 console.info('[DalTownMap Admin] P132A guide picker reads boards[] loaded');
+
+
+// === P132B: 달라스 가이드 2단계 선택 (하부 게시판 → 게시글) ===
+(() => {
+  const $=id=>document.getElementById(id);
+  const esc132b=s=>String(s||'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+
+  const GUIDE_SUBTYPES = [
+    ['운전·차량','운전·차량'],
+    ['병원·보험','병원·보험'],
+    ['학교·교육','학교·교육'],
+    ['세금·비즈니스','세금·비즈니스'],
+    ['주거·생활','주거·생활'],
+    ['비자·여권','비자·여권']
+  ];
+
+  function normalizeSubtype(value=''){
+    return String(value||'')
+      .trim()
+      .replace(/[ㆍ・]/g,'·')
+      .replace(/\s+/g,'')
+      .toLowerCase();
+  }
+
+  function guidePostsForSubtype(subtype){
+    const selected=normalizeSubtype(subtype);
+    return (Array.isArray(boards)?boards:[])
+      .filter(row=>row && row.id)
+      .filter(row=>normalizeAdminBoardType(row.type)==='guide')
+      .filter(row=>row.is_active!==false)
+      .filter(row=>normalizeSubtype(row.subtype)===selected)
+      .slice()
+      .sort((a,b)=>{
+        const at=Date.parse(a.updated_at||a.created_at||0)||0;
+        const bt=Date.parse(b.updated_at||b.created_at||0)||0;
+        return bt-at;
+      });
+  }
+
+  function ensureGuideSubPicker(){
+    const wrap=$('p131LinkPickerWrap');
+    const article=$('p131ManualLinkPicker');
+    if(!wrap||!article)return null;
+
+    let subtype=$('p132bGuideSubtypePicker');
+    if(!subtype){
+      subtype=document.createElement('select');
+      subtype.id='p132bGuideSubtypePicker';
+      subtype.style.display='none';
+      subtype.style.marginBottom='8px';
+      wrap.insertBefore(subtype,article);
+      subtype.addEventListener('change',()=>renderGuideArticlePicker(false));
+    }
+    return subtype;
+  }
+
+  function renderGuideArticlePicker(preserve=true){
+    const type=String($('p126ManualLinkType')?.value||'');
+    const article=$('p131ManualLinkPicker');
+    const hidden=$('p126ManualLinkValue');
+    const subtype=ensureGuideSubPicker();
+    if(!article||!hidden||!subtype)return;
+    if(type!=='guide'){
+      subtype.style.display='none';
+      return;
+    }
+
+    const currentId=preserve ? String(hidden.value||article.value||'').trim() : '';
+
+    // 편집 중 저장된 게시글 ID에서 subtype 복원
+    let currentPost=(Array.isArray(boards)?boards:[]).find(row=>String(row?.id||'')===currentId);
+    let selectedSubtype=String(subtype.value||currentPost?.subtype||GUIDE_SUBTYPES[0][0]).trim();
+
+    subtype.innerHTML=GUIDE_SUBTYPES.map(([value,label])=>
+      `<option value="${esc132b(value)}">${esc132b(label)}</option>`
+    ).join('');
+    subtype.value=GUIDE_SUBTYPES.some(([v])=>normalizeSubtype(v)===normalizeSubtype(selectedSubtype))
+      ? GUIDE_SUBTYPES.find(([v])=>normalizeSubtype(v)===normalizeSubtype(selectedSubtype))[0]
+      : GUIDE_SUBTYPES[0][0];
+    subtype.style.display='block';
+
+    const rows=guidePostsForSubtype(subtype.value);
+    article.innerHTML='<option value="">게시글을 선택하세요</option>'+
+      rows.map(row=>`<option value="${esc132b(row.id)}">${esc132b(row.title||'제목 없음')}</option>`).join('');
+    article.style.display='block';
+
+    if(currentId && rows.some(row=>String(row.id)===currentId)){
+      article.value=currentId;
+    }else{
+      article.value='';
+      hidden.value='';
+    }
+
+    article.onchange=()=>{
+      hidden.value=article.value||'';
+    };
+
+    const label=$('p131LinkPickerLabel');
+    const help=$('p131LinkPickerHelp');
+    if(label) label.textContent='달라스 가이드 연결';
+    if(help) help.textContent=`먼저 하부 게시판을 선택한 뒤 연결할 게시글을 선택합니다. 현재 ${rows.length}개`;
+
+    console.info('[P132B guide hierarchy]',{
+      subtype:subtype.value,
+      count:rows.length,
+      posts:rows.map(r=>({id:r.id,title:r.title}))
+    });
+  }
+
+  function interceptGuideRender(){
+    const type=$('p126ManualLinkType');
+    if(!type)return;
+    if(String(type.value||'')==='guide'){
+      setTimeout(()=>renderGuideArticlePicker(true),0);
+    }else{
+      const subtype=$('p132bGuideSubtypePicker');
+      if(subtype) subtype.style.display='none';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{
+      ensureGuideSubPicker();
+      $('p126ManualLinkType')?.addEventListener('change',()=>setTimeout(interceptGuideRender,20));
+      $('p126ManualSaveBtn')?.addEventListener('click',()=>{
+        if(String($('p126ManualLinkType')?.value||'')==='guide'){
+          const article=$('p131ManualLinkPicker');
+          const hidden=$('p126ManualLinkValue');
+          if(hidden&&article)hidden.value=article.value||'';
+          if(!article?.value){
+            event?.preventDefault?.();
+          }
+        }
+      },{capture:true});
+
+      window.addEventListener('kfocus:boards-loaded',()=>{
+        if(String($('p126ManualLinkType')?.value||'')==='guide') renderGuideArticlePicker(true);
+      });
+
+      interceptGuideRender();
+    },900);
+  });
+
+  // P131 renderer가 guide의 단일 select를 다시 그린 뒤 2단계 UI로 덮어씁니다.
+  const originalRender=window.P131TickerLinkPicker?.render;
+  if(window.P131TickerLinkPicker && typeof originalRender==='function'){
+    window.P131TickerLinkPicker.render=function(...args){
+      const result=originalRender.apply(this,args);
+      setTimeout(interceptGuideRender,0);
+      return result;
+    };
+  }
+
+  window.P132BGuideHierarchy={render:renderGuideArticlePicker};
+  console.info('[DalTownMap Admin] P132B guide sub-board + article picker loaded');
+})();
