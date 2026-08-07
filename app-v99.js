@@ -2977,6 +2977,109 @@ async function v517LoadNetlifyEditorItems(){
   }
 }
 
+
+// V120: 오늘의 날씨·교통은 newsroom_items의 daily-core 행도 직접 읽습니다.
+// Edge/Netlify home_feed가 한 카테고리를 누락해도 한 줄 광고에서 날씨와 교통이 모두 유지됩니다.
+let v120CoreWeatherTrafficItems = [];
+async function v120LoadCoreWeatherTrafficDirect(){
+  try{
+    const region=String(currentRegion||'dallas').toLowerCase();
+    const today=new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',
+      year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
+
+    let rows=[];
+
+    if(typeof supabase!=='undefined' && supabase?.from){
+      const {data,error}=await supabase.from('newsroom_items')
+        .select('id,ai_title,ai_summary,original_title,original_summary,original_url,source_name,duplicate_key,event_data,status,source_published_at,collected_at,created_at,updated_at,region')
+        .eq('region',region)
+        .order('updated_at',{ascending:false})
+        .limit(120);
+      if(error) throw error;
+      rows=Array.isArray(data)?data:[];
+    }else{
+      const cfg=getConfig();
+      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+      if(!base||!key) return v120CoreWeatherTrafficItems;
+
+      const select='id,ai_title,ai_summary,original_title,original_summary,original_url,source_name,duplicate_key,event_data,status,source_published_at,collected_at,created_at,updated_at,region';
+      const params=new URLSearchParams({
+        select,
+        region:`eq.${region}`,
+        order:'updated_at.desc',
+        limit:'120'
+      });
+      const res=await fetch(`${base}/rest/v1/newsroom_items?${params.toString()}`,{
+        cache:'no-store',
+        headers:{
+          apikey:key,
+          Authorization:`Bearer ${key}`,
+          Accept:'application/json',
+          'Cache-Control':'no-cache'
+        }
+      });
+      const data=await res.json().catch(()=>[]);
+      if(!res.ok) throw new Error(data?.message||data?.error||`HTTP ${res.status}`);
+      rows=Array.isArray(data)?data:[];
+    }
+
+    const byCategory=new Map();
+
+    for(const row of rows){
+      const meta=(row?.event_data&&typeof row.event_data==='object')?row.event_data:{};
+      const category=String(meta.category||meta.home_category||'').trim().toLowerCase();
+      if(!['weather','traffic'].includes(category)) continue;
+
+      const duplicateKey=String(row.duplicate_key||'');
+      const dateMatch=
+        duplicateKey.includes(`-${today}`) ||
+        String(row.updated_at||row.collected_at||row.created_at||'').slice(0,10)===today;
+
+      if(!dateMatch) continue;
+      if(String(row.status||'active').toLowerCase()==='inactive') continue;
+
+      if(!byCategory.has(category)){
+        byCategory.set(category,{
+          id:`core-${row.id}-${category}`,
+          source_id:String(row.id),
+          category,
+          category_label:category==='weather'?'날씨':'교통',
+          icon:category==='weather'?'☀️':'🚗',
+          title:String(row.ai_title||row.original_title||(category==='weather'?'오늘의 날씨':'DFW 교통 정보')).trim(),
+          summary:String(row.ai_summary||row.original_summary||meta.summary||'').trim(),
+          subtitle:String(row.ai_summary||row.original_summary||meta.summary||'').trim(),
+          source_name:String(row.source_name||'').trim(),
+          source_url:String(row.original_url||'').trim(),
+          url:String(row.original_url||'').trim(),
+          duplicate_key:duplicateKey,
+          event_data:meta,
+          published_at:row.source_published_at||row.collected_at||row.created_at||row.updated_at,
+          updated_at:row.updated_at||row.collected_at||row.created_at||row.source_published_at,
+          daily_core:true
+        });
+      }
+    }
+
+    v120CoreWeatherTrafficItems=['weather','traffic']
+      .map(key=>byCategory.get(key))
+      .filter(Boolean);
+
+    console.info('[V120 daily core direct]',{
+      date:today,
+      count:v120CoreWeatherTrafficItems.length,
+      items:v120CoreWeatherTrafficItems.map(x=>({category:x.category,title:x.title,source_id:x.source_id}))
+    });
+
+    return v120CoreWeatherTrafficItems;
+  }catch(error){
+    console.warn('[V120 daily core direct] failed',error?.message||error);
+    return v120CoreWeatherTrafficItems;
+  }
+}
+
 function v51MergeTodaySources(feedItems=[],directItems=[]){
   const merged=[...(directItems||[]),...(feedItems||[])];
   const seen=new Set();
@@ -3436,14 +3539,15 @@ async function v51RefreshToday(){
   const btn=document.getElementById('v51TodayRefresh');
   if(btn){btn.disabled=true;btn.classList.add('is-loading');}
   try{
-    const settled=await Promise.allSettled([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    const settled=await Promise.allSettled([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems(),v120LoadCoreWeatherTrafficDirect()]);
     const mainData=settled[0].status==='fulfilled'?settled[0].value:{items:[],config:v45HomeConfig||{},meta:{partial:true}};
     const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
-    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Today] partial source failed',i,r.reason);});
+    const coreWeatherTrafficItems=settled[3].status==='fulfilled'?settled[3].value:[];
+    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V120 Today] partial source failed',i,r.reason);});
     v45HomeConfig=v61EffectiveHomeConfig(mainData.config||v45HomeConfig||{});
     if(typeof renderDalpicks==='function')renderDalpicks();
-    const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
+    const combined=v51MergeTodaySources(mainData.items||[],[...coreWeatherTrafficItems,...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
@@ -3518,12 +3622,13 @@ async function renderV37AIHome(){
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
   let loaded=[];let feedMeta={};
   try{
-    const settled=await Promise.allSettled([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
+    const settled=await Promise.allSettled([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems(),v120LoadCoreWeatherTrafficDirect()]);
     const mainData=settled[0].status==='fulfilled'?settled[0].value:{items:[],config:{},meta:{partial:true}};
     const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
-    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Home] partial source failed',i,r.reason);});
-    loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
+    const coreWeatherTrafficItems=settled[3].status==='fulfilled'?settled[3].value:[];
+    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V120 Home] partial source failed',i,r.reason);});
+    loaded=v51MergeTodaySources(mainData.items||[],[...coreWeatherTrafficItems,...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
     window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
     document.documentElement.dataset.eventRoutineCount=String(readActiveEventRoutines().length);
     console.info('[V83 routines] active',readActiveEventRoutines().map(r=>({id:r.id,name:r.name,actions:Object.keys(r.actions||{})})));
@@ -8411,9 +8516,16 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }
 
   function normalizeRows(){
-    const source = Array.isArray(v51TodayItems) ? v51TodayItems : [];
+    const todaySource = Array.isArray(v51TodayItems) ? v51TodayItems : [];
+    const coreSource = Array.isArray(v120CoreWeatherTrafficItems) ? v120CoreWeatherTrafficItems : [];
+    const source = v51MergeTodaySources(todaySource, coreSource);
     const rows = source
       .filter(item => ['weather','traffic'].includes(String(item?.category||'').toLowerCase()))
+      .sort((a,b)=>{
+        const ak=String(a?.category||'').toLowerCase();
+        const bk=String(b?.category||'').toLowerCase();
+        return (ak==='weather'?0:1)-(bk==='weather'?0:1);
+      })
       .slice(0,4);
 
     const ads = [];
@@ -8487,6 +8599,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   }
 
   document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(async()=>{await v120LoadCoreWeatherTrafficDirect();render();},900);
     setTimeout(render,1200);
     setTimeout(render,3000);
     const box=document.getElementById('homeAdTickerList');
@@ -8501,3 +8614,5 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   console.info('[DalTownMap] P039 unified one-line ad label enforced');
 })();
+
+console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
