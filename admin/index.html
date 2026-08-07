@@ -1106,7 +1106,13 @@
             <label class="field"><span>시작일</span><input id="p126ManualStart" type="date"></label>
             <label class="field"><span>종료일</span><input id="p126ManualEnd" type="date"></label>
             <label class="field"><span>연결 방식</span><select id="p126ManualLinkType"><option value="url">외부 URL</option><option value="business">업소 상세</option><option value="board">게시글</option><option value="coupon">쿠폰</option><option value="guide">달라스 가이드</option><option value="internal">앱 내부 화면</option><option value="none">연결 없음</option></select></label>
-            <label class="field"><span>연결 값</span><input id="p126ManualLinkValue" placeholder="URL 또는 업소/게시글/쿠폰 ID"></label>
+            <label class="field"><span id="p131LinkPickerLabel">연결 대상</span>
+              <div id="p131LinkPickerWrap">
+                <input id="p126ManualLinkValue" placeholder="https://example.com">
+                <select id="p131ManualLinkPicker" style="display:none"></select>
+              </div>
+              <small class="muted" id="p131LinkPickerHelp">연결 방식에 따라 대상 목록이 자동으로 바뀝니다.</small>
+            </label>
             <label class="field checkbox-line"><input id="p126ManualEnabled" type="checkbox" checked><span>메인 노출 사용</span></label>
             <div class="field"><span>&nbsp;</span><div style="display:flex;gap:8px"><button id="p126ManualSaveBtn" class="btn primary" type="button">항목 저장</button><button id="p126ManualResetBtn" class="btn ghost" type="button">새 항목</button></div></div>
           </div>
