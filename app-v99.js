@@ -8409,6 +8409,32 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
 
 
+
+// === P123: 서버 측 daily-core 날씨/교통 로더 ===
+// 브라우저 RLS로 newsroom_items가 보이지 않는 경우 Netlify 서버 함수가 service role로 읽습니다.
+let p123ServerCoreItems=[];
+async function p123LoadServerCoreItems(){
+  try{
+    const region=encodeURIComponent(String(currentRegion||'dallas').toLowerCase());
+    const res=await fetch(`/.netlify/functions/daltown-daily-core?region=${region}`,{
+      cache:'no-store',
+      headers:{'Cache-Control':'no-cache'}
+    });
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||json.ok===false) throw new Error(json.error||`HTTP ${res.status}`);
+    p123ServerCoreItems=Array.isArray(json.items)?json.items:[];
+    console.info('[P123 server core]',{
+      count:p123ServerCoreItems.length,
+      categories:p123ServerCoreItems.map(x=>x.category),
+      titles:p123ServerCoreItems.map(x=>x.title)
+    });
+    return p123ServerCoreItems;
+  }catch(error){
+    console.warn('[P123 server core] unavailable',error?.message||error);
+    return p123ServerCoreItems;
+  }
+}
+
 // === P122: 한 줄 광고 단일 카드 순환 · 날씨/교통 확실한 교대 표시 ===
 (() => {
   const LABEL_TEXT = '한 줄 광고';
@@ -8551,17 +8577,23 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   function normalizeRows(){
     const todaySource=Array.isArray(v51TodayItems)?v51TodayItems:[];
     const coreSource=Array.isArray(v120CoreWeatherTrafficItems)?v120CoreWeatherTrafficItems:[];
+    const serverSource=Array.isArray(p123ServerCoreItems)?p123ServerCoreItems:[];
     const source=typeof v51MergeTodaySources==='function'
-      ? v51MergeTodaySources(todaySource,coreSource)
-      : [...todaySource,...coreSource];
+      ? v51MergeTodaySources(todaySource,[...serverSource,...coreSource])
+      : [...serverSource,...coreSource,...todaySource];
 
     const publicRows=source
       .filter(item=>['weather','traffic'].includes(String(item?.category||'').toLowerCase()));
 
-    // 날씨 → 교통 순서로 한 개씩만 우선 확보합니다.
-    const weather=publicRows.find(item=>String(item?.category||'').toLowerCase()==='weather');
-    const traffic=publicRows.find(item=>String(item?.category||'').toLowerCase()==='traffic');
+    // 서버 daily-core를 최우선으로 사용합니다.
+    const weather=[
+      ...serverSource,...publicRows
+    ].find(item=>String(item?.category||'').toLowerCase()==='weather');
+    const traffic=[
+      ...serverSource,...publicRows
+    ].find(item=>String(item?.category||'').toLowerCase()==='traffic');
 
+    // 날씨와 교통이 모두 있으면 광고보다 항상 먼저 순환합니다.
     const ordered=[weather,traffic,...p122SavedAds].filter(Boolean);
     const seen=new Set();
     return ordered.filter(row=>{
@@ -8633,24 +8665,27 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     },5000);
   }
 
-  async function refresh(){
-    try{
-      if(typeof v120LoadCoreWeatherTrafficDirect==='function'){
-        await v120LoadCoreWeatherTrafficDirect();
-      }
-    }catch(_){}
-    p122Index=0;
+  async function refresh(resetIndex=true){
+    await Promise.allSettled([
+      typeof p123LoadServerCoreItems==='function'?p123LoadServerCoreItems():Promise.resolve([]),
+      typeof v120LoadCoreWeatherTrafficDirect==='function'?v120LoadCoreWeatherTrafficDirect():Promise.resolve([])
+    ]);
+    if(resetIndex) p122Index=0;
     start();
   }
 
   document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(refresh,700);
-    setTimeout(()=>{ if(!p122Rows.length) refresh(); },2200);
+    setTimeout(()=>refresh(true),700);
+    setTimeout(()=>{ if(!p122Rows.length) refresh(true); },2200);
   });
 
-  window.addEventListener('focus',()=>refresh());
+  // DevTools 클릭/창 포커스 변화 때마다 index가 0(날씨)으로 리셋되던 현상을 제거합니다.
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden) refresh();
+    if(document.hidden){
+      if(p122Timer){clearInterval(p122Timer);p122Timer=null;}
+    }else{
+      start();
+    }
   });
 
   window.P122OneLineTicker={
@@ -8668,3 +8703,5 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
 
 console.info('[DalTownMap] P121 traffic-category recovery loaded');
+
+console.info('[DalTownMap] P123 server daily-core + stable ticker loaded');
