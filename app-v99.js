@@ -7774,20 +7774,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         border:0;border-radius:50%;background:rgba(255,255,255,.94);color:#174fb8;
         box-shadow:0 5px 16px rgba(15,23,42,.18);font-size:25px;font-weight:900;z-index:3;
       }
-      #v37RecommendCard .p130-progress{
-        height:5px;background:#eef2f7;overflow:hidden;
-      }
-      #v37RecommendCard .p130-progress > span{
-        display:block;height:100%;width:0;background:#2563eb;
-        animation:p130Progress 9s linear forwards;
-      }
       @keyframes p130FlowTwo{
         from{transform:translateX(0)}
         to{transform:translateX(-50%)}
-      }
-      @keyframes p130Progress{
-        from{width:0}
-        to{width:100%}
       }
       @media(max-width:640px){
         #v37RecommendCard .p130-storebar{min-height:52px;padding:9px 13px}
@@ -7859,7 +7848,6 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         </div>
         <button type="button" class="p130-arrow" aria-label="${esc130(name)} 업소 상세 보기">›</button>
       </div>
-      ${state.flyers.length>1?`<div class="p130-progress"><span></span></div>`:''}
     `;
 
     card.querySelector('.p130-arrow')?.addEventListener('click',event=>{
@@ -7993,6 +7981,129 @@ console.info('[DalTownMap] P125 legacy P030C ticker disabled');
 
 
 
+
+
+// === P131: 한 줄 광고 연결 라우팅 보강 ===
+function p131EnsureBusinessRegisterPage(){
+  let page=document.getElementById('page-business-register');
+  if(page) return page;
+
+  const main=document.querySelector('main') || document.querySelector('.app-main') || document.body;
+  page=document.createElement('section');
+  page.className='page';
+  page.id='page-business-register';
+  page.innerHTML=`
+    <div class="request-card" style="margin:18px auto;max-width:720px">
+      <h2>업소 등록 신청</h2>
+      <p>DalTownMap에 무료로 등록해 드립니다.</p>
+      <div class="form-grid">
+        <input id="reqBusinessName" placeholder="업소명">
+        <input id="reqOwnerName" placeholder="담당자">
+        <input id="reqPhone" placeholder="전화번호">
+        <input id="reqEmail" placeholder="이메일">
+        <input id="reqCategory" placeholder="업종">
+        <input id="reqAddress" placeholder="주소">
+      </div>
+      <input id="reqWebsite" placeholder="웹사이트 (선택사항)">
+      <textarea id="reqMessage" class="large-textarea" placeholder="추가 사항을 입력해 주세요"></textarea>
+      <button class="primary-submit" type="button" id="p131BusinessRegisterSubmit">업소 등록 신청</button>
+    </div>`;
+  main.appendChild(page);
+  page.querySelector('#p131BusinessRegisterSubmit')?.addEventListener('click',()=>{
+    if(typeof submitBusinessRequest==='function') submitBusinessRequest();
+  });
+  return page;
+}
+
+function p131OpenInternalPage(value){
+  let page=String(value||'').trim();
+  if(!page) return false;
+
+  // 과거 잘못 저장된 전체 URL도 내부 hash만 복구합니다.
+  if(/^https?:\/\//i.test(page)){
+    try{
+      const u=new URL(page,location.href);
+      page=String(u.hash||'').replace(/^#/,'').trim();
+    }catch(_){}
+  }
+  page=page.replace(/^#+/,'').replace(/^\/+/,'').trim();
+
+  const aliases={
+    'business-register':'business-register',
+    'register-business':'business-register',
+    'business_request':'business-register',
+    'advertise':'advertise',
+    'business':'business',
+    'coupon':'coupon',
+    'map':'map',
+    'guide':'guide',
+    'home':'home'
+  };
+  page=aliases[page]||page;
+
+  if(page==='business-register') p131EnsureBusinessRegisterPage();
+
+  const target=document.getElementById(`page-${page}`);
+  if(!target){
+    console.warn('[P131 internal link] page not found',page);
+    return false;
+  }
+
+  if(typeof showPage==='function'){
+    showPage(page);
+    return true;
+  }
+
+  document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el===target));
+  history.replaceState(null,'',`#${page}`);
+  window.scrollTo({top:0,behavior:'instant'});
+  return true;
+}
+
+function p131OpenManualTickerItem(item){
+  if(!item) return false;
+  const type=String(item.link_type||'none').trim().toLowerCase();
+  const value=String(item.link_value||item.url||'').trim();
+
+  if(type==='none'||!value) return false;
+
+  if(type==='internal') return p131OpenInternalPage(value);
+
+  if(type==='business'){
+    if(typeof openBusinessDetail==='function'){ openBusinessDetail(value); return true; }
+    if(typeof renderDetail==='function'&&typeof showPage==='function'){
+      window.selectedBizId=value;
+      try{ selectedBizId=value; }catch(_){}
+      renderDetail(value); showPage('business-detail'); return true;
+    }
+  }
+
+  if(type==='board'){
+    if(typeof openBoardPost==='function'){ openBoardPost(value); return true; }
+  }
+
+  if(type==='coupon'){
+    if(typeof renderCouponDetail==='function'&&typeof showPage==='function'){
+      renderCouponDetail(value);
+      try{ lastBasePage=currentPage; }catch(_){}
+      showPage('coupon-detail');
+      return true;
+    }
+  }
+
+  if(type==='guide'){
+    if(typeof showPage==='function'){ showPage('guide'); return true; }
+  }
+
+  if(type==='url'){
+    let url=value;
+    if(!/^https?:\/\//i.test(url)) url=`https://${url.replace(/^\/+/,'')}`;
+    window.open(url,'_blank','noopener');
+    return true;
+  }
+
+  return false;
+}
 
 // === P123: 서버 측 daily-core 날씨/교통 로더 ===
 // 브라우저 RLS로 newsroom_items가 보이지 않는 경우 Netlify 서버 함수가 service role로 읽습니다.
@@ -8225,16 +8336,7 @@ async function p123LoadServerCoreItems(){
         return;
       }
       if(category==='manual'){
-        const item=row.data||{};
-        const type=String(item.link_type||'url');
-        const value=String(item.link_value||item.url||'').trim();
-        if(!value) return;
-        if(type==='business' && typeof openBusinessDetail==='function'){openBusinessDetail(value);return;}
-        if(type==='board' && typeof openBoardPost==='function'){openBoardPost(value);return;}
-        if(type==='coupon' && typeof renderCouponDetail==='function'){renderCouponDetail(value);lastBasePage=currentPage;showPage('coupon-detail');return;}
-        if(type==='guide'){showPage('guide');return;}
-        if(type==='internal'){const page=value.replace(/^#/,'');if(page)showPage(page);return;}
-        window.open(value,'_blank','noopener');
+        p131OpenManualTickerItem(row.data||{});
       }
     });
 
@@ -8316,3 +8418,5 @@ console.info('[DalTownMap] P126 single-line weather+traffic+manual-items loaded'
 console.info('[DalTownMap] P127 no-legacy-alert + dual market image slider loaded');
 
 console.info('[DalTownMap] P128 unified market+image carousel loaded');
+
+console.info('[DalTownMap] P131 contextual ticker links + internal routing loaded');
