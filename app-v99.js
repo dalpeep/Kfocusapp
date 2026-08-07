@@ -1,4 +1,16 @@
 // DalTownMap V45.3.0 recommended-business mode fix
+
+// === P125: 한 줄 광고 단일 렌더러 부팅 보호 ===
+(() => {
+  if(document.getElementById('p125TickerBootGuard')) return;
+  const style=document.createElement('style');
+  style.id='p125TickerBootGuard';
+  style.textContent=`
+    #homeAdTickerList{visibility:hidden!important}
+    #homeAdTickerList.p125-ready{visibility:visible!important}
+  `;
+  (document.head||document.documentElement).appendChild(style);
+})();
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
@@ -3600,32 +3612,9 @@ function v51InitToday(){
 }
 
 function v119RenderOneLineAds(){
-  const box=document.getElementById('homeAdTickerList');
-  const section=document.getElementById('homeAdTickerSection');
-  if(!box||!section)return;
-  const cfg=v61EffectiveHomeConfig(v45HomeConfig||{});
-  if(cfg.show_ticker_section===false){section.hidden=true;box.innerHTML='';return;}
-  const sources=new Set(Array.isArray(cfg.ticker_sources)?cfg.ticker_sources:[]);
-  const rows=[];
-  const direct=(cfg.ticker_direct&&typeof cfg.ticker_direct==='object')?cfg.ticker_direct:{};
-  if(direct.enabled===true&&String(direct.text||'').trim())rows.push({kind:'direct',id:'direct-ticker',title:String(direct.text).trim(),detail:String(direct.label||'').trim(),url:String(direct.url||'').trim(),badge:'광고'});
-  if(sources.has('dalpick'))activeDalpicks().filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true).slice(0,8).forEach(d=>rows.push({kind:'dalpick',id:String(d.id),title:String(d.title||'광고 소식').trim(),detail:String(d.summary||d.description||'').replace(/\s+/g,' ').trim(),badge:'광고',data:d}));
-  if(sources.has('coupon')&&typeof todayCoupons==='function')todayCoupons().slice(0,8).forEach(c=>rows.push({kind:'coupon',id:String(c.id),title:String(c.title||c.name||'쿠폰 소식').trim(),detail:String(c.discount_label||c.description||'').replace(/\s+/g,' ').trim(),badge:'쿠폰',data:c}));
-  if(!rows.length){section.hidden=true;box.innerHTML='';return;}
-  const itemHTML=r=>`<button class="ticker-ad-item" type="button" data-ad-kind="${esc(r.kind)}" data-ad-id="${esc(r.id)}"><span class="ticker-ad-badge">${esc(r.badge)}</span><strong>${esc(r.title)}</strong>${r.detail?`<span class="ticker-ad-detail">${esc(r.detail)}</span>`:''}<span class="ticker-ad-arrow">›</span></button>`;
-  const seq=rows.map(itemHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
-  box.innerHTML=`<div class="ticker-ad-shell"><span class="ticker-live-label"><i data-lucide="megaphone"></i><b>한 줄 광고</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track">${seq}<span class="ticker-ad-separator" aria-hidden="true">•</span>${seq}</div></div></div>`;
-  section.hidden=false;
-  box.querySelectorAll('[data-ad-kind]').forEach(btn=>btn.addEventListener('click',()=>{
-    const r=rows.find(x=>x.kind===btn.dataset.adKind&&String(x.id)===String(btn.dataset.adId)); if(!r)return;
-    if(r.kind==='direct'){if(r.url)window.open(r.url,'_blank','noopener');return;}
-    if(r.kind==='coupon'){if(typeof openCouponDetail==='function')openCouponDetail(r.data);return;}
-    if(r.kind==='dalpick'){
-      const d=r.data||{}; const bid=d.business_id||d.businessId;
-      if(bid&&typeof openBusinessDetail==='function'){openBusinessDetail(bid);return;}
-      const url=d.link_url||d.url; if(url)window.open(url,'_blank','noopener');
-    }
-  }));
+  // P125: legacy ticker renderer disabled.
+  // P122/P125 is the only renderer for #homeAdTickerList.
+  return false;
 } 
 
 function v116ApplyHomeSectionVisibility(config={}){
@@ -8181,223 +8170,8 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 })();
 
 
-// === P030C: 광고·날씨·교통 공통 한 줄 광고 UI ===
-(() => {
-  const esc=(v='')=>String(v).replace(/[&<>"']/g,m=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[m]));
-
-  // P124: 새 UI가 준비되기 전에는 기존 ticker 내용을 잠시 숨겨서
-  // 새로고침 때 옛 UI가 먼저 보이는 flash를 막습니다.
-  (() => {
-    if(document.getElementById('p124TickerPrehideStyle')) return;
-    const style=document.createElement('style');
-    style.id='p124TickerPrehideStyle';
-    style.textContent=`
-      #homeAdTickerList{visibility:hidden!important}
-      #homeAdTickerList.p124-ready{visibility:visible!important}
-    `;
-    document.head.appendChild(style);
-  })();
-
-  function ensureStyle(){
-    if(document.getElementById('p030cTickerStyle'))return;
-    const style=document.createElement('style');
-    style.id='p030cTickerStyle';
-    style.textContent=`
-      #homeAdTickerSection.p030c-running{
-        display:block!important;
-        overflow:hidden;
-      }
-      #homeAdTickerList.p030c-list{
-        overflow:hidden!important;
-      }
-      #homeAdTickerList .p030c-shell{
-        display:flex;
-        align-items:center;
-        min-height:44px;
-        width:100%;
-        overflow:hidden;
-        border-radius:14px;
-        background:#fff;
-      }
-      #homeAdTickerList .p030c-live-label{
-        position:relative;
-        z-index:3;
-        flex:0 0 auto;
-        align-self:stretch;
-        display:inline-flex;
-        align-items:center;
-        gap:6px;
-        min-width:98px;
-        padding:0 13px;
-        background:linear-gradient(135deg,#1764d7 0%,#245eea 100%);
-        color:#fff;
-        font-size:12px;
-        font-weight:900;
-        white-space:nowrap;
-        box-shadow:6px 0 14px rgba(37,99,235,.12);
-      }
-      #homeAdTickerList .p030c-live-label::after{
-        content:'';
-        position:absolute;
-        right:-8px;
-        top:50%;
-        width:16px;
-        height:16px;
-        background:#245eea;
-        transform:translateY(-50%) rotate(45deg);
-        border-radius:2px;
-        z-index:-1;
-      }
-      #homeAdTickerList .p030c-viewport{
-        flex:1 1 auto;
-        min-width:0;
-        overflow:hidden;
-        padding-left:12px;
-      }
-      #homeAdTickerList .p030c-track{
-        display:flex;
-        align-items:center;
-        width:max-content;
-        min-width:200%;
-        animation:p030cFlow 30s linear infinite;
-        will-change:transform;
-      }
-      #homeAdTickerList .p030c-item{
-        flex:0 0 auto;
-        display:flex;
-        align-items:center;
-        gap:8px;
-        min-height:44px;
-        padding:0 22px 0 2px;
-        border:0;
-        background:transparent;
-        color:inherit;
-        font:inherit;
-        white-space:nowrap;
-        cursor:pointer;
-      }
-      #homeAdTickerList .p030c-badge{
-        display:inline-flex;
-        align-items:center;
-        padding:4px 8px;
-        border-radius:999px;
-        background:#fff2d8;
-        color:#9a5b00;
-        font-size:11px;
-        font-weight:900;
-      }
-      #homeAdTickerList .p030c-item strong{
-        font-size:13px;
-        color:#172b4d;
-      }
-      #homeAdTickerList .p030c-detail{
-        max-width:300px;
-        overflow:hidden;
-        text-overflow:ellipsis;
-        color:#64748b;
-        font-size:12px;
-      }
-      #homeAdTickerList .p030c-separator{
-        flex:0 0 auto;
-        padding-right:18px;
-        color:#cbd5e1;
-      }
-      #homeAdTickerList:hover .p030c-track,
-      #homeAdTickerList:active .p030c-track{
-        animation-play-state:paused;
-      }
-      @keyframes p030cFlow{
-        from{transform:translate3d(0,0,0)}
-        to{transform:translate3d(-50%,0,0)}
-      }
-      @media(max-width:390px){
-        #homeAdTickerList .p030c-live-label{
-          min-width:88px;
-          padding:0 10px;
-          font-size:11px;
-        }
-        #homeAdTickerList .p030c-detail{max-width:210px}
-      }
-      @media(prefers-reduced-motion:reduce){
-        #homeAdTickerList .p030c-track{animation-duration:60s}
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function sourceRows(){
-    const list=(Array.isArray(v51TodayItems)?v51TodayItems:[])
-      .filter(item=>['weather','traffic'].includes(String(item?.category||'').toLowerCase()));
-    const unique=[];
-    const seen=new Set();
-    for(const row of list){
-      const key=`${row.category}|${row.title}`;
-      if(seen.has(key))continue;
-      seen.add(key);
-      unique.push(row);
-    }
-    return unique.slice(0,4);
-  }
-
-  function paint(){
-    ensureStyle();
-    const section=document.getElementById('homeAdTickerSection');
-    const box=document.getElementById('homeAdTickerList');
-    if(!section||!box)return false;
-    const rows=sourceRows();
-    if(!rows.length)return false;
-
-    section.hidden=false;
-    section.classList.add('p030c-running');
-    box.classList.add('p030c-list');
-
-    const base=rows.length===1?[rows[0],rows[0]]:rows;
-    const loop=[...base,...base];
-
-    const items=loop.map((row,index)=>{
-      const key=String(row.category||'').toLowerCase();
-      const label=key==='weather'?'날씨':'교통';
-      const icon=key==='weather'?'☀️':'🚗';
-      return `<button type="button" class="p030c-item" data-p030c-index="${index%base.length}">
-        <span class="p030c-badge">${icon} ${label}</span>
-        <strong>${esc(row.title||'')}</strong>
-        ${row.summary?`<span class="p030c-detail">${esc(row.summary)}</span>`:''}
-      </button><span class="p030c-separator" aria-hidden="true">•</span>`;
-    }).join('');
-
-    box.innerHTML=`
-      <div class="p030c-shell">
-        <span class="p030c-live-label"><span>📣</span><b>한 줄 광고</b></span>
-        <div class="p030c-viewport">
-          <div class="p030c-track">${items}</div>
-        </div>
-      </div>`;
-
-    box.querySelectorAll('[data-p030c-index]').forEach(button=>{
-      button.addEventListener('click',()=>{
-        const row=base[Number(button.dataset.p030cIndex)||0];
-        if(typeof v51OpenItem==='function')v51OpenItem(row);
-      });
-    });
-    return true;
-  }
-
-  function retry(){
-    let count=0;
-    const timer=setInterval(()=>{
-      count++;
-      if(paint()||count>20)clearInterval(timer);
-    },500);
-  }
-
-  document.addEventListener('DOMContentLoaded',retry);
-  window.addEventListener('focus',paint);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)paint()});
-  setInterval(()=>{if(!document.hidden)paint()},30000);
-  console.info('[DalTownMap] P030C unified one-line ad ticker loaded');
-})();
+// === P030C: disabled by P125 ===
+console.info('[DalTownMap] P125 legacy P030C ticker disabled');
 
 // === P031-SAFE: 큰 오늘의 달타운 카드 숨김 ===
 (() => {
@@ -8454,7 +8228,6 @@ async function p123LoadServerCoreItems(){
   let p122Index = 0;
   let p122Timer = null;
   let p122Rows = [];
-  let p122SavedAds = [];
 
   function ensureStyle(){
     if(document.getElementById('p122OneLineStepStyle')) return;
@@ -8561,16 +8334,51 @@ async function p123LoadServerCoreItems(){
     document.head.appendChild(style);
   }
 
-  function snapshotExistingAds(){
-    if(p122SavedAds.length) return;
-    const found=[];
-    document.querySelectorAll('#homeAdTickerList [data-ad-id], #homeAdTickerList .ticker-ad-item').forEach(node=>{
-      const badge=String(node.querySelector('.ticker-ad-badge')?.textContent||'광고').trim();
-      const title=String(node.querySelector('strong')?.textContent||node.textContent||'').trim();
-      const detail=String(node.querySelector('.ticker-ad-detail')?.textContent||'').trim();
-      if(title) found.push({category:'ad',badge,title,summary:detail});
-    });
-    p122SavedAds=found;
+  function configuredAds(){
+    const cfg=typeof v61EffectiveHomeConfig==='function'
+      ? v61EffectiveHomeConfig(v45HomeConfig||{})
+      : (v45HomeConfig||{});
+    const sources=new Set(Array.isArray(cfg.ticker_sources)?cfg.ticker_sources:[]);
+    const rows=[];
+
+    const direct=(cfg.ticker_direct&&typeof cfg.ticker_direct==='object')?cfg.ticker_direct:{};
+    if(direct.enabled===true&&String(direct.text||'').trim()){
+      rows.push({
+        category:'ad',
+        kind:'direct',
+        id:'direct-ticker',
+        title:String(direct.text||'').trim(),
+        summary:String(direct.label||'').trim(),
+        url:String(direct.url||'').trim()
+      });
+    }
+
+    if(sources.has('dalpick')&&typeof activeDalpicks==='function'){
+      activeDalpicks()
+        .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
+        .slice(0,6)
+        .forEach(d=>rows.push({
+          category:'ad',
+          kind:'dalpick',
+          id:String(d.id),
+          title:String(d.title||'광고 소식').trim(),
+          summary:String(d.summary||d.description||'').replace(/\s+/g,' ').trim(),
+          data:d
+        }));
+    }
+
+    if(sources.has('coupon')&&typeof todayCoupons==='function'){
+      todayCoupons().slice(0,6).forEach(c=>rows.push({
+        category:'ad',
+        kind:'coupon',
+        id:String(c.id),
+        title:String(c.title||c.name||'쿠폰 소식').trim(),
+        summary:String(c.discount_label||c.description||'').replace(/\s+/g,' ').trim(),
+        data:c
+      }));
+    }
+
+    return rows;
   }
 
   function normalizeRows(){
@@ -8592,8 +8400,8 @@ async function p123LoadServerCoreItems(){
       ...serverSource,...publicRows
     ].find(item=>String(item?.category||'').toLowerCase()==='traffic');
 
-    // 날씨와 교통이 모두 있으면 광고보다 항상 먼저 순환합니다.
-    const ordered=[weather,traffic,...p122SavedAds].filter(Boolean);
+    // 날씨 → 교통 → 광고 순서로 단일 렌더러가 모두 관리합니다.
+    const ordered=[weather,traffic,...configuredAds()].filter(Boolean);
     const seen=new Set();
     return ordered.filter(row=>{
       const key=`${String(row.category||'')}|${String(row.title||'').trim().toLowerCase()}`;
@@ -8609,7 +8417,6 @@ async function p123LoadServerCoreItems(){
     const box=document.getElementById('homeAdTickerList');
     if(!section||!box) return false;
 
-    snapshotExistingAds();
     p122Rows=normalizeRows();
     if(!p122Rows.length) return false;
 
@@ -8619,7 +8426,8 @@ async function p123LoadServerCoreItems(){
     const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':String(row.badge||'광고');
 
     section.hidden=false;
-    box.classList.add('p124-ready');
+    box.classList.remove('p124-ready');
+    box.classList.add('p125-ready');
     box.innerHTML=`
       <div class="p122-shell">
         <div class="p122-label"><span>📣</span><b>${LABEL_TEXT}</b></div>
@@ -8632,7 +8440,28 @@ async function p123LoadServerCoreItems(){
     `;
 
     box.querySelector('.p122-item')?.addEventListener('click',()=>{
-      if(row.category!=='ad' && typeof v51OpenItem==='function') v51OpenItem(row);
+      if(String(row.category||'')!=='ad'){
+        if(typeof v51OpenItem==='function') v51OpenItem(row);
+        return;
+      }
+      if(row.kind==='direct'){
+        if(row.url) window.open(row.url,'_blank','noopener');
+        return;
+      }
+      if(row.kind==='coupon'){
+        if(typeof openCouponDetail==='function') openCouponDetail(row.data);
+        return;
+      }
+      if(row.kind==='dalpick'){
+        const d=row.data||{};
+        const bid=d.business_id||d.businessId;
+        if(bid&&typeof openBusinessDetail==='function'){
+          openBusinessDetail(bid);
+          return;
+        }
+        const url=d.link_url||d.url;
+        if(url) window.open(url,'_blank','noopener');
+      }
     });
 
     console.info('[P122 one-line current]',{
@@ -8705,3 +8534,5 @@ console.info('[DalTownMap] P121 traffic-category recovery loaded');
 console.info('[DalTownMap] P123 server daily-core + stable ticker loaded');
 
 console.info('[DalTownMap] P124 title-only ticker + no legacy flash loaded');
+
+console.info('[DalTownMap] P125 single ticker renderer active');
