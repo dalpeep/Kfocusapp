@@ -58,7 +58,7 @@
         <button class="nav-item" data-section="businessCrm">업소 마케팅 CRM <span class="nav-badge">NEW</span></button>
         <div class="nav-group-title">콘텐츠 스튜디오</div>
         <button class="nav-item" data-section="aiStudio">AI 콘텐츠 스튜디오 <span class="nav-badge">NEW</span></button>
-        <button class="nav-item" data-section="dalpick">한 줄 광고·콘텐츠</button>
+        <button class="nav-item" data-section="dalpick">한 줄 광고 관리</button>
         <button class="nav-item" data-section="board">게시판·가이드 관리</button>
         <button class="nav-item" data-section="newsroom">AI 운영센터 <span class="nav-badge">NEW</span></button>
         <div class="nav-group-title">운영 관리</div>
@@ -1085,11 +1085,48 @@
 </div>
 
       <section id="section-dalpick" class="admin-section">
+        <div class="panel" id="p126TickerManager" style="margin-bottom:16px">
+          <div class="panel-head">
+            <div>
+              <h2>메인 한 줄 광고 관리</h2>
+              <p class="muted">메인에는 이 한 줄만 표시됩니다. 날씨·교통은 매일 자동 포함되고, 아래에서 관리자 문구를 여러 개 추가할 수 있습니다.</p>
+            </div>
+            <span class="pill" id="p126ManualCount">0개</span>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px">
+            <span class="pill">☀️ 날씨 · 자동</span>
+            <span class="pill">🚗 교통 · 자동</span>
+            <span class="pill">📣 관리자 입력 · 복수 등록</span>
+          </div>
+          <div class="form-grid" id="p126ManualForm">
+            <input id="p126ManualId" type="hidden">
+            <label class="field full"><span>표시 문구 *</span><input id="p126ManualTitle" maxlength="140" placeholder="예: 시온마트 이번 주 특별 세일 / 달타운맵 무료 업소 등록 이벤트"></label>
+            <label class="field"><span>종류</span><select id="p126ManualType"><option value="business">업체 광고</option><option value="event">행사 안내</option><option value="notice">공지</option><option value="other">기타</option></select></label>
+            <label class="field"><span>우선순위</span><input id="p126ManualPriority" type="number" value="0"></label>
+            <label class="field"><span>시작일</span><input id="p126ManualStart" type="date"></label>
+            <label class="field"><span>종료일</span><input id="p126ManualEnd" type="date"></label>
+            <label class="field"><span>연결 방식</span><select id="p126ManualLinkType"><option value="url">외부 URL</option><option value="business">업소 상세</option><option value="board">게시글</option><option value="coupon">쿠폰</option><option value="guide">달라스 가이드</option><option value="internal">앱 내부 화면</option><option value="none">연결 없음</option></select></label>
+            <label class="field"><span id="p131LinkPickerLabel">연결 대상</span>
+              <div id="p131LinkPickerWrap">
+                <input id="p126ManualLinkValue" placeholder="https://example.com">
+                <select id="p131ManualLinkPicker" style="display:none"></select>
+              </div>
+              <small class="muted" id="p131LinkPickerHelp">연결 방식에 따라 대상 목록이 자동으로 바뀝니다.</small>
+            </label>
+            <label class="field checkbox-line"><input id="p126ManualEnabled" type="checkbox" checked><span>메인 노출 사용</span></label>
+            <div class="field"><span>&nbsp;</span><div style="display:flex;gap:8px"><button id="p126ManualSaveBtn" class="btn primary" type="button">항목 저장</button><button id="p126ManualResetBtn" class="btn ghost" type="button">새 항목</button></div></div>
+          </div>
+          <div id="p126ManualList" class="business-list" style="margin-top:16px"><div class="muted">불러오는 중...</div></div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e5eaf2;display:flex;justify-content:flex-end">
+            <button id="p126ManualSaveAllBtn" class="btn primary" type="button">메인 한 줄 광고 전체 저장</button>
+          </div>
+        </div>
+
         <div class="panel dalpick-exposure-panel">
           <div class="panel-head">
             <div>
-              <h2>현재 홈 한 줄 광고 노출</h2>
-              <p class="muted">메인 한 줄 광고에는 게시 중인 콘텐츠와 ‘오늘의 쿠폰’이 함께 흐릅니다. 아래 목록은 현재 시각 기준 실제 노출 대상을 보여줍니다.</p>
+              <h2>기존 추천 콘텐츠 노출 참고</h2>
+              <p class="muted">추천 콘텐츠 관리용 참고 목록입니다. P126부터 메인 한 줄 광고에는 자동 포함되지 않습니다.</p>
             </div>
             <span id="dalpickExposureCount" class="pill">0개</span>
           </div>
@@ -1097,13 +1134,13 @@
         </div>
         <div class="admin-grid two-col">
           <div class="panel">
-            <div class="panel-head"><h2>한 줄 광고·추천 콘텐츠 목록</h2><span id="dalpickCountText" class="muted">0개</span></div>
+            <div class="panel-head"><h2>추천 콘텐츠 목록</h2><span id="dalpickCountText" class="muted">0개</span></div>
             <div class="toolbar-row">
               <label class="field compact"><span>검색</span><input id="dalpickSearchInput" type="text" placeholder="제목, 요약, 업소명" /></label>
               <label class="field compact"><span>콘텐츠 유형</span><select id="dalpickCategoryFilter">
                 <option value="all">전체</option><option value="local_info">지역 정보</option><option value="lifestyle">생활 정보</option><option value="themed">테마 추천</option><option value="recommended">추천 업소</option><option value="new_business">신규 업소</option><option value="coupon">쿠폰</option><option value="event">행사</option><option value="business_story">업소탐방 Premium</option>
               </select></label>
-              <button id="dalpickNewBtn" class="btn primary inline-btn" type="button">새 광고/콘텐츠</button><span class="muted" style="font-size:12px">클릭하면 아래 등록 화면으로 이동합니다.</span>
+              <button id="dalpickNewBtn" class="btn primary inline-btn" type="button">새 추천 콘텐츠</button><span class="muted" style="font-size:12px">클릭하면 아래 등록 화면으로 이동합니다.</span>
             </div>
             <div id="dalpickList" class="business-list"></div>
           </div>
