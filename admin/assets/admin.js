@@ -8551,39 +8551,23 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
   }
 
   function guideOptions(){
-    const pools=[
-      Array.isArray(window.guides)?window.guides:[],
-      Array.isArray(window.guideItems)?window.guideItems:[],
-      Array.isArray(window.guidePosts)?window.guidePosts:[],
-      Array.isArray(typeof guides!=='undefined'?guides:[])?(typeof guides!=='undefined'?guides:[]):[]
-    ];
-    const merged=[];
-    const seen=new Set();
-    for(const pool of pools){
-      for(const g of pool){
-        const id=String(g?.id||g?.guide_id||g?.slug||'').trim();
-        if(!id||seen.has(id))continue;
-        seen.add(id);
-        const category=String(g?.category||g?.type||g?.section||'가이드').trim();
-        const title=String(g?.title||g?.name||g?.subject||'제목 없음').trim();
-        merged.push([id,`[${category}] ${title}`]);
-      }
-    }
-
-    // DOM에 이미 렌더된 가이드 카드에서도 fallback 수집
-    document.querySelectorAll('[data-guide-id],[data-guide-detail-id]').forEach(node=>{
-      const id=String(node.dataset.guideId||node.dataset.guideDetailId||'').trim();
-      if(!id||seen.has(id))return;
-      seen.add(id);
-      const title=String(
-        node.querySelector('h3,h4,strong,.title,.guide-title')?.textContent ||
-        node.textContent || '가이드 항목'
-      ).replace(/\s+/g,' ').trim();
-      merged.push([id,title]);
-    });
-
-    return merged.sort((a,b)=>a[1].localeCompare(b[1],'ko'));
+    const source=Array.isArray(boards)?boards:[];
+    return source
+      .filter(row=>row && row.id && normalizeAdminBoardType(row.type)==='guide')
+      .filter(row=>row.is_active!==false)
+      .slice()
+      .sort((a,b)=>{
+        const at=Date.parse(a.updated_at||a.created_at||0)||0;
+        const bt=Date.parse(b.updated_at||b.created_at||0)||0;
+        return bt-at;
+      })
+      .map(row=>{
+        const subtype=String(row.subtype||'가이드').trim();
+        const title=String(row.title||'제목 없음').trim();
+        return [String(row.id),`[${subtype}] ${title}`];
+      });
   }
+
 
   function renderPicker(preserveValue=true){
     const type=String($('p126ManualLinkType')?.value||'url');
@@ -8621,6 +8605,7 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
       label.textContent='달라스 가이드 항목';
       help.textContent='연결할 달라스 가이드 세부 항목을 선택합니다.';
       options=guideOptions();
+      console.info('[P132A guide options]',{count:options.length,items:options.slice(0,10)});
       if(!options.length) options=[['','등록된 가이드 항목이 없습니다']];
       useSelect=true;
     }else if(type==='none'){
@@ -8708,3 +8693,5 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
 })();
 
 console.info('[DalTownMap Admin] P132 guide detail picker loaded');
+
+console.info('[DalTownMap Admin] P132A guide picker reads boards[] loaded');
