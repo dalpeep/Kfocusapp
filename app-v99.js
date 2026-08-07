@@ -8092,17 +8092,8 @@ function p131OpenManualTickerItem(item){
   }
 
   if(type==='guide'){
-    if(value){
-      if(typeof renderGuideDetail==='function'&&typeof showPage==='function'){
-        try{ renderGuideDetail(value); showPage('guide-detail'); return true; }catch(_){}
-      }
-      if(typeof openGuideDetail==='function'){
-        try{ openGuideDetail(value); return true; }catch(_){}
-      }
-      // fallback: 가이드 목록으로 이동 후 선택 id를 hash/query에 남깁니다.
-      try{
-        sessionStorage.setItem('daltownmap_pending_guide_id',value);
-      }catch(_){}
+    if(value && typeof openBoardPost==='function'){
+      try{ openBoardPost(value); return true; }catch(_){}
     }
     if(typeof showPage==='function'){ showPage('guide'); return true; }
   }
@@ -8433,20 +8424,5 @@ console.info('[DalTownMap] P128 unified market+image carousel loaded');
 
 console.info('[DalTownMap] P131 contextual ticker links + internal routing loaded');
 
-// P132: 가이드 메인으로 fallback된 경우 목록 렌더 후 특정 가이드 자동 열기
-document.addEventListener('DOMContentLoaded',()=>{
-  setTimeout(()=>{
-    let pending='';
-    try{pending=sessionStorage.getItem('daltownmap_pending_guide_id')||'';}catch(_){}
-    if(!pending)return;
-    try{sessionStorage.removeItem('daltownmap_pending_guide_id');}catch(_){}
-    if(typeof renderGuideDetail==='function'&&typeof showPage==='function'){
-      try{renderGuideDetail(pending);showPage('guide-detail');return;}catch(_){}
-    }
-    if(typeof openGuideDetail==='function'){
-      try{openGuideDetail(pending);}catch(_){}
-    }
-  },1200);
-});
 
-console.info('[DalTownMap] P132 guide-detail ticker links loaded');
+console.info('[DalTownMap] P132A guide board-detail links loaded');
