@@ -8550,6 +8550,41 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
       });
   }
 
+  function guideOptions(){
+    const pools=[
+      Array.isArray(window.guides)?window.guides:[],
+      Array.isArray(window.guideItems)?window.guideItems:[],
+      Array.isArray(window.guidePosts)?window.guidePosts:[],
+      Array.isArray(typeof guides!=='undefined'?guides:[])?(typeof guides!=='undefined'?guides:[]):[]
+    ];
+    const merged=[];
+    const seen=new Set();
+    for(const pool of pools){
+      for(const g of pool){
+        const id=String(g?.id||g?.guide_id||g?.slug||'').trim();
+        if(!id||seen.has(id))continue;
+        seen.add(id);
+        const category=String(g?.category||g?.type||g?.section||'가이드').trim();
+        const title=String(g?.title||g?.name||g?.subject||'제목 없음').trim();
+        merged.push([id,`[${category}] ${title}`]);
+      }
+    }
+
+    // DOM에 이미 렌더된 가이드 카드에서도 fallback 수집
+    document.querySelectorAll('[data-guide-id],[data-guide-detail-id]').forEach(node=>{
+      const id=String(node.dataset.guideId||node.dataset.guideDetailId||'').trim();
+      if(!id||seen.has(id))return;
+      seen.add(id);
+      const title=String(
+        node.querySelector('h3,h4,strong,.title,.guide-title')?.textContent ||
+        node.textContent || '가이드 항목'
+      ).replace(/\s+/g,' ').trim();
+      merged.push([id,title]);
+    });
+
+    return merged.sort((a,b)=>a[1].localeCompare(b[1],'ko'));
+  }
+
   function renderPicker(preserveValue=true){
     const type=String($('p126ManualLinkType')?.value||'url');
     const input=$('p126ManualLinkValue');
@@ -8583,9 +8618,10 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
       options=INTERNAL_PAGES;
       useSelect=true;
     }else if(type==='guide'){
-      label.textContent='연결 대상';
-      help.textContent='달라스 가이드 메인으로 이동합니다.';
-      options=[['guide','달라스 가이드']];
+      label.textContent='달라스 가이드 항목';
+      help.textContent='연결할 달라스 가이드 세부 항목을 선택합니다.';
+      options=guideOptions();
+      if(!options.length) options=[['','등록된 가이드 항목이 없습니다']];
       useSelect=true;
     }else if(type==='none'){
       label.textContent='연결 대상';
@@ -8647,7 +8683,7 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
       if(document.getElementById('section-dalpick')?.classList.contains('active') ||
          !document.getElementById('section-dalpick')?.classList.contains('hidden')){
         const typeNow=String(type.value||'');
-        if(['business','board','coupon'].includes(typeNow)) renderPicker(true);
+        if(['business','board','coupon','guide'].includes(typeNow)) renderPicker(true);
       }
     },4000);
 
@@ -8670,3 +8706,5 @@ console.info('[DalTownMap Admin] P127C modal visibility fix loaded');
   window.P131TickerLinkPicker={render:renderPicker,sync:syncPickerToValue};
   console.info('[DalTownMap Admin] P131 contextual ticker link picker loaded');
 })();
+
+console.info('[DalTownMap Admin] P132 guide detail picker loaded');
