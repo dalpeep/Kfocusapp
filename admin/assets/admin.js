@@ -8372,3 +8372,37 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
   document.addEventListener('DOMContentLoaded',()=>setTimeout(bind,500));
   console.info('[DalTownMap Admin] P126 multi manual ticker manager loaded');
 })();
+
+
+// === P127: 전단 메인 이미지 2장 관리자 ===
+(() => {
+  let flyerId=0;
+  let files={1:null,2:null};
+  const $=id=>document.getElementById(id);
+  const fileToBase64=file=>new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>{const s=String(r.result||'');resolve(s.slice(s.indexOf(',')+1));};r.onerror=()=>reject(r.error);r.readAsDataURL(file);});
+
+  function ensureModal(){
+    let modal=$('p127DualMarketModal');if(modal)return modal;
+    modal=document.createElement('div');modal.id='p127DualMarketModal';modal.className='p057-modal';
+    modal.innerHTML=`<div class="p057-card" style="max-width:980px"><button type="button" class="p057-close" data-p127-close>×</button><h2>메인 마트 이미지 2장</h2><p class="muted">각 전단마다 1200 × 420 이미지를 최대 2장 올릴 수 있습니다. 메인에서는 두 이미지가 자동 슬라이드됩니다.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:16px">${[1,2].map(slot=>`<section style="border:1px solid #dbe3ee;border-radius:16px;padding:14px"><h3 style="margin:0 0 10px">이미지 ${slot}</h3><input id="p127File${slot}" type="file" accept="image/jpeg,image/png,image/webp"><div id="p127Preview${slot}" style="margin-top:10px;aspect-ratio:20/7;border:1px dashed #b9c8df;border-radius:12px;display:grid;place-items:center;overflow:hidden;background:#f8fbff"><span>1200 × 420</span><img style="width:100%;height:100%;object-fit:cover;display:none"></div><div style="display:flex;gap:8px;margin-top:10px"><button type="button" class="btn primary" data-p127-save="${slot}">이미지 ${slot} 저장</button><button type="button" class="btn" data-p127-clear="${slot}">제거</button></div><div id="p127Status${slot}" class="muted" style="margin-top:7px"></div></section>`).join('')}</div></div>`;
+    document.body.appendChild(modal);
+    modal.querySelector('[data-p127-close]').onclick=close;
+    modal.addEventListener('click',e=>{if(e.target===modal)close();});
+    [1,2].forEach(slot=>{
+      $(`p127File${slot}`).addEventListener('change',e=>onFile(slot,e.target.files?.[0]||null));
+      modal.querySelector(`[data-p127-save="${slot}"]`).onclick=()=>save(slot);
+      modal.querySelector(`[data-p127-clear="${slot}"]`).onclick=()=>clear(slot);
+    });
+    return modal;
+  }
+  function close(){const m=$('p127DualMarketModal');if(m)m.classList.remove('open');document.body.style.overflow='';files={1:null,2:null};}
+  function open(id){flyerId=Number(id||0);files={1:null,2:null};const m=ensureModal();[1,2].forEach(slot=>{const inp=$(`p127File${slot}`);if(inp)inp.value='';const p=$(`p127Preview${slot}`);const img=p?.querySelector('img'),sp=p?.querySelector('span');if(img){img.removeAttribute('src');img.style.display='none';}if(sp)sp.style.display='block';$(`p127Status${slot}`).textContent='';});m.classList.add('open');document.body.style.overflow='hidden';}
+  function onFile(slot,file){files[slot]=file;if(!file)return;const url=URL.createObjectURL(file);const p=$(`p127Preview${slot}`),img=p?.querySelector('img'),sp=p?.querySelector('span');if(img){img.src=url;img.style.display='block';}if(sp)sp.style.display='none';const probe=new Image();probe.onload=()=>{$(`p127Status${slot}`).textContent=`선택: ${probe.naturalWidth} × ${probe.naturalHeight}px${probe.naturalWidth===1200&&probe.naturalHeight===420?' · 권장 규격':''}`;};probe.src=url;}
+  async function save(slot){const file=files[slot];if(!flyerId||!file)return alert(`이미지 ${slot}를 선택하세요.`);const st=$(`p127Status${slot}`);st.textContent='업로드 중…';try{const result=await newsroomEdgeCall('upload_weekly_flyer_main_image',{flyer_id:flyerId,slot,file_name:file.name||`market-${slot}.jpg`,content_type:file.type||'image/jpeg',image_base64:await fileToBase64(file)});const url=slot===2?result?.market_main_image_url_2:result?.market_main_image_url;if(!/^https?:\\/\\//i.test(String(url||'')))throw new Error('이미지 URL이 저장되지 않았습니다.');st.textContent=`이미지 ${slot} 저장 완료`;try{localStorage.setItem('daltownmap_content_changed',String(Date.now()));const bc=new BroadcastChannel('daltownmap-content');bc.postMessage({type:'weekly_flyer_main_image_changed',flyer_id:flyerId,slot});bc.close();}catch(_){}}catch(e){st.textContent=`저장 실패: ${e.message||e}`;alert(st.textContent);}}
+  async function clear(slot){if(!flyerId||!confirm(`이미지 ${slot}를 제거할까요?`))return;const st=$(`p127Status${slot}`);try{const payload={flyer_id:flyerId,slot,market_main_image_url:null};await newsroomEdgeCall('save_weekly_flyer_main_image',payload);st.textContent=`이미지 ${slot} 제거 완료`;try{localStorage.setItem('daltownmap_content_changed',String(Date.now()));}catch(_){}}catch(e){st.textContent=`제거 실패: ${e.message||e}`;}}
+  function inject(){document.querySelectorAll('[data-flyer-id],.p010-flyer-card,.p018-flyer-card').forEach(card=>{const id=card.dataset.flyerId||card.getAttribute('data-id')||card.querySelector('[data-flyer-id]')?.getAttribute('data-flyer-id');if(!id)return;const actions=card.querySelector('.p010-actions,.p018-actions,.flyer-actions')||card;if(actions.querySelector('.p127-dual-image-btn'))return;const b=document.createElement('button');b.type='button';b.className='btn p127-dual-image-btn';b.textContent='메인 이미지 2장';b.onclick=e=>{e.preventDefault();e.stopPropagation();open(id);};actions.appendChild(b);});}
+  new MutationObserver(()=>inject()).observe(document.documentElement,{childList:true,subtree:true});
+  document.addEventListener('DOMContentLoaded',()=>{ensureModal();setTimeout(inject,700);});
+  window.P127DualMarketImages={open,inject};
+  console.info('[DalTownMap Admin] P127 dual market image manager loaded');
+})();
