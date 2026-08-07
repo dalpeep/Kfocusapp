@@ -7576,7 +7576,6 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     flyers: [],
     index: 0,
     timer: null,
-    imageTimer: null,
     imageIndex: 0,
     loading: null,
     loadedAt: 0
@@ -7991,6 +7990,34 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     }
   }
 
+  function sequence068(){
+    const slides=[];
+    state.flyers.forEach((flyer,flyerIndex)=>{
+      const images=mainImages068(flyer);
+      images.forEach((image,imageIndex)=>slides.push({flyer,flyerIndex,image,imageIndex}));
+    });
+    return slides;
+  }
+
+  function currentSequenceIndex068(){
+    const seq=sequence068();
+    let found=seq.findIndex(s=>s.flyerIndex===state.index&&s.imageIndex===state.imageIndex);
+    if(found<0)found=seq.findIndex(s=>s.flyerIndex===state.index);
+    return found<0?0:found;
+  }
+
+  function goSequence068(nextIndex,{restart=true}={}){
+    const seq=sequence068();
+    if(!seq.length)return false;
+    const safe=((Number(nextIndex)||0)%seq.length+seq.length)%seq.length;
+    const slide=seq[safe];
+    state.index=slide.flyerIndex;
+    state.imageIndex=slide.imageIndex;
+    draw068();
+    if(restart)startRotation068();
+    return true;
+  }
+
   function current068(){
     if(!state.flyers.length) return null;
     if(state.index < 0 || state.index >= state.flyers.length) state.index = 0;
@@ -8072,18 +8099,20 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       button.addEventListener('click', event => {
         event.preventDefault();
         event.stopPropagation();
-        state.index = Number(button.dataset.p068Index || 0);
-        state.imageIndex = 0;
-        draw068();
-        startRotation068();
+        const targetFlyer = Number(button.dataset.p068Index || 0);
+        const seq = sequence068();
+        const target = seq.findIndex(s=>s.flyerIndex===targetFlyer);
+        goSequence068(target<0?0:target);
       });
     });
 
     shell.querySelectorAll('[data-p127-image-index]').forEach(button=>{
       button.addEventListener('click',event=>{
         event.preventDefault();event.stopPropagation();
-        state.imageIndex=Number(button.dataset.p127ImageIndex||0);
-        draw068();startImageRotation068();
+        const targetImage=Number(button.dataset.p127ImageIndex||0);
+        const seq=sequence068();
+        const target=seq.findIndex(s=>s.flyerIndex===state.index&&s.imageIndex===targetImage);
+        goSequence068(target<0?currentSequenceIndex068():target);
       });
     });
 
@@ -8091,12 +8120,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     let touchStartX=null;
     frame?.addEventListener('touchstart',event=>{touchStartX=event.touches?.[0]?.clientX??null;},{passive:true});
     frame?.addEventListener('touchend',event=>{
-      if(touchStartX==null||images.length<2)return;
+      if(touchStartX==null)return;
       const endX=event.changedTouches?.[0]?.clientX??touchStartX;
       const delta=endX-touchStartX;touchStartX=null;
       if(Math.abs(delta)<35)return;
-      state.imageIndex=(state.imageIndex+(delta<0?1:-1)+images.length)%images.length;
-      draw068();startImageRotation068();
+      const current=currentSequenceIndex068();
+      goSequence068(current+(delta<0?1:-1));
     },{passive:true});
 
     const open = event => {
@@ -8115,45 +8144,31 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     return true;
   }
 
-  function stopImageRotation068(){
-    if(state.imageTimer){clearInterval(state.imageTimer);state.imageTimer=null;}
-  }
-  function startImageRotation068(){
-    stopImageRotation068();
-    const flyer=current068();const images=mainImages068(flyer);
-    if(images.length<2)return;
-    state.imageTimer=setInterval(()=>{
-      if(document.hidden)return;
-      state.imageIndex=(state.imageIndex+1)%images.length;
-      draw068();
-    },4500);
-  }
-
   function stopRotation068(){
     if(state.timer){
       clearInterval(state.timer);
-      state.timer = null;
+      state.timer=null;
     }
   }
 
   function startRotation068(){
     stopRotation068();
-    if(state.flyers.length < 2) return;
+    const seq=sequence068();
+    if(seq.length<2)return;
 
-    state.timer = setInterval(() => {
-      if(document.hidden) return;
-      state.index = (state.index + 1) % state.flyers.length;
-      state.imageIndex = 0;
-      draw068();
-      startImageRotation068();
-    }, 10000);
+    state.timer=setInterval(()=>{
+      if(document.hidden)return;
+      const current=currentSequenceIndex068();
+      goSequence068(current+1,{restart:false});
+    },4800);
   }
+
 
   async function refresh068(force=false){
     await load068(force);
     const shown = draw068();
-    if(shown){ startRotation068(); startImageRotation068(); }
-    else { stopRotation068(); stopImageRotation068(); }
+    if(shown) startRotation068();
+    else stopRotation068();
     return shown;
   }
 
@@ -8163,11 +8178,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   });
 
   document.addEventListener('visibilitychange', () => {
-    if(document.hidden){ stopRotation068(); stopImageRotation068(); }
+    if(document.hidden){ stopRotation068(); }
     else {
       refresh068(false);
       startRotation068();
-      startImageRotation068();
     }
   });
 
@@ -8192,23 +8206,21 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   window.P032MarketFeaturedCrop = {
     refresh:refresh068,
     next(){
-      if(state.flyers.length < 2) return;
-      state.index = (state.index + 1) % state.flyers.length;
-      draw068();
-      startRotation068();
+      const seq=sequence068();
+      if(seq.length<2)return;
+      goSequence068(currentSequenceIndex068()+1);
     },
     previous(){
-      if(state.flyers.length < 2) return;
-      state.index = (state.index - 1 + state.flyers.length) % state.flyers.length;
-      draw068();
-      startRotation068();
+      const seq=sequence068();
+      if(seq.length<2)return;
+      goSequence068(currentSequenceIndex068()-1);
     },
     getState(){
       return {
         count:state.flyers.length,
         index:state.index,
         ids:state.flyers.map(row => row.id),
-        images:state.flyers.map(mainImage068)
+        images:state.flyers.map(row=>mainImages068(row)), sequence:sequence068().map(s=>({flyerId:s.flyer?.id,flyerIndex:s.flyerIndex,imageIndex:s.imageIndex}))
       };
     }
   };
@@ -8564,3 +8576,5 @@ console.info('[DalTownMap] P125 single ticker renderer active');
 console.info('[DalTownMap] P126 single-line weather+traffic+manual-items loaded');
 
 console.info('[DalTownMap] P127 no-legacy-alert + dual market image slider loaded');
+
+console.info('[DalTownMap] P128 unified market+image carousel loaded');
