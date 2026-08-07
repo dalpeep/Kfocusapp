@@ -1,5 +1,16 @@
 // DalTownMap V45.3.0 recommended-business mode fix
 
+
+// === P126: 메인은 한 줄 광고 하나만 사용 ===
+(() => {
+  const style=document.createElement('style');
+  style.id='p126SingleInfoLineStyle';
+  style.textContent=`
+    #v45CommunityTicker{display:none!important}
+  `;
+  (document.head||document.documentElement).appendChild(style);
+})();
+
 // === P125: 한 줄 광고 단일 렌더러 부팅 보호 ===
 (() => {
   if(document.getElementById('p125TickerBootGuard')) return;
@@ -8338,47 +8349,29 @@ async function p123LoadServerCoreItems(){
     const cfg=typeof v61EffectiveHomeConfig==='function'
       ? v61EffectiveHomeConfig(v45HomeConfig||{})
       : (v45HomeConfig||{});
-    const sources=new Set(Array.isArray(cfg.ticker_sources)?cfg.ticker_sources:[]);
-    const rows=[];
 
-    const direct=(cfg.ticker_direct&&typeof cfg.ticker_direct==='object')?cfg.ticker_direct:{};
-    if(direct.enabled===true&&String(direct.text||'').trim()){
-      rows.push({
-        category:'ad',
-        kind:'direct',
-        id:'direct-ticker',
-        title:String(direct.text||'').trim(),
-        summary:String(direct.label||'').trim(),
-        url:String(direct.url||'').trim()
-      });
-    }
+    const today=new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
 
-    if(sources.has('dalpick')&&typeof activeDalpicks==='function'){
-      activeDalpicks()
-        .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
-        .slice(0,6)
-        .forEach(d=>rows.push({
-          category:'ad',
-          kind:'dalpick',
-          id:String(d.id),
-          title:String(d.title||'광고 소식').trim(),
-          summary:String(d.summary||d.description||'').replace(/\s+/g,' ').trim(),
-          data:d
-        }));
-    }
-
-    if(sources.has('coupon')&&typeof todayCoupons==='function'){
-      todayCoupons().slice(0,6).forEach(c=>rows.push({
-        category:'ad',
-        kind:'coupon',
-        id:String(c.id),
-        title:String(c.title||c.name||'쿠폰 소식').trim(),
-        summary:String(c.discount_label||c.description||'').replace(/\s+/g,' ').trim(),
-        data:c
-      }));
-    }
-
-    return rows;
+    const items=Array.isArray(cfg.ticker_manual_items)?cfg.ticker_manual_items:[];
+    return items
+      .filter(item=>item && item.enabled!==false)
+      .filter(item=>!item.start_date || String(item.start_date).slice(0,10)<=today)
+      .filter(item=>!item.end_date || String(item.end_date).slice(0,10)>=today)
+      .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0))
+      .map((item,index)=>({
+        category:'manual',
+        kind:'manual',
+        id:String(item.id||`manual-${index}`),
+        title:String(item.title||item.text||'').trim(),
+        summary:String(item.label||item.type_label||'').trim(),
+        url:String(item.url||'').trim(),
+        link_type:String(item.link_type||'url').trim(),
+        link_value:String(item.link_value||item.url||'').trim(),
+        data:item
+      }))
+      .filter(item=>item.title);
   }
 
   function normalizeRows(){
@@ -8423,7 +8416,7 @@ async function p123LoadServerCoreItems(){
     if(p122Index>=p122Rows.length) p122Index=0;
     const row=p122Rows[p122Index];
     const key=String(row.category||'').toLowerCase();
-    const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':String(row.badge||'광고');
+    const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':'광고';
 
     section.hidden=false;
     box.classList.remove('p124-ready');
@@ -8440,27 +8433,22 @@ async function p123LoadServerCoreItems(){
     `;
 
     box.querySelector('.p122-item')?.addEventListener('click',()=>{
-      if(String(row.category||'')!=='ad'){
+      const category=String(row.category||'');
+      if(category==='weather'||category==='traffic'){
         if(typeof v51OpenItem==='function') v51OpenItem(row);
         return;
       }
-      if(row.kind==='direct'){
-        if(row.url) window.open(row.url,'_blank','noopener');
-        return;
-      }
-      if(row.kind==='coupon'){
-        if(typeof openCouponDetail==='function') openCouponDetail(row.data);
-        return;
-      }
-      if(row.kind==='dalpick'){
-        const d=row.data||{};
-        const bid=d.business_id||d.businessId;
-        if(bid&&typeof openBusinessDetail==='function'){
-          openBusinessDetail(bid);
-          return;
-        }
-        const url=d.link_url||d.url;
-        if(url) window.open(url,'_blank','noopener');
+      if(category==='manual'){
+        const item=row.data||{};
+        const type=String(item.link_type||'url');
+        const value=String(item.link_value||item.url||'').trim();
+        if(!value) return;
+        if(type==='business' && typeof openBusinessDetail==='function'){openBusinessDetail(value);return;}
+        if(type==='board' && typeof openBoardPost==='function'){openBoardPost(value);return;}
+        if(type==='coupon' && typeof renderCouponDetail==='function'){renderCouponDetail(value);lastBasePage=currentPage;showPage('coupon-detail');return;}
+        if(type==='guide'){showPage('guide');return;}
+        if(type==='internal'){const page=value.replace(/^#/,'');if(page)showPage(page);return;}
+        window.open(value,'_blank','noopener');
       }
     });
 
@@ -8536,3 +8524,5 @@ console.info('[DalTownMap] P123 server daily-core + stable ticker loaded');
 console.info('[DalTownMap] P124 title-only ticker + no legacy flash loaded');
 
 console.info('[DalTownMap] P125 single ticker renderer active');
+
+console.info('[DalTownMap] P126 single-line weather+traffic+manual-items loaded');
