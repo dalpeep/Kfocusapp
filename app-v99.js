@@ -8187,6 +8187,19 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[m]));
 
+  // P124: 새 UI가 준비되기 전에는 기존 ticker 내용을 잠시 숨겨서
+  // 새로고침 때 옛 UI가 먼저 보이는 flash를 막습니다.
+  (() => {
+    if(document.getElementById('p124TickerPrehideStyle')) return;
+    const style=document.createElement('style');
+    style.id='p124TickerPrehideStyle';
+    style.textContent=`
+      #homeAdTickerList{visibility:hidden!important}
+      #homeAdTickerList.p124-ready{visibility:visible!important}
+    `;
+    document.head.appendChild(style);
+  })();
+
   function ensureStyle(){
     if(document.getElementById('p030cTickerStyle'))return;
     const style=document.createElement('style');
@@ -8518,33 +8531,19 @@ async function p123LoadServerCoreItems(){
         cursor:pointer!important;
         animation:p122Fade .28s ease!important;
       }
-      #homeAdTickerList .p122-badge{
-        flex:0 0 auto!important;
-        display:inline-flex!important;
-        align-items:center!important;
-        padding:4px 8px!important;
-        border-radius:999px!important;
-        background:#fff2d8!important;
-        color:#9a5b00!important;
-        font-size:11px!important;
-        font-weight:900!important;
+      #homeAdTickerList .p122-badge,
+      #homeAdTickerList .p122-detail{
+        display:none!important;
       }
       #homeAdTickerList .p122-title{
-        flex:0 1 auto!important;
-        min-width:0!important;
-        overflow:hidden!important;
-        text-overflow:ellipsis!important;
-        color:#172b4d!important;
-        font-size:13px!important;
-        font-weight:800!important;
-      }
-      #homeAdTickerList .p122-detail{
         flex:1 1 auto!important;
         min-width:0!important;
         overflow:hidden!important;
         text-overflow:ellipsis!important;
-        color:#64748b!important;
-        font-size:12px!important;
+        white-space:nowrap!important;
+        color:#172b4d!important;
+        font-size:13px!important;
+        font-weight:800!important;
       }
       @keyframes p122Fade{
         from{opacity:.35;transform:translateX(8px)}
@@ -8620,14 +8619,13 @@ async function p123LoadServerCoreItems(){
     const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':String(row.badge||'광고');
 
     section.hidden=false;
+    box.classList.add('p124-ready');
     box.innerHTML=`
       <div class="p122-shell">
         <div class="p122-label"><span>📣</span><b>${LABEL_TEXT}</b></div>
         <div class="p122-view">
-          <button type="button" class="p122-item">
-            <span class="p122-badge">${badge}</span>
+          <button type="button" class="p122-item" aria-label="${esc(String(row.title||''))}">
             <strong class="p122-title">${esc(String(row.title||''))}</strong>
-            ${row.summary?`<span class="p122-detail">${esc(String(row.summary))}</span>`:''}
           </button>
         </div>
       </div>
@@ -8705,3 +8703,5 @@ console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
 console.info('[DalTownMap] P121 traffic-category recovery loaded');
 
 console.info('[DalTownMap] P123 server daily-core + stable ticker loaded');
+
+console.info('[DalTownMap] P124 title-only ticker + no legacy flash loaded');
