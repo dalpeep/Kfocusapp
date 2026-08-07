@@ -7570,662 +7570,414 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
 console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
 
-// === P068: 고정 메인 이미지 전용 마트 카드 ===
+// === P129: 마트 + 메인 이미지 실제 자동 슬라이드 ===
 (() => {
   const state = {
     flyers: [],
-    index: 0,
+    slides: [],
+    slideIndex: 0,
     timer: null,
-    imageIndex: 0,
     loading: null,
     loadedAt: 0
   };
 
-  const esc068 = (value='') => String(value).replace(/[&<>"']/g, char => ({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#39;'
-  }[char]));
+  const esc129=(value='')=>String(value).replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
 
-  function today068(){
-    return new Intl.DateTimeFormat('en-CA', {
+  function today129(){
+    return new Intl.DateTimeFormat('en-CA',{
       timeZone:'America/Chicago',
-      year:'numeric',
-      month:'2-digit',
-      day:'2-digit'
+      year:'numeric',month:'2-digit',day:'2-digit'
     }).format(new Date());
   }
 
-  function mainImages068(flyer){
-    const rows=[flyer?.market_main_image_url,flyer?.market_main_image_url_2]
-      .map(value=>String(value||'').trim())
-      .filter(value=>/^https?:\/\//i.test(value));
-    return [...new Set(rows)];
-  }
-  function mainImage068(flyer){
-    const images=mainImages068(flyer);
-    if(!images.length)return '';
-    if(state.imageIndex>=images.length)state.imageIndex=0;
-    return images[state.imageIndex]||images[0];
+  function imageList129(flyer){
+    return [...new Set([
+      String(flyer?.market_main_image_url||'').trim(),
+      String(flyer?.market_main_image_url_2||'').trim()
+    ].filter(url=>url.toLowerCase().startsWith('http')))];
   }
 
-  function businessId068(flyer){
-    return String(
-      flyer?.featured_business_id ||
-      flyer?.destination_business_id ||
-      flyer?.business_id ||
-      ''
-    ).trim();
+  function businessId129(flyer){
+    return String(flyer?.featured_business_id||flyer?.business_id||'').trim();
   }
 
-  function business068(flyer){
-    const id = businessId068(flyer);
-
-    let linked = null;
+  function business129(flyer){
+    const id=businessId129(flyer);
+    let row=null;
     try{
       if(Array.isArray(businesses)){
-        linked = businesses.find(row => String(row?.id || '') === id) || null;
+        row=businesses.find(x=>String(x?.id||'')===id)||null;
       }
-    }catch{}
-
-    if(!linked && Array.isArray(window.businesses)){
-      linked = window.businesses.find(row => String(row?.id || '') === id) || null;
+    }catch(_){}
+    if(!row&&Array.isArray(window.businesses)){
+      row=window.businesses.find(x=>String(x?.id||'')===id)||null;
     }
-
-    return (
-      linked ||
-      flyer?.featured_business ||
-      flyer?.destination_business ||
-      flyer?.business ||
-      flyer?.businesses ||
-      {}
-    );
+    return row||{};
   }
 
-  function businessName068(flyer){
-    const business = business068(flyer);
-    return String(
-      business?.name_ko ||
-      business?.name ||
-      business?.name_en ||
-      flyer?.business_name_ko ||
-      flyer?.business_name ||
-      '마켓'
-    ).trim();
+  function businessName129(flyer){
+    const row=business129(flyer);
+    return String(row?.name_ko||row?.name||row?.name_en||flyer?.title||'마켓').trim();
   }
 
-  function isValid068(flyer){
-    const image = mainImages068(flyer)[0] || '';
-    const today = today068();
-
-    return String(flyer?.status || '') === 'active'
-      && flyer?.show_on_home !== false
-      && (!flyer?.start_date || String(flyer.start_date).slice(0,10) <= today)
-      && (!flyer?.end_date || String(flyer.end_date).slice(0,10) >= today)
-      && /^https?:\/\//i.test(image);
+  function formatDate129(value){
+    const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m?`${Number(m[2])}/${Number(m[3])}`:'';
   }
 
-  function dedupe068(rows){
-    const seen = new Set();
-    return rows.filter(row => {
-      const key = String(row?.id || '').trim();
-      if(!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+  function period129(flyer){
+    const a=formatDate129(flyer?.start_date), b=formatDate129(flyer?.end_date);
+    return a&&b?`${a} ~ ${b}`:(a?`${a}부터`:(b?`${b}까지`:''));
+  }
+
+  function valid129(flyer){
+    const today=today129();
+    return String(flyer?.status||'')==='active'
+      && flyer?.show_on_home!==false
+      && (!flyer?.start_date||String(flyer.start_date).slice(0,10)<=today)
+      && (!flyer?.end_date||String(flyer.end_date).slice(0,10)>=today)
+      && imageList129(flyer).length>0;
+  }
+
+  function flatten129(flyers){
+    const slides=[];
+    flyers.forEach((flyer,flyerIndex)=>{
+      imageList129(flyer).forEach((image,imageIndex)=>{
+        slides.push({flyer,flyerIndex,image,imageIndex});
+      });
     });
+    return slides;
   }
 
-  async function load068(force=false){
-    if(state.loading) return state.loading;
-    if(!force && state.flyers.length && Date.now() - state.loadedAt < 30000){
-      return state.flyers;
-    }
+  async function load129(force=false){
+    if(state.loading)return state.loading;
+    if(!force&&state.flyers.length&&Date.now()-state.loadedAt<30000)return state.flyers;
 
-    state.loading = (async() => {
-      const cfg = typeof getConfig === 'function'
-        ? getConfig()
-        : (window.KFOCUS_CONFIG || window.APP_CONFIG || {});
+    state.loading=(async()=>{
+      const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+      const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+      if(!base||!key)return state.flyers;
 
-      const base = String(cfg.SUPABASE_URL || '').replace(/\/$/,'');
-      const key = String(cfg.SUPABASE_ANON_KEY || '').trim();
-      const region = typeof getAppRegion === 'function' ? getAppRegion() : 'dallas';
+      const params=new URLSearchParams({
+        select:'id,title,status,show_on_home,start_date,end_date,market_main_image_url,market_main_image_url_2,business_id,featured_business_id,updated_at,region',
+        region:`eq.${region}`,
+        status:'eq.active',
+        show_on_home:'eq.true',
+        order:'updated_at.desc',
+        limit:'50'
+      });
 
-      if(!base || !key){
-        console.warn('[P068] Supabase 설정이 없습니다.');
-        return state.flyers;
-      }
-
-      try{
-        const params = new URLSearchParams({
-          select:'id,title,status,show_on_home,start_date,end_date,market_main_image_url,market_main_image_url_2,business_id,featured_business_id,updated_at,region',
-          region:`eq.${region}`,
-          status:'eq.active',
-          show_on_home:'eq.true',
-          order:'updated_at.desc',
-          limit:'50'
-        });
-
-        const response = await fetch(
-          `${base}/rest/v1/weekly_flyers?${params.toString()}`,
-          {
-            cache:'no-store',
-            headers:{
-              apikey:key,
-              Authorization:`Bearer ${key}`,
-              Accept:'application/json',
-              'Cache-Control':'no-cache'
-            }
-          }
-        );
-
-        const payload = await response.json().catch(() => []);
-        if(!response.ok){
-          throw new Error(`weekly_flyers ${response.status}: ${JSON.stringify(payload)}`);
+      const res=await fetch(`${base}/rest/v1/weekly_flyers?${params.toString()}`,{
+        cache:'no-store',
+        headers:{
+          apikey:key,
+          Authorization:`Bearer ${key}`,
+          Accept:'application/json',
+          'Cache-Control':'no-cache'
         }
+      });
+      const rows=await res.json().catch(()=>[]);
+      if(!res.ok)throw new Error(rows?.message||rows?.error||`weekly_flyers HTTP ${res.status}`);
 
-        const valid = dedupe068(Array.isArray(payload) ? payload : [])
-          .filter(isValid068);
-
-        state.flyers = valid;
-        if(state.index >= valid.length) state.index = 0;
-        state.loadedAt = Date.now();
-
-        console.info('[P068 market flyers]', {
-          returned:Array.isArray(payload) ? payload.length : 0,
-          valid:valid.length,
-          ids:valid.map(row => row.id),
-          images:valid.map(row=>mainImages068(row))
+      const seen=new Set();
+      state.flyers=(Array.isArray(rows)?rows:[])
+        .filter(valid129)
+        .filter(row=>{
+          const id=String(row?.id||'');
+          if(!id||seen.has(id))return false;
+          seen.add(id);return true;
         });
+      state.slides=flatten129(state.flyers);
+      if(state.slideIndex>=state.slides.length)state.slideIndex=0;
+      state.loadedAt=Date.now();
 
-        return state.flyers;
-      }catch(error){
-        console.warn('[P068 market load]', error);
-        return state.flyers;
-      }finally{
-        state.loading = null;
-      }
-    })();
+      console.info('[P129 market carousel data]',{
+        flyers:state.flyers.length,
+        slides:state.slides.length,
+        items:state.flyers.map(f=>({
+          id:f.id,
+          name:businessName129(f),
+          images:imageList129(f)
+        }))
+      });
+      return state.flyers;
+    })().catch(error=>{
+      console.warn('[P129 market carousel load]',error);
+      return state.flyers;
+    }).finally(()=>{state.loading=null;});
 
     return state.loading;
   }
 
-  function installStyle068(){
-    if(document.getElementById('p068FixedMarketStyle')) return;
-
-    const style = document.createElement('style');
-    style.id = 'p068FixedMarketStyle';
-    style.textContent = `
-      #v37RecommendCard.p068-market{
+  function style129(){
+    if(document.getElementById('p129MarketCarouselStyle'))return;
+    const s=document.createElement('style');
+    s.id='p129MarketCarouselStyle';
+    s.textContent=`
+      #v37RecommendCard.p129-market{
         display:block!important;
         padding:0!important;
-        min-height:0!important;
-        height:auto!important;
         overflow:hidden!important;
         border:1px solid #d9e4f5!important;
         border-radius:22px!important;
         background:#fff!important;
         box-shadow:0 8px 24px rgba(30,64,175,.08)!important;
       }
-      #v37RecommendCard.p068-market > .v37-recommend-main,
-      #v37RecommendCard.p068-market > .v37-recommend-dots{
-        display:none!important;
+      #v37RecommendCard.p129-market > .v37-recommend-main,
+      #v37RecommendCard.p129-market > .v37-recommend-dots{display:none!important}
+      #v37RecommendCard .p129-viewport{overflow:hidden!important;width:100%!important}
+      #v37RecommendCard .p129-track{
+        display:flex!important;
+        width:100%!important;
+        transition:transform .52s cubic-bezier(.22,.61,.36,1)!important;
+        will-change:transform!important;
       }
-      #v37RecommendCard .p068-shell{
-        position:relative;
-        overflow:hidden;
-        border-radius:inherit;
-        background:#fff;
-        cursor:pointer;
+      #v37RecommendCard .p129-slide{
+        flex:0 0 100%!important;
+        width:100%!important;
+        min-width:100%!important;
+        background:#fff!important;
       }
-      #v37RecommendCard .p068-storebar{
-        min-height:56px;
-        padding:11px 15px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        color:#fff;
+      #v37RecommendCard .p129-storebar{
+        min-height:56px;padding:11px 15px;display:flex;align-items:center;
+        justify-content:space-between;gap:12px;color:#fff;
         background:linear-gradient(135deg,#0f4bb8,#2563eb);
       }
-      #v37RecommendCard .p068-store-left{
-        min-width:0;
-        display:flex;
-        align-items:center;
-        gap:10px;
+      #v37RecommendCard .p129-storeleft{display:flex;align-items:center;gap:10px;min-width:0}
+      #v37RecommendCard .p129-icon{
+        width:30px;height:30px;display:grid;place-items:center;border-radius:10px;
+        background:rgba(255,255,255,.16);flex:0 0 auto;
       }
-      #v37RecommendCard .p068-store-icon{
-        width:30px;
-        height:30px;
-        flex:0 0 auto;
-        display:grid;
-        place-items:center;
-        border-radius:10px;
-        background:rgba(255,255,255,.16);
+      #v37RecommendCard .p129-name{
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:18px;font-weight:900;
       }
-      #v37RecommendCard .p068-store-name{
-        overflow:hidden;
-        text-overflow:ellipsis;
-        white-space:nowrap;
-        font-size:18px;
-        font-weight:900;
+      #v37RecommendCard .p129-count{
+        flex:0 0 auto;min-width:34px;height:24px;padding:0 8px;display:inline-flex;
+        align-items:center;justify-content:center;border-radius:999px;background:rgba(15,23,42,.36);
+        font-size:11px;font-weight:900;
       }
-      #v37RecommendCard .p068-count{
-        flex:0 0 auto;
-        min-width:34px;
-        height:24px;
-        padding:0 8px;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        border-radius:999px;
-        background:rgba(15,23,42,.36);
-        font-size:11px;
-        font-weight:900;
+      #v37RecommendCard .p129-titlebar{
+        min-height:46px;padding:9px 15px;display:flex;align-items:center;
+        justify-content:space-between;gap:12px;color:#15386d;
+        background:linear-gradient(180deg,#f8fbff,#eaf2ff);border-bottom:1px solid #dbe7f7;
       }
-      #v37RecommendCard .p068-titlebar{
-        min-height:46px;
-        padding:9px 15px;
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        color:#15386d;
-        background:linear-gradient(180deg,#f8fbff,#eaf2ff);
-        border-bottom:1px solid #dbe7f7;
+      #v37RecommendCard .p129-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900}
+      #v37RecommendCard .p129-period{font-size:12px;font-weight:800;color:#64748b;flex:0 0 auto}
+      #v37RecommendCard .p129-imagewrap{
+        position:relative;width:100%;aspect-ratio:20/7;overflow:hidden;background:#eef3fb;
       }
-      #v37RecommendCard .p068-title{
-        min-width:0;
-        display:flex;
-        align-items:center;
-        gap:8px;
-        font-size:17px;
-        font-weight:900;
-        white-space:nowrap;
+      #v37RecommendCard .p129-image{
+        display:block;width:100%;height:100%;object-fit:cover;object-position:center;
       }
-      #v37RecommendCard .p068-period{
-        flex:0 0 auto;
-        color:#64748b;
-        font-size:12px;
-        font-weight:800;
+      #v37RecommendCard .p129-arrow{
+        position:absolute;right:12px;bottom:12px;width:36px;height:36px;display:grid;place-items:center;
+        border:0;border-radius:50%;background:rgba(255,255,255,.94);color:#174fb8;
+        box-shadow:0 5px 16px rgba(15,23,42,.18);font-size:25px;font-weight:900;z-index:3;
       }
-      #v37RecommendCard .p068-image-frame{
-        position:relative;
-        width:100%;
-        aspect-ratio:20 / 7;
-        overflow:hidden;
-        background:#eef3fb;
+      #v37RecommendCard .p129-footer{
+        min-height:23px;display:flex;align-items:center;justify-content:center;gap:5px;background:#fff;
       }
-      #v37RecommendCard .p068-image{
-        display:block;
-        width:100%;
-        height:100%;
-        object-fit:cover;
-        object-position:center;
+      #v37RecommendCard .p129-dot{
+        width:7px;height:7px;padding:0;border:0;border-radius:999px;background:#cbd5e1;
       }
-      #v37RecommendCard .p127-image-track{
-        display:flex;
-        width:100%;
-        height:100%;
-        transition:transform .42s ease;
-        will-change:transform;
-      }
-      #v37RecommendCard .p127-image-slide{
-        flex:0 0 100%;
-        width:100%;
-        height:100%;
-      }
-      #v37RecommendCard .p127-image-slide img{
-        display:block;
-        width:100%;
-        height:100%;
-        object-fit:cover;
-        object-position:center;
-      }
-      #v37RecommendCard .p127-image-dots{
-        position:absolute;
-        left:50%;
-        bottom:9px;
-        transform:translateX(-50%);
-        display:flex;
-        gap:5px;
-        z-index:3;
-      }
-      #v37RecommendCard .p127-image-dot{
-        width:7px;height:7px;padding:0;border:0;border-radius:999px;background:rgba(255,255,255,.7);
-        box-shadow:0 1px 4px rgba(15,23,42,.25);
-      }
-      #v37RecommendCard .p127-image-dot.active{width:20px;background:#2563eb}
-      #v37RecommendCard .p068-arrow{
-        position:absolute;
-        right:12px;
-        bottom:12px;
-        width:36px;
-        height:36px;
-        display:grid;
-        place-items:center;
-        border:0;
-        border-radius:50%;
-        color:#174fb8;
-        background:rgba(255,255,255,.92);
-        box-shadow:0 5px 16px rgba(15,23,42,.18);
-        font-size:25px;
-        font-weight:900;
-      }
-      #v37RecommendCard .p068-dots{
-        min-height:22px;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        gap:5px;
-        background:#fff;
-      }
-      #v37RecommendCard .p068-dot{
-        width:7px;
-        height:7px;
-        padding:0;
-        border:0;
-        border-radius:999px;
-        background:#cbd5e1;
-      }
-      #v37RecommendCard .p068-dot.active{
-        width:20px;
-        background:#2563eb;
-      }
+      #v37RecommendCard .p129-dot.active{width:20px;background:#2563eb}
       @media(max-width:640px){
-        #v37RecommendCard .p068-storebar{
-          min-height:52px;
-          padding:9px 13px;
-        }
-        #v37RecommendCard .p068-titlebar{
-          min-height:43px;
-          padding:8px 13px;
-        }
-        #v37RecommendCard .p068-store-name{
-          font-size:17px;
-        }
-        #v37RecommendCard .p068-title{
-          font-size:16px;
-        }
+        #v37RecommendCard .p129-storebar{min-height:52px;padding:9px 13px}
+        #v37RecommendCard .p129-titlebar{min-height:43px;padding:8px 13px}
+        #v37RecommendCard .p129-name{font-size:17px}
+        #v37RecommendCard .p129-title{font-size:16px}
       }
     `;
-    document.head.appendChild(style);
+    document.head.appendChild(s);
   }
 
-  function formatDate068(value){
-    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return match ? `${Number(match[2])}/${Number(match[3])}` : '';
-  }
-
-  function period068(flyer){
-    const start = formatDate068(flyer?.start_date);
-    const end = formatDate068(flyer?.end_date);
-    if(start && end) return `${start} ~ ${end}`;
-    if(start) return `${start}부터`;
-    if(end) return `${end}까지`;
-    return '';
-  }
-
-  async function openBusiness068(flyer){
-    const id = businessId068(flyer);
-    if(!id) return;
-
-    let found = null;
-    try{
-      if(Array.isArray(businesses)){
-        found = businesses.find(row => String(row?.id || '') === id) || null;
-      }
-    }catch{}
-    if(!found && Array.isArray(window.businesses)){
-      found = window.businesses.find(row => String(row?.id || '') === id) || null;
-    }
-
-    if(found && typeof renderDetail === 'function' && typeof showPage === 'function'){
-      window.selectedBizId = id;
-      try{ selectedBizId = id; }catch{}
-      try{ currentDetailVideoOverride = ''; }catch{}
+  async function openBusiness129(flyer){
+    const id=businessId129(flyer);
+    if(!id)return;
+    if(typeof renderDetail==='function'&&typeof showPage==='function'){
+      window.selectedBizId=id;
+      try{selectedBizId=id}catch(_){}
+      try{currentDetailVideoOverride=''}catch(_){}
       renderDetail(id);
       showPage('business-detail');
     }
   }
 
-  function sequence068(){
-    const slides=[];
-    state.flyers.forEach((flyer,flyerIndex)=>{
-      const images=mainImages068(flyer);
-      images.forEach((image,imageIndex)=>slides.push({flyer,flyerIndex,image,imageIndex}));
+  function update129(animate=true){
+    const card=document.getElementById('v37RecommendCard');
+    if(!card||!state.slides.length)return false;
+    const track=card.querySelector('.p129-track');
+    if(!track)return render129();
+    track.style.transition=animate?'transform .52s cubic-bezier(.22,.61,.36,1)':'none';
+    track.style.transform=`translateX(-${state.slideIndex*100}%)`;
+    card.querySelectorAll('.p129-dot').forEach((dot,index)=>{
+      dot.classList.toggle('active',index===state.slideIndex);
     });
-    return slides;
-  }
-
-  function currentSequenceIndex068(){
-    const seq=sequence068();
-    let found=seq.findIndex(s=>s.flyerIndex===state.index&&s.imageIndex===state.imageIndex);
-    if(found<0)found=seq.findIndex(s=>s.flyerIndex===state.index);
-    return found<0?0:found;
-  }
-
-  function goSequence068(nextIndex,{restart=true}={}){
-    const seq=sequence068();
-    if(!seq.length)return false;
-    const safe=((Number(nextIndex)||0)%seq.length+seq.length)%seq.length;
-    const slide=seq[safe];
-    state.index=slide.flyerIndex;
-    state.imageIndex=slide.imageIndex;
-    draw068();
-    if(restart)startRotation068();
+    console.info('[P129 market carousel step]',{
+      index:state.slideIndex,
+      total:state.slides.length,
+      flyerId:state.slides[state.slideIndex]?.flyer?.id,
+      imageIndex:state.slides[state.slideIndex]?.imageIndex
+    });
     return true;
   }
 
-  function current068(){
-    if(!state.flyers.length) return null;
-    if(state.index < 0 || state.index >= state.flyers.length) state.index = 0;
-    return state.flyers[state.index];
-  }
+  function render129(){
+    style129();
+    const card=document.getElementById('v37RecommendCard');
+    if(!card)return false;
 
-  function draw068(){
-    installStyle068();
-
-    const card = document.getElementById('v37RecommendCard');
-    const flyer = current068();
-
-    if(!card || !flyer){
-      if(card){
-        card.classList.remove('p068-market');
-        card.querySelectorAll('.p068-shell').forEach(node => node.remove());
-        card.hidden = true;
-      }
+    if(!state.slides.length){
+      card.classList.remove('p129-market');
+      card.hidden=true;
       return false;
     }
 
-    const images = mainImages068(flyer);
-    if(state.imageIndex>=images.length)state.imageIndex=0;
-    const image = images[state.imageIndex]||images[0]||'';
-    const name = businessName068(flyer);
-    const period = period068(flyer);
-
-    card.hidden = false;
-    card.classList.add('p068-market');
-    card.querySelectorAll('.p068-shell').forEach(node => node.remove());
-
-    const shell = document.createElement('div');
-    shell.className = 'p068-shell';
-    shell.tabIndex = 0;
-    shell.setAttribute('role','button');
-    shell.setAttribute('aria-label',`${name} 업소 상세 보기`);
-
-    shell.innerHTML = `
-      <div class="p068-storebar">
-        <div class="p068-store-left">
-          <span class="p068-store-icon">🛒</span>
-          <strong class="p068-store-name">${esc068(name)}</strong>
+    card.hidden=false;
+    card.classList.add('p129-market');
+    card.innerHTML=`
+      <div class="p129-viewport">
+        <div class="p129-track" style="transform:translateX(-${state.slideIndex*100}%)">
+          ${state.slides.map((slide,index)=>{
+            const flyer=slide.flyer;
+            const name=businessName129(flyer);
+            const period=period129(flyer);
+            return `
+              <article class="p129-slide" data-p129-slide="${index}">
+                <div class="p129-storebar">
+                  <div class="p129-storeleft">
+                    <span class="p129-icon">🛒</span>
+                    <strong class="p129-name">${esc129(name)}</strong>
+                  </div>
+                  ${state.flyers.length>1?`<span class="p129-count">${slide.flyerIndex+1}/${state.flyers.length}</span>`:''}
+                </div>
+                <div class="p129-titlebar">
+                  <div class="p129-title"><span>📅</span><span>이번 주 마켓 정보</span></div>
+                  ${period?`<span class="p129-period">${esc129(period)}</span>`:''}
+                </div>
+                <div class="p129-imagewrap">
+                  <img class="p129-image" src="${esc129(slide.image)}" alt="${esc129(name)} 상품 이미지 ${slide.imageIndex+1}" loading="${index<2?'eager':'lazy'}" draggable="false">
+                  <button type="button" class="p129-arrow" data-p129-open="${index}" aria-label="${esc129(name)} 업소 상세 보기">›</button>
+                </div>
+              </article>`;
+          }).join('')}
         </div>
-        ${state.flyers.length > 1
-          ? `<span class="p068-count">${state.index + 1}/${state.flyers.length}</span>`
-          : ''}
       </div>
-
-      <div class="p068-titlebar">
-        <div class="p068-title"><span>📅</span><span>이번 주 마켓 정보</span></div>
-        ${period ? `<span class="p068-period">${esc068(period)}</span>` : ''}
-      </div>
-
-      <div class="p068-image-frame">
-        <div class="p127-image-track" style="transform:translateX(-${state.imageIndex*100}%)">
-          ${images.map((src,index)=>`<div class="p127-image-slide"><img src="${esc068(src)}" alt="${esc068(name)} 마켓 이미지 ${index+1}" loading="${index===0?'eager':'lazy'}" draggable="false"></div>`).join('')}
-        </div>
-        ${images.length>1?`<div class="p127-image-dots">${images.map((_,index)=>`<button type="button" class="p127-image-dot ${index===state.imageIndex?'active':''}" data-p127-image-index="${index}" aria-label="${index+1}번째 상품 이미지"></button>`).join('')}</div>`:''}
-        <button class="p068-arrow" type="button" aria-label="업소 상세 보기">›</button>
-      </div>
-
-      ${state.flyers.length > 1 ? `
-        <div class="p068-dots">
-          ${state.flyers.map((_, index) => `
-            <button
-              class="p068-dot ${index === state.index ? 'active' : ''}"
-              type="button"
-              data-p068-index="${index}"
-              aria-label="${index + 1}번째 마트 보기"
-            ></button>
-          `).join('')}
-        </div>
-      ` : ''}
+      ${state.slides.length>1?`
+        <div class="p129-footer">
+          ${state.slides.map((_,i)=>`<button type="button" class="p129-dot ${i===state.slideIndex?'active':''}" data-p129-dot="${i}" aria-label="${i+1}번째 마켓 보기"></button>`).join('')}
+        </div>`:''}
     `;
 
-    card.appendChild(shell);
-
-    shell.querySelectorAll('[data-p068-index]').forEach(button => {
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        const targetFlyer = Number(button.dataset.p068Index || 0);
-        const seq = sequence068();
-        const target = seq.findIndex(s=>s.flyerIndex===targetFlyer);
-        goSequence068(target<0?0:target);
-      });
-    });
-
-    shell.querySelectorAll('[data-p127-image-index]').forEach(button=>{
-      button.addEventListener('click',event=>{
+    card.querySelectorAll('[data-p129-open]').forEach(btn=>{
+      btn.addEventListener('click',event=>{
         event.preventDefault();event.stopPropagation();
-        const targetImage=Number(button.dataset.p127ImageIndex||0);
-        const seq=sequence068();
-        const target=seq.findIndex(s=>s.flyerIndex===state.index&&s.imageIndex===targetImage);
-        goSequence068(target<0?currentSequenceIndex068():target);
+        const slide=state.slides[Number(btn.dataset.p129Open||0)];
+        if(slide)openBusiness129(slide.flyer);
       });
     });
 
-    const frame=shell.querySelector('.p068-image-frame');
-    let touchStartX=null;
-    frame?.addEventListener('touchstart',event=>{touchStartX=event.touches?.[0]?.clientX??null;},{passive:true});
-    frame?.addEventListener('touchend',event=>{
-      if(touchStartX==null)return;
-      const endX=event.changedTouches?.[0]?.clientX??touchStartX;
-      const delta=endX-touchStartX;touchStartX=null;
-      if(Math.abs(delta)<35)return;
-      const current=currentSequenceIndex068();
-      goSequence068(current+(delta<0?1:-1));
-    },{passive:true});
-
-    const open = event => {
-      event?.preventDefault?.();
-      openBusiness068(flyer);
-    };
-
-    shell.addEventListener('click', open);
-    shell.addEventListener('keydown', event => {
-      if(event.key === 'Enter' || event.key === ' '){
-        event.preventDefault();
-        open(event);
-      }
+    card.querySelectorAll('[data-p129-dot]').forEach(btn=>{
+      btn.addEventListener('click',event=>{
+        event.preventDefault();event.stopPropagation();
+        state.slideIndex=Number(btn.dataset.p129Dot||0);
+        update129(true);start129();
+      });
     });
+
+    let touchStart=null;
+    const viewport=card.querySelector('.p129-viewport');
+    viewport?.addEventListener('touchstart',event=>{
+      touchStart=event.touches?.[0]?.clientX??null;
+    },{passive:true});
+    viewport?.addEventListener('touchend',event=>{
+      if(touchStart==null)return;
+      const end=event.changedTouches?.[0]?.clientX??touchStart;
+      const dx=end-touchStart;touchStart=null;
+      if(Math.abs(dx)<35)return;
+      state.slideIndex=(state.slideIndex+(dx<0?1:-1)+state.slides.length)%state.slides.length;
+      update129(true);start129();
+    },{passive:true});
 
     return true;
   }
 
-  function stopRotation068(){
-    if(state.timer){
-      clearInterval(state.timer);
-      state.timer=null;
-    }
+  function stop129(){
+    if(state.timer){clearInterval(state.timer);state.timer=null;}
   }
 
-  function startRotation068(){
-    stopRotation068();
-    const seq=sequence068();
-    if(seq.length<2)return;
-
+  function start129(){
+    stop129();
+    if(state.slides.length<2)return;
     state.timer=setInterval(()=>{
       if(document.hidden)return;
-      const current=currentSequenceIndex068();
-      goSequence068(current+1,{restart:false});
+      state.slideIndex=(state.slideIndex+1)%state.slides.length;
+      update129(true);
     },4800);
   }
 
-
-  async function refresh068(force=false){
-    await load068(force);
-    const shown = draw068();
-    if(shown) startRotation068();
-    else stopRotation068();
-    return shown;
+  async function refresh129(force=false){
+    await load129(force);
+    const ok=render129();
+    if(ok)start129();else stop129();
+    return ok;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => refresh068(true), 500);
-    setTimeout(() => refresh068(true), 1800);
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>refresh129(true),450);
+    setTimeout(()=>refresh129(true),1700);
   });
 
-  document.addEventListener('visibilitychange', () => {
-    if(document.hidden){ stopRotation068(); }
-    else {
-      refresh068(false);
-      startRotation068();
-    }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.hidden)stop129();
+    else start129();
   });
 
-  window.addEventListener('storage', event => {
-    if(event.key === 'daltownmap_content_changed'){
-      refresh068(true);
-    }
+  window.addEventListener('storage',event=>{
+    if(event.key==='daltownmap_content_changed')refresh129(true);
   });
 
   try{
-    const channel = new BroadcastChannel('daltownmap-content');
-    channel.addEventListener('message', event => {
-      if(
-        event?.data?.type === 'weekly_flyer_main_image_changed' ||
-        event?.data?.type === 'weekly_flyer_deleted'
-      ){
-        refresh068(true);
+    const bc=new BroadcastChannel('daltownmap-content');
+    bc.addEventListener('message',event=>{
+      if(['weekly_flyer_main_image_changed','weekly_flyer_deleted'].includes(event?.data?.type)){
+        refresh129(true);
       }
     });
-  }catch{}
+  }catch(_){}
 
-  window.P032MarketFeaturedCrop = {
-    refresh:refresh068,
+  window.P032MarketFeaturedCrop={
+    refresh:refresh129,
     next(){
-      const seq=sequence068();
-      if(seq.length<2)return;
-      goSequence068(currentSequenceIndex068()+1);
+      if(state.slides.length<2)return;
+      state.slideIndex=(state.slideIndex+1)%state.slides.length;
+      update129(true);start129();
     },
     previous(){
-      const seq=sequence068();
-      if(seq.length<2)return;
-      goSequence068(currentSequenceIndex068()-1);
+      if(state.slides.length<2)return;
+      state.slideIndex=(state.slideIndex-1+state.slides.length)%state.slides.length;
+      update129(true);start129();
     },
     getState(){
       return {
-        count:state.flyers.length,
-        index:state.index,
-        ids:state.flyers.map(row => row.id),
-        images:state.flyers.map(row=>mainImages068(row)), sequence:sequence068().map(s=>({flyerId:s.flyer?.id,flyerIndex:s.flyerIndex,imageIndex:s.imageIndex}))
+        flyers:state.flyers.length,
+        slides:state.slides.length,
+        index:state.slideIndex,
+        sequence:state.slides.map(s=>({
+          flyerId:s.flyer?.id,
+          flyerIndex:s.flyerIndex,
+          imageIndex:s.imageIndex,
+          image:s.image
+        }))
       };
     }
   };
 
-  console.info('[DalTownMap] P071 market business-name binding loaded');
+  console.info('[DalTownMap] P129 real market carousel loaded');
 })();
 
 
