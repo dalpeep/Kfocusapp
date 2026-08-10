@@ -1,3 +1,4 @@
+console.info('[DalTownMap] P132 one-line weather/traffic ticker fix loaded');
 console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
 console.log('[DalTownMap] V51.7 main feed sync loaded');
@@ -1490,6 +1491,79 @@ function eventRoutineAlertItems(){
   console.info('[V86 alert] fallback',{custom:fallback.filter(x=>x.kind==='event-alert-fallback').length,business:fallback.filter(x=>x.kind==='event-alert-business').length});
   return fallback;
 }
+
+// P132: P126 한 줄 광고 실제 데이터 구성
+// - 자동: 오늘의 달타운 피드에서 weather / traffic 각각 최신 1개
+// - 수동: 관리자 P126 ticker_manual_items 복수 항목
+// - P126 설정이 존재하면 과거 alert routine 대신 이 목록이 authoritative 합니다.
+function p132TickerDateActive(row={}){
+  const today=todayKey();
+  const start=String(row.start_date||row.start_at||'').slice(0,10);
+  const end=String(row.end_date||row.end_at||'').slice(0,10);
+  if(row.enabled===false||row.is_active===false)return false;
+  if(start&&start>today)return false;
+  if(end&&end<today)return false;
+  return true;
+}
+function p132AutoTickerItems(){
+  const source=Array.isArray(v45ProposalItems)?v45ProposalItems:[];
+  const wanted=['weather','traffic'];
+  const rows=[];
+  wanted.forEach(category=>{
+    const matches=source.filter(item=>v461NormalizeProposalCategory(item?.category)===category);
+    if(!matches.length)return;
+    matches.sort((a,b)=>v51ItemTime(b)-v51ItemTime(a));
+    const item=v537ApplyAutoCardOverrides([matches[0]])[0]||matches[0];
+    const def=v461CategoryDefinition(category)||{};
+    rows.push({
+      kind:`p132-auto-${category}`,
+      id:`p132-auto-${category}`,
+      date:item.updated_at||item.published_at||item.generated_at||item.created_at||'',
+      data:{
+        title:String(item.title||item.source_title||def.title||'').trim(),
+        summary:String(item.summary||item.subtitle||def.summary||'').replace(/\s+/g,' ').trim(),
+        badge:category==='weather'?'날씨':'교통',
+        category,
+        link_type:item.target_type==='business'?'business':(item.url||item.link||item.source_url?'external':'none'),
+        link_value:item.target_type==='business'?String(item.target_id||''):String(item.url||item.link||item.source_url||'')
+      }
+    });
+  });
+  return rows;
+}
+function p132ManualTickerItems(config={}){
+  const rows=Array.isArray(config.ticker_manual_items)?config.ticker_manual_items:[];
+  return rows
+    .filter(p132TickerDateActive)
+    .slice()
+    .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0)||String(b.updated_at||'').localeCompare(String(a.updated_at||'')))
+    .map((row,index)=>{
+      const type=String(row.type||'business').toLowerCase();
+      const badges={business:'광고',event:'행사',notice:'공지',other:'알림'};
+      const linkType=String(row.link_type||'none').toLowerCase();
+      const linkValue=String(row.link_value||row.url||'').trim();
+      return {
+        kind:'p132-manual',
+        id:String(row.id||`p132-manual-${index}`),
+        date:row.updated_at||'',
+        data:{
+          title:String(row.title||'').trim(),
+          summary:'',
+          badge:badges[type]||'광고',
+          category:'manual',
+          link_type:linkType,
+          link_value:linkValue
+        }
+      };
+    })
+    .filter(x=>x.data.title&&!v96IsInvalidTickerContent(x.data.title));
+}
+function p132OneLineTickerItems(config={}){
+  const hasP126=Array.isArray(config.ticker_manual_items);
+  if(!hasP126)return null;
+  return [...p132AutoTickerItems(),...p132ManualTickerItems(config)].slice(0,16);
+}
+
 function eventRoutineOneLineAdItems(){ return []; }
 function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
 function openEventRoutineLink(d){
@@ -1521,7 +1595,8 @@ function renderDalpicks(){
   const couponItems=(tickerSources.has('coupon')&&typeof todayCoupons==='function'?todayCoupons():[])
     .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
 
-  const routineItems=eventRoutineAlertItems();
+  const p132Items=p132OneLineTickerItems(tickerConfig);
+  const routineItems=p132Items===null?eventRoutineAlertItems():p132Items;
 
   // V75: 게시판 공지를 우선 표시하고, 공지가 없을 때만 이벤트 루틴 직접 입력 문구를 표시합니다.
   // 둘 다 없을 때만 달타운 알림 영역을 숨깁니다.
@@ -1559,7 +1634,7 @@ function renderDalpicks(){
   box.querySelectorAll('[data-ticker-kind]').forEach(btn=>btn.addEventListener('click',()=>{
     const item=items.find(x=>x.kind===btn.dataset.tickerKind&&String(x.id)===String(btn.dataset.tickerId));
     const d=item?.data; if(!d) return;
-    if(String(item.kind||'').startsWith('event-')){ openEventRoutineLink(d); return; }
+    if(String(item.kind||'').startsWith('event-')||String(item.kind||'').startsWith('p132-')){ openEventRoutineLink(d); return; }
     if(item.kind==='coupon'){ renderCouponDetail(d.id); lastBasePage=currentPage; showPage('coupon-detail'); return; }
     if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
     else if(isThemeDalpick(d)) openThemeArticle(d);
@@ -3018,6 +3093,8 @@ async function v51RefreshToday(){
     const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
+    v45ProposalItems=rows;
+    if(typeof renderDalpicks==='function')renderDalpicks();
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
@@ -3060,6 +3137,8 @@ async function renderV37AIHome(){
   const authoritativeAdmin=loaded.filter(v51IsAdminSelected);
   loaded=v51MergeTodaySources(prepared,authoritativeAdmin);
   v45ProposalItems=loaded;
+  // P132: 날씨·교통 피드가 준비된 뒤 한 줄 광고를 다시 그려 자동 항목을 즉시 반영합니다.
+  if(typeof renderDalpicks==='function')renderDalpicks();
   v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
