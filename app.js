@@ -1,3 +1,4 @@
+console.info('[DalTownMap] P133 HARD one-line ticker fix loaded');
 console.info('[DalTownMap] P132 one-line weather/traffic ticker fix loaded');
 console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
@@ -1506,7 +1507,10 @@ function p132TickerDateActive(row={}){
   return true;
 }
 function p132AutoTickerItems(){
-  const source=Array.isArray(v45ProposalItems)?v45ProposalItems:[];
+  const source=[
+    ...(Array.isArray(v45ProposalItems)?v45ProposalItems:[]),
+    ...(Array.isArray(v51TodayItems)?v51TodayItems:[])
+  ];
   const wanted=['weather','traffic'];
   const rows=[];
   wanted.forEach(category=>{
@@ -1564,7 +1568,63 @@ function p132OneLineTickerItems(config={}){
   return [...p132AutoTickerItems(),...p132ManualTickerItems(config)].slice(0,16);
 }
 
+
+let p133TickerRefreshBusy=false;
+let p133TickerLastRefresh=0;
+async function p133RefreshOneLineAuto(force=false){
+  const now=Date.now();
+  if(p133TickerRefreshBusy)return false;
+  if(!force && now-p133TickerLastRefresh<30000)return false;
+  p133TickerRefreshBusy=true;
+  try{
+    const region=encodeURIComponent(currentRegion||getAppRegion?.()||'dallas');
+    const res=await fetch(`/.netlify/functions/today-daltown-feed?region=${region}&_p133=${Date.now()}`,{
+      cache:'no-store',
+      headers:{'Cache-Control':'no-cache'}
+    });
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
+    const feed=Array.isArray(json.items)?json.items:[];
+    if(json.config&&typeof json.config==='object'){
+      v45HomeConfig=v61EffectiveHomeConfig(json.config);
+      window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
+    }
+    const prepared=v461PrepareProposalItems(feed,{
+      ...(v45HomeConfig||{}),
+      proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']
+    });
+    const auto=prepared.filter(x=>{
+      const c=v461NormalizeProposalCategory(x?.category||x?.category_key||x?.category_label||'');
+      return c==='weather'||c==='traffic';
+    });
+    // 기존 메인 데이터는 유지하고 날씨·교통만 최신 feed 값으로 교체
+    const nonAuto=(Array.isArray(v45ProposalItems)?v45ProposalItems:[]).filter(x=>{
+      const c=v461NormalizeProposalCategory(x?.category||x?.category_key||x?.category_label||'');
+      return c!=='weather'&&c!=='traffic';
+    });
+    v45ProposalItems=v51MergeTodaySources(auto,nonAuto);
+    p133TickerLastRefresh=Date.now();
+    console.info('[P133 ticker] direct auto feed',{
+      feed:feed.length,
+      auto:auto.map(x=>({category:x.category,title:x.title}))
+    });
+    renderDalpicks();
+    return true;
+  }catch(e){
+    console.warn('[P133 ticker] direct feed failed',e);
+    renderDalpicks();
+    return false;
+  }finally{
+    p133TickerRefreshBusy=false;
+  }
+}
+
 function eventRoutineOneLineAdItems(){ return []; }
+if(!window.__P133_TICKER_INTERVAL__){
+  window.__P133_TICKER_INTERVAL__=setInterval(()=>{
+    if(!document.hidden&&currentPage==='home')p133RefreshOneLineAuto(false);
+  },120000);
+}
 function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
 function openEventRoutineLink(d){
   const type=String(d?.link_type||'none');
@@ -1585,8 +1645,9 @@ function renderDalpicks(){
   if(!box) return;
   if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
 
-  const tickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
-  // 체크된 소스만 노출합니다. 선택이 없을 때 예전 DalPick·쿠폰을 임의로 채우지 않습니다.
+  const effectiveTickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
+  // P133: P126 수동 항목은 원본 home_config에서 읽어 날짜별 스케줄이 덮어쓰지 못하게 합니다.
+  const tickerConfig={...effectiveTickerConfig,...(v45HomeConfig||{})};
   const tickerSources=new Set(Array.isArray(tickerConfig.ticker_sources)?tickerConfig.ticker_sources:[]);
   const dalpickItems=activeDalpicks()
     .filter(()=>tickerSources.has('dalpick'))
@@ -3174,12 +3235,15 @@ if(homeFeaturedList){
     : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 }
 
-const legacyTicker=document.querySelector('.home-ticker-section'); if(legacyTicker) legacyTicker.hidden=true;
+const legacyTicker=document.querySelector('.home-ticker-section');
+if(legacyTicker) legacyTicker.hidden=false; // P133: 한 줄 광고는 홈에서 항상 사용
 if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
   renderV37AIHome().catch(error=>console.error('[V48 Home] render failed',error));
+  // P133: 오늘의 카드 렌더와 별개로 한 줄 광고용 날씨·교통을 직접 다시 확인합니다.
+  setTimeout(()=>p133RefreshOneLineAuto(true),120);
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
