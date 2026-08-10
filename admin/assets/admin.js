@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] P132 one-line weather/traffic save fix loaded');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 const cfg = window.KFOCUS_CONFIG || {};
@@ -8349,8 +8350,9 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         show_ticker_section:true,
         show_community_section:false,
         ticker_manual_items:items,
-        // P126부터 과거 자동 DalPick/쿠폰 및 단일 직접입력은 메인 ticker에서 사용하지 않습니다.
-        ticker_sources:[],
+        // P126: 한 줄 광고는 날씨·교통 자동 + 관리자 다중 입력을 사용합니다.
+        // DalPick/쿠폰은 더 이상 이 ticker 소스로 사용하지 않습니다.
+        ticker_sources:['weather','traffic'],
         ticker_direct:{enabled:false,text:'',label:'',url:'',updated_at:new Date().toISOString()},
         updated_at:new Date().toISOString()
       };
