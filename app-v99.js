@@ -1,44 +1,10 @@
+console.info('[DalTownMap] P133 HARD one-line ticker fix loaded');
+console.info('[DalTownMap] P132 one-line weather/traffic ticker fix loaded');
+console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
-
-// === P127: 구형 달타운 알림 부팅 단계부터 완전 숨김 ===
-(() => {
-  const style=document.createElement('style');
-  style.id='p127LegacyAlertBootGuard';
-  style.textContent=`
-    #dalpickList{display:none!important}
-    .home-ticker-section:has(#dalpickList){display:none!important}
-    #homeAlertSection{display:none!important}
-  `;
-  (document.head||document.documentElement).appendChild(style);
-})();
-
-
-// === P126: 메인은 한 줄 광고 하나만 사용 ===
-(() => {
-  const style=document.createElement('style');
-  style.id='p126SingleInfoLineStyle';
-  style.textContent=`
-    #v45CommunityTicker{display:none!important}
-  `;
-  (document.head||document.documentElement).appendChild(style);
-})();
-
-// === P125: 한 줄 광고 단일 렌더러 부팅 보호 ===
-(() => {
-  if(document.getElementById('p125TickerBootGuard')) return;
-  const style=document.createElement('style');
-  style.id='p125TickerBootGuard';
-  style.textContent=`
-    #homeAdTickerList{visibility:hidden!important}
-    #homeAdTickerList.p125-ready{visibility:visible!important}
-  `;
-  (document.head||document.documentElement).appendChild(style);
-})();
 console.log('[DalTownMap] V51.7 main feed sync loaded');
 console.log('[DalTownMap] v8.4 theme-banner-carousel loaded');
 console.info('[DalTownMap] v8.1 deployment-fixed loaded');
-console.info('[DalTownMap] P008 public alert status board loaded');
-console.info('[DalTownMap] P009 stability and fast refresh loaded');
 
 const FALLBACK_BUSINESSES = [
   { id:'hmart', name:'H Mart Aurora', category:'마트', address:'2751 S Parker Rd, Aurora, CO', phone:'303-745-4592', image:'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80', featured:true, featured_rank:1, is_new:true, new_rank:1, is_popular:true, popular_rank:1, coupon:true, video:true, desc:'콜로라도 대표 마트형 업소 예시입니다.', website:'https://www.hmart.com', email:'info@hmart.com', lat:39.6662, lng:-104.8315, created_at:'2026-03-10', region:'colorado', promo_enabled:true, promo_text:'오늘의 특별 할인!' },
@@ -613,14 +579,6 @@ function openUserLoginModal(){
   }
   modal.classList.remove('hidden');
 }
-
-function getDataClient(){
-  if(window.supabaseClient?.from) return window.supabaseClient;
-  if(authClient?.from) return authClient;
-  const client = typeof getAuthClient === 'function' ? getAuthClient() : null;
-  return client?.from ? client : null;
-}
-
 function getAuthClient(){
   if(authClient) return authClient;
 
@@ -1220,8 +1178,8 @@ async function loadSlidesFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,region,promo_enabled,home_fixed,home_fixed_sort,promo_text,promo_image_url,promo_start_at,promo_end_at,video_url,link_url,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/slides?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=home_fixed_sort.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
     if(!res.ok) throw new Error(`Slides ${res.status}`);
     const rows = await res.json();
     slideRows = Array.isArray(rows) ? rows : [];
@@ -1479,29 +1437,6 @@ function v96IsInvalidTickerContent(value){
 function eventRoutineAlertItems(){
   const active=readActiveEventRoutines()
     .filter(r=>r?.actions?.alert||r?.actions?.ticker||r?.actions?.business);
-  // V117: 관리자 메인 설정의 독립 달타운 알림. 직접 입력을 최우선으로 사용합니다.
-  const direct=(v45HomeConfig&&typeof v45HomeConfig.direct_alert==='object')?v45HomeConfig.direct_alert:{};
-  if(direct.enabled!==false){
-    const title=String(direct.title||'').trim();
-    const message=String(direct.message||'').trim();
-    if(title||message){
-      return [{kind:'event-alert-direct',id:'direct-home-alert',date:direct.updated_at||'',data:{title:title||message,summary:title&&message?message:'',badge:'공지',event_name:String(direct.label||'').trim(),link_type:direct.link_type||'none',link_value:direct.link_value||'',interval_seconds:6}}];
-    }
-    if(direct.use_board_notice!==false){
-      const now=Date.now();
-      const noticeSource=(alertNoticePosts&&alertNoticePosts.length)?alertNoticePosts:(boardPosts||[]);
-      const notices=noticeSource.filter(post=>{
-        if(post?.is_active===false||post?.is_alert_notice!==true)return false;
-        if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
-        if(post.start_at&&Date.parse(post.start_at)>now)return false;
-        if(post.end_at&&Date.parse(post.end_at)<now)return false;
-        return true;
-      }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:6}}));
-      if(notices.length)return notices;
-    }
-    // V118: 알림 사용이 켜져 있지만 직접 문구와 게시판 공지가 모두 비어 있어도 영역이 사라지지 않도록 기본 안내를 표시합니다.
-    return [{kind:'event-alert-direct',id:'direct-home-alert-default',date:direct.updated_at||'',data:{title:'달타운맵 알림',summary:'새로운 지역 소식과 생활 정보를 확인하세요.',badge:'알림',event_name:'',link_type:'none',link_value:'',interval_seconds:6}}];
-  }
   // V94: 루틴 이름이 과거 테스트명이어도 공지/업소 조건 설정은 유지하고, 해당 문구만 제거합니다.
   const dailyBriefing=(v45HomeConfig&&typeof v45HomeConfig.daily_briefing==='object')?v45HomeConfig.daily_briefing:null;
   const briefingValid=dailyBriefing&&dailyBriefing.is_active!==false&&String(dailyBriefing.text||'').trim()&&(!dailyBriefing.date_key||dailyBriefing.date_key===todayKey());
@@ -1557,7 +1492,139 @@ function eventRoutineAlertItems(){
   console.info('[V86 alert] fallback',{custom:fallback.filter(x=>x.kind==='event-alert-fallback').length,business:fallback.filter(x=>x.kind==='event-alert-business').length});
   return fallback;
 }
+
+// P132: P126 한 줄 광고 실제 데이터 구성
+// - 자동: 오늘의 달타운 피드에서 weather / traffic 각각 최신 1개
+// - 수동: 관리자 P126 ticker_manual_items 복수 항목
+// - P126 설정이 존재하면 과거 alert routine 대신 이 목록이 authoritative 합니다.
+function p132TickerDateActive(row={}){
+  const today=todayKey();
+  const start=String(row.start_date||row.start_at||'').slice(0,10);
+  const end=String(row.end_date||row.end_at||'').slice(0,10);
+  if(row.enabled===false||row.is_active===false)return false;
+  if(start&&start>today)return false;
+  if(end&&end<today)return false;
+  return true;
+}
+function p132AutoTickerItems(){
+  const source=[
+    ...(Array.isArray(v45ProposalItems)?v45ProposalItems:[]),
+    ...(Array.isArray(v51TodayItems)?v51TodayItems:[])
+  ];
+  const wanted=['weather','traffic'];
+  const rows=[];
+  wanted.forEach(category=>{
+    const matches=source.filter(item=>v461NormalizeProposalCategory(item?.category)===category);
+    if(!matches.length)return;
+    matches.sort((a,b)=>v51ItemTime(b)-v51ItemTime(a));
+    const item=v537ApplyAutoCardOverrides([matches[0]])[0]||matches[0];
+    const def=v461CategoryDefinition(category)||{};
+    rows.push({
+      kind:`p132-auto-${category}`,
+      id:`p132-auto-${category}`,
+      date:item.updated_at||item.published_at||item.generated_at||item.created_at||'',
+      data:{
+        title:String(item.title||item.source_title||def.title||'').trim(),
+        summary:String(item.summary||item.subtitle||def.summary||'').replace(/\s+/g,' ').trim(),
+        badge:category==='weather'?'날씨':'교통',
+        category,
+        link_type:item.target_type==='business'?'business':(item.url||item.link||item.source_url?'external':'none'),
+        link_value:item.target_type==='business'?String(item.target_id||''):String(item.url||item.link||item.source_url||'')
+      }
+    });
+  });
+  return rows;
+}
+function p132ManualTickerItems(config={}){
+  const rows=Array.isArray(config.ticker_manual_items)?config.ticker_manual_items:[];
+  return rows
+    .filter(p132TickerDateActive)
+    .slice()
+    .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0)||String(b.updated_at||'').localeCompare(String(a.updated_at||'')))
+    .map((row,index)=>{
+      const type=String(row.type||'business').toLowerCase();
+      const badges={business:'광고',event:'행사',notice:'공지',other:'알림'};
+      const linkType=String(row.link_type||'none').toLowerCase();
+      const linkValue=String(row.link_value||row.url||'').trim();
+      return {
+        kind:'p132-manual',
+        id:String(row.id||`p132-manual-${index}`),
+        date:row.updated_at||'',
+        data:{
+          title:String(row.title||'').trim(),
+          summary:'',
+          badge:badges[type]||'광고',
+          category:'manual',
+          link_type:linkType,
+          link_value:linkValue
+        }
+      };
+    })
+    .filter(x=>x.data.title&&!v96IsInvalidTickerContent(x.data.title));
+}
+function p132OneLineTickerItems(config={}){
+  const hasP126=Array.isArray(config.ticker_manual_items);
+  if(!hasP126)return null;
+  return [...p132AutoTickerItems(),...p132ManualTickerItems(config)].slice(0,16);
+}
+
+
+let p133TickerRefreshBusy=false;
+let p133TickerLastRefresh=0;
+async function p133RefreshOneLineAuto(force=false){
+  const now=Date.now();
+  if(p133TickerRefreshBusy)return false;
+  if(!force && now-p133TickerLastRefresh<30000)return false;
+  p133TickerRefreshBusy=true;
+  try{
+    const region=encodeURIComponent(currentRegion||getAppRegion?.()||'dallas');
+    const res=await fetch(`/.netlify/functions/today-daltown-feed?region=${region}&_p133=${Date.now()}`,{
+      cache:'no-store',
+      headers:{'Cache-Control':'no-cache'}
+    });
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
+    const feed=Array.isArray(json.items)?json.items:[];
+    if(json.config&&typeof json.config==='object'){
+      v45HomeConfig=v61EffectiveHomeConfig(json.config);
+      window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
+    }
+    const prepared=v461PrepareProposalItems(feed,{
+      ...(v45HomeConfig||{}),
+      proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']
+    });
+    const auto=prepared.filter(x=>{
+      const c=v461NormalizeProposalCategory(x?.category||x?.category_key||x?.category_label||'');
+      return c==='weather'||c==='traffic';
+    });
+    // 기존 메인 데이터는 유지하고 날씨·교통만 최신 feed 값으로 교체
+    const nonAuto=(Array.isArray(v45ProposalItems)?v45ProposalItems:[]).filter(x=>{
+      const c=v461NormalizeProposalCategory(x?.category||x?.category_key||x?.category_label||'');
+      return c!=='weather'&&c!=='traffic';
+    });
+    v45ProposalItems=v51MergeTodaySources(auto,nonAuto);
+    p133TickerLastRefresh=Date.now();
+    console.info('[P133 ticker] direct auto feed',{
+      feed:feed.length,
+      auto:auto.map(x=>({category:x.category,title:x.title}))
+    });
+    renderDalpicks();
+    return true;
+  }catch(e){
+    console.warn('[P133 ticker] direct feed failed',e);
+    renderDalpicks();
+    return false;
+  }finally{
+    p133TickerRefreshBusy=false;
+  }
+}
+
 function eventRoutineOneLineAdItems(){ return []; }
+if(!window.__P133_TICKER_INTERVAL__){
+  window.__P133_TICKER_INTERVAL__=setInterval(()=>{
+    if(!document.hidden&&currentPage==='home')p133RefreshOneLineAuto(false);
+  },120000);
+}
 function renderEventRoutineOneLineAds(){ /* V66: 한 줄 광고는 달타운 알림에 통합 */ }
 function openEventRoutineLink(d){
   const type=String(d?.link_type||'none');
@@ -1574,11 +1641,69 @@ function openEventRoutineLink(d){
   }
 }
 function renderDalpicks(){
-  // P127: 구형 달타운 알림은 폐기. 메인에는 P126 한 줄 광고만 사용합니다.
   const box=document.getElementById('dalpickList');
-  if(box){ box.innerHTML=''; box.style.display='none'; box.closest('.home-ticker-section')?.setAttribute('hidden',''); }
-  const section=document.getElementById('homeAlertSection'); if(section)section.hidden=true;
-  return false;
+  if(!box) return;
+  if(dalpickCarouselTimer){ clearInterval(dalpickCarouselTimer); dalpickCarouselTimer=null; }
+
+  const effectiveTickerConfig=v61EffectiveHomeConfig(v45HomeConfig||{});
+  // P133: P126 수동 항목은 원본 home_config에서 읽어 날짜별 스케줄이 덮어쓰지 못하게 합니다.
+  const tickerConfig={...effectiveTickerConfig,...(v45HomeConfig||{})};
+  const tickerSources=new Set(Array.isArray(tickerConfig.ticker_sources)?tickerConfig.ticker_sources:[]);
+  const dalpickItems=activeDalpicks()
+    .filter(()=>tickerSources.has('dalpick'))
+    .filter(d=>!isThemeDalpick(d)||d.show_in_dalpick===true)
+    .map(d=>({kind:'dalpick', id:String(d.id), data:d, date:d.created_at||d.start_at||''}));
+  const couponItems=(tickerSources.has('coupon')&&typeof todayCoupons==='function'?todayCoupons():[])
+    .map(c=>({kind:'coupon', id:String(c.id), data:c, date:c.createdAt||c.startAt||''}));
+
+  const p132Items=p132OneLineTickerItems(tickerConfig);
+  const routineItems=p132Items===null?eventRoutineAlertItems():p132Items;
+
+  // V75: 게시판 공지를 우선 표시하고, 공지가 없을 때만 이벤트 루틴 직접 입력 문구를 표시합니다.
+  // 둘 다 없을 때만 달타운 알림 영역을 숨깁니다.
+  const seen=new Set();
+  const items=[...routineItems]
+    .filter(item=>{
+      const d=item.data||{};
+      // V93: 서버/로컬 캐시에 남은 '평일 운영' 계열 문구를 최종 렌더 단계에서도 차단합니다.
+      // V94: 실제 표시 제목이 '평일 운영'일 때만 제외합니다.
+      // 루틴 이름/요약에 과거 이름이 남아 있어도 공지·브리핑·업소 알림까지 함께 삭제하지 않습니다.
+      if(v96IsInvalidTickerContent(d.title)) return false;
+      if(v93IsLegacyWeekdayAlert(d.summary)) d.summary='';
+      if(v93IsLegacyWeekdayAlert(d.event_name)||v96IsInvalidTickerContent(d.event_name)) d.event_name='';
+      const key=`${item.kind}|${String(d.title||'').trim()}|${d.business_id||d.businessId||''}`;
+      if(seen.has(key)) return false;
+      seen.add(key); return true;
+    })
+    .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
+    .slice(0,12);
+
+  if(!items.length){ box.closest('.home-ticker-section')?.setAttribute('hidden',''); box.innerHTML=''; return; }
+  box.closest('.home-ticker-section')?.removeAttribute('hidden');
+
+  const messageHTML=item=>{
+    const d=item.data||{};
+    const b=getBiz(d.business_id||d.businessId)||{};
+    const label=String(d.badge||'').trim() || (item.kind==='coupon'?'쿠폰':(String(d.category||'').toLowerCase()==='business_story'?'업소탐방':'광고'));
+    const title=String(d.title||b.name||'새로운 소식').trim();
+    const detail=String(d.summary||d.discount_label||d.description||b.name||'').replace(/\s+/g,' ').trim();
+    return `<button class="ticker-ad-item" type="button" data-ticker-kind="${esc(item.kind)}" data-ticker-id="${esc(item.id)}"><span class="ticker-ad-badge">${esc(label)}</span><strong>${esc(title)}</strong>${detail?`<span class="ticker-ad-detail">${esc(detail)}</span>`:''}<span class="ticker-ad-arrow" aria-hidden="true">›</span></button>`;
+  };
+  const sequence=items.map(messageHTML).join('<span class="ticker-ad-separator" aria-hidden="true">•</span>');
+  box.innerHTML=`<div class="ticker-ad-shell"><span class="ticker-live-label"><i data-lucide="megaphone"></i><b>달타운 알림</b></span><div class="ticker-ad-viewport"><div class="ticker-ad-track">${sequence}<span class="ticker-ad-separator" aria-hidden="true">•</span>${sequence}</div></div></div>`;
+
+  box.querySelectorAll('[data-ticker-kind]').forEach(btn=>btn.addEventListener('click',()=>{
+    const item=items.find(x=>x.kind===btn.dataset.tickerKind&&String(x.id)===String(btn.dataset.tickerId));
+    const d=item?.data; if(!d) return;
+    if(String(item.kind||'').startsWith('event-')||String(item.kind||'').startsWith('p132-')){ openEventRoutineLink(d); return; }
+    if(item.kind==='coupon'){ renderCouponDetail(d.id); lastBasePage=currentPage; showPage('coupon-detail'); return; }
+    if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
+    else if(isThemeDalpick(d)) openThemeArticle(d);
+    else if(d.business_id){ renderDetail(d.business_id); showPage('business-detail'); }
+    else if(d.content||d.summary) openDalpickArticle(d);
+  }));
+  if(window.lucide) window.lucide.createIcons();
+  renderEventRoutineOneLineAds();
 }
 
 // 관리자와 메인을 같은 브라우저에서 열어 둔 경우 저장 즉시 갱신합니다.
@@ -1593,8 +1718,8 @@ async function loadCouponsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones';
-    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast&_ts=${Date.now()}`;
+    const res = await fetch(url,{ cache:'no-store', headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, 'Cache-Control':'no-cache' } });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
     const rows = await res.json();
     // 쿠폰은 연결 업소가 현재 지역 업소 목록에 없더라도 쿠폰 자체 데이터로 노출합니다.
@@ -1646,12 +1771,14 @@ async function loadBannersFromSupabase(){
 
   try {
     const select = 'id,title,image_url,link_url,business_id,region,sort_order,is_active,created_at';
-    const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc`;
+    const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc&_ts=${Date.now()}`;
 
     const res = await fetch(url, {
+      cache: 'no-store',
       headers: {
         apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        'Cache-Control': 'no-cache'
       }
     });
 
@@ -2526,20 +2653,14 @@ function v45SelectedBusinesses(config={}){
   const randomRows=v45StableShuffle(consumerRows,todayKey());
   const options=v73RoutineRecommendationOptions();
   const groups={recommended:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,address:addressRows,admin:adminRows,random:randomRows};
-  // V116: 관리자가 저장한 기본 기준(추천/신규/인기)을 우선 적용합니다.
-  // 이전에는 활성 이벤트 루틴이나 남아 있던 직접 지정 ID가 항상 우선되어 기준을 바꿔도 목록이 같았습니다.
-  const legacyMode=String(config.business_mode||'featured');
-  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
-  if(Object.prototype.hasOwnProperty.call(legacyGroups,legacyMode)){
-    const selected=legacyGroups[legacyMode]||[];
-    if(selected.length)return selected.slice(0,20);
-  }
-  if(adminRows.length)return adminRows.slice(0,20);
   if(options.length){
     const seen=new Set(),rows=[];
     options.forEach(option=>(groups[option]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
     if(rows.length)return rows.slice(0,20);
   }
+  if(adminRows.length)return adminRows.slice(0,20);
+  const legacyMode=String(config.business_mode||'featured');
+  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
   const rows=legacyGroups[legacyMode]||featuredRows;
   return (rows.length?rows:(featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows)))).slice(0,20);
 }
@@ -2585,7 +2706,7 @@ function v45CommunityRows(config={}){
 function v45PaintCommunity(){
   const el=document.getElementById('v45CommunityTicker');
   if(!el) return;
-  const enabled=(v45HomeConfig?.show_community_section!==false) && (v66RoutineCommunityEnabled() || v45HomeConfig?.show_community_section===true);
+  const enabled=v66RoutineCommunityEnabled();
   if(!enabled){ el.hidden=true; el.innerHTML=''; return; }
   el.hidden=false;
   if(!v45CommunityItems.length){
@@ -2675,24 +2796,8 @@ function v38FallbackPayload(ctx,candidates){
 async function v38GeneratePayload(ctx,candidates){
   const fallback=v38FallbackPayload(ctx,candidates);
   const dayKey=new Date().toISOString().slice(0,10);
-  const contentSignature=candidates.slice(0,8).map(x=>[
-    x.kind,x.id,Math.round(x.score),
-    String(x.title||'').slice(0,80),
-    String(x.summary||'').slice(0,120),
-    String(x.updated_at||x.created_at||'')
-  ].join(':')).join('|');
-  const configSignature=JSON.stringify({
-    show_today_section:v45HomeConfig?.show_today_section,
-    recommendation_mode:v45HomeConfig?.recommendation_mode,
-    selected_business_ids:v45HomeConfig?.selected_business_ids,
-    ticker_direct:v45HomeConfig?.ticker_direct
-  });
-  const fingerprint=dayKey+'|'+contentSignature+'|'+configSignature;
-  try{
-    const cached=JSON.parse(localStorage.getItem('daltownmap_v38_home')||'null');
-    const age=Date.now()-Date.parse(cached?.updatedAt||0);
-    if(cached?.fingerprint===fingerprint&&Number.isFinite(age)&&age<60*1000)return cached.payload;
-  }catch(e){}
+  const fingerprint=dayKey+'|'+candidates.slice(0,5).map(x=>x.kind+':'+x.id+':'+Math.round(x.score)).join('|');
+  try{const cached=JSON.parse(localStorage.getItem('daltownmap_v38_home')||'null');if(cached?.fingerprint===fingerprint)return cached.payload}catch(e){}
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),4500);
   try{
@@ -2929,8 +3034,6 @@ async function v51LoadDirectEditorItems(){
         target_type:linked?targetType:'',target_id:linked?targetId:'',
         link_label:linked?String(meta.home_link_label||'자세히 보기'):'',
         selected_by_admin:true,admin_selected:true,is_manual:true,
-        event_data:meta,
-        expires_at:meta.expires_at||meta.end_at||meta.alert_expires_at||'',
         priority:Number(row.priority_score||999),
         published_at:row.source_published_at||row.collected_at,
         updated_at:row.updated_at||row.collected_at||row.source_published_at,
@@ -2955,137 +3058,6 @@ async function v517LoadNetlifyEditorItems(){
   }
 }
 
-
-// V120: 오늘의 날씨·교통은 newsroom_items의 daily-core 행도 직접 읽습니다.
-// Edge/Netlify home_feed가 한 카테고리를 누락해도 한 줄 광고에서 날씨와 교통이 모두 유지됩니다.
-let v120CoreWeatherTrafficItems = [];
-async function v120LoadCoreWeatherTrafficDirect(){
-  try{
-    const region=String(currentRegion||'dallas').toLowerCase();
-    const today=new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',
-      year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-
-    let rows=[];
-
-    if(typeof supabase!=='undefined' && supabase?.from){
-      const {data,error}=await supabase.from('newsroom_items')
-        .select('id,ai_title,ai_summary,original_title,original_summary,original_url,source_name,duplicate_key,event_data,status,source_published_at,collected_at,created_at,updated_at,region')
-        .eq('region',region)
-        .order('updated_at',{ascending:false})
-        .limit(120);
-      if(error) throw error;
-      rows=Array.isArray(data)?data:[];
-    }else{
-      const cfg=getConfig();
-      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-      if(!base||!key) return v120CoreWeatherTrafficItems;
-
-      const select='id,ai_title,ai_summary,original_title,original_summary,original_url,source_name,duplicate_key,event_data,status,source_published_at,collected_at,created_at,updated_at,region';
-      const params=new URLSearchParams({
-        select,
-        region:`eq.${region}`,
-        order:'updated_at.desc',
-        limit:'120'
-      });
-      const res=await fetch(`${base}/rest/v1/newsroom_items?${params.toString()}`,{
-        cache:'no-store',
-        headers:{
-          apikey:key,
-          Authorization:`Bearer ${key}`,
-          Accept:'application/json',
-          'Cache-Control':'no-cache'
-        }
-      });
-      const data=await res.json().catch(()=>[]);
-      if(!res.ok) throw new Error(data?.message||data?.error||`HTTP ${res.status}`);
-      rows=Array.isArray(data)?data:[];
-    }
-
-    const byCategory=new Map();
-
-    for(const row of rows){
-      let meta={};
-      if(row?.event_data&&typeof row.event_data==='object'){
-        meta=row.event_data;
-      }else if(typeof row?.event_data==='string'&&row.event_data.trim()){
-        try{ meta=JSON.parse(row.event_data); }catch(_){ meta={}; }
-      }
-
-      const duplicateKey=String(row.duplicate_key||'').trim().toLowerCase();
-      const rawCategory=String(meta.category||meta.home_category||'').trim().toLowerCase();
-      const categoryProbe=`${rawCategory} ${duplicateKey} ${row.ai_title||''} ${row.original_title||''} ${row.source_name||''}`.toLowerCase();
-
-      // P121: event_data.category 오타/누락이 있어도 duplicate_key와 출처로 복구합니다.
-      // 예: "trafffic", "traffic_info", 또는 category가 비어 있어도
-      // daily-core-traffic-* / 511DFW / TxDOT이면 traffic으로 처리합니다.
-      let category='';
-      if(
-        /daily-core-weather|\bweather\b|national weather service|\bnws\b|날씨|기상/.test(categoryProbe)
-      ){
-        category='weather';
-      }else if(
-        /daily-core-traffic|tra+f+ic|511dfw|txdot|traffic|교통|도로/.test(categoryProbe)
-      ){
-        category='traffic';
-      }
-
-      if(!['weather','traffic'].includes(category)) continue;
-
-      const dateMatch=
-        duplicateKey.includes(`-${today}`) ||
-        String(row.updated_at||row.collected_at||row.created_at||'').slice(0,10)===today;
-
-      if(!dateMatch) continue;
-      if(String(row.status||'active').toLowerCase()==='inactive') continue;
-
-      if(!byCategory.has(category)){
-        byCategory.set(category,{
-          id:`core-${row.id}-${category}`,
-          source_id:String(row.id),
-          category,
-          category_label:category==='weather'?'날씨':'교통',
-          icon:category==='weather'?'☀️':'🚗',
-          title:String(row.ai_title||row.original_title||(category==='weather'?'오늘의 날씨':'DFW 교통 정보')).trim(),
-          summary:String(row.ai_summary||row.original_summary||meta.summary||'').trim(),
-          subtitle:String(row.ai_summary||row.original_summary||meta.summary||'').trim(),
-          source_name:String(row.source_name||'').trim(),
-          source_url:String(row.original_url||'').trim(),
-          url:String(row.original_url||'').trim(),
-          duplicate_key:duplicateKey,
-          event_data:meta,
-          published_at:row.source_published_at||row.collected_at||row.created_at||row.updated_at,
-          updated_at:row.updated_at||row.collected_at||row.created_at||row.source_published_at,
-          daily_core:true
-        });
-      }
-    }
-
-    v120CoreWeatherTrafficItems=['weather','traffic']
-      .map(key=>byCategory.get(key))
-      .filter(Boolean);
-
-    console.info('[V121 daily core direct]',{
-      date:today,
-      count:v120CoreWeatherTrafficItems.length,
-      categories:v120CoreWeatherTrafficItems.map(x=>x.category),
-      items:v120CoreWeatherTrafficItems.map(x=>({
-        category:x.category,
-        title:x.title,
-        source_id:x.source_id,
-        duplicate_key:x.duplicate_key
-      }))
-    });
-
-    return v120CoreWeatherTrafficItems;
-  }catch(error){
-    console.warn('[V120 daily core direct] failed',error?.message||error);
-    return v120CoreWeatherTrafficItems;
-  }
-}
-
 function v51MergeTodaySources(feedItems=[],directItems=[]){
   const merged=[...(directItems||[]),...(feedItems||[])];
   const seen=new Set();
@@ -3101,78 +3073,8 @@ function v537ApplyAutoCardOverrides(items=[]){
   return (items||[]).map(item=>{const cat=String(item?.category||'').toLowerCase();if(!['weather','traffic'].includes(cat))return item;const o=(overrides[cat]&&typeof overrides[cat]==='object')?overrides[cat]:{};const targetType=String(o.target_type||'').trim();const targetId=String(o.target_id||'').trim();const externalUrl=String(o.external_url||'').trim();const linked=(targetType==='business'&&targetId)||(targetType==='external'&&externalUrl);return {...item,title:String(o.title||'').trim()||item.title,summary:String(o.message||'').trim()||item.summary,subtitle:String(o.message||'').trim()||item.subtitle,admin_message:Boolean(String(o.message||'').trim()),target_type:linked?targetType:(item.target_type||''),target_id:targetType==='business'&&targetId?targetId:(item.target_id||''),url:targetType==='external'&&externalUrl?externalUrl:(item.url||item.link||item.source_url||''),link_label:linked?(String(o.link_label||'자세히 보기').trim()||'자세히 보기'):(item.link_label||'')};});
 }
 
-
-function v51AlertExpiryPolicy(item={}){
-  const meta=(item.event_data&&typeof item.event_data==='object')?item.event_data:{};
-  const explicit=meta.end_at||meta.expires_at||meta.alert_expires_at||item.end_at||item.expires_at||item.alert_expires_at;
-  const explicitTs=Date.parse(explicit||'');
-  if(Number.isFinite(explicitTs)) return {expiresAt:explicitTs,source:'explicit'};
-
-  const base=v51ItemTime(item)||Date.now();
-  const text=`${item.title||''} ${item.summary||''} ${item.subtitle||''} ${item.category||''}`.toLowerCase();
-  let ttl=48*60*60*1000;
-  let kind='general';
-
-  if(/amber alert|active shooter|silver alert|clear alert|blue alert|실종|총격/.test(text)){
-    ttl=24*60*60*1000;kind='critical';
-  }else if(/tornado warning|flash flood warning|evacuation|토네이도 경보|홍수 경보|대피/.test(text)){
-    ttl=6*60*60*1000;kind='warning';
-  }else if(/heat advisory|weather advisory|storm warning|폭염|기상 주의|날씨 경보/.test(text)){
-    ttl=24*60*60*1000;kind='weather';
-  }else if(/road closure|traffic alert|도로 통제|교통 경보|차선 폐쇄/.test(text)){
-    ttl=12*60*60*1000;kind='traffic';
-  }else if(/consulate|영사관|공공기관|시청|county|city of/.test(text)){
-    ttl=7*24*60*60*1000;kind='public';
-  }
-  return {expiresAt:base+ttl,source:'inferred',kind};
-}
-function v51AlertDisplayStatus(item={}){
-  const meta=(item.event_data&&typeof item.event_data==='object')?item.event_data:{};
-  if(meta.auto_expire===false)return {key:'active',label:'진행 중',icon:'🔴',detail:'관리자가 직접 종료할 때까지 표시됩니다.'};
-
-  const policy=v51AlertExpiryPolicy(item);
-  const expiresAt=Date.parse(meta.expires_at||meta.end_at||meta.alert_expires_at||'')||policy.expiresAt;
-  const endedAt=Date.parse(meta.alert_ended_at||'')||(Number.isFinite(expiresAt)?expiresAt:NaN);
-  const removeAt=Date.parse(meta.remove_at||'')||(Number.isFinite(endedAt)?endedAt+12*60*60*1000:NaN);
-  const now=Date.now();
-  const status=String(meta.alert_status||'').toLowerCase();
-
-  if(status==='expired'||meta.home_show===false&&meta.expired_auto===true||Number.isFinite(removeAt)&&now>=removeAt){
-    return {key:'removed',label:'표시 종료',icon:'⚫',expiresAt,endedAt,removeAt,detail:'메인 표시가 종료된 알림입니다.'};
-  }
-  if(status==='ended'||status==='closed'||Number.isFinite(expiresAt)&&now>=expiresAt){
-    return {key:'ended',label:'종료',icon:'⚪',expiresAt,endedAt,removeAt,detail:'종료된 알림이며 잠시 후 메인에서 자동으로 내려갑니다.'};
-  }
-  if(Number.isFinite(expiresAt)){
-    const remain=expiresAt-now;
-    if(remain>0&&remain<=3*60*60*1000){
-      return {key:'ending',label:'종료 예정',icon:'🟠',expiresAt,endedAt,removeAt,detail:`${v51FormatModalDate(expiresAt)} 종료 예정`};
-    }
-  }
-  return {key:'active',label:'진행 중',icon:'🔴',expiresAt,endedAt,removeAt,detail:'현재 유효한 공공 알림입니다.'};
-}
-function v51IsAlertExpired(item={}){
-  return v51AlertDisplayStatus(item).key==='removed';
-}
-function v51EnsureAlertStatusStyle(){
-  if(document.getElementById('v51AlertStatusStyle'))return;
-  const style=document.createElement('style');
-  style.id='v51AlertStatusStyle';
-  style.textContent=`
-    .v51-today-card.v51-alert-status-active{box-shadow:0 12px 30px rgba(220,38,38,.15)}
-    .v51-today-card.v51-alert-status-ending{box-shadow:0 12px 30px rgba(245,158,11,.16)}
-    .v51-today-card.v51-alert-status-ended{filter:saturate(.35);opacity:.9}
-    #v51PublicNoticeModal .v51-alert-status-box{margin-top:12px;padding:11px 13px;border-radius:13px;font-weight:800;font-size:13px}
-    #v51PublicNoticeModal .v51-alert-status-box.active{background:#fee2e2;color:#b91c1c}
-    #v51PublicNoticeModal .v51-alert-status-box.ending{background:#fff7ed;color:#b45309}
-    #v51PublicNoticeModal .v51-alert-status-box.ended{background:#f1f5f9;color:#475569}
-  `;
-  document.head.appendChild(style);
-}
-
 function v51PrepareTodayItems(items=[]){
   const rows=v537ApplyAutoCardOverrides(items||[]).filter(item=>{
-    if(v51IsAlertExpired(item))return false;
     const key=v461NormalizeProposalCategory(item.category);
     return Boolean(item.emergency||item.school||v51IsAdminSelected(item)||key==='weather'||key==='traffic');
   }).slice().sort((a,b)=>v51CategoryRank(a)-v51CategoryRank(b));
@@ -3183,292 +3085,12 @@ function v51PrepareTodayItems(items=[]){
     seen.add(key);return true;
   }).slice(0,12);
 }
-function v51EscapeModalText(value=''){
-  return String(value).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-function v51FormatModalDate(value){
-  if(!value)return '';
-  const d=new Date(value);
-  if(Number.isNaN(d.getTime()))return '';
-  return new Intl.DateTimeFormat('ko-KR',{
-    timeZone:'America/Chicago',year:'numeric',month:'long',day:'numeric',
-    hour:'numeric',minute:'2-digit'
-  }).format(d);
-}
-function v51EnsurePublicNoticeModal(){
-  let modal=document.getElementById('v51PublicNoticeModal');
-  if(modal)return modal;
-  const style=document.createElement('style');
-  style.id='v51PublicNoticeModalStyle';
-  style.textContent=`
-    #v51PublicNoticeModal{position:fixed;inset:0;z-index:99999;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.58);padding:0}
-    #v51PublicNoticeModal.open{display:flex}
-    #v51PublicNoticeModal .v51-notice-sheet{width:min(100%,560px);max-height:88vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;box-shadow:0 -18px 50px rgba(15,23,42,.24);padding:20px 20px calc(24px + env(safe-area-inset-bottom))}
-    #v51PublicNoticeModal .v51-notice-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
-    #v51PublicNoticeModal .v51-notice-badge{display:inline-flex;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800}
-    #v51PublicNoticeModal .v51-notice-sheet.level-critical{border-top:7px solid #dc2626}
-    #v51PublicNoticeModal .v51-notice-sheet.level-warning{border-top:7px solid #f59e0b}
-    #v51PublicNoticeModal .v51-notice-sheet.level-info{border-top:7px solid #2563eb}
-    #v51PublicNoticeModal .v51-notice-sheet.level-life{border-top:7px solid #16a34a}
-    #v51PublicNoticeModal .v51-notice-sheet.level-critical .v51-notice-badge{background:#fee2e2;color:#b91c1c}
-    #v51PublicNoticeModal .v51-notice-sheet.level-warning .v51-notice-badge{background:#fff7ed;color:#b45309}
-    #v51PublicNoticeModal .v51-notice-sheet.level-info .v51-notice-badge{background:#eaf2ff;color:#1d4ed8}
-    #v51PublicNoticeModal .v51-notice-sheet.level-life .v51-notice-badge{background:#ecfdf3;color:#047857}
-    #v51PublicNoticeModal .v51-agency-row{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 12px;border-radius:13px;background:#f8fafc}
-    #v51PublicNoticeModal .v51-agency-icon{width:38px;height:38px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(15,23,42,.08)}
-    #v51PublicNoticeModal .v51-agency-copy b{display:block;color:#0f2b5b}
-    #v51PublicNoticeModal .v51-agency-copy span{display:block;margin-top:2px;color:#64748b;font-size:12px}
-    #v51PublicNoticeModal .v51-related{margin-top:18px;padding-top:16px;border-top:1px solid #e2e8f0}
-    #v51PublicNoticeModal .v51-related h3{margin:0 0 10px;font-size:15px;color:#0f2b5b}
-    #v51PublicNoticeModal .v51-related-list{display:grid;gap:8px}
-    #v51PublicNoticeModal .v51-related-item{width:100%;text-align:left;border:1px solid #dbe6f7;background:#f8fbff;border-radius:12px;padding:11px 12px;cursor:pointer}
-    #v51PublicNoticeModal .v51-related-item b{display:block;color:#163b70;font-size:13px;line-height:1.35}
-    #v51PublicNoticeModal .v51-related-item span{display:block;margin-top:4px;color:#64748b;font-size:11px}
-    #v51PublicNoticeModal .v51-notice-title{margin:10px 0 0;font-size:23px;line-height:1.35;color:#0f2b5b}
-    #v51PublicNoticeModal .v51-notice-close{border:0;background:#eef4ff;width:38px;height:38px;border-radius:12px;font-size:24px;line-height:1;cursor:pointer;color:#375a93}
-    #v51PublicNoticeModal .v51-notice-meta{display:grid;gap:8px;margin-top:16px;padding:13px;border-radius:14px;background:#f8fafc;color:#475569;font-size:13px}
-    #v51PublicNoticeModal .v51-notice-meta-row{display:flex;gap:8px;align-items:flex-start}
-    #v51PublicNoticeModal .v51-notice-meta-row b{min-width:68px;color:#0f2b5b}
-    #v51PublicNoticeModal .v51-notice-body{margin-top:17px;white-space:pre-wrap;line-height:1.72;color:#253858;font-size:15px}
-    #v51PublicNoticeModal .v51-notice-action{margin-top:18px;padding:14px;border-radius:14px;background:#fff7ed;color:#9a3412;line-height:1.6;font-size:14px}
-    #v51PublicNoticeModal .v51-social-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px}
-#v51PublicNoticeModal .v51-social-actions button{min-height:44px;border-radius:12px;border:1px solid #dbe6f7;background:#fff;color:#24456f;font-weight:800;cursor:pointer}
-#v51PublicNoticeModal .v51-social-actions button.active{background:#fff7db;border-color:#f4c95d;color:#8a5a00}
-#v51PublicNoticeModal .v51-social-feedback{min-height:20px;margin-top:8px;text-align:center;color:#56708f;font-size:12px}
-#v51PublicNoticeModal .v51-notice-sheet{transform:translateY(24px);opacity:0;transition:transform .24s ease,opacity .24s ease}
-#v51PublicNoticeModal.open .v51-notice-sheet{transform:translateY(0);opacity:1}
-#v51PublicNoticeModal .v51-notice-buttons{display:flex;gap:9px;margin-top:18px}
-    #v51PublicNoticeModal .v51-notice-buttons button,#v51PublicNoticeModal .v51-notice-buttons a{flex:1;min-height:46px;border-radius:13px;border:0;display:flex;align-items:center;justify-content:center;text-decoration:none;font-weight:800;cursor:pointer}
-    #v51PublicNoticeModal .v51-official-link{background:#2864e8;color:#fff}
-    #v51PublicNoticeModal .v51-share{background:#eef4ff;color:#174ea6}
-    #v51PublicNoticeModal .v51-loading{padding:28px 4px;text-align:center;color:#64748b}
-    @media(min-width:700px){#v51PublicNoticeModal{align-items:center;padding:20px}#v51PublicNoticeModal .v51-notice-sheet{border-radius:24px;max-height:86vh}}
-  `;
-  document.head.appendChild(style);
-  modal=document.createElement('div');
-  modal.id='v51PublicNoticeModal';
-  modal.setAttribute('role','dialog');
-  modal.setAttribute('aria-modal','true');
-  modal.innerHTML=`
-    <div class="v51-notice-sheet">
-      <div id="v51PublicNoticeContent" class="v51-loading">상세 내용을 불러오고 있습니다.</div>
-    </div>`;
-  document.body.appendChild(modal);
-  modal.addEventListener('click',e=>{if(e.target===modal)v51ClosePublicNoticeModal();});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))v51ClosePublicNoticeModal();});
-  return modal;
-}
-function v51ClosePublicNoticeModal(){
-  const modal=document.getElementById('v51PublicNoticeModal');
-  if(modal)modal.classList.remove('open');
-  document.body.style.overflow='';
-}
-async function v51LoadPublicNoticeDetails(item){
-  const sourceId=String(item?.source_id||'').replace(/^direct-/,'').split('-')[0];
-  if(!sourceId||typeof supabase==='undefined'||!supabase?.from)return null;
-  try{
-    const {data,error}=await supabase.from('newsroom_items')
-      .select('id,original_title,original_summary,original_url,source_name,source_published_at,area,ai_title,ai_summary,ai_content,event_data,collected_at,updated_at')
-      .eq('id',sourceId).maybeSingle();
-    if(error)throw error;
-    return data||null;
-  }catch(error){
-    console.warn('[P003 public notice modal] detail lookup failed',error?.message||error);
-    return null;
-  }
-}
-function v51NoticeActionText(detail,item){
-  const meta=(detail?.event_data&&typeof detail.event_data==='object')?detail.event_data:{};
-  const direct=String(meta.instruction||meta.action_text||meta.subtitle||'').trim();
-  if(direct)return direct;
-  const text=`${detail?.ai_title||item?.title||''} ${detail?.ai_summary||detail?.original_summary||item?.summary||''}`.toLowerCase();
-  if(/amber alert|missing|실종/.test(text))return '관련 인물이나 차량을 발견하면 직접 접근하지 말고 즉시 911 또는 안내된 수사기관에 신고하세요.';
-  if(/tornado|storm|flood|폭풍|토네이도|홍수/.test(text))return '해당 지역의 공식 경보를 확인하고, 필요하면 실내의 안전한 장소로 이동하세요.';
-  if(/road|traffic|closure|교통|도로|통제/.test(text))return '출발 전에 실시간 도로 상황과 우회 경로를 확인하세요.';
-  return '';
-}
-
-
-function v51AgencyInfo(source='',title=''){
-  const text=`${source} ${title}`.toLowerCase();
-  if(/consul|consulate|영사관|외교부|korean mission/.test(text)) return {icon:'🇰🇷',name:'대한민국 영사기관'};
-  if(/texas dps|department of public safety|amber alert|silver alert|clear alert|blue alert/.test(text)) return {icon:'🚨',name:'Texas DPS'};
-  if(/police|sheriff|경찰/.test(text)) return {icon:'🚔',name:'경찰·보안기관'};
-  if(/fire department|fire rescue|소방/.test(text)) return {icon:'🚒',name:'소방기관'};
-  if(/national weather service|weather.gov|nws|기상청|기상/.test(text)) return {icon:'🌦️',name:'National Weather Service'};
-  if(/txdot|511dfw|transportation|도로교통/.test(text)) return {icon:'🚧',name:'TxDOT·511DFW'};
-  if(/dart|transit|rail|bus/.test(text)) return {icon:'🚆',name:'DART·대중교통'};
-  if(/school|isd|교육청|학교/.test(text)) return {icon:'🏫',name:'교육기관'};
-  if(/city of|county|시청|카운티/.test(text)) return {icon:'🏛️',name:'시·카운티 기관'};
-  return {icon:'📢',name:source||'공공기관'};
-}
-function v51NoticeLevel(title='',summary='',meta={}){
-  const text=`${title} ${summary} ${meta?.priority_level||''} ${meta?.severity||''}`.toLowerCase();
-  if(/amber alert|active shooter|evacuation|tornado warning|flash flood warning|실종|대피|총격|긴급/.test(text)) return {key:'critical',label:'긴급'};
-  if(/warning|advisory|closure|heat|storm|flood|통제|폭염|주의|경보/.test(text)) return {key:'warning',label:'주의'};
-  if(/event|생활|안내|공지|service|schedule/.test(text)) return {key:'info',label:'안내'};
-  return {key:'life',label:'생활'};
-}
-async function v51LoadRelatedNotices(detail,item,limit=3){
-  if(typeof supabase==='undefined'||!supabase?.from)return [];
-  const sourceId=String(detail?.id||item?.source_id||'');
-  const title=String(detail?.ai_title||detail?.original_title||item?.title||'');
-  const tokens=title.toLowerCase().replace(/[^a-z0-9가-힣 ]/g,' ').split(/\s+/).filter(x=>x.length>=3).slice(0,6);
-  try{
-    const since=new Date(Date.now()-14*86400000).toISOString();
-    const {data,error}=await supabase.from('newsroom_items')
-      .select('id,ai_title,original_title,ai_summary,original_summary,source_name,source_published_at,collected_at,event_data,area')
-      .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
-      .gte('collected_at',since)
-      .order('collected_at',{ascending:false})
-      .limit(80);
-    if(error)throw error;
-    return (data||[])
-      .filter(r=>String(r.id)!==sourceId)
-      .map(r=>{
-        const hay=`${r.ai_title||r.original_title||''} ${r.ai_summary||r.original_summary||''}`.toLowerCase();
-        const score=tokens.reduce((n,t)=>n+(hay.includes(t)?1:0),0);
-        return {r,score};
-      })
-      .filter(x=>x.score>0)
-      .sort((a,b)=>b.score-a.score)
-      .slice(0,limit)
-      .map(x=>x.r);
-  }catch(e){
-    console.warn('[P005 related notices]',e?.message||e);
-    return [];
-  }
-}
-
-function v51NoticeStorageKey(type,id){return `daltownmap:${type}:${String(id||'unknown')}`;}
-function v51GetStoredFlag(type,id){try{return localStorage.getItem(v51NoticeStorageKey(type,id))==='1';}catch{return false;}}
-function v51SetStoredFlag(type,id,value){try{value?localStorage.setItem(v51NoticeStorageKey(type,id),'1'):localStorage.removeItem(v51NoticeStorageKey(type,id));}catch{}}
-
-async function v51OpenPublicNoticeModal(item){
-  const modal=v51EnsurePublicNoticeModal();
-  const content=document.getElementById('v51PublicNoticeContent');
-  modal.classList.add('open');
-  document.body.style.overflow='hidden';
-  content.className='v51-loading';
-  content.textContent='상세 내용을 불러오고 있습니다.';
-  const detail=await v51LoadPublicNoticeDetails(item);
-  const meta=(detail?.event_data&&typeof detail.event_data==='object')?detail.event_data:{};
-  const emergency=Boolean(item?.emergency||item?.school||/amber alert|긴급|경보|실종/i.test(`${item?.title||''} ${detail?.ai_title||''}`));
-  const title=String(detail?.ai_title||detail?.original_title||item?.title||'공공 알림').trim();
-  const summary=String(detail?.ai_content||detail?.ai_summary||detail?.original_summary||item?.summary||item?.subtitle||'상세 내용이 제공되지 않았습니다.').trim();
-  const source=String(detail?.source_name||item?.source_name||'공식 기관').trim();
-  const agency=v51AgencyInfo(source,title);
-  const level=v51NoticeLevel(title,summary,detail?.event_data||item||{});
-  const alertStatus=v51AlertDisplayStatus({...item,...detail,event_data:detail?.event_data||item?.event_data||{}});
-  const related=await v51LoadRelatedNotices(detail,item,3);
-  const area=String(detail?.area||meta.area||'').trim();
-  const published=v51FormatModalDate(detail?.source_published_at||detail?.collected_at||item?.published_at||item?.updated_at);
-  const updated=v51FormatModalDate(detail?.updated_at||item?.updated_at||detail?.collected_at||item?.published_at);
-  const expires=v51FormatModalDate(meta.end_at||meta.expires_at||meta.alert_expires_at);
-  const officialUrl=String(detail?.original_url||item?.url||item?.link||item?.source_url||'').trim();
-  const action=v51NoticeActionText(detail,item);
-  const shareText=`${title}\n${summary.slice(0,180)}\nDalTownMap`;
-  content.className='';
-  const sheet=modal.querySelector('.v51-notice-sheet');
-  if(sheet){
-    sheet.classList.remove('level-critical','level-warning','level-info','level-life');
-    sheet.classList.add(`level-${level.key}`);
-  }
-  content.innerHTML=`
-    <div class="v51-notice-head">
-      <div>
-        <span class="v51-notice-badge">${v51EscapeModalText(`${agency.icon} ${level.label} · ${agency.name}`)}</span>
-        <h2 class="v51-notice-title">${v51EscapeModalText(title)}</h2>
-      </div>
-      <button type="button" class="v51-notice-close" aria-label="닫기">×</button>
-    </div>
-    <div class="v51-alert-status-box ${v51EscapeModalText(alertStatus.key)}">
-      ${v51EscapeModalText(`${alertStatus.icon} ${alertStatus.label}`)}
-      ${alertStatus.detail?`<br><span style="font-weight:500">${v51EscapeModalText(alertStatus.detail)}</span>`:''}
-    </div>
-    <div class="v51-agency-row">
-      <div class="v51-agency-icon">${v51EscapeModalText(agency.icon)}</div>
-      <div class="v51-agency-copy">
-        <b>${v51EscapeModalText(agency.name)}</b>
-        <span>${v51EscapeModalText(source)}</span>
-      </div>
-    </div>
-    <div class="v51-notice-meta">
-      ${area?`<div class="v51-notice-meta-row"><b>지역</b><span>${v51EscapeModalText(area)}</span></div>`:''}
-      ${published?`<div class="v51-notice-meta-row"><b>발표·수집</b><span>${v51EscapeModalText(published)}</span></div>`:''}
-      ${updated?`<div class="v51-notice-meta-row"><b>마지막 업데이트</b><span>${v51EscapeModalText(updated)}</span></div>`:''}
-      ${expires?`<div class="v51-notice-meta-row"><b>종료 예정</b><span>${v51EscapeModalText(expires)}</span></div>`:''}
-      <div class="v51-notice-meta-row"><b>출처</b><span>${v51EscapeModalText(source)}</span></div>
-    </div>
-    <div class="v51-notice-body">${v51EscapeModalText(summary)}</div>
-    ${action?`<div class="v51-notice-action"><b>확인 사항</b><br>${v51EscapeModalText(action)}</div>`:''}
-    ${related.length?`<div class="v51-related">
-      <h3>관련 공공 알림</h3>
-      <div class="v51-related-list">
-        ${related.map(r=>`<button type="button" class="v51-related-item" data-related-id="${v51EscapeModalText(r.id)}">
-          <b>${v51EscapeModalText(r.ai_title||r.original_title||'관련 알림')}</b>
-          <span>${v51EscapeModalText(r.source_name||'공공기관')} · ${v51EscapeModalText(v51FormatModalDate(r.source_published_at||r.collected_at))}</span>
-        </button>`).join('')}
-      </div>
-    </div>`:''}
-    <div class="v51-social-actions">
-      <button type="button" class="v51-helpful">👍 도움이 되었어요</button>
-      <button type="button" class="v51-share">📤 공유하기</button>
-      <button type="button" class="v51-save">⭐ 저장</button>
-    </div>
-    <div class="v51-social-feedback" aria-live="polite"></div>
-    <div class="v51-notice-buttons">
-      ${/^https?:\/\//i.test(officialUrl)?`<a class="v51-official-link" href="${v51EscapeModalText(officialUrl)}" target="_blank" rel="noopener noreferrer">공식 원문 보기</a>`:''}
-    </div>`;
-  content.querySelectorAll('.v51-related-item').forEach(btn=>btn.addEventListener('click',async()=>{
-    const id=btn.getAttribute('data-related-id');
-    if(!id)return;
-    try{
-      const {data,error}=await supabase.from('newsroom_items')
-        .select('id,original_title,original_summary,original_url,source_name,source_published_at,area,ai_title,ai_summary,ai_content,event_data,collected_at,updated_at')
-        .eq('id',id).maybeSingle();
-      if(error)throw error;
-      if(data)await v51OpenPublicNoticeModal({source_id:String(data.id),title:data.ai_title||data.original_title,summary:data.ai_summary||data.original_summary});
-    }catch(e){console.warn('[P005 related open]',e?.message||e);}
-  }));
-  content.querySelector('.v51-notice-close')?.addEventListener('click',v51ClosePublicNoticeModal);
-  const noticeId=String(detail?.id||item?.source_id||item?.id||title);
-  const feedback=content.querySelector('.v51-social-feedback');
-  const helpfulBtn=content.querySelector('.v51-helpful');
-  const saveBtn=content.querySelector('.v51-save');
-  const helpfulActive=v51GetStoredFlag('helpful',noticeId);
-  const savedActive=v51GetStoredFlag('saved-notice',noticeId);
-  helpfulBtn?.classList.toggle('active',helpfulActive);
-  saveBtn?.classList.toggle('active',savedActive);
-  if(helpfulBtn)helpfulBtn.textContent=helpfulActive?'👍 도움 표시됨':'👍 도움이 되었어요';
-  if(saveBtn)saveBtn.textContent=savedActive?'★ 저장됨':'⭐ 저장';
-  helpfulBtn?.addEventListener('click',()=>{
-    const next=!v51GetStoredFlag('helpful',noticeId);
-    v51SetStoredFlag('helpful',noticeId,next);
-    helpfulBtn.classList.toggle('active',next);
-    helpfulBtn.textContent=next?'👍 도움 표시됨':'👍 도움이 되었어요';
-    if(feedback)feedback.textContent=next?'감사합니다. 더 좋은 정보를 제공하는 데 반영하겠습니다.':'도움 표시를 취소했습니다.';
-  });
-  saveBtn?.addEventListener('click',()=>{
-    const next=!v51GetStoredFlag('saved-notice',noticeId);
-    v51SetStoredFlag('saved-notice',noticeId,next);
-    saveBtn.classList.toggle('active',next);
-    saveBtn.textContent=next?'★ 저장됨':'⭐ 저장';
-    if(feedback)feedback.textContent=next?'이 기기에 공지를 저장했습니다.':'저장을 해제했습니다.';
-  });
-  content.querySelector('.v51-share')?.addEventListener('click',async()=>{
-    try{
-      if(navigator.share)await navigator.share({title,text:shareText,url:location.href});
-      else{await navigator.clipboard.writeText(shareText);if(feedback)feedback.textContent='알림 내용이 복사되었습니다.';}
-    }catch(e){if(e?.name!=='AbortError')console.warn(e);}
-  });
-}
 function v51OpenItem(item){
   if(!item)return;
   if(item.target_type==='post'&&item.target_id){openBoardPost(item.target_id);return;}
   if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;renderDetail(item.target_id);showPage('business-detail');return;}
-  // 긴급·공공 알림과 링크 없는 오늘의 달타운 카드는 앱 내부 모달로 표시합니다.
-  v51OpenPublicNoticeModal(item);
+  const url=item.url||item.link||item.source_url;
+  if(url)window.open(url,'_blank','noopener,noreferrer');
 }
 function v51PaintToday(){
   const item=v51TodayItems[v51TodayIndex];
@@ -3490,44 +3112,21 @@ function v51PaintToday(){
     if(main){main.disabled=true;main.classList.remove('has-link');}
     return;
   }
-  v51EnsureAlertStatusStyle();
   const key=(item.emergency||item.school)?'emergency':v461NormalizeProposalCategory(item.category);
   const def=v461CategoryDefinition(key);
   const admin=v51IsAdminSelected(item)&&key!=='emergency';
-  const alertStatus=v51AlertDisplayStatus(item);
-  ['active','ending','ended','removed'].forEach(s=>card.classList.remove(`v51-alert-status-${s}`));
-  if(key==='emergency'||key==='weather'||key==='traffic'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`)){
-    card.classList.add(`v51-alert-status-${alertStatus.key}`);
-  }
   const labels={emergency:'긴급 공지',weather:'오늘의 날씨',traffic:'교통 정보',business:'업소 추천',shopping:'쇼핑 정보',event:'행사 정보',education:'교육 정보',real_estate:'부동산 정보',finance:'금융 정보',seminar:'세미나',faith:'커뮤니티 행사'};
   const icons={emergency:'🚨',weather:'☀️',traffic:'🚗',business:'🏪',shopping:'🛒',event:'🎉',education:'🎓',real_estate:'🏠',finance:'🏦',seminar:'📋',faith:'⛪'};
   card.classList.add(`v51-kind-${key||'default'}`);
   if(admin)card.classList.add('v51-admin-selected');
-  if(category){
-    const isPublicAlert=key==='emergency'||key==='weather'||key==='traffic'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`);
-    const statusPrefix=isPublicAlert?`${alertStatus.icon} ${alertStatus.label} · `:'';
-    category.textContent=`${statusPrefix}${admin?'⭐ ':icons[key]||item.icon||'✨ '}${admin?'관리자 추천':(labels[key]||item.category_label||'오늘의 정보')}`;
-  }
+  if(category)category.textContent=`${admin?'⭐ ':icons[key]||item.icon||'✨ '}${admin?'관리자 추천':(labels[key]||item.category_label||'오늘의 정보')}`;
   title.textContent=String(item.title||item.source_title||def?.title||'오늘의 생활 정보').replace(/\s+/g,' ').trim();
   summary.textContent=String(item.subtitle||item.summary||item.original_title||def?.summary||'자세한 내용을 확인해 보세요.').replace(/\s+/g,' ').trim();
   const ts=v51ItemTime(item);
-  if(time){
-    const isPublicAlert=key==='emergency'||key==='weather'||key==='traffic'||/alert|warning|공지|경보|통제/i.test(`${item.title||''} ${item.summary||''}`);
-    if(isPublicAlert&&alertStatus.key==='ending'&&alertStatus.expiresAt){
-      time.textContent=`${v51FormatModalDate(alertStatus.expiresAt)} 종료 예정`;
-    }else if(isPublicAlert&&alertStatus.key==='ended'){
-      time.textContent='종료됨 · 잠시 후 자동 제거';
-    }else if(isPublicAlert&&alertStatus.key==='active'){
-      time.textContent=`${v51RelativeLabel(ts)} · 상태 확인 중`;
-    }else{
-      time.textContent=v51RelativeLabel(ts);
-    }
-    time.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));
-  }
+  if(time){time.textContent=v51RelativeLabel(ts);time.classList.toggle('stale',Boolean(ts&&Date.now()-ts>60*60000));}
   const hasLink=Boolean((item.target_id&&item.target_type)||(item.url||item.link||item.source_url));
-  const hasDetails=Boolean(item);
-  if(link)link.textContent=hasLink?(item.link_label||'자세히 보기 →'):'자세히 보기 →';
-  if(main){main.disabled=!hasDetails;main.classList.toggle('has-link',hasDetails);main.onclick=hasDetails?()=>v51OpenItem(item):null;}
+  if(link)link.textContent=hasLink?(item.link_label||'자세히 보기 →'):'';
+  if(main){main.disabled=false;main.classList.toggle('has-link',hasLink);main.onclick=hasLink?()=>v51OpenItem(item):null;}
   if(dots)dots.innerHTML=v51TodayItems.length>1?v51TodayItems.map((_,i)=>`<span class="${i===v51TodayIndex?'active':''}"></span>`).join(''):'';
 }
 function v51StartTodayTimer(delay=5000){
@@ -3545,17 +3144,18 @@ async function v51RefreshToday(){
   const btn=document.getElementById('v51TodayRefresh');
   if(btn){btn.disabled=true;btn.classList.add('is-loading');}
   try{
-    const settled=await Promise.allSettled([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems(),v120LoadCoreWeatherTrafficDirect()]);
+    const settled=await Promise.allSettled([loadMainSettings(true),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
     const mainData=settled[0].status==='fulfilled'?settled[0].value:{items:[],config:v45HomeConfig||{},meta:{partial:true}};
     const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
-    const coreWeatherTrafficItems=settled[3].status==='fulfilled'?settled[3].value:[];
-    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V120 Today] partial source failed',i,r.reason);});
+    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Today] partial source failed',i,r.reason);});
     v45HomeConfig=v61EffectiveHomeConfig(mainData.config||v45HomeConfig||{});
     if(typeof renderDalpicks==='function')renderDalpicks();
-    const combined=v51MergeTodaySources(mainData.items||[],[...coreWeatherTrafficItems,...netlifyEditorItems,...directEditorItems]);
+    const combined=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
+    v45ProposalItems=rows;
+    if(typeof renderDalpicks==='function')renderDalpicks();
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
@@ -3571,32 +3171,7 @@ function v51InitToday(){
   }
   if(v51RelativeTimer)clearInterval(v51RelativeTimer);
   v51RelativeTimer=setInterval(v51PaintToday,30000);
-  if(v51AutoRefreshTimer)clearInterval(v51AutoRefreshTimer);
-  v51AutoRefreshTimer=setInterval(()=>{
-    if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();
-  },60*1000);
-}
-
-function v119RenderOneLineAds(){
-  // P125: legacy ticker renderer disabled.
-  // P122/P125 is the only renderer for #homeAdTickerList.
-  return false;
-} 
-
-function v116ApplyHomeSectionVisibility(config={}){
-  const showToday=config.show_today_section!==false;
-  const showRecommend=config.show_recommend_section!==false;
-  const showCommunity=config.show_community_section!==false;
-  const showAlert=config.show_alert_section!==false;
-  const showTicker=config.show_ticker_section!==false;
-  const brief=document.getElementById('v37BriefCard'); if(brief)brief.hidden=!showToday;
-  const recommend=document.getElementById('v37RecommendCard'); if(recommend)recommend.hidden=!showRecommend;
-  const community=document.getElementById('v45CommunityTicker');
-  if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
-  const alertSection=document.getElementById('homeAlertSection')||document.querySelector('.home-ticker-section');
-  if(alertSection&&!showAlert)alertSection.hidden=true;
-  const tickerSection=document.getElementById('homeAdTickerSection');
-  if(tickerSection&&!showTicker)tickerSection.hidden=true;
+  if(!v51AutoRefreshTimer)v51AutoRefreshTimer=setInterval(()=>{if(!document.hidden&&document.getElementById('v37BriefCard'))v51RefreshToday();},5*60*1000);
 }
 
 async function renderV37AIHome(){
@@ -3605,13 +3180,12 @@ async function renderV37AIHome(){
   dateNode.textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'short'}).format(new Date());
   let loaded=[];let feedMeta={};
   try{
-    const settled=await Promise.allSettled([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems(),v120LoadCoreWeatherTrafficDirect()]);
+    const settled=await Promise.allSettled([loadMainSettings(),v517LoadNetlifyEditorItems(),v51LoadDirectEditorItems()]);
     const mainData=settled[0].status==='fulfilled'?settled[0].value:{items:[],config:{},meta:{partial:true}};
     const netlifyEditorItems=settled[1].status==='fulfilled'?settled[1].value:[];
     const directEditorItems=settled[2].status==='fulfilled'?settled[2].value:[];
-    const coreWeatherTrafficItems=settled[3].status==='fulfilled'?settled[3].value:[];
-    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V120 Home] partial source failed',i,r.reason);});
-    loaded=v51MergeTodaySources(mainData.items||[],[...coreWeatherTrafficItems,...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
+    settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V52.1 Home] partial source failed',i,r.reason);});
+    loaded=v51MergeTodaySources(mainData.items||[],[...netlifyEditorItems,...directEditorItems]);feedMeta=mainData.meta||{};v45HomeConfig=v61EffectiveHomeConfig(mainData.config||{});
     window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
     document.documentElement.dataset.eventRoutineCount=String(readActiveEventRoutines().length);
     console.info('[V83 routines] active',readActiveEventRoutines().map(r=>({id:r.id,name:r.name,actions:Object.keys(r.actions||{})})));
@@ -3624,6 +3198,8 @@ async function renderV37AIHome(){
   const authoritativeAdmin=loaded.filter(v51IsAdminSelected);
   loaded=v51MergeTodaySources(prepared,authoritativeAdmin);
   v45ProposalItems=loaded;
+  // P132: 날씨·교통 피드가 준비된 뒤 한 줄 광고를 다시 그려 자동 항목을 즉시 반영합니다.
+  if(typeof renderDalpicks==='function')renderDalpicks();
   v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
@@ -3631,9 +3207,6 @@ async function renderV37AIHome(){
   const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v83RecommendationLabel(v45HomeConfig);label.textContent=m;label.hidden=!m;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
   v45SetupCommunity(v45HomeConfig);
-  renderDalpicks();
-  v119RenderOneLineAds();
-  v116ApplyHomeSectionVisibility(v45HomeConfig);
   if(window.lucide)window.lucide.createIcons();
 }
 function initV37AIHomeEvents(){
@@ -3662,12 +3235,15 @@ if(homeFeaturedList){
     : '<div class="board-empty">등록된 추천 업소가 없습니다.</div>';
 }
 
-// V116: 달타운 알림은 메인 표시 설정과 실제 알림 내용에 따라 renderDalpicks()가 제어합니다.
+const legacyTicker=document.querySelector('.home-ticker-section');
+if(legacyTicker) legacyTicker.hidden=false; // P133: 한 줄 광고는 홈에서 항상 사용
 if (typeof renderTodayCoupons === 'function') { renderTodayCoupons(); }
 if (typeof renderHomeBusinessTabs === 'function') {
   renderHomeBusinessTabs();
 }
   renderV37AIHome().catch(error=>console.error('[V48 Home] render failed',error));
+  // P133: 오늘의 카드 렌더와 별개로 한 줄 광고용 날씨·교통을 직접 다시 확인합니다.
+  setTimeout(()=>p133RefreshOneLineAuto(true),120);
   initV37AIHomeEvents();
   const newList = businesses
     .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
@@ -6372,89 +5948,8 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('focus',()=>refreshBoardPostsSilently());
 setInterval(()=>{
-  if(!document.hidden) refreshBoardPostsSilently({force:true});
-},60*1000);
-
-
-// === P009: 메인 안정화 · 빠른 반영 코디네이터 ===
-let p009RefreshTimer=null;
-let p009RefreshRunning=false;
-let p009RealtimeChannel=null;
-
-function p009ClearDerivedCaches(){
-  try{localStorage.removeItem('daltownmap_v38_home');}catch{}
-}
-
-async function p009RefreshHome(reason='manual'){
-  if(p009RefreshRunning)return;
-  p009RefreshRunning=true;
-  try{
-    p009ClearDerivedCaches();
-    const tasks=[];
-    if(typeof loadMainSettings==='function')tasks.push(loadMainSettings(true));
-    if(typeof refreshBoardPostsSilently==='function')tasks.push(refreshBoardPostsSilently({force:true}));
-    await Promise.allSettled(tasks);
-
-    if(typeof v51RefreshToday==='function')await v51RefreshToday();
-    if(typeof renderHomeBusinessTabs==='function')renderHomeBusinessTabs();
-    if(typeof renderDalpicks==='function')renderDalpicks();
-    if(typeof v119RenderOneLineAds==='function')v119RenderOneLineAds();
-    if(typeof renderHomeBoardSection==='function')renderHomeBoardSection(selectedBoardType||'notice');
-    console.info('[P009 home refresh]',reason,new Date().toISOString());
-  }catch(error){
-    console.warn('[P009 home refresh failed]',reason,error);
-  }finally{
-    p009RefreshRunning=false;
-  }
-}
-
-function p009ScheduleRefresh(reason='change',delay=350){
-  if(p009RefreshTimer)clearTimeout(p009RefreshTimer);
-  p009RefreshTimer=setTimeout(()=>p009RefreshHome(reason),delay);
-}
-
-function p009InitRealtime(){
-  if(p009RealtimeChannel||typeof supabase==='undefined'||!supabase?.channel)return;
-  try{
-    const region=String(typeof getAppRegion==='function'?getAppRegion():(currentRegion||'dallas')).toLowerCase();
-    const channel=supabase.channel(`daltown-home-${region}-${Math.random().toString(36).slice(2,7)}`);
-    const tables=['newsroom_settings','posts','businesses','coupons','banners','dalpicks','ads'];
-    tables.forEach(table=>{
-      channel.on('postgres_changes',
-        {event:'*',schema:'public',table,filter:`region=eq.${region}`},
-        ()=>p009ScheduleRefresh(`realtime:${table}`,450)
-      );
-    });
-    channel.subscribe(status=>{
-      if(status==='SUBSCRIBED')console.info('[P009 realtime] connected',region);
-    });
-    p009RealtimeChannel=channel;
-  }catch(error){
-    console.warn('[P009 realtime unavailable]',error);
-  }
-}
-
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible')p009ScheduleRefresh('visible',150);
-});
-window.addEventListener('focus',()=>p009ScheduleRefresh('focus',150));
-window.addEventListener('online',()=>p009ScheduleRefresh('online',150));
-window.addEventListener('storage',event=>{
-  if(event.key==='daltownmap_content_changed')p009ScheduleRefresh('admin-storage',100);
-});
-try{
-  const bc=new BroadcastChannel('daltownmap-content');
-  bc.addEventListener('message',()=>p009ScheduleRefresh('broadcast',100));
-}catch{}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  setTimeout(()=>{
-    p009InitRealtime();
-    p009ScheduleRefresh('startup',250);
-  },1200);
-});
-
-window.DalTownRefreshHome=()=>p009ScheduleRefresh('external',0);
+  if(!document.hidden) refreshBoardPostsSilently();
+},5*60*1000);
 
 function bindEvents(){
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
@@ -6817,6 +6312,76 @@ async function submitAdRequest(){
   showPage("home");
 }
 
+
+// V100: iPhone 홈 화면 PWA가 오래 열려 있어도 관리자 변경 내용을 다시 읽습니다.
+// 게시글/쿠폰/슬라이드/배너 같은 데이터 변경에는 업데이트 팝업을 띄우지 않습니다.
+let v100PublicRefreshRunning = false;
+let v100LastPublicRefreshAt = 0;
+const V100_PUBLIC_REFRESH_MIN_GAP = 8000;
+
+async function v100RefreshPublicData(reason='manual', force=false){
+  const now = Date.now();
+  if(v100PublicRefreshRunning) return false;
+  if(!force && now - v100LastPublicRefreshAt < V100_PUBLIC_REFRESH_MIN_GAP) return false;
+
+  v100PublicRefreshRunning = true;
+  try{
+    const jobs = [
+      loadCouponsFromSupabase(),
+      loadSlidesFromSupabase(),
+      loadBannersFromSupabase(),
+      loadDalpicksFromSupabase(),
+      loadBoardPostsFromSupabase(),
+      loadAlertNoticePostsFromSupabase()
+    ];
+    if(typeof loadMainSettings === 'function') jobs.push(loadMainSettings(true));
+    await Promise.allSettled(jobs);
+
+    syncBusinessStoriesToBoardPosts();
+    buildHeroSlides();
+
+    if(typeof renderHero === 'function') renderHero();
+    if(typeof bindHeroSwipe === 'function') bindHeroSwipe();
+    if(typeof setSlide === 'function') setSlide(0);
+    if(typeof restartAuto === 'function') restartAuto();
+    if(typeof renderHome === 'function') renderHome();
+    if(typeof renderCoupons === 'function') renderCoupons();
+    if(typeof renderDalpicks === 'function') renderDalpicks();
+    if(typeof renderMainBanners === 'function') renderMainBanners();
+    if(typeof window.loadMainBanners === 'function') window.loadMainBanners();
+    if(typeof v77RefreshRoutineDrivenHome === 'function') v77RefreshRoutineDrivenHome();
+
+    v100LastPublicRefreshAt = Date.now();
+    console.info('[DalTownMap V100] public data refreshed', reason);
+    return true;
+  }catch(error){
+    console.warn('[DalTownMap V100] public refresh failed', reason, error);
+    return false;
+  }finally{
+    v100PublicRefreshRunning = false;
+  }
+}
+window.refreshDalTownPublicData = (force=true)=>v100RefreshPublicData('manual', force);
+
+function v100InstallPublicRefreshHooks(){
+  document.addEventListener('visibilitychange', ()=>{
+    if(document.visibilityState === 'visible') v100RefreshPublicData('visibility');
+  });
+  window.addEventListener('pageshow', event=>{
+    v100RefreshPublicData(event.persisted ? 'pageshow-bfcache' : 'pageshow');
+  });
+  window.addEventListener('focus', ()=>v100RefreshPublicData('focus'));
+
+  document.addEventListener('click', event=>{
+    const homeTarget = event.target.closest('#homeBrand, .nav-item[data-nav="home"]');
+    if(homeTarget) setTimeout(()=>v100RefreshPublicData('home-tap', true), 0);
+  });
+
+  setInterval(()=>{
+    if(!document.hidden && currentPage === 'home') v100RefreshPublicData('home-interval');
+  }, 2 * 60 * 1000);
+}
+
 async function init(){
   await detectInitialRegion();
 
@@ -6833,7 +6398,7 @@ await refreshCurrentUser();
 
 updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
+  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); v100InstallPublicRefreshHooks(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   if(!v87OpenPublicRoute()) showPage(getRoute());
   initRegionPicker();
@@ -7270,1159 +6835,3 @@ function v61EffectiveHomeConfig(config={}){
 console.info('[DalTownMap] V62 section schedules and scenes loaded');
 
 console.info('[DalTownMap] V87 dual URL compatibility loaded');
-
-// === P010-2: AI Smart Flyer 사용자 화면 연동 ===
-(() => {
-  const P='p0102';
-  const el=id=>document.getElementById(id);
-  const escHtml=(v='')=>String(v).replace(/[&<>"']/g,m=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  })[m]);
-
-  let activeFlyers=[];
-  let loadedAt=0;
-  let loadingPromise=null;
-
-  function todayKey(){
-    return new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-  }
-  function validFlyer(f){
-    if(!f||String(f.status||'').toLowerCase()!=='active')return false;
-    const day=todayKey();
-    if(f.start_date&&String(f.start_date)>day)return false;
-    if(f.end_date&&String(f.end_date)<day)return false;
-    return true;
-  }
-  function businessForFlyer(f){
-    return (businesses||[]).find(b=>String(b.id)===String(f.business_id))||null;
-  }
-  function flyerItems(f){
-    return (Array.isArray(f.weekly_flyer_items)?f.weekly_flyer_items:[])
-      .slice()
-      .sort((a,b)=>
-        Number(b.is_featured||0)-Number(a.is_featured||0)||
-        Number(b.ai_score||0)-Number(a.ai_score||0)||
-        Number(a.source_order||0)-Number(b.source_order||0)
-      );
-  }
-  function money(v){
-    const n=Number(v);
-    return Number.isFinite(n)?`$${n.toFixed(2)}`:'';
-  }
-  function dateRange(f){
-    const s=f.start_date||'', e=f.end_date||'';
-    if(s&&e)return `${s.slice(5).replace('-','/')} ~ ${e.slice(5).replace('-','/')}`;
-    if(e)return `${e.slice(5).replace('-','/')}까지`;
-    return '이번 주';
-  }
-
-  async function loadActiveFlyers(force=false){
-    if(!force&&Date.now()-loadedAt<60*1000)return activeFlyers;
-    if(loadingPromise)return loadingPromise;
-    loadingPromise=(async()=>{
-      try{
-        const client=getDataClient();
-        if(!client)throw new Error('Supabase data client unavailable');
-        const {data,error}=await client.from('weekly_flyers')
-          .select('*,weekly_flyer_items(*)')
-          .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
-          .eq('status','active')
-          .order('created_at',{ascending:false})
-          .limit(30);
-        if(error)throw error;
-        activeFlyers=(data||[]).filter(validFlyer);
-        loadedAt=Date.now();
-        return activeFlyers;
-      }catch(error){
-        console.warn('[P010-2 weekly flyers load]',error?.message||error);
-        return activeFlyers;
-      }finally{
-        loadingPromise=null;
-      }
-    })();
-    return loadingPromise;
-  }
-
-  function ensureStyles(){
-    if(el(P+'Style'))return;
-    const style=document.createElement('style');
-    style.id=P+'Style';
-    style.textContent=`
-      .smart-flyer-section{margin:14px 0;padding:16px;border:1px solid #dbe6f7;border-radius:18px;background:linear-gradient(180deg,#fff,#f8fbff)}
-      .smart-flyer-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-      .smart-flyer-head h3{margin:0;font-size:18px;color:#0f2b5b}
-      .smart-flyer-head p{margin:4px 0 0;color:#64748b;font-size:12px}
-      .smart-flyer-original{border:0;background:#eef4ff;color:#1d4ed8;border-radius:11px;padding:8px 11px;font-weight:800;cursor:pointer;white-space:nowrap}
-      .smart-flyer-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
-      .smart-flyer-product{position:relative;border:1px solid #e2e8f0;border-radius:14px;padding:11px;background:#fff;min-width:0}
-      .smart-flyer-product strong{display:block;color:#162f57;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .smart-flyer-price{display:flex;align-items:baseline;gap:7px;margin-top:7px}
-      .smart-flyer-sale{font-weight:900;color:#dc2626;font-size:18px}
-      .smart-flyer-regular{text-decoration:line-through;color:#94a3b8;font-size:11px}
-      .smart-flyer-unit{margin-top:4px;color:#64748b;font-size:11px}
-      .smart-flyer-discount{position:absolute;right:8px;top:8px;padding:3px 6px;border-radius:999px;background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:900}
-      .smart-flyer-more{width:100%;margin-top:11px;border:0;border-radius:12px;padding:11px;background:#2864e8;color:#fff;font-weight:900;cursor:pointer}
-      #p0102Modal{position:fixed;inset:0;z-index:100050;display:none;align-items:flex-end;justify-content:center;background:rgba(15,23,42,.62)}
-      #p0102Modal.open{display:flex}
-      #p0102Modal .p0102-sheet{width:min(100%,620px);max-height:90vh;overflow:auto;background:#fff;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
-      #p0102Modal .p0102-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-      #p0102Modal h2{margin:0;color:#0f2b5b;font-size:22px}
-      #p0102Modal .p0102-meta{margin-top:5px;color:#64748b;font-size:12px}
-      #p0102Modal .p0102-close{width:38px;height:38px;border:0;border-radius:12px;background:#eef4ff;color:#24456f;font-size:23px}
-      #p0102Modal .p0102-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
-      #p0102Modal .p0102-original{width:100%;margin-top:14px;border-radius:16px;display:block}
-      #p0102Modal .p0102-original-link{display:block;margin-top:12px;text-align:center;text-decoration:none;padding:12px;border-radius:12px;background:#eef4ff;color:#1d4ed8;font-weight:900}
-      @media(min-width:700px){#p0102Modal{align-items:center;padding:20px}#p0102Modal .p0102-sheet{border-radius:24px}}
-      @media(max-width:360px){.smart-flyer-products,#p0102Modal .p0102-grid{grid-template-columns:1fr}}
-    `;
-    document.head.appendChild(style);
-  }
-
-  function productCard(x){
-    const discount=Number(x.discount_percent);
-    return `<div class="smart-flyer-product">
-      ${Number.isFinite(discount)&&discount>0?`<span class="smart-flyer-discount">${Math.round(discount)}% OFF</span>`:''}
-      <strong>${escHtml(x.product_name||'세일 상품')}</strong>
-      <div class="smart-flyer-price">
-        ${x.sale_price!=null?`<span class="smart-flyer-sale">${money(x.sale_price)}</span>`:''}
-        ${x.regular_price!=null?`<span class="smart-flyer-regular">${money(x.regular_price)}</span>`:''}
-      </div>
-      ${x.unit_text?`<div class="smart-flyer-unit">${escHtml(x.unit_text)}</div>`:''}
-    </div>`;
-  }
-
-  function renderFlyerSection(f,business){
-    const items=flyerItems(f);
-    const top=items.slice(0,6);
-    return `<section class="smart-flyer-section" data-flyer-id="${escHtml(f.id)}">
-      <div class="smart-flyer-head">
-        <div>
-          <h3>🛒 이번 주 세일</h3>
-          <p>${escHtml(f.title||business?.name||'주간 세일')} · ${escHtml(dateRange(f))}</p>
-        </div>
-        <button type="button" class="smart-flyer-original" data-smart-flyer-open="${escHtml(f.id)}">전단 보기</button>
-      </div>
-      ${f.ai_summary?`<p style="margin:10px 0 0;color:#475569;font-size:13px;line-height:1.5">${escHtml(f.ai_summary)}</p>`:''}
-      <div class="smart-flyer-products">${top.map(productCard).join('')}</div>
-      <button type="button" class="smart-flyer-more" data-smart-flyer-open="${escHtml(f.id)}">전체 세일 ${items.length}개 보기</button>
-    </section>`;
-  }
-
-  function injectBusinessFlyer(businessId){
-    ensureStyles();
-    const card=detailCard;
-    if(!card)return;
-    card.querySelectorAll('.smart-flyer-section').forEach(x=>x.remove());
-    const flyer=activeFlyers.find(f=>String(f.business_id)===String(businessId));
-    if(!flyer)return;
-    const business=businessForFlyer(flyer);
-    const intro=card.querySelector('.biz-detail-card');
-    if(intro)intro.insertAdjacentHTML('afterend',renderFlyerSection(flyer,business));
-    else card.insertAdjacentHTML('beforeend',renderFlyerSection(flyer,business));
-  }
-
-  function ensureModal(){
-    ensureStyles();
-    let modal=el('p0102Modal');
-    if(modal)return modal;
-    modal=document.createElement('div');
-    modal.id='p0102Modal';
-    modal.innerHTML='<div class="p0102-sheet"><div id="p0102Content"></div></div>';
-    document.body.appendChild(modal);
-    modal.addEventListener('click',e=>{if(e.target===modal)closeModal();});
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&modal.classList.contains('open'))closeModal();});
-    return modal;
-  }
-  function closeModal(){
-    el('p0102Modal')?.classList.remove('open');
-    document.body.style.overflow='';
-  }
-  function openModal(id){
-    const f=activeFlyers.find(x=>String(x.id)===String(id));
-    if(!f)return;
-    const business=businessForFlyer(f);
-    const items=flyerItems(f);
-    const modal=ensureModal();
-    const content=el('p0102Content');
-    content.innerHTML=`
-      <div class="p0102-top">
-        <div>
-          <h2>${escHtml(f.title||`${business?.name||'마켓'} 주간 세일`)}</h2>
-          <div class="p0102-meta">${escHtml(business?.name||business?.name_ko||'')} · ${escHtml(dateRange(f))} · 상품 ${items.length}개</div>
-        </div>
-        <button type="button" class="p0102-close">×</button>
-      </div>
-      ${f.ai_summary?`<p style="line-height:1.6;color:#475569">${escHtml(f.ai_summary)}</p>`:''}
-      <div class="p0102-grid">${items.map(productCard).join('')}</div>
-      <img class="p0102-original" src="${escHtml(f.image_url)}" alt="${escHtml(f.title||'주간 전단')}">
-      <a class="p0102-original-link" href="${escHtml(f.image_url)}" target="_blank" rel="noopener">원본 전단 크게 보기</a>`;
-    content.querySelector('.p0102-close')?.addEventListener('click',closeModal);
-    modal.classList.add('open');
-    document.body.style.overflow='hidden';
-  }
-
-  function flyerTodayItem(f){
-    const b=businessForFlyer(f);
-    const items=flyerItems(f).slice(0,3);
-    const summary=items.map(x=>`${x.product_name}${x.sale_price!=null?` ${money(x.sale_price)}`:''}`).join(' · ');
-    return {
-      id:`weekly-flyer-${f.id}`,
-      source_id:`weekly-flyer-${f.id}`,
-      category:'market',
-      category_label:'이번 주 특가',
-      icon:'🛒',
-      title:f.title||`${b?.name||b?.name_ko||'마켓'} 주간 세일`,
-      summary:summary||f.ai_summary||'이번 주 마켓 세일 정보를 확인하세요.',
-      subtitle:summary||f.ai_summary||'대표 할인 상품을 확인하세요.',
-      business_id:f.business_id,
-      target_type:'business',
-      target_id:f.business_id,
-      url:f.image_url,
-      link_label:'전체 세일 보기 →',
-      priority:220,
-      selected_by_admin:Boolean(f.show_on_home),
-      admin_selected:Boolean(f.show_on_home),
-      published_at:f.updated_at||f.created_at,
-      created_at:f.created_at,
-      updated_at:f.updated_at,
-      weekly_flyer_id:f.id,
-      event_data:{end_at:f.end_date?`${f.end_date}T23:59:59-05:00`:null}
-    };
-  }
-
-  const basePrepare=typeof v51PrepareTodayItems==='function'?v51PrepareTodayItems:null;
-  if(basePrepare){
-    v51PrepareTodayItems=function(items=[]){
-      const flyerRows=activeFlyers.filter(f=>f.show_on_home!==false).map(flyerTodayItem);
-      const combined=[...flyerRows,...(items||[])];
-      const result=basePrepare(combined);
-      const seen=new Set();
-      return result.filter(x=>{
-        const key=String(x.id||x.source_id||x.title);
-        if(seen.has(key))return false;
-        seen.add(key);return true;
-      });
-    };
-  }
-
-  const baseRenderDetail=typeof renderDetail==='function'?renderDetail:null;
-  if(baseRenderDetail){
-    renderDetail=function(id){
-      const result=baseRenderDetail(id);
-      loadActiveFlyers().then(()=>injectBusinessFlyer(id));
-      return result;
-    };
-  }
-
-  document.addEventListener('click',e=>{
-    const btn=e.target.closest('[data-smart-flyer-open]');
-    if(btn)openModal(btn.getAttribute('data-smart-flyer-open'));
-  });
-
-  async function refresh(force=false){
-    await loadActiveFlyers(force);
-    if(selectedBizId&&currentPage==='business-detail')injectBusinessFlyer(selectedBizId);
-    if(typeof v51RefreshToday==='function')await v51RefreshToday();
-  }
-
-  document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible')refresh(true);
-  });
-  window.addEventListener('focus',()=>refresh(true));
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(()=>refresh(true),1600);
-    setInterval(()=>{if(!document.hidden)refresh(true);},60*1000);
-  });
-
-  window.P010SmartFlyerPublic={refresh,openModal};
-  console.info('[DalTownMap] P010-2 Smart Flyer public UI loaded');
-})();
-
-// === P010-3: 스마트 전단 표시 품질 보완 ===
-(() => {
-  function p0103NormalizeProductName(name=''){
-    return String(name)
-      .replace(/\s+/g,' ')
-      .replace(/^[\-•·]+|[\-•·]+$/g,'')
-      .replace(/\bSHRIMP\b/gi,'새우')
-      .replace(/\bGREEN GRAPE\b/gi,'청포도')
-      .replace(/\bGOLD KIWI\b/gi,'골드키위')
-      .trim();
-  }
-  const originalPublic=window.P010SmartFlyerPublic;
-  if(originalPublic){
-    const originalOpen=originalPublic.openModal;
-    originalPublic.openModal=function(id){
-      return originalOpen(id);
-    };
-  }
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(()=>{
-      document.querySelectorAll('.smart-flyer-product strong,.p0103-product b').forEach(node=>{
-        node.textContent=p0103NormalizeProductName(node.textContent);
-      });
-    },2000);
-  });
-  console.info('[DalTownMap] P010-3 Smart Flyer display polish loaded');
-})();
-console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
-
-
-// === P130: 마트별 2장 연속 흐름 + 마트 교대 ===
-(() => {
-  const state = {
-    flyers: [],
-    marketIndex: 0,
-    timer: null,
-    loading: null,
-    loadedAt: 0
-  };
-
-  const esc130=(value='')=>String(value).replace(/[&<>"']/g,c=>({
-    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-  }[c]));
-
-  function today130(){
-    return new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',
-      year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-  }
-
-  function imageList130(flyer){
-    return [...new Set([
-      String(flyer?.market_main_image_url||'').trim(),
-      String(flyer?.market_main_image_url_2||'').trim()
-    ].filter(url=>url.toLowerCase().startsWith('http')))];
-  }
-
-  function businessId130(flyer){
-    return String(flyer?.featured_business_id||flyer?.business_id||'').trim();
-  }
-
-  function business130(flyer){
-    const id=businessId130(flyer);
-    let row=null;
-    try{
-      if(Array.isArray(businesses)){
-        row=businesses.find(x=>String(x?.id||'')===id)||null;
-      }
-    }catch(_){}
-    if(!row&&Array.isArray(window.businesses)){
-      row=window.businesses.find(x=>String(x?.id||'')===id)||null;
-    }
-    return row||{};
-  }
-
-  function businessName130(flyer){
-    const row=business130(flyer);
-    return String(row?.name_ko||row?.name||row?.name_en||flyer?.title||'마켓').trim();
-  }
-
-  function formatDate130(value){
-    const m=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m?`${Number(m[2])}/${Number(m[3])}`:'';
-  }
-
-  function period130(flyer){
-    const a=formatDate130(flyer?.start_date), b=formatDate130(flyer?.end_date);
-    return a&&b?`${a} ~ ${b}`:(a?`${a}부터`:(b?`${b}까지`:''));
-  }
-
-  function valid130(flyer){
-    const today=today130();
-    return String(flyer?.status||'')==='active'
-      && flyer?.show_on_home!==false
-      && (!flyer?.start_date||String(flyer.start_date).slice(0,10)<=today)
-      && (!flyer?.end_date||String(flyer.end_date).slice(0,10)>=today)
-      && imageList130(flyer).length>0;
-  }
-
-  async function load130(force=false){
-    if(state.loading)return state.loading;
-    if(!force&&state.flyers.length&&Date.now()-state.loadedAt<30000)return state.flyers;
-
-    state.loading=(async()=>{
-      const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
-      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-      const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-      const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-      if(!base||!key)return state.flyers;
-
-      const params=new URLSearchParams({
-        select:'id,title,status,show_on_home,start_date,end_date,market_main_image_url,market_main_image_url_2,business_id,featured_business_id,updated_at,region',
-        region:`eq.${region}`,
-        status:'eq.active',
-        show_on_home:'eq.true',
-        order:'updated_at.desc',
-        limit:'50'
-      });
-
-      const res=await fetch(`${base}/rest/v1/weekly_flyers?${params.toString()}`,{
-        cache:'no-store',
-        headers:{
-          apikey:key,
-          Authorization:`Bearer ${key}`,
-          Accept:'application/json',
-          'Cache-Control':'no-cache'
-        }
-      });
-      const rows=await res.json().catch(()=>[]);
-      if(!res.ok)throw new Error(rows?.message||rows?.error||`weekly_flyers HTTP ${res.status}`);
-
-      const seen=new Set();
-      state.flyers=(Array.isArray(rows)?rows:[])
-        .filter(valid130)
-        .filter(row=>{
-          const id=String(row?.id||'');
-          if(!id||seen.has(id))return false;
-          seen.add(id); return true;
-        });
-
-      if(state.marketIndex>=state.flyers.length)state.marketIndex=0;
-      state.loadedAt=Date.now();
-
-      console.info('[P130 market reel data]',{
-        markets:state.flyers.length,
-        items:state.flyers.map(f=>({
-          id:f.id,
-          name:businessName130(f),
-          images:imageList130(f).length
-        }))
-      });
-      return state.flyers;
-    })().catch(error=>{
-      console.warn('[P130 market reel load]',error);
-      return state.flyers;
-    }).finally(()=>{state.loading=null;});
-
-    return state.loading;
-  }
-
-  function style130(){
-    if(document.getElementById('p130MarketReelStyle'))return;
-    const s=document.createElement('style');
-    s.id='p130MarketReelStyle';
-    s.textContent=`
-      #v37RecommendCard.p130-market{
-        display:block!important;
-        padding:0!important;
-        overflow:hidden!important;
-        border:1px solid #d9e4f5!important;
-        border-radius:22px!important;
-        background:#fff!important;
-        box-shadow:0 8px 24px rgba(30,64,175,.08)!important;
-      }
-      #v37RecommendCard.p130-market > .v37-recommend-main,
-      #v37RecommendCard.p130-market > .v37-recommend-dots{display:none!important}
-      #v37RecommendCard .p130-storebar{
-        min-height:56px;padding:11px 15px;display:flex;align-items:center;
-        justify-content:space-between;gap:12px;color:#fff;
-        background:linear-gradient(135deg,#0f4bb8,#2563eb);
-      }
-      #v37RecommendCard .p130-storeleft{display:flex;align-items:center;gap:10px;min-width:0}
-      #v37RecommendCard .p130-icon{
-        width:30px;height:30px;display:grid;place-items:center;border-radius:10px;
-        background:rgba(255,255,255,.16);flex:0 0 auto;
-      }
-      #v37RecommendCard .p130-name{
-        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:18px;font-weight:900;
-      }
-      #v37RecommendCard .p130-count{
-        flex:0 0 auto;min-width:34px;height:24px;padding:0 8px;display:inline-flex;
-        align-items:center;justify-content:center;border-radius:999px;background:rgba(15,23,42,.36);
-        font-size:11px;font-weight:900;
-      }
-      #v37RecommendCard .p130-titlebar{
-        min-height:46px;padding:9px 15px;display:flex;align-items:center;
-        justify-content:space-between;gap:12px;color:#15386d;
-        background:linear-gradient(180deg,#f8fbff,#eaf2ff);border-bottom:1px solid #dbe7f7;
-      }
-      #v37RecommendCard .p130-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900}
-      #v37RecommendCard .p130-period{font-size:12px;font-weight:800;color:#64748b;flex:0 0 auto}
-      #v37RecommendCard .p130-window{
-        position:relative;width:100%;aspect-ratio:20/7;overflow:hidden;background:#eef3fb;
-      }
-      #v37RecommendCard .p130-reel{
-        display:flex;
-        height:100%;
-        will-change:transform;
-      }
-      #v37RecommendCard .p130-reel.two{
-        width:200%;
-        animation:p130FlowTwo 8.4s linear forwards;
-      }
-      #v37RecommendCard .p130-reel.one{
-        width:100%;
-      }
-      #v37RecommendCard .p130-panel{
-        flex:0 0 50%;
-        width:50%;
-        height:100%;
-      }
-      #v37RecommendCard .p130-reel.one .p130-panel{
-        flex-basis:100%;
-        width:100%;
-      }
-      #v37RecommendCard .p130-panel img{
-        display:block;width:100%;height:100%;object-fit:cover;object-position:center;
-      }
-      #v37RecommendCard .p130-arrow{
-        position:absolute;right:12px;bottom:12px;width:36px;height:36px;display:grid;place-items:center;
-        border:0;border-radius:50%;background:rgba(255,255,255,.94);color:#174fb8;
-        box-shadow:0 5px 16px rgba(15,23,42,.18);font-size:25px;font-weight:900;z-index:3;
-      }
-      @keyframes p130FlowTwo{
-        from{transform:translateX(0)}
-        to{transform:translateX(-50%)}
-      }
-      @media(max-width:640px){
-        #v37RecommendCard .p130-storebar{min-height:52px;padding:9px 13px}
-        #v37RecommendCard .p130-titlebar{min-height:43px;padding:8px 13px}
-        #v37RecommendCard .p130-name{font-size:17px}
-        #v37RecommendCard .p130-title{font-size:16px}
-      }
-    `;
-    document.head.appendChild(s);
-  }
-
-  function current130(){
-    return state.flyers[state.marketIndex]||null;
-  }
-
-  function openBusiness130(flyer){
-    const id=businessId130(flyer);
-    if(!id)return;
-    if(typeof renderDetail==='function'&&typeof showPage==='function'){
-      window.selectedBizId=id;
-      try{selectedBizId=id}catch(_){}
-      try{currentDetailVideoOverride=''}catch(_){}
-      renderDetail(id);
-      showPage('business-detail');
-    }
-  }
-
-  function render130(){
-    style130();
-    const card=document.getElementById('v37RecommendCard');
-    const flyer=current130();
-
-    if(!card||!flyer){
-      if(card){
-        card.classList.remove('p130-market');
-        card.hidden=true;
-      }
-      return false;
-    }
-
-    const images=imageList130(flyer);
-    const name=businessName130(flyer);
-    const period=period130(flyer);
-    const two=images.length>1;
-
-    card.hidden=false;
-    card.classList.add('p130-market');
-    card.innerHTML=`
-      <div class="p130-storebar">
-        <div class="p130-storeleft">
-          <span class="p130-icon">🛒</span>
-          <strong class="p130-name">${esc130(name)}</strong>
-        </div>
-        ${state.flyers.length>1?`<span class="p130-count">${state.marketIndex+1}/${state.flyers.length}</span>`:''}
-      </div>
-
-      <div class="p130-titlebar">
-        <div class="p130-title"><span>📅</span><span>이번 주 마켓 정보</span></div>
-        ${period?`<span class="p130-period">${esc130(period)}</span>`:''}
-      </div>
-
-      <div class="p130-window">
-        <div class="p130-reel ${two?'two':'one'}">
-          ${images.map((src,index)=>`
-            <div class="p130-panel">
-              <img src="${esc130(src)}" alt="${esc130(name)} 상품 이미지 ${index+1}" loading="${index===0?'eager':'lazy'}" draggable="false">
-            </div>
-          `).join('')}
-        </div>
-        <button type="button" class="p130-arrow" aria-label="${esc130(name)} 업소 상세 보기">›</button>
-      </div>
-    `;
-
-    card.querySelector('.p130-arrow')?.addEventListener('click',event=>{
-      event.preventDefault();event.stopPropagation();
-      openBusiness130(flyer);
-    });
-
-    let startX=null;
-    const win=card.querySelector('.p130-window');
-    win?.addEventListener('touchstart',event=>{
-      startX=event.touches?.[0]?.clientX??null;
-    },{passive:true});
-    win?.addEventListener('touchend',event=>{
-      if(startX==null||state.flyers.length<2)return;
-      const endX=event.changedTouches?.[0]?.clientX??startX;
-      const dx=endX-startX;startX=null;
-      if(Math.abs(dx)<40)return;
-      state.marketIndex=(state.marketIndex+(dx<0?1:-1)+state.flyers.length)%state.flyers.length;
-      render130();start130();
-    },{passive:true});
-
-    console.info('[P130 market reel show]',{
-      marketIndex:state.marketIndex,
-      totalMarkets:state.flyers.length,
-      flyerId:flyer.id,
-      images:images.length,
-      name
-    });
-
-    return true;
-  }
-
-  function stop130(){
-    if(state.timer){clearInterval(state.timer);state.timer=null;}
-  }
-
-  function start130(){
-    stop130();
-    if(state.flyers.length<2)return;
-
-    // 한 마트의 두 이미지가 한 줄처럼 흘러간 뒤 다음 마트로 교체
-    state.timer=setInterval(()=>{
-      if(document.hidden)return;
-      state.marketIndex=(state.marketIndex+1)%state.flyers.length;
-      render130();
-    },9000);
-  }
-
-  async function refresh130(force=false){
-    await load130(force);
-    const ok=render130();
-    if(ok)start130();else stop130();
-    return ok;
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(()=>refresh130(true),450);
-    setTimeout(()=>refresh130(true),1700);
-  });
-
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden)stop130();
-    else start130();
-  });
-
-  window.addEventListener('storage',event=>{
-    if(event.key==='daltownmap_content_changed')refresh130(true);
-  });
-
-  try{
-    const bc=new BroadcastChannel('daltownmap-content');
-    bc.addEventListener('message',event=>{
-      if(['weekly_flyer_main_image_changed','weekly_flyer_deleted'].includes(event?.data?.type)){
-        refresh130(true);
-      }
-    });
-  }catch(_){}
-
-  window.P032MarketFeaturedCrop={
-    refresh:refresh130,
-    next(){
-      if(state.flyers.length<2)return;
-      state.marketIndex=(state.marketIndex+1)%state.flyers.length;
-      render130();start130();
-    },
-    previous(){
-      if(state.flyers.length<2)return;
-      state.marketIndex=(state.marketIndex-1+state.flyers.length)%state.flyers.length;
-      render130();start130();
-    },
-    getState(){
-      return {
-        markets:state.flyers.length,
-        index:state.marketIndex,
-        items:state.flyers.map(f=>({
-          flyerId:f.id,
-          name:businessName130(f),
-          images:imageList130(f)
-        }))
-      };
-    }
-  };
-
-  console.info('[DalTownMap] P130 flowing market reel loaded');
-})();
-
-
-// === P030C: disabled by P125 ===
-console.info('[DalTownMap] P125 legacy P030C ticker disabled');
-
-// === P031-SAFE: 큰 오늘의 달타운 카드 숨김 ===
-(() => {
-  function install(){
-    if(document.getElementById('p031SafeHideTodayCard')) return;
-    const style = document.createElement('style');
-    style.id = 'p031SafeHideTodayCard';
-    style.textContent = '#v37BriefCard{display:none!important}';
-    document.head.appendChild(style);
-    const card = document.getElementById('v37BriefCard');
-    if(card){
-      card.hidden = true;
-      card.setAttribute('aria-hidden','true');
-    }
-  }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded',install,{once:true});
-  }else{
-    install();
-  }
-})();
-
-
-
-
-
-// === P131: 한 줄 광고 연결 라우팅 보강 ===
-function p131EnsureBusinessRegisterPage(){
-  let page=document.getElementById('page-business-register');
-  if(page) return page;
-
-  const main=document.querySelector('main') || document.querySelector('.app-main') || document.body;
-  page=document.createElement('section');
-  page.className='page';
-  page.id='page-business-register';
-  page.innerHTML=`
-    <div class="request-card" style="margin:18px auto;max-width:720px">
-      <h2>업소 등록 신청</h2>
-      <p>DalTownMap에 무료로 등록해 드립니다.</p>
-      <div class="form-grid">
-        <input id="reqBusinessName" placeholder="업소명">
-        <input id="reqOwnerName" placeholder="담당자">
-        <input id="reqPhone" placeholder="전화번호">
-        <input id="reqEmail" placeholder="이메일">
-        <input id="reqCategory" placeholder="업종">
-        <input id="reqAddress" placeholder="주소">
-      </div>
-      <input id="reqWebsite" placeholder="웹사이트 (선택사항)">
-      <textarea id="reqMessage" class="large-textarea" placeholder="추가 사항을 입력해 주세요"></textarea>
-      <button class="primary-submit" type="button" id="p131BusinessRegisterSubmit">업소 등록 신청</button>
-    </div>`;
-  main.appendChild(page);
-  page.querySelector('#p131BusinessRegisterSubmit')?.addEventListener('click',()=>{
-    if(typeof submitBusinessRequest==='function') submitBusinessRequest();
-  });
-  return page;
-}
-
-function p131OpenInternalPage(value){
-  let page=String(value||'').trim();
-  if(!page) return false;
-
-  // 과거 잘못 저장된 전체 URL도 내부 hash만 복구합니다.
-  if(/^https?:\/\//i.test(page)){
-    try{
-      const u=new URL(page,location.href);
-      page=String(u.hash||'').replace(/^#/,'').trim();
-    }catch(_){}
-  }
-  page=page.replace(/^#+/,'').replace(/^\/+/,'').trim();
-
-  const aliases={
-    'business-register':'business-register',
-    'register-business':'business-register',
-    'business_request':'business-register',
-    'advertise':'advertise',
-    'business':'business',
-    'coupon':'coupon',
-    'map':'map',
-    'guide':'guide',
-    'home':'home'
-  };
-  page=aliases[page]||page;
-
-  if(page==='business-register') p131EnsureBusinessRegisterPage();
-
-  const target=document.getElementById(`page-${page}`);
-  if(!target){
-    console.warn('[P131 internal link] page not found',page);
-    return false;
-  }
-
-  if(typeof showPage==='function'){
-    showPage(page);
-    return true;
-  }
-
-  document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el===target));
-  history.replaceState(null,'',`#${page}`);
-  window.scrollTo({top:0,behavior:'instant'});
-  return true;
-}
-
-function p131OpenManualTickerItem(item){
-  if(!item) return false;
-  const type=String(item.link_type||'none').trim().toLowerCase();
-  const value=String(item.link_value||item.url||'').trim();
-
-  if(type==='none'||!value) return false;
-
-  if(type==='internal') return p131OpenInternalPage(value);
-
-  if(type==='business'){
-    if(typeof openBusinessDetail==='function'){ openBusinessDetail(value); return true; }
-    if(typeof renderDetail==='function'&&typeof showPage==='function'){
-      window.selectedBizId=value;
-      try{ selectedBizId=value; }catch(_){}
-      renderDetail(value); showPage('business-detail'); return true;
-    }
-  }
-
-  if(type==='board'){
-    if(typeof openBoardPost==='function'){ openBoardPost(value); return true; }
-  }
-
-  if(type==='coupon'){
-    if(typeof renderCouponDetail==='function'&&typeof showPage==='function'){
-      renderCouponDetail(value);
-      try{ lastBasePage=currentPage; }catch(_){}
-      showPage('coupon-detail');
-      return true;
-    }
-  }
-
-  if(type==='guide'){
-    if(value && typeof openBoardPost==='function'){
-      try{ openBoardPost(value); return true; }catch(_){}
-    }
-    if(typeof showPage==='function'){ showPage('guide'); return true; }
-  }
-
-  if(type==='url'){
-    let url=value;
-    if(!/^https?:\/\//i.test(url)) url=`https://${url.replace(/^\/+/,'')}`;
-    window.open(url,'_blank','noopener');
-    return true;
-  }
-
-  return false;
-}
-
-// === P123: 서버 측 daily-core 날씨/교통 로더 ===
-// 브라우저 RLS로 newsroom_items가 보이지 않는 경우 Netlify 서버 함수가 service role로 읽습니다.
-let p123ServerCoreItems=[];
-async function p123LoadServerCoreItems(){
-  try{
-    const region=encodeURIComponent(String(currentRegion||'dallas').toLowerCase());
-    const res=await fetch(`/.netlify/functions/daltown-daily-core?region=${region}`,{
-      cache:'no-store',
-      headers:{'Cache-Control':'no-cache'}
-    });
-    const json=await res.json().catch(()=>({}));
-    if(!res.ok||json.ok===false) throw new Error(json.error||`HTTP ${res.status}`);
-    p123ServerCoreItems=Array.isArray(json.items)?json.items:[];
-    console.info('[P123 server core]',{
-      count:p123ServerCoreItems.length,
-      categories:p123ServerCoreItems.map(x=>x.category),
-      titles:p123ServerCoreItems.map(x=>x.title)
-    });
-    return p123ServerCoreItems;
-  }catch(error){
-    console.warn('[P123 server core] unavailable',error?.message||error);
-    return p123ServerCoreItems;
-  }
-}
-
-// === P122: 한 줄 광고 단일 카드 순환 · 날씨/교통 확실한 교대 표시 ===
-(() => {
-  const LABEL_TEXT = '한 줄 광고';
-  let p122Index = 0;
-  let p122Timer = null;
-  let p122Rows = [];
-
-  function ensureStyle(){
-    if(document.getElementById('p122OneLineStepStyle')) return;
-    document.getElementById('p039UnifiedTickerStyle')?.remove();
-
-    const style = document.createElement('style');
-    style.id = 'p122OneLineStepStyle';
-    style.textContent = `
-      #homeAdTickerSection{
-        display:block!important;
-        margin:0!important;
-      }
-      #homeAdTickerList{
-        width:100%!important;
-        overflow:hidden!important;
-      }
-      #homeAdTickerList .p122-shell{
-        display:flex!important;
-        align-items:stretch!important;
-        width:100%!important;
-        height:44px!important;
-        overflow:hidden!important;
-        border:1px solid #d9e4f5!important;
-        border-radius:14px!important;
-        background:#fff!important;
-      }
-      #homeAdTickerList .p122-label{
-        position:relative!important;
-        z-index:2!important;
-        flex:0 0 98px!important;
-        min-width:98px!important;
-        display:flex!important;
-        align-items:center!important;
-        justify-content:center!important;
-        gap:6px!important;
-        padding:0 12px!important;
-        border-radius:13px 0 0 13px!important;
-        background:linear-gradient(135deg,#1764d7 0%,#245eea 100%)!important;
-        color:#fff!important;
-        font-size:12px!important;
-        font-weight:900!important;
-        white-space:nowrap!important;
-      }
-      #homeAdTickerList .p122-label:after{
-        content:''!important;
-        position:absolute!important;
-        right:-7px!important;
-        top:50%!important;
-        width:14px!important;
-        height:14px!important;
-        background:#245eea!important;
-        transform:translateY(-50%) rotate(45deg)!important;
-        z-index:-1!important;
-      }
-      #homeAdTickerList .p122-view{
-        flex:1 1 auto!important;
-        min-width:0!important;
-        overflow:hidden!important;
-        padding-left:14px!important;
-      }
-      #homeAdTickerList .p122-item{
-        width:100%!important;
-        height:44px!important;
-        display:flex!important;
-        align-items:center!important;
-        gap:8px!important;
-        padding:0 12px 0 2px!important;
-        border:0!important;
-        background:transparent!important;
-        box-shadow:none!important;
-        text-align:left!important;
-        white-space:nowrap!important;
-        overflow:hidden!important;
-        cursor:pointer!important;
-        animation:p122Fade .28s ease!important;
-      }
-      #homeAdTickerList .p122-badge,
-      #homeAdTickerList .p122-detail{
-        display:none!important;
-      }
-      #homeAdTickerList .p122-title{
-        flex:1 1 auto!important;
-        min-width:0!important;
-        overflow:hidden!important;
-        text-overflow:ellipsis!important;
-        white-space:nowrap!important;
-        color:#172b4d!important;
-        font-size:13px!important;
-        font-weight:800!important;
-      }
-      @keyframes p122Fade{
-        from{opacity:.35;transform:translateX(8px)}
-        to{opacity:1;transform:translateX(0)}
-      }
-      @media(max-width:390px){
-        #homeAdTickerList .p122-label{
-          flex-basis:94px!important;
-          min-width:94px!important;
-          font-size:11px!important;
-        }
-        #homeAdTickerList .p122-detail{display:none!important}
-      }
-    `;
-    document.head.appendChild(style);
-  }
-
-  function configuredAds(){
-    const cfg=typeof v61EffectiveHomeConfig==='function'
-      ? v61EffectiveHomeConfig(v45HomeConfig||{})
-      : (v45HomeConfig||{});
-
-    const today=new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-
-    const items=Array.isArray(cfg.ticker_manual_items)?cfg.ticker_manual_items:[];
-    return items
-      .filter(item=>item && item.enabled!==false)
-      .filter(item=>!item.start_date || String(item.start_date).slice(0,10)<=today)
-      .filter(item=>!item.end_date || String(item.end_date).slice(0,10)>=today)
-      .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0))
-      .map((item,index)=>({
-        category:'manual',
-        kind:'manual',
-        id:String(item.id||`manual-${index}`),
-        title:String(item.title||item.text||'').trim(),
-        summary:String(item.label||item.type_label||'').trim(),
-        url:String(item.url||'').trim(),
-        link_type:String(item.link_type||'url').trim(),
-        link_value:String(item.link_value||item.url||'').trim(),
-        data:item
-      }))
-      .filter(item=>item.title);
-  }
-
-  function normalizeRows(){
-    const todaySource=Array.isArray(v51TodayItems)?v51TodayItems:[];
-    const coreSource=Array.isArray(v120CoreWeatherTrafficItems)?v120CoreWeatherTrafficItems:[];
-    const serverSource=Array.isArray(p123ServerCoreItems)?p123ServerCoreItems:[];
-    const source=typeof v51MergeTodaySources==='function'
-      ? v51MergeTodaySources(todaySource,[...serverSource,...coreSource])
-      : [...serverSource,...coreSource,...todaySource];
-
-    const publicRows=source
-      .filter(item=>['weather','traffic'].includes(String(item?.category||'').toLowerCase()));
-
-    // 서버 daily-core를 최우선으로 사용합니다.
-    const weather=[
-      ...serverSource,...publicRows
-    ].find(item=>String(item?.category||'').toLowerCase()==='weather');
-    const traffic=[
-      ...serverSource,...publicRows
-    ].find(item=>String(item?.category||'').toLowerCase()==='traffic');
-
-    // 날씨 → 교통 → 광고 순서로 단일 렌더러가 모두 관리합니다.
-    const ordered=[weather,traffic,...configuredAds()].filter(Boolean);
-    const seen=new Set();
-    return ordered.filter(row=>{
-      const key=`${String(row.category||'')}|${String(row.title||'').trim().toLowerCase()}`;
-      if(seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0,8);
-  }
-
-  function renderCurrent(){
-    ensureStyle();
-    const section=document.getElementById('homeAdTickerSection');
-    const box=document.getElementById('homeAdTickerList');
-    if(!section||!box) return false;
-
-    p122Rows=normalizeRows();
-    if(!p122Rows.length) return false;
-
-    if(p122Index>=p122Rows.length) p122Index=0;
-    const row=p122Rows[p122Index];
-    const key=String(row.category||'').toLowerCase();
-    const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':'광고';
-
-    section.hidden=false;
-    box.classList.remove('p124-ready');
-    box.classList.add('p125-ready');
-    box.innerHTML=`
-      <div class="p122-shell">
-        <div class="p122-label"><span>📣</span><b>${LABEL_TEXT}</b></div>
-        <div class="p122-view">
-          <button type="button" class="p122-item" aria-label="${esc(String(row.title||''))}">
-            <strong class="p122-title">${esc(String(row.title||''))}</strong>
-          </button>
-        </div>
-      </div>
-    `;
-
-    box.querySelector('.p122-item')?.addEventListener('click',()=>{
-      const category=String(row.category||'');
-      if(category==='weather'||category==='traffic'){
-        if(typeof v51OpenItem==='function') v51OpenItem(row);
-        return;
-      }
-      if(category==='manual'){
-        p131OpenManualTickerItem(row.data||{});
-      }
-    });
-
-    console.info('[P122 one-line current]',{
-      index:p122Index,
-      total:p122Rows.length,
-      category:key,
-      title:String(row.title||''),
-      all:p122Rows.map(x=>String(x.category||''))
-    });
-    return true;
-  }
-
-  function next(){
-    if(!p122Rows.length){
-      renderCurrent();
-      return;
-    }
-    p122Index=(p122Index+1)%p122Rows.length;
-    renderCurrent();
-  }
-
-  function start(){
-    if(p122Timer) clearInterval(p122Timer);
-    renderCurrent();
-    p122Timer=setInterval(()=>{
-      if(document.hidden) return;
-      next();
-    },5000);
-  }
-
-  async function refresh(resetIndex=true){
-    await Promise.allSettled([
-      typeof p123LoadServerCoreItems==='function'?p123LoadServerCoreItems():Promise.resolve([]),
-      typeof v120LoadCoreWeatherTrafficDirect==='function'?v120LoadCoreWeatherTrafficDirect():Promise.resolve([])
-    ]);
-    if(resetIndex) p122Index=0;
-    start();
-  }
-
-  document.addEventListener('DOMContentLoaded',()=>{
-    setTimeout(()=>refresh(true),700);
-    setTimeout(()=>{ if(!p122Rows.length) refresh(true); },2200);
-  });
-
-  // DevTools 클릭/창 포커스 변화 때마다 index가 0(날씨)으로 리셋되던 현상을 제거합니다.
-  document.addEventListener('visibilitychange',()=>{
-    if(document.hidden){
-      if(p122Timer){clearInterval(p122Timer);p122Timer=null;}
-    }else{
-      start();
-    }
-  });
-
-  window.P122OneLineTicker={
-    refresh,
-    next,
-    getState:()=>({
-      index:p122Index,
-      rows:p122Rows.map(x=>({category:x.category,title:x.title}))
-    })
-  };
-
-  console.info('[DalTownMap] P122 discrete weather/traffic ticker loaded');
-})();
-
-console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
-
-console.info('[DalTownMap] P121 traffic-category recovery loaded');
-
-console.info('[DalTownMap] P123 server daily-core + stable ticker loaded');
-
-console.info('[DalTownMap] P124 title-only ticker + no legacy flash loaded');
-
-console.info('[DalTownMap] P125 single ticker renderer active');
-
-console.info('[DalTownMap] P126 single-line weather+traffic+manual-items loaded');
-
-console.info('[DalTownMap] P127 no-legacy-alert + dual market image slider loaded');
-
-console.info('[DalTownMap] P128 unified market+image carousel loaded');
-
-console.info('[DalTownMap] P131 contextual ticker links + internal routing loaded');
-
-
-console.info('[DalTownMap] P132A guide board-detail links loaded');
