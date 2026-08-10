@@ -3557,6 +3557,8 @@ async function v51RefreshToday(){
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
     const rows=v51MergeTodaySources(prepared,combined.filter(v51IsAdminSelected));
     v51TodayItems=v51PrepareTodayItems(rows);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer();
+    // P134: 날씨·교통 데이터가 준비된 직후 한 줄 광고 목록만 다시 동기화합니다.
+    if(window.P122OneLineTicker?.refresh) window.P122OneLineTicker.refresh(false);
   }catch(error){console.warn('[V51 Today] refresh failed',error);}
   finally{if(btn){btn.disabled=false;btn.classList.remove('is-loading');}v51RefreshInFlight=false;if(window.lucide)window.lucide.createIcons();}
 }
@@ -3625,6 +3627,8 @@ async function renderV37AIHome(){
   loaded=v51MergeTodaySources(prepared,authoritativeAdmin);
   v45ProposalItems=loaded;
   v51TodayItems=v51PrepareTodayItems(loaded);v51TodayIndex=0;v51PaintToday();v51StartTodayTimer(5000);v51InitToday();
+  // P134: 초기 홈 피드의 날씨·교통이 들어온 뒤 한 줄 광고만 재구성합니다.
+  if(window.P122OneLineTicker?.refresh) window.P122OneLineTicker.refresh(false);
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
   const biz=v45SelectedBusinesses(v45HomeConfig);console.info('[V83 recommendation] authoritative',{options:v73RoutineRecommendationOptions(),addressTerms:v74RoutineRecommendationAddressTerms(),count:biz.length,names:biz.slice(0,8).map(b=>b.name||b.name_ko)});v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
@@ -8382,7 +8386,8 @@ async function p123LoadServerCoreItems(){
 
   document.addEventListener('DOMContentLoaded',()=>{
     setTimeout(()=>refresh(true),700);
-    setTimeout(()=>{ if(!p122Rows.length) refresh(true); },2200);
+    // P134: 관리자 광고가 먼저 표시돼도 날씨·교통 로딩 완료 후 반드시 한 번 더 동기화합니다.
+    setTimeout(()=>refresh(false),2200);
   });
 
   // DevTools 클릭/창 포커스 변화 때마다 index가 0(날씨)으로 리셋되던 현상을 제거합니다.
@@ -8404,6 +8409,7 @@ async function p123LoadServerCoreItems(){
   };
 
   console.info('[DalTownMap] P122 discrete weather/traffic ticker loaded');
+  console.info('[DalTownMap] P134 ticker late-data sync fix loaded');
 })();
 
 console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
