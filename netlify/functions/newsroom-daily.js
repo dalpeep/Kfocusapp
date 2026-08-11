@@ -1,6 +1,6 @@
 /*
  * DalTownMap newsroom daily pipeline
- * collect -> analyze/classify -> draft -> review
+ * cleanup old unpublished -> collect -> analyze/classify -> draft -> review
  * IMPORTANT: this function NEVER publishes articles automatically.
  */
 
@@ -107,6 +107,83 @@ async function runCollect(region) {
   return body;
 }
 
+
+async function cleanupOldUnpublished(region, days = 7) {
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+
+  // 게시되지 않은 뉴스룸 작업만 조회합니다.
+  const params = new URLSearchParams({
+    select: 'id,status,source_published_at,collected_at,created_at,updated_at',
+    region: `eq.${region}`,
+    order: 'updated_at.asc.nullslast',
+    limit: '1000'
+  });
+
+  const rows = await supabase(`newsroom_items?${params.toString()}`);
+  const unpublishedStatuses = new Set([
+    'collected',
+    'classified',
+    'draft',
+    'review',
+    'pending',
+    'queued'
+  ]);
+
+  const expiredIds = (Array.isArray(rows) ? rows : [])
+    .filter(row => unpublishedStatuses.has(String(row.status || '').toLowerCase()))
+    .filter(row => {
+      const basis =
+        row.source_published_at ||
+        row.collected_at ||
+        row.created_at ||
+        row.updated_at ||
+        '';
+      const ts = Date.parse(basis);
+      return Number.isFinite(ts) && ts < Date.parse(cutoff);
+    })
+    .map(row => String(row.id))
+    .filter(Boolean);
+
+  if (!expiredIds.length) {
+    return {
+      cutoff,
+      days,
+      matched: 0,
+      deleted: 0,
+      ids: []
+    };
+  }
+
+  let deleted = 0;
+  const deletedIds = [];
+
+  // URL 길이와 PostgREST in() 제한을 피하기 위해 100개씩 삭제합니다.
+  for (let i = 0; i < expiredIds.length; i += 100) {
+    const chunk = expiredIds.slice(i, i + 100);
+    const encoded = chunk.map(id => `"${id.replace(/"/g, '\\"')}"`).join(',');
+
+    const result = await supabase(
+      `newsroom_items?id=in.(${encodeURIComponent(encoded)})`,
+      {
+        method: 'DELETE',
+        headers: { Prefer: 'return=representation' }
+      }
+    );
+
+    const rowsDeleted = Array.isArray(result) ? result : [];
+    deleted += rowsDeleted.length;
+    deletedIds.push(...rowsDeleted.map(row => String(row.id)).filter(Boolean));
+  }
+
+  return {
+    cutoff,
+    days,
+    matched: expiredIds.length,
+    deleted,
+    ids: deletedIds
+  };
+}
+
 async function classifiedForDraft(region, limit) {
   const params = new URLSearchParams({
     select: 'id,ai_title,original_title,updated_at,collected_at',
@@ -127,6 +204,7 @@ exports.handler = async function(event) {
     'dallas'
   ).toLowerCase();
 
+  const retentionDays = clampInt(process.env.NEWSROOM_RETENTION_DAYS, 7, 1, 90);
   // analyze-newsroom.js itself caps this at 20.
   const analyzeLimit = clampInt(process.env.NEWSROOM_DAILY_ANALYZE_LIMIT, 20, 1, 20);
   // Draft calls are one article per request, so keep this conservative for scheduled runtime.
@@ -136,6 +214,7 @@ exports.handler = async function(event) {
     ok: false,
     region,
     started_at: startedAt,
+    cleanup: null,
     collect: null,
     analyze: null,
     draft: { requested: 0, completed: 0, failed: 0, items: [] },
@@ -143,6 +222,10 @@ exports.handler = async function(event) {
   };
 
   try {
+    // 0) Delete unpublished newsroom candidates older than the retention window.
+    // Published content is never included in this cleanup.
+    report.cleanup = await cleanupOldUnpublished(region, retentionDays);
+
     // 1) Collect new source records.
     report.collect = await runCollect(region);
 
@@ -189,6 +272,7 @@ exports.handler = async function(event) {
 
     console.info('[newsroom-daily] pipeline completed', {
       region,
+      cleanup_deleted: report.cleanup?.deleted || 0,
       analyzed: report.analyze?.analyzed || 0,
       excluded: report.analyze?.excluded || 0,
       drafted: report.draft.completed,
