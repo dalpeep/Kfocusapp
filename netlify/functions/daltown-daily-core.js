@@ -1,3 +1,5 @@
+const {loadTodayRows,ensureDailyCore}=require('./lib/daily-core');
+
 exports.handler = async function(event) {
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
@@ -10,115 +12,40 @@ exports.handler = async function(event) {
   }
 
   try {
-    const base = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
-    const serviceKey = String(
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.SUPABASE_SERVICE_KEY ||
-      ''
-    ).trim();
-
-    if (!base || !serviceKey) {
-      return {
-        statusCode: 500,
-        headers,
-        body: JSON.stringify({
-          ok: false,
-          error: 'SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY 환경변수가 없습니다.'
-        })
-      };
-    }
-
     const region = String(event.queryStringParameters?.region || 'dallas').toLowerCase();
+    let loaded = await loadTodayRows(region);
 
-    const today = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Chicago',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(new Date());
-
-    const select = [
-      'id','ai_title','ai_summary','original_title','original_summary',
-      'original_url','source_name','duplicate_key','event_data','status',
-      'source_published_at','collected_at','created_at','updated_at','region'
-    ].join(',');
-
-    const params = new URLSearchParams({
-      select,
-      region: `eq.${region}`,
-      order: 'updated_at.desc',
-      limit: '100'
-    });
-
-    const response = await fetch(`${base}/rest/v1/newsroom_items?${params.toString()}`, {
-      headers: {
-        apikey: serviceKey,
-        Authorization: `Bearer ${serviceKey}`,
-        Accept: 'application/json'
+    // P135: 오늘 weather/traffic 중 하나라도 없으면 Daily Core 생성기를 한 번 실행해 자동 복구합니다.
+    const missing = ['weather','traffic'].filter(key => !loaded.byCategory.has(key));
+    let repaired = false;
+    let repairError = '';
+    if (missing.length) {
+      try {
+        await ensureDailyCore(region, { force:false });
+        loaded = await loadTodayRows(region);
+        repaired = true;
+      } catch (error) {
+        repairError = error?.message || String(error);
+        console.warn('[P135 daily core auto-repair]', repairError);
       }
-    });
-
-    const rows = await response.json().catch(() => []);
-
-    if (!response.ok) {
-      throw new Error(
-        rows?.message || rows?.error || `Supabase HTTP ${response.status}`
-      );
     }
 
-    const byCategory = new Map();
-
-    for (const row of Array.isArray(rows) ? rows : []) {
+    const items = ['weather', 'traffic'].map(category => {
+      const row = loaded.byCategory.get(category);
+      if (!row) return null;
       let meta = {};
-      if (row?.event_data && typeof row.event_data === 'object') {
-        meta = row.event_data;
-      } else if (typeof row?.event_data === 'string' && row.event_data.trim()) {
-        try { meta = JSON.parse(row.event_data); } catch (_) {}
-      }
-
+      if (row?.event_data && typeof row.event_data === 'object') meta = row.event_data;
+      else if (typeof row?.event_data === 'string' && row.event_data.trim()) { try { meta = JSON.parse(row.event_data); } catch (_) {} }
       const duplicateKey = String(row.duplicate_key || '').trim().toLowerCase();
-      const probe = [
-        String(meta.category || meta.home_category || ''),
-        duplicateKey,
-        String(row.ai_title || ''),
-        String(row.original_title || ''),
-        String(row.source_name || '')
-      ].join(' ').toLowerCase();
-
-      let category = '';
-      if (/daily-core-weather|\bweather\b|national weather service|\bnws\b|날씨|기상/.test(probe)) {
-        category = 'weather';
-      } else if (/daily-core-traffic|tra+f+ic|511dfw|txdot|traffic|교통|도로/.test(probe)) {
-        category = 'traffic';
-      }
-
-      if (!category) continue;
-
-      const rowDate = String(
-        row.updated_at || row.collected_at || row.created_at || row.source_published_at || ''
-      ).slice(0, 10);
-
-      const dateMatch = duplicateKey.includes(`-${today}`) || rowDate === today;
-      if (!dateMatch) continue;
-      if (String(row.status || 'active').toLowerCase() === 'inactive') continue;
-      if (byCategory.has(category)) continue;
-
-      byCategory.set(category, {
+      return {
         id: `server-core-${row.id}-${category}`,
         source_id: String(row.id),
         category,
         category_label: category === 'weather' ? '날씨' : '교통',
         icon: category === 'weather' ? '☀️' : '🚗',
-        title: String(
-          row.ai_title || row.original_title ||
-          (category === 'weather' ? '오늘의 날씨' : 'DFW 교통 정보')
-        ).trim(),
-        summary: String(
-          row.ai_summary || row.original_summary || meta.summary || ''
-        ).trim(),
-        subtitle: String(
-          row.ai_summary || row.original_summary || meta.summary || ''
-        ).trim(),
+        title: String(row.ai_title || row.original_title || (category === 'weather' ? '오늘의 날씨' : 'DFW 교통 정보')).trim(),
+        summary: String(row.ai_summary || row.original_summary || meta.summary || '').trim(),
+        subtitle: String(row.ai_summary || row.original_summary || meta.summary || '').trim(),
         source_name: String(row.source_name || '').trim(),
         source_url: String(row.original_url || '').trim(),
         url: String(row.original_url || '').trim(),
@@ -128,22 +55,20 @@ exports.handler = async function(event) {
         updated_at: row.updated_at || row.collected_at || row.created_at,
         daily_core: true,
         server_core: true
-      });
-    }
-
-    const items = ['weather', 'traffic']
-      .map(key => byCategory.get(key))
-      .filter(Boolean);
+      };
+    }).filter(Boolean);
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         ok: true,
-        date: today,
+        date: loaded.today,
         region,
         count: items.length,
         categories: items.map(x => x.category),
+        repaired,
+        repair_error: repairError || undefined,
         items
       })
     };
@@ -151,10 +76,7 @@ exports.handler = async function(event) {
     return {
       statusCode: 500,
       headers,
-      body: JSON.stringify({
-        ok: false,
-        error: error?.message || String(error)
-      })
+      body: JSON.stringify({ ok: false, error: error?.message || String(error) })
     };
   }
 };
