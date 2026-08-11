@@ -1,8 +1,7 @@
-console.info('[DalTownMap Admin] P133 HARD one-line ticker fix loaded');
-console.info('[DalTownMap Admin] P132 one-line weather/traffic save fix loaded');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 const cfg = window.KFOCUS_CONFIG || {};
+console.info('[DalTownMap Admin] P135 AI 운영센터 정리 로드됨');
 const qs = (id) => document.getElementById(id);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 const esc = (s = '') =>
@@ -5872,13 +5871,9 @@ function v61HomeSettingsPanel(){
   const section=qs('section-newsroom');if(!section)return;
   const panel=document.createElement('section');panel.id='v61HomeSettingsPanel';panel.className='panel';panel.style.marginBottom='18px';
   const modeOptions=Object.entries(V61_MODE_LABELS).filter(([v])=>!['rotation','random'].includes(v)).map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-  panel.innerHTML=`<div class="panel-head"><div><h2>메인 화면 편성</h2><p class="muted">메인에 있는 각 영역을 관리자가 독립적으로 표시하거나 숨길 수 있습니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">메인 설정 저장</button></div>
+  panel.innerHTML=`<div class="panel-head"><div><h2>메인 화면 편성</h2><p class="muted">현재 메인에서 직접 관리하는 영역만 표시합니다.</p></div><button id="v45HomeSaveBtn" class="btn primary" type="button">메인 설정 저장</button></div>
 
   <div style="display:grid;gap:16px">
-    <section style="padding:18px;border:1px solid #dbe4f0;border-radius:16px;background:#fff">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><h3 style="margin:0 0 4px">오늘의 달타운</h3><p class="muted" style="margin:0">날씨·교통·마켓 소식은 자동 편성됩니다.</p></div><label style="font-weight:700"><input id="v119ShowToday" type="checkbox" checked> 메인에 표시</label></div>
-    </section>
-
     <section style="padding:18px;border:1px solid #dbe4f0;border-radius:16px;background:#f8fbff">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h3 style="margin:0 0 4px">달타운 추천</h3><p class="muted" style="margin:0">추천 카드와 업소 목록에 사용할 업체 기준을 선택합니다.</p></div><label style="font-weight:700"><input id="v116ShowRecommend" type="checkbox" checked> 메인에 표시</label></div>
       <div class="form-grid">
@@ -5888,7 +5883,7 @@ function v61HomeSettingsPanel(){
     </section>
 
     <section style="padding:18px;border:1px solid #dbe4f0;border-radius:16px;background:#fff">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h3 style="margin:0 0 4px">커뮤니티</h3><p class="muted" style="margin:0">선택한 게시판의 최신 글을 한 줄씩 순환 표시합니다.</p></div><label style="font-weight:700"><input id="v116ShowCommunity" type="checkbox" checked> 메인에 표시</label></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h3 style="margin:0 0 4px">커뮤니티</h3><p class="muted" style="margin:0">필요할 때 선택한 게시판의 최신 글을 메인에 노출합니다.</p></div><label style="font-weight:700"><input id="v116ShowCommunity" type="checkbox" checked> 메인에 표시</label></div>
       <div id="v45CommunityTypes" class="checkbox-row">
         <label><input type="checkbox" value="notice" checked> 행사안내</label>
         <label><input type="checkbox" value="life" checked> 달라스 라이프</label>
@@ -5896,50 +5891,34 @@ function v61HomeSettingsPanel(){
       </div>
     </section>
 
-    <section style="padding:18px;border:1px solid #dbe4f0;border-radius:16px;background:#f8fbff">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h3 style="margin:0 0 4px">달타운 알림</h3><p class="muted" style="margin:0">직접 입력한 공지를 우선 표시하고, 비어 있으면 게시판 공지를 사용합니다.</p></div><label style="font-weight:700"><input id="v116ShowAlert" type="checkbox" checked> 메인에 표시</label></div>
-      <div class="checkbox-row" style="margin-bottom:12px"><label><input id="v117AlertEnabled" type="checkbox" checked> 알림 사용</label><label><input id="v117UseBoardNotice" type="checkbox" checked> 게시판 공지 사용</label></div>
-      <div class="form-grid">
-        <label class="field"><span>공지 제목</span><input id="v117AlertTitle" maxlength="100" placeholder="예: 달타운맵 무료 업소 등록 안내"></label>
-        <label class="field"><span>버튼 문구</span><input id="v117AlertLabel" maxlength="30" placeholder="예: 자세히 보기"></label>
-        <label class="field full"><span>공지 내용</span><textarea id="v117AlertMessage" rows="3" maxlength="300" placeholder="메인 달타운 알림에 표시할 내용을 입력하세요."></textarea></label>
-        <label class="field"><span>연결 종류</span><select id="v117AlertLinkType"><option value="none">연결 없음</option><option value="url">외부 링크</option><option value="board">게시판 글 ID</option><option value="business">업소 ID</option><option value="guide">달라스 가이드</option></select></label>
-        <label class="field"><span>연결 주소 또는 ID</span><input id="v117AlertLinkValue" placeholder="https://... 또는 게시글/업소 ID"></label>
-      </div>
-      <small class="muted">제목이나 내용을 입력하지 않아도 ‘알림 사용’이 켜져 있으면 기본 안내 문구가 표시됩니다. 게시판 공지는 게시글 작성·수정 화면에서 ‘달타운 알림 공지’로 지정합니다.</small>
-    </section>
-
-    <section style="padding:18px;border:1px solid #dbe4f0;border-radius:16px;background:#fff">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px"><div><h3 style="margin:0 0 4px">한 줄 광고</h3><p class="muted" style="margin:0">광고·쿠폰·직접 입력 문구를 메인에서 순환 표시합니다.</p></div><label style="font-weight:700"><input id="v119ShowTicker" type="checkbox" checked> 메인에 표시</label></div>
-      <div class="checkbox-row" style="margin-bottom:12px"><label><input id="v61TickerDalpick" type="checkbox" checked> 등록 광고·콘텐츠</label><label><input id="v61TickerCoupon" type="checkbox" checked> 유효한 쿠폰</label><label><input id="v119TickerDirectEnabled" type="checkbox"> 직접 입력 사용</label></div>
-      <div class="form-grid">
-        <label class="field full"><span>직접 입력 광고 문구</span><input id="v119TickerText" maxlength="140" placeholder="예: 달타운맵 무료 업소 등록 이벤트"></label>
-        <label class="field"><span>버튼·표시 문구</span><input id="v119TickerLabel" maxlength="30" placeholder="예: 자세히 보기"></label>
-        <label class="field"><span>연결 주소</span><input id="v119TickerUrl" placeholder="https://... (선택)"></label>
+    <section style="padding:18px;border:1px solid #cfe0ff;border-radius:16px;background:#f5f9ff">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:22px;line-height:1">📢</div>
+        <div><h3 style="margin:0 0 5px">한 줄 광고</h3><p class="muted" style="margin:0;line-height:1.55">날씨·교통 자동 정보와 관리자 광고는 왼쪽 메뉴의 <b>한 줄 광고 관리</b>에서 운영합니다. 이 화면에서는 중복 설정하지 않습니다.</p></div>
       </div>
     </section>
   </div>
 
-  <hr><div class="panel-head"><div><h3>날짜별 자동 변경 일정</h3><p class="muted">기간이 겹치면 우선순위 숫자가 큰 일정이 적용됩니다. 종료일 다음 날에는 자동으로 기본 설정으로 돌아갑니다.</p></div><button id="v61ScheduleAddBtn" class="btn ghost" type="button">일정 추가</button></div>
+  <hr><div class="panel-head"><div><h3>추천업체 날짜별 자동 변경</h3><p class="muted">기간별로 추천업체 기준만 자동 변경합니다. 한 줄 광고는 별도 관리에서 독립적으로 운영됩니다.</p></div><button id="v61ScheduleAddBtn" class="btn ghost" type="button">일정 추가</button></div>
   <div class="form-grid">
     <input id="v61ScheduleId" type="hidden">
-    <label class="field"><span>일정 이름</span><input id="v61ScheduleName" placeholder="예: 8월 쿠폰 주간"></label>
+    <label class="field"><span>일정 이름</span><input id="v61ScheduleName" placeholder="예: 8월 신규업체 주간"></label>
     <label class="field"><span>추천업체 기준</span><select id="v61ScheduleMode">${Object.entries(V61_MODE_LABELS).map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
     <label class="field"><span>시작일</span><input id="v61ScheduleStart" type="date"></label>
     <label class="field"><span>종료일</span><input id="v61ScheduleEnd" type="date"></label>
     <label class="field"><span>우선순위</span><input id="v61SchedulePriority" type="number" value="10"></label>
-    <div class="field"><span>한 줄 광고 포함</span><div class="checkbox-row"><label><input id="v61ScheduleDalpick" type="checkbox" checked> 광고·콘텐츠</label><label><input id="v61ScheduleCoupon" type="checkbox" checked> 쿠폰</label></div></div>
     <label class="field checkbox-line"><input id="v61ScheduleEnabled" type="checkbox" checked><span>이 일정 사용</span></label>
     <div class="field"><span>&nbsp;</span><button id="v61ScheduleSaveBtn" class="btn primary" type="button">일정 등록</button></div>
   </div><div id="v61ScheduleList" class="business-list" style="margin-top:14px"></div>`;
   section.prepend(panel);
   qs('v61ScheduleAddBtn').onclick=v61ResetScheduleForm;qs('v61ScheduleSaveBtn').onclick=v61SaveScheduleLocal;
 }
+
 function v61ResetScheduleForm(){setVal('v61ScheduleId','');setVal('v61ScheduleName','');setVal('v61ScheduleStart','');setVal('v61ScheduleEnd','');setVal('v61ScheduleMode','featured');setVal('v61SchedulePriority','10');setChecked('v61ScheduleDalpick',true);setChecked('v61ScheduleCoupon',true);setChecked('v61ScheduleEnabled',true);safeText('v61ScheduleSaveBtn','일정 등록')}
-function v61SchedulePayload(){const start=val('v61ScheduleStart'),end=val('v61ScheduleEnd');if(!start||!end)throw new Error('시작일과 종료일을 입력하세요.');if(end<start)throw new Error('종료일은 시작일보다 빠를 수 없습니다.');return {id:val('v61ScheduleId')||`schedule-${Date.now()}`,name:val('v61ScheduleName').trim()||`${start} 일정`,start_date:start,end_date:end,business_mode:val('v61ScheduleMode')||'featured',priority:Number(val('v61SchedulePriority')||0),ticker_sources:[checked('v61ScheduleDalpick')?'dalpick':'',checked('v61ScheduleCoupon')?'coupon':''].filter(Boolean),enabled:checked('v61ScheduleEnabled')}}
+function v61SchedulePayload(){const start=val('v61ScheduleStart'),end=val('v61ScheduleEnd');if(!start||!end)throw new Error('시작일과 종료일을 입력하세요.');if(end<start)throw new Error('종료일은 시작일보다 빠를 수 없습니다.');const id=val('v61ScheduleId')||`schedule-${Date.now()}`;const existing=v61HomeSchedules.find(x=>String(x.id)===String(id))||{};return {...existing,id,name:val('v61ScheduleName').trim()||`${start} 일정`,start_date:start,end_date:end,business_mode:val('v61ScheduleMode')||'featured',priority:Number(val('v61SchedulePriority')||0),ticker_sources:Array.isArray(existing.ticker_sources)?existing.ticker_sources:[],enabled:checked('v61ScheduleEnabled')}}
 function v61SaveScheduleLocal(){try{const row=v61SchedulePayload();const i=v61HomeSchedules.findIndex(x=>String(x.id)===String(row.id));if(i>=0)v61HomeSchedules[i]=row;else v61HomeSchedules.push(row);v61HomeSchedules.sort((a,b)=>String(a.start_date).localeCompare(String(b.start_date)));v61RenderSchedules();v61ResetScheduleForm();}catch(e){alert(e.message)}}
-function v61RenderSchedules(){const box=qs('v61ScheduleList');if(!box)return;box.innerHTML=v61HomeSchedules.length?v61HomeSchedules.map(r=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(r.name||'날짜별 일정')} ${r.enabled===false?'<span class="muted">(중지)</span>':''}</div><div class="biz-meta">${esc(r.start_date||'')} ~ ${esc(r.end_date||'')} · ${esc(V61_MODE_LABELS[r.business_mode]||r.business_mode)} · 우선순위 ${esc(r.priority||0)}</div><div class="biz-meta">한 줄 광고: ${(r.ticker_sources||[]).includes('dalpick')?'광고·콘텐츠 ':''}${(r.ticker_sources||[]).includes('coupon')?'쿠폰':''}</div></div><button class="btn ghost" data-v61-edit="${esc(r.id)}" type="button">수정</button><button class="btn danger" data-v61-delete="${esc(r.id)}" type="button">삭제</button></div>`).join(''):'<div class="muted">등록된 날짜별 일정이 없습니다.</div>';box.querySelectorAll('[data-v61-edit]').forEach(b=>b.onclick=()=>v61EditSchedule(b.dataset.v61Edit));box.querySelectorAll('[data-v61-delete]').forEach(b=>b.onclick=()=>{v61HomeSchedules=v61HomeSchedules.filter(x=>String(x.id)!==String(b.dataset.v61Delete));v61RenderSchedules()})}
-function v61EditSchedule(id){const r=v61HomeSchedules.find(x=>String(x.id)===String(id));if(!r)return;setVal('v61ScheduleId',r.id);setVal('v61ScheduleName',r.name||'');setVal('v61ScheduleStart',r.start_date||'');setVal('v61ScheduleEnd',r.end_date||'');setVal('v61ScheduleMode',r.business_mode||'featured');setVal('v61SchedulePriority',String(r.priority||0));setChecked('v61ScheduleDalpick',(r.ticker_sources||[]).includes('dalpick'));setChecked('v61ScheduleCoupon',(r.ticker_sources||[]).includes('coupon'));setChecked('v61ScheduleEnabled',r.enabled!==false);safeText('v61ScheduleSaveBtn','일정 수정')}
+function v61RenderSchedules(){const box=qs('v61ScheduleList');if(!box)return;box.innerHTML=v61HomeSchedules.length?v61HomeSchedules.map(r=>`<div class="biz-item"><div style="flex:1"><div class="biz-title">${esc(r.name||'날짜별 일정')} ${r.enabled===false?'<span class="muted">(중지)</span>':''}</div><div class="biz-meta">${esc(r.start_date||'')} ~ ${esc(r.end_date||'')} · ${esc(V61_MODE_LABELS[r.business_mode]||r.business_mode)} · 우선순위 ${esc(r.priority||0)}</div></div><button class="btn ghost" data-v61-edit="${esc(r.id)}" type="button">수정</button><button class="btn danger" data-v61-delete="${esc(r.id)}" type="button">삭제</button></div>`).join(''):'<div class="muted">등록된 날짜별 일정이 없습니다.</div>';box.querySelectorAll('[data-v61-edit]').forEach(b=>b.onclick=()=>v61EditSchedule(b.dataset.v61Edit));box.querySelectorAll('[data-v61-delete]').forEach(b=>b.onclick=()=>{v61HomeSchedules=v61HomeSchedules.filter(x=>String(x.id)!==String(b.dataset.v61Delete));v61RenderSchedules()})}
+function v61EditSchedule(id){const r=v61HomeSchedules.find(x=>String(x.id)===String(id));if(!r)return;setVal('v61ScheduleId',r.id);setVal('v61ScheduleName',r.name||'');setVal('v61ScheduleStart',r.start_date||'');setVal('v61ScheduleEnd',r.end_date||'');setVal('v61ScheduleMode',r.business_mode||'featured');setVal('v61SchedulePriority',String(r.priority||0));setChecked('v61ScheduleEnabled',r.enabled!==false);safeText('v61ScheduleSaveBtn','일정 수정')}
 
 // V45 main three-zone settings
 function v45Csv(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean)}
@@ -5961,12 +5940,29 @@ function v45FillHomeConfig(config={}){
 }
 function v45ReadHomeConfig(){
   let links={};try{links=JSON.parse(qs('v45CategoryLinks')?.value||'{}')}catch(_){throw new Error('카테고리별 연결 링크는 올바른 JSON 형식으로 입력하세요.');}
-  return {...v117LoadedHomeConfig,proposal_categories:$$('#v45ProposalCategories input:checked').map(x=>x.value),category_links:links,business_mode:qs('v45BusinessMode')?.value||'featured',business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value),show_today_section:checked('v119ShowToday'),show_recommend_section:checked('v116ShowRecommend'),show_community_section:checked('v116ShowCommunity'),show_alert_section:checked('v116ShowAlert'),show_ticker_section:checked('v119ShowTicker'),ticker_direct:{enabled:checked('v119TickerDirectEnabled'),text:val('v119TickerText').trim(),label:val('v119TickerLabel').trim(),url:val('v119TickerUrl').trim(),updated_at:new Date().toISOString()},direct_alert:{enabled:checked('v117AlertEnabled'),use_board_notice:checked('v117UseBoardNotice'),title:val('v117AlertTitle').trim(),message:val('v117AlertMessage').trim(),label:val('v117AlertLabel').trim(),link_type:val('v117AlertLinkType')||'none',link_value:val('v117AlertLinkValue').trim(),updated_at:new Date().toISOString()},ticker_sources:[
-  'weather','traffic',
-  checked('v61TickerDalpick')?'dalpick':'',
-  checked('v61TickerCoupon')?'coupon':''
-].filter(Boolean),schedule_presets:v61HomeSchedules,community_board_types:$$('#v45CommunityTypes input:checked').map(x=>x.value),community_post_ids:v45Csv(qs('v45CommunityPostIds')?.value),community_boost_ids:v45Csv(qs('v45CommunityBoostIds')?.value)};
+  const previous=(v117LoadedHomeConfig&&typeof v117LoadedHomeConfig==='object')?v117LoadedHomeConfig:{};
+  return {
+    ...previous,
+    proposal_categories:$$('#v45ProposalCategories input:checked').map(x=>x.value),
+    category_links:links,
+    business_mode:qs('v45BusinessMode')?.value||'featured',
+    business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value),
+    show_recommend_section:checked('v116ShowRecommend'),
+    show_community_section:checked('v116ShowCommunity'),
+    community_board_types:$$('#v45CommunityTypes input:checked').map(x=>x.value),
+    community_post_ids:v45Csv(qs('v45CommunityPostIds')?.value),
+    community_boost_ids:v45Csv(qs('v45CommunityBoostIds')?.value),
+    schedule_presets:v61HomeSchedules,
+    // P135: 이 화면에서 제거한 구형 영역은 저장 시 절대 덮어쓰지 않습니다.
+    show_today_section:previous.show_today_section,
+    show_alert_section:previous.show_alert_section,
+    show_ticker_section:previous.show_ticker_section,
+    ticker_direct:previous.ticker_direct,
+    direct_alert:previous.direct_alert,
+    ticker_sources:previous.ticker_sources
+  };
 }
+
 async function v45SaveHomeConfig(){const btn=qs('v45HomeSaveBtn');if(btn)btn.disabled=true;try{const home_config=v45ReadHomeConfig();await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'메인 운영 설정을 저장하고 있습니다…');const verified=await newsroomEdgeCall('get_settings',{region:getAppRegion()},'저장된 메인 설정을 확인하고 있습니다…');const saved=verified?.settings?.home_config||verified?.home_config||{};v45FillHomeConfig(saved);safeText('newsroomStatus',`메인 설정 저장·확인 완료 · 선택 분야 ${(saved.proposal_categories||[]).length}개`);alert('메인 운영 설정을 저장하고 서버에서 다시 확인했습니다.');}catch(e){alert(`메인 설정 저장 실패: ${e.message}`);}finally{if(btn)btn.disabled=false;}}
 
 document.addEventListener('click',(e)=>{if(e.target?.id==='v45HomeSaveBtn')v45SaveHomeConfig();});
@@ -8355,9 +8351,8 @@ console.info('[DalTownMap] P021 reanalysis index-mapping fix loaded');
         show_ticker_section:true,
         show_community_section:false,
         ticker_manual_items:items,
-        // P126: 한 줄 광고는 날씨·교통 자동 + 관리자 다중 입력을 사용합니다.
-        // DalPick/쿠폰은 더 이상 이 ticker 소스로 사용하지 않습니다.
-        ticker_sources:['weather','traffic'],
+        // P126부터 과거 자동 DalPick/쿠폰 및 단일 직접입력은 메인 ticker에서 사용하지 않습니다.
+        ticker_sources:[],
         ticker_direct:{enabled:false,text:'',label:'',url:'',updated_at:new Date().toISOString()},
         updated_at:new Date().toISOString()
       };
