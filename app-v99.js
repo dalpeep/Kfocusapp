@@ -471,11 +471,14 @@ function homeBusinessItemHTML(b){
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
   const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
-  const couponBadge = (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '';
+  const promoBadges = [
+    (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '',
+    (typeof businessHasActiveBanner === 'function' && businessHasActiveBanner(b)) ? '<span class="home-business-banner-badge">배너</span>' : ''
+  ].filter(Boolean).join('');
 
   return `
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
-      <span class="home-biz-map-img-wrap"><img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">${couponBadge}</span>
+      <span class="home-biz-map-img-wrap"><img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}"><span class="home-business-promo-badges">${promoBadges}</span></span>
 
       <div class="home-biz-map-main">
         <div class="home-biz-map-name">${esc(b.name || '이름 없음')} ${premiumBadge} ${videoBadge}</div>
@@ -2492,15 +2495,35 @@ function businessHasActiveCoupon(b){
     return ids.includes(id);
   });
 }
+function businessHasActiveBanner(b){
+  if(!b) return false;
+  const id=String(b.id||'');
+  if(!id) return false;
+  const now=Date.now();
+  return (Array.isArray(mainBanners)?mainBanners:[]).some(row=>{
+    if(!row || row.is_active===false) return false;
+    const status=String(row.status||'').toLowerCase();
+    if(status==='draft' || status==='inactive') return false;
+    const st=row.start_at||row.start_date;
+    const en=row.end_at||row.end_date;
+    if(st && new Date(st).getTime()>now) return false;
+    if(en && new Date(en).getTime()<now) return false;
+    const ids=[row.business_id,row.businessId,...(Array.isArray(row.business_ids)?row.business_ids:[])].filter(Boolean).map(String);
+    return ids.includes(id);
+  });
+}
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const meta = [getBusinessDisplayCategory(b)];
-  const couponBadge = businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '';
+  const promoBadges = [
+    businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '',
+    businessHasActiveBanner(b) ? '<span class="business-banner-badge">배너</span>' : ''
+  ].filter(Boolean).join('');
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
-      <span class="nearby-thumb-wrap"><img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">${couponBadge}</span>
+      <span class="nearby-thumb-wrap"><img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}"><span class="business-promo-badges">${promoBadges}</span></span>
       <div class="nearby-copy">
         <strong>${esc(bizName)}</strong>
         <span>${esc(meta.join(' · '))}</span>
