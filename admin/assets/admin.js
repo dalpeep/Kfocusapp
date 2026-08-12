@@ -2,6 +2,7 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const cfg = window.KFOCUS_CONFIG || {};
 console.info('[DalTownMap Admin] P135 AI 운영센터 정리 로드됨');
+console.info('[DalTownMap Admin] P136 쿠폰 관리자 미리보기 로드됨');
 const qs = (id) => document.getElementById(id);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 const esc = (s = '') =>
@@ -1824,6 +1825,7 @@ function clearCouponForm() {
   selectedCouponId = null;
   safeText('couponFormTitle', '새 쿠폰');
   $$('.coupon-row').forEach((el) => el.classList.remove('active'));
+  ensureCouponAdminPreviewUI();
 }
 function fillCouponForm(row) {
   setVal('coupon_id', row.id || '');
@@ -1843,7 +1845,141 @@ function fillCouponForm(row) {
   setVal('coupon_sort_order', row.sort_order ?? 1000);
   selectedCouponId = row.id;
   safeText('couponFormTitle', `쿠폰 수정 #${row.id}`);
+  ensureCouponAdminPreviewUI();
 }
+
+// P136: 관리자 전용 쿠폰 미리보기
+// 실제 앱의 시작일/종료일 노출 조건은 변경하지 않습니다.
+function couponAdminPreviewStatus(data){
+  if(data.is_active===false)return {key:'inactive',label:'비활성'};
+  const now=Date.now();
+  const start=data.start_at?new Date(data.start_at).getTime():null;
+  const end=data.end_at?new Date(data.end_at).getTime():null;
+  if(start && Number.isFinite(start) && start>now)return {key:'scheduled',label:'시작 전'};
+  if(end && Number.isFinite(end) && end<now)return {key:'ended',label:'종료'};
+  return {key:'live',label:'노출 기간'};
+}
+function couponAdminPreviewData(){
+  const businessIds=getMultiBusinessIds('coupon_business_id');
+  const businessId=businessIds[0]||val('coupon_business_id')||'';
+  const biz=businesses.find(b=>String(b.id)===String(businessId));
+  return {
+    id:val('coupon_id')||selectedCouponId||'',
+    business_id:businessId,
+    business_name:biz?.name_ko||biz?.name_en||biz?.name||'연결 업소',
+    title:val('coupon_title').trim()||'쿠폰 제목',
+    coupon_code:val('coupon_code').trim()||'업소 문의',
+    discount_label:val('coupon_discount_label').trim()||'특별 혜택',
+    description:val('coupon_description').trim()||'쿠폰 설명이 여기에 표시됩니다.',
+    image_url:val('coupon_image_url').trim()||biz?.image_url||'',
+    start_at:val('coupon_start_at')?new Date(val('coupon_start_at')).toISOString():null,
+    end_at:val('coupon_end_at')?new Date(val('coupon_end_at')).toISOString():null,
+    is_active:checked('coupon_is_active'),
+    is_today_coupon:checked('coupon_is_today')
+  };
+}
+function couponAdminPreviewDate(v){
+  if(!v)return '기간 미지정';
+  const d=new Date(v);
+  if(Number.isNaN(d.getTime()))return String(v);
+  return new Intl.DateTimeFormat('ko-KR',{
+    timeZone:'America/Chicago',
+    year:'numeric',month:'numeric',day:'numeric',
+    hour:'numeric',minute:'2-digit'
+  }).format(d);
+}
+function ensureCouponAdminPreviewStyles(){
+  if(qs('couponAdminPreviewStyles'))return;
+  const style=document.createElement('style');
+  style.id='couponAdminPreviewStyles';
+  style.textContent=`
+    .coupon-admin-preview-open{margin-left:10px}
+    .coupon-admin-preview-overlay{position:fixed;inset:0;background:rgba(15,23,42,.58);z-index:100000;display:flex;align-items:center;justify-content:center;padding:22px}
+    .coupon-admin-preview-overlay.hidden{display:none}
+    .coupon-admin-preview-dialog{width:min(920px,96vw);max-height:92vh;overflow:auto;background:#f5f8fc;border-radius:22px;box-shadow:0 28px 70px rgba(15,23,42,.28)}
+    .coupon-admin-preview-head{position:sticky;top:0;z-index:2;background:#fff;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid #dbe4f0;border-radius:22px 22px 0 0}
+    .coupon-admin-preview-head h3{margin:0;font-size:18px}.coupon-admin-preview-head p{margin:3px 0 0;color:#64748b;font-size:12px}
+    .coupon-admin-preview-close{border:0;background:#eef2f7;border-radius:10px;padding:9px 13px;cursor:pointer;font-weight:800}
+    .coupon-admin-preview-content{display:grid;grid-template-columns:minmax(300px,390px) 1fr;gap:22px;padding:22px}
+    .coupon-admin-phone{background:#fff;border:1px solid #dbe4f0;border-radius:30px;padding:13px;box-shadow:0 12px 30px rgba(15,23,42,.09)}
+    .coupon-admin-card{overflow:hidden;border:1px solid #e5e7eb;border-radius:20px;background:#fff}
+    .coupon-admin-image{aspect-ratio:16/10;background:#eef2f7;display:flex;align-items:center;justify-content:center;overflow:hidden;color:#64748b}
+    .coupon-admin-image img{width:100%;height:100%;object-fit:cover}
+    .coupon-admin-copy{padding:17px}.coupon-admin-copy h2{font-size:23px;line-height:1.25;margin:4px 0 8px}.coupon-admin-business{font-size:13px;color:#2563eb;font-weight:900}.coupon-admin-benefit{display:inline-block;background:#fff1e8;color:#e65100;border-radius:999px;padding:7px 10px;margin:5px 0 10px;font-weight:900;font-size:13px}
+    .coupon-admin-desc{font-size:14px;line-height:1.6;color:#475569;white-space:pre-wrap}.coupon-admin-code{margin-top:14px;padding:11px 12px;border:1px dashed #94a3b8;border-radius:10px;background:#f8fafc}.coupon-admin-code small{display:block;color:#64748b;font-weight:800}.coupon-admin-code strong{font-size:18px}
+    .coupon-admin-meta{background:#fff;border:1px solid #dbe4f0;border-radius:16px;padding:18px}.coupon-admin-meta h4{margin:0 0 14px}.coupon-admin-meta-row{padding:10px 0;border-bottom:1px solid #edf1f5}.coupon-admin-meta-row:last-child{border-bottom:0}.coupon-admin-meta-row span{display:block;color:#64748b;font-size:12px;margin-bottom:3px}.coupon-admin-meta-row strong{font-size:14px}
+    .coupon-admin-status{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900}.coupon-admin-status.scheduled{background:#fff3cd;color:#8a5700}.coupon-admin-status.live{background:#e8f7ed;color:#137333}.coupon-admin-status.ended{background:#f2f4f7;color:#667085}.coupon-admin-status.inactive{background:#fdecec;color:#b42318}
+    .coupon-admin-note{margin-top:14px;padding:12px;border-radius:12px;background:#eef6ff;color:#365b88;font-size:13px;line-height:1.5}
+    @media(max-width:760px){.coupon-admin-preview-content{grid-template-columns:1fr}.coupon-admin-phone{max-width:390px;margin:auto}}
+  `;
+  document.head.appendChild(style);
+}
+function ensureCouponAdminPreviewUI(){
+  ensureCouponAdminPreviewStyles();
+  if(!qs('couponAdminPreviewBtn')){
+    const title=qs('couponFormTitle');
+    if(title){
+      const btn=document.createElement('button');
+      btn.id='couponAdminPreviewBtn';
+      btn.type='button';
+      btn.className='btn secondary coupon-admin-preview-open';
+      btn.textContent='관리자 미리보기';
+      btn.addEventListener('click',openCouponAdminPreview);
+      title.insertAdjacentElement('afterend',btn);
+    }
+  }
+  if(!qs('couponAdminPreviewOverlay')){
+    const overlay=document.createElement('div');
+    overlay.id='couponAdminPreviewOverlay';
+    overlay.className='coupon-admin-preview-overlay hidden';
+    overlay.innerHTML=`<div class="coupon-admin-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="couponAdminPreviewTitle">
+      <div class="coupon-admin-preview-head">
+        <div><h3 id="couponAdminPreviewTitle">관리자 쿠폰 미리보기</h3><p>실제 사용자 노출 기간과 관계없이 관리자만 확인합니다.</p></div>
+        <button type="button" class="coupon-admin-preview-close" id="couponAdminPreviewClose">닫기</button>
+      </div>
+      <div class="coupon-admin-preview-content" id="couponAdminPreviewContent"></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    qs('couponAdminPreviewClose')?.addEventListener('click',closeCouponAdminPreview);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeCouponAdminPreview();});
+  }
+}
+function closeCouponAdminPreview(){
+  qs('couponAdminPreviewOverlay')?.classList.add('hidden');
+}
+function openCouponAdminPreview(){
+  ensureCouponAdminPreviewUI();
+  const d=couponAdminPreviewData();
+  const st=couponAdminPreviewStatus(d);
+  const image=d.image_url
+    ? `<img src="${esc(d.image_url)}" alt="${esc(d.title)}">`
+    : `<span>쿠폰 이미지 없음</span>`;
+  const host=qs('couponAdminPreviewContent');
+  if(host)host.innerHTML=`
+    <div class="coupon-admin-phone">
+      <div class="coupon-admin-card">
+        <div class="coupon-admin-image">${image}</div>
+        <div class="coupon-admin-copy">
+          <div class="coupon-admin-business">${esc(d.business_name)}</div>
+          <h2>${esc(d.title)}</h2>
+          <div class="coupon-admin-benefit">${esc(d.discount_label)}</div>
+          <div class="coupon-admin-desc">${esc(d.description)}</div>
+          <div class="coupon-admin-code"><small>COUPON CODE</small><strong>${esc(d.coupon_code)}</strong></div>
+        </div>
+      </div>
+    </div>
+    <aside class="coupon-admin-meta">
+      <h4>현재 저장/편집 설정</h4>
+      <div class="coupon-admin-meta-row"><span>노출 상태</span><strong><i class="coupon-admin-status ${st.key}">${st.label}</i></strong></div>
+      <div class="coupon-admin-meta-row"><span>시작일시</span><strong>${esc(couponAdminPreviewDate(d.start_at))}</strong></div>
+      <div class="coupon-admin-meta-row"><span>종료일시</span><strong>${esc(couponAdminPreviewDate(d.end_at))}</strong></div>
+      <div class="coupon-admin-meta-row"><span>활성</span><strong>${d.is_active?'예':'아니오'}</strong></div>
+      <div class="coupon-admin-meta-row"><span>오늘의 할인</span><strong>${d.is_today_coupon?'예':'아니오'}</strong></div>
+      <div class="coupon-admin-note">이 미리보기는 관리자 전용입니다. <b>시작일 전 쿠폰을 일반 앱에 강제로 노출하지 않습니다.</b> 실제 앱에서는 기존 시작일·종료일 조건을 그대로 사용합니다.</div>
+    </aside>`;
+  qs('couponAdminPreviewOverlay')?.classList.remove('hidden');
+}
+
 function filterCoupons() {
   const q = val('couponSearchInput').trim().toLowerCase();
   const bizId = val('couponBusinessFilter') || 'all';
@@ -1918,6 +2054,7 @@ async function loadCoupons() {
   window.KFocusAdminBridge.getCoupons = () => [...coupons];
   window.dispatchEvent(new CustomEvent('kfocus:coupons-loaded', {detail:[...coupons]}));
   renderCouponList(filterCoupons());
+  ensureCouponAdminPreviewUI();
   renderDalpickHomeExposure();
   renderBusinessList(filterBusinesses());
 }
