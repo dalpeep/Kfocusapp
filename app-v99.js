@@ -262,6 +262,92 @@ function ensureCouponCardLayoutFix(){
 ensureCouponCardLayoutFix();
 document.addEventListener('DOMContentLoaded',ensureCouponCardLayoutFix);
 
+// V172: Coupon tab final layout override.
+// P141 is intentionally kept for legacy/home coupon cards, so this override is
+// scoped to the actual coupon page and is injected after P141.
+function ensureV172CouponPageLayout(){
+  if(document.getElementById('v172CouponPageLayout')) return;
+  const style=document.createElement('style');
+  style.id='v172CouponPageLayout';
+  style.textContent=`
+    .coupon-page-card .coupon-card-v2{
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:stretch !important;
+      width:100% !important;
+      min-width:0 !important;
+      gap:0 !important;
+      padding:14px !important;
+      box-sizing:border-box !important;
+      overflow:hidden !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-thumb{
+      order:1 !important;
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      max-width:none !important;
+      height:auto !important;
+      aspect-ratio:16 / 9 !important;
+      margin:0 0 14px !important;
+      align-self:stretch !important;
+      border-radius:14px !important;
+      overflow:hidden !important;
+      background:#f5f7fb !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-thumb img{
+      display:block !important;
+      width:100% !important;
+      height:100% !important;
+      min-width:100% !important;
+      max-width:none !important;
+      object-fit:cover !important;
+      object-position:center !important;
+      border-radius:0 !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-main{
+      order:2 !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:flex-start !important;
+      width:100% !important;
+      min-width:0 !important;
+      margin:0 !important;
+      padding:12px 2px !important;
+      gap:4px !important;
+      text-align:left !important;
+      border-top:1px solid rgba(31,74,125,.10) !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-side{
+      order:3 !important;
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      margin:0 !important;
+      padding:12px 2px 0 !important;
+      border-top:1px solid rgba(31,74,125,.10) !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-badge{
+      display:none !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-btn{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      width:100% !important;
+      min-height:46px !important;
+      margin:0 !important;
+      padding:10px 16px !important;
+      border-radius:999px !important;
+      white-space:nowrap !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+ensureV172CouponPageLayout();
+document.addEventListener('DOMContentLoaded',ensureV172CouponPageLayout);
+
+
 // DalTownMap V45.3.0 recommended-business mode fix
 
 // === P127: 구형 달타운 알림 부팅 단계부터 완전 숨김 ===
