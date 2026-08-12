@@ -2205,12 +2205,32 @@ function downloadCouponRedemptionsTxt(){
   downloadTextFile(`쿠폰사용내역-${couponRedemptionFileStamp()}.txt`, body);
 }
 
+async function couponRedemptionAdminCall(action, payload={}){
+  if(!supabase) throw new Error('Supabase 연결이 없습니다.');
+  const {data:{session}} = await supabase.auth.getSession();
+  if(!session?.access_token) throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
+  const res = await fetch('/.netlify/functions/coupon-redemptions-admin', {
+    method:'POST',
+    headers:{'Content-Type':'application/json', Authorization:`Bearer ${session.access_token}`},
+    body:JSON.stringify({action, ...payload})
+  });
+  const text = await res.text();
+  let data={};
+  try{ data = text ? JSON.parse(text) : {}; }catch(_){ data = {error:text}; }
+  if(!res.ok || data.ok===false) throw new Error(data.error || `삭제 서버 오류 (${res.status})`);
+  return data;
+}
+
 async function deleteCouponRedemption(id){
   if(!id) return alert('삭제할 사용 내역 ID가 없습니다.');
   if(!confirm('이 쿠폰 사용 내역을 삭제할까요?\n삭제 후에는 복구할 수 없습니다.')) return;
-  const { error } = await supabase.from('coupon_redemptions').delete().eq('id', id);
-  if(error) return alert(`사용 내역 삭제 실패: ${error.message}`);
-  await loadCouponRedemptions();
+  try{
+    const result = await couponRedemptionAdminCall('delete',{id});
+    await loadCouponRedemptions();
+    alert(`${Number(result.deleted||1)}건을 실제 데이터베이스에서 삭제했습니다.`);
+  }catch(error){
+    alert(`사용 내역 삭제 실패: ${error.message||error}`);
+  }
 }
 
 async function deleteAllCouponRedemptions(){
@@ -2223,10 +2243,15 @@ async function deleteAllCouponRedemptions(){
 
   const ids = rows.map(r=>r.id).filter(Boolean);
   if(!ids.length) return alert('삭제할 내역 ID를 찾지 못했습니다.');
-  const { error } = await supabase.from('coupon_redemptions').delete().in('id', ids);
-  if(error) return alert(`사용 내역 전체 삭제 실패: ${error.message}`);
-  await loadCouponRedemptions();
-  alert(`${ids.length}건을 삭제했습니다.`);
+  try{
+    const result = await couponRedemptionAdminCall('delete_many',{ids});
+    await loadCouponRedemptions();
+    const remaining = getFilteredCouponRedemptions().filter(r=>ids.includes(r.id));
+    if(remaining.length) return alert(`삭제 요청 후 ${remaining.length}건이 화면에 남아 있습니다. 새로고침 후 다시 확인해 주세요.`);
+    alert(`${Number(result.deleted||ids.length)}건을 실제 데이터베이스에서 삭제했습니다.`);
+  }catch(error){
+    alert(`사용 내역 전체 삭제 실패: ${error.message||error}`);
+  }
 }
 
 async function loadCouponRedemptions(){
