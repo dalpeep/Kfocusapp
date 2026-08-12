@@ -1973,8 +1973,7 @@ function getFilteredCouponRedemptions(){
     const hay = [
       r.business_name,
       r.coupon_title,
-      r.notify_emails,
-      r.notify_phones
+      r.notify_emails
     ].join(' ').toLowerCase();
     return !q || hay.includes(q);
   });
@@ -2005,15 +2004,14 @@ function csvCell(value=''){
 function downloadCouponRedemptionsCsv(){
   const rows = getFilteredCouponRedemptions();
   if(!rows.length) return alert('다운로드할 쿠폰 사용 내역이 없습니다.');
-  const header = ['업소명','쿠폰명','사용일','이메일','전화'];
+  const header = ['업소명','쿠폰명','사용일','이메일'];
   const lines = [header.map(csvCell).join(',')];
   rows.forEach(r=>{
     lines.push([
       r.business_name || '-',
       r.coupon_title || '-',
       r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : '-',
-      r.notify_emails || '-',
-      r.notify_phones || '-'
+      r.notify_emails || '-'
     ].map(csvCell).join(','));
   });
   downloadTextFile(`쿠폰사용내역-${couponRedemptionFileStamp()}.csv`, lines.join('\r\n'), 'text/csv;charset=utf-8');
@@ -2026,8 +2024,7 @@ function downloadCouponRedemptionsTxt(){
     `[${i+1}] ${r.business_name || '-'}`,
     `쿠폰: ${r.coupon_title || '-'}`,
     `사용일: ${r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : '-'}`,
-    `이메일: ${r.notify_emails || '-'}`,
-    `전화: ${r.notify_phones || '-'}`
+    `이메일: ${r.notify_emails || '-'}`
   ].join('\n')).join('\n\n');
   downloadTextFile(`쿠폰사용내역-${couponRedemptionFileStamp()}.txt`, body);
 }
@@ -2105,7 +2102,6 @@ async function loadCouponRedemptions(){
         <div class="biz-meta">쿠폰: ${esc(r.coupon_title || '-')}</div>
         <div class="biz-meta">사용일: ${new Date(r.created_at).toLocaleString()}</div>
         <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
-        <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
       </div>
       <div class="biz-actions" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
         <button type="button" class="btn danger" onclick="deleteCouponRedemption('${esc(r.id || '')}')">삭제</button>
