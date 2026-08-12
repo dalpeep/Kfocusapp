@@ -2484,14 +2484,24 @@ function showMapBusinessPreview(b){
   mapBottomPanel?.classList.add('preview-open');
 }
 
+function businessHasActiveCoupon(b){
+  if(!b) return false;
+  const id=String(b.id||'');
+  if(!id) return false;
+  return activeCoupons(Array.isArray(coupons)?coupons:[]).some(c=>{
+    const ids=[c.businessId,c.business_id,...(Array.isArray(c.business_ids)?c.business_ids:[])].filter(Boolean).map(String);
+    return ids.includes(id);
+  });
+}
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const meta = [getBusinessDisplayCategory(b)];
+  const couponBadge = businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '';
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
-      <img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">
+      <span class="nearby-thumb-wrap"><img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">${couponBadge}</span>
       <div class="nearby-copy">
         <strong>${esc(bizName)}</strong>
         <span>${esc(meta.join(' · '))}</span>
