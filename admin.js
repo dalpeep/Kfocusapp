@@ -2141,12 +2141,12 @@ function renderDalpickHomeExposure(){
       const b=businesses.find(x=>String(x.id)===String(c.business_id));
       return !b?.region || String(b.region).toLowerCase()===region;
     })
-    .map(c=>{const b=businesses.find(x=>String(x.id)===String(c.business_id));return {source:'coupon',id:c.id,title:c.title||'쿠폰',subtitle:`오늘의 쿠폰 · ${b?.name_ko||b?.name_en||b?.name||'연결 업소 없음'}`,date:c.created_at||c.start_at||'',row:c};});
+    .map(c=>{const b=businesses.find(x=>String(x.id)===String(c.business_id));return {source:'coupon',id:c.id,title:c.title||'쿠폰',subtitle:`메인 슬라이드 쿠폰 · ${b?.name_ko||b?.name_en||b?.name||'연결 업소 없음'}`,date:c.created_at||c.start_at||'',row:c};});
   const rows=[...dalpickRows,...couponRows]
     .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
     .slice(0,8);
   safeText('dalpickExposureCount',`${rows.length}개`);
-  if(!rows.length){box.innerHTML='<div class="muted dalpick-exposure-empty">현재 홈 DalPick에 노출되는 항목이 없습니다. DalPick을 게시하거나 쿠폰에서 ‘오늘의 쿠폰’을 체크하세요.</div>';return;}
+  if(!rows.length){box.innerHTML='<div class="muted dalpick-exposure-empty">현재 홈에 노출되는 항목이 없습니다. DalPick을 게시하거나 쿠폰에서 ‘메인 슬라이드 노출’을 체크하세요.</div>';return;}
   box.innerHTML=rows.map(item=>`<div class="dalpick-exposure-item">
     <div class="dalpick-exposure-source ${item.source}">${item.source==='coupon'?'쿠폰':'DalPick'}</div>
     <div class="dalpick-exposure-copy"><strong>${esc(item.title)}</strong><span>${esc(item.subtitle)}</span></div>

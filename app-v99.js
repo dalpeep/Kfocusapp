@@ -2074,37 +2074,57 @@ function buildHeroSlides() {
     String(b.created_at || '').localeCompare(String(a.created_at || ''))
   );
 
-  heroSlides = activeSlides.map((s) => {
+  const regularSlides = activeSlides.map((s) => {
     const b = bizMap.get(String(s.business_id)) || {};
 
-return {
-    type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
-
-    title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
-
-    // 연결 업소를 찾지 못해도 undefined가 화면에 노출되지 않도록 안전하게 구성합니다.
-    desc: [b.category || b.category_ko || '', getRegionLabel(b.region || s.region || currentRegion)]
-      .filter(Boolean)
-      .join(' · '),
-
-    slideDesc: s.description || s.promo_text || '',
-
-    button: '',
-
-    bg:
-        s.promo_image_url ||
-        b.image_url ||
-        b.image ||
-        '',
-
-    link_url: s.link_url || '',
-
-    // 영상 슬라이드는 실제 URL도 heroSlides에 보존해야 렌더링 단계에서 재생할 수 있습니다.
-    video_url: s.video_url || '',
-
-    bizId: String(b.id || s.business_id || '')
-};
+    return {
+      type: s.video_url ? 'VIDEO' : (s.home_fixed ? 'BANNER' : 'DEAL'),
+      title: s.promo_text || b.name || b.name_ko || b.name_en || 'Kfocus',
+      // 연결 업소를 찾지 못해도 undefined가 화면에 노출되지 않도록 안전하게 구성합니다.
+      desc: [b.category || b.category_ko || '', getRegionLabel(b.region || s.region || currentRegion)]
+        .filter(Boolean)
+        .join(' · '),
+      slideDesc: s.description || s.promo_text || '',
+      button: '',
+      bg: s.promo_image_url || b.image_url || b.image || '',
+      link_url: s.link_url || '',
+      // 영상 슬라이드는 실제 URL도 heroSlides에 보존해야 렌더링 단계에서 재생할 수 있습니다.
+      video_url: s.video_url || '',
+      bizId: String(b.id || s.business_id || ''),
+      couponId: '',
+      source: 'slide',
+      sortOrder: Number(s.home_fixed_sort ?? 1000),
+      createdAt: s.created_at || ''
+    };
   }).filter((s) => !!(s.bg || s.video_url));
+
+  // V174: 쿠폰 등록 화면의 '메인 슬라이드 노출' 체크(is_today_coupon)를
+  // 별도 슬라이드 재등록 없이 홈 슬라이드에 직접 연결합니다.
+  const couponSlides = activeCoupons(coupons)
+    .filter(c => c.isToday === true && !!(c.image_url || c.imageUrl || c.image))
+    .map(c => {
+      const b = bizMap.get(String(c.businessId || c.business_id || '')) || {};
+      return {
+        type: 'COUPON',
+        title: c.title || '쿠폰',
+        desc: b.name || b.name_ko || b.name_en || '',
+        slideDesc: c.description || '',
+        button: '',
+        bg: c.image_url || c.imageUrl || c.image || '',
+        link_url: '',
+        video_url: '',
+        bizId: String(b.id || c.businessId || c.business_id || ''),
+        couponId: String(c.id || ''),
+        source: 'coupon',
+        sortOrder: Number(c.sortOrder ?? c.sort_order ?? 1000),
+        createdAt: c.createdAt || c.created_at || ''
+      };
+    });
+
+  heroSlides = [...couponSlides, ...regularSlides].sort((a,b) =>
+    Number(a.sortOrder ?? 1000) - Number(b.sortOrder ?? 1000) ||
+    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  );
 
   if (!heroSlides.length) {
     heroSlides = [
@@ -4626,15 +4646,9 @@ function renderBusinessPromotion(promo){
 }
 
 function renderBusinessTopPromo(promotions, coupon, pick){
+  // V174: 쿠폰은 업소 상세 상단 광고 영역에 중복 표시하지 않습니다.
+  // 쿠폰은 하단 '진행중인 혜택'에서만 표시하고, 상단은 배너/업소 소식 전용입니다.
   if (promotions && promotions.length) return promotions.slice(0,3).map(renderBusinessPromotion).join('');
-  if (coupon) {
-    const image = coupon.image_url || coupon.image || '';
-    const desc = String(coupon.description || coupon.summary || '').trim();
-    return `<button type="button" class="business-top-promo coupon-open" data-coupon="${esc(coupon.id)}">
-      <div class="business-top-promo-thumb">${image?`<img src="${esc(image)}" alt="${esc(coupon.title||'쿠폰')}">`:'<span>🎟️</span>'}</div>
-      <div class="business-top-promo-copy"><div class="business-top-promo-label">업소 쿠폰</div><h3>${esc(coupon.title||'사용 가능한 쿠폰')}</h3>${desc?`<p>${esc(desc.length>90?desc.slice(0,90)+'…':desc)}</p>`:''}</div>
-    </button>`;
-  }
   if (pick) {
     const body = String(pick.summary || pick.content || '').trim();
     return `<section class="business-top-promo business-top-ad">
@@ -5561,14 +5575,13 @@ function renderHero(){
   : getSlideMediaHTML(s);
 
     return `
-      <article class="hero-slide" style="width:${100 / total}%" data-index="${idx}" data-biz="${esc(s.bizId || '')}" data-video="${esc(s.video_url || '')}">
+      <article class="hero-slide ${s.couponId ? 'coupon-hero-slide' : ''}" style="width:${100 / total}%" data-index="${idx}" data-biz="${esc(s.bizId || '')}" data-coupon="${esc(s.couponId || '')}" data-video="${esc(s.video_url || '')}">
         ${media}
-        <div class="hero-slide-content">
+        ${s.couponId ? '' : `<div class="hero-slide-content">
           <span class="hero-chip">${esc(s.type || 'BANNER')}</span>
           <h2>${esc(s.title || '')}</h2>
           <p>${esc(s.desc || s.slideDesc || '')}</p>
-         
-        </div>
+        </div>`}
       </article>
     `;
   }).join('');
@@ -5652,8 +5665,17 @@ if(bizId){
     const slide=e.target.closest('.hero-slide');
     if(!slide) return;
     const bizId=slide.dataset.biz;
+    const couponId=String(slide.dataset.coupon || '').trim();
     currentDetailVideoOverride = String(slide.dataset.video || '').trim();
-const slideData = heroSlides.find(x => String(x.bizId) === String(bizId));
+    const slideIndexValue = Number(slide.dataset.index);
+    const slideData = Number.isInteger(slideIndexValue) ? heroSlides[slideIndexValue] : null;
+    // V174: 홈에서 쿠폰 슬라이드를 누르면 업소 상세가 아니라 쿠폰 상세로 바로 이동합니다.
+    if(couponId){
+      renderCouponDetail(couponId);
+      lastBasePage = currentPage;
+      showPage('coupon-detail');
+      return;
+    }
 if (slideData) {
   const link = String(slideData.link_url || '').trim();
   if (link) {

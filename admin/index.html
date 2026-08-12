@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=173.0-promo-artwork-standard"></script>
+  <script type="module" src="assets/admin.js?v=174.0-coupon-slide-integrated"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -116,7 +116,7 @@
           <button type="button" class="card integration-metric" data-go-section="banners"><span>배너</span><strong id="intBannerCount">-</strong><small id="intBannerSummary">현황 불러오는 중</small></button>
           <button type="button" class="card integration-metric" data-go-section="slide"><span>메인 슬라이드</span><strong id="intSlideCount">-</strong><small id="intSlideSummary">현황 불러오는 중</small></button>
           <button type="button" class="card integration-metric" data-go-section="dalpick"><span>한 줄 광고</span><strong id="intDalpickCount">-</strong><small id="intDalpickSummary">현황 불러오는 중</small></button>
-          <button type="button" class="card integration-metric" data-go-section="coupon"><span>오늘의 쿠폰</span><strong id="intTodayCouponCount">-</strong><small>현재 홈 DalPick 연동</small></button>
+          <button type="button" class="card integration-metric" data-go-section="coupon"><span>메인 슬라이드 쿠폰</span><strong id="intTodayCouponCount">-</strong><small>쿠폰에서 직접 연동</small></button>
           <button type="button" class="card integration-metric" data-go-section="aiManager"><span>승인 대기</span><strong id="intDraftCount">0</strong><small>품질 검토 열기</small></button>
           <button type="button" class="card integration-metric" data-go-section="board"><span>게시글</span><strong id="intBoardCount">-</strong><small>게시판·가이드 관리</small></button>
           <button type="button" class="card integration-metric" data-go-section="slide"><span>영상</span><strong id="intVideoCount">-</strong><small id="intVideoSummary">영상 현황 불러오는 중</small></button>
@@ -128,11 +128,11 @@
             <div id="intSlideExposure" class="dashboard-exposure-list"><div class="dashboard-empty">불러오는 중...</div></div>
           </article>
           <article class="card dashboard-exposure-card">
-            <div class="panel-head"><div><h3>오늘의 쿠폰</h3><p class="muted" id="intCouponExposureNote">실제 노출 항목</p></div><button type="button" class="btn ghost" data-go-section="coupon">관리</button></div>
+            <div class="panel-head"><div><h3>메인 슬라이드 쿠폰</h3><p class="muted" id="intCouponExposureNote">실제 노출 항목</p></div><button type="button" class="btn ghost" data-go-section="coupon">관리</button></div>
             <div id="intCouponExposure" class="dashboard-exposure-list"><div class="dashboard-empty">불러오는 중...</div></div>
           </article>
           <article class="card dashboard-exposure-card">
-            <div class="panel-head"><div><h3>현재 홈 한 줄 광고</h3><p class="muted" id="intDalpickExposureNote">DalPick + 오늘의 쿠폰</p></div><button type="button" class="btn ghost" data-go-section="dalpick">관리</button></div>
+            <div class="panel-head"><div><h3>현재 홈 한 줄 광고</h3><p class="muted" id="intDalpickExposureNote">DalPick + 메인 슬라이드 쿠폰</p></div><button type="button" class="btn ghost" data-go-section="dalpick">관리</button></div>
             <div id="intDalpickExposure" class="dashboard-exposure-list"><div class="dashboard-empty">불러오는 중...</div></div>
           </article>
           <article class="card dashboard-exposure-card">
@@ -814,7 +814,8 @@
               <label class="field"><span>시작일시</span><input id="coupon_start_at" type="datetime-local" /></label>
               <label class="field"><span>종료일시</span><input id="coupon_end_at" type="datetime-local" /></label>
               <label class="field checkbox-line"><input id="coupon_is_active" type="checkbox" checked /><span>활성</span></label>
-              <label class="field checkbox-line"><input id="coupon_is_today" type="checkbox" /><span>오늘의 할인</span></label>
+              <label class="field checkbox-line"><input id="coupon_is_today" type="checkbox" /><span>메인 슬라이드 노출</span></label>
+              <div style="margin:-6px 0 8px;color:#64748b;font-size:12px;line-height:1.5;">체크하면 별도 슬라이드 등록 없이 이 쿠폰 이미지가 홈 상단 슬라이드에 표시되며, 클릭 시 쿠폰 상세로 이동합니다.</div>
               <label class="field"><span>정렬 순서</span><input id="coupon_sort_order" type="number" /></label>
             </form>
           </div>
