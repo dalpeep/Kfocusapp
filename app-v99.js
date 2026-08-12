@@ -262,6 +262,92 @@ function ensureCouponCardLayoutFix(){
 ensureCouponCardLayoutFix();
 document.addEventListener('DOMContentLoaded',ensureCouponCardLayoutFix);
 
+// V172: Coupon tab final layout override.
+// P141 is intentionally kept for legacy/home coupon cards, so this override is
+// scoped to the actual coupon page and is injected after P141.
+function ensureV172CouponPageLayout(){
+  if(document.getElementById('v172CouponPageLayout')) return;
+  const style=document.createElement('style');
+  style.id='v172CouponPageLayout';
+  style.textContent=`
+    .coupon-page-card .coupon-card-v2{
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:stretch !important;
+      width:100% !important;
+      min-width:0 !important;
+      gap:0 !important;
+      padding:14px !important;
+      box-sizing:border-box !important;
+      overflow:hidden !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-thumb{
+      order:1 !important;
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      max-width:none !important;
+      height:auto !important;
+      aspect-ratio:16 / 9 !important;
+      margin:0 0 14px !important;
+      align-self:stretch !important;
+      border-radius:14px !important;
+      overflow:hidden !important;
+      background:#f5f7fb !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-thumb img{
+      display:block !important;
+      width:100% !important;
+      height:100% !important;
+      min-width:100% !important;
+      max-width:none !important;
+      object-fit:cover !important;
+      object-position:center !important;
+      border-radius:0 !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-main{
+      order:2 !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:flex-start !important;
+      width:100% !important;
+      min-width:0 !important;
+      margin:0 !important;
+      padding:12px 2px !important;
+      gap:4px !important;
+      text-align:left !important;
+      border-top:1px solid rgba(31,74,125,.10) !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-side{
+      order:3 !important;
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      margin:0 !important;
+      padding:12px 2px 0 !important;
+      border-top:1px solid rgba(31,74,125,.10) !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-badge{
+      display:none !important;
+    }
+    .coupon-page-card .coupon-card-v2 .coupon-v2-btn{
+      display:flex !important;
+      align-items:center !important;
+      justify-content:center !important;
+      width:100% !important;
+      min-height:46px !important;
+      margin:0 !important;
+      padding:10px 16px !important;
+      border-radius:999px !important;
+      white-space:nowrap !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+ensureV172CouponPageLayout();
+document.addEventListener('DOMContentLoaded',ensureV172CouponPageLayout);
+
+
 // DalTownMap V45.3.0 recommended-business mode fix
 
 // === P127: 구형 달타운 알림 부팅 단계부터 완전 숨김 ===
@@ -471,10 +557,14 @@ function homeBusinessItemHTML(b){
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
   const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
+  const promoBadges = [
+    (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '',
+    (typeof businessHasActiveBanner === 'function' && businessHasActiveBanner(b)) ? '<span class="home-business-banner-badge">배너</span>' : ''
+  ].filter(Boolean).join('');
 
   return `
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
-      <img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">
+      <span class="home-biz-map-img-wrap"><img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}"><span class="home-business-promo-badges">${promoBadges}</span></span>
 
       <div class="home-biz-map-main">
         <div class="home-biz-map-name">${esc(b.name || '이름 없음')} ${premiumBadge} ${videoBadge}</div>
@@ -2313,8 +2403,6 @@ function couponCardHTML(c, mode='all'){
   const title = c.title || '쿠폰';
   const bizName = b.name || b.name_ko || b.name_en || '';
   const expire = c.end_at || c.expires_at || c.expire_date || c.endDate || '';
-  const badge = c.discount_label || c.badge || c.type_label || 'DEAL';
-
   return `
     <article class="coupon-card coupon-card-v2 coupon-open" data-coupon="${esc(c.id)}">
       <div class="coupon-v2-thumb">
@@ -2323,12 +2411,11 @@ function couponCardHTML(c, mode='all'){
 
       <div class="coupon-v2-main">
         <strong>${esc(title)}</strong>
-        <span class="coupon-v2-biz">${esc(bizName)}</span>
-        <span class="coupon-v2-exp">${expire ? 'Exp: ' + esc(formatDateLabel(expire)) : ''}</span>
+        ${bizName ? `<span class="coupon-v2-biz">${esc(bizName)}</span>` : ''}
+        ${expire ? `<span class="coupon-v2-exp">사용기한 ${esc(formatDateLabel(expire))}</span>` : ''}
       </div>
 
       <div class="coupon-v2-side">
-        <span class="coupon-v2-badge">${esc(badge)}</span>
         <button class="coupon-v2-btn" type="button">쿠폰 보기</button>
       </div>
     </article>
@@ -2484,14 +2571,44 @@ function showMapBusinessPreview(b){
   mapBottomPanel?.classList.add('preview-open');
 }
 
+function businessHasActiveCoupon(b){
+  if(!b) return false;
+  const id=String(b.id||'');
+  if(!id) return false;
+  return activeCoupons(Array.isArray(coupons)?coupons:[]).some(c=>{
+    const ids=[c.businessId,c.business_id,...(Array.isArray(c.business_ids)?c.business_ids:[])].filter(Boolean).map(String);
+    return ids.includes(id);
+  });
+}
+function businessHasActiveBanner(b){
+  if(!b) return false;
+  const id=String(b.id||'');
+  if(!id) return false;
+  const now=Date.now();
+  return (Array.isArray(mainBanners)?mainBanners:[]).some(row=>{
+    if(!row || row.is_active===false) return false;
+    const status=String(row.status||'').toLowerCase();
+    if(status==='draft' || status==='inactive') return false;
+    const st=row.start_at||row.start_date;
+    const en=row.end_at||row.end_date;
+    if(st && new Date(st).getTime()>now) return false;
+    if(en && new Date(en).getTime()<now) return false;
+    const ids=[row.business_id,row.businessId,...(Array.isArray(row.business_ids)?row.business_ids:[])].filter(Boolean).map(String);
+    return ids.includes(id);
+  });
+}
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const meta = [getBusinessDisplayCategory(b)];
+  const promoBadges = [
+    businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '',
+    businessHasActiveBanner(b) ? '<span class="business-banner-badge">배너</span>' : ''
+  ].filter(Boolean).join('');
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
-      <img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}">
+      <span class="nearby-thumb-wrap"><img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}"><span class="business-promo-badges">${promoBadges}</span></span>
       <div class="nearby-copy">
         <strong>${esc(bizName)}</strong>
         <span>${esc(meta.join(' · '))}</span>

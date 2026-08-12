@@ -4968,3 +4968,140 @@ body.map-page-open #page-map .map-search-input{
 /* V119 separate one-line advertising section */
 .home-ad-ticker-section{margin:12px 0;}
 .home-ad-ticker-section[hidden]{display:none!important;}
+
+/* v168 business coupon badge */
+.nearby-thumb-wrap{position:relative;width:64px;height:64px;flex:0 0 64px;display:block}
+.nearby-thumb-wrap .nearby-thumb{width:100%;height:100%;display:block}
+.business-coupon-badge{position:absolute;left:-5px;top:-6px;z-index:2;display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:20px;padding:0 7px;border-radius:999px;background:#ff6b2c;color:#fff;font-size:11px;font-weight:800;line-height:1;box-shadow:0 2px 7px rgba(133,54,15,.25);border:2px solid #fff;letter-spacing:-.2px}
+@media (max-width:390px){.nearby-thumb-wrap{width:60px;height:60px;flex-basis:60px}.business-coupon-badge{left:-4px;top:-5px}}
+
+/* V169 · 쿠폰 배지 + 쿠폰 목록 UI 정렬 수정 */
+.home-biz-map-img-wrap{
+  position:relative;
+  display:block;
+  width:82px;
+  height:58px;
+  flex:0 0 82px;
+}
+.home-biz-map-img-wrap .home-biz-map-img{
+  width:100%;
+  height:100%;
+  display:block;
+}
+.home-business-coupon-badge,
+.business-coupon-badge{
+  position:absolute;
+  left:5px;
+  top:5px;
+  z-index:3;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:20px;
+  padding:0 7px;
+  border:0;
+  border-radius:999px;
+  background:#ff6b20;
+  color:#fff;
+  box-shadow:0 2px 6px rgba(90,40,10,.22);
+  font-size:10px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:-.2px;
+  white-space:nowrap;
+}
+.nearby-thumb-wrap .business-coupon-badge{
+  left:5px;
+  top:5px;
+}
+
+/* 쿠폰 탭 내부 카드: 이미지 크게, 정보는 아래에 정렬 */
+.coupon-page-card .coupon-stack{
+  gap:14px;
+}
+.coupon-page-card .coupon-card-v2{
+  display:flex !important;
+  flex-direction:column;
+  align-items:stretch;
+  gap:0;
+  min-height:0;
+  padding:16px !important;
+  overflow:hidden;
+  border-radius:20px;
+  background:#fff;
+  box-shadow:0 8px 24px rgba(15,23,42,.07);
+}
+.coupon-page-card .coupon-v2-thumb{
+  width:100% !important;
+  height:auto !important;
+  aspect-ratio:16 / 9;
+  max-width:none;
+  margin:0;
+  border-radius:14px;
+  background:#f5f7fb;
+  overflow:hidden;
+}
+.coupon-page-card .coupon-v2-thumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover !important;
+  object-position:center;
+  background:#fff;
+}
+.coupon-page-card .coupon-v2-main{
+  width:100%;
+  min-height:0;
+  margin-top:13px;
+  gap:4px;
+  text-align:left;
+}
+.coupon-page-card .coupon-v2-main strong{
+  display:block;
+  font-size:18px;
+  line-height:1.35;
+  font-weight:900;
+  color:#10224a;
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+}
+.coupon-page-card .coupon-v2-biz{
+  margin-top:2px;
+  font-size:13px;
+  font-weight:700;
+  color:#526889;
+}
+.coupon-page-card .coupon-v2-exp{
+  font-size:12px;
+  color:#7183a3;
+}
+.coupon-page-card .coupon-v2-side{
+  width:100%;
+  margin-top:12px;
+  display:block !important;
+}
+.coupon-page-card .coupon-v2-badge{
+  display:none !important;
+  padding:7px 11px;
+  border-radius:999px;
+  background:#ff6b20;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+}
+.coupon-page-card .coupon-v2-btn{
+  width:100%;
+  min-height:42px;
+  padding:10px 16px;
+  border-radius:999px;
+  background:#173766;
+  color:#fff;
+  font-size:14px;
+  font-weight:900;
+}
+@media(max-width:420px){
+  .home-biz-map-img-wrap{width:82px;height:58px}
+  .coupon-page-card .coupon-card-v2{padding:14px !important}
+  .coupon-page-card .coupon-v2-thumb{max-width:none}
+  .coupon-page-card .coupon-v2-main strong{font-size:17px}
+}
+\n\n/* V170 · 업소 카드 자동 프로모션 배지: 쿠폰 + 배너 */\n.home-business-promo-badges,\n.business-promo-badges{\n  position:absolute;\n  left:5px;\n  top:5px;\n  z-index:4;\n  display:flex;\n  flex-direction:column;\n  align-items:flex-start;\n  gap:3px;\n  pointer-events:none;\n}\n.home-business-promo-badges .home-business-coupon-badge,\n.home-business-promo-badges .home-business-banner-badge,\n.business-promo-badges .business-coupon-badge,\n.business-promo-badges .business-banner-badge{\n  position:static!important;\n  left:auto!important;\n  top:auto!important;\n  height:18px;\n  min-width:34px;\n  padding:0 6px;\n  border:0;\n  border-radius:999px;\n  color:#fff;\n  font-size:9px;\n  font-weight:900;\n  line-height:1;\n  letter-spacing:-.2px;\n  box-shadow:0 2px 6px rgba(15,23,42,.18);\n  white-space:nowrap;\n}\n.home-business-promo-badges .home-business-coupon-badge,\n.business-promo-badges .business-coupon-badge{background:#ff6b20;}\n.home-business-promo-badges .home-business-banner-badge,\n.business-promo-badges .business-banner-badge{background:#2563d9;}\n@media (max-width:390px){\n  .home-business-promo-badges,.business-promo-badges{left:4px;top:4px;gap:2px;}\n}\n
