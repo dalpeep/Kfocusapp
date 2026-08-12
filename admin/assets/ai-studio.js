@@ -298,7 +298,10 @@ function renderResults(types,s){
   document.querySelectorAll('[data-send-asset]').forEach(b=>b.addEventListener('click',()=>sendAsset(b.dataset.sendAsset,b)));
   types.forEach(type=>{
     updatePreview(type);
-    $(`ucsResult_${type}`)?.addEventListener('input',()=>updatePreview(type));
+    $(`ucsResult_${type}`)?.addEventListener('input',()=>{
+      if(type==='coupon') syncCouponEditorToSuite();
+      updatePreview(type);
+    });
   });
   $('ucsBannerRegenerate')?.addEventListener('click',()=>generateBannerStudioImage(false));
   if(types.includes('banner')) setTimeout(()=>generateBannerStudioImage(true),120);
@@ -380,7 +383,14 @@ function couponDataFromEditor(){
     description:description||suite?.coupon?.description||''
   };
 }
+function syncCouponEditorToSuite(){
+  if(!suite) return;
+  const data=couponDataFromEditor();
+  suite.coupon={...(suite.coupon||{}),...data};
+}
+
 async function captureCouponPreviewBlob(){
+  syncCouponEditorToSuite();
   updatePreview('coupon');
   const source=$('ucsPreview_coupon')?.querySelector('.ucs-coupon-ticket');
   if(!source) throw new Error('쿠폰 미리보기를 찾을 수 없습니다.');
@@ -432,6 +442,7 @@ async function sendAsset(type,actionBtn=null){
   } else if(type==='guide'){
     switchSection('board'); setValue('board_type','guide'); setValue('board_title',suite.guide?.title); setValue('board_content',`${suite.guide?.summary||''}\n\n${suite.guide?.content||''}`.trim()); setValue('board_business_id',b?.id||''); setValue('board_business_select',b?.id||''); setChecked('board_is_active',false); notify('가이드 관리 화면에 초안을 채웠습니다. 검토 후 저장하세요.');
   } else if(type==='coupon'){
+    syncCouponEditorToSuite();
     const data=couponDataFromEditor();
     const status=$('ucsResultStatus');
     const oldStatus=status?.textContent||'';
