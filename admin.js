@@ -3264,11 +3264,38 @@ async function uploadGalleryImages() {
   }
 }
 
+
+
+// V173: shared artwork upload standard for coupons/banners.
+// Production size: 1200x675 (16:9), WebP preferred, <= 400 KB.
+async function validatePromoArtwork(file, label='이미지') {
+  if (!file) throw new Error(`${label} 파일을 선택해 주세요.`);
+  const allowed = ['image/webp','image/jpeg','image/png'];
+  if (!allowed.includes(String(file.type || '').toLowerCase())) {
+    throw new Error(`${label}는 WebP, JPG 또는 PNG 파일만 사용할 수 있습니다.`);
+  }
+  if (file.size > 400 * 1024) {
+    throw new Error(`${label} 파일은 400KB 이하로 제작해 주세요. (권장: WebP 100~250KB)`);
+  }
+  const dims = await new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { const v={width:img.naturalWidth,height:img.naturalHeight}; URL.revokeObjectURL(url); resolve(v); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('이미지 크기를 확인할 수 없습니다.')); };
+    img.src = url;
+  });
+  if (dims.width !== 1200 || dims.height !== 675) {
+    throw new Error(`${label} 표준 규격은 1200 × 675px (16:9)입니다. 현재 파일: ${dims.width} × ${dims.height}px`);
+  }
+  return true;
+}
+
 async function uploadCouponImage() {
   const file = qs('coupon_image_file')?.files?.[0];
   if (!file) return alert('쿠폰 이미지를 선택하세요.');
 
   try {
+    await validatePromoArtwork(file, '쿠폰 이미지');
     const publicUrl = await uploadFileToStorage(file, 'coupons');
     setVal('coupon_image_url', publicUrl || '');
     if (qs('coupon_image_file')) qs('coupon_image_file').value = '';
@@ -3475,7 +3502,7 @@ function ensureBannerExtrasUI() {
         <input type="file" id="bannerImageFile" accept="image/*">
         <button type="button" class="btn" id="bannerImageUploadBtn">이미지 업데이트</button>
       </div>
-      <div style="margin-top:6px; color:#666; font-size:12px;">업로드 후 기존 저장 버튼을 누르면 최종 반영됩니다.</div>
+      <div style="margin-top:6px; color:#666; font-size:12px;">표준: 1200 × 675px (16:9) · WebP 권장 · 400KB 이하. 업로드 후 저장 버튼을 눌러 반영합니다.</div>
     `;
     bnImage.parentElement?.insertAdjacentElement('afterend', upWrap);
   }
@@ -3765,6 +3792,7 @@ async function uploadBannerImageToField() {
   try {
     const file = qs('bannerImageFile')?.files?.[0];
     if (!file) return alert('이미지를 먼저 선택해 주세요.');
+    await validatePromoArtwork(file, '배너 이미지');
 
     const region = (val('bnRegion').trim().toLowerCase() || 'dallas');
     const imageUrl = await uploadFileToStorage(file, `${region}/banner`);
