@@ -471,10 +471,11 @@ function homeBusinessItemHTML(b){
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
   const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
+  const couponBadge = (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '';
 
   return `
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
-      <img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">
+      <span class="home-biz-map-img-wrap"><img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}">${couponBadge}</span>
 
       <div class="home-biz-map-main">
         <div class="home-biz-map-name">${esc(b.name || '이름 없음')} ${premiumBadge} ${videoBadge}</div>
@@ -2313,8 +2314,6 @@ function couponCardHTML(c, mode='all'){
   const title = c.title || '쿠폰';
   const bizName = b.name || b.name_ko || b.name_en || '';
   const expire = c.end_at || c.expires_at || c.expire_date || c.endDate || '';
-  const badge = c.discount_label || c.badge || c.type_label || 'DEAL';
-
   return `
     <article class="coupon-card coupon-card-v2 coupon-open" data-coupon="${esc(c.id)}">
       <div class="coupon-v2-thumb">
@@ -2323,12 +2322,12 @@ function couponCardHTML(c, mode='all'){
 
       <div class="coupon-v2-main">
         <strong>${esc(title)}</strong>
-        <span class="coupon-v2-biz">${esc(bizName)}</span>
-        <span class="coupon-v2-exp">${expire ? 'Exp: ' + esc(formatDateLabel(expire)) : ''}</span>
+        ${bizName ? `<span class="coupon-v2-biz">${esc(bizName)}</span>` : ''}
+        ${expire ? `<span class="coupon-v2-exp">사용기한 ${esc(formatDateLabel(expire))}</span>` : ''}
       </div>
 
       <div class="coupon-v2-side">
-        <span class="coupon-v2-badge">${esc(badge)}</span>
+        <span class="coupon-v2-badge">쿠폰</span>
         <button class="coupon-v2-btn" type="button">쿠폰 보기</button>
       </div>
     </article>
