@@ -1,7 +1,120 @@
+console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
 console.info('[DalTownMap] P140 confirmCouponUse compatibility fix loaded');
 console.info('[DalTownMap] P139 coupon modal hard-close loaded');
 console.info('[DalTownMap] P138 coupon success auto-close loaded');
 console.info('[DalTownMap] P137 coupon campaign v1 loaded');
+
+// P141: coupon list mobile layout guard.
+// Long discount labels must never collapse the title column.
+function ensureCouponCardLayoutFix(){
+  if(document.getElementById('p141CouponCardLayoutFix')) return;
+  const style=document.createElement('style');
+  style.id='p141CouponCardLayoutFix';
+  style.textContent=`
+    .coupon-card-v2{
+      box-sizing:border-box !important;
+      width:100% !important;
+      min-width:0 !important;
+      display:grid !important;
+      grid-template-columns:96px minmax(0,1fr) !important;
+      grid-template-areas:
+        "thumb main"
+        "thumb side" !important;
+      column-gap:14px !important;
+      row-gap:8px !important;
+      align-items:center !important;
+      overflow:hidden !important;
+    }
+    .coupon-card-v2 .coupon-v2-thumb{
+      grid-area:thumb !important;
+      width:96px !important;
+      min-width:96px !important;
+      height:96px !important;
+      align-self:center !important;
+      overflow:hidden !important;
+      border-radius:14px !important;
+    }
+    .coupon-card-v2 .coupon-v2-thumb img{
+      display:block !important;
+      width:100% !important;
+      height:100% !important;
+      object-fit:cover !important;
+    }
+    .coupon-card-v2 .coupon-v2-main{
+      grid-area:main !important;
+      min-width:0 !important;
+      width:auto !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:flex-start !important;
+      gap:3px !important;
+    }
+    .coupon-card-v2 .coupon-v2-main strong{
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      white-space:normal !important;
+      word-break:keep-all !important;
+      overflow-wrap:break-word !important;
+      writing-mode:horizontal-tb !important;
+      text-orientation:mixed !important;
+      line-height:1.28 !important;
+    }
+    .coupon-card-v2 .coupon-v2-biz,
+    .coupon-card-v2 .coupon-v2-exp{
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      white-space:normal !important;
+      word-break:keep-all !important;
+      writing-mode:horizontal-tb !important;
+    }
+    .coupon-card-v2 .coupon-v2-side{
+      grid-area:side !important;
+      min-width:0 !important;
+      width:100% !important;
+      display:flex !important;
+      flex-direction:row !important;
+      flex-wrap:wrap !important;
+      justify-content:flex-start !important;
+      align-items:center !important;
+      gap:7px !important;
+    }
+    .coupon-card-v2 .coupon-v2-badge{
+      display:inline-flex !important;
+      max-width:100% !important;
+      min-width:0 !important;
+      white-space:normal !important;
+      word-break:keep-all !important;
+      overflow-wrap:break-word !important;
+      writing-mode:horizontal-tb !important;
+      line-height:1.25 !important;
+    }
+    .coupon-card-v2 .coupon-v2-btn{
+      flex:0 0 auto !important;
+      white-space:nowrap !important;
+    }
+    @media (min-width:700px){
+      .coupon-card-v2{
+        grid-template-columns:112px minmax(0,1fr) auto !important;
+        grid-template-areas:"thumb main side" !important;
+      }
+      .coupon-card-v2 .coupon-v2-thumb{
+        width:112px !important;
+        min-width:112px !important;
+        height:92px !important;
+      }
+      .coupon-card-v2 .coupon-v2-side{
+        width:auto !important;
+        justify-content:flex-end !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+ensureCouponCardLayoutFix();
+document.addEventListener('DOMContentLoaded',ensureCouponCardLayoutFix);
+
 // DalTownMap V45.3.0 recommended-business mode fix
 
 // === P127: 구형 달타운 알림 부팅 단계부터 완전 숨김 ===
