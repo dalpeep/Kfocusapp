@@ -2330,7 +2330,6 @@ function couponCardHTML(c, mode='all'){
       </div>
 
       <div class="coupon-v2-side">
-        <span class="coupon-v2-badge">쿠폰</span>
         <button class="coupon-v2-btn" type="button">쿠폰 보기</button>
       </div>
     </article>
