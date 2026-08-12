@@ -2140,6 +2140,95 @@ async function deleteCoupon() {
 }
 let couponRedemptions = [];
 
+function getFilteredCouponRedemptions(){
+  const q = (document.getElementById('couponRedemptionSearch')?.value || '').trim().toLowerCase();
+  return couponRedemptions.filter(r=>{
+    const hay = [
+      r.business_name,
+      r.coupon_title,
+      r.notify_emails,
+      r.notify_phones
+    ].join(' ').toLowerCase();
+    return !q || hay.includes(q);
+  });
+}
+
+function couponRedemptionFileStamp(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+}
+
+function downloadTextFile(filename, content, type='text/plain;charset=utf-8'){
+  const blob = new Blob(['\ufeff', content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+function csvCell(value=''){
+  return `"${String(value ?? '').replace(/"/g,'""')}"`;
+}
+
+function downloadCouponRedemptionsCsv(){
+  const rows = getFilteredCouponRedemptions();
+  if(!rows.length) return alert('다운로드할 쿠폰 사용 내역이 없습니다.');
+  const header = ['업소명','쿠폰명','사용일','이메일','전화'];
+  const lines = [header.map(csvCell).join(',')];
+  rows.forEach(r=>{
+    lines.push([
+      r.business_name || '-',
+      r.coupon_title || '-',
+      r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : '-',
+      r.notify_emails || '-',
+      r.notify_phones || '-'
+    ].map(csvCell).join(','));
+  });
+  downloadTextFile(`쿠폰사용내역-${couponRedemptionFileStamp()}.csv`, lines.join('\r\n'), 'text/csv;charset=utf-8');
+}
+
+function downloadCouponRedemptionsTxt(){
+  const rows = getFilteredCouponRedemptions();
+  if(!rows.length) return alert('다운로드할 쿠폰 사용 내역이 없습니다.');
+  const body = rows.map((r,i)=>[
+    `[${i+1}] ${r.business_name || '-'}`,
+    `쿠폰: ${r.coupon_title || '-'}`,
+    `사용일: ${r.created_at ? new Date(r.created_at).toLocaleString('ko-KR') : '-'}`,
+    `이메일: ${r.notify_emails || '-'}`,
+    `전화: ${r.notify_phones || '-'}`
+  ].join('\n')).join('\n\n');
+  downloadTextFile(`쿠폰사용내역-${couponRedemptionFileStamp()}.txt`, body);
+}
+
+async function deleteCouponRedemption(id){
+  if(!id) return alert('삭제할 사용 내역 ID가 없습니다.');
+  if(!confirm('이 쿠폰 사용 내역을 삭제할까요?\n삭제 후에는 복구할 수 없습니다.')) return;
+  const { error } = await supabase.from('coupon_redemptions').delete().eq('id', id);
+  if(error) return alert(`사용 내역 삭제 실패: ${error.message}`);
+  await loadCouponRedemptions();
+}
+
+async function deleteAllCouponRedemptions(){
+  const rows = getFilteredCouponRedemptions();
+  if(!rows.length) return alert('삭제할 쿠폰 사용 내역이 없습니다.');
+  const q = (document.getElementById('couponRedemptionSearch')?.value || '').trim();
+  const targetText = q ? `현재 검색 결과 ${rows.length}건` : `전체 사용 내역 ${rows.length}건`;
+  if(!confirm(`${targetText}을 모두 삭제할까요?\n삭제 후에는 복구할 수 없습니다.`)) return;
+  if(!confirm('정말 삭제하시겠습니까? 필요한 경우 먼저 엑셀(CSV) 또는 텍스트 파일로 다운로드해 보관하세요.')) return;
+
+  const ids = rows.map(r=>r.id).filter(Boolean);
+  if(!ids.length) return alert('삭제할 내역 ID를 찾지 못했습니다.');
+  const { error } = await supabase.from('coupon_redemptions').delete().in('id', ids);
+  if(error) return alert(`사용 내역 전체 삭제 실패: ${error.message}`);
+  await loadCouponRedemptions();
+  alert(`${ids.length}건을 삭제했습니다.`);
+}
+
 async function loadCouponRedemptions(){
   const box = document.getElementById('couponRedemptionList');
   const summary = document.getElementById('couponRedemptionSummary');
@@ -2171,19 +2260,7 @@ async function loadCouponRedemptions(){
   }
 
   couponRedemptions = data || [];
-
-  const q = (document.getElementById('couponRedemptionSearch')?.value || '').trim().toLowerCase();
-
-  const rows = couponRedemptions.filter(r=>{
-    const hay = [
-      r.business_name,
-      r.coupon_title,
-      r.notify_emails,
-      r.notify_phones
-    ].join(' ').toLowerCase();
-
-    return !q || hay.includes(q);
-  });
+  const rows = getFilteredCouponRedemptions();
 
   if(summary){
     summary.textContent = `총 ${rows.length}건 사용`;
@@ -2203,11 +2280,18 @@ async function loadCouponRedemptions(){
         <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
         <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
       </div>
+      <div class="biz-actions" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+        <button type="button" class="btn danger" onclick="deleteCouponRedemption('${esc(r.id || '')}')">삭제</button>
+      </div>
     </div>
   `).join('');
 }
 
 window.loadCouponRedemptions = loadCouponRedemptions;
+window.downloadCouponRedemptionsCsv = downloadCouponRedemptionsCsv;
+window.downloadCouponRedemptionsTxt = downloadCouponRedemptionsTxt;
+window.deleteCouponRedemption = deleteCouponRedemption;
+window.deleteAllCouponRedemptions = deleteAllCouponRedemptions;
 /* ---------------------------
    Boards
 --------------------------- */
