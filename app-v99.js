@@ -1,3 +1,4 @@
+console.info('[DalTownMap] P138 coupon success auto-close loaded');
 console.info('[DalTownMap] P137 coupon campaign v1 loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
 
@@ -4890,19 +4891,45 @@ function renderCouponDetail(id){
 }
 function ensureCouponCampaignUI(){if(document.getElementById('couponCampaignOverlay'))return;const s=document.createElement('style');s.textContent=`.coupon-campaign-overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:120000;display:flex;align-items:center;justify-content:center;padding:18px}.coupon-campaign-overlay.hidden{display:none}.coupon-campaign-dialog{width:min(440px,96vw);background:#fff;border-radius:22px;padding:22px;box-shadow:0 28px 70px rgba(15,23,42,.3)}.coupon-campaign-dialog h3{margin:0 0 7px;font-size:23px}.coupon-campaign-dialog p{color:#64748b;line-height:1.5}.coupon-campaign-dialog label{display:block;font-size:13px;font-weight:800;margin:13px 0 6px}.coupon-campaign-dialog input[type=email]{width:100%;box-sizing:border-box;padding:13px;border:1px solid #cfd8e6;border-radius:12px;font-size:16px}.coupon-campaign-check{display:flex!important;gap:8px;align-items:flex-start;font-weight:500!important;line-height:1.4}.coupon-campaign-actions{display:flex;gap:9px;margin-top:18px}.coupon-campaign-actions button{flex:1;height:46px;border:0;border-radius:13px;font-weight:900}.coupon-campaign-submit{background:#245fe5;color:#fff}.coupon-campaign-cancel{background:#eef2f7;color:#334155}.coupon-campaign-result{margin-top:14px;padding:13px;border-radius:13px;background:#f3f7ff;color:#1749b8;white-space:pre-wrap}`;document.head.appendChild(s);const o=document.createElement('div');o.id='couponCampaignOverlay';o.className='coupon-campaign-overlay hidden';o.innerHTML=`<div class="coupon-campaign-dialog"><h3 id="couponCampaignTitle">쿠폰 받기</h3><p id="couponCampaignDesc"></p><label for="couponCampaignEmail">이메일</label><input id="couponCampaignEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com"><label class="coupon-campaign-check" id="couponCampaignMarketingWrap"><input id="couponCampaignMarketing" type="checkbox"><span>DalTownMap 및 해당 업소의 프로모션 정보를 이메일로 받겠습니다. (선택)</span></label><div id="couponCampaignResult" class="coupon-campaign-result hidden"></div><div class="coupon-campaign-actions"><button type="button" class="coupon-campaign-cancel">닫기</button><button type="button" class="coupon-campaign-submit">신청하기</button></div></div>`;document.body.appendChild(o);o.querySelector('.coupon-campaign-cancel').onclick=()=>o.classList.add('hidden');o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')});o.querySelector('.coupon-campaign-submit').onclick=submitCouponCampaign}
 let couponCampaignId='';function openCouponCampaignForm(id){const c=getCoupon(id);if(!c)return;ensureCouponCampaignUI();couponCampaignId=String(id);const mode=String(c.delivery_mode||'display');document.getElementById('couponCampaignTitle').textContent=mode==='raffle'?'이벤트 응모하기':'이메일로 쿠폰 받기';document.getElementById('couponCampaignDesc').textContent=mode==='raffle'?'이메일로 응모번호를 보내드립니다. 당첨자는 추첨 후 별도의 당첨 쿠폰을 이메일로 받습니다.':'이메일을 입력하면 고유 쿠폰 코드를 바로 발급해 드립니다.';document.getElementById('couponCampaignMarketingWrap').style.display=c.marketing_opt_in_enabled===false?'none':'flex';document.getElementById('couponCampaignResult').classList.add('hidden');document.getElementById('couponCampaignEmail').value='';document.getElementById('couponCampaignMarketing').checked=false;document.getElementById('couponCampaignOverlay').classList.remove('hidden')}window.openCouponCampaignForm=openCouponCampaignForm;
-async function submitCouponCampaign(){const c=getCoupon(couponCampaignId);if(!c)return;const email=String(document.getElementById('couponCampaignEmail')?.value||'').trim();const marketing=!!document.getElementById('couponCampaignMarketing')?.checked;if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('올바른 이메일 주소를 입력하세요.');return}const btn=document.querySelector('#couponCampaignOverlay .coupon-campaign-submit');btn.disabled=true;btn.textContent='처리 중...';try{const res=await fetch('/.netlify/functions/coupon-campaign-enter',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({coupon_id:c.id,email,marketing_opt_in:marketing,source:'app'})});const d=await res.json().catch(()=>({}));if(!res.ok||d.ok===false)throw new Error(d.error||`HTTP ${res.status}`);const r=document.getElementById('couponCampaignResult');r.classList.remove('hidden');r.textContent=d.mode==='raffle'?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n확인 이메일도 발송했습니다.`:`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n이메일에서도 확인할 수 있습니다.`;btn.textContent='완료'}catch(e){alert(`처리 실패: ${e.message}`);btn.textContent='다시 시도'}finally{btn.disabled=false}}
-
-async function confirmCouponUse(id){
-
-    const coupon = getCoupon(id);
-
-    if(!coupon){
-        alert('쿠폰 정보를 찾을 수 없습니다.');
-        return;
-    }
-
-    await useCouponNow(coupon);
-
+async function submitCouponCampaign(){
+  const c=getCoupon(couponCampaignId);if(!c)return;
+  const email=String(document.getElementById('couponCampaignEmail')?.value||'').trim();
+  const marketing=!!document.getElementById('couponCampaignMarketing')?.checked;
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('올바른 이메일 주소를 입력하세요.');return;}
+  const btn=document.querySelector('#couponCampaignOverlay .coupon-campaign-submit');
+  btn.disabled=true;btn.textContent='처리 중...';
+  let success=false;
+  try{
+    const res=await fetch('/.netlify/functions/coupon-campaign-enter',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({coupon_id:c.id,email,marketing_opt_in:marketing,source:'app'})
+    });
+    const d=await res.json().catch(()=>({}));
+    if(!res.ok||d.ok===false)throw new Error(d.error||`HTTP ${res.status}`);
+    const r=document.getElementById('couponCampaignResult');
+    r.classList.remove('hidden');
+    r.textContent=d.mode==='raffle'
+      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n확인 이메일도 발송했습니다.`
+      :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n이메일에서도 확인할 수 있습니다.`;
+    btn.textContent='완료';
+    success=true;
+    // P138: 성공 후 재신청을 막고 모달을 자동으로 닫습니다.
+    setTimeout(()=>{
+      const overlay=document.getElementById('couponCampaignOverlay');
+      overlay?.classList.add('hidden');
+      couponCampaignId='';
+      if(r){r.textContent='';r.classList.add('hidden');}
+      const input=document.getElementById('couponCampaignEmail'); if(input) input.value='';
+      const opt=document.getElementById('couponCampaignMarketing'); if(opt) opt.checked=false;
+      btn.textContent='신청하기';
+      btn.disabled=false;
+    },800);
+  }catch(e){
+    alert(`처리 실패: ${e.message}`);
+    btn.textContent='다시 시도';
+  }finally{
+    if(!success)btn.disabled=false;
+  }
 }
 window.confirmCouponUse = confirmCouponUse;
 
