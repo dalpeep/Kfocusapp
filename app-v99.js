@@ -1,3 +1,4 @@
+console.info('[DalTownMap] P139 coupon modal hard-close loaded');
 console.info('[DalTownMap] P138 coupon success auto-close loaded');
 console.info('[DalTownMap] P137 coupon campaign v1 loaded');
 // DalTownMap V45.3.0 recommended-business mode fix
@@ -4913,17 +4914,16 @@ async function submitCouponCampaign(){
       :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n이메일에서도 확인할 수 있습니다.`;
     btn.textContent='완료';
     success=true;
-    // P138: 성공 후 재신청을 막고 모달을 자동으로 닫습니다.
+    // P139: 성공 후에는 기존 모달을 DOM에서 완전히 제거합니다.
+    // hidden 클래스 충돌이나 재렌더링과 관계없이 확실하게 닫힙니다.
     setTimeout(()=>{
-      const overlay=document.getElementById('couponCampaignOverlay');
-      overlay?.classList.add('hidden');
       couponCampaignId='';
-      if(r){r.textContent='';r.classList.add('hidden');}
-      const input=document.getElementById('couponCampaignEmail'); if(input) input.value='';
-      const opt=document.getElementById('couponCampaignMarketing'); if(opt) opt.checked=false;
-      btn.textContent='신청하기';
-      btn.disabled=false;
-    },800);
+      const overlay=document.getElementById('couponCampaignOverlay');
+      if(overlay){
+        overlay.style.display='none';
+        overlay.remove();
+      }
+    },700);
   }catch(e){
     alert(`처리 실패: ${e.message}`);
     btn.textContent='다시 시도';
