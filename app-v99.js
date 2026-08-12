@@ -1,8 +1,155 @@
+console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
 console.info('[DalTownMap] P140 confirmCouponUse compatibility fix loaded');
 console.info('[DalTownMap] P139 coupon modal hard-close loaded');
 console.info('[DalTownMap] P138 coupon success auto-close loaded');
 console.info('[DalTownMap] P137 coupon campaign v1 loaded');
+
+// P142: Coupon page layout — large centered coupon artwork with details below.
+function ensureP142CouponLayout(){
+  if(document.getElementById('p142CouponLayout')) return;
+  const style=document.createElement('style');
+  style.id='p142CouponLayout';
+  style.textContent=`
+    /* Override P141's horizontal coupon-card layout only on the coupon cards. */
+    .coupon-card-v2{
+      box-sizing:border-box !important;
+      width:100% !important;
+      min-width:0 !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:stretch !important;
+      gap:0 !important;
+      padding:18px !important;
+      overflow:hidden !important;
+    }
+
+    /* Large centered coupon image */
+    .coupon-card-v2 .coupon-v2-thumb{
+      order:1 !important;
+      width:min(100%, 720px) !important;
+      min-width:0 !important;
+      height:auto !important;
+      aspect-ratio:auto !important;
+      margin:0 auto 18px !important;
+      border-radius:16px !important;
+      overflow:hidden !important;
+      align-self:center !important;
+      background:#fff !important;
+    }
+    .coupon-card-v2 .coupon-v2-thumb img{
+      display:block !important;
+      width:100% !important;
+      height:auto !important;
+      max-height:none !important;
+      object-fit:contain !important;
+      object-position:center !important;
+      border-radius:16px !important;
+    }
+
+    /* Detail area below artwork */
+    .coupon-card-v2 .coupon-v2-main{
+      order:2 !important;
+      width:min(100%, 720px) !important;
+      min-width:0 !important;
+      margin:0 auto !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:flex-start !important;
+      text-align:left !important;
+      gap:5px !important;
+      padding:14px 4px !important;
+      border-top:1px solid rgba(31,74,125,.10) !important;
+    }
+    .coupon-card-v2 .coupon-v2-main strong{
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      white-space:normal !important;
+      word-break:keep-all !important;
+      overflow-wrap:break-word !important;
+      writing-mode:horizontal-tb !important;
+      text-orientation:mixed !important;
+      line-height:1.35 !important;
+      font-size:1.12rem !important;
+    }
+    .coupon-card-v2 .coupon-v2-biz,
+    .coupon-card-v2 .coupon-v2-exp{
+      display:block !important;
+      width:100% !important;
+      min-width:0 !important;
+      white-space:normal !important;
+      word-break:keep-all !important;
+      writing-mode:horizontal-tb !important;
+      line-height:1.4 !important;
+    }
+
+    /* Benefit and CTA are placed under the main information */
+    .coupon-card-v2 .coupon-v2-side{
+      order:3 !important;
+      width:min(100%, 720px) !important;
+      min-width:0 !important;
+      margin:0 auto !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:stretch !important;
+      justify-content:flex-start !important;
+      gap:12px !important;
+      padding:12px 4px 2px !important;
+      border-top:1px solid rgba(31,74,125,.10) !important;
+    }
+    .coupon-card-v2 .coupon-v2-badge{
+      display:block !important;
+      width:100% !important;
+      max-width:none !important;
+      min-width:0 !important;
+      box-sizing:border-box !important;
+      white-space:normal !important;
+      word-break:keep-all !important;
+      overflow-wrap:break-word !important;
+      writing-mode:horizontal-tb !important;
+      line-height:1.4 !important;
+      text-align:left !important;
+      border-radius:14px !important;
+    }
+    .coupon-card-v2 .coupon-v2-btn{
+      width:100% !important;
+      min-height:46px !important;
+      flex:none !important;
+      white-space:nowrap !important;
+      text-align:center !important;
+      justify-content:center !important;
+      border-radius:999px !important;
+    }
+
+    @media (max-width:699px){
+      .coupon-card-v2{
+        padding:14px !important;
+        border-radius:22px !important;
+      }
+      .coupon-card-v2 .coupon-v2-thumb{
+        width:100% !important;
+        margin-bottom:14px !important;
+        border-radius:14px !important;
+      }
+      .coupon-card-v2 .coupon-v2-main{
+        width:100% !important;
+        padding:12px 2px !important;
+      }
+      .coupon-card-v2 .coupon-v2-main strong{
+        font-size:1.08rem !important;
+      }
+      .coupon-card-v2 .coupon-v2-side{
+        width:100% !important;
+        padding:12px 2px 0 !important;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+ensureP142CouponLayout();
+document.addEventListener('DOMContentLoaded',ensureP142CouponLayout);
+
 
 // P141: coupon list mobile layout guard.
 // Long discount labels must never collapse the title column.
