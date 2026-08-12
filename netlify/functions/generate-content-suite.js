@@ -200,9 +200,31 @@ exports.handler = async (event) => {
     }
 
     const business = b.business && typeof b.business === 'object' ? b.business : null;
-    const requestedTypes = Array.isArray(b.content_types) && b.content_types.length
+    const allowedTypes = ['dalpick', 'guide', 'coupon', 'banner', 'social', 'push', 'video', 'image_prompt'];
+    const requestedTypes = (Array.isArray(b.content_types) && b.content_types.length
       ? b.content_types
-      : ['dalpick', 'guide', 'coupon', 'banner', 'social', 'push', 'video', 'image_prompt'];
+      : ['dalpick']).filter(x => allowedTypes.includes(x));
+
+    // Build a compact response schema containing only the assets selected in the UI.
+    // This prevents a coupon-only request from generating a full campaign suite and timing out.
+    const selectedSchema = {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        campaign_title: schema.properties.campaign_title,
+        strategy_summary: schema.properties.strategy_summary,
+        marketing_score: schema.properties.marketing_score,
+        recommendations: schema.properties.recommendations,
+        checklist: schema.properties.checklist
+      },
+      required: ['campaign_title', 'strategy_summary', 'marketing_score', 'recommendations', 'checklist']
+    };
+    for (const type of requestedTypes) {
+      if (schema.properties[type]) {
+        selectedSchema.properties[type] = schema.properties[type];
+        selectedSchema.required.push(type);
+      }
+    }
 
     const prompt = `DalTownMap의 DalPick 중심 AI 콘텐츠 캠페인을 설계하세요.
 
@@ -215,9 +237,9 @@ exports.handler = async (event) => {
 연결 업소: ${business ? JSON.stringify(business) : '없음'}
 
 작업 순서:
-1. DalPick 기사를 콘텐츠의 원본으로 먼저 작성합니다.
-2. DalPick 기사에서 핵심 메시지, CTA, 대상 고객을 추출합니다.
-3. AI Guide·쿠폰·배너·SNS·푸시·영상·이미지 프롬프트가 기사와 같은 메시지를 유지하도록 파생 생성합니다.
+1. 관리자가 선택한 생성 항목(${requestedTypes.join(', ')})만 작성합니다.
+2. 여러 항목을 선택한 경우 핵심 메시지, CTA, 대상 고객이 서로 일관되게 유지되도록 작성합니다.
+3. DalPick이 선택된 경우에만 DalPick 기사를 작성하고, 선택되지 않았다면 생성하지 않습니다.
 4. guide는 생활정보·절차·추천 가이드 형식으로 제목, 요약, 본문을 작성합니다.
 5. 각 파생 콘텐츠가 이 캠페인에 필요한지 판단하여 recommendations에 추천 여부와 이유를 작성합니다.
 6. 발행 전 checklist에 제목, CTA, 연락처/링크, 이미지, 사실 확인, 쿠폰 조건 등 점검 결과를 작성합니다.
@@ -231,7 +253,7 @@ exports.handler = async (event) => {
 - 푸시 제목 28자 이내, 메시지 80자 이내
 - 영상 대본은 약 30~45초
 - 이미지 프롬프트에는 실제 로고나 읽을 수 있는 글자를 만들지 말라고 명시
-- 관리자가 선택하지 않은 콘텐츠도 JSON 스키마 때문에 필드는 반환하되, recommendations에서 필요성을 정직하게 평가
+- 관리자가 선택하지 않은 콘텐츠는 생성하지 말 것
 - marketing_score는 현재 입력 정보와 생성 결과의 발행 준비도를 0~100점으로 평가
 - checklist는 최소 6개 항목을 작성하고, 부족한 정보는 warning으로 표시`;
 
@@ -248,7 +270,8 @@ exports.handler = async (event) => {
           { role: 'system', content: [{ type: 'input_text', text: '당신은 달라스 한인 지역 미디어 DalTownMap의 콘텐츠 전략가이자 책임 편집장입니다.' }] },
           { role: 'user', content: [{ type: 'input_text', text: prompt }] }
         ],
-        text: { format: { type: 'json_schema', name: 'dalpick_content_pipeline', strict: true, schema } }
+        max_output_tokens: requestedTypes.includes('dalpick') ? 5000 : 3000,
+        text: { format: { type: 'json_schema', name: 'dalpick_content_pipeline', strict: true, schema: selectedSchema } }
       })
     });
 
