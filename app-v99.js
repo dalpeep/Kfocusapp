@@ -5320,6 +5320,11 @@ async function submitCouponCampaign(){
       :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n이메일에서도 확인할 수 있습니다.`;
     btn.textContent='완료';
     success=true;
+    // V177: 신청자가 직접 입력한 이메일만 이후 쿠폰 사용 기록에 연결합니다.
+    // 업소 이메일/전화번호는 사용자 정보로 저장하지 않습니다.
+    try {
+      localStorage.setItem(`daltown_coupon_customer_email_${String(c.id)}`, email);
+    } catch (_) {}
     // P139: 성공 후에는 기존 모달을 DOM에서 완전히 제거합니다.
     // hidden 클래스 충돌이나 재렌더링과 관계없이 확실하게 닫힙니다.
     setTimeout(()=>{
@@ -5370,18 +5375,16 @@ async function useCouponNow(coupon){
       business?.name ||
       coupon.business_name ||
       '',
-    notify_emails:
-      coupon.notify_emails ||
-      coupon.coupon_notify_emails ||
-      business?.coupon_notify_emails ||
-      business?.email ||
-      '',
-    notify_phones:
-      coupon.notify_phones ||
-      coupon.coupon_notify_phones ||
-      business?.coupon_notify_phones ||
-      business?.phone ||
-      '',
+    // V177: 쿠폰 사용자의 이메일은 사용자가 쿠폰 신청 시 직접 입력한 값만 기록합니다.
+    // 업소 이메일/전화번호를 사용자 연락처로 대체하지 않습니다.
+    notify_emails: (()=>{
+      try {
+        return localStorage.getItem(`daltown_coupon_customer_email_${String(coupon.id)}`) || '';
+      } catch (_) {
+        return '';
+      }
+    })(),
+    notify_phones: null,
     used_by: 'customer'
   };
 
