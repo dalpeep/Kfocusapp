@@ -122,7 +122,7 @@ function amPreview(d,publishMode=false){
   const opts=d.publishOptions||{};
   $am('amPreviewBody').innerHTML=`<div class="am-preview-shell">
     <div class="am-preview-title"><div><strong>${isCoupon?'쿠폰':'배너'} 최종 미리보기</strong><span>${amEscape(amName(d.businessId))}</span></div><span class="am-status ${d.status}">${amStatusLabel(d.status)}</span></div>
-    <div class="am-device"><div class="am-device-bar">DalTownMap</div><div class="am-live-preview ${isCoupon?'coupon':'banner'}"><img src="${amEscape(d.image||'')}" alt=""><div class="am-overlay"><b>${amEscape(d.title||'제목')}</b><span>${amEscape(d.subtitle||'')}</span></div></div><div class="am-preview-location">${isCoupon?'오늘의 쿠폰 / 쿠폰 페이지 / 연결 업소 상세':'연결 업소의 상세 페이지 전용 배너'}</div></div>
+    <div class="am-device"><div class="am-device-bar">DalTownMap</div><div class="am-live-preview ${isCoupon?'coupon':'banner'}"><img src="${amEscape(d.image||'')}" alt=""><div class="am-overlay"><b>${amEscape(d.title||'제목')}</b><span>${amEscape(d.subtitle||'')}</span></div></div><div class="am-preview-location">${isCoupon?'메인 슬라이드 / 쿠폰 페이지 / 업소 상세의 진행중인 혜택':'연결 업소의 상세 페이지 전용 배너'}</div></div>
     ${publishMode?`<div class="am-publish-options">
       <h4>최종 게시 위치</h4>
       ${isCoupon?`
@@ -133,7 +133,7 @@ function amPreview(d,publishMode=false){
         </div>
         <div class="am-placement-group">
           <div class="am-placement-heading"><strong>추가 노출</strong><span>필요한 경우에만 선택</span></div>
-          <label><input type="checkbox" id="amPubToday" ${opts.today?'checked':''}> 메인 오늘의 쿠폰</label>
+          <label><input type="checkbox" id="amPubToday" ${opts.today?'checked':''}> 메인 슬라이드 노출</label>
           <label><input type="checkbox" id="amPubDalpick" ${opts.dalpick?'checked':''}> 메인 DalPick 추천에도 표시</label>
         </div>
         <div id="amPublishSummary" class="am-publish-summary"></div>`:`
@@ -158,7 +158,7 @@ function amPreview(d,publishMode=false){
       if(isCoupon){
         const today=!!$am('amPubToday')?.checked;
         const dalpick=!!$am('amPubDalpick')?.checked;
-        summary.innerHTML=`<strong>이 쿠폰은 다음 위치에 게시됩니다.</strong><ul><li>✓ 쿠폰 페이지</li><li>✓ ${amEscape(amName(d.businessId))} 업소 상세</li><li>${today?'✓':'✕'} 메인 오늘의 쿠폰</li><li>${dalpick?'✓':'✕'} 메인 DalPick 추천</li></ul>`;
+        summary.innerHTML=`<strong>이 쿠폰은 다음 위치에 게시됩니다.</strong><ul><li>✓ 쿠폰 페이지</li><li>✓ ${amEscape(amName(d.businessId))} 업소 상세의 진행중인 혜택</li><li>${today?'✓':'✕'} 메인 슬라이드 노출</li><li>${dalpick?'✓':'✕'} 메인 DalPick 추천</li></ul>`;
       }else{
         const home=!!$am('amPubHome')?.checked;
         summary.innerHTML=`<strong>이 배너는 다음 위치에 게시됩니다.</strong><ul><li>✓ ${amEscape(amName(d.businessId))} 업소 상세</li><li>${home?'✓':'✕'} 메인 배너</li><li>✕ 카테고리 페이지</li></ul>`;

@@ -8,7 +8,7 @@
     ['ai_generate','AI 콘텐츠 생성','DalPick·쿠폰·배너 문구가 사실을 임의로 만들지 않는지 확인'],
     ['draft_review','초안 품질 검토','한글 문구 수정, 이미지 교체, 저장 후 새로고침 유지 확인'],
     ['approval','승인 처리','승인·보류 상태 변경과 필터가 정확한지 확인'],
-    ['coupon_publish','쿠폰 게시','기간·코드·링크·오늘의 쿠폰 노출 확인'],
+    ['coupon_publish','쿠폰 게시','기간·코드·링크·메인 슬라이드 노출 확인'],
     ['banner_publish','배너 게시','PC·모바일 이미지 비율과 링크 이동 확인'],
     ['board_publish','게시판·가이드','작성·수정·이미지 갤러리·상세 화면 확인'],
     ['push','푸시 발송','지역 선택과 실제 수신 여부 확인'],
@@ -203,10 +203,10 @@
     renderExposure('intCouponExposure', liveTodayCoupons.map(c => {
       const b = bizMap.get(String(c.business_id || ''));
       return {title:c.title || '쿠폰', subtitle:b?.name_ko || b?.name_en || '연결 업소 없음', source:'쿠폰'};
-    }), '오늘의 쿠폰으로 노출 중인 항목이 없습니다.');
+    }), '메인 슬라이드에 노출 중인 쿠폰이 없습니다.');
     const combined = [
       ...liveDalpicks.map(d => ({title:d.title || 'DalPick', subtitle:d.is_featured ? '대표 노출' : (d.category || 'DalPick'), source:'DalPick', date:d.created_at || d.start_at || ''})),
-      ...liveTodayCoupons.map(c => { const b=bizMap.get(String(c.business_id||'')); return {title:c.title || '쿠폰', subtitle:b?.name_ko || b?.name_en || '오늘의 쿠폰', source:'쿠폰', date:c.created_at || c.start_at || ''}; })
+      ...liveTodayCoupons.map(c => { const b=bizMap.get(String(c.business_id||'')); return {title:c.title || '쿠폰', subtitle:b?.name_ko || b?.name_en || '메인 슬라이드 쿠폰', source:'쿠폰', date:c.created_at || c.start_at || ''}; })
     ].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,8);
     renderExposure('intDalpickExposure', combined, '현재 홈 DalPick에 노출되는 항목이 없습니다.');
     renderExposure('intVideoExposure', recentVideos.map(v => ({

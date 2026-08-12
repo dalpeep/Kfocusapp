@@ -2002,7 +2002,7 @@ function openCouponAdminPreview(){
       <div class="coupon-admin-meta-row"><span>시작일시</span><strong>${esc(couponAdminPreviewDate(d.start_at))}</strong></div>
       <div class="coupon-admin-meta-row"><span>종료일시</span><strong>${esc(couponAdminPreviewDate(d.end_at))}</strong></div>
       <div class="coupon-admin-meta-row"><span>활성</span><strong>${d.is_active?'예':'아니오'}</strong></div>
-      <div class="coupon-admin-meta-row"><span>오늘의 할인</span><strong>${d.is_today_coupon?'예':'아니오'}</strong></div>
+      <div class="coupon-admin-meta-row"><span>메인 슬라이드</span><strong>${d.is_today_coupon?'노출':'미노출'}</strong></div>
       <div class="coupon-admin-note">이 미리보기는 관리자 전용입니다. <b>시작일 전 쿠폰을 일반 앱에 강제로 노출하지 않습니다.</b> 실제 앱에서는 기존 시작일·종료일 조건을 그대로 사용합니다.</div>
     </aside>`;
   qs('couponAdminPreviewOverlay')?.classList.remove('hidden');
@@ -2314,12 +2314,12 @@ function renderDalpickHomeExposure(){
       const b=businesses.find(x=>String(x.id)===String(c.business_id));
       return !b?.region || String(b.region).toLowerCase()===region;
     })
-    .map(c=>{const b=businesses.find(x=>String(x.id)===String(c.business_id));return {source:'coupon',id:c.id,title:c.title||'쿠폰',subtitle:`오늘의 쿠폰 · ${b?.name_ko||b?.name_en||b?.name||'연결 업소 없음'}`,date:c.created_at||c.start_at||'',row:c};});
+    .map(c=>{const b=businesses.find(x=>String(x.id)===String(c.business_id));return {source:'coupon',id:c.id,title:c.title||'쿠폰',subtitle:`메인 슬라이드 쿠폰 · ${b?.name_ko||b?.name_en||b?.name||'연결 업소 없음'}`,date:c.created_at||c.start_at||'',row:c};});
   const rows=[...dalpickRows,...couponRows]
     .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
     .slice(0,8);
   safeText('dalpickExposureCount',`${rows.length}개`);
-  if(!rows.length){box.innerHTML='<div class="muted dalpick-exposure-empty">현재 홈 DalPick에 노출되는 항목이 없습니다. DalPick을 게시하거나 쿠폰에서 ‘오늘의 쿠폰’을 체크하세요.</div>';return;}
+  if(!rows.length){box.innerHTML='<div class="muted dalpick-exposure-empty">현재 홈에 노출되는 항목이 없습니다. DalPick을 게시하거나 쿠폰에서 ‘메인 슬라이드 노출’을 체크하세요.</div>';return;}
   box.innerHTML=rows.map(item=>`<div class="dalpick-exposure-item">
     <div class="dalpick-exposure-source ${item.source}">${item.source==='coupon'?'쿠폰':'DalPick'}</div>
     <div class="dalpick-exposure-copy"><strong>${esc(item.title)}</strong><span>${esc(item.subtitle)}</span></div>
