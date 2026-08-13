@@ -9192,3 +9192,66 @@ console.info('[DalTownMap Admin] P132A guide picker reads boards[] loaded');
   window.P132BGuideHierarchy={render:renderGuideArticlePicker};
   console.info('[DalTownMap Admin] P132B guide sub-board + article picker loaded');
 })();
+
+
+// V181: 9:16 popup video - Supabase Storage upload + server settings
+(function(){
+  const $=id=>document.getElementById(id);
+  let loadedHomeConfig={};
+  async function loadPromoVideoSetting(){
+    if(!$('pvEnabled')) return;
+    try{
+      let settings={};
+      try{ const r=await newsroomEdgeCall('get_settings',{region:getAppRegion()}); settings=r?.settings||{}; }
+      catch(_){ const q=await supabase.from('newsroom_settings').select('home_config').eq('region',getAppRegion()).maybeSingle(); if(q.error) throw q.error; settings=q.data||{}; }
+      loadedHomeConfig=(settings.home_config&&typeof settings.home_config==='object')?settings.home_config:{};
+      const c=(loadedHomeConfig.promo_video&&typeof loadedHomeConfig.promo_video==='object')?loadedHomeConfig.promo_video:{};
+      $('pvEnabled').checked=!!c.enabled;
+      $('pvTitle').value=c.title||'';
+      $('pvUrl').value=c.videoUrl||'';
+      $('pvInstagramUrl').value=c.instagramUrl||'';
+      $('pvFrequency').value=['once','daily','always'].includes(c.frequency)?c.frequency:'once';
+      if($('pvUploadStatus')) $('pvUploadStatus').textContent=c.videoUrl?'현재 업로드된 영상이 연결되어 있습니다.':'아직 업로드된 MP4가 없습니다.';
+    }catch(e){ console.error('[V181 promo load]',e); if($('pvUploadStatus')) $('pvUploadStatus').textContent='설정 불러오기 실패: '+(e.message||e); }
+  }
+  async function uploadPromoVideo(){
+    const file=$('pvFile')?.files?.[0];
+    if(!file) return alert('업로드할 MP4 파일을 선택하세요.');
+    if(file.type!=='video/mp4' && !/\.mp4$/i.test(file.name||'')) return alert('MP4 파일만 업로드할 수 있습니다.');
+    if(file.size>50*1024*1024) return alert('영상은 50MB 이하로 올려 주세요. 가능하면 30MB 이하를 권장합니다.');
+    const btn=$('pvUpload'); if(btn){btn.disabled=true;btn.textContent='업로드 중…';}
+    if($('pvUploadStatus')) $('pvUploadStatus').textContent=`${(file.size/1024/1024).toFixed(1)}MB 영상을 업로드하고 있습니다…`;
+    try{
+      const url=await uploadFileToStorage(file,'promo-videos');
+      if(!url) throw new Error('공개 URL을 만들지 못했습니다.');
+      $('pvUrl').value=url;
+      if($('pvUploadStatus')) $('pvUploadStatus').textContent='MP4 업로드 완료. 아래 설정 저장 버튼을 눌러 적용하세요.';
+    }catch(e){ console.error('[V181 promo upload]',e); alert('영상 업로드 실패: '+(e.message||e)); if($('pvUploadStatus')) $('pvUploadStatus').textContent='업로드 실패'; }
+    finally{ if(btn){btn.disabled=false;btn.textContent='MP4 업로드';} }
+  }
+  async function savePromoVideoSetting(){
+    const videoUrl=String($('pvUrl')?.value||'').trim();
+    if($('pvEnabled')?.checked && !videoUrl) return alert('팝업을 사용하려면 먼저 MP4 파일을 업로드하세요.');
+    const insta=String($('pvInstagramUrl')?.value||'').trim();
+    if(insta && !/^https:\/\/(www\.)?instagram\.com\//i.test(insta)) return alert('Instagram 링크 형식을 확인해 주세요.');
+    const btn=$('pvSave'); if(btn){btn.disabled=true;btn.textContent='저장 중…';}
+    try{
+      // Always reload latest home_config before merge so other settings are never overwritten.
+      let latest={};
+      try{ const r=await newsroomEdgeCall('get_settings',{region:getAppRegion()}); latest=(r?.settings?.home_config&&typeof r.settings.home_config==='object')?r.settings.home_config:{}; }
+      catch(_){ latest=loadedHomeConfig||{}; }
+      const promo_video={enabled:!!$('pvEnabled')?.checked,title:String($('pvTitle')?.value||'').trim(),videoUrl,instagramUrl:insta,frequency:String($('pvFrequency')?.value||'once'),updated_at:new Date().toISOString()};
+      const home_config={...latest,promo_video};
+      await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'팝업 영상 설정을 저장하고 있습니다…');
+      loadedHomeConfig=home_config;
+      alert('팝업 영상 설정을 저장했습니다.');
+    }catch(e){ console.error('[V181 promo save]',e); alert('설정 저장 실패: '+(e.message||e)); }
+    finally{ if(btn){btn.disabled=false;btn.textContent='설정 저장';} }
+  }
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{
+    $('pvUpload')?.addEventListener('click',uploadPromoVideo);
+    $('pvSave')?.addEventListener('click',savePromoVideoSetting);
+    loadPromoVideoSetting();
+  },1000));
+  window.V181PromoVideoAdmin={load:loadPromoVideoSetting,upload:uploadPromoVideo,save:savePromoVideoSetting};
+})();

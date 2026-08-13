@@ -644,7 +644,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=179.0-paid-priority-six"></script>
+<script src="app-v99.js?v=181.0-video-popup-upload"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
@@ -777,63 +777,46 @@ function requestPush() {
 
 </div>
 
-<!-- V180: 9:16 promotional video popup -->
+<!-- V181: 9:16 promotional video popup -->
 <div id="promoVideoModal" class="promo-video-modal" hidden aria-hidden="true">
   <div class="promo-video-backdrop" data-promo-close></div>
   <section class="promo-video-dialog" role="dialog" aria-modal="true" aria-label="홍보 영상">
     <button class="promo-video-close" type="button" data-promo-close aria-label="닫기">×</button>
-    <div class="promo-video-frame">
-      <video id="promoVideoPlayer" playsinline controls preload="metadata"></video>
-    </div>
+    <div class="promo-video-frame"><video id="promoVideoPlayer" playsinline controls preload="metadata"></video></div>
     <h3 id="promoVideoTitle" class="promo-video-title"></h3>
+    <a id="promoVideoInstagram" class="promo-video-instagram" href="#" target="_blank" rel="noopener noreferrer" hidden>Instagram에서 보기</a>
     <button id="promoVideoDismissToday" class="promo-video-dismiss" type="button">오늘 다시 보지 않기</button>
   </section>
 </div>
 <style>
-.promo-video-modal{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:18px}
-.promo-video-modal[hidden]{display:none!important}
-.promo-video-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
-.promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:94vh;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
-.promo-video-frame{width:100%;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:#000}
-.promo-video-frame video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
-.promo-video-close{position:absolute;right:18px;top:18px;z-index:3;width:36px;height:36px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:27px;line-height:32px;cursor:pointer}
-.promo-video-title{margin:10px 4px 4px;font-size:16px;text-align:center}
-.promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}
-@media (max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
+.promo-video-modal{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:18px}.promo-video-modal[hidden]{display:none!important}.promo-video-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}.promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:94vh;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}.promo-video-frame{width:100%;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:#000}.promo-video-frame video{width:100%;height:100%;object-fit:contain;background:#000;display:block}.promo-video-close{position:absolute;right:18px;top:18px;z-index:3;width:36px;height:36px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:27px;line-height:32px;cursor:pointer}.promo-video-title{margin:10px 4px 4px;font-size:16px;text-align:center}.promo-video-instagram{display:block;margin:8px auto 2px;width:max-content;padding:8px 13px;border-radius:999px;background:#eef2ff;color:#1d4ed8;text-decoration:none;font-weight:800;font-size:13px}.promo-video-instagram[hidden]{display:none!important}.promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
 </style>
 <script>
 (function(){
- const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',frequency:'once'};
- function cfg(){ try{return Object.assign({},DEFAULTS,JSON.parse(localStorage.getItem('dtm_promo_video_config')||'{}'));}catch(e){return DEFAULTS;} }
- function key(c){const id=btoa(unescape(encodeURIComponent(c.videoUrl||c.title))).replace(/=/g,'');return 'dtm_promo_seen_'+id;}
- function shouldShow(c){
-   if(!c.enabled||!c.videoUrl)return false;
-   const k=key(c), seen=localStorage.getItem(k);
-   if(c.frequency==='always')return true;
-   if(c.frequency==='daily')return seen!==new Date().toISOString().slice(0,10);
-   return !seen;
+ const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',instagramUrl:'',frequency:'once'};
+ let current=DEFAULTS;
+ function region(){const c=window.KFOCUS_CONFIG||window.APP_CONFIG||{};return String(c.APP_REGION||c.app_region||c.APP_CITY||c.app_city||'dallas').toLowerCase();}
+ async function loadConfig(){
+   try{
+     const c=window.KFOCUS_CONFIG||window.APP_CONFIG||{}, base=String(c.SUPABASE_URL||'').replace(/\/$/,''), key=String(c.SUPABASE_ANON_KEY||'');
+     if(!base||!key) return DEFAULTS;
+     const u=`${base}/rest/v1/newsroom_settings?select=home_config&region=eq.${encodeURIComponent(region())}&limit=1&_=${Date.now()}`;
+     const r=await fetch(u,{headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'}); if(!r.ok) throw new Error('settings '+r.status);
+     const rows=await r.json(), p=rows?.[0]?.home_config?.promo_video||{}; return Object.assign({},DEFAULTS,p);
+   }catch(e){console.warn('[V181 promo config]',e);return DEFAULTS;}
  }
- function mark(c,todayOnly){localStorage.setItem(key(c), (todayOnly||c.frequency==='daily')?new Date().toISOString().slice(0,10):'seen');}
- function openPromo(){
-   const c=cfg(); if(!shouldShow(c))return;
-   const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
-   document.getElementById('promoVideoTitle').textContent=c.title||'';
-   v.src=c.videoUrl; m.hidden=false;m.setAttribute('aria-hidden','false');
-   document.body.style.overflow='hidden';
- }
- function closePromo(markSeen){
-   const c=cfg(),m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
-   if(markSeen)mark(c,false); v.pause(); m.hidden=true;m.setAttribute('aria-hidden','true');document.body.style.overflow='';
- }
- document.addEventListener('click',e=>{if(e.target.closest('[data-promo-close]'))closePromo(true);});
- document.addEventListener('DOMContentLoaded',()=>{
-   document.getElementById('promoVideoDismissToday')?.addEventListener('click',()=>{mark(cfg(),true);closePromo(false);});
-   setTimeout(openPromo,900);
- });
- window.DaltownPromoVideo={open:openPromo,close:closePromo,save:function(c){localStorage.setItem('dtm_promo_video_config',JSON.stringify(Object.assign({},DEFAULTS,c)));}};
+ function id(c){try{return btoa(unescape(encodeURIComponent(c.videoUrl||c.title))).replace(/=/g,'');}catch(_){return encodeURIComponent(c.videoUrl||c.title)}}
+ function seenKey(c){return 'dtm_promo_seen_'+id(c)} function snoozeKey(c){return 'dtm_promo_snooze_'+id(c)}
+ function today(){return new Date().toISOString().slice(0,10)}
+ function shouldShow(c){if(!c.enabled||!c.videoUrl)return false;if(localStorage.getItem(snoozeKey(c))===today())return false;const seen=localStorage.getItem(seenKey(c));if(c.frequency==='always')return true;if(c.frequency==='daily')return seen!==today();return !seen;}
+ function markNormal(c){localStorage.setItem(seenKey(c),c.frequency==='daily'?today():'seen')}
+ function openPromo(c){current=c;if(!shouldShow(c))return;const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer'),ig=document.getElementById('promoVideoInstagram');document.getElementById('promoVideoTitle').textContent=c.title||'';v.src=c.videoUrl;v.load();if(c.instagramUrl){ig.href=c.instagramUrl;ig.hidden=false}else{ig.hidden=true}m.hidden=false;m.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
+ function closePromo(markSeen=true){const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');if(markSeen)markNormal(current);v.pause();v.removeAttribute('src');v.load();m.hidden=true;m.setAttribute('aria-hidden','true');document.body.style.overflow='';}
+ document.addEventListener('click',e=>{if(e.target.closest('[data-promo-close]'))closePromo(true)});
+ document.addEventListener('DOMContentLoaded',()=>{document.getElementById('promoVideoDismissToday')?.addEventListener('click',()=>{localStorage.setItem(snoozeKey(current),today());closePromo(false)});setTimeout(async()=>openPromo(await loadConfig()),900)});
+ window.DaltownPromoVideo={open:async()=>openPromo(await loadConfig()),close:closePromo,reload:loadConfig};
 })();
 </script>
-
 </body>
 
 <script src="https://unpkg.com/lucide@latest"></script>
