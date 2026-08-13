@@ -450,13 +450,40 @@ function rotationScore(b, section, dateValue){
   const weight=Math.max(1,Number(b.paid_weight||1));
   return adSeededRandom(`${String(dateValue||todayKey()).slice(0,10)}-${section}-${b.id}`)/weight;
 }
-function pickRotation(list, section, limit=6, dateValue=todayKey()){
-  const eligible=list.filter(b=>adsEligibleOnDate(b,dateValue));
-  const fixed=eligible.filter(b=>b.rotation_enabled===false)
+function paidActiveOnDate(b,dateValue){
+  const dateKey=String(dateValue||todayKey()).slice(0,10);
+  if(b.is_active===false || b.paid_active!==true) return false;
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
+  return true;
+}
+function adsSectionAssigned(b,section){
+  if(section==='featured')return b.is_featured===true;
+  if(section==='new')return b.is_new===true;
+  if(section==='popular')return b.is_popular===true;
+  return false;
+}
+function adsFreeFillSort(rows,section,dateValue){
+  const dateKey=String(dateValue||todayKey()).slice(0,10);
+  const copy=[...rows];
+  if(section==='new')return copy.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))||adsGroupRank(a,section)-adsGroupRank(b,section));
+  return copy.sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||adSeededRandom(`${dateKey}-${section}-${a.id}`)-adSeededRandom(`${dateKey}-${section}-${b.id}`));
+}
+function pickRotation(list, section, limit=6, dateValue=todayKey(), allRows=adsOpsRows){
+  const assigned=list.filter(b=>adsEligibleOnDate(b,dateValue));
+  const paid=assigned.filter(b=>paidActiveOnDate(b,dateValue));
+  const fixed=paid.filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-  const automatic=eligible.filter(b=>b.rotation_enabled!==false)
+  const automatic=paid.filter(b=>b.rotation_enabled!==false)
     .sort((a,b)=>rotationScore(a,section,dateValue)-rotationScore(b,section,dateValue));
-  return fixed.concat(automatic).slice(0,limit);
+  const chosen=fixed.concat(automatic).slice(0,limit);
+  if(chosen.length>=limit)return chosen;
+  const ids=new Set(chosen.map(b=>String(b.id)));
+  const free=(allRows||[]).filter(b=>adsEligibleOnDate(b,dateValue)&&!ids.has(String(b.id))&&!paidActiveOnDate(b,dateValue));
+  const assignedFree=adsFreeFillSort(free.filter(b=>adsSectionAssigned(b,section)),section,dateValue);
+  const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
+  const genericFree=adsFreeFillSort(free.filter(b=>!assignedIds.has(String(b.id))),section,dateValue);
+  return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
 let adsOpsRows = [];
@@ -691,12 +718,13 @@ async function previewRotation(){
     popular:adsOpsRows.filter(b=>b.is_popular)
   };
   const render=(key)=>{
-    const rows=pickRotation(sectionRows[key],key,6,dateValue);
-    return `<article class="card ads-rotation-card"><div class="panel-head"><div><h3>${adsGroupLabel(key)}</h3><p class="muted">편성 ${sectionRows[key].length}개 · 해당일 노출 ${rows.length}개</p></div><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map((b,i)=>`<li><span class="ads-order-no">${i+1}</span><div><b>${esc(b.name_ko||b.name_en||'')}</b><small>${b.rotation_enabled===false?'고정 순서':'자동 로테이션'} · 가중치 ${esc(b.paid_weight||1)} · ${b.paid_active?'유료':'일반 편성'}</small></div></li>`).join('')}</ol>`:'<p class="muted">이 날짜에 노출할 업체가 없습니다.</p>'}</article>`;
+    const rows=pickRotation(sectionRows[key],key,6,dateValue,adsOpsRows);
+    const paidCount=rows.filter(b=>paidActiveOnDate(b,dateValue)).length;
+    return `<article class="card ads-rotation-card"><div class="panel-head"><div><h3>${adsGroupLabel(key)}</h3><p class="muted">유료 우선 ${paidCount}개 · 무료 자동 보충 ${rows.length-paidCount}개 · 총 ${rows.length}/6</p></div><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map((b,i)=>{const paid=paidActiveOnDate(b,dateValue);return `<li><span class="ads-order-no">${i+1}</span><div><b>${esc(b.name_ko||b.name_en||'')}</b><small>${paid?(b.rotation_enabled===false?'유료 고정':'유료 자동 로테이션'):'무료 자동 보충'}${paid?` · 가중치 ${esc(b.paid_weight||1)}`:''}</small></div></li>`}).join('')}</ol>`:'<p class="muted">이 날짜에 노출할 업체가 없습니다.</p>'}</article>`;
   };
   const host=document.querySelector('#rotationPreview');
   if(!host)return;
-  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">선택 날짜 기준 · 그룹별 최대 6개</p></div><span class="pill success">홈 노출 기준</span></div>${render('featured')}${render('new')}${render('popular')}`;
+  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">그룹별 6개 · 유료 고정 → 유료 로테이션 → 부족분 무료 업소 자동 보충</p></div><span class="pill success">홈 노출 기준</span></div>${render('featured')}${render('new')}${render('popular')}`;
 }
 
 function initAdsOpsCenter(){
