@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=179.0-paid-priority-six"></script>
+  <script type="module" src="assets/admin.js?v=181.0-video-popup-upload"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -1641,25 +1641,25 @@
     </main>
   </div>
 
-<!-- V180 popup video admin -->
-<section id="promo-video-admin" style="margin:24px 0;padding:20px;background:#fff;border:1px solid #e5e7eb;border-radius:14px">
+<!-- V181 popup video admin -->
+<section id="promo-video-admin" style="margin:24px 0;padding:20px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;max-width:980px">
  <h2 style="margin-top:0">팝업 영상 관리</h2>
- <p style="color:#667085">9:16 MP4 영상 URL을 등록하고 노출 빈도를 선택합니다.</p>
- <label><input id="pvEnabled" type="checkbox"> 팝업 영상 사용</label>
- <div style="display:grid;gap:10px;margin-top:12px">
-  <input id="pvTitle" placeholder="영상 제목" style="padding:10px">
-  <input id="pvUrl" placeholder="MP4 영상 URL (https://...)" style="padding:10px">
-  <select id="pvFrequency" style="padding:10px"><option value="once">최초 1회</option><option value="daily">하루 1회</option><option value="always">매 접속</option></select>
-  <button id="pvSave" type="button" style="padding:11px;border:0;border-radius:8px;background:#1264d8;color:white">저장</button>
+ <p style="color:#667085">9:16 MP4 원본을 직접 업로드합니다. Instagram 주소는 영상 아래 이동 버튼용으로만 사용합니다.</p>
+ <label style="display:flex;align-items:center;gap:8px"><input id="pvEnabled" type="checkbox"> 팝업 영상 사용</label>
+ <div style="display:grid;gap:12px;margin-top:14px">
+  <label>영상 제목<input id="pvTitle" placeholder="예: 달타운맵 오픈 무료 등록 이벤트" style="display:block;width:100%;padding:10px;margin-top:6px"></label>
+  <label>9:16 MP4 파일<input id="pvFile" type="file" accept="video/mp4" style="display:block;width:100%;padding:9px 0;margin-top:6px"></label>
+  <div id="pvUploadStatus" style="font-size:13px;color:#667085"></div>
+  <label>현재 MP4 URL<input id="pvUrl" placeholder="업로드 후 자동 입력됩니다" style="display:block;width:100%;padding:10px;margin-top:6px" readonly></label>
+  <label>Instagram Reel 링크 (선택)<input id="pvInstagramUrl" type="url" placeholder="https://www.instagram.com/reel/..." style="display:block;width:100%;padding:10px;margin-top:6px"></label>
+  <label>노출 빈도<select id="pvFrequency" style="display:block;width:100%;padding:10px;margin-top:6px"><option value="once">최초 1회</option><option value="daily">하루 1회</option><option value="always">매 접속</option></select></label>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <button id="pvUpload" type="button" style="padding:11px 16px;border:0;border-radius:8px;background:#475569;color:white">MP4 업로드</button>
+    <button id="pvPreview" type="button" style="padding:11px;border:1px solid #2563eb;border-radius:8px;background:#fff;color:#2563eb;font-weight:800">메인에서 테스트</button>
+  <button id="pvSave" type="button" style="padding:11px 18px;border:0;border-radius:8px;background:#1264d8;color:white">설정 저장</button>
+  </div>
+  <small style="color:#667085">권장: 1080×1920(9:16), MP4(H.264), 가능하면 30MB 이하. 영상은 앱 ZIP이 아니라 Supabase Storage에 저장됩니다.</small>
  </div>
 </section>
-<script>
-document.addEventListener('DOMContentLoaded',function(){
- const K='dtm_promo_video_config', c=JSON.parse(localStorage.getItem(K)||'{}');
- pvEnabled.checked=!!c.enabled; pvTitle.value=c.title||''; pvUrl.value=c.videoUrl||''; pvFrequency.value=c.frequency||'once';
- pvSave.onclick=function(){localStorage.setItem(K,JSON.stringify({enabled:pvEnabled.checked,title:pvTitle.value.trim(),videoUrl:pvUrl.value.trim(),frequency:pvFrequency.value}));alert('팝업 영상 설정을 저장했습니다.');};
-});
-</script>
-
 </body>
 </html>

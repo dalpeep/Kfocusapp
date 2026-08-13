@@ -644,7 +644,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=179.0-paid-priority-six"></script>
+<script src="app-v99.js?v=183.0-video-popup-ratio-fix"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
@@ -777,15 +777,14 @@ function requestPush() {
 
 </div>
 
-<!-- V180: 9:16 promotional video popup -->
+<!-- V183: 9:16 promotional video popup - full-frame portrait video -->
 <div id="promoVideoModal" class="promo-video-modal" hidden aria-hidden="true">
   <div class="promo-video-backdrop" data-promo-close></div>
   <section class="promo-video-dialog" role="dialog" aria-modal="true" aria-label="홍보 영상">
     <button class="promo-video-close" type="button" data-promo-close aria-label="닫기">×</button>
-    <div class="promo-video-frame">
-      <video id="promoVideoPlayer" playsinline controls preload="metadata"></video>
-    </div>
+    <div class="promo-video-frame"><video id="promoVideoPlayer" playsinline controls preload="metadata"></video></div>
     <h3 id="promoVideoTitle" class="promo-video-title"></h3>
+    <a id="promoVideoInstagram" class="promo-video-instagram" href="#" target="_blank" rel="noopener noreferrer" hidden>Instagram에서 보기</a>
     <button id="promoVideoDismissToday" class="promo-video-dismiss" type="button">오늘 다시 보지 않기</button>
   </section>
 </div>
@@ -794,46 +793,137 @@ function requestPush() {
 .promo-video-modal[hidden]{display:none!important}
 .promo-video-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
 .promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:94vh;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
-.promo-video-frame{width:100%;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:#000}
-.promo-video-frame video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+.promo-video-frame{
+  position:relative;
+  width:100%;
+  aspect-ratio:9/16;
+  border-radius:14px;
+  overflow:hidden;
+  background:#000;
+}
+.promo-video-frame video,
+#promoVideoPlayer{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%!important;
+  min-height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  display:block!important;
+  object-fit:cover!important;
+  object-position:center center!important;
+  background:#000!important;
+}
 .promo-video-close{position:absolute;right:18px;top:18px;z-index:3;width:36px;height:36px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:27px;line-height:32px;cursor:pointer}
 .promo-video-title{margin:10px 4px 4px;font-size:16px;text-align:center}
+.promo-video-instagram{display:block;margin:8px auto 2px;width:max-content;padding:8px 13px;border-radius:999px;background:#eef2ff;color:#1d4ed8;text-decoration:none;font-weight:800;font-size:13px}
+.promo-video-instagram[hidden]{display:none!important}
 .promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}
-@media (max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
+@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
 </style>
 <script>
 (function(){
- const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',frequency:'once'};
- function cfg(){ try{return Object.assign({},DEFAULTS,JSON.parse(localStorage.getItem('dtm_promo_video_config')||'{}'));}catch(e){return DEFAULTS;} }
- function key(c){const id=btoa(unescape(encodeURIComponent(c.videoUrl||c.title))).replace(/=/g,'');return 'dtm_promo_seen_'+id;}
+ const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',instagramUrl:'',frequency:'once',updated_at:''};
+ let current={...DEFAULTS};
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ function previewMode(){return new URLSearchParams(location.search).get('promo_preview')==='1';}
+ async function loadConfig(){
+   // Prefer the exact same public settings resolver already used by the home page.
+   for(let i=0;i<20;i++){
+     try{
+       if(typeof window.v471FetchPublicHomeSettings==='function'){
+         const home=await window.v471FetchPublicHomeSettings();
+         const p=home?.promo_video||{};
+         const c=Object.assign({},DEFAULTS,p);
+         console.info('[V183 promo] settings loaded via home settings',c);
+         return c;
+       }
+     }catch(e){ console.warn('[V183 promo] home settings attempt failed',e); }
+     await sleep(250);
+   }
+   // Fallback to the app's resolved runtime config.
+   try{
+     const c=(typeof window.getConfig==='function'?window.getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{}))||{};
+     const base=String(c.SUPABASE_URL||'').replace(/\/$/,''), key=String(c.SUPABASE_ANON_KEY||'');
+     if(!base||!key) throw new Error('Supabase public config missing');
+     const reg=String(window.currentRegion||'dallas').toLowerCase();
+     const endpoint=`${base}/functions/v1/${encodeURIComponent(String(c.NEWSROOM_FUNCTION_NAME||'newsroom'))}?action=home_settings&region=${encodeURIComponent(reg)}&_=${Date.now()}`;
+     const r=await fetch(endpoint,{headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'});
+     const j=await r.json().catch(()=>({}));
+     if(!r.ok||j.ok===false) throw new Error(j.error||j.message||`HTTP ${r.status}`);
+     const cfg=Object.assign({},DEFAULTS,j?.home_config?.promo_video||{});
+     console.info('[V183 promo] settings loaded via edge fallback',cfg);
+     return cfg;
+   }catch(e){
+     console.error('[V183 promo] settings load failed',e);
+     return {...DEFAULTS};
+   }
+ }
+ function stableId(c){
+   // updated_at is included so saving/replacing a campaign starts a fresh exposure cycle.
+   const raw=[c.videoUrl||'',c.title||'',c.updated_at||''].join('|');
+   try{return btoa(unescape(encodeURIComponent(raw))).replace(/=/g,'')}
+   catch(_){return encodeURIComponent(raw)}
+ }
+ function seenKey(c){return 'dtm_promo_seen_'+stableId(c)}
+ function snoozeKey(c){return 'dtm_promo_snooze_'+stableId(c)}
+ function today(){return new Date().toLocaleDateString('en-CA')}
  function shouldShow(c){
+   if(previewMode()) return !!c.videoUrl;
    if(!c.enabled||!c.videoUrl)return false;
-   const k=key(c), seen=localStorage.getItem(k);
+   if(localStorage.getItem(snoozeKey(c))===today())return false;
+   const seen=localStorage.getItem(seenKey(c));
    if(c.frequency==='always')return true;
-   if(c.frequency==='daily')return seen!==new Date().toISOString().slice(0,10);
+   if(c.frequency==='daily')return seen!==today();
    return !seen;
  }
- function mark(c,todayOnly){localStorage.setItem(key(c), (todayOnly||c.frequency==='daily')?new Date().toISOString().slice(0,10):'seen');}
- function openPromo(){
-   const c=cfg(); if(!shouldShow(c))return;
-   const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
+ function markNormal(c){
+   if(previewMode()) return;
+   localStorage.setItem(seenKey(c),c.frequency==='daily'?today():'seen')
+ }
+ function openPromo(c){
+   current=c;
+   console.info('[V183 promo] evaluate',{enabled:c.enabled,frequency:c.frequency,hasVideo:!!c.videoUrl,preview:previewMode(),show:shouldShow(c)});
+   if(!shouldShow(c))return;
+   const m=document.getElementById('promoVideoModal'),
+         v=document.getElementById('promoVideoPlayer'),
+         ig=document.getElementById('promoVideoInstagram');
+   if(!m||!v)return;
    document.getElementById('promoVideoTitle').textContent=c.title||'';
-   v.src=c.videoUrl; m.hidden=false;m.setAttribute('aria-hidden','false');
-   document.body.style.overflow='hidden';
+   v.src=c.videoUrl;
+   v.load();
+   v.onloadedmetadata=()=>console.info('[V183 promo] video dimensions',v.videoWidth,v.videoHeight,'ratio',v.videoWidth&&v.videoHeight?(v.videoWidth/v.videoHeight).toFixed(4):'n/a');
+   v.onerror=()=>console.error('[V183 promo] video load error',v.error,c.videoUrl);
+   if(c.instagramUrl){ig.href=c.instagramUrl;ig.hidden=false}else{ig.hidden=true}
+   m.hidden=false;m.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
  }
- function closePromo(markSeen){
-   const c=cfg(),m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
-   if(markSeen)mark(c,false); v.pause(); m.hidden=true;m.setAttribute('aria-hidden','true');document.body.style.overflow='';
+ function closePromo(markSeen=true){
+   const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
+   if(markSeen)markNormal(current);
+   if(v){v.pause();v.removeAttribute('src');v.load()}
+   if(m){m.hidden=true;m.setAttribute('aria-hidden','true')}
+   document.body.style.overflow='';
  }
- document.addEventListener('click',e=>{if(e.target.closest('[data-promo-close]'))closePromo(true);});
+ document.addEventListener('click',e=>{if(e.target.closest('[data-promo-close]'))closePromo(true)});
  document.addEventListener('DOMContentLoaded',()=>{
-   document.getElementById('promoVideoDismissToday')?.addEventListener('click',()=>{mark(cfg(),true);closePromo(false);});
-   setTimeout(openPromo,900);
+   document.getElementById('promoVideoDismissToday')?.addEventListener('click',()=>{
+     if(!previewMode())localStorage.setItem(snoozeKey(current),today());
+     closePromo(false)
+   });
+   setTimeout(async()=>openPromo(await loadConfig()),1400);
  });
- window.DaltownPromoVideo={open:openPromo,close:closePromo,save:function(c){localStorage.setItem('dtm_promo_video_config',JSON.stringify(Object.assign({},DEFAULTS,c)));}};
+ window.DaltownPromoVideo={
+   open:async(force=false)=>{const c=await loadConfig(); if(force){const q=new URL(location.href);q.searchParams.set('promo_preview','1');location.href=q.toString();return;} openPromo(c)},
+   close:closePromo,
+   reload:loadConfig,
+   clearHistory:()=>Object.keys(localStorage).filter(k=>k.startsWith('dtm_promo_')).forEach(k=>localStorage.removeItem(k))
+ };
 })();
 </script>
-
 </body>
 
 <script src="https://unpkg.com/lucide@latest"></script>
