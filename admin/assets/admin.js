@@ -9251,6 +9251,7 @@ console.info('[DalTownMap Admin] P132A guide picker reads boards[] loaded');
   document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{
     $('pvUpload')?.addEventListener('click',uploadPromoVideo);
     $('pvSave')?.addEventListener('click',savePromoVideoSetting);
+    $('pvPreview')?.addEventListener('click',()=>window.open('/?promo_preview=1','_blank','noopener'));
     loadPromoVideoSetting();
   },1000));
   window.V181PromoVideoAdmin={load:loadPromoVideoSetting,upload:uploadPromoVideo,save:savePromoVideoSetting};

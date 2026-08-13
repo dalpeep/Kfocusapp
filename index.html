@@ -644,7 +644,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=181.0-video-popup-upload"></script>
+<script src="app-v99.js?v=182.0-video-popup-fix"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
@@ -777,7 +777,7 @@ function requestPush() {
 
 </div>
 
-<!-- V181: 9:16 promotional video popup -->
+<!-- V182: 9:16 promotional video popup - robust settings loader + preview -->
 <div id="promoVideoModal" class="promo-video-modal" hidden aria-hidden="true">
   <div class="promo-video-backdrop" data-promo-close></div>
   <section class="promo-video-dialog" role="dialog" aria-modal="true" aria-label="홍보 영상">
@@ -789,32 +789,115 @@ function requestPush() {
   </section>
 </div>
 <style>
-.promo-video-modal{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:18px}.promo-video-modal[hidden]{display:none!important}.promo-video-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}.promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:94vh;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}.promo-video-frame{width:100%;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:#000}.promo-video-frame video{width:100%;height:100%;object-fit:contain;background:#000;display:block}.promo-video-close{position:absolute;right:18px;top:18px;z-index:3;width:36px;height:36px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:27px;line-height:32px;cursor:pointer}.promo-video-title{margin:10px 4px 4px;font-size:16px;text-align:center}.promo-video-instagram{display:block;margin:8px auto 2px;width:max-content;padding:8px 13px;border-radius:999px;background:#eef2ff;color:#1d4ed8;text-decoration:none;font-weight:800;font-size:13px}.promo-video-instagram[hidden]{display:none!important}.promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
+.promo-video-modal{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:18px}
+.promo-video-modal[hidden]{display:none!important}
+.promo-video-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
+.promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:94vh;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.promo-video-frame{width:100%;aspect-ratio:9/16;border-radius:14px;overflow:hidden;background:#000}
+.promo-video-frame video{width:100%;height:100%;object-fit:contain;background:#000;display:block}
+.promo-video-close{position:absolute;right:18px;top:18px;z-index:3;width:36px;height:36px;border:0;border-radius:50%;background:rgba(0,0,0,.68);color:#fff;font-size:27px;line-height:32px;cursor:pointer}
+.promo-video-title{margin:10px 4px 4px;font-size:16px;text-align:center}
+.promo-video-instagram{display:block;margin:8px auto 2px;width:max-content;padding:8px 13px;border-radius:999px;background:#eef2ff;color:#1d4ed8;text-decoration:none;font-weight:800;font-size:13px}
+.promo-video-instagram[hidden]{display:none!important}
+.promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}
+@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
 </style>
 <script>
 (function(){
- const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',instagramUrl:'',frequency:'once'};
- let current=DEFAULTS;
- function region(){const c=window.KFOCUS_CONFIG||window.APP_CONFIG||{};return String(c.APP_REGION||c.app_region||c.APP_CITY||c.app_city||'dallas').toLowerCase();}
+ const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',instagramUrl:'',frequency:'once',updated_at:''};
+ let current={...DEFAULTS};
+ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+ function previewMode(){return new URLSearchParams(location.search).get('promo_preview')==='1';}
  async function loadConfig(){
+   // Prefer the exact same public settings resolver already used by the home page.
+   for(let i=0;i<20;i++){
+     try{
+       if(typeof window.v471FetchPublicHomeSettings==='function'){
+         const home=await window.v471FetchPublicHomeSettings();
+         const p=home?.promo_video||{};
+         const c=Object.assign({},DEFAULTS,p);
+         console.info('[V182 promo] settings loaded via home settings',c);
+         return c;
+       }
+     }catch(e){ console.warn('[V182 promo] home settings attempt failed',e); }
+     await sleep(250);
+   }
+   // Fallback to the app's resolved runtime config.
    try{
-     const c=window.KFOCUS_CONFIG||window.APP_CONFIG||{}, base=String(c.SUPABASE_URL||'').replace(/\/$/,''), key=String(c.SUPABASE_ANON_KEY||'');
-     if(!base||!key) return DEFAULTS;
-     const u=`${base}/rest/v1/newsroom_settings?select=home_config&region=eq.${encodeURIComponent(region())}&limit=1&_=${Date.now()}`;
-     const r=await fetch(u,{headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'}); if(!r.ok) throw new Error('settings '+r.status);
-     const rows=await r.json(), p=rows?.[0]?.home_config?.promo_video||{}; return Object.assign({},DEFAULTS,p);
-   }catch(e){console.warn('[V181 promo config]',e);return DEFAULTS;}
+     const c=(typeof window.getConfig==='function'?window.getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{}))||{};
+     const base=String(c.SUPABASE_URL||'').replace(/\/$/,''), key=String(c.SUPABASE_ANON_KEY||'');
+     if(!base||!key) throw new Error('Supabase public config missing');
+     const reg=String(window.currentRegion||'dallas').toLowerCase();
+     const endpoint=`${base}/functions/v1/${encodeURIComponent(String(c.NEWSROOM_FUNCTION_NAME||'newsroom'))}?action=home_settings&region=${encodeURIComponent(reg)}&_=${Date.now()}`;
+     const r=await fetch(endpoint,{headers:{apikey:key,Authorization:`Bearer ${key}`},cache:'no-store'});
+     const j=await r.json().catch(()=>({}));
+     if(!r.ok||j.ok===false) throw new Error(j.error||j.message||`HTTP ${r.status}`);
+     const cfg=Object.assign({},DEFAULTS,j?.home_config?.promo_video||{});
+     console.info('[V182 promo] settings loaded via edge fallback',cfg);
+     return cfg;
+   }catch(e){
+     console.error('[V182 promo] settings load failed',e);
+     return {...DEFAULTS};
+   }
  }
- function id(c){try{return btoa(unescape(encodeURIComponent(c.videoUrl||c.title))).replace(/=/g,'');}catch(_){return encodeURIComponent(c.videoUrl||c.title)}}
- function seenKey(c){return 'dtm_promo_seen_'+id(c)} function snoozeKey(c){return 'dtm_promo_snooze_'+id(c)}
- function today(){return new Date().toISOString().slice(0,10)}
- function shouldShow(c){if(!c.enabled||!c.videoUrl)return false;if(localStorage.getItem(snoozeKey(c))===today())return false;const seen=localStorage.getItem(seenKey(c));if(c.frequency==='always')return true;if(c.frequency==='daily')return seen!==today();return !seen;}
- function markNormal(c){localStorage.setItem(seenKey(c),c.frequency==='daily'?today():'seen')}
- function openPromo(c){current=c;if(!shouldShow(c))return;const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer'),ig=document.getElementById('promoVideoInstagram');document.getElementById('promoVideoTitle').textContent=c.title||'';v.src=c.videoUrl;v.load();if(c.instagramUrl){ig.href=c.instagramUrl;ig.hidden=false}else{ig.hidden=true}m.hidden=false;m.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';}
- function closePromo(markSeen=true){const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');if(markSeen)markNormal(current);v.pause();v.removeAttribute('src');v.load();m.hidden=true;m.setAttribute('aria-hidden','true');document.body.style.overflow='';}
+ function stableId(c){
+   // updated_at is included so saving/replacing a campaign starts a fresh exposure cycle.
+   const raw=[c.videoUrl||'',c.title||'',c.updated_at||''].join('|');
+   try{return btoa(unescape(encodeURIComponent(raw))).replace(/=/g,'')}
+   catch(_){return encodeURIComponent(raw)}
+ }
+ function seenKey(c){return 'dtm_promo_seen_'+stableId(c)}
+ function snoozeKey(c){return 'dtm_promo_snooze_'+stableId(c)}
+ function today(){return new Date().toLocaleDateString('en-CA')}
+ function shouldShow(c){
+   if(previewMode()) return !!c.videoUrl;
+   if(!c.enabled||!c.videoUrl)return false;
+   if(localStorage.getItem(snoozeKey(c))===today())return false;
+   const seen=localStorage.getItem(seenKey(c));
+   if(c.frequency==='always')return true;
+   if(c.frequency==='daily')return seen!==today();
+   return !seen;
+ }
+ function markNormal(c){
+   if(previewMode()) return;
+   localStorage.setItem(seenKey(c),c.frequency==='daily'?today():'seen')
+ }
+ function openPromo(c){
+   current=c;
+   console.info('[V182 promo] evaluate',{enabled:c.enabled,frequency:c.frequency,hasVideo:!!c.videoUrl,preview:previewMode(),show:shouldShow(c)});
+   if(!shouldShow(c))return;
+   const m=document.getElementById('promoVideoModal'),
+         v=document.getElementById('promoVideoPlayer'),
+         ig=document.getElementById('promoVideoInstagram');
+   if(!m||!v)return;
+   document.getElementById('promoVideoTitle').textContent=c.title||'';
+   v.src=c.videoUrl;
+   v.load();
+   v.onerror=()=>console.error('[V182 promo] video load error',v.error,c.videoUrl);
+   if(c.instagramUrl){ig.href=c.instagramUrl;ig.hidden=false}else{ig.hidden=true}
+   m.hidden=false;m.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+ }
+ function closePromo(markSeen=true){
+   const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
+   if(markSeen)markNormal(current);
+   if(v){v.pause();v.removeAttribute('src');v.load()}
+   if(m){m.hidden=true;m.setAttribute('aria-hidden','true')}
+   document.body.style.overflow='';
+ }
  document.addEventListener('click',e=>{if(e.target.closest('[data-promo-close]'))closePromo(true)});
- document.addEventListener('DOMContentLoaded',()=>{document.getElementById('promoVideoDismissToday')?.addEventListener('click',()=>{localStorage.setItem(snoozeKey(current),today());closePromo(false)});setTimeout(async()=>openPromo(await loadConfig()),900)});
- window.DaltownPromoVideo={open:async()=>openPromo(await loadConfig()),close:closePromo,reload:loadConfig};
+ document.addEventListener('DOMContentLoaded',()=>{
+   document.getElementById('promoVideoDismissToday')?.addEventListener('click',()=>{
+     if(!previewMode())localStorage.setItem(snoozeKey(current),today());
+     closePromo(false)
+   });
+   setTimeout(async()=>openPromo(await loadConfig()),1400);
+ });
+ window.DaltownPromoVideo={
+   open:async(force=false)=>{const c=await loadConfig(); if(force){const q=new URL(location.href);q.searchParams.set('promo_preview','1');location.href=q.toString();return;} openPromo(c)},
+   close:closePromo,
+   reload:loadConfig,
+   clearHistory:()=>Object.keys(localStorage).filter(k=>k.startsWith('dtm_promo_')).forEach(k=>localStorage.removeItem(k))
+ };
 })();
 </script>
 </body>
