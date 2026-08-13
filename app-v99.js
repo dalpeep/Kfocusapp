@@ -621,18 +621,50 @@ function rotationHash(seed){
   }
   return Math.abs(h>>>0);
 }
-function homeRotationRows(rows, section, dateValue, limit=6){
+function paidAdActiveOnDate(b, dateValue){
   const dateKey=rotationDateKey(dateValue);
-  const eligible=rows.filter(b=>rotationEligibleOnDate(b,dateKey));
-  const fixed=eligible.filter(b=>b.rotation_enabled===false)
+  if(b.is_active===false || b.list_visible===false || b.paid_active!==true) return false;
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
+  return true;
+}
+function sectionAssigned(b, section){
+  if(section==='featured') return b.is_featured===true;
+  if(section==='new') return b.is_new===true;
+  if(section==='popular') return b.is_popular===true;
+  return false;
+}
+function freeFillSort(rows, section, dateKey){
+  const copy=[...rows];
+  if(section==='new'){
+    return copy.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')) || businessGroupRank(a,section)-businessGroupRank(b,section));
+  }
+  if(section==='popular'){
+    return copy.sort((a,b)=>Number(b.rating||b.google_rating||0)-Number(a.rating||a.google_rating||0) || businessGroupRank(a,section)-businessGroupRank(b,section) || rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`));
+  }
+  return copy.sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section) || rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`));
+}
+function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses){
+  const dateKey=rotationDateKey(dateValue);
+  const assigned=rows.filter(b=>rotationEligibleOnDate(b,dateKey));
+  const paid=assigned.filter(b=>paidAdActiveOnDate(b,dateKey));
+  const fixedPaid=paid.filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-  const automatic=eligible.filter(b=>b.rotation_enabled!==false)
+  const automaticPaid=paid.filter(b=>b.rotation_enabled!==false)
     .sort((a,b)=>{
       const aw=Math.max(1,Number(a.paid_weight||1));
       const bw=Math.max(1,Number(b.paid_weight||1));
       return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
     });
-  return fixed.concat(automatic).slice(0,limit);
+  const chosen=fixedPaid.concat(automaticPaid).slice(0,limit);
+  if(chosen.length>=limit) return chosen;
+
+  const chosenIds=new Set(chosen.map(b=>String(b.id)));
+  const visible=(allRows||[]).filter(b=>rotationEligibleOnDate(b,dateKey) && !chosenIds.has(String(b.id)) && !paidAdActiveOnDate(b,dateKey));
+  const assignedFree=freeFillSort(visible.filter(b=>sectionAssigned(b,section)),section,dateKey);
+  const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
+  const genericFree=freeFillSort(visible.filter(b=>!assignedIds.has(String(b.id))),section,dateKey);
+  return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
 function renderHomeBusinessTabs(){
@@ -653,7 +685,7 @@ function renderHomeBusinessTabs(){
     rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
   }
 
-  rows = homeRotationRows(rows, homeBusinessTab, todayKey(), 6);
+  rows = homeRotationRows(rows, homeBusinessTab, todayKey(), 6, businesses);
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
