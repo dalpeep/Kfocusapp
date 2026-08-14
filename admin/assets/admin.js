@@ -7675,6 +7675,9 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
           <button type="button" class="btn" data-p0103-preview="${f.id}">사용자 화면 미리보기</button>
           <button type="button" class="btn" data-p0103-status="${f.status==='active'?'archived':'active'}" data-id="${f.id}">${f.status==='active'?'보관':'활성화'}</button>
           <a class="btn" href="${esc(f.image_url)}" target="_blank" rel="noopener">원본 보기</a>
+          ${['expired','archived'].includes(eff.key)?`
+            <button type="button" class="btn p190-delete-expired" data-p190-delete="${esc(f.id)}"
+              style="background:#fee2e2;color:#b91c1c;border-color:#fecaca">지난 전단 삭제</button>`:''}
         </div>
       </article>`;
     }).join(''):'<div class="p0103-meta">조건에 맞는 전단이 없습니다.</div>';
@@ -7907,7 +7910,10 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
                        eff.key==='expired'?'expired':
                        eff.key==='archived'?'archived':
                        eff.key==='scheduled'?'scheduled':'draft';
-      return `<article class="p011-card" data-flyer-id="${esc(f.id)}">
+      return `<article class="p011-card" data-flyer-id="${esc(f.id)}"
+        data-flyer-start="${esc(f.start_date||'')}"
+        data-flyer-end="${esc(f.end_date||'')}"
+        data-flyer-effective="${esc(eff.key)}">
         <div class="p011-card-top">
           <div>
             <h3>${esc(businessName(f))}</h3>
@@ -7965,6 +7971,33 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
           await load();
         }catch(e){alert(`노출 설정 실패: ${e.message}`);}
         finally{btn.disabled=false;}
+      });
+    });
+
+    list.querySelectorAll('[data-p190-delete]').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const id=Number(btn.dataset.p190Delete||0);
+        if(!id)return;
+        const flyer=flyers.find(f=>Number(f.id)===id);
+        const name=flyer?businessName(flyer):'이 전단';
+        if(!confirm(`${name}의 지난 전단과 분석된 상품 데이터를 삭제하시겠습니까?\n\n삭제 후 복구할 수 없습니다.`))return;
+        btn.disabled=true;
+        const oldText=btn.textContent;
+        btn.textContent='삭제 중...';
+        try{
+          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          try{
+            localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+            localStorage.removeItem('daltownmap_v38_home');
+          }catch(_){}
+          await load();
+          if(window.P010SmartFlyer?.load)window.P010SmartFlyer.load();
+          alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
+        }catch(e){
+          alert(`전단 삭제 실패: ${e.message}`);
+          btn.disabled=false;
+          btn.textContent=oldText;
+        }
       });
     });
   }
@@ -8157,7 +8190,8 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       }
 
       const status=card.querySelector('.p011-badge');
-      if(status?.textContent?.trim()==='active'){
+      const effective=String(card.dataset.flyerEffective||'');
+      if(effective==='live'){
         status.className='p012-live';
         status.textContent='LIVE · 앱 노출 중';
         const note=document.createElement('div');
@@ -9320,4 +9354,69 @@ document.addEventListener('DOMContentLoaded',()=>{
   setTimeout(v188NormalizeSmartFlyerStatuses,1500);
   new MutationObserver(()=>v188NormalizeSmartFlyerStatuses()).observe(document.body,{childList:true,subtree:true});
 });
+
+
+
+// === V190: final expired-flyer status guard ===
+(() => {
+  const todayDallas=()=>{
+    try{
+      return new Intl.DateTimeFormat('en-CA',{
+        timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+      }).format(new Date());
+    }catch(_){return new Date().toISOString().slice(0,10);}
+  };
+
+  function apply(){
+    const today=todayDallas();
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      const start=String(card.dataset.flyerStart||'').slice(0,10);
+      const end=String(card.dataset.flyerEnd||'').slice(0,10);
+      let eff=String(card.dataset.flyerEffective||'');
+
+      if(end && end<today) eff='expired';
+      else if(start && start>today) eff='scheduled';
+
+      card.dataset.flyerEffective=eff;
+
+      if(eff==='expired' || eff==='archived'){
+        // Remove any legacy LIVE UI added by P012/P013/P014/P019/P022/P023/P024.
+        card.querySelectorAll('.p012-live').forEach(node=>{
+          node.className='p011-badge expired';
+          node.textContent=end?`기간 종료 · ${end}`:'기간 종료';
+        });
+        card.querySelectorAll('.p012-home-note,.p013-note,.p014-public-note,.p019-ui-note,.p022-note,.p023-note,.p024-note').forEach(n=>n.remove());
+
+        let badge=card.querySelector('.p011-badge');
+        if(!badge){
+          const top=card.querySelector('.p011-card-top');
+          if(top){
+            badge=document.createElement('span');
+            badge.className='p011-badge expired';
+            top.appendChild(badge);
+          }
+        }
+        if(badge){
+          badge.className='p011-badge expired';
+          badge.textContent=end?`기간 종료 · ${end}`:'기간 종료';
+        }
+      }else if(eff==='scheduled'){
+        const badge=card.querySelector('.p011-badge');
+        if(badge){
+          badge.className='p011-badge scheduled';
+          badge.textContent=start?`예정 · ${start}`:'예정';
+        }
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(apply,700);
+    setTimeout(apply,1800);
+    setTimeout(apply,3200);
+    const target=document.getElementById('p011List')||document.body;
+    new MutationObserver(()=>apply()).observe(target,{childList:true,subtree:true});
+  });
+  window.V190ApplyFlyerStatus=apply;
+})();
 
