@@ -9558,3 +9558,144 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   },900);
 });
+
+
+// === V194: 달타운 추천 직접 지정 UI ===
+(() => {
+  const KEY='dtm_v194_direct_recommendation_ids';
+
+  function getBusinesses(){
+    try{
+      if(Array.isArray(window.businesses)) return window.businesses;
+      if(typeof businesses!=='undefined' && Array.isArray(businesses)) return businesses;
+    }catch(_){}
+    return [];
+  }
+
+  function loadIds(){
+    try{
+      const a=JSON.parse(localStorage.getItem(KEY)||'[]');
+      return Array.isArray(a)?a.map(String):[];
+    }catch(_){return []}
+  }
+
+  function saveIds(ids){
+    localStorage.setItem(KEY,JSON.stringify([...new Set(ids.map(String))].slice(0,6)));
+    try{localStorage.setItem('daltownmap_content_changed',String(Date.now()))}catch(_){}
+  }
+
+  function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+  function mount(){
+    const headings=[...document.querySelectorAll('h2,h3,strong,label')];
+    const title=headings.find(x=>(x.textContent||'').trim()==='달타운 추천' || (x.textContent||'').includes('달타운 추천'));
+    const box=title?.closest('section,.card,.panel,div');
+    if(!box || box.querySelector('#v194DirectRecommendation')) return;
+
+    const wrap=document.createElement('div');
+    wrap.id='v194DirectRecommendation';
+    wrap.style.cssText='margin-top:16px;padding:14px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff';
+    wrap.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:900;color:#0f172a">직접 지정 업체</div>
+          <div style="font-size:12px;color:#64748b;margin-top:3px">최대 6개. 직접 지정 업체가 항상 최우선이며, 빈자리는 추천 → 신규 → 인기 순으로 자동 보충됩니다.</div>
+        </div>
+        <span id="v194DirectCount" style="font-size:12px;font-weight:800;color:#1d4ed8"></span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <input id="v194DirectSearch" placeholder="업체명 검색..." style="flex:1;min-width:220px;padding:10px;border:1px solid #cbd5e1;border-radius:8px">
+        <button id="v194DirectClear" type="button" style="padding:10px 12px;border:1px solid #fecaca;border-radius:8px;background:#fff;color:#b91c1c">전체 해제</button>
+      </div>
+      <div id="v194DirectResults" style="margin-top:10px;max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:10px;background:#fff"></div>
+      <div id="v194DirectSelected" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"></div>
+      <div style="margin-top:10px;display:flex;justify-content:flex-end">
+        <button id="v194DirectSave" type="button" style="padding:10px 16px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:800">직접 지정 저장</button>
+      </div>`;
+
+    box.appendChild(wrap);
+
+    const search=wrap.querySelector('#v194DirectSearch');
+    const results=wrap.querySelector('#v194DirectResults');
+    const selected=wrap.querySelector('#v194DirectSelected');
+    const count=wrap.querySelector('#v194DirectCount');
+    let ids=loadIds();
+
+    function paidLabel(b){
+      return (b?.is_paid||b?.paid||b?.premium||b?.is_premium||b?.is_advertiser||b?.advertiser||
+        (b?.subscription_tier && String(b.subscription_tier).toLowerCase()!=='free')) ? '유료' : '무료';
+    }
+
+    function drawSelected(){
+      const map=new Map(getBusinesses().map(b=>[String(b.id||b.business_id||''),b]));
+      selected.innerHTML=ids.map(id=>{
+        const b=map.get(String(id)); if(!b)return '';
+        const name=b.name_ko||b.name||b.name_en||id;
+        return `<button type="button" data-remove="${esc(id)}" style="border:0;border-radius:999px;padding:7px 10px;background:#e0ecff;color:#174ea6;font-weight:800">${esc(name)} <span style="opacity:.65">×</span></button>`;
+      }).join('');
+      count.textContent=`${ids.length}/6 선택`;
+      selected.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=()=>{
+        ids=ids.filter(x=>x!==btn.dataset.remove);
+        drawSelected(); drawResults(search.value);
+      });
+    }
+
+    function drawResults(q=''){
+      const needle=String(q||'').trim().toLowerCase();
+      const list=getBusinesses()
+        .filter(b=>{
+          const name=`${b.name_ko||''} ${b.name||''} ${b.name_en||''} ${b.city||''} ${b.category||''}`.toLowerCase();
+          return !needle || name.includes(needle);
+        })
+        .slice(0,80);
+
+      results.innerHTML=list.map(b=>{
+        const id=String(b.id||b.business_id||'');
+        const name=b.name_ko||b.name||b.name_en||id;
+        const checked=ids.includes(id);
+        return `<label style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer">
+          <span style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" data-id="${esc(id)}" ${checked?'checked':''}>
+            <span><b>${esc(name)}</b><small style="display:block;color:#64748b">${esc(b.city||'')} ${b.category?`· ${esc(b.category)}`:''}</small></span>
+          </span>
+          <span style="font-size:11px;font-weight:800;color:${paidLabel(b)==='유료'?'#b45309':'#64748b'}">${paidLabel(b)}</span>
+        </label>`;
+      }).join('') || `<div style="padding:14px;color:#64748b">검색 결과가 없습니다.</div>`;
+
+      results.querySelectorAll('input[data-id]').forEach(ch=>ch.onchange=()=>{
+        const id=ch.dataset.id;
+        if(ch.checked){
+          if(!ids.includes(id) && ids.length>=6){
+            alert('직접 지정 업체는 최대 6개까지 선택할 수 있습니다.');
+            ch.checked=false;
+            return;
+          }
+          if(!ids.includes(id)) ids.push(id);
+        }else{
+          ids=ids.filter(x=>x!==id);
+        }
+        drawSelected();
+      });
+    }
+
+    search.addEventListener('input',()=>drawResults(search.value));
+    wrap.querySelector('#v194DirectClear').onclick=()=>{ids=[];drawSelected();drawResults(search.value)};
+    wrap.querySelector('#v194DirectSave').onclick=()=>{
+      saveIds(ids);
+      alert('달타운 추천 직접 지정 업체를 저장했습니다.');
+    };
+
+    drawSelected();
+    drawResults();
+  }
+
+  function boot(){
+    mount();
+    let tries=0;
+    const t=setInterval(()=>{mount();if(++tries>20)clearInterval(t)},500);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+})();
+
