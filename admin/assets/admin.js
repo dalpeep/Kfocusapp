@@ -9421,138 +9421,125 @@ document.addEventListener('DOMContentLoaded',()=>{
 })();
 
 
-
-// === V191: authoritative flyer-card status + expired delete UI ===
+// === V192: safe expired-flyer UI sync (no self-triggering observer) ===
 (() => {
-  const dallasToday = () => {
-    try {
-      const parts = new Intl.DateTimeFormat('en-US', {
-        timeZone:'America/Chicago', year:'numeric', month:'2-digit', day:'2-digit'
+  let syncTimer=null;
+  const todayDallas=()=>{
+    try{
+      const p=new Intl.DateTimeFormat('en-US',{
+        timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
       }).formatToParts(new Date());
-      const o={}; parts.forEach(p=>o[p.type]=p.value);
+      const o={}; p.forEach(x=>o[x.type]=x.value);
       return `${o.year}-${o.month}-${o.day}`;
-    } catch(_) { return new Date().toISOString().slice(0,10); }
+    }catch(_){return new Date().toISOString().slice(0,10);}
   };
 
-  const dateFromText = (txt) => {
-    const m=String(txt||'').match(/(20\d{2})[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})/);
-    return m ? `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}` : '';
-  };
-
-  const flyerId = card => Number(
-    card?.dataset?.flyerId ||
-    card?.querySelector?.('[data-id]')?.dataset?.id ||
-    card?.querySelector?.('[data-p011-home]')?.dataset?.id || 0
-  );
-
-  function effective(card){
-    const today=dallasToday();
+  function getInfo(card){
+    const today=todayDallas();
     let start=String(card.dataset.flyerStart||'').slice(0,10);
     let end=String(card.dataset.flyerEnd||'').slice(0,10);
-    const txt=card.innerText||'';
+    const dates=[...(card.innerText||'').matchAll(/20\d{2}-\d{2}-\d{2}/g)].map(m=>m[0]);
+    if(!start&&dates.length)start=dates[0];
+    if(!end&&dates.length>1)end=dates[1];
 
-    // Fallback: P011 summary normally contains "YYYY-MM-DD ~ YYYY-MM-DD".
-    const dates=[...txt.matchAll(/20\d{2}-\d{2}-\d{2}/g)].map(x=>x[0]);
-    if(!start && dates.length) start=dates[0];
-    if(!end && dates.length>1) end=dates[1];
-
-    if(end && end<today) return {key:'expired',start,end};
-    if(start && start>today) return {key:'scheduled',start,end};
-
-    const stored=String(card.dataset.flyerEffective||'').toLowerCase();
-    if(stored==='expired'||stored==='archived') return {key:'expired',start,end};
-    if(stored==='scheduled') return {key:'scheduled',start,end};
-    return {key:'live',start,end};
+    if(end&&end<today)return {key:'expired',start,end};
+    if(start&&start>today)return {key:'scheduled',start,end};
+    return {key:String(card.dataset.flyerEffective||'live'),start,end};
   }
 
-  function statusHost(card){
-    return card.querySelector('.p011-badge,.p012-live,[class*="live"],[class*="status"]');
+  function findBadge(card){
+    return [...card.querySelectorAll('span,div,b,strong')].find(n=>
+      /LIVE\s*[·ㆍ]\s*(업로드중|앱 노출 중)|기간 종료|예정/.test((n.textContent||'').trim())
+    ) || card.querySelector('.p011-badge,.p012-live');
   }
 
-  function ensureDelete(card, info){
-    if(info.key!=='expired') return;
-    if(card.querySelector('[data-v191-delete]')) return;
-    const id=flyerId(card);
-    if(!id) return;
+  function ensureDelete(card,info){
+    if(info.key!=='expired'||card.querySelector('[data-v192-delete]'))return;
 
-    const rows=[...card.querySelectorAll('div')];
+    const id=Number(
+      card.dataset.flyerId ||
+      card.querySelector('[data-id]')?.dataset?.id ||
+      card.querySelector('[data-p011-home]')?.dataset?.id || 0
+    );
+    if(!id)return;
+
     let actions=card.querySelector('.p011-actions,.p010-actions,.actions');
     if(!actions){
-      actions=rows.find(el=>{
+      actions=[...card.querySelectorAll('div')].find(el=>{
         const t=el.innerText||'';
         return t.includes('원본 보기') && (t.includes('보관')||t.includes('미리보기'));
       });
     }
-    if(!actions) return;
+    if(!actions)return;
 
     const b=document.createElement('button');
     b.type='button';
-    b.className='btn v191-expired-delete';
-    b.dataset.v191Delete=String(id);
+    b.className='btn v192-delete-expired';
+    b.dataset.v192Delete=String(id);
     b.textContent='지난 전단 삭제';
     b.style.cssText='background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;';
-    b.onclick=async()=>{
-      if(!confirm('지난 전단과 이 전단에서 분석된 상품 데이터를 삭제하시겠습니까?\\n\\n삭제 후 복구할 수 없습니다.')) return;
-      b.disabled=true; b.textContent='삭제 중...';
+    b.addEventListener('click',async()=>{
+      if(!confirm('지난 전단과 이 전단에서 분석된 상품 데이터를 삭제하시겠습니까?\\n\\n삭제 후 복구할 수 없습니다.'))return;
+      b.disabled=true;b.textContent='삭제 중...';
       try{
-        if(typeof newsroomEdgeCall!=='function') throw new Error('삭제 API를 찾을 수 없습니다.');
+        if(typeof newsroomEdgeCall!=='function')throw new Error('삭제 API를 찾을 수 없습니다.');
         await newsroomEdgeCall('delete_weekly_flyer',{id});
-        try{
-          localStorage.setItem('daltownmap_content_changed',String(Date.now()));
-          localStorage.removeItem('daltownmap_v38_home');
-        }catch(_){}
         alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
         location.reload();
       }catch(e){
         alert(`전단 삭제 실패: ${e.message||e}`);
-        b.disabled=false; b.textContent='지난 전단 삭제';
+        b.disabled=false;b.textContent='지난 전단 삭제';
       }
-    };
+    });
     actions.appendChild(b);
   }
 
-  function reconcile(){
-    const cards=[...document.querySelectorAll('#p011List .p011-card, #section-smartFlyer article, #section-smartFlyer [data-flyer-id]')];
-    cards.forEach(card=>{
-      const info=effective(card);
+  function sync(){
+    document.querySelectorAll('#p011List .p011-card, #section-smartFlyer [data-flyer-id]').forEach(card=>{
+      const info=getInfo(card);
       card.dataset.flyerEffective=info.key;
-
-      // Find exact legacy LIVE label even when a later module has changed class names.
-      const nodes=[...card.querySelectorAll('span,div,b,strong')];
-      let badge=nodes.find(n=>/LIVE\s*[·ㆍ]\s*(업로드중|앱 노출 중)/.test((n.textContent||'').trim()));
-      if(!badge) badge=statusHost(card);
+      const badge=findBadge(card);
 
       if(info.key==='expired'){
-        if(badge){
+        if(badge && !badge.dataset.v192Done){
           badge.textContent=info.end?`기간 종료 · ${info.end}`:'기간 종료';
-          badge.className='p011-badge expired v191-status';
+          badge.className='p011-badge expired';
           badge.style.cssText='background:#fee2e2;color:#b91c1c;border-radius:999px;padding:5px 10px;font-weight:800;';
+          badge.dataset.v192Done='1';
         }
         ensureDelete(card,info);
       }else if(info.key==='scheduled'){
-        if(badge){
+        if(badge && !badge.dataset.v192Done){
           badge.textContent=info.start?`예정 · ${info.start}`:'예정';
-          badge.className='p011-badge scheduled v191-status';
+          badge.className='p011-badge scheduled';
           badge.style.cssText='background:#fff7ed;color:#c2410c;border-radius:999px;padding:5px 10px;font-weight:800;';
+          badge.dataset.v192Done='1';
         }
-      }else if(badge && /업로드중/.test(badge.textContent||'')){
-        badge.textContent='LIVE · 앱 노출 중';
       }
     });
   }
 
-  function start(){
-    reconcile();
-    [250,700,1400,2600,4500].forEach(ms=>setTimeout(reconcile,ms));
-    const root=document.getElementById('section-smartFlyer')||document.body;
-    let queued=false;
-    new MutationObserver(()=>{
-      if(queued)return; queued=true;
-      requestAnimationFrame(()=>{queued=false;reconcile();});
-    }).observe(root,{childList:true,subtree:true,characterData:true});
+  function queue(){
+    clearTimeout(syncTimer);
+    syncTimer=setTimeout(sync,120);
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
+
+  function start(){
+    sync();
+    [500,1200,2500].forEach(ms=>setTimeout(sync,ms));
+
+    // Observe only added/removed nodes. Do NOT observe characterData/attributes.
+    const root=document.getElementById('p011List')||document.getElementById('section-smartFlyer');
+    if(root){
+      new MutationObserver(muts=>{
+        if(muts.some(m=>m.addedNodes.length||m.removedNodes.length))queue();
+      }).observe(root,{childList:true,subtree:true});
+    }
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
   else start();
-  window.V191ReconcileFlyerCards=reconcile;
+
+  window.V192SyncFlyerStatus=sync;
 })();
 
