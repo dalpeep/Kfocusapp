@@ -7752,6 +7752,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       #section-smartFlyer .p011-badge.draft{background:#fff7ed;color:#b45309}
       #section-smartFlyer .p011-badge.archived{background:#f1f5f9;color:#475569}
       #section-smartFlyer .p011-badge.expired{background:#fee2e2;color:#b91c1c}
+      #section-smartFlyer .p011-badge.scheduled{background:#fef3c7;color:#92400e}
       #section-smartFlyer .p011-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
       #section-smartFlyer .p011-product{border:1px solid #edf2f7;border-radius:11px;padding:10px;background:#fbfdff}
       #section-smartFlyer .p011-product b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -7803,6 +7804,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
         <div>
           <h2>AI 스마트 전단 센터</h2>
           <p>모든 마트의 전단 분석, 상품 검토, 사용자 화면 미리보기와 활성 상태를 한곳에서 관리합니다.</p>
+          <p style="margin-top:6px;font-size:12px;color:#b45309">종료일이 지나면 DB 상태가 active여도 관리자에서는 자동으로 ‘기간 종료’로 표시되고 메인 노출에서 제외됩니다.</p>
         </div>
         <button type="button" class="btn primary" id="${P}Refresh">새로고침</button>
       </div>
@@ -7857,10 +7859,11 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   }
 
   function updateStats(){
+    const effective=flyers.map(f=>v188FlyerEffectiveStatus(f));
     if(el(P+'Total'))el(P+'Total').textContent=String(flyers.length);
-    if(el(P+'Active'))el(P+'Active').textContent=String(flyers.filter(f=>f.status==='active').length);
-    if(el(P+'Draft'))el(P+'Draft').textContent=String(flyers.filter(f=>f.status==='draft').length);
-    if(el(P+'Closed'))el(P+'Closed').textContent=String(flyers.filter(f=>['archived','expired'].includes(f.status)).length);
+    if(el(P+'Active'))el(P+'Active').textContent=String(effective.filter(s=>s.key==='live').length);
+    if(el(P+'Draft'))el(P+'Draft').textContent=String(effective.filter(s=>s.key==='inactive').length);
+    if(el(P+'Closed'))el(P+'Closed').textContent=String(effective.filter(s=>['expired','archived'].includes(s.key)).length);
   }
 
   async function load(){
@@ -7881,7 +7884,12 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const list=el(P+'List');
     if(!list)return;
     const rows=flyers.filter(f=>{
-      if(currentStatus&&f.status!==currentStatus)return false;
+      const eff=v188FlyerEffectiveStatus(f);
+      const filterKey=currentStatus==='active'?'live':
+                      currentStatus==='draft'?'inactive':
+                      currentStatus==='expired'?'expired':
+                      currentStatus==='archived'?'archived':currentStatus;
+      if(filterKey&&eff.key!==filterKey)return false;
       const hay=`${businessName(f)} ${f.title||''}`.toLowerCase();
       if(currentSearch&&!hay.includes(currentSearch))return false;
       return true;
@@ -7894,14 +7902,19 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
 
     list.innerHTML=rows.map(f=>{
       const top=items(f).slice(0,6);
-      return `<article class="p011-card">
+      const eff=v188FlyerEffectiveStatus(f);
+      const badgeClass=eff.key==='live'?'active':
+                       eff.key==='expired'?'expired':
+                       eff.key==='archived'?'archived':
+                       eff.key==='scheduled'?'scheduled':'draft';
+      return `<article class="p011-card" data-flyer-id="${esc(f.id)}">
         <div class="p011-card-top">
           <div>
             <h3>${esc(businessName(f))}</h3>
             <div class="p011-meta">${esc(f.title||'주간 세일')} · ${esc(f.start_date||'-')} ~ ${esc(f.end_date||'-')}</div>
             <div class="p011-meta">상품 ${items(f).length}개 · 오늘의 달타운 ${f.show_on_home?'사용':'미사용'}</div>
           </div>
-          <span class="p011-badge ${esc(f.status||'draft')}">${esc(f.status||'draft')}</span>
+          <span class="p011-badge ${badgeClass}">${esc(eff.label)}</span>
         </div>
 
         <div class="p011-products">
