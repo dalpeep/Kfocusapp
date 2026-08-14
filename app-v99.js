@@ -4030,7 +4030,17 @@ function v116ApplyHomeSectionVisibility(config={}){
   const showAlert=config.show_alert_section!==false;
   const showTicker=config.show_ticker_section!==false;
   const brief=document.getElementById('v37BriefCard'); if(brief)brief.hidden=!showToday;
-  const recommend=document.getElementById('v37RecommendCard'); if(recommend)recommend.hidden=!showRecommend;
+  const recommend=document.getElementById('v37RecommendCard');
+  if(recommend){
+    // V184: P130 weekly market reel uses this legacy recommendation-card slot.
+    // Market visibility must not be controlled by the old recommendation-section toggle.
+    // Otherwise P130 can render successfully and then be hidden moments later by home settings.
+    if(recommend.classList.contains('p130-market')){
+      recommend.hidden=false;
+    }else{
+      recommend.hidden=!showRecommend;
+    }
+  }
   const community=document.getElementById('v45CommunityTicker');
   if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
   const alertSection=document.getElementById('homeAlertSection')||document.querySelector('.home-ticker-section');
@@ -8312,8 +8322,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     const period=period130(flyer);
     const two=images.length>1;
 
-    card.hidden=false;
     card.classList.add('p130-market');
+    card.hidden=false;
+    card.removeAttribute('hidden');
     card.innerHTML=`
       <div class="p130-storebar">
         <div class="p130-storeleft">
