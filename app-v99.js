@@ -2968,6 +2968,15 @@ function v45SelectedBusinesses(config={}){
   // 이전에는 활성 이벤트 루틴이나 남아 있던 직접 지정 ID가 항상 우선되어 기준을 바꿔도 목록이 같았습니다.
   const legacyMode=String(config.business_mode||'featured');
   const legacyGroups={direct:adminRows,featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
+  if(legacyMode==='direct'){
+    // V196: direct mode is authoritative. Do not fall back to recommendation/new/popular.
+    console.info('[V196 direct recommendation]',{
+      mode:legacyMode,
+      ids,
+      matched:adminRows.map(b=>({id:b.id,name:b.name_ko||b.name||b.name_en}))
+    });
+    return adminRows.slice(0,20);
+  }
   if(Object.prototype.hasOwnProperty.call(legacyGroups,legacyMode)){
     const selected=legacyGroups[legacyMode]||[];
     if(selected.length)return selected.slice(0,20);
@@ -7762,10 +7771,42 @@ function v62ActiveByDate(rows=[],today=v61DateKey()){
 }
 function v61EffectiveHomeConfig(config={}){
   const today=v61DateKey();let out={...config};
-  const scene=v62ActiveByDate(Array.isArray(config.scene_presets)?config.scene_presets:[],today)[0];if(scene?.config)out={...out,...scene.config,active_scene_id:scene.id||''};
+  const baseDirect=String(config.business_mode||'')==='direct' &&
+                   Array.isArray(config.business_ids) &&
+                   config.business_ids.length>0;
+
+  const scene=v62ActiveByDate(Array.isArray(config.scene_presets)?config.scene_presets:[],today)[0];
+  if(scene?.config){
+    out={...out,...scene.config,active_scene_id:scene.id||''};
+    // V196: explicit administrator direct selection is authoritative.
+    if(baseDirect){
+      out.business_mode='direct';
+      out.business_ids=config.business_ids.slice();
+    }
+  }
+
   const schedules=Array.isArray(config.schedule_presets)?config.schedule_presets:[];
-  ['today','community','alert'].forEach(section=>{const row=v62ActiveByDate(schedules.filter(x=>(x.section||'today')===section),today)[0];if(row){out={...out,...row,active_schedule_id:row.id||out.active_schedule_id||''};if(section==='alert'&&Array.isArray(row.ticker_sources))out.ticker_sources=row.ticker_sources;if(section==='community'&&row.community_sort)out.community_sort=row.community_sort;if(section==='today'&&row.business_mode)out.business_mode=row.business_mode;}});
-  out.schedule_presets=schedules;out.scene_presets=config.scene_presets||[];return out;
+  ['today','community','alert'].forEach(section=>{
+    const row=v62ActiveByDate(schedules.filter(x=>(x.section||'today')===section),today)[0];
+    if(row){
+      out={...out,...row,active_schedule_id:row.id||out.active_schedule_id||''};
+      if(section==='alert'&&Array.isArray(row.ticker_sources))out.ticker_sources=row.ticker_sources;
+      if(section==='community'&&row.community_sort)out.community_sort=row.community_sort;
+      if(section==='today'&&row.business_mode&&!baseDirect)out.business_mode=row.business_mode;
+      if(section==='today'&&baseDirect){
+        out.business_mode='direct';
+        out.business_ids=config.business_ids.slice();
+      }
+    }
+  });
+
+  if(baseDirect){
+    out.business_mode='direct';
+    out.business_ids=config.business_ids.slice();
+  }
+  out.schedule_presets=schedules;
+  out.scene_presets=config.scene_presets||[];
+  return out;
 }
 console.info('[DalTownMap] V62 section schedules and scenes loaded');
 
@@ -8671,280 +8712,9 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
 
 
 
-// === V193 recommendation pool: paid priority + free fill ===
-(() => {
-  const MAX=6, PAID_WEIGHT=3, FREE_WEIGHT=1;
-  let pool=[], seq=[], pos=0, timer=null;
-
-  function allBiz(){
-    try{
-      if(Array.isArray(window.businesses)) return window.businesses;
-      if(typeof businesses!=='undefined' && Array.isArray(businesses)) return businesses;
-    }catch(_){}
-    return [];
-  }
-
-  function paid(b){
-    return !!(b?.is_paid||b?.paid||b?.premium||b?.is_premium||b?.is_advertiser||b?.advertiser||
-      (b?.subscription_tier && String(b.subscription_tier).toLowerCase()!=='free'));
-  }
-
-  function unique(arr){
-    const s=new Set();
-    return arr.filter(b=>{
-      const id=String(b?.id||b?.business_id||'');
-      if(!id||s.has(id)) return false;
-      s.add(id); return true;
-    });
-  }
-
-  function getSelectedIds(){
-    const roots=[window.homeSettings,window.mainSettings,window.__HOME_SETTINGS__,window.__MAIN_SETTINGS__].filter(Boolean);
-    for(const s of roots){
-      const v=s?.recommendation_business_ids||s?.recommend_business_ids||s?.recommended_business_ids||
-              s?.recommendation?.business_ids||s?.recommendation?.selected_ids;
-      if(Array.isArray(v)&&v.length) return v.map(String);
-    }
-    return [];
-  }
-
-  function build(){
-    const all=allBiz(), map=new Map(all.map(b=>[String(b.id||b.business_id||''),b]));
-    const ids=getSelectedIds();
-    let chosen=ids.length?ids.map(id=>map.get(id)).filter(Boolean):[];
-
-    if(!chosen.length){
-      const candidates=[
-        window.v83RecommendationItems,
-        window.V83_RECOMMENDATION_ITEMS,
-        window.recommendationItems,
-        window.homeRecommendationItems
-      ].filter(Array.isArray).flat();
-      chosen=unique(candidates);
-    }
-
-    if(chosen.length<MAX){
-      const have=new Set(chosen.map(b=>String(b.id||b.business_id||'')));
-      const fill=all.filter(b=>{
-        const id=String(b.id||b.business_id||'');
-        return id && !have.has(id) && b?.active!==false && b?.status!=='inactive';
-      });
-      chosen=unique([...chosen,...fill]);
-    }
-
-    const p=chosen.filter(paid), f=chosen.filter(b=>!paid(b));
-    pool=[...p,...f].slice(0,MAX);
-    seq=[];
-    pool.forEach(b=>{
-      const w=paid(b)?PAID_WEIGHT:FREE_WEIGHT;
-      for(let i=0;i<w;i++) seq.push(b);
-    });
-    console.info('[V193 recommendation pool]',{
-      total:pool.length,paid:p.length,free:f.length,
-      names:pool.map(b=>b.name_ko||b.name||b.name_en||b.id)
-    });
-  }
-
-  function host(){
-    return document.getElementById('v37RecommendCard')||
-           document.querySelector('[data-recommendation-card]')||
-           document.querySelector('.v83-recommendation-card');
-  }
-
-  function render(b){
-    const h=host(); if(!h||!b)return;
-    const existing=[
-      window.renderV83RecommendationCard,
-      window.renderRecommendationCard,
-      window.v83RenderRecommendation
-    ].find(fn=>typeof fn==='function');
-    if(existing){ try{existing(b);return}catch(_){} }
-
-    const esc=s=>String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    const name=b.name_ko||b.name||b.name_en||'추천 업소';
-    const desc=b.description||b.short_description||b.summary||'';
-    const city=b.city||b.area||'', cat=b.category||b.category_name||'';
-    h.hidden=false;
-    h.innerHTML=`<div class="v193-rec-card">
-      <div class="v193-rec-kicker">📍 달타운 추천</div>
-      <div class="v193-rec-name">${esc(name)}</div>
-      <div class="v193-rec-desc">${esc(desc).slice(0,90)}</div>
-      <div class="v193-rec-tags">${cat?`<span>${esc(cat)}</span>`:''}${city?`<span>${esc(city)}</span>`:''}</div>
-      <button class="v193-rec-go" type="button">→</button>
-    </div>`;
-    h.querySelector('.v193-rec-go')?.addEventListener('click',()=>{
-      const id=b.id||b.business_id;
-      try{
-        if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){
-          window.selectedBizId=id; renderDetail(id); showPage('business-detail');
-        }
-      }catch(_){}
-    });
-  }
-
-  function step(){
-    if(!seq.length) build();
-    if(!seq.length)return;
-    render(seq[pos%seq.length]); pos=(pos+1)%seq.length;
-  }
-
-  function boot(){
-    build(); step();
-    clearInterval(timer);
-    timer=setInterval(()=>{if(!document.hidden)step()},6500);
-  }
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,1800),{once:true});
-  else setTimeout(boot,1800);
-  setTimeout(boot,4200);
-
-  window.V193Recommendation={rebuild:boot,getPool:()=>pool.slice()};
-})();
 
 
 
-// === V194: 달타운 추천 직접 지정 최우선 + 추천/신규/인기 자동 보충 ===
-(() => {
-  const DIRECT_KEY='dtm_v194_direct_recommendation_ids';
-  const MAX=6, PAID_WEIGHT=3, FREE_WEIGHT=1;
-  let pool=[], sequence=[], pos=0, timer=null;
 
-  function allBiz(){
-    try{
-      if(Array.isArray(window.businesses)) return window.businesses;
-      if(typeof businesses!=='undefined' && Array.isArray(businesses)) return businesses;
-    }catch(_){}
-    return [];
-  }
-  function paid(b){
-    return !!(b?.is_paid||b?.paid||b?.premium||b?.is_premium||b?.is_advertiser||b?.advertiser||
-      (b?.subscription_tier && String(b.subscription_tier).toLowerCase()!=='free'));
-  }
-  function uniq(arr){
-    const s=new Set();
-    return arr.filter(b=>{
-      const id=String(b?.id||b?.business_id||'');
-      if(!id||s.has(id))return false;
-      s.add(id);return true;
-    });
-  }
-  function directIds(){
-    // V195: 관리자 '메인 설정 저장'의 실제 home config를 최우선 사용
-    try{
-      if(typeof v45HomeConfig!=='undefined' && v45HomeConfig && String(v45HomeConfig.business_mode||'')==='direct'){
-        const a=Array.isArray(v45HomeConfig.business_ids)?v45HomeConfig.business_ids:[];
-        if(a.length)return a.map(String).slice(0,MAX);
-      }
-      const roots=[window.homeSettings,window.mainSettings,window.__HOME_SETTINGS__,window.__MAIN_SETTINGS__].filter(Boolean);
-      for(const s of roots){
-        if(String(s?.business_mode||'')==='direct' && Array.isArray(s?.business_ids) && s.business_ids.length){
-          return s.business_ids.map(String).slice(0,MAX);
-        }
-      }
-      const a=JSON.parse(localStorage.getItem(DIRECT_KEY)||'[]');
-      return Array.isArray(a)?a.map(String).slice(0,MAX):[];
-    }catch(_){return []}
-  }
-  function truthy(v){return v===true||v===1||String(v).toLowerCase()==='true'||String(v)==='1'}
-  function byType(all,type){
-    if(type==='recommend') return all.filter(b=>truthy(b?.recommended)||truthy(b?.is_recommended)||truthy(b?.recommend)||String(b?.badge||'').includes('추천'));
-    if(type==='new') return all.filter(b=>truthy(b?.is_new)||truthy(b?.new)||String(b?.badge||'').toLowerCase()==='new');
-    if(type==='popular') return all.filter(b=>truthy(b?.popular)||truthy(b?.is_popular)||Number(b?.popularity||0)>0);
-    return [];
-  }
-  function active(b){return b?.active!==false && !['inactive','deleted','archived'].includes(String(b?.status||'').toLowerCase())}
 
-  function build(){
-    const all=allBiz().filter(active);
-    const map=new Map(all.map(b=>[String(b.id||b.business_id||''),b]));
-    let chosen=directIds().map(id=>map.get(id)).filter(Boolean);
-    const seen=new Set(chosen.map(b=>String(b.id||b.business_id||'')));
-
-    for(const type of ['recommend','new','popular']){
-      if(chosen.length>=MAX)break;
-      for(const b of byType(all,type)){
-        const id=String(b.id||b.business_id||'');
-        if(!id||seen.has(id))continue;
-        seen.add(id);chosen.push(b);
-        if(chosen.length>=MAX)break;
-      }
-    }
-
-    if(chosen.length<MAX){
-      for(const b of all){
-        const id=String(b.id||b.business_id||'');
-        if(!id||seen.has(id))continue;
-        seen.add(id);chosen.push(b);
-        if(chosen.length>=MAX)break;
-      }
-    }
-
-    // Keep direct selection order first. Within auto-fill, paid weighting applies to frequency only, not ordering.
-    pool=uniq(chosen).slice(0,MAX);
-    sequence=[];
-    pool.forEach(b=>{
-      const w=paid(b)?PAID_WEIGHT:FREE_WEIGHT;
-      for(let i=0;i<w;i++)sequence.push(b);
-    });
-
-    console.info('[V194 recommendation]',{
-      direct:directIds().length,
-      total:pool.length,
-      paid:pool.filter(paid).length,
-      free:pool.filter(b=>!paid(b)).length,
-      names:pool.map(b=>b.name_ko||b.name||b.name_en||b.id)
-    });
-  }
-
-  function host(){
-    return document.getElementById('v37RecommendCard')||
-      document.querySelector('[data-recommendation-card]')||
-      document.querySelector('.v83-recommendation-card');
-  }
-
-  function render(b){
-    const h=host(); if(!h||!b)return;
-    const existing=[window.renderV83RecommendationCard,window.renderRecommendationCard,window.v83RenderRecommendation]
-      .find(fn=>typeof fn==='function');
-    if(existing){try{existing(b);return}catch(e){console.warn('[V194 renderer fallback]',e)}}
-
-    const esc=s=>String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-    const name=b.name_ko||b.name||b.name_en||'추천 업소';
-    const desc=b.description||b.short_description||b.summary||'';
-    const city=b.city||b.area||'', cat=b.category||b.category_name||'';
-    h.hidden=false;
-    h.innerHTML=`<div class="v193-rec-card">
-      <div class="v193-rec-kicker">📍 달타운 추천</div>
-      <div class="v193-rec-name">${esc(name)}</div>
-      <div class="v193-rec-desc">${esc(desc).slice(0,90)}</div>
-      <div class="v193-rec-tags">${cat?`<span>${esc(cat)}</span>`:''}${city?`<span>${esc(city)}</span>`:''}</div>
-      <button class="v193-rec-go" type="button">→</button>
-    </div>`;
-    h.querySelector('.v193-rec-go')?.addEventListener('click',()=>{
-      const id=b.id||b.business_id;
-      try{
-        if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){
-          window.selectedBizId=id;renderDetail(id);showPage('business-detail');
-        }
-      }catch(_){}
-    });
-  }
-
-  function step(){
-    if(!sequence.length)build();
-    if(!sequence.length)return;
-    render(sequence[pos%sequence.length]);pos=(pos+1)%sequence.length;
-  }
-
-  function boot(){
-    build();step();
-    clearInterval(timer);
-    timer=setInterval(()=>{if(!document.hidden)step()},6500);
-  }
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,2000),{once:true});
-  else setTimeout(boot,2000);
-  setTimeout(boot,5000);
-  window.V194Recommendation={rebuild:boot,getPool:()=>pool.slice()};
-})();
 
