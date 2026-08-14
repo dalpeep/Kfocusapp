@@ -6282,21 +6282,63 @@ function v61EditSchedule(id){const r=v61HomeSchedules.find(x=>String(x.id)===Str
 
 // V45 main three-zone settings
 function v45Csv(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean)}
-function v45PopulateBusinessSelect(selected=[],mode){
+async function v45PopulateBusinessSelect(selected=[],mode){
   const el=qs('v45BusinessIds');if(!el)return;
   const ids=new Set((selected||[]).map(String));
   mode=mode||qs('v45BusinessMode')?.value||'featured';
-  let rows=(businesses||[]).slice();
-  if(mode==='featured')rows=rows.filter(b=>b.featured===true||b.is_featured===true);
+
+  let rows=[];
+  try{
+    // V199: 광고 운영센터(loadAdsOps)와 동일하게 businesses 테이블을 직접 조회.
+    const fields='id,name_ko,name_en,area,category_ko,is_active,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,paid_active,paid_weight,paid_start_at,paid_end_at,rotation_enabled';
+    const {data,error}=await supabase.from('businesses')
+      .select(fields)
+      .eq('region',getAppRegion())
+      .eq('is_active',true)
+      .order('name_ko',{ascending:true});
+    if(error)throw error;
+    rows=data||[];
+  }catch(e){
+    console.warn('[V199 admin recommendation source fallback]',e?.message||e);
+    rows=(businesses||[]).slice();
+  }
+
+  if(mode==='featured')rows=rows.filter(b=>b.is_featured===true||b.featured===true);
   else if(mode==='new')rows=rows.filter(b=>b.is_new===true);
   else if(mode==='popular')rows=rows.filter(b=>b.is_popular===true);
-  // V195: direct = 전체 업소에서 관리자가 직접 선택
-  rows.sort((a,b)=>String(a.name_ko||a.name_en||a.name||'').localeCompare(String(b.name_ko||b.name_en||b.name||''),'ko'));
+  else if(mode==='coupon'){
+    const set=typeof v61BusinessIdsWithCoupon==='function'?v61BusinessIdsWithCoupon():new Set();
+    rows=rows.filter(b=>set.has(String(b.id)));
+  }else if(mode==='banner'){
+    const set=typeof v61BusinessIdsWithBanner==='function'?v61BusinessIdsWithBanner():new Set();
+    rows=rows.filter(b=>set.has(String(b.id)));
+  }else if(mode==='direct'){
+    // 전체 업소 유지
+  }
+
+  const rankKey=mode==='featured'?'featured_rank':mode==='new'?'new_rank':mode==='popular'?'popular_rank':'';
+  rows.sort((a,b)=>{
+    if(rankKey){
+      const d=Number(a?.[rankKey]??1000)-Number(b?.[rankKey]??1000);
+      if(d)return d;
+    }
+    return String(a.name_ko||a.name_en||a.name||'').localeCompare(String(b.name_ko||b.name_en||b.name||''),'ko');
+  });
+
   el.innerHTML=rows.map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('');
+
   const hint=el.parentElement?.querySelector('small');
-  if(hint)hint.textContent=mode==='direct'
-    ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
-    :'선택한 기준의 업체가 우선 노출되며 6개 미만이면 추천·신규·인기에서 자동 보충됩니다. 특정 업체만 노출하려면 업체 기준을 “직접 지정”으로 변경하세요.';
+  if(hint){
+    hint.textContent=mode==='direct'
+      ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
+      :`광고 운영센터와 동일한 ${V61_MODE_LABELS[mode]||'업체'} 목록입니다. 6개 미만이면 메인에서 추천·신규·인기 기준으로 자동 보충됩니다.`;
+  }
+
+  console.info('[V199 admin recommendation list]',{
+    mode,
+    count:rows.length,
+    names:rows.map(b=>b.name_ko||b.name_en||b.name).slice(0,20)
+  });
 }
 function v45FillHomeConfig(config={}){
   v117LoadedHomeConfig=(config&&typeof config==='object')?{...config}:{};

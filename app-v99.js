@@ -8756,3 +8756,94 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
 
 
 
+
+
+// === V199: 추천/신규/인기 기준을 광고 운영센터와 동일한 DB 값으로 동기화 ===
+(() => {
+  let loading=null, loadedAt=0;
+
+  async function refreshFlags(force=false){
+    if(!force && Date.now()-loadedAt<30000) return true;
+    if(loading) return loading;
+
+    loading=(async()=>{
+      try{
+        const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+        const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+        const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+        const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+        if(!base||!key) return false;
+
+        const select='id,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,paid_active,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active';
+        const q=new URLSearchParams({
+          select,
+          region:`eq.${region}`,
+          is_active:'eq.true',
+          limit:'1000'
+        });
+        const res=await fetch(`${base}/rest/v1/businesses?${q}`,{
+          cache:'no-store',
+          headers:{apikey:key,Authorization:`Bearer ${key}`,Accept:'application/json'}
+        });
+        const rows=await res.json().catch(()=>[]);
+        if(!res.ok) throw new Error(rows?.message||`HTTP ${res.status}`);
+
+        const map=new Map((Array.isArray(rows)?rows:[]).map(r=>[String(r.id),r]));
+        let changed=0;
+        (businesses||[]).forEach(b=>{
+          const r=map.get(String(b.id));
+          if(!r)return;
+          const before=[b.is_featured,b.is_new,b.is_popular,b.featured_rank,b.new_rank,b.popular_rank].join('|');
+          b.is_featured=!!r.is_featured; b.featured=!!r.is_featured;
+          b.is_new=!!r.is_new; b.is_popular=!!r.is_popular;
+          b.featured_rank=r.featured_rank==null?1000:Number(r.featured_rank);
+          b.new_rank=r.new_rank==null?1000:Number(r.new_rank);
+          b.popular_rank=r.popular_rank==null?1000:Number(r.popular_rank);
+          b.paid_active=!!r.paid_active;
+          b.paid_weight=Math.max(1,Number(r.paid_weight||1));
+          b.paid_start_at=r.paid_start_at||'';
+          b.paid_end_at=r.paid_end_at||'';
+          b.rotation_enabled=r.rotation_enabled!==false;
+          const after=[b.is_featured,b.is_new,b.is_popular,b.featured_rank,b.new_rank,b.popular_rank].join('|');
+          if(before!==after)changed++;
+        });
+
+        loadedAt=Date.now();
+        console.info('[V199 ad-group flags synced]',{
+          rows:Array.isArray(rows)?rows.length:0,
+          changed,
+          featured:(businesses||[]).filter(b=>b.is_featured).map(b=>b.name).slice(0,12),
+          new:(businesses||[]).filter(b=>b.is_new).map(b=>b.name).slice(0,12),
+          popular:(businesses||[]).filter(b=>b.is_popular).map(b=>b.name).slice(0,12)
+        });
+        return true;
+      }catch(e){
+        console.error('[V199 ad-group flags sync failed]',e);
+        return false;
+      }finally{
+        loading=null;
+      }
+    })();
+    return loading;
+  }
+
+  async function rerender(){
+    await refreshFlags(true);
+    try{
+      if(typeof v77RefreshRoutineDrivenHome==='function') v77RefreshRoutineDrivenHome();
+      else if(typeof v48RenderMainSettings==='function') v48RenderMainSettings();
+    }catch(e){console.warn('[V199 recommendation rerender]',e)}
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      setTimeout(rerender,1800);
+      setTimeout(rerender,4200);
+    },{once:true});
+  }else{
+    setTimeout(rerender,1800);
+  }
+
+  window.V199RecommendationSource={refresh:rerender};
+})();
+
