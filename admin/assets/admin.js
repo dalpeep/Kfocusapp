@@ -1,4 +1,27 @@
 console.info('[DalTownMap Admin] P138 email coupon image setting loaded');
+
+// V188: weekly flyer effective status helper
+function v188DallasToday(){
+  try{
+    return new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
+  }catch(_){
+    return new Date().toISOString().slice(0,10);
+  }
+}
+function v188FlyerEffectiveStatus(row){
+  const today=v188DallasToday();
+  const start=String(row?.start_date||'').slice(0,10);
+  const end=String(row?.end_date||'').slice(0,10);
+  const raw=String(row?.status||'active').toLowerCase();
+
+  if(['deleted','archived'].includes(raw)) return {key:'archived',label:'종료·보관',className:'is-archived'};
+  if(['inactive','draft'].includes(raw)) return {key:'inactive',label:'비활성',className:'is-inactive'};
+  if(end && end < today) return {key:'expired',label:`기간 종료 · ${end}`,className:'is-expired'};
+  if(start && start > today) return {key:'scheduled',label:`예정 · ${start}`,className:'is-scheduled'};
+  return {key:'live',label:'LIVE · 업로드중',className:'is-live'};
+}
 console.info('[DalTownMap Admin] P137 coupon campaign v1 loaded');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -9256,3 +9279,32 @@ console.info('[DalTownMap Admin] P132A guide picker reads boards[] loaded');
   },1000));
   window.V181PromoVideoAdmin={load:loadPromoVideoSetting,upload:uploadPromoVideo,save:savePromoVideoSetting};
 })();
+
+
+// V188: normalize AI Smart Flyer status badges after each render.
+// This works even if older rendering code still emits "LIVE".
+function v188NormalizeSmartFlyerStatuses(){
+  const today=v188DallasToday();
+  document.querySelectorAll('[data-flyer-id], .smart-flyer-card, .ai-smart-flyer-card, .flyer-card').forEach(card=>{
+    const txt=card.textContent||'';
+    // Recognize visible YYYY-MM-DD ~ YYYY-MM-DD date range from the card.
+    const dates=[...txt.matchAll(/(20\d{2}-\d{2}-\d{2})/g)].map(m=>m[1]);
+    if(!dates.length)return;
+    const start=dates[0]||'', end=dates[1]||'';
+    let label='LIVE · 업로드중', cls='is-live';
+    if(end && end < today){label=`기간 종료 · ${end}`; cls='is-expired';}
+    else if(start && start > today){label=`예정 · ${start}`; cls='is-scheduled';}
+    const badge=[...card.querySelectorAll('span,div')].find(el=>/LIVE\s*·\s*업로드중|기간 종료|예정/.test(el.textContent||''));
+    if(badge){
+      badge.textContent=(badge.textContent||'').trim().startsWith('●')?`● ${label}`:label;
+      badge.classList.remove('is-live','is-expired','is-scheduled');
+      badge.classList.add(cls);
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(v188NormalizeSmartFlyerStatuses,500);
+  setTimeout(v188NormalizeSmartFlyerStatuses,1500);
+  new MutationObserver(()=>v188NormalizeSmartFlyerStatuses()).observe(document.body,{childList:true,subtree:true});
+});
+

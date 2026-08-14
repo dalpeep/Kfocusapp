@@ -38,6 +38,18 @@
 @media(max-width:1000px){.integration-metrics{grid-template-columns:repeat(2,1fr)}.integration-grid{grid-template-columns:1fr}.dashboard-exposure-grid{grid-template-columns:1fr}.integration-issue-form{grid-template-columns:1fr}}
 @media(max-width:600px){.integration-metrics{grid-template-columns:1fr}.integration-hero{align-items:flex-start;flex-direction:column}}
 </style>
+
+<style id="v188-flyer-status-css">
+.smart-flyer-status.is-live,.smart-status.is-live,
+.is-live{background:#dcfce7!important;color:#15803d!important}
+.smart-flyer-status.is-expired,.smart-status.is-expired,
+.is-expired{background:#fee2e2!important;color:#b91c1c!important}
+.smart-flyer-status.is-scheduled,.smart-status.is-scheduled,
+.is-scheduled{background:#fef3c7!important;color:#92400e!important}
+.smart-flyer-status.is-inactive,.smart-status.is-inactive,
+.is-inactive{background:#e5e7eb!important;color:#4b5563!important}
+</style>
+
 </head>
 <body>
   <div class="app-shell">
@@ -193,7 +205,7 @@
           <article class="card er-list-panel">
             <div class="panel-head">
               <div><h2>등록된 루틴</h2><p class="muted">여러 루틴을 동시에 활성화할 수 있습니다.</p></div>
-              <select id="erStatusFilter"><option value="all">전체</option><option value="active">진행 중</option><option value="scheduled">예약</option><option value="paused">일시중지</option><option value="ended">종료</option></select>
+              <select id="erStatusFilter"><option value="all">전체</option><option value="active">진행 중</option><option value="scheduled">예약</option><option value="paused">일시중지</option><option value="ended">종료</option><option value="expired">기간 종료</option></select>
             </div>
             <div id="erRoutineList" class="er-routine-list"></div>
           </article>
