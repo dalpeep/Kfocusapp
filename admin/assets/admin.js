@@ -6225,7 +6225,7 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{v61HomeSettings
 // V61 메인 자동 편성·날짜별 운영 설정
 let v61HomeSchedules=[];
 let v117LoadedHomeConfig={};
-const V61_MODE_LABELS={featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체',promotion:'쿠폰·배너·영상 업체',rotation:'날짜별 자동 순환',random:'전체 랜덤'};
+const V61_MODE_LABELS={direct:'직접 지정',featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체',promotion:'쿠폰·배너·영상 업체',rotation:'날짜별 자동 순환',random:'전체 랜덤'};
 function v61HomeSettingsPanel(){
   if(qs('v61HomeSettingsPanel'))return;
   const section=qs('section-newsroom');if(!section)return;
@@ -6282,7 +6282,22 @@ function v61EditSchedule(id){const r=v61HomeSchedules.find(x=>String(x.id)===Str
 
 // V45 main three-zone settings
 function v45Csv(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean)}
-function v45PopulateBusinessSelect(selected=[],mode){const el=qs('v45BusinessIds');if(!el)return;const ids=new Set((selected||[]).map(String));mode=mode||qs('v45BusinessMode')?.value||'featured';let rows=(businesses||[]).slice();if(mode==='featured')rows=rows.filter(b=>b.featured===true||b.is_featured===true);else if(mode==='new')rows=rows.filter(b=>b.is_new===true);else if(mode==='popular')rows=rows.filter(b=>b.is_popular===true);rows.sort((a,b)=>String(a.name_ko||a.name_en||a.name||'').localeCompare(String(b.name_ko||b.name_en||b.name||''),'ko'));el.innerHTML=rows.map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('')}
+function v45PopulateBusinessSelect(selected=[],mode){
+  const el=qs('v45BusinessIds');if(!el)return;
+  const ids=new Set((selected||[]).map(String));
+  mode=mode||qs('v45BusinessMode')?.value||'featured';
+  let rows=(businesses||[]).slice();
+  if(mode==='featured')rows=rows.filter(b=>b.featured===true||b.is_featured===true);
+  else if(mode==='new')rows=rows.filter(b=>b.is_new===true);
+  else if(mode==='popular')rows=rows.filter(b=>b.is_popular===true);
+  // V195: direct = 전체 업소에서 관리자가 직접 선택
+  rows.sort((a,b)=>String(a.name_ko||a.name_en||a.name||'').localeCompare(String(b.name_ko||b.name_en||b.name||''),'ko'));
+  el.innerHTML=rows.map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('');
+  const hint=el.parentElement?.querySelector('small');
+  if(hint)hint.textContent=mode==='direct'
+    ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
+    :'선택한 기준의 업체가 표시됩니다. 특정 업체만 고르려면 업체 기준을 “직접 지정”으로 변경하세요.';
+}
 function v45FillHomeConfig(config={}){
   v117LoadedHomeConfig=(config&&typeof config==='object')?{...config}:{};
   v61HomeSettingsPanel();

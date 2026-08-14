@@ -2940,11 +2940,11 @@ function v73RoutineRecommendationInterval(){
 }
 
 function v83RecommendationLabel(config={}){
-  const labels={recommended:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',address:'주소',admin:'관리자 지정',random:'랜덤'};
+  const labels={direct:'직접 지정',recommended:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',address:'주소',admin:'관리자 지정',random:'랜덤'};
   const options=v73RoutineRecommendationOptions();
   if(options.length)return options.map(v=>labels[v]||v).join(' · ');
   if(Array.isArray(config.business_ids)&&config.business_ids.length)return '관리자 지정';
-  return ({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',random:'랜덤',daily:''}[String(config.business_mode||'featured')]??'추천');
+  return ({direct:'직접 지정',featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',random:'랜덤',daily:''}[String(config.business_mode||'featured')]??'추천');
 }
 function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
@@ -2967,7 +2967,7 @@ function v45SelectedBusinesses(config={}){
   // V116: 관리자가 저장한 기본 기준(추천/신규/인기)을 우선 적용합니다.
   // 이전에는 활성 이벤트 루틴이나 남아 있던 직접 지정 ID가 항상 우선되어 기준을 바꿔도 목록이 같았습니다.
   const legacyMode=String(config.business_mode||'featured');
-  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
+  const legacyGroups={direct:adminRows,featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
   if(Object.prototype.hasOwnProperty.call(legacyGroups,legacyMode)){
     const selected=legacyGroups[legacyMode]||[];
     if(selected.length)return selected.slice(0,20);
@@ -8829,7 +8829,18 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
     });
   }
   function directIds(){
+    // V195: 관리자 '메인 설정 저장'의 실제 home config를 최우선 사용
     try{
+      if(typeof v45HomeConfig!=='undefined' && v45HomeConfig && String(v45HomeConfig.business_mode||'')==='direct'){
+        const a=Array.isArray(v45HomeConfig.business_ids)?v45HomeConfig.business_ids:[];
+        if(a.length)return a.map(String).slice(0,MAX);
+      }
+      const roots=[window.homeSettings,window.mainSettings,window.__HOME_SETTINGS__,window.__MAIN_SETTINGS__].filter(Boolean);
+      for(const s of roots){
+        if(String(s?.business_mode||'')==='direct' && Array.isArray(s?.business_ids) && s.business_ids.length){
+          return s.business_ids.map(String).slice(0,MAX);
+        }
+      }
       const a=JSON.parse(localStorage.getItem(DIRECT_KEY)||'[]');
       return Array.isArray(a)?a.map(String).slice(0,MAX):[];
     }catch(_){return []}
