@@ -4030,7 +4030,17 @@ function v116ApplyHomeSectionVisibility(config={}){
   const showAlert=config.show_alert_section!==false;
   const showTicker=config.show_ticker_section!==false;
   const brief=document.getElementById('v37BriefCard'); if(brief)brief.hidden=!showToday;
-  const recommend=document.getElementById('v37RecommendCard'); if(recommend)recommend.hidden=!showRecommend;
+  const recommend=document.getElementById('v37RecommendCard');
+  if(recommend){
+    // V184: P130 weekly market reel uses this legacy recommendation-card slot.
+    // Market visibility must not be controlled by the old recommendation-section toggle.
+    // Otherwise P130 can render successfully and then be hidden moments later by home settings.
+    if(recommend.classList.contains('p130-market')){
+      recommend.hidden=false;
+    }else{
+      recommend.hidden=!showRecommend;
+    }
+  }
   const community=document.getElementById('v45CommunityTicker');
   if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
   const alertSection=document.getElementById('homeAlertSection')||document.querySelector('.home-ticker-section');
@@ -8174,7 +8184,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       if(state.marketIndex>=state.flyers.length)state.marketIndex=0;
       state.loadedAt=Date.now();
 
-      console.info('[P130 market reel data]',{
+      console.info('[P130 market reel data V186]',{
+        region,
+        rawRows:Array.isArray(rows)?rows.length:0,
         markets:state.flyers.length,
         items:state.flyers.map(f=>({
           id:f.id,
@@ -8196,7 +8208,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     const s=document.createElement('style');
     s.id='p130MarketReelStyle';
     s.textContent=`
-      #v37RecommendCard.p130-market{
+      #p130MarketHost.p130-market{
         display:block!important;
         padding:0!important;
         overflow:hidden!important;
@@ -8205,61 +8217,61 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         background:#fff!important;
         box-shadow:0 8px 24px rgba(30,64,175,.08)!important;
       }
-      #v37RecommendCard.p130-market > .v37-recommend-main,
-      #v37RecommendCard.p130-market > .v37-recommend-dots{display:none!important}
-      #v37RecommendCard .p130-storebar{
+      #p130MarketHost.p130-market > .v37-recommend-main,
+      #p130MarketHost.p130-market > .v37-recommend-dots{display:none!important}
+      #p130MarketHost .p130-storebar{
         min-height:56px;padding:11px 15px;display:flex;align-items:center;
         justify-content:space-between;gap:12px;color:#fff;
         background:linear-gradient(135deg,#0f4bb8,#2563eb);
       }
-      #v37RecommendCard .p130-storeleft{display:flex;align-items:center;gap:10px;min-width:0}
-      #v37RecommendCard .p130-icon{
+      #p130MarketHost .p130-storeleft{display:flex;align-items:center;gap:10px;min-width:0}
+      #p130MarketHost .p130-icon{
         width:30px;height:30px;display:grid;place-items:center;border-radius:10px;
         background:rgba(255,255,255,.16);flex:0 0 auto;
       }
-      #v37RecommendCard .p130-name{
+      #p130MarketHost .p130-name{
         overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:18px;font-weight:900;
       }
-      #v37RecommendCard .p130-count{
+      #p130MarketHost .p130-count{
         flex:0 0 auto;min-width:34px;height:24px;padding:0 8px;display:inline-flex;
         align-items:center;justify-content:center;border-radius:999px;background:rgba(15,23,42,.36);
         font-size:11px;font-weight:900;
       }
-      #v37RecommendCard .p130-titlebar{
+      #p130MarketHost .p130-titlebar{
         min-height:46px;padding:9px 15px;display:flex;align-items:center;
         justify-content:space-between;gap:12px;color:#15386d;
         background:linear-gradient(180deg,#f8fbff,#eaf2ff);border-bottom:1px solid #dbe7f7;
       }
-      #v37RecommendCard .p130-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900}
-      #v37RecommendCard .p130-period{font-size:12px;font-weight:800;color:#64748b;flex:0 0 auto}
-      #v37RecommendCard .p130-window{
+      #p130MarketHost .p130-title{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:900}
+      #p130MarketHost .p130-period{font-size:12px;font-weight:800;color:#64748b;flex:0 0 auto}
+      #p130MarketHost .p130-window{
         position:relative;width:100%;aspect-ratio:20/7;overflow:hidden;background:#eef3fb;
       }
-      #v37RecommendCard .p130-reel{
+      #p130MarketHost .p130-reel{
         display:flex;
         height:100%;
         will-change:transform;
       }
-      #v37RecommendCard .p130-reel.two{
+      #p130MarketHost .p130-reel.two{
         width:200%;
         animation:p130FlowTwo 8.4s linear forwards;
       }
-      #v37RecommendCard .p130-reel.one{
+      #p130MarketHost .p130-reel.one{
         width:100%;
       }
-      #v37RecommendCard .p130-panel{
+      #p130MarketHost .p130-panel{
         flex:0 0 50%;
         width:50%;
         height:100%;
       }
-      #v37RecommendCard .p130-reel.one .p130-panel{
+      #p130MarketHost .p130-reel.one .p130-panel{
         flex-basis:100%;
         width:100%;
       }
-      #v37RecommendCard .p130-panel img{
+      #p130MarketHost .p130-panel img{
         display:block;width:100%;height:100%;object-fit:cover;object-position:center;
       }
-      #v37RecommendCard .p130-arrow{
+      #p130MarketHost .p130-arrow{
         position:absolute;right:12px;bottom:12px;width:36px;height:36px;display:grid;place-items:center;
         border:0;border-radius:50%;background:rgba(255,255,255,.94);color:#174fb8;
         box-shadow:0 5px 16px rgba(15,23,42,.18);font-size:25px;font-weight:900;z-index:3;
@@ -8269,10 +8281,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
         to{transform:translateX(-50%)}
       }
       @media(max-width:640px){
-        #v37RecommendCard .p130-storebar{min-height:52px;padding:9px 13px}
-        #v37RecommendCard .p130-titlebar{min-height:43px;padding:8px 13px}
-        #v37RecommendCard .p130-name{font-size:17px}
-        #v37RecommendCard .p130-title{font-size:16px}
+        #p130MarketHost .p130-storebar{min-height:52px;padding:9px 13px}
+        #p130MarketHost .p130-titlebar{min-height:43px;padding:8px 13px}
+        #p130MarketHost .p130-name{font-size:17px}
+        #p130MarketHost .p130-title{font-size:16px}
       }
     `;
     document.head.appendChild(s);
@@ -8296,7 +8308,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function render130(){
     style130();
-    const card=document.getElementById('v37RecommendCard');
+    let card=document.getElementById('v37RecommendCard');
+    const marketHost=document.getElementById('p130MarketHost');
+    if(marketHost) card=marketHost;
     const flyer=current130();
 
     if(!card||!flyer){
@@ -8312,8 +8326,10 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     const period=period130(flyer);
     const two=images.length>1;
 
-    card.hidden=false;
     card.classList.add('p130-market');
+    card.hidden=false;
+    card.removeAttribute('hidden');
+    const mh=document.getElementById('p130MarketHost'); if(mh){mh.hidden=false;mh.removeAttribute('hidden');}
     card.innerHTML=`
       <div class="p130-storebar">
         <div class="p130-storeleft">
@@ -8396,7 +8412,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   document.addEventListener('DOMContentLoaded',()=>{
     setTimeout(()=>refresh130(true),450);
     setTimeout(()=>refresh130(true),1700);
+    setTimeout(()=>refresh130(true),3500);
   });
+  window.addEventListener('load',()=>setTimeout(()=>refresh130(true),700),{once:true});
 
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden)stop130();
@@ -8918,3 +8936,22 @@ console.info('[DalTownMap] P131 contextual ticker links + internal routing loade
 
 
 console.info('[DalTownMap] P132A guide board-detail links loaded');
+
+
+// V185 dedicated market host safeguard
+(function(){
+  function syncP130MarketHost(){
+    const h=document.getElementById('p130MarketHost');
+    if(!h)return;
+    const has=h.children.length>0 || h.textContent.trim().length>0;
+    if(has){h.hidden=false;h.removeAttribute('hidden');}
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const h=document.getElementById('p130MarketHost');
+    if(!h)return;
+    new MutationObserver(syncP130MarketHost).observe(h,{childList:true,subtree:true,attributes:true});
+    setTimeout(syncP130MarketHost,1200);
+    setTimeout(syncP130MarketHost,3000);
+  });
+})();
+

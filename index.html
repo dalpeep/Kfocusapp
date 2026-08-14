@@ -130,6 +130,13 @@
 </script>
 
   <meta name="daltownmap-version" content="V100 iPhone PWA Data Refresh">
+
+<style>
+#p130MarketHost{display:block;width:100%;margin:12px 0}
+#p130MarketHost[hidden]{display:none!important}
+#p130MarketHost .p130-market{display:block!important}
+</style>
+
 </head>
 <body>
   <div class="app-shell">
@@ -310,6 +317,9 @@ onclick="showPage('contact');closeMenu();">
           </article>
           <div class="v45-community-ticker v70-community-panel" id="v45CommunityTicker" aria-label="커뮤니티 최신 글" hidden></div>
         </section>
+
+        <!-- V186: weekly market belongs to HOME, not page-business -->
+        <section id="p130MarketHost" class="p130-market-host" hidden aria-label="이번 주 마켓 정보"></section>
 		
   <section class="home-ticker-section" id="homeAlertSection" aria-label="달타운 알림" hidden>
     <div id="dalpickList" class="dalpick-home-list"></div>
@@ -375,7 +385,7 @@ onclick="showPage('contact');closeMenu();">
           <div class="search-row"><input type="search" id="businessSearch" placeholder="업소명, 카테고리, 지역 검색" /></div>
           <div id="categoryRow" class="category-row"></div>
           <div id="mainBanners" class="home-category-banner-slot is-empty" aria-live="polite" hidden></div>
-          <div id="businessList" class="business-list"></div>
+<div id="businessList" class="business-list"></div>
         </section>
       </section>
 
@@ -644,7 +654,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=183.0-video-popup-ratio-fix"></script>
+<script src="app-v99.js?v=186.0-market-home-position-fix"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
