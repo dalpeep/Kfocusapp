@@ -6296,7 +6296,7 @@ function v45PopulateBusinessSelect(selected=[],mode){
   const hint=el.parentElement?.querySelector('small');
   if(hint)hint.textContent=mode==='direct'
     ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
-    :'선택한 기준의 업체가 표시됩니다. 특정 업체만 고르려면 업체 기준을 “직접 지정”으로 변경하세요.';
+    :'선택한 기준의 업체가 우선 노출되며 6개 미만이면 추천·신규·인기에서 자동 보충됩니다. 특정 업체만 노출하려면 업체 기준을 “직접 지정”으로 변경하세요.';
 }
 function v45FillHomeConfig(config={}){
   v117LoadedHomeConfig=(config&&typeof config==='object')?{...config}:{};

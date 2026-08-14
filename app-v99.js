@@ -2948,6 +2948,79 @@ function v83RecommendationLabel(config={}){
 }
 function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
+  const MAX=6;
+  const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
+  const ids=(config.business_ids||[]).map(String);
+  const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
+  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true)
+    .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
+  const newRows=consumerRows.filter(b=>b.is_new===true)
+    .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
+  const popularRows=consumerRows.filter(b=>b.is_popular===true)
+    .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+  const couponIds=v61BusinessIdsWithCoupon();
+  const bannerIds=v61BusinessIdsWithBanner();
+  const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
+  const bannerRows=consumerRows.filter(b=>bannerIds.has(String(b.id)));
+  const videoRows=consumerRows.filter(b=>b.video_url||b.video||b.youtube_url||b.instagram_url);
+  const promoRows=consumerRows.filter(b=>couponIds.has(String(b.id))||bannerIds.has(String(b.id))||b.video_url||b.video||b.youtube_url||b.instagram_url);
+  const adminRows=ids.length?all.filter(b=>ids.includes(String(b.id))):[];
+  const randomRows=v45StableShuffle(consumerRows,todayKey());
+
+  const mode=String(config.business_mode||'featured');
+
+  // 직접 지정은 정확히 선택한 업체만 사용. 관리자가 1개를 골랐으면 1개만 표시.
+  if(mode==='direct'){
+    console.info('[V197 recommendation pool]',{
+      mode,total:adminRows.length,names:adminRows.map(b=>b.name_ko||b.name||b.name_en)
+    });
+    return adminRows.slice(0,MAX);
+  }
+
+  const primary={
+    featured:featuredRows,
+    new:newRows,
+    popular:popularRows,
+    coupon:couponRows,
+    banner:bannerRows,
+    video:videoRows,
+    promotion:promoRows,
+    random:randomRows
+  }[mode] || featuredRows;
+
+  // 추천/신규/인기 중 선택한 기준을 먼저 넣고, 부족한 자리만 나머지 기준으로 보충.
+  let fallbackOrder;
+  if(mode==='popular') fallbackOrder=[featuredRows,newRows];
+  else if(mode==='new') fallbackOrder=[featuredRows,popularRows];
+  else fallbackOrder=[newRows,popularRows];
+
+  const result=[], seen=new Set();
+  const pushRows=rows=>{
+    for(const b of rows||[]){
+      const id=String(b?.id||'');
+      if(!id||seen.has(id))continue;
+      seen.add(id); result.push(b);
+      if(result.length>=MAX)return true;
+    }
+    return false;
+  };
+
+  pushRows(primary);
+  for(const rows of fallbackOrder){
+    if(result.length>=MAX)break;
+    pushRows(rows);
+  }
+  if(result.length<MAX)pushRows(randomRows);
+
+  console.info('[V197 recommendation pool]',{
+    mode,
+    primary:primary.length,
+    total:result.length,
+    names:result.map(b=>b.name_ko||b.name||b.name_en)
+  });
+  return result.slice(0,MAX);
+}){
+  config=v61EffectiveHomeConfig(config);
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
@@ -7771,9 +7844,13 @@ function v62ActiveByDate(rows=[],today=v61DateKey()){
 }
 function v61EffectiveHomeConfig(config={}){
   const today=v61DateKey();let out={...config};
-  const baseDirect=String(config.business_mode||'')==='direct' &&
+  const baseMode=String(config.business_mode||'featured');
+  const baseDirect=baseMode==='direct' &&
                    Array.isArray(config.business_ids) &&
                    config.business_ids.length>0;
+  // V197: 추천/신규/인기/쿠폰/배너/영상 등 관리자가 직접 고른 기준은 날짜 스케줄보다 우선.
+  // 날짜별 자동 변경은 rotation/daily 모드를 명시적으로 선택했을 때만 business_mode를 덮어쓸 수 있음.
+  const manualMode=!['rotation','daily'].includes(baseMode);
 
   const scene=v62ActiveByDate(Array.isArray(config.scene_presets)?config.scene_presets:[],today)[0];
   if(scene?.config){
@@ -7792,7 +7869,7 @@ function v61EffectiveHomeConfig(config={}){
       out={...out,...row,active_schedule_id:row.id||out.active_schedule_id||''};
       if(section==='alert'&&Array.isArray(row.ticker_sources))out.ticker_sources=row.ticker_sources;
       if(section==='community'&&row.community_sort)out.community_sort=row.community_sort;
-      if(section==='today'&&row.business_mode&&!baseDirect)out.business_mode=row.business_mode;
+      if(section==='today'&&row.business_mode&&!manualMode)out.business_mode=row.business_mode;
       if(section==='today'&&baseDirect){
         out.business_mode='direct';
         out.business_ids=config.business_ids.slice();
@@ -7800,6 +7877,10 @@ function v61EffectiveHomeConfig(config={}){
     }
   });
 
+  if(manualMode){
+    out.business_mode=baseMode;
+    if(Array.isArray(config.business_ids))out.business_ids=config.business_ids.slice();
+  }
   if(baseDirect){
     out.business_mode='direct';
     out.business_ids=config.business_ids.slice();
