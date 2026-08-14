@@ -9420,3 +9420,139 @@ document.addEventListener('DOMContentLoaded',()=>{
   window.V190ApplyFlyerStatus=apply;
 })();
 
+
+
+// === V191: authoritative flyer-card status + expired delete UI ===
+(() => {
+  const dallasToday = () => {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone:'America/Chicago', year:'numeric', month:'2-digit', day:'2-digit'
+      }).formatToParts(new Date());
+      const o={}; parts.forEach(p=>o[p.type]=p.value);
+      return `${o.year}-${o.month}-${o.day}`;
+    } catch(_) { return new Date().toISOString().slice(0,10); }
+  };
+
+  const dateFromText = (txt) => {
+    const m=String(txt||'').match(/(20\d{2})[-./년\s]+(\d{1,2})[-./월\s]+(\d{1,2})/);
+    return m ? `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}` : '';
+  };
+
+  const flyerId = card => Number(
+    card?.dataset?.flyerId ||
+    card?.querySelector?.('[data-id]')?.dataset?.id ||
+    card?.querySelector?.('[data-p011-home]')?.dataset?.id || 0
+  );
+
+  function effective(card){
+    const today=dallasToday();
+    let start=String(card.dataset.flyerStart||'').slice(0,10);
+    let end=String(card.dataset.flyerEnd||'').slice(0,10);
+    const txt=card.innerText||'';
+
+    // Fallback: P011 summary normally contains "YYYY-MM-DD ~ YYYY-MM-DD".
+    const dates=[...txt.matchAll(/20\d{2}-\d{2}-\d{2}/g)].map(x=>x[0]);
+    if(!start && dates.length) start=dates[0];
+    if(!end && dates.length>1) end=dates[1];
+
+    if(end && end<today) return {key:'expired',start,end};
+    if(start && start>today) return {key:'scheduled',start,end};
+
+    const stored=String(card.dataset.flyerEffective||'').toLowerCase();
+    if(stored==='expired'||stored==='archived') return {key:'expired',start,end};
+    if(stored==='scheduled') return {key:'scheduled',start,end};
+    return {key:'live',start,end};
+  }
+
+  function statusHost(card){
+    return card.querySelector('.p011-badge,.p012-live,[class*="live"],[class*="status"]');
+  }
+
+  function ensureDelete(card, info){
+    if(info.key!=='expired') return;
+    if(card.querySelector('[data-v191-delete]')) return;
+    const id=flyerId(card);
+    if(!id) return;
+
+    const rows=[...card.querySelectorAll('div')];
+    let actions=card.querySelector('.p011-actions,.p010-actions,.actions');
+    if(!actions){
+      actions=rows.find(el=>{
+        const t=el.innerText||'';
+        return t.includes('원본 보기') && (t.includes('보관')||t.includes('미리보기'));
+      });
+    }
+    if(!actions) return;
+
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='btn v191-expired-delete';
+    b.dataset.v191Delete=String(id);
+    b.textContent='지난 전단 삭제';
+    b.style.cssText='background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;';
+    b.onclick=async()=>{
+      if(!confirm('지난 전단과 이 전단에서 분석된 상품 데이터를 삭제하시겠습니까?\\n\\n삭제 후 복구할 수 없습니다.')) return;
+      b.disabled=true; b.textContent='삭제 중...';
+      try{
+        if(typeof newsroomEdgeCall!=='function') throw new Error('삭제 API를 찾을 수 없습니다.');
+        await newsroomEdgeCall('delete_weekly_flyer',{id});
+        try{
+          localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+          localStorage.removeItem('daltownmap_v38_home');
+        }catch(_){}
+        alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
+        location.reload();
+      }catch(e){
+        alert(`전단 삭제 실패: ${e.message||e}`);
+        b.disabled=false; b.textContent='지난 전단 삭제';
+      }
+    };
+    actions.appendChild(b);
+  }
+
+  function reconcile(){
+    const cards=[...document.querySelectorAll('#p011List .p011-card, #section-smartFlyer article, #section-smartFlyer [data-flyer-id]')];
+    cards.forEach(card=>{
+      const info=effective(card);
+      card.dataset.flyerEffective=info.key;
+
+      // Find exact legacy LIVE label even when a later module has changed class names.
+      const nodes=[...card.querySelectorAll('span,div,b,strong')];
+      let badge=nodes.find(n=>/LIVE\s*[·ㆍ]\s*(업로드중|앱 노출 중)/.test((n.textContent||'').trim()));
+      if(!badge) badge=statusHost(card);
+
+      if(info.key==='expired'){
+        if(badge){
+          badge.textContent=info.end?`기간 종료 · ${info.end}`:'기간 종료';
+          badge.className='p011-badge expired v191-status';
+          badge.style.cssText='background:#fee2e2;color:#b91c1c;border-radius:999px;padding:5px 10px;font-weight:800;';
+        }
+        ensureDelete(card,info);
+      }else if(info.key==='scheduled'){
+        if(badge){
+          badge.textContent=info.start?`예정 · ${info.start}`:'예정';
+          badge.className='p011-badge scheduled v191-status';
+          badge.style.cssText='background:#fff7ed;color:#c2410c;border-radius:999px;padding:5px 10px;font-weight:800;';
+        }
+      }else if(badge && /업로드중/.test(badge.textContent||'')){
+        badge.textContent='LIVE · 앱 노출 중';
+      }
+    });
+  }
+
+  function start(){
+    reconcile();
+    [250,700,1400,2600,4500].forEach(ms=>setTimeout(reconcile,ms));
+    const root=document.getElementById('section-smartFlyer')||document.body;
+    let queued=false;
+    new MutationObserver(()=>{
+      if(queued)return; queued=true;
+      requestAnimationFrame(()=>{queued=false;reconcile();});
+    }).observe(root,{childList:true,subtree:true,characterData:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
+  else start();
+  window.V191ReconcileFlyerCards=reconcile;
+})();
+
