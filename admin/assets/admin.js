@@ -9543,3 +9543,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   window.V192SyncFlyerStatus=sync;
 })();
 
+
+// V193 admin note for recommendation rotation
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    const target=[...document.querySelectorAll('h2,h3,strong')].find(x=>(x.textContent||'').includes('달타운 추천'));
+    const box=target?.closest('section,div');
+    if(box&&!box.querySelector('.v193-rec-admin-note')){
+      const n=document.createElement('div');
+      n.className='v193-rec-admin-note';
+      n.style.cssText='margin-top:8px;padding:10px 12px;border-radius:10px;background:#eff6ff;color:#1d4ed8;font-size:12px';
+      n.innerHTML='추천 로테이션은 <b>유료 업소 우선</b>으로 운영됩니다. 지정 업소가 6개보다 적으면 일반 업소가 빈자리를 자동 보충하며, 유료 업소는 일반 업소보다 더 자주 노출됩니다.';
+      box.appendChild(n);
+    }
+  },900);
+});

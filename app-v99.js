@@ -8669,3 +8669,135 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
   });
 })();
 
+
+
+// === V193 recommendation pool: paid priority + free fill ===
+(() => {
+  const MAX=6, PAID_WEIGHT=3, FREE_WEIGHT=1;
+  let pool=[], seq=[], pos=0, timer=null;
+
+  function allBiz(){
+    try{
+      if(Array.isArray(window.businesses)) return window.businesses;
+      if(typeof businesses!=='undefined' && Array.isArray(businesses)) return businesses;
+    }catch(_){}
+    return [];
+  }
+
+  function paid(b){
+    return !!(b?.is_paid||b?.paid||b?.premium||b?.is_premium||b?.is_advertiser||b?.advertiser||
+      (b?.subscription_tier && String(b.subscription_tier).toLowerCase()!=='free'));
+  }
+
+  function unique(arr){
+    const s=new Set();
+    return arr.filter(b=>{
+      const id=String(b?.id||b?.business_id||'');
+      if(!id||s.has(id)) return false;
+      s.add(id); return true;
+    });
+  }
+
+  function getSelectedIds(){
+    const roots=[window.homeSettings,window.mainSettings,window.__HOME_SETTINGS__,window.__MAIN_SETTINGS__].filter(Boolean);
+    for(const s of roots){
+      const v=s?.recommendation_business_ids||s?.recommend_business_ids||s?.recommended_business_ids||
+              s?.recommendation?.business_ids||s?.recommendation?.selected_ids;
+      if(Array.isArray(v)&&v.length) return v.map(String);
+    }
+    return [];
+  }
+
+  function build(){
+    const all=allBiz(), map=new Map(all.map(b=>[String(b.id||b.business_id||''),b]));
+    const ids=getSelectedIds();
+    let chosen=ids.length?ids.map(id=>map.get(id)).filter(Boolean):[];
+
+    if(!chosen.length){
+      const candidates=[
+        window.v83RecommendationItems,
+        window.V83_RECOMMENDATION_ITEMS,
+        window.recommendationItems,
+        window.homeRecommendationItems
+      ].filter(Array.isArray).flat();
+      chosen=unique(candidates);
+    }
+
+    if(chosen.length<MAX){
+      const have=new Set(chosen.map(b=>String(b.id||b.business_id||'')));
+      const fill=all.filter(b=>{
+        const id=String(b.id||b.business_id||'');
+        return id && !have.has(id) && b?.active!==false && b?.status!=='inactive';
+      });
+      chosen=unique([...chosen,...fill]);
+    }
+
+    const p=chosen.filter(paid), f=chosen.filter(b=>!paid(b));
+    pool=[...p,...f].slice(0,MAX);
+    seq=[];
+    pool.forEach(b=>{
+      const w=paid(b)?PAID_WEIGHT:FREE_WEIGHT;
+      for(let i=0;i<w;i++) seq.push(b);
+    });
+    console.info('[V193 recommendation pool]',{
+      total:pool.length,paid:p.length,free:f.length,
+      names:pool.map(b=>b.name_ko||b.name||b.name_en||b.id)
+    });
+  }
+
+  function host(){
+    return document.getElementById('v37RecommendCard')||
+           document.querySelector('[data-recommendation-card]')||
+           document.querySelector('.v83-recommendation-card');
+  }
+
+  function render(b){
+    const h=host(); if(!h||!b)return;
+    const existing=[
+      window.renderV83RecommendationCard,
+      window.renderRecommendationCard,
+      window.v83RenderRecommendation
+    ].find(fn=>typeof fn==='function');
+    if(existing){ try{existing(b);return}catch(_){} }
+
+    const esc=s=>String(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const name=b.name_ko||b.name||b.name_en||'추천 업소';
+    const desc=b.description||b.short_description||b.summary||'';
+    const city=b.city||b.area||'', cat=b.category||b.category_name||'';
+    h.hidden=false;
+    h.innerHTML=`<div class="v193-rec-card">
+      <div class="v193-rec-kicker">📍 달타운 추천</div>
+      <div class="v193-rec-name">${esc(name)}</div>
+      <div class="v193-rec-desc">${esc(desc).slice(0,90)}</div>
+      <div class="v193-rec-tags">${cat?`<span>${esc(cat)}</span>`:''}${city?`<span>${esc(city)}</span>`:''}</div>
+      <button class="v193-rec-go" type="button">→</button>
+    </div>`;
+    h.querySelector('.v193-rec-go')?.addEventListener('click',()=>{
+      const id=b.id||b.business_id;
+      try{
+        if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){
+          window.selectedBizId=id; renderDetail(id); showPage('business-detail');
+        }
+      }catch(_){}
+    });
+  }
+
+  function step(){
+    if(!seq.length) build();
+    if(!seq.length)return;
+    render(seq[pos%seq.length]); pos=(pos+1)%seq.length;
+  }
+
+  function boot(){
+    build(); step();
+    clearInterval(timer);
+    timer=setInterval(()=>{if(!document.hidden)step()},6500);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,1800),{once:true});
+  else setTimeout(boot,1800);
+  setTimeout(boot,4200);
+
+  window.V193Recommendation={rebuild:boot,getPool:()=>pool.slice()};
+})();
+
