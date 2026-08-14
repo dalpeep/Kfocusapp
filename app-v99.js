@@ -3019,49 +3019,6 @@ function v45SelectedBusinesses(config={}){
     names:result.map(b=>b.name_ko||b.name||b.name_en)
   });
   return result.slice(0,MAX);
-}){
-  config=v61EffectiveHomeConfig(config);
-  const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
-  const ids=(config.business_ids||[]).map(String);
-  const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
-  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true).sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
-  const newRows=consumerRows.filter(b=>b.is_new===true).sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
-  const popularRows=consumerRows.filter(b=>b.is_popular===true).sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
-  const couponIds=v61BusinessIdsWithCoupon();
-  const bannerIds=v61BusinessIdsWithBanner();
-  const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
-  const bannerRows=consumerRows.filter(b=>bannerIds.has(String(b.id)));
-  const addressTerms=v74RoutineRecommendationAddressTerms();
-  const addressRows=consumerRows.filter(b=>v74BusinessMatchesAddress(b,addressTerms));
-  const adminRows=ids.length?all.filter(b=>ids.includes(String(b.id))):[];
-  const randomRows=v45StableShuffle(consumerRows,todayKey());
-  const options=v73RoutineRecommendationOptions();
-  const groups={recommended:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,address:addressRows,admin:adminRows,random:randomRows};
-  // V116: 관리자가 저장한 기본 기준(추천/신규/인기)을 우선 적용합니다.
-  // 이전에는 활성 이벤트 루틴이나 남아 있던 직접 지정 ID가 항상 우선되어 기준을 바꿔도 목록이 같았습니다.
-  const legacyMode=String(config.business_mode||'featured');
-  const legacyGroups={direct:adminRows,featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
-  if(legacyMode==='direct'){
-    // V196: direct mode is authoritative. Do not fall back to recommendation/new/popular.
-    console.info('[V196 direct recommendation]',{
-      mode:legacyMode,
-      ids,
-      matched:adminRows.map(b=>({id:b.id,name:b.name_ko||b.name||b.name_en}))
-    });
-    return adminRows.slice(0,20);
-  }
-  if(Object.prototype.hasOwnProperty.call(legacyGroups,legacyMode)){
-    const selected=legacyGroups[legacyMode]||[];
-    if(selected.length)return selected.slice(0,20);
-  }
-  if(adminRows.length)return adminRows.slice(0,20);
-  if(options.length){
-    const seen=new Set(),rows=[];
-    options.forEach(option=>(groups[option]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
-    if(rows.length)return rows.slice(0,20);
-  }
-  const rows=legacyGroups[legacyMode]||featuredRows;
-  return (rows.length?rows:(featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows)))).slice(0,20);
 }
 function v66BoardHomePins(){
   try{const key=`kfocus_board_home_pins_v66_${String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase()}`;const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[]);}catch{return new Set();}
