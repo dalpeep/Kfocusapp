@@ -8847,3 +8847,230 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
   window.V199RecommendationSource={refresh:rerender};
 })();
 
+
+
+// === V200: authoritative Daltown recommendation controller ===
+(() => {
+  const MAX=6;
+  let applying=false;
+  let refreshToken=0;
+  let ownTimer=null;
+
+  const escName=b=>b?.name_ko||b?.name||b?.name_en||String(b?.id||'');
+
+  function activePaid(b,dateKey){
+    if(!b?.paid_active)return false;
+    if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey)return false;
+    if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey)return false;
+    return true;
+  }
+
+  async function loadRows(){
+    const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+    const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+    const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+    const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+    if(!base||!key)return [];
+    const select=[
+      'id','name_ko','name_en','name','area','category_ko','is_active',
+      'is_featured','featured_rank','is_new','new_rank','is_popular','popular_rank',
+      'paid_active','paid_weight','paid_start_at','paid_end_at','rotation_enabled'
+    ].join(',');
+    const q=new URLSearchParams({
+      select,
+      region:`eq.${region}`,
+      is_active:'eq.true',
+      limit:'1000'
+    });
+    const res=await fetch(`${base}/rest/v1/businesses?${q}`,{
+      cache:'no-store',
+      headers:{apikey:key,Authorization:`Bearer ${key}`,Accept:'application/json'}
+    });
+    const rows=await res.json().catch(()=>[]);
+    if(!res.ok)throw new Error(rows?.message||`HTTP ${res.status}`);
+    return Array.isArray(rows)?rows:[];
+  }
+
+  function effectiveConfig(){
+    try{
+      const raw=typeof v45HomeConfig!=='undefined' && v45HomeConfig ? v45HomeConfig : {};
+      return typeof v61EffectiveHomeConfig==='function' ? v61EffectiveHomeConfig(raw) : raw;
+    }catch(_){return {}}
+  }
+
+  function uniquePush(out,seen,rows){
+    for(const r of rows||[]){
+      const id=String(r?.id||'');
+      if(!id||seen.has(id))continue;
+      seen.add(id); out.push(r);
+      if(out.length>=MAX)return true;
+    }
+    return false;
+  }
+
+  function buildPool(rows,config){
+    const mode=String(config?.business_mode||'featured');
+    const ids=(config?.business_ids||[]).map(String);
+    const byId=new Map(rows.map(r=>[String(r.id),r]));
+    const direct=ids.map(id=>byId.get(id)).filter(Boolean);
+
+    const featured=rows.filter(r=>r.is_featured===true)
+      .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
+    const fresh=rows.filter(r=>r.is_new===true)
+      .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
+    const popular=rows.filter(r=>r.is_popular===true)
+      .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+
+    if(mode==='direct') return direct.slice(0,MAX);
+
+    const primary = mode==='popular' ? popular : mode==='new' ? fresh : featured;
+    const fallbacks = mode==='popular'
+      ? [featured,fresh]
+      : mode==='new'
+      ? [featured,popular]
+      : [fresh,popular];
+
+    const out=[], seen=new Set();
+    uniquePush(out,seen,primary);
+    for(const group of fallbacks){
+      if(out.length>=MAX)break;
+      uniquePush(out,seen,group);
+    }
+
+    // Final filler only from active businesses; stable by name/id.
+    if(out.length<MAX){
+      const rest=rows.slice().sort((a,b)=>String(escName(a)).localeCompare(String(escName(b)),'ko'));
+      uniquePush(out,seen,rest);
+    }
+
+    return out.slice(0,MAX);
+  }
+
+  function mapToLocalRows(dbRows){
+    const current=Array.isArray(window.businesses)?window.businesses:
+      (typeof businesses!=='undefined'&&Array.isArray(businesses)?businesses:[]);
+    const map=new Map(current.map(b=>[String(b.id),b]));
+    return dbRows.map(r=>{
+      const local=map.get(String(r.id));
+      if(local){
+        local.is_featured=!!r.is_featured; local.featured=!!r.is_featured;
+        local.is_new=!!r.is_new; local.is_popular=!!r.is_popular;
+        local.featured_rank=r.featured_rank==null?1000:Number(r.featured_rank);
+        local.new_rank=r.new_rank==null?1000:Number(r.new_rank);
+        local.popular_rank=r.popular_rank==null?1000:Number(r.popular_rank);
+        local.paid_active=!!r.paid_active;
+        local.paid_weight=Math.max(1,Number(r.paid_weight||1));
+        local.paid_start_at=r.paid_start_at||'';
+        local.paid_end_at=r.paid_end_at||'';
+        local.rotation_enabled=r.rotation_enabled!==false;
+        return local;
+      }
+      return {
+        id:r.id,
+        name:r.name_ko||r.name_en||r.name||'업소',
+        name_ko:r.name_ko||'',
+        name_en:r.name_en||'',
+        area:r.area||'',
+        category:r.category_ko||'',
+        category_ko:r.category_ko||'',
+        is_featured:!!r.is_featured,featured:!!r.is_featured,
+        is_new:!!r.is_new,is_popular:!!r.is_popular,
+        featured_rank:r.featured_rank==null?1000:Number(r.featured_rank),
+        new_rank:r.new_rank==null?1000:Number(r.new_rank),
+        popular_rank:r.popular_rank==null?1000:Number(r.popular_rank),
+        paid_active:!!r.paid_active,
+        paid_weight:Math.max(1,Number(r.paid_weight||1)),
+        paid_start_at:r.paid_start_at||'',
+        paid_end_at:r.paid_end_at||'',
+        rotation_enabled:r.rotation_enabled!==false
+      };
+    });
+  }
+
+  function installPool(pool,config){
+    try{
+      v37RecommendationItems=pool.map(b=>({kind:'business',data:b}));
+      v37RecommendationIndex=0;
+      if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);
+      if(ownTimer)clearInterval(ownTimer);
+
+      if(typeof paintV37Recommendation==='function')paintV37Recommendation();
+
+      const label=document.getElementById('v45BusinessModeLabel');
+      if(label){
+        const m=typeof v83RecommendationLabel==='function'?v83RecommendationLabel(config):
+          ({direct:'직접 지정',featured:'추천',new:'신규',popular:'인기'}[String(config?.business_mode||'featured')]||'추천');
+        label.textContent=m; label.hidden=!m;
+      }
+
+      if(pool.length>1){
+        ownTimer=setInterval(()=>{
+          if(document.hidden)return;
+          v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;
+          if(typeof paintV37Recommendation==='function')paintV37Recommendation();
+        },5000);
+        v37RecommendationTimer=ownTimer;
+      }
+    }catch(e){
+      console.error('[V200 install pool failed]',e);
+    }
+  }
+
+  async function apply(reason='manual'){
+    const token=++refreshToken;
+    if(applying)return;
+    applying=true;
+    try{
+      const rows=await loadRows();
+      if(token!==refreshToken)return;
+      const config=effectiveConfig();
+      const pool=buildPool(rows,config);
+      const localPool=mapToLocalRows(pool);
+
+      console.info('[V200 authoritative recommendation]',{
+        reason,
+        mode:String(config?.business_mode||'featured'),
+        selectedIds:(config?.business_ids||[]).map(String),
+        db:{
+          featured:rows.filter(r=>r.is_featured===true).map(escName),
+          new:rows.filter(r=>r.is_new===true).map(escName),
+          popular:rows.filter(r=>r.is_popular===true).map(escName)
+        },
+        pool:localPool.map(escName)
+      });
+
+      installPool(localPool,config);
+    }catch(e){
+      console.error('[V200 recommendation refresh failed]',e);
+    }finally{
+      applying=false;
+    }
+  }
+
+  // Old modules may repaint after data/settings load. Reassert authority after each likely phase.
+  function boot(){
+    [900,1800,3200,5200,8000].forEach((ms,i)=>setTimeout(()=>apply(`boot-${i+1}`),ms));
+
+    window.addEventListener('focus',()=>setTimeout(()=>apply('focus'),180),{passive:true});
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden)setTimeout(()=>apply('visible'),180);
+    });
+
+    // Watch only the recommendation card container for wholesale replacement, debounce, no self-loop.
+    setTimeout(()=>{
+      const host=document.getElementById('v37RecommendCard');
+      if(!host)return;
+      let t=null;
+      new MutationObserver(()=>{
+        clearTimeout(t);
+        t=setTimeout(()=>apply('card-mutated'),250);
+      }).observe(host,{childList:true});
+    },2500);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+
+  window.V200Recommendation={refresh:apply};
+})();
+

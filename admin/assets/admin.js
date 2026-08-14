@@ -9743,3 +9743,17 @@ document.addEventListener('DOMContentLoaded',()=>{
   else boot();
 })();
 
+
+// V200 관리자 추천 기준 표시 보강
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    const mode=qs('v45BusinessMode');
+    const list=qs('v45BusinessIds');
+    if(!mode||!list)return;
+    const refresh=()=>v45PopulateBusinessSelect(
+      Array.from(list.selectedOptions||[]).map(x=>x.value),
+      mode.value
+    );
+    mode.addEventListener('change',()=>setTimeout(refresh,0));
+  },1800);
+});
