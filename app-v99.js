@@ -8306,7 +8306,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function render130(){
     style130();
-    const card=document.getElementById('v37RecommendCard');
+    let card=document.getElementById('v37RecommendCard');
+    const marketHost=document.getElementById('p130MarketHost');
+    if(marketHost) card=marketHost;
     const flyer=current130();
 
     if(!card||!flyer){
@@ -8325,6 +8327,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     card.classList.add('p130-market');
     card.hidden=false;
     card.removeAttribute('hidden');
+    const mh=document.getElementById('p130MarketHost'); if(mh){mh.hidden=false;mh.removeAttribute('hidden');}
     card.innerHTML=`
       <div class="p130-storebar">
         <div class="p130-storeleft">
@@ -8929,3 +8932,22 @@ console.info('[DalTownMap] P131 contextual ticker links + internal routing loade
 
 
 console.info('[DalTownMap] P132A guide board-detail links loaded');
+
+
+// V185 dedicated market host safeguard
+(function(){
+  function syncP130MarketHost(){
+    const h=document.getElementById('p130MarketHost');
+    if(!h)return;
+    const has=h.children.length>0 || h.textContent.trim().length>0;
+    if(has){h.hidden=false;h.removeAttribute('hidden');}
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const h=document.getElementById('p130MarketHost');
+    if(!h)return;
+    new MutationObserver(syncP130MarketHost).observe(h,{childList:true,subtree:true,attributes:true});
+    setTimeout(syncP130MarketHost,1200);
+    setTimeout(syncP130MarketHost,3000);
+  });
+})();
+
