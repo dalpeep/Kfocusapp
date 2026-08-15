@@ -1,3 +1,4 @@
+console.info('[DalTownMap] V207 exclusive group sync loaded');
 console.info('[DalTownMap] V204 unified today-exposure source loaded');
 console.info('[DalTownMap] P133 HARD one-line ticker fix loaded');
 console.info('[DalTownMap] P132 one-line weather/traffic ticker fix loaded');
@@ -288,7 +289,16 @@ function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses)
   );
   const assignedFree=homeFreeFillSort(free.filter(b=>homeSectionAssigned(b,section)),section,dateKey);
   const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
-  const genericFree=homeFreeFillSort(free.filter(b=>!assignedIds.has(String(b.id))),section,dateKey);
+  // V207: 다른 메인 그룹에 편성된 업소를 현재 그룹의 자동 보충으로 중복 사용하지 않습니다.
+  const genericFree=homeFreeFillSort(
+    free.filter(b=>
+      !assignedIds.has(String(b.id)) &&
+      !(b.is_featured===true || b.featured===true) &&
+      b.is_new!==true &&
+      b.is_popular!==true
+    ),
+    section,dateKey
+  );
   return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
