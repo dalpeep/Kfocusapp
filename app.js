@@ -234,18 +234,57 @@ function rotationHash(seed){
   }
   return Math.abs(h>>>0);
 }
-function homeRotationRows(rows, section, dateValue, limit=6){
+// V202: 광고 운영센터 / 메인 업소 탭 / 메인 편성 설정이 모두 같은 6개를 사용합니다.
+function homePaidActiveOnDate(b,dateValue){
   const dateKey=rotationDateKey(dateValue);
-  const eligible=rows.filter(b=>rotationEligibleOnDate(b,dateKey));
-  const fixed=eligible.filter(b=>b.rotation_enabled===false)
+  if(b.is_active===false || b.list_visible===false || b.paid_active!==true) return false;
+  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
+  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
+  return true;
+}
+function homeSectionAssigned(b,section){
+  if(section==='featured') return b.is_featured===true || b.featured===true;
+  if(section==='new') return b.is_new===true;
+  if(section==='popular') return b.is_popular===true;
+  return false;
+}
+function homeFreeFillSort(rows,section,dateValue){
+  const dateKey=rotationDateKey(dateValue);
+  const copy=[...rows];
+  if(section==='new') return copy.sort((a,b)=>
+    String(b.created_at||'').localeCompare(String(a.created_at||'')) ||
+    businessGroupRank(a,section)-businessGroupRank(b,section)
+  );
+  return copy.sort((a,b)=>
+    businessGroupRank(a,section)-businessGroupRank(b,section) ||
+    rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`)
+  );
+}
+function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses){
+  const dateKey=rotationDateKey(dateValue);
+  const assigned=(rows||[]).filter(b=>rotationEligibleOnDate(b,dateKey));
+  const paid=assigned.filter(b=>homePaidActiveOnDate(b,dateKey));
+  const fixed=paid.filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-  const automatic=eligible.filter(b=>b.rotation_enabled!==false)
+  const automatic=paid.filter(b=>b.rotation_enabled!==false)
     .sort((a,b)=>{
       const aw=Math.max(1,Number(a.paid_weight||1));
       const bw=Math.max(1,Number(b.paid_weight||1));
       return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
     });
-  return fixed.concat(automatic).slice(0,limit);
+  const chosen=fixed.concat(automatic).slice(0,limit);
+  if(chosen.length>=limit) return chosen;
+
+  const ids=new Set(chosen.map(b=>String(b.id)));
+  const free=(allRows||[]).filter(b=>
+    rotationEligibleOnDate(b,dateKey) &&
+    !ids.has(String(b.id)) &&
+    !homePaidActiveOnDate(b,dateKey)
+  );
+  const assignedFree=homeFreeFillSort(free.filter(b=>homeSectionAssigned(b,section)),section,dateKey);
+  const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
+  const genericFree=homeFreeFillSort(free.filter(b=>!assignedIds.has(String(b.id))),section,dateKey);
+  return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
 function renderHomeBusinessTabs(){
@@ -2638,9 +2677,13 @@ function v45SelectedBusinesses(config={}){
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
-  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true).sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
-  const newRows=consumerRows.filter(b=>b.is_new===true).sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
-  const popularRows=consumerRows.filter(b=>b.is_popular===true).sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+  // V202: 추천/신규/인기 모드는 업소 탭 및 광고 운영센터와 정확히 같은 전체 공개 업소 풀을 사용합니다.
+  const featuredAssigned=all.filter(b=>b.featured===true||b.is_featured===true);
+  const newAssigned=all.filter(b=>b.is_new===true);
+  const popularAssigned=all.filter(b=>b.is_popular===true);
+  const featuredRows=homeRotationRows(featuredAssigned,'featured',todayKey(),6,all);
+  const newRows=homeRotationRows(newAssigned,'new',todayKey(),6,all);
+  const popularRows=homeRotationRows(popularAssigned,'popular',todayKey(),6,all);
   const couponIds=v61BusinessIdsWithCoupon();
   const bannerIds=v61BusinessIdsWithBanner();
   const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
@@ -3217,15 +3260,10 @@ function renderHome(){
   renderHomeBoardSection(selectedBoardType || 'notice');
   if (typeof renderMainBanners === 'function') renderMainBanners();
 
-  const featured = sortBusinessesByDistance(
-    businesses.filter(b => b.featured && isBusinessVisibleByPaidDate(b))
-  )
-    .slice()
-    .sort((a,b)=>
-      (Number(a.featured_rank ?? 1000) - Number(b.featured_rank ?? 1000)) ||
-      String(b.created_at || '').localeCompare(String(a.created_at || ''))
-    )
-    .slice(0,5);
+  const featured = homeRotationRows(
+    businesses.filter(b => (b.featured || b.is_featured) && isBusinessVisibleByPaidDate(b)),
+    'featured', todayKey(), 6, businesses
+  );
 
 if(homeFeaturedList){
   homeFeaturedList.innerHTML = featured.length
@@ -3243,13 +3281,10 @@ if (typeof renderHomeBusinessTabs === 'function') {
   // P133: 오늘의 카드 렌더와 별개로 한 줄 광고용 날씨·교통을 직접 다시 확인합니다.
   setTimeout(()=>p133RefreshOneLineAuto(true),120);
   initV37AIHomeEvents();
-  const newList = businesses
-    .filter(b => b.is_new && isBusinessVisibleByPaidDate(b))
-    .sort((a, b) =>
-      Number(a.new_rank ?? 1000) - Number(b.new_rank ?? 1000) ||
-      String(b.created_at || '').localeCompare(String(a.created_at || ''))
-    )
-    .slice(0, 5);
+  const newList = homeRotationRows(
+    businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b)),
+    'new', todayKey(), 6, businesses
+  );
 
   if (homeNewList) {
     homeNewList.innerHTML = newList.length
@@ -3259,12 +3294,10 @@ if (typeof renderHomeBusinessTabs === 'function') {
   if(window.lucide){
   lucide.createIcons();
   }
-  const popularList = businesses
-    .filter(b => b.is_popular && isBusinessVisibleByPaidDate(b))
-    .sort((a, b) =>
-      Number(a.popular_rank ?? 1000) - Number(b.popular_rank ?? 1000)
-    )
-    .slice(0, 5);
+  const popularList = homeRotationRows(
+    businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b)),
+    'popular', todayKey(), 6, businesses
+  );
 
   if (homePopularList) {
     homePopularList.innerHTML = popularList.length
