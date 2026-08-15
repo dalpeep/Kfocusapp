@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V207 exclusive group sync loaded');
 console.info('[DalTownMap Admin] V206 normalized ad-group filter sync loaded');
 console.info('[DalTownMap Admin] V204 unified today-exposure source loaded');
 console.info('[DalTownMap Admin] P138 email coupon image setting loaded');
@@ -507,7 +508,15 @@ function pickRotation(list, section, limit=6, dateValue=todayKey(), allRows=adsO
   const free=(allRows||[]).filter(b=>adsEligibleOnDate(b,dateValue)&&!ids.has(String(b.id))&&!paidActiveOnDate(b,dateValue));
   const assignedFree=adsFreeFillSort(free.filter(b=>adsSectionAssigned(b,section)),section,dateValue);
   const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
-  const genericFree=adsFreeFillSort(free.filter(b=>!assignedIds.has(String(b.id))),section,dateValue);
+  // V207: 다른 그룹(추천/신규/인기)에 이미 편성된 업소는 현재 그룹의 자동 보충으로 재사용하지 않습니다.
+  // 이렇게 해야 '추천 → 인기'로 변경한 업소가 추천 목록에 다시 자동 보충되는 현상이 없습니다.
+  const genericFree=adsFreeFillSort(
+    free.filter(b=>
+      !assignedIds.has(String(b.id)) &&
+      !b.is_featured && !b.is_new && !b.is_popular
+    ),
+    section,dateValue
+  );
   return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
@@ -594,7 +603,9 @@ async function setAdsGroupQuick(id,group){
   adsQuickSavingId=null;
   if(error){renderAdsOpsList();showAdsToast(`변경 실패: ${error.message}`,true);return;}
   Object.assign(row,payload);
-  renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();
+  // V207: DB 저장 직후 서버 값을 다시 읽어 오늘의 6개를 재계산합니다.
+  // 추천 화면에서 인기로 옮기면 해당 행이 즉시 사라지고 새 보충 업소가 들어옵니다.
+  await loadAdsOps();
   const preview=document.querySelector('#rotationPreview');if(preview?.innerHTML)previewRotation();
   showAdsToast(`${row.name_ko||row.name_en||'업소'} → ${adsGroupLabel(group)}로 변경했습니다.`);
 }
