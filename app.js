@@ -1,3 +1,4 @@
+console.info('[DalTownMap] V203 three-way ad list exact sync loaded');
 console.info('[DalTownMap] P133 HARD one-line ticker fix loaded');
 console.info('[DalTownMap] P132 one-line weather/traffic ticker fix loaded');
 console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
@@ -192,7 +193,11 @@ function homeBusinessItemHTML(b){
   `;
 }
 function todayKey(){
-  return new Date().toISOString().slice(0, 10);
+  try{
+    return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  }catch(_){
+    return new Date().toISOString().slice(0,10);
+  }
 }
 function isBusinessVisibleByPaidDate(b){
   const hasPaidAd =
@@ -1153,6 +1158,7 @@ async function loadRealData(){
           review_count: row.review_count,
           google_maps_url: row.google_maps_url,
           google_review_url: row.google_review_url,
+          created_at: row.created_at || '',
           // 관리자에서 '목록 숨김'으로 저장한 업소는 모든 공개 업소 노출에서 제외합니다.
           list_visible: row.list_visible !== false,
           monday: row.monday,
