@@ -1,13 +1,14 @@
+console.info('[DalTownMap Admin] V209 canonical list lock loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
-console.info('[DalTownMap Admin] V208 cache/version sync loaded');
+console.info('[DalTownMap Admin] V209 cache/version sync loaded');
 (function(){
   function installV208Badge(){
-    if(document.getElementById('dtmV208Badge')) return;
+    if(document.getElementById('dtmV209Badge')) return;
     const badge=document.createElement('div');
-    badge.id='dtmV208Badge';
-    badge.textContent='Admin V208';
-    badge.title='현재 로드된 관리자 코드 버전: V208';
+    badge.id='dtmV209Badge';
+    badge.textContent='Admin V209';
+    badge.title='현재 로드된 관리자 코드 버전: V209';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
       'background:#111827','color:#fff','font:700 12px/1.2 system-ui,sans-serif',
@@ -583,27 +584,21 @@ function adsStatusOf(b){
 }
 function adsStatusLabel(v){return ({active:'게시 중',scheduled:'예약',expired:'종료',unpaid:'일반',inactive:'비활성'})[v]||v;}
 function adsFilteredRows(){
-  const q=(document.querySelector('#adsSearch')?.value||'').trim().toLowerCase();
   const group=normalizeAdsGroupKey(document.querySelector('#adsGroupFilter')?.value||'all');
+
+  // V209: 추천/신규/인기 화면은 반드시 요약 카드·AI 운영센터·메인과
+  // 완전히 같은 canonical 목록을 그대로 반환합니다. 검색/카테고리/상태 필터로
+  // 일부 행이 빠져 세 화면이 달라지는 현상을 금지합니다.
+  if(['featured','new','popular'].includes(group)){
+    return adsEffectiveSectionRows(group,todayKey(),adsOpsRows);
+  }
+
+  const q=(document.querySelector('#adsSearch')?.value||'').trim().toLowerCase();
   const status=document.querySelector('#adsStatusFilter')?.value||'all';
-
-  // V204: 추천/신규/인기 필터는 더 이상 'DB에 편성된 원래 그룹'을 보여주지 않습니다.
-  // 광고 운영센터 요약, AI 운영센터 달타운 추천, 실제 메인 업소 탭이 사용하는
-  // '오늘 실제 노출 6개'를 그대로 사용합니다.
-  const effectiveIds=['featured','new','popular'].includes(group)
-    ? new Set(adsEffectiveSectionRows(group,todayKey(),adsOpsRows).map(b=>String(b.id)))
-    : null;
-
   return adsOpsRows.filter(b=>{
     const hay=[b.name_ko,b.name_en,b.area,b.category_ko].filter(Boolean).join(' ').toLowerCase();
     const category=String(b.category_ko||'미분류').trim()||'미분류';
-    const groupMatch=!effectiveIds || effectiveIds.has(String(b.id));
-    return (!q||hay.includes(q)) && groupMatch && (status==='all'||adsStatusOf(b)===status) && (adsCategoryKey==='all'||category===adsCategoryKey);
-  }).sort((a,b)=>{
-    if(!effectiveIds) return 0;
-    const ordered=adsEffectiveSectionRows(group,todayKey(),adsOpsRows);
-    const pos=new Map(ordered.map((row,index)=>[String(row.id),index]));
-    return (pos.get(String(a.id))??999)-(pos.get(String(b.id))??999);
+    return (!q||hay.includes(q)) && (status==='all'||adsStatusOf(b)===status) && (adsCategoryKey==='all'||category===adsCategoryKey);
   });
 }
 function showAdsToast(message,isError=false){
@@ -611,6 +606,13 @@ function showAdsToast(message,isError=false){
   if(!el){el=document.createElement('div');el.id='adsQuickToast';el.className='ads-quick-toast';document.body.appendChild(el);}
   el.textContent=message;el.classList.toggle('error',!!isError);el.classList.add('show');
   clearTimeout(showAdsToast._timer);showAdsToast._timer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+function resetAdsSecondaryFiltersForCanonicalList(){
+  const search=document.querySelector('#adsSearch'); if(search) search.value='';
+  const status=document.querySelector('#adsStatusFilter'); if(status) status.value='all';
+  adsCategoryKey='all';
+  renderAdsCategoryChips();
 }
 function renderAdsCategoryChips(){
   const host=document.querySelector('#adsCategoryChips');if(!host)return;
@@ -652,7 +654,7 @@ function renderAdsOverviewGroups(){
   }).join('');
   host.querySelectorAll('.ads-overview-edit').forEach(btn=>btn.onclick=()=>{
     const filter=document.querySelector('#adsGroupFilter'); if(filter){ const key=normalizeAdsGroupKey(btn.dataset.group); const opt=[...filter.options].find(o=>normalizeAdsGroupKey(o.value)===key); filter.value=opt?opt.value:btn.dataset.group; }
-    setAdsCenterTab('schedule'); renderAdsOpsList();
+    resetAdsSecondaryFiltersForCanonicalList(); setAdsCenterTab('schedule'); renderAdsOpsList();
   });
 }
 function renderAdsEndingList(){
@@ -667,7 +669,7 @@ function renderAdsEndingList(){
   host.querySelectorAll('.ads-ending-edit').forEach(btn=>btn.onclick=()=>{
     const q=document.querySelector('#adsSearch'); const row=adsOpsRows.find(b=>String(b.id)===String(btn.dataset.id));
     if(q&&row)q.value=row.name_ko||row.name_en||'';
-    setAdsCenterTab('schedule'); renderAdsOpsList();
+    resetAdsSecondaryFiltersForCanonicalList(); setAdsCenterTab('schedule'); renderAdsOpsList();
   });
 }
 function renderAdsSummary(){
@@ -682,7 +684,7 @@ function renderAdsSummary(){
   }).join('');
   const paid=active.length, ending=active.filter(b=>b.paid_end_at&&String(b.paid_end_at).slice(0,10)<=todayKey()).length;
   document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 유료 광고</span><strong>${paid}</strong><small>오늘 종료 ${ending}개</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
-  document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{{const filter=document.querySelector('#adsGroupFilter'); const key=normalizeAdsGroupKey(btn.dataset.adsGroup); const opt=filter?[...filter.options].find(o=>normalizeAdsGroupKey(o.value)===key):null; if(filter)filter.value=opt?opt.value:btn.dataset.adsGroup; setAdsCenterTab('schedule');renderAdsOpsList();}});
+  document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{{const filter=document.querySelector('#adsGroupFilter'); const key=normalizeAdsGroupKey(btn.dataset.adsGroup); const opt=filter?[...filter.options].find(o=>normalizeAdsGroupKey(o.value)===key):null; if(filter)filter.value=opt?opt.value:btn.dataset.adsGroup; resetAdsSecondaryFiltersForCanonicalList();setAdsCenterTab('schedule');renderAdsOpsList();}});
 }
 function readAdsInlinePayload(id){
   const tr=document.querySelector(`tr[data-ads-row-id="${CSS.escape(String(id))}"]`);
@@ -6407,12 +6409,6 @@ async function v45PopulateBusinessSelect(selected=[],mode){
       ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
       :`광고 운영센터의 오늘 노출 ${V61_MODE_LABELS[mode]||'업체'} 6개와 동일한 목록입니다. 메인 업소 탭도 같은 순서로 표시됩니다.`;
   }
-
-  console.info('[V204 unified recommendation list]',{
-    mode,
-    count:rows.length,
-    names:rows.map(b=>b.name_ko||b.name_en||b.name).slice(0,20)
-  });
 }
 function v45FillHomeConfig(config={}){
   v117LoadedHomeConfig=(config&&typeof config==='object')?{...config}:{};
