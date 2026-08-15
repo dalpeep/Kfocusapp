@@ -1,14 +1,14 @@
-console.info('[DalTownMap Admin] V209 canonical list lock loaded');
+console.info('[DalTownMap Admin] V210 canonical sync loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
 console.info('[DalTownMap Admin] V209 cache/version sync loaded');
 (function(){
   function installV208Badge(){
-    if(document.getElementById('dtmV209Badge')) return;
+    if(document.getElementById('dtmV210Badge')) return;
     const badge=document.createElement('div');
-    badge.id='dtmV209Badge';
-    badge.textContent='Admin V209';
-    badge.title='현재 로드된 관리자 코드 버전: V209';
+    badge.id='dtmV210Badge';
+    badge.textContent='Admin V210';
+    badge.title='현재 로드된 관리자 코드 버전: V210';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
       'background:#111827','color:#fff','font:700 12px/1.2 system-ui,sans-serif',
