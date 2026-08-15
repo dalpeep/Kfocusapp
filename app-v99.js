@@ -2940,46 +2940,85 @@ function v73RoutineRecommendationInterval(){
 }
 
 function v83RecommendationLabel(config={}){
-  const labels={recommended:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',address:'주소',admin:'관리자 지정',random:'랜덤'};
+  const labels={direct:'직접 지정',recommended:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',address:'주소',admin:'관리자 지정',random:'랜덤'};
   const options=v73RoutineRecommendationOptions();
   if(options.length)return options.map(v=>labels[v]||v).join(' · ');
   if(Array.isArray(config.business_ids)&&config.business_ids.length)return '관리자 지정';
-  return ({featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',random:'랜덤',daily:''}[String(config.business_mode||'featured')]??'추천');
+  return ({direct:'직접 지정',featured:'추천',new:'신규',popular:'인기',coupon:'쿠폰',banner:'배너',random:'랜덤',daily:''}[String(config.business_mode||'featured')]??'추천');
 }
 function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
+  const MAX=6;
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
-  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true).sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
-  const newRows=consumerRows.filter(b=>b.is_new===true).sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
-  const popularRows=consumerRows.filter(b=>b.is_popular===true).sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true)
+    .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
+  const newRows=consumerRows.filter(b=>b.is_new===true)
+    .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
+  const popularRows=consumerRows.filter(b=>b.is_popular===true)
+    .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
   const couponIds=v61BusinessIdsWithCoupon();
   const bannerIds=v61BusinessIdsWithBanner();
   const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
   const bannerRows=consumerRows.filter(b=>bannerIds.has(String(b.id)));
-  const addressTerms=v74RoutineRecommendationAddressTerms();
-  const addressRows=consumerRows.filter(b=>v74BusinessMatchesAddress(b,addressTerms));
+  const videoRows=consumerRows.filter(b=>b.video_url||b.video||b.youtube_url||b.instagram_url);
+  const promoRows=consumerRows.filter(b=>couponIds.has(String(b.id))||bannerIds.has(String(b.id))||b.video_url||b.video||b.youtube_url||b.instagram_url);
   const adminRows=ids.length?all.filter(b=>ids.includes(String(b.id))):[];
   const randomRows=v45StableShuffle(consumerRows,todayKey());
-  const options=v73RoutineRecommendationOptions();
-  const groups={recommended:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,address:addressRows,admin:adminRows,random:randomRows};
-  // V116: 관리자가 저장한 기본 기준(추천/신규/인기)을 우선 적용합니다.
-  // 이전에는 활성 이벤트 루틴이나 남아 있던 직접 지정 ID가 항상 우선되어 기준을 바꿔도 목록이 같았습니다.
-  const legacyMode=String(config.business_mode||'featured');
-  const legacyGroups={featured:featuredRows,new:newRows,popular:popularRows,coupon:couponRows,banner:bannerRows,random:randomRows};
-  if(Object.prototype.hasOwnProperty.call(legacyGroups,legacyMode)){
-    const selected=legacyGroups[legacyMode]||[];
-    if(selected.length)return selected.slice(0,20);
+
+  const mode=String(config.business_mode||'featured');
+
+  // 직접 지정은 정확히 선택한 업체만 사용. 관리자가 1개를 골랐으면 1개만 표시.
+  if(mode==='direct'){
+    console.info('[V197 recommendation pool]',{
+      mode,total:adminRows.length,names:adminRows.map(b=>b.name_ko||b.name||b.name_en)
+    });
+    return adminRows.slice(0,MAX);
   }
-  if(adminRows.length)return adminRows.slice(0,20);
-  if(options.length){
-    const seen=new Set(),rows=[];
-    options.forEach(option=>(groups[option]||[]).forEach(b=>{const id=String(b.id);if(!seen.has(id)){seen.add(id);rows.push(b)}}));
-    if(rows.length)return rows.slice(0,20);
+
+  const primary={
+    featured:featuredRows,
+    new:newRows,
+    popular:popularRows,
+    coupon:couponRows,
+    banner:bannerRows,
+    video:videoRows,
+    promotion:promoRows,
+    random:randomRows
+  }[mode] || featuredRows;
+
+  // 추천/신규/인기 중 선택한 기준을 먼저 넣고, 부족한 자리만 나머지 기준으로 보충.
+  let fallbackOrder;
+  if(mode==='popular') fallbackOrder=[featuredRows,newRows];
+  else if(mode==='new') fallbackOrder=[featuredRows,popularRows];
+  else fallbackOrder=[newRows,popularRows];
+
+  const result=[], seen=new Set();
+  const pushRows=rows=>{
+    for(const b of rows||[]){
+      const id=String(b?.id||'');
+      if(!id||seen.has(id))continue;
+      seen.add(id); result.push(b);
+      if(result.length>=MAX)return true;
+    }
+    return false;
+  };
+
+  pushRows(primary);
+  for(const rows of fallbackOrder){
+    if(result.length>=MAX)break;
+    pushRows(rows);
   }
-  const rows=legacyGroups[legacyMode]||featuredRows;
-  return (rows.length?rows:(featuredRows.length?featuredRows:(newRows.length?newRows:(popularRows.length?popularRows:randomRows)))).slice(0,20);
+  if(result.length<MAX)pushRows(randomRows);
+
+  console.info('[V197 recommendation pool]',{
+    mode,
+    primary:primary.length,
+    total:result.length,
+    names:result.map(b=>b.name_ko||b.name||b.name_en)
+  });
+  return result.slice(0,MAX);
 }
 function v66BoardHomePins(){
   try{const key=`kfocus_board_home_pins_v66_${String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase()}`;const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[]);}catch{return new Set();}
@@ -7762,10 +7801,50 @@ function v62ActiveByDate(rows=[],today=v61DateKey()){
 }
 function v61EffectiveHomeConfig(config={}){
   const today=v61DateKey();let out={...config};
-  const scene=v62ActiveByDate(Array.isArray(config.scene_presets)?config.scene_presets:[],today)[0];if(scene?.config)out={...out,...scene.config,active_scene_id:scene.id||''};
+  const baseMode=String(config.business_mode||'featured');
+  const baseDirect=baseMode==='direct' &&
+                   Array.isArray(config.business_ids) &&
+                   config.business_ids.length>0;
+  // V197: 추천/신규/인기/쿠폰/배너/영상 등 관리자가 직접 고른 기준은 날짜 스케줄보다 우선.
+  // 날짜별 자동 변경은 rotation/daily 모드를 명시적으로 선택했을 때만 business_mode를 덮어쓸 수 있음.
+  const manualMode=!['rotation','daily'].includes(baseMode);
+
+  const scene=v62ActiveByDate(Array.isArray(config.scene_presets)?config.scene_presets:[],today)[0];
+  if(scene?.config){
+    out={...out,...scene.config,active_scene_id:scene.id||''};
+    // V196: explicit administrator direct selection is authoritative.
+    if(baseDirect){
+      out.business_mode='direct';
+      out.business_ids=config.business_ids.slice();
+    }
+  }
+
   const schedules=Array.isArray(config.schedule_presets)?config.schedule_presets:[];
-  ['today','community','alert'].forEach(section=>{const row=v62ActiveByDate(schedules.filter(x=>(x.section||'today')===section),today)[0];if(row){out={...out,...row,active_schedule_id:row.id||out.active_schedule_id||''};if(section==='alert'&&Array.isArray(row.ticker_sources))out.ticker_sources=row.ticker_sources;if(section==='community'&&row.community_sort)out.community_sort=row.community_sort;if(section==='today'&&row.business_mode)out.business_mode=row.business_mode;}});
-  out.schedule_presets=schedules;out.scene_presets=config.scene_presets||[];return out;
+  ['today','community','alert'].forEach(section=>{
+    const row=v62ActiveByDate(schedules.filter(x=>(x.section||'today')===section),today)[0];
+    if(row){
+      out={...out,...row,active_schedule_id:row.id||out.active_schedule_id||''};
+      if(section==='alert'&&Array.isArray(row.ticker_sources))out.ticker_sources=row.ticker_sources;
+      if(section==='community'&&row.community_sort)out.community_sort=row.community_sort;
+      if(section==='today'&&row.business_mode&&!manualMode)out.business_mode=row.business_mode;
+      if(section==='today'&&baseDirect){
+        out.business_mode='direct';
+        out.business_ids=config.business_ids.slice();
+      }
+    }
+  });
+
+  if(manualMode){
+    out.business_mode=baseMode;
+    if(Array.isArray(config.business_ids))out.business_ids=config.business_ids.slice();
+  }
+  if(baseDirect){
+    out.business_mode='direct';
+    out.business_ids=config.business_ids.slice();
+  }
+  out.schedule_presets=schedules;
+  out.scene_presets=config.scene_presets||[];
+  return out;
 }
 console.info('[DalTownMap] V62 section schedules and scenes loaded');
 
@@ -8667,5 +8746,331 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
     setTimeout(syncP130MarketHost,1200);
     setTimeout(syncP130MarketHost,3000);
   });
+})();
+
+
+
+
+
+
+
+
+
+
+
+// === V199: 추천/신규/인기 기준을 광고 운영센터와 동일한 DB 값으로 동기화 ===
+(() => {
+  let loading=null, loadedAt=0;
+
+  async function refreshFlags(force=false){
+    if(!force && Date.now()-loadedAt<30000) return true;
+    if(loading) return loading;
+
+    loading=(async()=>{
+      try{
+        const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+        const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+        const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+        const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+        if(!base||!key) return false;
+
+        const select='id,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,paid_active,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active';
+        const q=new URLSearchParams({
+          select,
+          region:`eq.${region}`,
+          is_active:'eq.true',
+          limit:'1000'
+        });
+        const res=await fetch(`${base}/rest/v1/businesses?${q}`,{
+          cache:'no-store',
+          headers:{apikey:key,Authorization:`Bearer ${key}`,Accept:'application/json'}
+        });
+        const rows=await res.json().catch(()=>[]);
+        if(!res.ok) throw new Error(rows?.message||`HTTP ${res.status}`);
+
+        const map=new Map((Array.isArray(rows)?rows:[]).map(r=>[String(r.id),r]));
+        let changed=0;
+        (businesses||[]).forEach(b=>{
+          const r=map.get(String(b.id));
+          if(!r)return;
+          const before=[b.is_featured,b.is_new,b.is_popular,b.featured_rank,b.new_rank,b.popular_rank].join('|');
+          b.is_featured=!!r.is_featured; b.featured=!!r.is_featured;
+          b.is_new=!!r.is_new; b.is_popular=!!r.is_popular;
+          b.featured_rank=r.featured_rank==null?1000:Number(r.featured_rank);
+          b.new_rank=r.new_rank==null?1000:Number(r.new_rank);
+          b.popular_rank=r.popular_rank==null?1000:Number(r.popular_rank);
+          b.paid_active=!!r.paid_active;
+          b.paid_weight=Math.max(1,Number(r.paid_weight||1));
+          b.paid_start_at=r.paid_start_at||'';
+          b.paid_end_at=r.paid_end_at||'';
+          b.rotation_enabled=r.rotation_enabled!==false;
+          const after=[b.is_featured,b.is_new,b.is_popular,b.featured_rank,b.new_rank,b.popular_rank].join('|');
+          if(before!==after)changed++;
+        });
+
+        loadedAt=Date.now();
+        console.info('[V199 ad-group flags synced]',{
+          rows:Array.isArray(rows)?rows.length:0,
+          changed,
+          featured:(businesses||[]).filter(b=>b.is_featured).map(b=>b.name).slice(0,12),
+          new:(businesses||[]).filter(b=>b.is_new).map(b=>b.name).slice(0,12),
+          popular:(businesses||[]).filter(b=>b.is_popular).map(b=>b.name).slice(0,12)
+        });
+        return true;
+      }catch(e){
+        console.error('[V199 ad-group flags sync failed]',e);
+        return false;
+      }finally{
+        loading=null;
+      }
+    })();
+    return loading;
+  }
+
+  async function rerender(){
+    await refreshFlags(true);
+    try{
+      if(typeof v77RefreshRoutineDrivenHome==='function') v77RefreshRoutineDrivenHome();
+      else if(typeof v48RenderMainSettings==='function') v48RenderMainSettings();
+    }catch(e){console.warn('[V199 recommendation rerender]',e)}
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',()=>{
+      setTimeout(rerender,1800);
+      setTimeout(rerender,4200);
+    },{once:true});
+  }else{
+    setTimeout(rerender,1800);
+  }
+
+  window.V199RecommendationSource={refresh:rerender};
+})();
+
+
+
+// === V200: authoritative Daltown recommendation controller ===
+(() => {
+  const MAX=6;
+  let applying=false;
+  let refreshToken=0;
+  let ownTimer=null;
+
+  const escName=b=>b?.name_ko||b?.name||b?.name_en||String(b?.id||'');
+
+  function activePaid(b,dateKey){
+    if(!b?.paid_active)return false;
+    if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey)return false;
+    if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey)return false;
+    return true;
+  }
+
+  async function loadRows(){
+    const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
+    const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
+    const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
+    const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+    if(!base||!key)return [];
+    const select=[
+      'id','name_ko','name_en','name','area','category_ko','is_active',
+      'is_featured','featured_rank','is_new','new_rank','is_popular','popular_rank',
+      'paid_active','paid_weight','paid_start_at','paid_end_at','rotation_enabled'
+    ].join(',');
+    const q=new URLSearchParams({
+      select,
+      region:`eq.${region}`,
+      is_active:'eq.true',
+      limit:'1000'
+    });
+    const res=await fetch(`${base}/rest/v1/businesses?${q}`,{
+      cache:'no-store',
+      headers:{apikey:key,Authorization:`Bearer ${key}`,Accept:'application/json'}
+    });
+    const rows=await res.json().catch(()=>[]);
+    if(!res.ok)throw new Error(rows?.message||`HTTP ${res.status}`);
+    return Array.isArray(rows)?rows:[];
+  }
+
+  function effectiveConfig(){
+    try{
+      const raw=typeof v45HomeConfig!=='undefined' && v45HomeConfig ? v45HomeConfig : {};
+      return typeof v61EffectiveHomeConfig==='function' ? v61EffectiveHomeConfig(raw) : raw;
+    }catch(_){return {}}
+  }
+
+  function uniquePush(out,seen,rows){
+    for(const r of rows||[]){
+      const id=String(r?.id||'');
+      if(!id||seen.has(id))continue;
+      seen.add(id); out.push(r);
+      if(out.length>=MAX)return true;
+    }
+    return false;
+  }
+
+  function buildPool(rows,config){
+    const mode=String(config?.business_mode||'featured');
+    const ids=(config?.business_ids||[]).map(String);
+    const byId=new Map(rows.map(r=>[String(r.id),r]));
+    const direct=ids.map(id=>byId.get(id)).filter(Boolean);
+
+    const featured=rows.filter(r=>r.is_featured===true)
+      .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
+    const fresh=rows.filter(r=>r.is_new===true)
+      .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
+    const popular=rows.filter(r=>r.is_popular===true)
+      .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+
+    if(mode==='direct') return direct.slice(0,MAX);
+
+    const primary = mode==='popular' ? popular : mode==='new' ? fresh : featured;
+    const fallbacks = mode==='popular'
+      ? [featured,fresh]
+      : mode==='new'
+      ? [featured,popular]
+      : [fresh,popular];
+
+    const out=[], seen=new Set();
+    uniquePush(out,seen,primary);
+    for(const group of fallbacks){
+      if(out.length>=MAX)break;
+      uniquePush(out,seen,group);
+    }
+
+    // Final filler only from active businesses; stable by name/id.
+    if(out.length<MAX){
+      const rest=rows.slice().sort((a,b)=>String(escName(a)).localeCompare(String(escName(b)),'ko'));
+      uniquePush(out,seen,rest);
+    }
+
+    return out.slice(0,MAX);
+  }
+
+  function mapToLocalRows(dbRows){
+    const current=Array.isArray(window.businesses)?window.businesses:
+      (typeof businesses!=='undefined'&&Array.isArray(businesses)?businesses:[]);
+    const map=new Map(current.map(b=>[String(b.id),b]));
+    return dbRows.map(r=>{
+      const local=map.get(String(r.id));
+      if(local){
+        local.is_featured=!!r.is_featured; local.featured=!!r.is_featured;
+        local.is_new=!!r.is_new; local.is_popular=!!r.is_popular;
+        local.featured_rank=r.featured_rank==null?1000:Number(r.featured_rank);
+        local.new_rank=r.new_rank==null?1000:Number(r.new_rank);
+        local.popular_rank=r.popular_rank==null?1000:Number(r.popular_rank);
+        local.paid_active=!!r.paid_active;
+        local.paid_weight=Math.max(1,Number(r.paid_weight||1));
+        local.paid_start_at=r.paid_start_at||'';
+        local.paid_end_at=r.paid_end_at||'';
+        local.rotation_enabled=r.rotation_enabled!==false;
+        return local;
+      }
+      return {
+        id:r.id,
+        name:r.name_ko||r.name_en||r.name||'업소',
+        name_ko:r.name_ko||'',
+        name_en:r.name_en||'',
+        area:r.area||'',
+        category:r.category_ko||'',
+        category_ko:r.category_ko||'',
+        is_featured:!!r.is_featured,featured:!!r.is_featured,
+        is_new:!!r.is_new,is_popular:!!r.is_popular,
+        featured_rank:r.featured_rank==null?1000:Number(r.featured_rank),
+        new_rank:r.new_rank==null?1000:Number(r.new_rank),
+        popular_rank:r.popular_rank==null?1000:Number(r.popular_rank),
+        paid_active:!!r.paid_active,
+        paid_weight:Math.max(1,Number(r.paid_weight||1)),
+        paid_start_at:r.paid_start_at||'',
+        paid_end_at:r.paid_end_at||'',
+        rotation_enabled:r.rotation_enabled!==false
+      };
+    });
+  }
+
+  function installPool(pool,config){
+    try{
+      v37RecommendationItems=pool.map(b=>({kind:'business',data:b}));
+      v37RecommendationIndex=0;
+      if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);
+      if(ownTimer)clearInterval(ownTimer);
+
+      if(typeof paintV37Recommendation==='function')paintV37Recommendation();
+
+      const label=document.getElementById('v45BusinessModeLabel');
+      if(label){
+        const m=typeof v83RecommendationLabel==='function'?v83RecommendationLabel(config):
+          ({direct:'직접 지정',featured:'추천',new:'신규',popular:'인기'}[String(config?.business_mode||'featured')]||'추천');
+        label.textContent=m; label.hidden=!m;
+      }
+
+      if(pool.length>1){
+        ownTimer=setInterval(()=>{
+          if(document.hidden)return;
+          v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;
+          if(typeof paintV37Recommendation==='function')paintV37Recommendation();
+        },5000);
+        v37RecommendationTimer=ownTimer;
+      }
+    }catch(e){
+      console.error('[V200 install pool failed]',e);
+    }
+  }
+
+  async function apply(reason='manual'){
+    const token=++refreshToken;
+    if(applying)return;
+    applying=true;
+    try{
+      const rows=await loadRows();
+      if(token!==refreshToken)return;
+      const config=effectiveConfig();
+      const pool=buildPool(rows,config);
+      const localPool=mapToLocalRows(pool);
+
+      console.info('[V200 authoritative recommendation]',{
+        reason,
+        mode:String(config?.business_mode||'featured'),
+        selectedIds:(config?.business_ids||[]).map(String),
+        db:{
+          featured:rows.filter(r=>r.is_featured===true).map(escName),
+          new:rows.filter(r=>r.is_new===true).map(escName),
+          popular:rows.filter(r=>r.is_popular===true).map(escName)
+        },
+        pool:localPool.map(escName)
+      });
+
+      installPool(localPool,config);
+    }catch(e){
+      console.error('[V200 recommendation refresh failed]',e);
+    }finally{
+      applying=false;
+    }
+  }
+
+  // Old modules may repaint after data/settings load. Reassert authority after each likely phase.
+  function boot(){
+    [900,1800,3200,5200,8000].forEach((ms,i)=>setTimeout(()=>apply(`boot-${i+1}`),ms));
+
+    window.addEventListener('focus',()=>setTimeout(()=>apply('focus'),180),{passive:true});
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden)setTimeout(()=>apply('visible'),180);
+    });
+
+    // Watch only the recommendation card container for wholesale replacement, debounce, no self-loop.
+    setTimeout(()=>{
+      const host=document.getElementById('v37RecommendCard');
+      if(!host)return;
+      let t=null;
+      new MutationObserver(()=>{
+        clearTimeout(t);
+        t=setTimeout(()=>apply('card-mutated'),250);
+      }).observe(host,{childList:true});
+    },2500);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+
+  window.V200Recommendation={refresh:apply};
 })();
 

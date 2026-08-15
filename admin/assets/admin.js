@@ -1,4 +1,27 @@
 console.info('[DalTownMap Admin] P138 email coupon image setting loaded');
+
+// V188: weekly flyer effective status helper
+function v188DallasToday(){
+  try{
+    return new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
+  }catch(_){
+    return new Date().toISOString().slice(0,10);
+  }
+}
+function v188FlyerEffectiveStatus(row){
+  const today=v188DallasToday();
+  const start=String(row?.start_date||'').slice(0,10);
+  const end=String(row?.end_date||'').slice(0,10);
+  const raw=String(row?.status||'active').toLowerCase();
+
+  if(['deleted','archived'].includes(raw)) return {key:'archived',label:'종료·보관',className:'is-archived'};
+  if(['inactive','draft'].includes(raw)) return {key:'inactive',label:'비활성',className:'is-inactive'};
+  if(end && end < today) return {key:'expired',label:`기간 종료 · ${end}`,className:'is-expired'};
+  if(start && start > today) return {key:'scheduled',label:`예정 · ${start}`,className:'is-scheduled'};
+  return {key:'live',label:'LIVE · 업로드중',className:'is-live'};
+}
 console.info('[DalTownMap Admin] P137 coupon campaign v1 loaded');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
@@ -6202,7 +6225,7 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{v61HomeSettings
 // V61 메인 자동 편성·날짜별 운영 설정
 let v61HomeSchedules=[];
 let v117LoadedHomeConfig={};
-const V61_MODE_LABELS={featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체',promotion:'쿠폰·배너·영상 업체',rotation:'날짜별 자동 순환',random:'전체 랜덤'};
+const V61_MODE_LABELS={direct:'직접 지정',featured:'추천업체',popular:'인기업체',new:'신규업체',coupon:'쿠폰 있는 업체',banner:'배너 있는 업체',video:'영상 있는 업체',promotion:'쿠폰·배너·영상 업체',rotation:'날짜별 자동 순환',random:'전체 랜덤'};
 function v61HomeSettingsPanel(){
   if(qs('v61HomeSettingsPanel'))return;
   const section=qs('section-newsroom');if(!section)return;
@@ -6259,7 +6282,64 @@ function v61EditSchedule(id){const r=v61HomeSchedules.find(x=>String(x.id)===Str
 
 // V45 main three-zone settings
 function v45Csv(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean)}
-function v45PopulateBusinessSelect(selected=[],mode){const el=qs('v45BusinessIds');if(!el)return;const ids=new Set((selected||[]).map(String));mode=mode||qs('v45BusinessMode')?.value||'featured';let rows=(businesses||[]).slice();if(mode==='featured')rows=rows.filter(b=>b.featured===true||b.is_featured===true);else if(mode==='new')rows=rows.filter(b=>b.is_new===true);else if(mode==='popular')rows=rows.filter(b=>b.is_popular===true);rows.sort((a,b)=>String(a.name_ko||a.name_en||a.name||'').localeCompare(String(b.name_ko||b.name_en||b.name||''),'ko'));el.innerHTML=rows.map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('')}
+async function v45PopulateBusinessSelect(selected=[],mode){
+  const el=qs('v45BusinessIds');if(!el)return;
+  const ids=new Set((selected||[]).map(String));
+  mode=mode||qs('v45BusinessMode')?.value||'featured';
+
+  let rows=[];
+  try{
+    // V199: 광고 운영센터(loadAdsOps)와 동일하게 businesses 테이블을 직접 조회.
+    const fields='id,name_ko,name_en,area,category_ko,is_active,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,paid_active,paid_weight,paid_start_at,paid_end_at,rotation_enabled';
+    const {data,error}=await supabase.from('businesses')
+      .select(fields)
+      .eq('region',getAppRegion())
+      .eq('is_active',true)
+      .order('name_ko',{ascending:true});
+    if(error)throw error;
+    rows=data||[];
+  }catch(e){
+    console.warn('[V199 admin recommendation source fallback]',e?.message||e);
+    rows=(businesses||[]).slice();
+  }
+
+  if(mode==='featured')rows=rows.filter(b=>b.is_featured===true||b.featured===true);
+  else if(mode==='new')rows=rows.filter(b=>b.is_new===true);
+  else if(mode==='popular')rows=rows.filter(b=>b.is_popular===true);
+  else if(mode==='coupon'){
+    const set=typeof v61BusinessIdsWithCoupon==='function'?v61BusinessIdsWithCoupon():new Set();
+    rows=rows.filter(b=>set.has(String(b.id)));
+  }else if(mode==='banner'){
+    const set=typeof v61BusinessIdsWithBanner==='function'?v61BusinessIdsWithBanner():new Set();
+    rows=rows.filter(b=>set.has(String(b.id)));
+  }else if(mode==='direct'){
+    // 전체 업소 유지
+  }
+
+  const rankKey=mode==='featured'?'featured_rank':mode==='new'?'new_rank':mode==='popular'?'popular_rank':'';
+  rows.sort((a,b)=>{
+    if(rankKey){
+      const d=Number(a?.[rankKey]??1000)-Number(b?.[rankKey]??1000);
+      if(d)return d;
+    }
+    return String(a.name_ko||a.name_en||a.name||'').localeCompare(String(b.name_ko||b.name_en||b.name||''),'ko');
+  });
+
+  el.innerHTML=rows.map(b=>`<option value="${esc(b.id)}" ${ids.has(String(b.id))?'selected':''}>${esc(b.name_ko||b.name_en||b.name||b.id)}</option>`).join('');
+
+  const hint=el.parentElement?.querySelector('small');
+  if(hint){
+    hint.textContent=mode==='direct'
+      ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
+      :`광고 운영센터와 동일한 ${V61_MODE_LABELS[mode]||'업체'} 목록입니다. 6개 미만이면 메인에서 추천·신규·인기 기준으로 자동 보충됩니다.`;
+  }
+
+  console.info('[V199 admin recommendation list]',{
+    mode,
+    count:rows.length,
+    names:rows.map(b=>b.name_ko||b.name_en||b.name).slice(0,20)
+  });
+}
 function v45FillHomeConfig(config={}){
   v117LoadedHomeConfig=(config&&typeof config==='object')?{...config}:{};
   v61HomeSettingsPanel();
@@ -6283,7 +6363,7 @@ function v45ReadHomeConfig(){
     proposal_categories:$$('#v45ProposalCategories input:checked').map(x=>x.value),
     category_links:links,
     business_mode:qs('v45BusinessMode')?.value||'featured',
-    business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value),
+    business_ids:Array.from(qs('v45BusinessIds')?.selectedOptions||[]).map(x=>x.value).slice(0,6),
     show_recommend_section:checked('v116ShowRecommend'),
     show_community_section:checked('v116ShowCommunity'),
     community_board_types:$$('#v45CommunityTypes input:checked').map(x=>x.value),
@@ -7652,6 +7732,9 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
           <button type="button" class="btn" data-p0103-preview="${f.id}">사용자 화면 미리보기</button>
           <button type="button" class="btn" data-p0103-status="${f.status==='active'?'archived':'active'}" data-id="${f.id}">${f.status==='active'?'보관':'활성화'}</button>
           <a class="btn" href="${esc(f.image_url)}" target="_blank" rel="noopener">원본 보기</a>
+          ${['expired','archived'].includes(eff.key)?`
+            <button type="button" class="btn p190-delete-expired" data-p190-delete="${esc(f.id)}"
+              style="background:#fee2e2;color:#b91c1c;border-color:#fecaca">지난 전단 삭제</button>`:''}
         </div>
       </article>`;
     }).join(''):'<div class="p0103-meta">조건에 맞는 전단이 없습니다.</div>';
@@ -7729,6 +7812,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       #section-smartFlyer .p011-badge.draft{background:#fff7ed;color:#b45309}
       #section-smartFlyer .p011-badge.archived{background:#f1f5f9;color:#475569}
       #section-smartFlyer .p011-badge.expired{background:#fee2e2;color:#b91c1c}
+      #section-smartFlyer .p011-badge.scheduled{background:#fef3c7;color:#92400e}
       #section-smartFlyer .p011-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
       #section-smartFlyer .p011-product{border:1px solid #edf2f7;border-radius:11px;padding:10px;background:#fbfdff}
       #section-smartFlyer .p011-product b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -7780,6 +7864,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
         <div>
           <h2>AI 스마트 전단 센터</h2>
           <p>모든 마트의 전단 분석, 상품 검토, 사용자 화면 미리보기와 활성 상태를 한곳에서 관리합니다.</p>
+          <p style="margin-top:6px;font-size:12px;color:#b45309">종료일이 지나면 DB 상태가 active여도 관리자에서는 자동으로 ‘기간 종료’로 표시되고 메인 노출에서 제외됩니다.</p>
         </div>
         <button type="button" class="btn primary" id="${P}Refresh">새로고침</button>
       </div>
@@ -7834,10 +7919,11 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   }
 
   function updateStats(){
+    const effective=flyers.map(f=>v188FlyerEffectiveStatus(f));
     if(el(P+'Total'))el(P+'Total').textContent=String(flyers.length);
-    if(el(P+'Active'))el(P+'Active').textContent=String(flyers.filter(f=>f.status==='active').length);
-    if(el(P+'Draft'))el(P+'Draft').textContent=String(flyers.filter(f=>f.status==='draft').length);
-    if(el(P+'Closed'))el(P+'Closed').textContent=String(flyers.filter(f=>['archived','expired'].includes(f.status)).length);
+    if(el(P+'Active'))el(P+'Active').textContent=String(effective.filter(s=>s.key==='live').length);
+    if(el(P+'Draft'))el(P+'Draft').textContent=String(effective.filter(s=>s.key==='inactive').length);
+    if(el(P+'Closed'))el(P+'Closed').textContent=String(effective.filter(s=>['expired','archived'].includes(s.key)).length);
   }
 
   async function load(){
@@ -7858,7 +7944,12 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const list=el(P+'List');
     if(!list)return;
     const rows=flyers.filter(f=>{
-      if(currentStatus&&f.status!==currentStatus)return false;
+      const eff=v188FlyerEffectiveStatus(f);
+      const filterKey=currentStatus==='active'?'live':
+                      currentStatus==='draft'?'inactive':
+                      currentStatus==='expired'?'expired':
+                      currentStatus==='archived'?'archived':currentStatus;
+      if(filterKey&&eff.key!==filterKey)return false;
       const hay=`${businessName(f)} ${f.title||''}`.toLowerCase();
       if(currentSearch&&!hay.includes(currentSearch))return false;
       return true;
@@ -7871,14 +7962,22 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
 
     list.innerHTML=rows.map(f=>{
       const top=items(f).slice(0,6);
-      return `<article class="p011-card">
+      const eff=v188FlyerEffectiveStatus(f);
+      const badgeClass=eff.key==='live'?'active':
+                       eff.key==='expired'?'expired':
+                       eff.key==='archived'?'archived':
+                       eff.key==='scheduled'?'scheduled':'draft';
+      return `<article class="p011-card" data-flyer-id="${esc(f.id)}"
+        data-flyer-start="${esc(f.start_date||'')}"
+        data-flyer-end="${esc(f.end_date||'')}"
+        data-flyer-effective="${esc(eff.key)}">
         <div class="p011-card-top">
           <div>
             <h3>${esc(businessName(f))}</h3>
             <div class="p011-meta">${esc(f.title||'주간 세일')} · ${esc(f.start_date||'-')} ~ ${esc(f.end_date||'-')}</div>
             <div class="p011-meta">상품 ${items(f).length}개 · 오늘의 달타운 ${f.show_on_home?'사용':'미사용'}</div>
           </div>
-          <span class="p011-badge ${esc(f.status||'draft')}">${esc(f.status||'draft')}</span>
+          <span class="p011-badge ${badgeClass}">${esc(eff.label)}</span>
         </div>
 
         <div class="p011-products">
@@ -7929,6 +8028,33 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
           await load();
         }catch(e){alert(`노출 설정 실패: ${e.message}`);}
         finally{btn.disabled=false;}
+      });
+    });
+
+    list.querySelectorAll('[data-p190-delete]').forEach(btn=>{
+      btn.addEventListener('click',async()=>{
+        const id=Number(btn.dataset.p190Delete||0);
+        if(!id)return;
+        const flyer=flyers.find(f=>Number(f.id)===id);
+        const name=flyer?businessName(flyer):'이 전단';
+        if(!confirm(`${name}의 지난 전단과 분석된 상품 데이터를 삭제하시겠습니까?\n\n삭제 후 복구할 수 없습니다.`))return;
+        btn.disabled=true;
+        const oldText=btn.textContent;
+        btn.textContent='삭제 중...';
+        try{
+          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          try{
+            localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+            localStorage.removeItem('daltownmap_v38_home');
+          }catch(_){}
+          await load();
+          if(window.P010SmartFlyer?.load)window.P010SmartFlyer.load();
+          alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
+        }catch(e){
+          alert(`전단 삭제 실패: ${e.message}`);
+          btn.disabled=false;
+          btn.textContent=oldText;
+        }
       });
     });
   }
@@ -8121,7 +8247,8 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       }
 
       const status=card.querySelector('.p011-badge');
-      if(status?.textContent?.trim()==='active'){
+      const effective=String(card.dataset.flyerEffective||'');
+      if(effective==='live'){
         status.className='p012-live';
         status.textContent='LIVE · 앱 노출 중';
         const note=document.createElement('div');
@@ -9256,3 +9383,396 @@ console.info('[DalTownMap Admin] P132A guide picker reads boards[] loaded');
   },1000));
   window.V181PromoVideoAdmin={load:loadPromoVideoSetting,upload:uploadPromoVideo,save:savePromoVideoSetting};
 })();
+
+
+// V188: normalize AI Smart Flyer status badges after each render.
+// This works even if older rendering code still emits "LIVE".
+function v188NormalizeSmartFlyerStatuses(){
+  const today=v188DallasToday();
+  document.querySelectorAll('[data-flyer-id], .smart-flyer-card, .ai-smart-flyer-card, .flyer-card').forEach(card=>{
+    const txt=card.textContent||'';
+    // Recognize visible YYYY-MM-DD ~ YYYY-MM-DD date range from the card.
+    const dates=[...txt.matchAll(/(20\d{2}-\d{2}-\d{2})/g)].map(m=>m[1]);
+    if(!dates.length)return;
+    const start=dates[0]||'', end=dates[1]||'';
+    let label='LIVE · 업로드중', cls='is-live';
+    if(end && end < today){label=`기간 종료 · ${end}`; cls='is-expired';}
+    else if(start && start > today){label=`예정 · ${start}`; cls='is-scheduled';}
+    const badge=[...card.querySelectorAll('span,div')].find(el=>/LIVE\s*·\s*업로드중|기간 종료|예정/.test(el.textContent||''));
+    if(badge){
+      badge.textContent=(badge.textContent||'').trim().startsWith('●')?`● ${label}`:label;
+      badge.classList.remove('is-live','is-expired','is-scheduled');
+      badge.classList.add(cls);
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(v188NormalizeSmartFlyerStatuses,500);
+  setTimeout(v188NormalizeSmartFlyerStatuses,1500);
+  new MutationObserver(()=>v188NormalizeSmartFlyerStatuses()).observe(document.body,{childList:true,subtree:true});
+});
+
+
+
+// === V190: final expired-flyer status guard ===
+(() => {
+  const todayDallas=()=>{
+    try{
+      return new Intl.DateTimeFormat('en-CA',{
+        timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+      }).format(new Date());
+    }catch(_){return new Date().toISOString().slice(0,10);}
+  };
+
+  function apply(){
+    const today=todayDallas();
+    document.querySelectorAll('#p011List .p011-card').forEach(card=>{
+      const start=String(card.dataset.flyerStart||'').slice(0,10);
+      const end=String(card.dataset.flyerEnd||'').slice(0,10);
+      let eff=String(card.dataset.flyerEffective||'');
+
+      if(end && end<today) eff='expired';
+      else if(start && start>today) eff='scheduled';
+
+      card.dataset.flyerEffective=eff;
+
+      if(eff==='expired' || eff==='archived'){
+        // Remove any legacy LIVE UI added by P012/P013/P014/P019/P022/P023/P024.
+        card.querySelectorAll('.p012-live').forEach(node=>{
+          node.className='p011-badge expired';
+          node.textContent=end?`기간 종료 · ${end}`:'기간 종료';
+        });
+        card.querySelectorAll('.p012-home-note,.p013-note,.p014-public-note,.p019-ui-note,.p022-note,.p023-note,.p024-note').forEach(n=>n.remove());
+
+        let badge=card.querySelector('.p011-badge');
+        if(!badge){
+          const top=card.querySelector('.p011-card-top');
+          if(top){
+            badge=document.createElement('span');
+            badge.className='p011-badge expired';
+            top.appendChild(badge);
+          }
+        }
+        if(badge){
+          badge.className='p011-badge expired';
+          badge.textContent=end?`기간 종료 · ${end}`:'기간 종료';
+        }
+      }else if(eff==='scheduled'){
+        const badge=card.querySelector('.p011-badge');
+        if(badge){
+          badge.className='p011-badge scheduled';
+          badge.textContent=start?`예정 · ${start}`:'예정';
+        }
+      }
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(apply,700);
+    setTimeout(apply,1800);
+    setTimeout(apply,3200);
+    const target=document.getElementById('p011List')||document.body;
+    new MutationObserver(()=>apply()).observe(target,{childList:true,subtree:true});
+  });
+  window.V190ApplyFlyerStatus=apply;
+})();
+
+
+// === V192: safe expired-flyer UI sync (no self-triggering observer) ===
+(() => {
+  let syncTimer=null;
+  const todayDallas=()=>{
+    try{
+      const p=new Intl.DateTimeFormat('en-US',{
+        timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
+      }).formatToParts(new Date());
+      const o={}; p.forEach(x=>o[x.type]=x.value);
+      return `${o.year}-${o.month}-${o.day}`;
+    }catch(_){return new Date().toISOString().slice(0,10);}
+  };
+
+  function getInfo(card){
+    const today=todayDallas();
+    let start=String(card.dataset.flyerStart||'').slice(0,10);
+    let end=String(card.dataset.flyerEnd||'').slice(0,10);
+    const dates=[...(card.innerText||'').matchAll(/20\d{2}-\d{2}-\d{2}/g)].map(m=>m[0]);
+    if(!start&&dates.length)start=dates[0];
+    if(!end&&dates.length>1)end=dates[1];
+
+    if(end&&end<today)return {key:'expired',start,end};
+    if(start&&start>today)return {key:'scheduled',start,end};
+    return {key:String(card.dataset.flyerEffective||'live'),start,end};
+  }
+
+  function findBadge(card){
+    return [...card.querySelectorAll('span,div,b,strong')].find(n=>
+      /LIVE\s*[·ㆍ]\s*(업로드중|앱 노출 중)|기간 종료|예정/.test((n.textContent||'').trim())
+    ) || card.querySelector('.p011-badge,.p012-live');
+  }
+
+  function ensureDelete(card,info){
+    if(info.key!=='expired'||card.querySelector('[data-v192-delete]'))return;
+
+    const id=Number(
+      card.dataset.flyerId ||
+      card.querySelector('[data-id]')?.dataset?.id ||
+      card.querySelector('[data-p011-home]')?.dataset?.id || 0
+    );
+    if(!id)return;
+
+    let actions=card.querySelector('.p011-actions,.p010-actions,.actions');
+    if(!actions){
+      actions=[...card.querySelectorAll('div')].find(el=>{
+        const t=el.innerText||'';
+        return t.includes('원본 보기') && (t.includes('보관')||t.includes('미리보기'));
+      });
+    }
+    if(!actions)return;
+
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='btn v192-delete-expired';
+    b.dataset.v192Delete=String(id);
+    b.textContent='지난 전단 삭제';
+    b.style.cssText='background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;font-weight:800;';
+    b.addEventListener('click',async()=>{
+      if(!confirm('지난 전단과 이 전단에서 분석된 상품 데이터를 삭제하시겠습니까?\\n\\n삭제 후 복구할 수 없습니다.'))return;
+      b.disabled=true;b.textContent='삭제 중...';
+      try{
+        if(typeof newsroomEdgeCall!=='function')throw new Error('삭제 API를 찾을 수 없습니다.');
+        await newsroomEdgeCall('delete_weekly_flyer',{id});
+        alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
+        location.reload();
+      }catch(e){
+        alert(`전단 삭제 실패: ${e.message||e}`);
+        b.disabled=false;b.textContent='지난 전단 삭제';
+      }
+    });
+    actions.appendChild(b);
+  }
+
+  function sync(){
+    document.querySelectorAll('#p011List .p011-card, #section-smartFlyer [data-flyer-id]').forEach(card=>{
+      const info=getInfo(card);
+      card.dataset.flyerEffective=info.key;
+      const badge=findBadge(card);
+
+      if(info.key==='expired'){
+        if(badge && !badge.dataset.v192Done){
+          badge.textContent=info.end?`기간 종료 · ${info.end}`:'기간 종료';
+          badge.className='p011-badge expired';
+          badge.style.cssText='background:#fee2e2;color:#b91c1c;border-radius:999px;padding:5px 10px;font-weight:800;';
+          badge.dataset.v192Done='1';
+        }
+        ensureDelete(card,info);
+      }else if(info.key==='scheduled'){
+        if(badge && !badge.dataset.v192Done){
+          badge.textContent=info.start?`예정 · ${info.start}`:'예정';
+          badge.className='p011-badge scheduled';
+          badge.style.cssText='background:#fff7ed;color:#c2410c;border-radius:999px;padding:5px 10px;font-weight:800;';
+          badge.dataset.v192Done='1';
+        }
+      }
+    });
+  }
+
+  function queue(){
+    clearTimeout(syncTimer);
+    syncTimer=setTimeout(sync,120);
+  }
+
+  function start(){
+    sync();
+    [500,1200,2500].forEach(ms=>setTimeout(sync,ms));
+
+    // Observe only added/removed nodes. Do NOT observe characterData/attributes.
+    const root=document.getElementById('p011List')||document.getElementById('section-smartFlyer');
+    if(root){
+      new MutationObserver(muts=>{
+        if(muts.some(m=>m.addedNodes.length||m.removedNodes.length))queue();
+      }).observe(root,{childList:true,subtree:true});
+    }
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
+  else start();
+
+  window.V192SyncFlyerStatus=sync;
+})();
+
+
+
+
+
+// === V194: 달타운 추천 직접 지정 UI ===
+(() => {
+  const KEY='dtm_v194_direct_recommendation_ids';
+
+  function getBusinesses(){
+    try{
+      if(Array.isArray(window.businesses)) return window.businesses;
+      if(typeof businesses!=='undefined' && Array.isArray(businesses)) return businesses;
+    }catch(_){}
+    return [];
+  }
+
+  function loadIds(){
+    try{
+      const a=JSON.parse(localStorage.getItem(KEY)||'[]');
+      return Array.isArray(a)?a.map(String):[];
+    }catch(_){return []}
+  }
+
+  function saveIds(ids){
+    localStorage.setItem(KEY,JSON.stringify([...new Set(ids.map(String))].slice(0,6)));
+    try{localStorage.setItem('daltownmap_content_changed',String(Date.now()))}catch(_){}
+  }
+
+  function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+  function mount(){
+    const headings=[...document.querySelectorAll('h2,h3,strong,label')];
+    const title=headings.find(x=>(x.textContent||'').trim()==='달타운 추천' || (x.textContent||'').includes('달타운 추천'));
+    const box=title?.closest('section,.card,.panel,div');
+    if(!box || box.querySelector('#v194DirectRecommendation')) return;
+
+    const wrap=document.createElement('div');
+    wrap.id='v194DirectRecommendation';
+    wrap.style.cssText='margin-top:16px;padding:14px;border:1px solid #dbeafe;border-radius:12px;background:#f8fbff';
+    wrap.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:900;color:#0f172a">직접 지정 업체</div>
+          <div style="font-size:12px;color:#64748b;margin-top:3px">최대 6개. 직접 지정 업체가 항상 최우선이며, 빈자리는 추천 → 신규 → 인기 순으로 자동 보충됩니다.</div>
+        </div>
+        <span id="v194DirectCount" style="font-size:12px;font-weight:800;color:#1d4ed8"></span>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <input id="v194DirectSearch" placeholder="업체명 검색..." style="flex:1;min-width:220px;padding:10px;border:1px solid #cbd5e1;border-radius:8px">
+        <button id="v194DirectClear" type="button" style="padding:10px 12px;border:1px solid #fecaca;border-radius:8px;background:#fff;color:#b91c1c">전체 해제</button>
+      </div>
+      <div id="v194DirectResults" style="margin-top:10px;max-height:220px;overflow:auto;border:1px solid #e5e7eb;border-radius:10px;background:#fff"></div>
+      <div id="v194DirectSelected" style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"></div>
+      <div style="margin-top:10px;display:flex;justify-content:flex-end">
+        <button id="v194DirectSave" type="button" style="padding:10px 16px;border:0;border-radius:9px;background:#2563eb;color:#fff;font-weight:800">직접 지정 저장</button>
+      </div>`;
+
+    box.appendChild(wrap);
+
+    const search=wrap.querySelector('#v194DirectSearch');
+    const results=wrap.querySelector('#v194DirectResults');
+    const selected=wrap.querySelector('#v194DirectSelected');
+    const count=wrap.querySelector('#v194DirectCount');
+    let ids=loadIds();
+
+    function paidLabel(b){
+      return (b?.is_paid||b?.paid||b?.premium||b?.is_premium||b?.is_advertiser||b?.advertiser||
+        (b?.subscription_tier && String(b.subscription_tier).toLowerCase()!=='free')) ? '유료' : '무료';
+    }
+
+    function drawSelected(){
+      const map=new Map(getBusinesses().map(b=>[String(b.id||b.business_id||''),b]));
+      selected.innerHTML=ids.map(id=>{
+        const b=map.get(String(id)); if(!b)return '';
+        const name=b.name_ko||b.name||b.name_en||id;
+        return `<button type="button" data-remove="${esc(id)}" style="border:0;border-radius:999px;padding:7px 10px;background:#e0ecff;color:#174ea6;font-weight:800">${esc(name)} <span style="opacity:.65">×</span></button>`;
+      }).join('');
+      count.textContent=`${ids.length}/6 선택`;
+      selected.querySelectorAll('[data-remove]').forEach(btn=>btn.onclick=()=>{
+        ids=ids.filter(x=>x!==btn.dataset.remove);
+        drawSelected(); drawResults(search.value);
+      });
+    }
+
+    function drawResults(q=''){
+      const needle=String(q||'').trim().toLowerCase();
+      const list=getBusinesses()
+        .filter(b=>{
+          const name=`${b.name_ko||''} ${b.name||''} ${b.name_en||''} ${b.city||''} ${b.category||''}`.toLowerCase();
+          return !needle || name.includes(needle);
+        })
+        .slice(0,80);
+
+      results.innerHTML=list.map(b=>{
+        const id=String(b.id||b.business_id||'');
+        const name=b.name_ko||b.name||b.name_en||id;
+        const checked=ids.includes(id);
+        return `<label style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer">
+          <span style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" data-id="${esc(id)}" ${checked?'checked':''}>
+            <span><b>${esc(name)}</b><small style="display:block;color:#64748b">${esc(b.city||'')} ${b.category?`· ${esc(b.category)}`:''}</small></span>
+          </span>
+          <span style="font-size:11px;font-weight:800;color:${paidLabel(b)==='유료'?'#b45309':'#64748b'}">${paidLabel(b)}</span>
+        </label>`;
+      }).join('') || `<div style="padding:14px;color:#64748b">검색 결과가 없습니다.</div>`;
+
+      results.querySelectorAll('input[data-id]').forEach(ch=>ch.onchange=()=>{
+        const id=ch.dataset.id;
+        if(ch.checked){
+          if(!ids.includes(id) && ids.length>=6){
+            alert('직접 지정 업체는 최대 6개까지 선택할 수 있습니다.');
+            ch.checked=false;
+            return;
+          }
+          if(!ids.includes(id)) ids.push(id);
+        }else{
+          ids=ids.filter(x=>x!==id);
+        }
+        drawSelected();
+      });
+    }
+
+    search.addEventListener('input',()=>drawResults(search.value));
+    wrap.querySelector('#v194DirectClear').onclick=()=>{ids=[];drawSelected();drawResults(search.value)};
+    wrap.querySelector('#v194DirectSave').onclick=()=>{
+      saveIds(ids);
+      alert('달타운 추천 직접 지정 업체를 저장했습니다.');
+    };
+
+    drawSelected();
+    drawResults();
+  }
+
+  function boot(){
+    mount();
+    let tries=0;
+    const t=setInterval(()=>{mount();if(++tries>20)clearInterval(t)},500);
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+})();
+
+
+// V200 관리자 추천 기준 표시 보강
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    const mode=qs('v45BusinessMode');
+    const list=qs('v45BusinessIds');
+    if(!mode||!list)return;
+    const refresh=()=>v45PopulateBusinessSelect(
+      Array.from(list.selectedOptions||[]).map(x=>x.value),
+      mode.value
+    );
+    mode.addEventListener('change',()=>setTimeout(refresh,0));
+  },1800);
+});
+
+// V201 popup image controls
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    const panel=[...document.querySelectorAll('section,.panel')].find(x=>(x.textContent||'').includes('팝업 영상')||(x.textContent||'').includes('팝업 미디어'));
+    const title=document.getElementById('pvTitle');
+    if(!panel||!title)return;
+    if(!document.getElementById('pvMediaType')){
+      const sel=document.createElement('select');sel.id='pvMediaType';
+      sel.innerHTML='<option value="video">영상 (MP4)</option><option value="image">이미지 (JPG/PNG/WebP)</option>';
+      sel.style.padding='10px';title.insertAdjacentElement('beforebegin',sel);
+    }
+    if(!document.getElementById('pvImageUrl')){
+      const img=document.createElement('input');img.id='pvImageUrl';img.placeholder='이미지 URL (https://...)';img.style.padding='10px';
+      const link=document.createElement('input');link.id='pvLinkUrl';link.placeholder='이미지 클릭 연결 URL (선택)';link.style.padding='10px';
+      const url=document.getElementById('pvUrl');url?.insertAdjacentElement('afterend',img);img.insertAdjacentElement('afterend',link);
+    }
+  },1400);
+});

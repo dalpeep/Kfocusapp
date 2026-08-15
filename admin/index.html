@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=181.0-video-popup-upload"></script>
+  <script type="module" src="assets/admin.js?v=201"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -38,6 +38,26 @@
 @media(max-width:1000px){.integration-metrics{grid-template-columns:repeat(2,1fr)}.integration-grid{grid-template-columns:1fr}.dashboard-exposure-grid{grid-template-columns:1fr}.integration-issue-form{grid-template-columns:1fr}}
 @media(max-width:600px){.integration-metrics{grid-template-columns:1fr}.integration-hero{align-items:flex-start;flex-direction:column}}
 </style>
+
+<style id="v188-flyer-status-css">
+.smart-flyer-status.is-live,.smart-status.is-live,
+.is-live{background:#dcfce7!important;color:#15803d!important}
+.smart-flyer-status.is-expired,.smart-status.is-expired,
+.is-expired{background:#fee2e2!important;color:#b91c1c!important}
+.smart-flyer-status.is-scheduled,.smart-status.is-scheduled,
+.is-scheduled{background:#fef3c7!important;color:#92400e!important}
+.smart-flyer-status.is-inactive,.smart-status.is-inactive,
+.is-inactive{background:#e5e7eb!important;color:#4b5563!important}
+</style>
+
+
+<style id="v190-expired-flyer-css">
+#section-smartFlyer .p190-delete-expired{
+  background:#fee2e2!important;color:#b91c1c!important;border:1px solid #fecaca!important;font-weight:800
+}
+#section-smartFlyer .p190-delete-expired:hover{background:#fecaca!important}
+</style>
+
 </head>
 <body>
   <div class="app-shell">
@@ -193,7 +213,7 @@
           <article class="card er-list-panel">
             <div class="panel-head">
               <div><h2>등록된 루틴</h2><p class="muted">여러 루틴을 동시에 활성화할 수 있습니다.</p></div>
-              <select id="erStatusFilter"><option value="all">전체</option><option value="active">진행 중</option><option value="scheduled">예약</option><option value="paused">일시중지</option><option value="ended">종료</option></select>
+              <select id="erStatusFilter"><option value="all">전체</option><option value="active">진행 중</option><option value="scheduled">예약</option><option value="paused">일시중지</option><option value="ended">종료</option><option value="expired">기간 종료</option></select>
             </div>
             <div id="erRoutineList" class="er-routine-list"></div>
           </article>
@@ -1645,7 +1665,7 @@
 <section id="promo-video-admin" style="margin:24px 0;padding:20px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;max-width:980px">
  <h2 style="margin-top:0">팝업 영상 관리</h2>
  <p style="color:#667085">9:16 MP4 원본을 직접 업로드합니다. Instagram 주소는 영상 아래 이동 버튼용으로만 사용합니다.</p>
- <label style="display:flex;align-items:center;gap:8px"><input id="pvEnabled" type="checkbox"> 팝업 영상 사용</label>
+ <label style="display:flex;align-items:center;gap:8px"><input id="pvEnabled" type="checkbox"> 팝업 미디어 사용</label>
  <div style="display:grid;gap:12px;margin-top:14px">
   <label>영상 제목<input id="pvTitle" placeholder="예: 달타운맵 오픈 무료 등록 이벤트" style="display:block;width:100%;padding:10px;margin-top:6px"></label>
   <label>9:16 MP4 파일<input id="pvFile" type="file" accept="video/mp4" style="display:block;width:100%;padding:9px 0;margin-top:6px"></label>
