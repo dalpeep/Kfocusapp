@@ -9757,3 +9757,22 @@ document.addEventListener('DOMContentLoaded',()=>{
     mode.addEventListener('change',()=>setTimeout(refresh,0));
   },1800);
 });
+
+// V201 popup image controls
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(()=>{
+    const panel=[...document.querySelectorAll('section,.panel')].find(x=>(x.textContent||'').includes('팝업 영상')||(x.textContent||'').includes('팝업 미디어'));
+    const title=document.getElementById('pvTitle');
+    if(!panel||!title)return;
+    if(!document.getElementById('pvMediaType')){
+      const sel=document.createElement('select');sel.id='pvMediaType';
+      sel.innerHTML='<option value="video">영상 (MP4)</option><option value="image">이미지 (JPG/PNG/WebP)</option>';
+      sel.style.padding='10px';title.insertAdjacentElement('beforebegin',sel);
+    }
+    if(!document.getElementById('pvImageUrl')){
+      const img=document.createElement('input');img.id='pvImageUrl';img.placeholder='이미지 URL (https://...)';img.style.padding='10px';
+      const link=document.createElement('input');link.id='pvLinkUrl';link.placeholder='이미지 클릭 연결 URL (선택)';link.style.padding='10px';
+      const url=document.getElementById('pvUrl');url?.insertAdjacentElement('afterend',img);img.insertAdjacentElement('afterend',link);
+    }
+  },1400);
+});

@@ -661,7 +661,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=200.0-recommendation-authority"></script>
+<script src="app-v99.js?v=201.0-popup-media"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
@@ -799,7 +799,7 @@ function requestPush() {
   <div class="promo-video-backdrop" data-promo-close></div>
   <section class="promo-video-dialog" role="dialog" aria-modal="true" aria-label="홍보 영상">
     <button class="promo-video-close" type="button" data-promo-close aria-label="닫기">×</button>
-    <div class="promo-video-frame"><video id="promoVideoPlayer" playsinline controls preload="metadata"></video></div>
+    <div class="promo-video-frame"><video id="promoVideoPlayer" playsinline controls preload="metadata" hidden></video><img id="promoImagePlayer" alt="" hidden></div>
     <h3 id="promoVideoTitle" class="promo-video-title"></h3>
     <a id="promoVideoInstagram" class="promo-video-instagram" href="#" target="_blank" rel="noopener noreferrer" hidden>Instagram에서 보기</a>
     <button id="promoVideoDismissToday" class="promo-video-dismiss" type="button">오늘 다시 보지 않기</button>
@@ -840,11 +840,11 @@ function requestPush() {
 .promo-video-instagram{display:block;margin:8px auto 2px;width:max-content;padding:8px 13px;border-radius:999px;background:#eef2ff;color:#1d4ed8;text-decoration:none;font-weight:800;font-size:13px}
 .promo-video-instagram[hidden]{display:none!important}
 .promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}
-@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
+.promo-video-modal.is-image .promo-video-frame{aspect-ratio:auto;min-height:240px;max-height:78vh}.promo-video-modal.is-image #promoImagePlayer{position:relative!important;width:100%!important;height:auto!important;max-height:78vh!important;object-fit:contain!important;background:#fff!important}@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
 </style>
 <script>
 (function(){
- const DEFAULTS={enabled:false,title:'DaltownMap 소개 영상',videoUrl:'',instagramUrl:'',frequency:'once',updated_at:''};
+ const DEFAULTS={enabled:false,title:'DaltownMap 팝업',mediaType:'video',videoUrl:'',imageUrl:'',linkUrl:'',instagramUrl:'',frequency:'once',updated_at:''};
  let current={...DEFAULTS};
  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
  function previewMode(){return new URLSearchParams(location.search).get('promo_preview')==='1';}
@@ -882,7 +882,7 @@ function requestPush() {
  }
  function stableId(c){
    // updated_at is included so saving/replacing a campaign starts a fresh exposure cycle.
-   const raw=[c.videoUrl||'',c.title||'',c.updated_at||''].join('|');
+   const raw=[c.mediaType||'video',c.videoUrl||'',c.imageUrl||'',c.title||'',c.updated_at||''].join('|');
    try{return btoa(unescape(encodeURIComponent(raw))).replace(/=/g,'')}
    catch(_){return encodeURIComponent(raw)}
  }
@@ -890,8 +890,9 @@ function requestPush() {
  function snoozeKey(c){return 'dtm_promo_snooze_'+stableId(c)}
  function today(){return new Date().toLocaleDateString('en-CA')}
  function shouldShow(c){
-   if(previewMode()) return !!c.videoUrl;
-   if(!c.enabled||!c.videoUrl)return false;
+   const hasMedia=(c.mediaType==='image'?!!c.imageUrl:!!c.videoUrl);
+   if(previewMode()) return hasMedia;
+   if(!c.enabled||!hasMedia)return false;
    if(localStorage.getItem(snoozeKey(c))===today())return false;
    const seen=localStorage.getItem(seenKey(c));
    if(c.frequency==='always')return true;
@@ -908,20 +909,28 @@ function requestPush() {
    if(!shouldShow(c))return;
    const m=document.getElementById('promoVideoModal'),
          v=document.getElementById('promoVideoPlayer'),
+         img=document.getElementById('promoImagePlayer'),
          ig=document.getElementById('promoVideoInstagram');
-   if(!m||!v)return;
+   if(!m||!v||!img)return;
    document.getElementById('promoVideoTitle').textContent=c.title||'';
-   v.src=c.videoUrl;
-   v.load();
-   v.onloadedmetadata=()=>console.info('[V183 promo] video dimensions',v.videoWidth,v.videoHeight,'ratio',v.videoWidth&&v.videoHeight?(v.videoWidth/v.videoHeight).toFixed(4):'n/a');
-   v.onerror=()=>console.error('[V183 promo] video load error',v.error,c.videoUrl);
+   const isImage=c.mediaType==='image';
+   v.hidden=isImage; img.hidden=!isImage;
+   if(isImage){
+     v.pause();v.removeAttribute('src');v.load();
+     img.src=c.imageUrl; img.alt=c.title||'팝업 이미지';
+     img.onclick=()=>{if(c.linkUrl)window.open(c.linkUrl,'_blank','noopener')};
+   }else{
+     img.removeAttribute('src');img.onclick=null;
+     v.src=c.videoUrl;v.load();
+   }
    if(c.instagramUrl){ig.href=c.instagramUrl;ig.hidden=false}else{ig.hidden=true}
+   m.classList.toggle('is-image',isImage);
    m.hidden=false;m.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
  }
  function closePromo(markSeen=true){
-   const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer');
+   const m=document.getElementById('promoVideoModal'),v=document.getElementById('promoVideoPlayer'),img=document.getElementById('promoImagePlayer');
    if(markSeen)markNormal(current);
-   if(v){v.pause();v.removeAttribute('src');v.load()}
+   if(v){v.pause();v.removeAttribute('src');v.load()} if(img){img.removeAttribute('src');img.onclick=null}
    if(m){m.hidden=true;m.setAttribute('aria-hidden','true')}
    document.body.style.overflow='';
  }
