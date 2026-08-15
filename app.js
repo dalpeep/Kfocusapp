@@ -1,4 +1,4 @@
-console.info('[DalTownMap] V203 three-way ad list exact sync loaded');
+console.info('[DalTownMap] V204 unified today-exposure source loaded');
 console.info('[DalTownMap] P133 HARD one-line ticker fix loaded');
 console.info('[DalTownMap] P132 one-line weather/traffic ticker fix loaded');
 console.info('[DalTownMap] V100 iPhone PWA public-data refresh loaded');
