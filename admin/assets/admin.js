@@ -1,3 +1,29 @@
+
+/* ===== V208 DEPLOYMENT MARKER ===== */
+console.info('[DalTownMap Admin] V208 cache/version sync loaded');
+(function(){
+  function installV208Badge(){
+    if(document.getElementById('dtmV208Badge')) return;
+    const badge=document.createElement('div');
+    badge.id='dtmV208Badge';
+    badge.textContent='Admin V208';
+    badge.title='현재 로드된 관리자 코드 버전: V208';
+    badge.style.cssText=[
+      'position:fixed','right:14px','bottom:14px','z-index:2147483647',
+      'background:#111827','color:#fff','font:700 12px/1.2 system-ui,sans-serif',
+      'padding:8px 11px','border-radius:999px',
+      'box-shadow:0 6px 18px rgba(15,23,42,.25)',
+      'pointer-events:none','opacity:.92'
+    ].join(';');
+    document.body.appendChild(badge);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',installV208Badge,{once:true});
+  }else{
+    installV208Badge();
+  }
+})();
+
 console.info('[DalTownMap Admin] V207 exclusive group sync loaded');
 console.info('[DalTownMap Admin] V206 normalized ad-group filter sync loaded');
 console.info('[DalTownMap Admin] V204 unified today-exposure source loaded');
