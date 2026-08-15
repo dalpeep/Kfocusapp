@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V210 canonical sync loaded');
+console.info('[DalTownMap App] V211 canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
 console.info('[DalTownMap] P140 confirmCouponUse compatibility fix loaded');
