@@ -1,14 +1,14 @@
-console.info('[DalTownMap Admin] V212 full-list canonical sync loaded');
+console.info('[DalTownMap Admin] V213 full-list canonical sync loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
 console.info('[DalTownMap Admin] V209 cache/version sync loaded');
 (function(){
   function installV208Badge(){
-    if(document.getElementById('dtmV212Badge')) return;
+    if(document.getElementById('dtmV213Badge')) return;
     const badge=document.createElement('div');
-    badge.id='dtmV212Badge';
-    badge.textContent='Admin V212';
-    badge.title='현재 로드된 관리자 코드 버전: V212';
+    badge.id='dtmV213Badge';
+    badge.textContent='Admin V213';
+    badge.title='현재 로드된 관리자 코드 버전: V213';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
       'background:#111827','color:#fff','font:700 12px/1.2 system-ui,sans-serif',
@@ -523,69 +523,37 @@ function adsFreeFillSort(rows,section,dateValue){
   return copy.sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||adSeededRandom(`${dateKey}-${section}-${a.id}`)-adSeededRandom(`${dateKey}-${section}-${b.id}`));
 }
 function pickRotation(list, section, limit=6, dateValue=todayKey(), allRows=adsOpsRows){
-  const assigned=list.filter(b=>adsEligibleOnDate(b,dateValue));
+  // V213: 관리자 버튼이 곧 실제 메인 편성입니다.
+  // 추천/신규/인기 미지정 업소를 자동으로 보충하지 않습니다.
+  const assigned=(list||[]).filter(b=>adsEligibleOnDate(b,dateValue) && adsSectionAssigned(b,section));
   const paid=assigned.filter(b=>paidActiveOnDate(b,dateValue));
   const fixed=paid.filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const automatic=paid.filter(b=>b.rotation_enabled!==false)
     .sort((a,b)=>rotationScore(a,section,dateValue)-rotationScore(b,section,dateValue));
-  const chosen=fixed.concat(automatic).slice(0,limit);
-  if(chosen.length>=limit)return chosen;
-  const ids=new Set(chosen.map(b=>String(b.id)));
-  const free=(allRows||[]).filter(b=>adsEligibleOnDate(b,dateValue)&&!ids.has(String(b.id))&&!paidActiveOnDate(b,dateValue));
-  const assignedFree=adsFreeFillSort(free.filter(b=>adsSectionAssigned(b,section)),section,dateValue);
-  const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
-  // V207: 다른 그룹(추천/신규/인기)에 이미 편성된 업소는 현재 그룹의 자동 보충으로 재사용하지 않습니다.
-  // 이렇게 해야 '추천 → 인기'로 변경한 업소가 추천 목록에 다시 자동 보충되는 현상이 없습니다.
-  const genericFree=adsFreeFillSort(
-    free.filter(b=>
-      !assignedIds.has(String(b.id)) &&
-      !b.is_featured && !b.is_new && !b.is_popular
-    ),
+  const paidIds=new Set(paid.map(b=>String(b.id)));
+  const freeAssigned=adsFreeFillSort(
+    assigned.filter(b=>!paidIds.has(String(b.id))),
     section,dateValue
   );
-  return chosen.concat(assignedFree,genericFree).slice(0,limit);
+  return fixed.concat(automatic,freeAssigned).slice(0,limit);
 }
 
 // V212: 추천/신규/인기의 실제 노출 목록을 전역적으로 한 번에 계산합니다.
 // 같은 무료 보충 업체가 여러 그룹에 중복 노출되는 것을 막습니다.
 function adsCanonicalGroups(dateValue=todayKey(),allRows=adsOpsRows,limit=6){
-  const source=(allRows||[]).filter(b=>adsEligibleOnDate(b,dateValue));
-  const used=new Set();
+  // V213: 세 그룹은 관리자 저장값만 사용합니다.
+  // 자동 보충이 없으므로 '해제'하면 즉시 메인에서도 빠집니다.
   const result={featured:[],new:[],popular:[]};
   for(const section of ['featured','new','popular']){
-    const assigned=source.filter(b=>adsSectionAssigned(b,section)&&!used.has(String(b.id)));
-    const paid=assigned.filter(b=>paidActiveOnDate(b,dateValue));
-    const fixed=paid.filter(b=>b.rotation_enabled===false)
-      .sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-    const automatic=paid.filter(b=>b.rotation_enabled!==false)
-      .sort((a,b)=>rotationScore(a,section,dateValue)-rotationScore(b,section,dateValue));
-    const chosen=[];
-    for(const b of fixed.concat(automatic)){
-      const id=String(b.id); if(used.has(id)) continue;
-      chosen.push(b); used.add(id); if(chosen.length>=limit) break;
-    }
-    if(chosen.length<limit){
-      const assignedFree=adsFreeFillSort(assigned.filter(b=>!used.has(String(b.id))&&!paidActiveOnDate(b,dateValue)),section,dateValue);
-      for(const b of assignedFree){
-        const id=String(b.id); if(used.has(id)) continue;
-        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
-      }
-    }
-    if(chosen.length<limit){
-      const generic=adsFreeFillSort(source.filter(b=>{
-        const id=String(b.id);
-        return !used.has(id)&&!paidActiveOnDate(b,dateValue)&&!b.is_featured&&!b.is_new&&!b.is_popular;
-      }),section,dateValue);
-      for(const b of generic){
-        const id=String(b.id); if(used.has(id)) continue;
-        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
-      }
-    }
-    result[section]=chosen;
+    const assigned=(allRows||[]).filter(
+      b=>adsEligibleOnDate(b,dateValue) && adsSectionAssigned(b,section)
+    );
+    result[section]=pickRotation(assigned,section,limit,dateValue,allRows||[]);
   }
   return result;
 }
+
 function adsEffectiveSectionRows(section,dateValue=todayKey(),allRows=adsOpsRows){
   return adsCanonicalGroups(dateValue,allRows,6)[section]||[];
 }
@@ -667,7 +635,8 @@ function renderAdsCategoryChips(){
 }
 async function setAdsGroupQuick(id,group){
   const row=adsOpsRows.find(b=>String(b.id)===String(id));if(!row||adsQuickSavingId)return;
-  if(adsGroupOf(row)===group)return;
+  // V213: 같은 버튼 재클릭은 그대로 두되 '해제'는 항상 DB에 3개 플래그 false를 기록합니다.
+  if(group!=='none' && adsGroupOf(row)===group)return;
   adsQuickSavingId=String(id);renderAdsOpsList();
   const payload={is_featured:group==='featured',is_new:group==='new',is_popular:group==='popular'};
   const {error}=await supabase.from('businesses').update(payload).eq('id',id);

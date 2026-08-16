@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V212 full-list canonical sync loaded');
+console.info('[DalTownMap App] V213 full-list canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
 console.info('[DalTownMap] P140 confirmCouponUse compatibility fix loaded');
@@ -646,8 +646,12 @@ function freeFillSort(rows, section, dateKey){
   return copy.sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section) || rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`));
 }
 function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses){
+  // V213: 관리자에서 해당 그룹으로 지정된 업체만 메인에 표시합니다.
+  // 미지정 업체 자동 보충은 하지 않습니다.
   const dateKey=rotationDateKey(dateValue);
-  const assigned=rows.filter(b=>rotationEligibleOnDate(b,dateKey));
+  const assigned=(rows||[]).filter(
+    b=>rotationEligibleOnDate(b,dateKey) && sectionAssigned(b,section)
+  );
   const paid=assigned.filter(b=>paidAdActiveOnDate(b,dateKey));
   const fixedPaid=paid.filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
@@ -657,79 +661,24 @@ function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses)
       const bw=Math.max(1,Number(b.paid_weight||1));
       return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
     });
-  const chosen=fixedPaid.concat(automaticPaid).slice(0,limit);
-  if(chosen.length>=limit) return chosen;
-
-  const chosenIds=new Set(chosen.map(b=>String(b.id)));
-  const visible=(allRows||[]).filter(b=>rotationEligibleOnDate(b,dateKey) && !chosenIds.has(String(b.id)) && !paidAdActiveOnDate(b,dateKey));
-  const assignedFree=freeFillSort(visible.filter(b=>sectionAssigned(b,section)),section,dateKey);
-  const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
-  // V210: 추천/신규/인기 그룹은 서로 배타적입니다.
-  // 다른 그룹에 편성된 업체를 현재 그룹의 부족분 자동 보충에 다시 사용하지 않습니다.
-  const genericFree=freeFillSort(
-    visible.filter(b=>
-      !assignedIds.has(String(b.id)) &&
-      b.is_featured!==true &&
-      b.featured!==true &&
-      b.is_new!==true &&
-      b.is_popular!==true
-    ),
+  const paidIds=new Set(paid.map(b=>String(b.id)));
+  const freeAssigned=freeFillSort(
+    assigned.filter(b=>!paidIds.has(String(b.id))),
     section,dateKey
   );
-  return chosen.concat(assignedFree,genericFree).slice(0,limit);
+  return fixedPaid.concat(automaticPaid,freeAssigned).slice(0,limit);
 }
 
 
 // V212: 추천/신규/인기의 실제 메인 목록을 한 번에 계산합니다.
 // 한 업체가 두 그룹 이상에 동시에 자동 보충되지 않도록 전역적으로 중복을 막습니다.
 function canonicalHomeGroups(dateValue=todayKey(), allRows=businesses, limit=6){
-  const dateKey=rotationDateKey(dateValue);
-  const source=(allRows||[]).filter(b=>rotationEligibleOnDate(b,dateKey));
-  const used=new Set();
   const result={featured:[],new:[],popular:[]};
-
   for(const section of ['featured','new','popular']){
-    const assigned=source.filter(b=>sectionAssigned(b,section) && !used.has(String(b.id)));
-    const paid=assigned.filter(b=>paidAdActiveOnDate(b,dateKey));
-    const fixedPaid=paid.filter(b=>b.rotation_enabled===false)
-      .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
-    const automaticPaid=paid.filter(b=>b.rotation_enabled!==false)
-      .sort((a,b)=>{
-        const aw=Math.max(1,Number(a.paid_weight||1));
-        const bw=Math.max(1,Number(b.paid_weight||1));
-        return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
-      });
-    const chosen=[];
-    for(const b of fixedPaid.concat(automaticPaid)){
-      const id=String(b.id); if(used.has(id)) continue;
-      chosen.push(b); used.add(id); if(chosen.length>=limit) break;
-    }
-
-    if(chosen.length<limit){
-      const assignedFree=freeFillSort(
-        assigned.filter(b=>!used.has(String(b.id)) && !paidAdActiveOnDate(b,dateKey)),
-        section,dateKey
-      );
-      for(const b of assignedFree){
-        const id=String(b.id); if(used.has(id)) continue;
-        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
-      }
-    }
-
-    if(chosen.length<limit){
-      const generic=freeFillSort(source.filter(b=>{
-        const id=String(b.id);
-        return !used.has(id) &&
-          !paidAdActiveOnDate(b,dateKey) &&
-          b.is_featured!==true && b.featured!==true &&
-          b.is_new!==true && b.is_popular!==true;
-      }),section,dateKey);
-      for(const b of generic){
-        const id=String(b.id); if(used.has(id)) continue;
-        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
-      }
-    }
-    result[section]=chosen;
+    const assigned=(allRows||[]).filter(
+      b=>rotationEligibleOnDate(b,dateValue) && sectionAssigned(b,section)
+    );
+    result[section]=homeRotationRows(assigned,section,dateValue,limit,allRows||[]);
   }
   return result;
 }
