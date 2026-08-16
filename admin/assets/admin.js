@@ -1,4 +1,4 @@
-console.info('[DalTownMap Admin] V218 popup rotation build');
+console.info('[DalTownMap Admin] V219 popup rotation build');
 console.info('[DalTownMap Admin] V217 full-list canonical sync loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
@@ -10058,12 +10058,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 
-// V218: multi popup media manager (image/video + sequential/random/date rotation)
+// V219: multi popup media manager (visit sequential / visit random / date sequential)
 (function(){
-  console.info('[DalTownMap Admin] V218 multi popup rotation manager loaded');
+  console.info('[DalTownMap Admin] V219 popup rotation manager loaded');
   const el=id=>document.getElementById(id);
   const htmlEsc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  let state={enabled:true,mode:'sequential',frequency:'daily',items:[],updated_at:''};
+  let state={enabled:true,mode:'visit_sequential',frequency:'daily',items:[],updated_at:''};
   let selected='';
   let loadedConfig={};
 
@@ -10093,7 +10093,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     let items=Array.isArray(config.promo_popups)?config.promo_popups.map(normalizeItem):readLegacy(config);
     return {
       enabled:settings.enabled!==false && (config.promo_video?.enabled!==false),
-      mode:['sequential','random','date'].includes(settings.mode)?settings.mode:'sequential',
+      mode:(()=>{
+        const m=String(settings.mode||'');
+        if(['visit_sequential','visit_random','date_sequential'].includes(m)) return m;
+        if(m==='sequential') return 'date_sequential';   // V218 호환
+        if(m==='random') return 'visit_random';          // V218 호환
+        if(m==='date') return 'date_sequential';         // V218 호환
+        return 'visit_sequential';
+      })(),
       frequency:['once','daily','always'].includes(settings.frequency)?settings.frequency:(['once','daily','always'].includes(config.promo_video?.frequency)?config.promo_video.frequency:'daily'),
       items,
       updated_at:String(settings.updated_at||config.promo_video?.updated_at||'')
@@ -10121,16 +10128,28 @@ document.addEventListener('DOMContentLoaded',()=>{
     const box=document.createElement('div'); box.id='v218PopupAdmin';box.className='v218-popup-admin';
     box.innerHTML=`<div class="v218-popup-top">
       <label><span>전체 팝업</span><select id="v218Enabled"><option value="on">사용</option><option value="off">중지</option></select></label>
-      <label><span>로테이션 방식</span><select id="v218Mode"><option value="sequential">날짜 기준 순차</option><option value="random">날짜 기준 랜덤</option><option value="date">기간/우선순위</option></select></label>
+      <label><span>로테이션 방식</span><select id="v218Mode"><option value="visit_sequential">접속 순차 (1→2→3)</option><option value="visit_random">접속 랜덤</option><option value="date_sequential">날짜 기준 순차</option></select></label>
       <label><span>표시 빈도</span><select id="v218Frequency"><option value="once">설정 변경 후 1회</option><option value="daily">하루 1회</option><option value="always">접속할 때마다</option></select></label>
       <button id="v218SaveAll" type="button" class="btn primary">전체 설정 저장</button>
     </div>
-    <div class="v218-status">순차/랜덤은 같은 날에는 같은 팝업을 유지합니다. 기간이 지정된 항목은 해당 기간에만 후보가 됩니다.</div>
-    <div class="v218-popup-grid"><div><div class="v218-popup-actions" style="margin-top:0;margin-bottom:8px"><button id="v218Add" type="button" class="btn secondary">+ 팝업 추가</button><button id="v218Preview" type="button" class="btn ghost">실제 팝업 미리보기</button></div><div id="v218List" class="v218-popup-list"></div></div><div id="v218Editor" class="v218-popup-form"></div></div>`;
+    <div class="v218-status">접속 순차는 접속할 때마다 1→2→3 순서로, 접속 랜덤은 활성 팝업 중 하나를 매번 선택합니다. 날짜 기준 순차는 하루 동안 같은 팝업을 유지합니다. 시작일/종료일이 있는 항목은 해당 기간에만 후보가 됩니다.</div>
+    <div class="v218-popup-grid"><div><div class="v218-popup-actions" style="margin-top:0;margin-bottom:8px"><button id="v218Add" type="button" class="btn secondary">+ 팝업 추가</button><button id="v219PreviewPrev" type="button" class="btn ghost">◀ 이전 미리보기</button><button id="v218Preview" type="button" class="btn ghost">현재 팝업 미리보기</button><button id="v219PreviewNext" type="button" class="btn ghost">다음 미리보기 ▶</button></div><div id="v218List" class="v218-popup-list"></div></div><div id="v218Editor" class="v218-popup-form"></div></div>`;
     panel.appendChild(box);
     el('v218Add').onclick=()=>{const item=normalizeItem({id:uid(),title:'새 팝업',enabled:true,priority:state.items.length+1},state.items.length);state.items.push(item);selected=item.id;draw();};
     el('v218SaveAll').onclick=saveAll;
-    el('v218Preview').onclick=()=>window.open('/?promo_preview=1','_blank','noopener');
+    const openPreview=(step=0)=>{
+      const ordered=state.items.slice().sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id));
+      if(!ordered.length)return alert('미리보기할 팝업이 없습니다.');
+      let idx=Math.max(0,ordered.findIndex(x=>x.id===selected));
+      if(idx<0)idx=0;
+      idx=(idx+step+ordered.length)%ordered.length;
+      selected=ordered[idx].id;
+      draw();
+      window.open(`/?promo_preview=1&promo_id=${encodeURIComponent(selected)}`,'_blank','noopener');
+    };
+    el('v218Preview').onclick=()=>openPreview(0);
+    el('v219PreviewPrev').onclick=()=>openPreview(-1);
+    el('v219PreviewNext').onclick=()=>openPreview(1);
     el('v218Enabled').onchange=()=>state.enabled=el('v218Enabled').value==='on';
     el('v218Mode').onchange=()=>state.mode=el('v218Mode').value;
     el('v218Frequency').onchange=()=>state.frequency=el('v218Frequency').value;
@@ -10192,10 +10211,10 @@ document.addEventListener('DOMContentLoaded',()=>{
       const promo_video=first?{enabled:state.enabled,title:first.title,videoUrl:first.media_type==='video'?first.video_url:'',imageUrl:first.media_type==='image'?first.image_url:'',mediaType:first.media_type,linkUrl:first.link_url,frequency:state.frequency,updated_at:now}:{enabled:false,frequency:state.frequency,updated_at:now};
       const home_config={...latest,promo_popups:items,promo_popup_settings,promo_video};
       await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'팝업 로테이션 설정을 저장하고 있습니다…');
-      loadedConfig=home_config;state.updated_at=now;alert(`팝업 ${items.length}개와 ${state.mode==='sequential'?'순차':state.mode==='random'?'랜덤':'기간 우선'} 로테이션 설정을 저장했습니다.`);
+      loadedConfig=home_config;state.updated_at=now;alert(`팝업 ${items.length}개와 ${state.mode==='visit_sequential'?'접속 순차':state.mode==='visit_random'?'접속 랜덤':'날짜 기준 순차'} 로테이션 설정을 저장했습니다.`);
     }catch(e){console.error('[V218 popup save]',e);alert('팝업 설정 저장 실패: '+(e.message||e));}finally{if(btn){btn.disabled=false;btn.textContent='전체 설정 저장';}}
   }
   function boot(){let tries=0;const t=setInterval(()=>{if(mount()||++tries>20)clearInterval(t)},400);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-  window.V218PopupAdmin={load,save:saveAll};
+  window.V219PopupAdmin={load,save:saveAll};
 })();
