@@ -1,14 +1,14 @@
-console.info('[DalTownMap Admin] V211 all canonical union loaded');
+console.info('[DalTownMap Admin] V212 full-list canonical sync loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
 console.info('[DalTownMap Admin] V209 cache/version sync loaded');
 (function(){
   function installV208Badge(){
-    if(document.getElementById('dtmV211Badge')) return;
+    if(document.getElementById('dtmV212Badge')) return;
     const badge=document.createElement('div');
-    badge.id='dtmV211Badge';
-    badge.textContent='Admin V211';
-    badge.title='현재 로드된 관리자 코드 버전: V211';
+    badge.id='dtmV212Badge';
+    badge.textContent='Admin V212';
+    badge.title='현재 로드된 관리자 코드 버전: V212';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
       'background:#111827','color:#fff','font:700 12px/1.2 system-ui,sans-serif',
@@ -547,26 +547,51 @@ function pickRotation(list, section, limit=6, dateValue=todayKey(), allRows=adsO
   return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
-// V202: 이 함수의 결과를 광고 운영센터·메인 편성 설정·실제 메인 노출의 공통 기준으로 사용합니다.
-function adsEffectiveSectionRows(section,dateValue=todayKey(),allRows=adsOpsRows){
-  const rows=(allRows||[]).filter(b=>adsSectionAssigned(b,section));
-  return pickRotation(rows,section,6,dateValue,allRows||[]);
-}
-
-// V211: '전체'는 DB 전체 업소가 아니라 오늘 실제 메인에 노출되는
-// 추천/신규/인기 canonical 목록의 합집합으로 통일합니다.
-function adsEffectiveAllRows(dateValue=todayKey(),allRows=adsOpsRows){
-  const seen=new Set();
-  const out=[];
+// V212: 추천/신규/인기의 실제 노출 목록을 전역적으로 한 번에 계산합니다.
+// 같은 무료 보충 업체가 여러 그룹에 중복 노출되는 것을 막습니다.
+function adsCanonicalGroups(dateValue=todayKey(),allRows=adsOpsRows,limit=6){
+  const source=(allRows||[]).filter(b=>adsEligibleOnDate(b,dateValue));
+  const used=new Set();
+  const result={featured:[],new:[],popular:[]};
   for(const section of ['featured','new','popular']){
-    for(const b of adsEffectiveSectionRows(section,dateValue,allRows)){
-      const id=String(b?.id||'');
-      if(!id||seen.has(id)) continue;
-      seen.add(id);
-      out.push(b);
+    const assigned=source.filter(b=>adsSectionAssigned(b,section)&&!used.has(String(b.id)));
+    const paid=assigned.filter(b=>paidActiveOnDate(b,dateValue));
+    const fixed=paid.filter(b=>b.rotation_enabled===false)
+      .sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+    const automatic=paid.filter(b=>b.rotation_enabled!==false)
+      .sort((a,b)=>rotationScore(a,section,dateValue)-rotationScore(b,section,dateValue));
+    const chosen=[];
+    for(const b of fixed.concat(automatic)){
+      const id=String(b.id); if(used.has(id)) continue;
+      chosen.push(b); used.add(id); if(chosen.length>=limit) break;
     }
+    if(chosen.length<limit){
+      const assignedFree=adsFreeFillSort(assigned.filter(b=>!used.has(String(b.id))&&!paidActiveOnDate(b,dateValue)),section,dateValue);
+      for(const b of assignedFree){
+        const id=String(b.id); if(used.has(id)) continue;
+        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
+      }
+    }
+    if(chosen.length<limit){
+      const generic=adsFreeFillSort(source.filter(b=>{
+        const id=String(b.id);
+        return !used.has(id)&&!paidActiveOnDate(b,dateValue)&&!b.is_featured&&!b.is_new&&!b.is_popular;
+      }),section,dateValue);
+      for(const b of generic){
+        const id=String(b.id); if(used.has(id)) continue;
+        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
+      }
+    }
+    result[section]=chosen;
   }
-  return out;
+  return result;
+}
+function adsEffectiveSectionRows(section,dateValue=todayKey(),allRows=adsOpsRows){
+  return adsCanonicalGroups(dateValue,allRows,6)[section]||[];
+}
+function adsEffectiveAllRows(dateValue=todayKey(),allRows=adsOpsRows){
+  const g=adsCanonicalGroups(dateValue,allRows,6);
+  return [...g.featured,...g.new,...g.popular];
 }
 
 let adsOpsRows = [];
@@ -611,7 +636,7 @@ function adsFilteredRows(){
 
   const q=(document.querySelector('#adsSearch')?.value||'').trim().toLowerCase();
   const status=document.querySelector('#adsStatusFilter')?.value||'all';
-  const base=adsEffectiveAllRows(todayKey(),adsOpsRows);
+  const base=adsOpsRows;
   return base.filter(b=>{
     const hay=[b.name_ko,b.name_en,b.area,b.category_ko].filter(Boolean).join(' ').toLowerCase();
     const category=String(b.category_ko||'미분류').trim()||'미분류';
@@ -633,7 +658,7 @@ function resetAdsSecondaryFiltersForCanonicalList(){
 }
 function renderAdsCategoryChips(){
   const host=document.querySelector('#adsCategoryChips');if(!host)return;
-  const source=adsEffectiveAllRows(todayKey(),adsOpsRows);
+  const source=adsOpsRows;
   const counts=new Map();
   source.forEach(b=>{const c=String(b.category_ko||'미분류').trim()||'미분류';counts.set(c,(counts.get(c)||0)+1);});
   const entries=[...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'ko'));
@@ -700,10 +725,10 @@ function renderAdsSummary(){
     const names=rows.map(b=>esc(b.name_ko||b.name_en||'')).join(' · ');
     return `<article class="card ads-summary-card"><span>${adsGroupLabel(g)} 광고</span><strong>${rows.length}</strong><small>${names||'오늘 노출 업소 없음'}${rows.length?` · 유료 우선 ${paidRows.length}개`:''}</small><button class="ads-summary-filter" data-ads-group="${g}" type="button">목록 보기</button></article>`;
   }).join('');
-  const allToday=adsEffectiveAllRows(todayKey(),adsOpsRows);
-  const paid=allToday.filter(b=>paidActiveOnDate(b,todayKey())).length;
-  const ending=allToday.filter(b=>b.paid_end_at&&String(b.paid_end_at).slice(0,10)<=todayKey()).length;
-  document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 오늘 노출</span><strong>${allToday.length}</strong><small>추천·신규·인기 합집합 · 유료 우선 ${paid}개${ending?` · 종료 ${ending}개`:''}</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
+  const allRows=adsOpsRows;
+  const paid=allRows.filter(b=>paidActiveOnDate(b,todayKey())).length;
+  const ending=allRows.filter(b=>b.paid_end_at&&String(b.paid_end_at).slice(0,10)<=todayKey()).length;
+  document.querySelector('#adsOpsSummary').innerHTML=cards+`<article class="card ads-summary-card"><span>전체 업소</span><strong>${allRows.length}</strong><small>등록 업소 전체 · 현재 유료 ${paid}개${ending?` · 종료 ${ending}개`:''}</small><button class="ads-summary-filter" data-ads-group="all" type="button">전체 보기</button></article>`;
   document.querySelectorAll('.ads-summary-filter').forEach(btn=>btn.onclick=()=>{{const filter=document.querySelector('#adsGroupFilter'); const key=normalizeAdsGroupKey(btn.dataset.adsGroup); const opt=filter?[...filter.options].find(o=>normalizeAdsGroupKey(o.value)===key):null; if(filter)filter.value=opt?opt.value:btn.dataset.adsGroup; resetAdsSecondaryFiltersForCanonicalList();setAdsCenterTab('schedule');renderAdsOpsList();}});
 }
 function readAdsInlinePayload(id){
@@ -794,7 +819,7 @@ function renderAdsOpsList(){
   const selectedGroup=normalizeAdsGroupKey(document.querySelector('#adsGroupFilter')?.value||'all');
   const isEffectiveGroup=['featured','new','popular'].includes(selectedGroup);
   const selectedGroupLabel=isEffectiveGroup?`오늘 메인 ${adsGroupLabel(selectedGroup)} 노출`:'';
-  host.innerHTML=`<div class="ads-status-legend"><b>광고 상태</b><span><i class="ads-status unpaid">일반</i> 유료 광고 꺼짐</span><span><i class="ads-status active">게시 중</i> 유료 광고 켜짐·기간 내</span><span><i class="ads-status scheduled">예약</i> 시작일 전</span><span><i class="ads-status expired">종료</i> 종료일 지남</span><span><i class="ads-status inactive">비활성</i> 업소 자체 비활성</span></div><div class="ads-list-caption"><b>${selectedGroupLabel|| (adsCategoryKey==='all'?'오늘 메인 전체 노출':esc(adsCategoryKey))}</b><div class="ads-list-caption-actions"><span>${rows.length}개 표시</span><button id="adsSaveSelectedRowsBtn" class="btn primary" type="button" ${adsSelectedRowsSaving?'disabled':''}>${adsSelectedRowsSaving?'저장 중...':'선택 행 일괄 저장'}</button></div></div><div class="ads-table-wrap"><table class="request-table ads-table ads-inline-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹 바로 변경</th><th>유료</th><th>상품</th><th>가중치</th><th>시작일</th><th>종료일</th><th>로테이션</th><th>광고 상태</th><th>저장</th></tr></thead><tbody>${rows.map(b=>{const storedGroup=adsGroupOf(b),displayGroup=isEffectiveGroup?selectedGroup:storedGroup,saving=adsQuickSavingId===String(b.id);return `<tr data-ads-row-id="${esc(b.id)}" class="${saving?'is-saving':''}"><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small>${(()=>{if(isEffectiveGroup){const source=adsSectionAssigned(b,selectedGroup)?'원래 편성':'자동 보충';return `<small style="display:block;margin-top:4px;color:#0b57d0;font-weight:800">오늘 메인: ${adsGroupLabel(selectedGroup)} · ${source}</small>`;}const tags=[];if(effectiveToday.featured.has(String(b.id)))tags.push('추천');if(effectiveToday.new.has(String(b.id)))tags.push('신규');if(effectiveToday.popular.has(String(b.id)))tags.push('인기');return tags.length?`<small style="display:block;margin-top:4px;color:#0b57d0;font-weight:800">오늘 메인: ${tags.join(' · ')}</small>`:''})()}</td><td><div class="ads-group-switch" aria-label="광고 그룹 변경">${[['featured','추천'],['new','신규'],['popular','인기'],['none','해제']].map(([g,label])=>`<button type="button" class="ads-group-choice ${displayGroup===g?'active '+g:''}" data-id="${esc(b.id)}" data-group="${g}" ${saving?'disabled':''}>${saving&&storedGroup===g?'저장 중':label}</button>`).join('')}</div></td><td><label class="ads-inline-toggle"><input class="ads-inline-paid" type="checkbox" ${b.paid_active?'checked':''} ${saving?'disabled':''}><span>${b.paid_active?'ON':'OFF'}</span></label></td><td><select class="ads-inline-control ads-inline-product" ${saving?'disabled':''}><option value="none" ${!b.paid_product||b.paid_product==='none'?'selected':''}>없음</option><option value="basic" ${b.paid_product==='basic'?'selected':''}>Basic</option><option value="premium" ${b.paid_product==='premium'?'selected':''}>Premium</option></select></td><td><input class="ads-inline-control ads-inline-weight" type="number" min="1" value="${esc(b.paid_weight||1)}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-start" type="date" value="${esc(String(b.paid_start_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-end" type="date" value="${esc(String(b.paid_end_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><label class="ads-inline-toggle"><input class="ads-inline-rotation" type="checkbox" ${b.rotation_enabled===false?'':'checked'} ${saving?'disabled':''}><span>${b.rotation_enabled===false?'OFF':'ON'}</span></label></td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td><td><button type="button" class="btn primary ads-row-save" data-id="${esc(b.id)}" ${saving?'disabled':''}>${saving?'저장 중':'저장'}</button></td></tr>`}).join('')}</tbody></table></div>`;
+  host.innerHTML=`<div class="ads-status-legend"><b>광고 상태</b><span><i class="ads-status unpaid">일반</i> 유료 광고 꺼짐</span><span><i class="ads-status active">게시 중</i> 유료 광고 켜짐·기간 내</span><span><i class="ads-status scheduled">예약</i> 시작일 전</span><span><i class="ads-status expired">종료</i> 종료일 지남</span><span><i class="ads-status inactive">비활성</i> 업소 자체 비활성</span></div><div class="ads-list-caption"><b>${selectedGroupLabel|| (adsCategoryKey==='all'?'전체 업소':esc(adsCategoryKey))}</b><div class="ads-list-caption-actions"><span>${rows.length}개 표시</span><button id="adsSaveSelectedRowsBtn" class="btn primary" type="button" ${adsSelectedRowsSaving?'disabled':''}>${adsSelectedRowsSaving?'저장 중...':'선택 행 일괄 저장'}</button></div></div><div class="ads-table-wrap"><table class="request-table ads-table ads-inline-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>광고 그룹 바로 변경</th><th>유료</th><th>상품</th><th>가중치</th><th>시작일</th><th>종료일</th><th>로테이션</th><th>광고 상태</th><th>저장</th></tr></thead><tbody>${rows.map(b=>{const storedGroup=adsGroupOf(b),idKey=String(b.id),canonicalGroup=effectiveToday.featured.has(idKey)?'featured':effectiveToday.new.has(idKey)?'new':effectiveToday.popular.has(idKey)?'popular':'none',displayGroup=isEffectiveGroup?selectedGroup:canonicalGroup,saving=adsQuickSavingId===String(b.id);return `<tr data-ads-row-id="${esc(b.id)}" class="${saving?'is-saving':''}"><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small>${(()=>{if(isEffectiveGroup){const source=adsSectionAssigned(b,selectedGroup)?'원래 편성':'자동 보충';return `<small style="display:block;margin-top:4px;color:#0b57d0;font-weight:800">오늘 메인: ${adsGroupLabel(selectedGroup)} · ${source}</small>`;}if(canonicalGroup!=='none')return `<small style="display:block;margin-top:4px;color:#0b57d0;font-weight:800">오늘 메인: ${adsGroupLabel(canonicalGroup)}</small>`;if(storedGroup!=='none')return `<small style="display:block;margin-top:4px;color:#64748b;font-weight:700">저장 편성: ${adsGroupLabel(storedGroup)} · 오늘 제외</small>`;return ''})()}</td><td><div class="ads-group-switch" aria-label="광고 그룹 변경">${[['featured','추천'],['new','신규'],['popular','인기'],['none','해제']].map(([g,label])=>`<button type="button" class="ads-group-choice ${displayGroup===g?'active '+g:''}" data-id="${esc(b.id)}" data-group="${g}" ${saving?'disabled':''}>${saving&&storedGroup===g?'저장 중':label}</button>`).join('')}</div></td><td><label class="ads-inline-toggle"><input class="ads-inline-paid" type="checkbox" ${b.paid_active?'checked':''} ${saving?'disabled':''}><span>${b.paid_active?'ON':'OFF'}</span></label></td><td><select class="ads-inline-control ads-inline-product" ${saving?'disabled':''}><option value="none" ${!b.paid_product||b.paid_product==='none'?'selected':''}>없음</option><option value="basic" ${b.paid_product==='basic'?'selected':''}>Basic</option><option value="premium" ${b.paid_product==='premium'?'selected':''}>Premium</option></select></td><td><input class="ads-inline-control ads-inline-weight" type="number" min="1" value="${esc(b.paid_weight||1)}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-start" type="date" value="${esc(String(b.paid_start_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><input class="ads-inline-control ads-inline-end" type="date" value="${esc(String(b.paid_end_at||'').slice(0,10))}" ${saving?'disabled':''}></td><td><label class="ads-inline-toggle"><input class="ads-inline-rotation" type="checkbox" ${b.rotation_enabled===false?'':'checked'} ${saving?'disabled':''}><span>${b.rotation_enabled===false?'OFF':'ON'}</span></label></td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span></td><td><button type="button" class="btn primary ads-row-save" data-id="${esc(b.id)}" ${saving?'disabled':''}>${saving?'저장 중':'저장'}</button></td></tr>`}).join('')}</tbody></table></div>`;
   host.querySelectorAll('.ads-row-check').forEach(ch=>ch.onchange=()=>{const id=String(ch.dataset.id);ch.checked?adsSelectedIds.add(id):adsSelectedIds.delete(id);updateAdsSelectedCount();});
   host.querySelectorAll('.ads-group-choice').forEach(btn=>btn.onclick=()=>setAdsGroupQuick(btn.dataset.id,btn.dataset.group));
   host.querySelectorAll('.ads-row-save').forEach(btn=>btn.onclick=()=>saveAdsRowSettings(btn.dataset.id));

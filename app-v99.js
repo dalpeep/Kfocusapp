@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V211 canonical sync loaded');
+console.info('[DalTownMap App] V212 full-list canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
 console.info('[DalTownMap] P140 confirmCouponUse compatibility fix loaded');
@@ -679,6 +679,61 @@ function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses)
   return chosen.concat(assignedFree,genericFree).slice(0,limit);
 }
 
+
+// V212: 추천/신규/인기의 실제 메인 목록을 한 번에 계산합니다.
+// 한 업체가 두 그룹 이상에 동시에 자동 보충되지 않도록 전역적으로 중복을 막습니다.
+function canonicalHomeGroups(dateValue=todayKey(), allRows=businesses, limit=6){
+  const dateKey=rotationDateKey(dateValue);
+  const source=(allRows||[]).filter(b=>rotationEligibleOnDate(b,dateKey));
+  const used=new Set();
+  const result={featured:[],new:[],popular:[]};
+
+  for(const section of ['featured','new','popular']){
+    const assigned=source.filter(b=>sectionAssigned(b,section) && !used.has(String(b.id)));
+    const paid=assigned.filter(b=>paidAdActiveOnDate(b,dateKey));
+    const fixedPaid=paid.filter(b=>b.rotation_enabled===false)
+      .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+    const automaticPaid=paid.filter(b=>b.rotation_enabled!==false)
+      .sort((a,b)=>{
+        const aw=Math.max(1,Number(a.paid_weight||1));
+        const bw=Math.max(1,Number(b.paid_weight||1));
+        return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
+      });
+    const chosen=[];
+    for(const b of fixedPaid.concat(automaticPaid)){
+      const id=String(b.id); if(used.has(id)) continue;
+      chosen.push(b); used.add(id); if(chosen.length>=limit) break;
+    }
+
+    if(chosen.length<limit){
+      const assignedFree=freeFillSort(
+        assigned.filter(b=>!used.has(String(b.id)) && !paidAdActiveOnDate(b,dateKey)),
+        section,dateKey
+      );
+      for(const b of assignedFree){
+        const id=String(b.id); if(used.has(id)) continue;
+        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
+      }
+    }
+
+    if(chosen.length<limit){
+      const generic=freeFillSort(source.filter(b=>{
+        const id=String(b.id);
+        return !used.has(id) &&
+          !paidAdActiveOnDate(b,dateKey) &&
+          b.is_featured!==true && b.featured!==true &&
+          b.is_new!==true && b.is_popular!==true;
+      }),section,dateKey);
+      for(const b of generic){
+        const id=String(b.id); if(used.has(id)) continue;
+        chosen.push(b); used.add(id); if(chosen.length>=limit) break;
+      }
+    }
+    result[section]=chosen;
+  }
+  return result;
+}
+
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
   if(!box) return;
@@ -687,17 +742,8 @@ function renderHomeBusinessTabs(){
     btn.classList.toggle('active', btn.dataset.homeBizTab === homeBusinessTab);
   });
 
-  let rows = [];
-
-  if(homeBusinessTab === 'featured'){
-    rows = businesses.filter(b => b.is_featured && isBusinessVisibleByPaidDate(b));
-  } else if(homeBusinessTab === 'new'){
-    rows = businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b));
-  } else if(homeBusinessTab === 'popular'){
-    rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
-  }
-
-  rows = homeRotationRows(rows, homeBusinessTab, todayKey(), 6, businesses);
+  const canonical=canonicalHomeGroups(todayKey(), businesses, 6);
+  let rows = canonical[homeBusinessTab] || [];
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
@@ -2968,13 +3014,10 @@ function v45SelectedBusinesses(config={}){
   // V210 canonical groups:
   // 메인 업소 탭 / 관리자 광고 운영센터 / AI 운영센터 카드가
   // 모두 homeRotationRows()의 같은 계산 결과를 사용합니다.
-  const featuredAssigned=all.filter(b=>b.featured===true||b.is_featured===true);
-  const newAssigned=all.filter(b=>b.is_new===true);
-  const popularAssigned=all.filter(b=>b.is_popular===true);
-
-  const featuredRows=homeRotationRows(featuredAssigned,'featured',todayKey(),MAX,all);
-  const newRows=homeRotationRows(newAssigned,'new',todayKey(),MAX,all);
-  const popularRows=homeRotationRows(popularAssigned,'popular',todayKey(),MAX,all);
+  const canonical=canonicalHomeGroups(todayKey(), all, MAX);
+  const featuredRows=canonical.featured;
+  const newRows=canonical.new;
+  const popularRows=canonical.popular;
 
   const couponIds=v61BusinessIdsWithCoupon();
   const bannerIds=v61BusinessIdsWithBanner();
