@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V218 popup rotation build');
 console.info('[DalTownMap App] V209 cache/version sync loaded');
 console.info('[DalTownMap] V207 exclusive group sync loaded');
 console.info('[DalTownMap] V204 unified today-exposure source loaded');
@@ -6883,3 +6884,68 @@ function v61EffectiveHomeConfig(config={}){
 console.info('[DalTownMap] V62 section schedules and scenes loaded');
 
 console.info('[DalTownMap] V87 dual URL compatibility loaded');
+
+
+// V218: multi popup media rotation (image/video + sequential/random/date)
+(function(){
+  console.info('[DalTownMap] V218 multi popup rotation loaded');
+  const POPUP_KEY='daltown_v218_popup';
+  let running=false;
+  function todayDallas(){
+    try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+    catch(_){return new Date().toISOString().slice(0,10);}
+  }
+  function hash(value=''){let h=2166136261;for(let i=0;i<value.length;i++){h^=value.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+  function normalizeItem(row={},index=0){
+    const media=String(row.media_type||row.type||(row.image_url||row.imageUrl?'image':'video')).toLowerCase()==='image'?'image':'video';
+    return {id:String(row.id||`popup-${index+1}`),title:String(row.title||''),media_type:media,image_url:String(row.image_url||row.imageUrl||''),video_url:String(row.video_url||row.videoUrl||''),link_url:String(row.link_url||row.linkUrl||row.instagramUrl||''),start_date:String(row.start_date||row.start_at||'').slice(0,10),end_date:String(row.end_date||row.end_at||'').slice(0,10),enabled:row.enabled!==false,priority:Number(row.priority??index+1)||index+1};
+  }
+  function normalizedPopupConfig(config={}){
+    const s=(config.promo_popup_settings&&typeof config.promo_popup_settings==='object')?config.promo_popup_settings:{};
+    let items=Array.isArray(config.promo_popups)?config.promo_popups.map(normalizeItem):[];
+    if(!items.length){const c=(config.promo_video&&typeof config.promo_video==='object')?config.promo_video:null;if(c&&(c.videoUrl||c.imageUrl)){items=[normalizeItem({id:'legacy-promo',title:c.title||'',media_type:c.mediaType||(c.imageUrl?'image':'video'),video_url:c.videoUrl||'',image_url:c.imageUrl||'',link_url:c.linkUrl||c.instagramUrl||'',enabled:c.enabled!==false,priority:1},0)];}}
+    return {enabled:s.enabled!==false&&(config.promo_video?.enabled!==false),mode:['sequential','random','date'].includes(s.mode)?s.mode:'sequential',frequency:['once','daily','always'].includes(s.frequency)?s.frequency:(['once','daily','always'].includes(config.promo_video?.frequency)?config.promo_video.frequency:'daily'),updated_at:String(s.updated_at||config.promo_video?.updated_at||''),items};
+  }
+  function eligibleItems(cfg){
+    const today=todayDallas();return cfg.items.filter(x=>x.enabled&&(x.media_type==='image'?x.image_url:x.video_url)&&(!x.start_date||x.start_date<=today)&&(!x.end_date||x.end_date>=today)).sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id));
+  }
+  function chooseItem(cfg){
+    const rows=eligibleItems(cfg);if(!rows.length)return null;const today=todayDallas();
+    if(cfg.mode==='date') return rows[0];
+    if(cfg.mode==='random') return rows[hash(`${today}|${getAppRegion?.()||currentRegion||'dallas'}`)%rows.length];
+    const epoch=Math.floor(new Date(`${today}T12:00:00`).getTime()/86400000);return rows[Math.abs(epoch)%rows.length];
+  }
+  function revision(cfg){return cfg.updated_at||String(hash(JSON.stringify(cfg.items.map(x=>[x.id,x.media_type,x.image_url,x.video_url,x.start_date,x.end_date,x.enabled,x.priority]))));}
+  function shouldShow(cfg,preview=false){
+    if(preview)return true;if(!cfg.enabled)return false;if(cfg.frequency==='always')return true;
+    const rev=revision(cfg),today=todayDallas();
+    try{const seen=JSON.parse(localStorage.getItem(POPUP_KEY)||'{}');if(cfg.frequency==='once')return seen.once_rev!==rev;if(cfg.frequency==='daily')return seen.daily_key!==`${rev}|${today}`;}catch(_){}
+    return true;
+  }
+  function markSeen(cfg){
+    if(cfg.frequency==='always')return;const rev=revision(cfg),today=todayDallas();let seen={};try{seen=JSON.parse(localStorage.getItem(POPUP_KEY)||'{}')||{};}catch(_){}if(cfg.frequency==='once')seen.once_rev=rev;if(cfg.frequency==='daily')seen.daily_key=`${rev}|${today}`;try{localStorage.setItem(POPUP_KEY,JSON.stringify(seen));}catch(_){}
+  }
+  function ensureStyle(){
+    if(document.getElementById('v218PopupStyle'))return;const s=document.createElement('style');s.id='v218PopupStyle';s.textContent=`.v218-popup-overlay{position:fixed;inset:0;z-index:2147483000;background:rgba(3,7,18,.74);display:flex;align-items:center;justify-content:center;padding:20px}.v218-popup-card{position:relative;width:min(520px,94vw);max-height:90vh;border-radius:22px;background:#05070c;overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.42)}.v218-popup-close{position:absolute;right:10px;top:10px;z-index:3;width:38px;height:38px;border:0;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font-size:24px;line-height:1;cursor:pointer}.v218-popup-media{display:block;width:100%;max-height:82vh;object-fit:contain;background:#05070c}.v218-popup-title{position:absolute;left:14px;right:58px;bottom:12px;color:#fff;text-shadow:0 2px 7px rgba(0,0,0,.8);font-weight:800;font-size:15px;pointer-events:none}.v218-popup-link{display:block;cursor:pointer}.v218-popup-link:focus{outline:3px solid #60a5fa;outline-offset:-3px}@media(max-width:600px){.v218-popup-overlay{padding:10px}.v218-popup-card{width:min(96vw,430px);border-radius:18px}.v218-popup-media{max-height:88vh}}`;document.head.appendChild(s);
+  }
+  function closePopup(){const o=document.getElementById('v218PopupOverlay');if(!o)return;const v=o.querySelector('video');try{v?.pause();}catch(_){}o.remove();}
+  function showItem(item,cfg,preview=false){
+    if(document.getElementById('v218PopupOverlay'))return;ensureStyle();
+    const overlay=document.createElement('div');overlay.id='v218PopupOverlay';overlay.className='v218-popup-overlay';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');
+    const media=item.media_type==='image'?`<img class="v218-popup-media" src="${esc(item.image_url)}" alt="${esc(item.title||'프로모션')}">`:`<video class="v218-popup-media" src="${esc(item.video_url)}" autoplay muted loop playsinline controls preload="metadata"></video>`;
+    const wrapped=item.link_url?`<a class="v218-popup-link" href="${esc(item.link_url)}" target="_blank" rel="noopener noreferrer">${media}</a>`:media;
+    overlay.innerHTML=`<div class="v218-popup-card"><button class="v218-popup-close" type="button" aria-label="닫기">×</button>${wrapped}${item.title?`<div class="v218-popup-title">${esc(item.title)}</div>`:''}</div>`;
+    document.body.appendChild(overlay);overlay.querySelector('.v218-popup-close')?.addEventListener('click',closePopup);overlay.addEventListener('click',e=>{if(e.target===overlay)closePopup();});document.addEventListener('keydown',function escClose(e){if(e.key==='Escape'){closePopup();document.removeEventListener('keydown',escClose);}});
+    if(!preview)markSeen(cfg);
+  }
+  async function fetchConfig(){
+    try{if(typeof loadMainSettings==='function'){const result=await loadMainSettings(true);if(result?.config&&typeof result.config==='object')return result.config;}}catch(e){console.warn('[V218 popup] loadMainSettings failed',e);}
+    if(window.__DALTOWN_MAIN_SETTINGS__&&typeof window.__DALTOWN_MAIN_SETTINGS__==='object')return window.__DALTOWN_MAIN_SETTINGS__;
+    return typeof v45HomeConfig==='object'?v45HomeConfig:{};
+  }
+  async function run(){
+    if(running)return;running=true;try{const preview=new URLSearchParams(location.search).get('promo_preview')==='1';const raw=await fetchConfig();const cfg=normalizedPopupConfig(raw);const item=chooseItem(cfg);console.info('[V218 popup] resolved',{enabled:cfg.enabled,mode:cfg.mode,frequency:cfg.frequency,count:cfg.items.length,selected:item?.id||null,preview});if(item&&shouldShow(cfg,preview))showItem(item,cfg,preview);}catch(e){console.warn('[V218 popup] failed',e);}finally{running=false;}
+  }
+  window.V218PromoPopup={run,close:closePopup};
+  window.addEventListener('load',()=>setTimeout(run,900),{once:true});
+})();
