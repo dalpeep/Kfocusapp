@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V218 popup rotation build');
 console.info('[DalTownMap Admin] V217 full-list canonical sync loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
@@ -10055,3 +10056,146 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
   },1400);
 });
+
+
+// V218: multi popup media manager (image/video + sequential/random/date rotation)
+(function(){
+  console.info('[DalTownMap Admin] V218 multi popup rotation manager loaded');
+  const el=id=>document.getElementById(id);
+  const htmlEsc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  let state={enabled:true,mode:'sequential',frequency:'daily',items:[],updated_at:''};
+  let selected='';
+  let loadedConfig={};
+
+  const uid=()=>`popup-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+  function normalizeItem(row={},index=0){
+    const media=String(row.media_type||row.type||(row.image_url||row.imageUrl?'image':'video')).toLowerCase()==='image'?'image':'video';
+    return {
+      id:String(row.id||`popup-${index+1}`),
+      title:String(row.title||''),
+      media_type:media,
+      image_url:String(row.image_url||row.imageUrl||''),
+      video_url:String(row.video_url||row.videoUrl||''),
+      link_url:String(row.link_url||row.linkUrl||row.instagramUrl||''),
+      start_date:String(row.start_date||row.start_at||'').slice(0,10),
+      end_date:String(row.end_date||row.end_at||'').slice(0,10),
+      enabled:row.enabled!==false,
+      priority:Number(row.priority??index+1)||index+1
+    };
+  }
+  function readLegacy(config={}){
+    const c=(config.promo_video&&typeof config.promo_video==='object')?config.promo_video:null;
+    if(!c || (!c.videoUrl&&!c.imageUrl)) return [];
+    return [normalizeItem({id:'legacy-promo',title:c.title||'',media_type:c.mediaType||(c.imageUrl?'image':'video'),video_url:c.videoUrl||'',image_url:c.imageUrl||'',link_url:c.linkUrl||c.instagramUrl||'',enabled:c.enabled!==false,priority:1},0)];
+  }
+  function normalizeConfig(config={}){
+    const settings=(config.promo_popup_settings&&typeof config.promo_popup_settings==='object')?config.promo_popup_settings:{};
+    let items=Array.isArray(config.promo_popups)?config.promo_popups.map(normalizeItem):readLegacy(config);
+    return {
+      enabled:settings.enabled!==false && (config.promo_video?.enabled!==false),
+      mode:['sequential','random','date'].includes(settings.mode)?settings.mode:'sequential',
+      frequency:['once','daily','always'].includes(settings.frequency)?settings.frequency:(['once','daily','always'].includes(config.promo_video?.frequency)?config.promo_video.frequency:'daily'),
+      items,
+      updated_at:String(settings.updated_at||config.promo_video?.updated_at||'')
+    };
+  }
+  function legacyNodesHide(){
+    ['pvEnabled','pvTitle','pvUrl','pvInstagramUrl','pvFrequency','pvFile','pvUpload','pvSave','pvPreview','pvMediaType','pvImageUrl','pvLinkUrl','pvUploadStatus'].forEach(id=>{
+      const node=el(id); if(!node)return;
+      const wrap=node.closest('label,.field,.form-row,.input-group')||node;
+      wrap.style.display='none';
+    });
+  }
+  function ensureStyles(){
+    if(el('v218PopupStyles'))return;
+    const s=document.createElement('style');s.id='v218PopupStyles';s.textContent=`
+      .v218-popup-admin{border:1px solid #dbe4f0;border-radius:18px;background:#f8fbff;padding:16px;margin-top:14px}.v218-popup-top{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end}.v218-popup-admin label{display:grid;gap:5px;font-weight:700;font-size:13px}.v218-popup-admin input,.v218-popup-admin select{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #cbd5e1;border-radius:9px;background:#fff}.v218-popup-grid{display:grid;grid-template-columns:290px 1fr;gap:14px;margin-top:14px}.v218-popup-list{border:1px solid #dbe4f0;border-radius:12px;background:#fff;overflow:hidden}.v218-popup-item{width:100%;border:0;border-bottom:1px solid #edf2f7;background:#fff;padding:11px;text-align:left;cursor:pointer;display:grid;gap:3px}.v218-popup-item.active{background:#eef6ff}.v218-popup-item small{color:#64748b}.v218-popup-form{border:1px solid #dbe4f0;border-radius:12px;background:#fff;padding:14px}.v218-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.v218-form-grid .full{grid-column:1/-1}.v218-popup-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.v218-popup-thumb{width:100%;max-height:260px;object-fit:contain;background:#111827;border-radius:10px;margin-top:10px}.v218-empty{padding:18px;color:#64748b;text-align:center}.v218-status{font-size:12px;color:#64748b;margin-top:8px}@media(max-width:800px){.v218-popup-top{grid-template-columns:1fr 1fr}.v218-popup-grid{grid-template-columns:1fr}.v218-form-grid{grid-template-columns:1fr}.v218-form-grid .full{grid-column:auto}}`;
+    document.head.appendChild(s);
+  }
+  function mount(){
+    if(el('v218PopupAdmin'))return true;
+    const anchor=el('pvTitle');
+    const panel=anchor?.closest('section,.panel')||[...document.querySelectorAll('section,.panel')].find(x=>(x.textContent||'').includes('팝업 영상')||(x.textContent||'').includes('팝업 미디어'));
+    if(!panel)return false;
+    ensureStyles(); legacyNodesHide();
+    const box=document.createElement('div'); box.id='v218PopupAdmin';box.className='v218-popup-admin';
+    box.innerHTML=`<div class="v218-popup-top">
+      <label><span>전체 팝업</span><select id="v218Enabled"><option value="on">사용</option><option value="off">중지</option></select></label>
+      <label><span>로테이션 방식</span><select id="v218Mode"><option value="sequential">날짜 기준 순차</option><option value="random">날짜 기준 랜덤</option><option value="date">기간/우선순위</option></select></label>
+      <label><span>표시 빈도</span><select id="v218Frequency"><option value="once">설정 변경 후 1회</option><option value="daily">하루 1회</option><option value="always">접속할 때마다</option></select></label>
+      <button id="v218SaveAll" type="button" class="btn primary">전체 설정 저장</button>
+    </div>
+    <div class="v218-status">순차/랜덤은 같은 날에는 같은 팝업을 유지합니다. 기간이 지정된 항목은 해당 기간에만 후보가 됩니다.</div>
+    <div class="v218-popup-grid"><div><div class="v218-popup-actions" style="margin-top:0;margin-bottom:8px"><button id="v218Add" type="button" class="btn secondary">+ 팝업 추가</button><button id="v218Preview" type="button" class="btn ghost">실제 팝업 미리보기</button></div><div id="v218List" class="v218-popup-list"></div></div><div id="v218Editor" class="v218-popup-form"></div></div>`;
+    panel.appendChild(box);
+    el('v218Add').onclick=()=>{const item=normalizeItem({id:uid(),title:'새 팝업',enabled:true,priority:state.items.length+1},state.items.length);state.items.push(item);selected=item.id;draw();};
+    el('v218SaveAll').onclick=saveAll;
+    el('v218Preview').onclick=()=>window.open('/?promo_preview=1','_blank','noopener');
+    el('v218Enabled').onchange=()=>state.enabled=el('v218Enabled').value==='on';
+    el('v218Mode').onchange=()=>state.mode=el('v218Mode').value;
+    el('v218Frequency').onchange=()=>state.frequency=el('v218Frequency').value;
+    load(); return true;
+  }
+  async function load(){
+    try{
+      let settings={};
+      try{const r=await newsroomEdgeCall('get_settings',{region:getAppRegion()});settings=r?.settings||{};}catch(_){const q=await supabase.from('newsroom_settings').select('home_config').eq('region',getAppRegion()).maybeSingle();if(q.error)throw q.error;settings=q.data||{};}
+      loadedConfig=(settings.home_config&&typeof settings.home_config==='object')?settings.home_config:{};
+      state=normalizeConfig(loadedConfig); selected=state.items[0]?.id||''; draw();
+    }catch(e){console.error('[V218 popup load]',e);const s=el('v218Editor');if(s)s.innerHTML=`<div class="v218-empty">설정 불러오기 실패: ${htmlEsc(e.message||e)}</div>`;}
+  }
+  function draw(){
+    if(!el('v218PopupAdmin'))return;
+    el('v218Enabled').value=state.enabled?'on':'off';el('v218Mode').value=state.mode;el('v218Frequency').value=state.frequency;
+    const list=el('v218List');
+    list.innerHTML=state.items.length?state.items.slice().sort((a,b)=>a.priority-b.priority).map(x=>`<button class="v218-popup-item ${x.id===selected?'active':''}" type="button" data-id="${htmlEsc(x.id)}"><b>${htmlEsc(x.title||'제목 없음')}</b><small>${x.media_type==='image'?'이미지':'영상'} · ${x.enabled?'사용':'중지'} · 순서 ${x.priority}</small><small>${htmlEsc([x.start_date,x.end_date].filter(Boolean).join(' ~ ')||'기간 제한 없음')}</small></button>`).join(''):'<div class="v218-empty">등록된 팝업이 없습니다.</div>';
+    list.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{selected=b.dataset.id;draw();}); drawEditor();
+  }
+  function drawEditor(){
+    const host=el('v218Editor');const item=state.items.find(x=>x.id===selected);
+    if(!item){host.innerHTML='<div class="v218-empty">왼쪽에서 팝업을 선택하거나 새 팝업을 추가하세요.</div>';return;}
+    host.innerHTML=`<div class="v218-form-grid">
+      <label class="full"><span>제목</span><input id="v218Title" value="${htmlEsc(item.title)}"></label>
+      <label><span>미디어 종류</span><select id="v218Media"><option value="image" ${item.media_type==='image'?'selected':''}>이미지</option><option value="video" ${item.media_type==='video'?'selected':''}>MP4 영상</option></select></label>
+      <label><span>사용 여부</span><select id="v218ItemEnabled"><option value="on" ${item.enabled?'selected':''}>사용</option><option value="off" ${!item.enabled?'selected':''}>중지</option></select></label>
+      <label class="full"><span>이미지 URL</span><input id="v218ImageUrl" value="${htmlEsc(item.image_url)}" placeholder="https://..."></label>
+      <label class="full"><span>MP4 URL</span><input id="v218VideoUrl" value="${htmlEsc(item.video_url)}" placeholder="https://..."></label>
+      <label class="full"><span>클릭 연결 URL (선택)</span><input id="v218LinkUrl" value="${htmlEsc(item.link_url)}" placeholder="https://..."></label>
+      <label><span>시작일</span><input id="v218Start" type="date" value="${htmlEsc(item.start_date)}"></label>
+      <label><span>종료일</span><input id="v218End" type="date" value="${htmlEsc(item.end_date)}"></label>
+      <label><span>순서/우선순위</span><input id="v218Priority" type="number" min="1" value="${item.priority}"></label>
+      <label><span>파일 업로드</span><input id="v218File" type="file" accept="image/jpeg,image/png,image/webp,video/mp4"></label>
+    </div>
+    <div class="v218-popup-actions"><button id="v218Apply" type="button" class="btn secondary">현재 항목 반영</button><button id="v218Upload" type="button" class="btn secondary">파일 업로드</button><button id="v218Delete" type="button" class="btn danger">삭제</button></div>
+    <div id="v218UploadStatus" class="v218-status"></div>${item.media_type==='image'&&item.image_url?`<img class="v218-popup-thumb" src="${htmlEsc(item.image_url)}" alt="미리보기">`:item.media_type==='video'&&item.video_url?`<video class="v218-popup-thumb" src="${htmlEsc(item.video_url)}" controls muted playsinline></video>`:''}`;
+    el('v218Apply').onclick=()=>{applyEditor(item);draw();};el('v218Delete').onclick=()=>{if(!confirm('이 팝업을 삭제할까요?'))return;state.items=state.items.filter(x=>x.id!==item.id);selected=state.items[0]?.id||'';draw();};el('v218Upload').onclick=()=>upload(item);
+  }
+  function applyEditor(item){
+    item.title=String(el('v218Title')?.value||'').trim();item.media_type=el('v218Media')?.value==='image'?'image':'video';item.enabled=el('v218ItemEnabled')?.value==='on';item.image_url=String(el('v218ImageUrl')?.value||'').trim();item.video_url=String(el('v218VideoUrl')?.value||'').trim();item.link_url=String(el('v218LinkUrl')?.value||'').trim();item.start_date=String(el('v218Start')?.value||'');item.end_date=String(el('v218End')?.value||'');item.priority=Math.max(1,Number(el('v218Priority')?.value||1));
+  }
+  async function upload(item){
+    applyEditor(item);const file=el('v218File')?.files?.[0];if(!file)return alert('업로드할 이미지 또는 MP4를 선택하세요.');
+    const isVideo=file.type==='video/mp4'||/\.mp4$/i.test(file.name||'');const isImage=/^image\/(jpeg|png|webp)$/i.test(file.type)||/\.(jpe?g|png|webp)$/i.test(file.name||'');if(!isVideo&&!isImage)return alert('JPG/PNG/WebP 이미지 또는 MP4만 업로드할 수 있습니다.');if(isVideo&&file.size>50*1024*1024)return alert('MP4 영상은 50MB 이하로 올려 주세요.');
+    const btn=el('v218Upload');if(btn){btn.disabled=true;btn.textContent='업로드 중…';}if(el('v218UploadStatus'))el('v218UploadStatus').textContent=`${(file.size/1024/1024).toFixed(1)}MB 업로드 중...`;
+    try{const url=await uploadFileToStorage(file,isVideo?'promo-videos':'promo-images');if(!url)throw new Error('공개 URL 생성 실패');item.media_type=isVideo?'video':'image';if(isVideo)item.video_url=url;else item.image_url=url;if(el('v218UploadStatus'))el('v218UploadStatus').textContent='업로드 완료. 전체 설정 저장을 눌러 적용하세요.';draw();}catch(e){alert('업로드 실패: '+(e.message||e));}finally{if(btn){btn.disabled=false;btn.textContent='파일 업로드';}}
+  }
+  async function saveAll(){
+    const activeBad=state.items.find(x=>x.enabled && (x.media_type==='image'?!x.image_url:!x.video_url));if(activeBad)return alert(`“${activeBad.title||'팝업'}”의 미디어 URL이 비어 있습니다.`);
+    const badDate=state.items.find(x=>x.start_date&&x.end_date&&x.start_date>x.end_date);if(badDate)return alert(`“${badDate.title||'팝업'}”의 종료일이 시작일보다 빠릅니다.`);
+    const btn=el('v218SaveAll');if(btn){btn.disabled=true;btn.textContent='저장 중…';}
+    try{
+      let latest={};try{const r=await newsroomEdgeCall('get_settings',{region:getAppRegion()});latest=(r?.settings?.home_config&&typeof r.settings.home_config==='object')?r.settings.home_config:{};}catch(_){latest=loadedConfig||{};}
+      const now=new Date().toISOString();const items=state.items.map((x,i)=>({...normalizeItem(x,i),priority:Number(x.priority||i+1)}));
+      const promo_popup_settings={enabled:state.enabled,mode:state.mode,frequency:state.frequency,updated_at:now};
+      // Keep a compatible promo_video object so older deployments do not break while cache clears.
+      const first=items.find(x=>x.enabled)||items[0]||null;
+      const promo_video=first?{enabled:state.enabled,title:first.title,videoUrl:first.media_type==='video'?first.video_url:'',imageUrl:first.media_type==='image'?first.image_url:'',mediaType:first.media_type,linkUrl:first.link_url,frequency:state.frequency,updated_at:now}:{enabled:false,frequency:state.frequency,updated_at:now};
+      const home_config={...latest,promo_popups:items,promo_popup_settings,promo_video};
+      await newsroomEdgeCall('save_settings',{region:getAppRegion(),home_config},'팝업 로테이션 설정을 저장하고 있습니다…');
+      loadedConfig=home_config;state.updated_at=now;alert(`팝업 ${items.length}개와 ${state.mode==='sequential'?'순차':state.mode==='random'?'랜덤':'기간 우선'} 로테이션 설정을 저장했습니다.`);
+    }catch(e){console.error('[V218 popup save]',e);alert('팝업 설정 저장 실패: '+(e.message||e));}finally{if(btn){btn.disabled=false;btn.textContent='전체 설정 저장';}}
+  }
+  function boot(){let tries=0;const t=setInterval(()=>{if(mount()||++tries>20)clearInterval(t)},400);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+  window.V218PopupAdmin={load,save:saveAll};
+})();
