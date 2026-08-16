@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V218 popup rotation build');
+console.info('[DalTownMap App] V219 popup rotation build');
 console.info('[DalTownMap App] V209 cache/version sync loaded');
 console.info('[DalTownMap] V207 exclusive group sync loaded');
 console.info('[DalTownMap] V204 unified today-exposure source loaded');
@@ -6886,10 +6886,10 @@ console.info('[DalTownMap] V62 section schedules and scenes loaded');
 console.info('[DalTownMap] V87 dual URL compatibility loaded');
 
 
-// V218: multi popup media rotation (image/video + sequential/random/date)
+// V219: multi popup media rotation (visit sequential / visit random / date sequential)
 (function(){
-  console.info('[DalTownMap] V218 multi popup rotation loaded');
-  const POPUP_KEY='daltown_v218_popup';
+  console.info('[DalTownMap] V219 multi popup rotation loaded');
+  const POPUP_KEY='daltown_v219_popup';
   let running=false;
   function todayDallas(){
     try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
@@ -6904,16 +6904,66 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     const s=(config.promo_popup_settings&&typeof config.promo_popup_settings==='object')?config.promo_popup_settings:{};
     let items=Array.isArray(config.promo_popups)?config.promo_popups.map(normalizeItem):[];
     if(!items.length){const c=(config.promo_video&&typeof config.promo_video==='object')?config.promo_video:null;if(c&&(c.videoUrl||c.imageUrl)){items=[normalizeItem({id:'legacy-promo',title:c.title||'',media_type:c.mediaType||(c.imageUrl?'image':'video'),video_url:c.videoUrl||'',image_url:c.imageUrl||'',link_url:c.linkUrl||c.instagramUrl||'',enabled:c.enabled!==false,priority:1},0)];}}
-    return {enabled:s.enabled!==false&&(config.promo_video?.enabled!==false),mode:['sequential','random','date'].includes(s.mode)?s.mode:'sequential',frequency:['once','daily','always'].includes(s.frequency)?s.frequency:(['once','daily','always'].includes(config.promo_video?.frequency)?config.promo_video.frequency:'daily'),updated_at:String(s.updated_at||config.promo_video?.updated_at||''),items};
+    const rawMode=String(s.mode||'');
+    const mode=['visit_sequential','visit_random','date_sequential'].includes(rawMode)
+      ? rawMode
+      : rawMode==='sequential' ? 'date_sequential'
+      : rawMode==='random' ? 'visit_random'
+      : rawMode==='date' ? 'date_sequential'
+      : 'visit_sequential';
+    return {enabled:s.enabled!==false&&(config.promo_video?.enabled!==false),mode,frequency:['once','daily','always'].includes(s.frequency)?s.frequency:(['once','daily','always'].includes(config.promo_video?.frequency)?config.promo_video.frequency:'daily'),updated_at:String(s.updated_at||config.promo_video?.updated_at||''),items};
   }
   function eligibleItems(cfg){
     const today=todayDallas();return cfg.items.filter(x=>x.enabled&&(x.media_type==='image'?x.image_url:x.video_url)&&(!x.start_date||x.start_date<=today)&&(!x.end_date||x.end_date>=today)).sort((a,b)=>a.priority-b.priority||a.id.localeCompare(b.id));
   }
-  function chooseItem(cfg){
-    const rows=eligibleItems(cfg);if(!rows.length)return null;const today=todayDallas();
-    if(cfg.mode==='date') return rows[0];
-    if(cfg.mode==='random') return rows[hash(`${today}|${getAppRegion?.()||currentRegion||'dallas'}`)%rows.length];
-    const epoch=Math.floor(new Date(`${today}T12:00:00`).getTime()/86400000);return rows[Math.abs(epoch)%rows.length];
+  function rotationState(){
+    try{return JSON.parse(localStorage.getItem(`${POPUP_KEY}_rotation`)||'{}')||{};}catch(_){return {};}
+  }
+  function saveRotationState(value){
+    try{localStorage.setItem(`${POPUP_KEY}_rotation`,JSON.stringify(value||{}));}catch(_){}
+  }
+  function chooseItem(cfg,previewId=''){
+    const rows=eligibleItems(cfg);if(!rows.length)return null;
+    if(previewId){
+      const exact=rows.find(x=>String(x.id)===String(previewId));
+      if(exact)return exact;
+    }
+    const today=todayDallas();
+    const rev=revision(cfg);
+    const region=String(getAppRegion?.()||currentRegion||'dallas');
+    const rs=rotationState();
+
+    if(cfg.mode==='visit_sequential'){
+      const key=`${rev}|${region}`;
+      const idx=rs.seq_key===key ? Number(rs.seq_index||0) : 0;
+      return rows[Math.abs(idx)%rows.length];
+    }
+
+    if(cfg.mode==='visit_random'){
+      if(rows.length===1)return rows[0];
+      const pool=rows.filter(x=>String(x.id)!==String(rs.last_random_id||''));
+      const source=pool.length?pool:rows;
+      const rand=Math.floor(Math.random()*source.length);
+      return source[rand];
+    }
+
+    const epoch=Math.floor(new Date(`${today}T12:00:00`).getTime()/86400000);
+    return rows[Math.abs(epoch)%rows.length];
+  }
+  function advanceRotation(cfg,item){
+    if(!item)return;
+    const rev=revision(cfg);
+    const region=String(getAppRegion?.()||currentRegion||'dallas');
+    const rs=rotationState();
+    if(cfg.mode==='visit_sequential'){
+      const key=`${rev}|${region}`;
+      const current=rs.seq_key===key ? Number(rs.seq_index||0) : 0;
+      rs.seq_key=key;
+      rs.seq_index=current+1;
+    }else if(cfg.mode==='visit_random'){
+      rs.last_random_id=String(item.id||'');
+    }
+    saveRotationState(rs);
   }
   function revision(cfg){return cfg.updated_at||String(hash(JSON.stringify(cfg.items.map(x=>[x.id,x.media_type,x.image_url,x.video_url,x.start_date,x.end_date,x.enabled,x.priority]))));}
   function shouldShow(cfg,preview=false){
@@ -6936,7 +6986,7 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     const wrapped=item.link_url?`<a class="v218-popup-link" href="${esc(item.link_url)}" target="_blank" rel="noopener noreferrer">${media}</a>`:media;
     overlay.innerHTML=`<div class="v218-popup-card"><button class="v218-popup-close" type="button" aria-label="닫기">×</button>${wrapped}${item.title?`<div class="v218-popup-title">${esc(item.title)}</div>`:''}</div>`;
     document.body.appendChild(overlay);overlay.querySelector('.v218-popup-close')?.addEventListener('click',closePopup);overlay.addEventListener('click',e=>{if(e.target===overlay)closePopup();});document.addEventListener('keydown',function escClose(e){if(e.key==='Escape'){closePopup();document.removeEventListener('keydown',escClose);}});
-    if(!preview)markSeen(cfg);
+    if(!preview){markSeen(cfg);advanceRotation(cfg,item);}
   }
   async function fetchConfig(){
     try{if(typeof loadMainSettings==='function'){const result=await loadMainSettings(true);if(result?.config&&typeof result.config==='object')return result.config;}}catch(e){console.warn('[V218 popup] loadMainSettings failed',e);}
@@ -6944,8 +6994,18 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     return typeof v45HomeConfig==='object'?v45HomeConfig:{};
   }
   async function run(){
-    if(running)return;running=true;try{const preview=new URLSearchParams(location.search).get('promo_preview')==='1';const raw=await fetchConfig();const cfg=normalizedPopupConfig(raw);const item=chooseItem(cfg);console.info('[V218 popup] resolved',{enabled:cfg.enabled,mode:cfg.mode,frequency:cfg.frequency,count:cfg.items.length,selected:item?.id||null,preview});if(item&&shouldShow(cfg,preview))showItem(item,cfg,preview);}catch(e){console.warn('[V218 popup] failed',e);}finally{running=false;}
+    if(running)return;running=true;
+    try{
+      const params=new URLSearchParams(location.search);
+      const preview=params.get('promo_preview')==='1';
+      const previewId=params.get('promo_id')||'';
+      const raw=await fetchConfig();
+      const cfg=normalizedPopupConfig(raw);
+      const item=chooseItem(cfg,previewId);
+      console.info('[V219 popup] resolved',{enabled:cfg.enabled,mode:cfg.mode,frequency:cfg.frequency,count:cfg.items.length,selected:item?.id||null,preview,previewId});
+      if(item&&shouldShow(cfg,preview))showItem(item,cfg,preview);
+    }catch(e){console.warn('[V219 popup] failed',e);}finally{running=false;}
   }
-  window.V218PromoPopup={run,close:closePopup};
+  window.V219PromoPopup={run,close:closePopup};
   window.addEventListener('load',()=>setTimeout(run,900),{once:true});
 })();
