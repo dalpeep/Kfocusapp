@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V217 full-list canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
 console.info('[DalTownMap] P140 confirmCouponUse compatibility fix loaded');
@@ -645,8 +646,12 @@ function freeFillSort(rows, section, dateKey){
   return copy.sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section) || rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`));
 }
 function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses){
+  // V213: 관리자에서 해당 그룹으로 지정된 업체만 메인에 표시합니다.
+  // 미지정 업체 자동 보충은 하지 않습니다.
   const dateKey=rotationDateKey(dateValue);
-  const assigned=rows.filter(b=>rotationEligibleOnDate(b,dateKey));
+  const assigned=(rows||[]).filter(
+    b=>rotationEligibleOnDate(b,dateKey) && sectionAssigned(b,section)
+  );
   const paid=assigned.filter(b=>paidAdActiveOnDate(b,dateKey));
   const fixedPaid=paid.filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
@@ -656,15 +661,26 @@ function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses)
       const bw=Math.max(1,Number(b.paid_weight||1));
       return rotationHash(`${dateKey}-${section}-${a.id}`)/aw-rotationHash(`${dateKey}-${section}-${b.id}`)/bw;
     });
-  const chosen=fixedPaid.concat(automaticPaid).slice(0,limit);
-  if(chosen.length>=limit) return chosen;
+  const paidIds=new Set(paid.map(b=>String(b.id)));
+  const freeAssigned=freeFillSort(
+    assigned.filter(b=>!paidIds.has(String(b.id))),
+    section,dateKey
+  );
+  return fixedPaid.concat(automaticPaid,freeAssigned).slice(0,limit);
+}
 
-  const chosenIds=new Set(chosen.map(b=>String(b.id)));
-  const visible=(allRows||[]).filter(b=>rotationEligibleOnDate(b,dateKey) && !chosenIds.has(String(b.id)) && !paidAdActiveOnDate(b,dateKey));
-  const assignedFree=freeFillSort(visible.filter(b=>sectionAssigned(b,section)),section,dateKey);
-  const assignedIds=new Set(assignedFree.map(b=>String(b.id)));
-  const genericFree=freeFillSort(visible.filter(b=>!assignedIds.has(String(b.id))),section,dateKey);
-  return chosen.concat(assignedFree,genericFree).slice(0,limit);
+
+// V212: 추천/신규/인기의 실제 메인 목록을 한 번에 계산합니다.
+// 한 업체가 두 그룹 이상에 동시에 자동 보충되지 않도록 전역적으로 중복을 막습니다.
+function canonicalHomeGroups(dateValue=todayKey(), allRows=businesses, limit=6){
+  const result={featured:[],new:[],popular:[]};
+  for(const section of ['featured','new','popular']){
+    const assigned=(allRows||[]).filter(
+      b=>rotationEligibleOnDate(b,dateValue) && sectionAssigned(b,section)
+    );
+    result[section]=homeRotationRows(assigned,section,dateValue,limit,allRows||[]);
+  }
+  return result;
 }
 
 function renderHomeBusinessTabs(){
@@ -675,17 +691,8 @@ function renderHomeBusinessTabs(){
     btn.classList.toggle('active', btn.dataset.homeBizTab === homeBusinessTab);
   });
 
-  let rows = [];
-
-  if(homeBusinessTab === 'featured'){
-    rows = businesses.filter(b => b.is_featured && isBusinessVisibleByPaidDate(b));
-  } else if(homeBusinessTab === 'new'){
-    rows = businesses.filter(b => b.is_new && isBusinessVisibleByPaidDate(b));
-  } else if(homeBusinessTab === 'popular'){
-    rows = businesses.filter(b => b.is_popular && isBusinessVisibleByPaidDate(b));
-  }
-
-  rows = homeRotationRows(rows, homeBusinessTab, todayKey(), 6, businesses);
+  const canonical=canonicalHomeGroups(todayKey(), businesses, 6);
+  let rows = canonical[homeBusinessTab] || [];
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
@@ -2952,12 +2959,15 @@ function v45SelectedBusinesses(config={}){
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
   const ids=(config.business_ids||[]).map(String);
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
-  const featuredRows=consumerRows.filter(b=>b.featured===true||b.is_featured===true)
-    .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
-  const newRows=consumerRows.filter(b=>b.is_new===true)
-    .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
-  const popularRows=consumerRows.filter(b=>b.is_popular===true)
-    .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
+
+  // V210 canonical groups:
+  // 메인 업소 탭 / 관리자 광고 운영센터 / AI 운영센터 카드가
+  // 모두 homeRotationRows()의 같은 계산 결과를 사용합니다.
+  const canonical=canonicalHomeGroups(todayKey(), all, MAX);
+  const featuredRows=canonical.featured;
+  const newRows=canonical.new;
+  const popularRows=canonical.popular;
+
   const couponIds=v61BusinessIdsWithCoupon();
   const bannerIds=v61BusinessIdsWithBanner();
   const couponRows=consumerRows.filter(b=>couponIds.has(String(b.id)));
@@ -2969,16 +2979,17 @@ function v45SelectedBusinesses(config={}){
 
   const mode=String(config.business_mode||'featured');
 
-  // 직접 지정은 정확히 선택한 업체만 사용. 관리자가 1개를 골랐으면 1개만 표시.
   if(mode==='direct'){
-    console.info('[V197 recommendation pool]',{
+    console.info('[V210 recommendation pool]',{
       mode,total:adminRows.length,names:adminRows.map(b=>b.name_ko||b.name||b.name_en)
     });
     return adminRows.slice(0,MAX);
   }
 
-  const primary={
+  const groups={
     featured:featuredRows,
+    recommended:featuredRows,
+    recommendation:featuredRows,
     new:newRows,
     popular:popularRows,
     coupon:couponRows,
@@ -2986,40 +2997,32 @@ function v45SelectedBusinesses(config={}){
     video:videoRows,
     promotion:promoRows,
     random:randomRows
-  }[mode] || featuredRows;
-
-  // 추천/신규/인기 중 선택한 기준을 먼저 넣고, 부족한 자리만 나머지 기준으로 보충.
-  let fallbackOrder;
-  if(mode==='popular') fallbackOrder=[featuredRows,newRows];
-  else if(mode==='new') fallbackOrder=[featuredRows,popularRows];
-  else fallbackOrder=[newRows,popularRows];
-
-  const result=[], seen=new Set();
-  const pushRows=rows=>{
-    for(const b of rows||[]){
-      const id=String(b?.id||'');
-      if(!id||seen.has(id))continue;
-      seen.add(id); result.push(b);
-      if(result.length>=MAX)return true;
-    }
-    return false;
   };
 
-  pushRows(primary);
-  for(const rows of fallbackOrder){
-    if(result.length>=MAX)break;
-    pushRows(rows);
+  // 이벤트 루틴에서 여러 옵션을 지정한 경우에도 각 그룹의 canonical 결과만 합칩니다.
+  const options=typeof v73RoutineRecommendationOptions==='function'
+    ? v73RoutineRecommendationOptions()
+    : [];
+  if(options.length){
+    const seen=new Set(), result=[];
+    for(const option of options){
+      const key=String(option||'').toLowerCase();
+      const rows=groups[key]||[];
+      for(const b of rows){
+        const id=String(b?.id||'');
+        if(!id||seen.has(id)) continue;
+        seen.add(id);
+        result.push(b);
+        if(result.length>=MAX) return result;
+      }
+    }
+    if(result.length) return result;
   }
-  if(result.length<MAX)pushRows(randomRows);
 
-  console.info('[V197 recommendation pool]',{
-    mode,
-    primary:primary.length,
-    total:result.length,
-    names:result.map(b=>b.name_ko||b.name||b.name_en)
-  });
-  return result.slice(0,MAX);
+  const primary=groups[mode]||featuredRows;
+  return primary.slice(0,MAX);
 }
+
 function v66BoardHomePins(){
   try{const key=`kfocus_board_home_pins_v66_${String(typeof getAppRegion==='function'?getAppRegion():(window.APP_CONFIG?.APP_REGION||'dallas')).toLowerCase()}`;const v=JSON.parse(localStorage.getItem(key)||'[]');return new Set(Array.isArray(v)?v.map(String):[]);}catch{return new Set();}
 }
