@@ -1,4 +1,4 @@
-console.info('[DalTownMap Admin] V219 popup rotation build');
+console.info('[DalTownMap Admin] V220 popup rotation fix build');
 console.info('[DalTownMap Admin] V217 full-list canonical sync loaded');
 
 /* ===== V208 DEPLOYMENT MARKER ===== */
@@ -8,7 +8,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V217';
+    badge.textContent='Admin V220';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10058,9 +10058,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 
-// V219: multi popup media manager (visit sequential / visit random / date sequential)
+// V220: multi popup media manager (visit sequential / visit random / date sequential)
 (function(){
-  console.info('[DalTownMap Admin] V219 popup rotation manager loaded');
+  console.info('[DalTownMap Admin] V220 popup rotation manager loaded');
   const el=id=>document.getElementById(id);
   const htmlEsc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   let state={enabled:true,mode:'visit_sequential',frequency:'daily',items:[],updated_at:''};
@@ -10216,5 +10216,5 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   function boot(){let tries=0;const t=setInterval(()=>{if(mount()||++tries>20)clearInterval(t)},400);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-  window.V219PopupAdmin={load,save:saveAll};
+  window.V220PopupAdmin={load,save:saveAll};
 })();
