@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V221 one-line weather recovery loaded');
+console.info('[DalTownMap App] V222 hard one-line ticker visibility fix loaded');
 console.info('[DalTownMap App] V217 full-list canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
@@ -8441,7 +8441,15 @@ async function p123LoadServerCoreItems(){
 // === V221: 한 줄 광고 날씨 독립 복구 로더 ===
 // daily-core/newsroom 데이터가 늦거나 RLS/서버 함수에서 누락되어도
 // 메인 한 줄 광고의 '날씨'가 사라지지 않도록 Open-Meteo를 최종 보조 소스로 사용합니다.
-let v221TickerWeatherFallback = null;
+let v221TickerWeatherFallback = {
+  id:'v222-weather-loading',
+  category:'weather', category_label:'날씨', icon:'☀️', daily_core:true,
+  title:'DFW 오늘 날씨 정보를 불러오는 중입니다.',
+  summary:'날씨 정보를 확인하고 있습니다.', subtitle:'날씨 정보를 확인하고 있습니다.',
+  source_name:'DaltownMap', source_url:'', url:'',
+  published_at:new Date().toISOString(), updated_at:new Date().toISOString(),
+  event_data:{category:'weather',provider:'v222-loading',fallback:true}
+};
 function v221WeatherCodeLabel(code){
   const n=Number(code);
   if(n===0) return '맑음';
@@ -8684,7 +8692,14 @@ async function v221LoadTickerWeatherFallback(){
     if(!section||!box) return false;
 
     p122Rows=normalizeRows();
-    if(!p122Rows.length) return false;
+    if(!p122Rows.length){
+      // V222: 데이터가 늦어도 한 줄 광고 컨테이너 자체는 절대 사라지지 않게 합니다.
+      p122Rows=[v221TickerWeatherFallback||{
+        id:'v222-weather-emergency', category:'weather',
+        title:'DFW 오늘 날씨 정보를 불러오는 중입니다.', summary:'', url:''
+      }];
+      console.warn('[V222 ticker] no source rows; showing recovery row');
+    }
 
     if(p122Index>=p122Rows.length) p122Index=0;
     const row=p122Rows[p122Index];
@@ -8692,6 +8707,8 @@ async function v221LoadTickerWeatherFallback(){
     const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':'광고';
 
     section.hidden=false;
+    section.removeAttribute('hidden');
+    section.style.setProperty('display','block','important');
     box.classList.remove('p124-ready');
     box.classList.add('p125-ready');
     box.innerHTML=`
@@ -8758,16 +8775,19 @@ async function v221LoadTickerWeatherFallback(){
         return key==='weather';
       });
     if(!hasInternalWeather) await v221LoadTickerWeatherFallback();
-    else v221TickerWeatherFallback=null;
+    else if(!v221TickerWeatherFallback) v221TickerWeatherFallback={id:'v222-weather-ready',category:'weather',title:'DFW 날씨 정보를 확인하세요.',summary:'',url:''};
 
     if(resetIndex) p122Index=0;
     start();
   }
 
   document.addEventListener('DOMContentLoaded',()=>{
+    // V222: 첫 화면에는 즉시 복구 행을 그린 뒤 실제 날씨/교통 데이터로 교체합니다.
+    setTimeout(()=>start(),80);
     setTimeout(()=>refresh(true),700);
-    // P134: 관리자 광고가 먼저 표시돼도 날씨·교통 로딩 완료 후 반드시 한 번 더 동기화합니다.
     setTimeout(()=>refresh(false),2200);
+    setTimeout(()=>refresh(false),5000);
+    setTimeout(()=>refresh(false),9000);
   });
 
   // DevTools 클릭/창 포커스 변화 때마다 index가 0(날씨)으로 리셋되던 현상을 제거합니다.
@@ -8790,6 +8810,29 @@ async function v221LoadTickerWeatherFallback(){
 
   console.info('[DalTownMap] P122 discrete weather/traffic ticker loaded');
   console.info('[DalTownMap] P134 ticker late-data sync fix loaded');
+})();
+
+
+// V222: 다른 홈 모듈이 ticker를 다시 숨겨도 복구합니다.
+(() => {
+  function repair(){
+    const section=document.getElementById('homeAdTickerSection');
+    const box=document.getElementById('homeAdTickerList');
+    if(!section||!box) return;
+    if(!box.querySelector('.p122-shell')){
+      window.P122OneLineTicker?.refresh?.(false);
+      return;
+    }
+    section.hidden=false;
+    section.removeAttribute('hidden');
+    section.style.setProperty('display','block','important');
+    box.classList.add('p125-ready');
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    [300,1500,3500,7000].forEach(ms=>setTimeout(repair,ms));
+    setInterval(()=>{ if(!document.hidden && (window.currentPage||'home')==='home') repair(); },15000);
+  });
+  window.V222TickerRepair=repair;
 })();
 
 console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
