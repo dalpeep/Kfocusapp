@@ -1,3 +1,5 @@
+console.info('[DalTownMap App] V223 market carousel timer fix loaded');
+console.info('[DalTownMap App] V222 hard one-line ticker visibility fix loaded');
 console.info('[DalTownMap App] V217 full-list canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
 console.info('[DalTownMap] P141 coupon mobile UI fix loaded');
@@ -8154,7 +8156,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
 // === P130/V187: Weekly market hard restore (independent home mount + tolerant schema) ===
 (() => {
-  const S={rows:[],i:0,timer:null,loading:null};
+  const S={rows:[],i:0,timer:null,imageTimer:null,loading:null};
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const imgs=r=>[...new Set([
@@ -8220,6 +8222,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function render(){
     css(); const h=mount(),r=S.rows[S.i];
+    // V223: every re-render must cancel the previous inner-flyer timer.
+    // Without this, refresh()/market rotation creates stacked intervals and the images appear to change too fast.
+    if(S.imageTimer){ clearInterval(S.imageTimer); S.imageTimer=null; }
     if(!h||!r){if(h)h.hidden=true;return false}
     const im=imgs(r),nm=name(r),pd=period(r);
     h.hidden=false;h.removeAttribute('hidden');
@@ -8227,7 +8232,17 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 <div class="p130-titlebar"><div class="p130-title"><span>📅</span><span>이번 주 마켓 정보</span></div>${pd?`<span class="p130-period">${esc(pd)}</span>`:''}</div>
 <div class="p130-window"><div class="p130-reel">${im.map((u,j)=>`<div class="p130-panel" style="${j?'display:none':''}"><img src="${esc(u)}" alt="${esc(nm)} 전단 ${j+1}"></div>`).join('')}</div><button class="p130-arrow" type="button">›</button></div>`;
     h.querySelector('.p130-arrow')?.addEventListener('click',()=>{const id=bid(r);if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){window.selectedBizId=id;renderDetail(id);showPage('business-detail')}});
-    if(im.length>1){let j=0;setInterval(()=>{if(!h.isConnected)return;const ps=h.querySelectorAll('.p130-panel');if(ps.length<2)return;ps[j].style.display='none';j=(j+1)%ps.length;ps[j].style.display='block'},4200)}
+    if(im.length>1){
+      let j=0;
+      S.imageTimer=setInterval(()=>{
+        if(!h.isConnected){ clearInterval(S.imageTimer); S.imageTimer=null; return; }
+        const ps=h.querySelectorAll('.p130-panel');
+        if(ps.length<2)return;
+        ps[j].style.display='none';
+        j=(j+1)%ps.length;
+        ps[j].style.display='block';
+      },6000);
+    }
     console.info('[P130 V187 SHOW]',{total:S.rows.length,index:S.i,name:nm,images:im.length});
     return true;
   }
@@ -8250,7 +8265,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     })().catch(e=>{console.error('[P130 V187 LOAD ERROR]',e);return []}).finally(()=>S.loading=null);
     return S.loading;
   }
-  async function refresh(){await load();render();if(S.timer)clearInterval(S.timer);if(S.rows.length>1)S.timer=setInterval(()=>{if(document.hidden)return;S.i=(S.i+1)%S.rows.length;render()},9000)}
+  async function refresh(){
+    await load();
+    render();
+    if(S.timer){clearInterval(S.timer);S.timer=null;}
+    if(S.rows.length>1)S.timer=setInterval(()=>{if(document.hidden)return;S.i=(S.i+1)%S.rows.length;render()},10000);
+  }
   function boot(){mount();refresh();setTimeout(refresh,1500);setTimeout(refresh,4000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('load',()=>setTimeout(refresh,500),{once:true});
@@ -8437,6 +8457,78 @@ async function p123LoadServerCoreItems(){
   }
 }
 
+// === V221: 한 줄 광고 날씨 독립 복구 로더 ===
+// daily-core/newsroom 데이터가 늦거나 RLS/서버 함수에서 누락되어도
+// 메인 한 줄 광고의 '날씨'가 사라지지 않도록 Open-Meteo를 최종 보조 소스로 사용합니다.
+let v221TickerWeatherFallback = {
+  id:'v222-weather-loading',
+  category:'weather', category_label:'날씨', icon:'☀️', daily_core:true,
+  title:'DFW 오늘 날씨 정보를 불러오는 중입니다.',
+  summary:'날씨 정보를 확인하고 있습니다.', subtitle:'날씨 정보를 확인하고 있습니다.',
+  source_name:'DaltownMap', source_url:'', url:'',
+  published_at:new Date().toISOString(), updated_at:new Date().toISOString(),
+  event_data:{category:'weather',provider:'v222-loading',fallback:true}
+};
+function v221WeatherCodeLabel(code){
+  const n=Number(code);
+  if(n===0) return '맑음';
+  if([1,2].includes(n)) return '대체로 맑음';
+  if(n===3) return '흐림';
+  if([45,48].includes(n)) return '안개';
+  if([51,53,55,56,57].includes(n)) return '이슬비';
+  if([61,63,65,66,67,80,81,82].includes(n)) return '비';
+  if([71,73,75,77,85,86].includes(n)) return '눈';
+  if([95,96,99].includes(n)) return '뇌우';
+  return '날씨 정보';
+}
+async function v221LoadTickerWeatherFallback(){
+  try{
+    const region=String(currentRegion||getAppRegion?.()||'dallas').toLowerCase();
+    const center=region==='colorado'?{lat:39.7392,lng:-104.9903}:{lat:32.7767,lng:-96.7970};
+    const tz=region==='colorado'?'America/Denver':'America/Chicago';
+    const url=new URL('https://api.open-meteo.com/v1/forecast');
+    url.searchParams.set('latitude',String(center.lat));
+    url.searchParams.set('longitude',String(center.lng));
+    url.searchParams.set('current','temperature_2m,weather_code');
+    url.searchParams.set('daily','weather_code,temperature_2m_max,temperature_2m_min');
+    url.searchParams.set('temperature_unit','fahrenheit');
+    url.searchParams.set('timezone',tz);
+    url.searchParams.set('forecast_days','1');
+
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),4500);
+    const res=await fetch(url.toString(),{cache:'no-store',signal:controller.signal});
+    clearTimeout(timeout);
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j=await res.json();
+    const temp=Number(j?.current?.temperature_2m);
+    const high=Number(j?.daily?.temperature_2m_max?.[0]);
+    const low=Number(j?.daily?.temperature_2m_min?.[0]);
+    const code=j?.current?.weather_code ?? j?.daily?.weather_code?.[0];
+    if(!Number.isFinite(temp) && !Number.isFinite(high)) throw new Error('temperature missing');
+    const place=region==='colorado'?'Denver':'DFW';
+    const condition=v221WeatherCodeLabel(code);
+    const parts=[];
+    if(Number.isFinite(temp)) parts.push(`현재 ${Math.round(temp)}°F`);
+    if(Number.isFinite(high)) parts.push(`최고 ${Math.round(high)}°F`);
+    if(Number.isFinite(low)) parts.push(`최저 ${Math.round(low)}°F`);
+    v221TickerWeatherFallback={
+      id:`v221-weather-${region}-${new Date().toISOString().slice(0,10)}`,
+      category:'weather',category_label:'날씨',icon:'☀️',daily_core:true,
+      title:`${place} 오늘 날씨 — ${condition}${parts.length?' · '+parts.join(' / '):''}`,
+      summary:`${place} 현재 날씨`,subtitle:`${place} 현재 날씨`,
+      source_name:'Open-Meteo',source_url:'',url:'',
+      published_at:new Date().toISOString(),updated_at:new Date().toISOString(),
+      event_data:{category:'weather',provider:'open-meteo',fallback:true}
+    };
+    console.info('[V221 ticker weather fallback] loaded',v221TickerWeatherFallback.title);
+    return v221TickerWeatherFallback;
+  }catch(error){
+    console.warn('[V221 ticker weather fallback] unavailable',error?.message||error);
+    return v221TickerWeatherFallback;
+  }
+}
+
 // === P122: 한 줄 광고 단일 카드 순환 · 날씨/교통 확실한 교대 표시 ===
 (() => {
   const LABEL_TEXT = '한 줄 광고';
@@ -8582,20 +8674,24 @@ async function p123LoadServerCoreItems(){
     const todaySource=Array.isArray(v51TodayItems)?v51TodayItems:[];
     const coreSource=Array.isArray(v120CoreWeatherTrafficItems)?v120CoreWeatherTrafficItems:[];
     const serverSource=Array.isArray(p123ServerCoreItems)?p123ServerCoreItems:[];
+    const fallbackSource=v221TickerWeatherFallback?[v221TickerWeatherFallback]:[];
     const source=typeof v51MergeTodaySources==='function'
-      ? v51MergeTodaySources(todaySource,[...serverSource,...coreSource])
-      : [...serverSource,...coreSource,...todaySource];
+      ? v51MergeTodaySources(todaySource,[...serverSource,...coreSource,...fallbackSource])
+      : [...serverSource,...coreSource,...fallbackSource,...todaySource];
 
-    const publicRows=source
-      .filter(item=>['weather','traffic'].includes(String(item?.category||'').toLowerCase()));
+    const categoryOf=item=>{
+      const raw=item?.category||item?.category_key||item?.category_label||'';
+      return typeof v461NormalizeProposalCategory==='function'
+        ? v461NormalizeProposalCategory(raw)
+        : String(raw).toLowerCase();
+    };
+    const publicRows=source.filter(item=>['weather','traffic'].includes(categoryOf(item)));
 
-    // 서버 daily-core를 최우선으로 사용합니다.
-    const weather=[
-      ...serverSource,...publicRows
-    ].find(item=>String(item?.category||'').toLowerCase()==='weather');
-    const traffic=[
-      ...serverSource,...publicRows
-    ].find(item=>String(item?.category||'').toLowerCase()==='traffic');
+    // 서버 daily-core → 직접 newsroom → 오늘 카드 → 외부 보조 날씨 순으로 사용합니다.
+    const weather=[...serverSource,...coreSource,...todaySource,...fallbackSource,...publicRows]
+      .find(item=>categoryOf(item)==='weather');
+    const traffic=[...serverSource,...coreSource,...todaySource,...publicRows]
+      .find(item=>categoryOf(item)==='traffic');
 
     // 날씨 → 교통 → 광고 순서로 단일 렌더러가 모두 관리합니다.
     const ordered=[weather,traffic,...configuredAds()].filter(Boolean);
@@ -8615,7 +8711,14 @@ async function p123LoadServerCoreItems(){
     if(!section||!box) return false;
 
     p122Rows=normalizeRows();
-    if(!p122Rows.length) return false;
+    if(!p122Rows.length){
+      // V222: 데이터가 늦어도 한 줄 광고 컨테이너 자체는 절대 사라지지 않게 합니다.
+      p122Rows=[v221TickerWeatherFallback||{
+        id:'v222-weather-emergency', category:'weather',
+        title:'DFW 오늘 날씨 정보를 불러오는 중입니다.', summary:'', url:''
+      }];
+      console.warn('[V222 ticker] no source rows; showing recovery row');
+    }
 
     if(p122Index>=p122Rows.length) p122Index=0;
     const row=p122Rows[p122Index];
@@ -8623,6 +8726,8 @@ async function p123LoadServerCoreItems(){
     const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':'광고';
 
     section.hidden=false;
+    section.removeAttribute('hidden');
+    section.style.setProperty('display','block','important');
     box.classList.remove('p124-ready');
     box.classList.add('p125-ready');
     box.innerHTML=`
@@ -8680,14 +8785,28 @@ async function p123LoadServerCoreItems(){
       typeof p123LoadServerCoreItems==='function'?p123LoadServerCoreItems():Promise.resolve([]),
       typeof v120LoadCoreWeatherTrafficDirect==='function'?v120LoadCoreWeatherTrafficDirect():Promise.resolve([])
     ]);
+
+    // 내부 소스에 날씨가 없을 때만 외부 보조 날씨를 호출합니다.
+    const hasInternalWeather=[...p123ServerCoreItems,...v120CoreWeatherTrafficItems,...(Array.isArray(v51TodayItems)?v51TodayItems:[])]
+      .some(item=>{
+        const raw=item?.category||item?.category_key||item?.category_label||'';
+        const key=typeof v461NormalizeProposalCategory==='function'?v461NormalizeProposalCategory(raw):String(raw).toLowerCase();
+        return key==='weather';
+      });
+    if(!hasInternalWeather) await v221LoadTickerWeatherFallback();
+    else if(!v221TickerWeatherFallback) v221TickerWeatherFallback={id:'v222-weather-ready',category:'weather',title:'DFW 날씨 정보를 확인하세요.',summary:'',url:''};
+
     if(resetIndex) p122Index=0;
     start();
   }
 
   document.addEventListener('DOMContentLoaded',()=>{
+    // V222: 첫 화면에는 즉시 복구 행을 그린 뒤 실제 날씨/교통 데이터로 교체합니다.
+    setTimeout(()=>start(),80);
     setTimeout(()=>refresh(true),700);
-    // P134: 관리자 광고가 먼저 표시돼도 날씨·교통 로딩 완료 후 반드시 한 번 더 동기화합니다.
     setTimeout(()=>refresh(false),2200);
+    setTimeout(()=>refresh(false),5000);
+    setTimeout(()=>refresh(false),9000);
   });
 
   // DevTools 클릭/창 포커스 변화 때마다 index가 0(날씨)으로 리셋되던 현상을 제거합니다.
@@ -8710,6 +8829,29 @@ async function p123LoadServerCoreItems(){
 
   console.info('[DalTownMap] P122 discrete weather/traffic ticker loaded');
   console.info('[DalTownMap] P134 ticker late-data sync fix loaded');
+})();
+
+
+// V222: 다른 홈 모듈이 ticker를 다시 숨겨도 복구합니다.
+(() => {
+  function repair(){
+    const section=document.getElementById('homeAdTickerSection');
+    const box=document.getElementById('homeAdTickerList');
+    if(!section||!box) return;
+    if(!box.querySelector('.p122-shell')){
+      window.P122OneLineTicker?.refresh?.(false);
+      return;
+    }
+    section.hidden=false;
+    section.removeAttribute('hidden');
+    section.style.setProperty('display','block','important');
+    box.classList.add('p125-ready');
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    [300,1500,3500,7000].forEach(ms=>setTimeout(repair,ms));
+    setInterval(()=>{ if(!document.hidden && (window.currentPage||'home')==='home') repair(); },15000);
+  });
+  window.V222TickerRepair=repair;
 })();
 
 console.info('[DalTownMap] P120 weather+traffic direct-core fallback loaded');
