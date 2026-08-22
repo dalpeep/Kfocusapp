@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V223 market carousel timer fix loaded');
 console.info('[DalTownMap App] V222 hard one-line ticker visibility fix loaded');
 console.info('[DalTownMap App] V217 full-list canonical sync loaded');
 console.info('[DalTownMap] P142 coupon centered layout loaded');
@@ -8155,7 +8156,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
 // === P130/V187: Weekly market hard restore (independent home mount + tolerant schema) ===
 (() => {
-  const S={rows:[],i:0,timer:null,loading:null};
+  const S={rows:[],i:0,timer:null,imageTimer:null,loading:null};
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const imgs=r=>[...new Set([
@@ -8221,6 +8222,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 
   function render(){
     css(); const h=mount(),r=S.rows[S.i];
+    // V223: every re-render must cancel the previous inner-flyer timer.
+    // Without this, refresh()/market rotation creates stacked intervals and the images appear to change too fast.
+    if(S.imageTimer){ clearInterval(S.imageTimer); S.imageTimer=null; }
     if(!h||!r){if(h)h.hidden=true;return false}
     const im=imgs(r),nm=name(r),pd=period(r);
     h.hidden=false;h.removeAttribute('hidden');
@@ -8228,7 +8232,17 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 <div class="p130-titlebar"><div class="p130-title"><span>📅</span><span>이번 주 마켓 정보</span></div>${pd?`<span class="p130-period">${esc(pd)}</span>`:''}</div>
 <div class="p130-window"><div class="p130-reel">${im.map((u,j)=>`<div class="p130-panel" style="${j?'display:none':''}"><img src="${esc(u)}" alt="${esc(nm)} 전단 ${j+1}"></div>`).join('')}</div><button class="p130-arrow" type="button">›</button></div>`;
     h.querySelector('.p130-arrow')?.addEventListener('click',()=>{const id=bid(r);if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){window.selectedBizId=id;renderDetail(id);showPage('business-detail')}});
-    if(im.length>1){let j=0;setInterval(()=>{if(!h.isConnected)return;const ps=h.querySelectorAll('.p130-panel');if(ps.length<2)return;ps[j].style.display='none';j=(j+1)%ps.length;ps[j].style.display='block'},4200)}
+    if(im.length>1){
+      let j=0;
+      S.imageTimer=setInterval(()=>{
+        if(!h.isConnected){ clearInterval(S.imageTimer); S.imageTimer=null; return; }
+        const ps=h.querySelectorAll('.p130-panel');
+        if(ps.length<2)return;
+        ps[j].style.display='none';
+        j=(j+1)%ps.length;
+        ps[j].style.display='block';
+      },6000);
+    }
     console.info('[P130 V187 SHOW]',{total:S.rows.length,index:S.i,name:nm,images:im.length});
     return true;
   }
@@ -8251,7 +8265,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     })().catch(e=>{console.error('[P130 V187 LOAD ERROR]',e);return []}).finally(()=>S.loading=null);
     return S.loading;
   }
-  async function refresh(){await load();render();if(S.timer)clearInterval(S.timer);if(S.rows.length>1)S.timer=setInterval(()=>{if(document.hidden)return;S.i=(S.i+1)%S.rows.length;render()},9000)}
+  async function refresh(){
+    await load();
+    render();
+    if(S.timer){clearInterval(S.timer);S.timer=null;}
+    if(S.rows.length>1)S.timer=setInterval(()=>{if(document.hidden)return;S.i=(S.i+1)%S.rows.length;render()},10000);
+  }
   function boot(){mount();refresh();setTimeout(refresh,1500);setTimeout(refresh,4000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('load',()=>setTimeout(refresh,500),{once:true});
