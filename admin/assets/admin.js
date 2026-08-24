@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V224 newsroom auto-collection + 14-day cleanup build');
 console.info('[DalTownMap Admin] V221 weather ticker package build');
 console.info('[DalTownMap Admin] V220 popup rotation fix build');
 console.info('[DalTownMap Admin] V217 full-list canonical sync loaded');
@@ -9,7 +10,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V221';
+    badge.textContent='Admin V224';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -5716,7 +5717,7 @@ async function v487DeleteHomeLink(id){
 async function v489SetArchiveKeep(id,enabled=true){
   try{
     await newsroomEdgeCall('set_archive_keep',{id,enabled,region:getAppRegion()});
-    safeText('newsroomStatus',enabled?'선택한 기사를 30일 자동 삭제 대상에서 제외했습니다.':'보관을 해제했습니다. 이 기사는 수집일 기준 30일 후 자동 삭제됩니다.');
+    safeText('newsroomStatus',enabled?'선택한 기사를 14일 자동 삭제 대상에서 제외했습니다.':'보관을 해제했습니다. 이 기사는 원문 발행일 기준 14일 후 자동 삭제됩니다.');
     await loadNewsroom();
   }catch(e){alert(e.message||String(e));}
 }
@@ -6832,7 +6833,10 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
           <h2>오늘 자동 수집·기사 생성 확인</h2>
           <div class="p0022-sub">조회 전용입니다. 새로고침해도 수집이나 기사 생성을 다시 실행하지 않습니다.</div>
         </div>
-        <button type="button" class="btn primary" id="${P}Refresh">현황 새로고침</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button type="button" class="btn ghost" id="${P}Cleanup14">14일 지난 기사 정리</button>
+          <button type="button" class="btn primary" id="${P}Refresh">현황 새로고침</button>
+        </div>
       </div>
       <div id="${P}State" class="p0022-state waiting">확인 중...</div>
       <div class="p0022-grid">
@@ -6860,6 +6864,18 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
     if(first) first.insertAdjacentElement('afterend', panel);
     else section.prepend(panel);
     el(P+'Refresh')?.addEventListener('click', load);
+    el(P+'Cleanup14')?.addEventListener('click', async()=>{
+      if(!confirm('원문 발행일 기준 14일이 지난 기사를 모두 삭제할까요?\n\n관리자가 ‘보관’한 기사는 삭제하지 않습니다.')) return;
+      const b=el(P+'Cleanup14'); const oldText=b?.textContent||'14일 지난 기사 정리';
+      if(b){b.disabled=true;b.textContent='정리 중...';}
+      try{
+        const r=await newsroomEdgeCall('cleanup',{region:getAppRegion()},'14일 지난 기사를 정리하고 있습니다...');
+        alert(`정리 완료: ${Number(r.cleaned||0)}건 삭제\n보관 기간: ${Number(r.retention_days||14)}일`);
+        if(typeof loadNewsroom==='function') await loadNewsroom();
+        await load();
+      }catch(e){alert(`기사 정리 실패: ${e.message||e}`);}
+      finally{if(b){b.disabled=false;b.textContent=oldText;}}
+    });
     return panel;
   }
 
