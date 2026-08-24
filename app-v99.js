@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V229 business listings build loaded');
 console.info('[DalTownMap App] V223 market carousel timer fix loaded');
 console.info('[DalTownMap App] V222 hard one-line ticker visibility fix loaded');
 console.info('[DalTownMap App] V217 full-list canonical sync loaded');
@@ -402,6 +403,8 @@ const FALLBACK_BUSINESSES = [
   { id:'wonder', name:'Wonder Bakery', category:'베이커리', address:'555 Bakery St, Aurora, CO', phone:'303-555-2222', image:'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=1200&q=80', coupon:true, desc:'오늘 쿠폰 시안용 업소입니다.', lat:39.68, lng:-104.84, created_at:'2026-03-05', region:'colorado' }
 ];
 let businesses = [];
+let businessListings = [];
+let listingBusinessIds = new Set();
 let homeBusinessTab = 'featured';
 let coupons = [];
 let dalpicks = [];
@@ -562,7 +565,8 @@ function homeBusinessItemHTML(b){
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
   const promoBadges = [
     (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '',
-    (typeof businessHasActiveBanner === 'function' && businessHasActiveBanner(b)) ? '<span class="home-business-banner-badge">배너</span>' : ''
+    (typeof businessHasActiveBanner === 'function' && businessHasActiveBanner(b)) ? '<span class="home-business-banner-badge">배너</span>' : '',
+    (typeof businessHasActiveListing === 'function' && businessHasActiveListing(b)) ? '<span class="home-business-listing-badge">LISTING</span>' : ''
   ].filter(Boolean).join('');
 
   return `
@@ -1604,6 +1608,7 @@ async function loadRealData(){
   if(typeof renderDalpicks==='function') renderDalpicks();
   await loadSlidesFromSupabase();
   await loadBannersFromSupabase();
+  await loadBusinessListingsFromSupabase();
   finalizeData();
 }
 
@@ -4498,6 +4503,140 @@ function updateCouponTabUI(){
   couponTodayList?.classList.toggle('hidden', couponViewTab!=='today');
   couponAllList?.classList.toggle('hidden', couponViewTab!=='all');
 }
+
+// === V229: 업소별 부동산 리스팅 ===
+function v229DallasDate(){
+  try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+  catch(_){return new Date().toISOString().slice(0,10);}
+}
+function v229ListingIsPublic(row){
+  const status=String(row?.status||'active').toLowerCase();
+  if(!['active','pending'].includes(status)) return false;
+  const today=v229DallasDate();
+  const start=String(row?.start_date||'').slice(0,10);
+  const end=String(row?.end_date||'').slice(0,10);
+  return (!start||start<=today)&&(!end||end>=today);
+}
+function v229ListingImages(row){
+  if(Array.isArray(row?.images)) return row.images.filter(Boolean);
+  if(typeof row?.images==='string'&&row.images.trim()){
+    try{const p=JSON.parse(row.images);if(Array.isArray(p))return p.filter(Boolean);}catch(_){}
+    return row.images.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+  }
+  return row?.image_url?[row.image_url]:[];
+}
+function v229ListingPrice(row){
+  if(String(row?.price_label||'').trim()) return String(row.price_label).trim();
+  if(row?.price===null||row?.price===undefined||row?.price==='') return '가격 문의';
+  const n=Number(row.price);
+  if(!Number.isFinite(n)) return String(row.price);
+  return `$${n.toLocaleString()}${String(row?.listing_type||'sale').toLowerCase()==='lease'?'/mo':''}`;
+}
+function v229ListingTypeLabel(type){return String(type||'sale').toLowerCase()==='lease'?'For Lease':'For Sale';}
+function businessHasActiveListing(b){
+  return !!b && listingBusinessIds.has(String(b.id));
+}
+async function loadBusinessListingsFromSupabase(){
+  businessListings=[];
+  listingBusinessIds=new Set();
+  const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY) return false;
+  try{
+    const select='id,business_id,region,title,listing_type,status,price,price_label,address,city,beds,baths,sqft,description,image_url,images,external_url,start_date,end_date,is_featured,created_at';
+    const url=`${SUPABASE_URL}/rest/v1/business_listings?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=is_featured.desc,created_at.desc`;
+    const res=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`},cache:'no-store'});
+    if(!res.ok){
+      const detail=await res.text().catch(()=> '');
+      console.warn('[V229 listings] table unavailable',res.status,detail);
+      return false;
+    }
+    const rows=await res.json();
+    businessListings=(Array.isArray(rows)?rows:[]).filter(v229ListingIsPublic);
+    listingBusinessIds=new Set(businessListings.map(r=>String(r.business_id||'')).filter(Boolean));
+    return true;
+  }catch(error){
+    console.warn('[V229 listings] load skipped',error);
+    return false;
+  }
+}
+function ensureV229ListingPublicStyles(){
+  if(document.getElementById('v229ListingPublicStyles')) return;
+  const style=document.createElement('style');
+  style.id='v229ListingPublicStyles';
+  style.textContent=`
+    .home-business-listing-badge{display:inline-flex;align-items:center;background:#0f766e;color:#fff;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:900;line-height:1}
+    .business-listings-section{margin-top:16px}.business-listings-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:10px}.business-listings-head h3{margin:0}.business-listings-head small{color:#64748b}
+    .business-listings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .business-listing-card{padding:0;border:1px solid #e2e8f0;border-radius:16px;background:#fff;overflow:hidden;text-align:left;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.04)}
+    .business-listing-image{position:relative;aspect-ratio:16/10;background:#eef2f7;overflow:hidden}.business-listing-image img{width:100%;height:100%;object-fit:cover;display:block}
+    .business-listing-type{position:absolute;left:9px;top:9px;background:rgba(15,23,42,.88);color:#fff;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900}
+    .business-listing-copy{padding:12px}.business-listing-copy h4{margin:0 0 6px;font-size:15px;line-height:1.3}.business-listing-price{font-size:18px;font-weight:900;color:#0f172a}.business-listing-meta{margin-top:5px;color:#64748b;font-size:12px;line-height:1.45}
+    .v229-listing-overlay{position:fixed;inset:0;z-index:120000;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;padding:16px}.v229-listing-overlay.hidden{display:none}
+    .v229-listing-dialog{width:min(760px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 28px 70px rgba(15,23,42,.3)}
+    .v229-listing-dialog-image{width:100%;aspect-ratio:16/9;object-fit:cover;background:#eef2f7;border-radius:22px 22px 0 0}.v229-listing-dialog-body{padding:20px}.v229-listing-dialog-top{display:flex;justify-content:space-between;gap:12px}.v229-listing-dialog h2{margin:4px 0 8px}.v229-listing-dialog-price{font-size:24px;font-weight:950}.v229-listing-dialog-meta{color:#475569;line-height:1.65;margin:10px 0}.v229-listing-dialog-desc{white-space:pre-wrap;color:#334155;line-height:1.65}
+    .v229-listing-dialog-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}.v229-listing-dialog-actions a,.v229-listing-dialog-actions button{border:0;border-radius:999px;padding:11px 16px;font-weight:900;text-decoration:none;cursor:pointer}.v229-listing-dialog-actions a{background:#0f5bd7;color:#fff}.v229-listing-dialog-actions button{background:#eef2f7;color:#0f172a}
+    @media(max-width:700px){.business-listings-grid{grid-template-columns:1fr}}
+  `;
+  document.head.appendChild(style);
+}
+function businessListingsFor(businessId){
+  return (businessListings||[]).filter(r=>String(r.business_id)===String(businessId)&&v229ListingIsPublic(r))
+    .sort((a,b)=>Number(b.is_featured===true)-Number(a.is_featured===true)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0));
+}
+function renderBusinessListings(businessId){
+  const rows=businessListingsFor(businessId);
+  if(!rows.length) return '';
+  return `<section class="biz-detail-card business-listings-section">
+    <div class="business-listings-head"><div><h3>🏠 현재 리스팅</h3><small>등록된 매매·임대 매물</small></div><strong>${rows.length}</strong></div>
+    <div class="business-listings-grid">${rows.map(row=>{
+      const images=v229ListingImages(row), image=images[0]||'/assets/kfocus-icon.png';
+      return `<button type="button" class="business-listing-card" data-listing-id="${esc(row.id)}">
+        <div class="business-listing-image"><img src="${esc(image)}" alt="${esc(row.title||'리스팅')}"><span class="business-listing-type">${esc(v229ListingTypeLabel(row.listing_type))}</span></div>
+        <div class="business-listing-copy"><h4>${esc(row.title||'리스팅')}</h4><div class="business-listing-price">${esc(v229ListingPrice(row))}</div><div class="business-listing-meta">${esc(row.city||row.address||'Dallas–Fort Worth')}${row.beds!=null?` · ${esc(row.beds)} Beds`:''}${row.baths!=null?` · ${esc(row.baths)} Baths`:''}${row.sqft!=null?` · ${Number(row.sqft).toLocaleString()} sqft`:''}</div></div>
+      </button>`;
+    }).join('')}</div>
+  </section>`;
+}
+function ensureV229ListingModal(){
+  ensureV229ListingPublicStyles();
+  let modal=document.getElementById('v229ListingOverlay');
+  if(modal) return modal;
+  modal=document.createElement('div');
+  modal.id='v229ListingOverlay';
+  modal.className='v229-listing-overlay hidden';
+  modal.innerHTML='<div class="v229-listing-dialog" id="v229ListingDialog"></div>';
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.add('hidden');});
+  return modal;
+}
+function openV229Listing(listingId){
+  const row=(businessListings||[]).find(x=>String(x.id)===String(listingId));
+  if(!row) return;
+  const business=businesses.find(x=>String(x.id)===String(row.business_id));
+  const images=v229ListingImages(row),image=images[0]||business?.image||'/assets/kfocus-icon.png';
+  const modal=ensureV229ListingModal(), dialog=document.getElementById('v229ListingDialog');
+  if(!dialog) return;
+  const url=normalizeUrl(row.external_url||'');
+  dialog.innerHTML=`<img class="v229-listing-dialog-image" src="${esc(image)}" alt="${esc(row.title||'리스팅')}">
+    <div class="v229-listing-dialog-body">
+      <div class="v229-listing-dialog-top"><span class="business-listing-type" style="position:static">${esc(v229ListingTypeLabel(row.listing_type))}</span><button type="button" data-v229-listing-close style="border:0;background:#eef2f7;border-radius:999px;width:34px;height:34px;cursor:pointer">×</button></div>
+      <h2>${esc(row.title||'리스팅')}</h2>
+      <div class="v229-listing-dialog-price">${esc(v229ListingPrice(row))}</div>
+      <div class="v229-listing-dialog-meta">📍 ${esc(row.address||row.city||'주소 문의')}<br>${row.beds!=null?`${esc(row.beds)} Beds`:''}${row.baths!=null?` · ${esc(row.baths)} Baths`:''}${row.sqft!=null?` · ${Number(row.sqft).toLocaleString()} sqft`:''}</div>
+      ${row.description?`<div class="v229-listing-dialog-desc">${esc(row.description)}</div>`:''}
+      <div class="v229-listing-dialog-actions">${url?`<a href="${esc(url)}" target="_blank" rel="noopener" data-v229-listing-external>상세 보기</a>`:''}${business?.phone?`<a href="tel:${esc(business.phone)}">문의 전화</a>`:''}<button type="button" data-v229-listing-close>닫기</button></div>
+    </div>`;
+  dialog.querySelectorAll('[data-v229-listing-close]').forEach(btn=>btn.addEventListener('click',()=>modal.classList.add('hidden')));
+  dialog.querySelector('[data-v229-listing-external]')?.addEventListener('click',()=>logBusinessActivity(row.business_id,'listing_click'));
+  logBusinessActivity(row.business_id,'listing_view');
+  modal.classList.remove('hidden');
+}
+function bindV229ListingCards(root=document){
+  root.querySelectorAll('[data-listing-id]').forEach(btn=>btn.addEventListener('click',()=>{logBusinessActivity(selectedBizId,'listing_click');openV229Listing(btn.dataset.listingId);}));
+}
+ensureV229ListingPublicStyles();
+
+
 function renderDetail(id){
   const b = businesses.find(v => String(v.id) === String(id)) || businesses[0];
   if(!b || !detailCard) return;
@@ -4854,6 +4993,8 @@ ${b.rating ? `
     </section>
 ` : ''}
 
+${renderBusinessListings(b.id)}
+
 <section class="biz-detail-card">
   <h3>소개</h3>
 
@@ -4926,6 +5067,8 @@ ${getDescriptionImages(b).length ? `
 
   </article>
 `;
+
+bindV229ListingCards(detailCard);
 
 detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
   btn.addEventListener('click', (event) => {
