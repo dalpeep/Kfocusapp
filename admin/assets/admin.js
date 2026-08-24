@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V229 business listing manager build');
 console.info('[DalTownMap Admin] V228 performance visibility fix build');
 console.info('[DalTownMap Admin] V227 performance center render fix build');
 console.info('[DalTownMap Admin] V226 smart flyer compatibility build');
@@ -14,7 +15,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V228';
+    badge.textContent='Admin V229';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10556,3 +10557,263 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.V220PopupAdmin={load,save:saveAll};
 })();
+
+
+
+// === V229: 업소별 리스팅 관리자 ===
+// 별도 business_listings 테이블을 사용합니다. 기존 businesses 스키마는 변경하지 않습니다.
+let v229ListingEditId = null;
+let v229BusinessListings = [];
+
+function v229ListingMoney(value=''){
+  const raw=String(value??'').trim();
+  if(!raw) return '';
+  const n=Number(raw.replace(/[^0-9.-]/g,''));
+  return Number.isFinite(n) ? n : null;
+}
+function v229ListingStatusLabel(value='active'){
+  return ({active:'Active',pending:'Pending',sold:'Sold',leased:'Leased',hidden:'Hidden'})[String(value||'active').toLowerCase()] || value;
+}
+function v229ListingTypeLabel(value='sale'){
+  return String(value||'sale').toLowerCase()==='lease' ? 'For Lease' : 'For Sale';
+}
+function v229ListingImages(row){
+  if(Array.isArray(row?.images)) return row.images.filter(Boolean);
+  if(typeof row?.images==='string' && row.images.trim()){
+    try{const parsed=JSON.parse(row.images); if(Array.isArray(parsed)) return parsed.filter(Boolean);}catch(_){}
+    return row.images.split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+  }
+  return row?.image_url ? [row.image_url] : [];
+}
+function ensureV229ListingStyles(){
+  if(qs('v229ListingStyles')) return;
+  const style=document.createElement('style');
+  style.id='v229ListingStyles';
+  style.textContent=`
+    .v229-listing-admin{margin-top:18px;border:1px solid #dbe5f1;border-radius:18px;background:#fff;overflow:hidden}
+    .v229-listing-head{padding:16px 18px;background:#f8fbff;border-bottom:1px solid #e5edf7;display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .v229-listing-head h3{margin:0;font-size:18px}.v229-listing-head p{margin:4px 0 0;color:#64748b;font-size:12px}
+    .v229-listing-body{padding:16px}.v229-listing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .v229-listing-grid .field.full{grid-column:1/-1}.v229-listing-grid textarea{min-height:90px}
+    .v229-listing-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .v229-listing-current{margin-top:18px;border-top:1px solid #edf2f7;padding-top:16px}
+    .v229-listing-row{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid #eef2f6}
+    .v229-listing-row img{width:92px;height:70px;object-fit:cover;border-radius:10px;background:#eef2f7}
+    .v229-listing-row h4{margin:0 0 4px;font-size:14px}.v229-listing-row p{margin:2px 0;color:#64748b;font-size:12px}
+    .v229-listing-row-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .v229-listing-pill{display:inline-flex;padding:4px 7px;border-radius:999px;background:#eef6ff;color:#245c9f;font-size:11px;font-weight:800;margin-right:5px}
+    .v229-listing-note{padding:12px;border-radius:12px;background:#fff8e8;color:#7c5a00;font-size:12px;margin-bottom:12px}
+    @media(max-width:760px){.v229-listing-grid{grid-template-columns:1fr}.v229-listing-row{grid-template-columns:72px minmax(0,1fr)}.v229-listing-row img{width:72px;height:60px}.v229-listing-row-actions{grid-column:1/-1;justify-content:flex-start}}
+  `;
+  document.head.appendChild(style);
+}
+function ensureV229ListingAdminUI(){
+  ensureV229ListingStyles();
+  let root=qs('v229ListingAdmin');
+  if(root) return root;
+  const title=qs('formTitle');
+  const host=title?.closest('.card,.panel,form') || title?.parentElement;
+  if(!host) return null;
+  root=document.createElement('section');
+  root.id='v229ListingAdmin';
+  root.className='v229-listing-admin';
+  root.innerHTML=`
+    <div class="v229-listing-head">
+      <div><h3>🏠 리스팅 관리</h3><p>부동산 업소의 매매·임대 매물을 업소 상세에 노출합니다.</p></div>
+      <span id="v229ListingCount" class="pill">0개</span>
+    </div>
+    <div class="v229-listing-body">
+      <div id="v229ListingNoBusiness" class="v229-listing-note">먼저 업소를 저장하거나 왼쪽 목록에서 업소를 선택하세요.</div>
+      <div id="v229ListingEditor">
+        <div class="v229-listing-grid">
+          <label class="field full"><span>리스팅 제목</span><input id="v229ListingTitle" type="text" placeholder="예: Frisco 신축 단독주택"></label>
+          <label class="field"><span>유형</span><select id="v229ListingType"><option value="sale">For Sale</option><option value="lease">For Lease</option></select></label>
+          <label class="field"><span>상태</span><select id="v229ListingStatus"><option value="active">Active</option><option value="pending">Pending</option><option value="sold">Sold</option><option value="leased">Leased</option><option value="hidden">Hidden</option></select></label>
+          <label class="field"><span>가격</span><input id="v229ListingPrice" type="text" placeholder="650000 또는 3200"></label>
+          <label class="field"><span>가격 표시 문구</span><input id="v229ListingPriceLabel" type="text" placeholder="$650,000 / $3,200/mo"></label>
+          <label class="field full"><span>주소</span><input id="v229ListingAddress" type="text" placeholder="Street, City, TX"></label>
+          <label class="field"><span>도시/지역</span><input id="v229ListingCity" type="text" placeholder="Frisco"></label>
+          <label class="field"><span>침실</span><input id="v229ListingBeds" type="number" min="0" step="1"></label>
+          <label class="field"><span>욕실</span><input id="v229ListingBaths" type="number" min="0" step="0.5"></label>
+          <label class="field"><span>면적 (sqft)</span><input id="v229ListingSqft" type="number" min="0" step="1"></label>
+          <label class="field full"><span>간단 설명</span><textarea id="v229ListingDescription" placeholder="매물의 핵심 특징을 간단히 입력하세요."></textarea></label>
+          <label class="field full"><span>상세 링크</span><input id="v229ListingUrl" type="url" placeholder="MLS / Realtor / 업소 웹사이트 상세 페이지"></label>
+          <label class="field"><span>노출 시작일</span><input id="v229ListingStart" type="date"></label>
+          <label class="field"><span>노출 종료일</span><input id="v229ListingEnd" type="date"></label>
+          <label class="field checkbox-line"><input id="v229ListingFeatured" type="checkbox"><span>대표 리스팅</span></label>
+          <label class="field full"><span>매물 사진 (여러 장 가능)</span><input id="v229ListingFiles" type="file" accept="image/*" multiple><small class="muted">새 사진을 선택하면 기존 사진 뒤에 추가됩니다.</small></label>
+          <label class="field full"><span>이미지 URL (줄바꿈으로 여러 장)</span><textarea id="v229ListingImages" placeholder="https://..."></textarea></label>
+        </div>
+        <div class="v229-listing-actions">
+          <button id="v229ListingSave" class="btn primary" type="button">리스팅 저장</button>
+          <button id="v229ListingNew" class="btn secondary" type="button">새 리스팅</button>
+          <button id="v229ListingDelete" class="btn danger" type="button">선택 리스팅 삭제</button>
+        </div>
+        <div class="v229-listing-current">
+          <div class="panel-head"><div><h4 style="margin:0">등록된 리스팅</h4><p class="muted" style="margin:3px 0 0">Active/Pending은 사용자 화면에 표시되고 Sold/Leased/Hidden은 숨김 처리됩니다.</p></div><button id="v229ListingRefresh" class="btn ghost" type="button">새로고침</button></div>
+          <div id="v229ListingList"></div>
+        </div>
+      </div>
+    </div>`;
+  host.appendChild(root);
+  qs('v229ListingSave')?.addEventListener('click',v229SaveListing);
+  qs('v229ListingNew')?.addEventListener('click',v229ClearListingEditor);
+  qs('v229ListingDelete')?.addEventListener('click',v229DeleteListing);
+  qs('v229ListingRefresh')?.addEventListener('click',()=>v229LoadListings(selectedId));
+  v229UpdateListingUIState();
+  return root;
+}
+function v229UpdateListingUIState(){
+  ensureV229ListingAdminUI();
+  const enabled=!!selectedId;
+  const note=qs('v229ListingNoBusiness');
+  const editor=qs('v229ListingEditor');
+  if(note) note.style.display=enabled?'none':'block';
+  if(editor) editor.style.opacity=enabled?'1':'.55';
+  editor?.querySelectorAll('input,select,textarea,button').forEach(el=>el.disabled=!enabled);
+}
+function v229ClearListingEditor(){
+  v229ListingEditId=null;
+  ['v229ListingTitle','v229ListingPrice','v229ListingPriceLabel','v229ListingAddress','v229ListingCity','v229ListingBeds','v229ListingBaths','v229ListingSqft','v229ListingDescription','v229ListingUrl','v229ListingStart','v229ListingEnd','v229ListingImages'].forEach(id=>setVal(id,''));
+  setVal('v229ListingType','sale');
+  setVal('v229ListingStatus','active');
+  setChecked('v229ListingFeatured',false);
+  if(qs('v229ListingFiles')) qs('v229ListingFiles').value='';
+  const btn=qs('v229ListingSave'); if(btn) btn.textContent='리스팅 저장';
+}
+function v229FillListingEditor(row){
+  if(!row) return;
+  v229ListingEditId=row.id;
+  setVal('v229ListingTitle',row.title||'');
+  setVal('v229ListingType',row.listing_type||'sale');
+  setVal('v229ListingStatus',row.status||'active');
+  setVal('v229ListingPrice',row.price??'');
+  setVal('v229ListingPriceLabel',row.price_label||'');
+  setVal('v229ListingAddress',row.address||'');
+  setVal('v229ListingCity',row.city||'');
+  setVal('v229ListingBeds',row.beds??'');
+  setVal('v229ListingBaths',row.baths??'');
+  setVal('v229ListingSqft',row.sqft??'');
+  setVal('v229ListingDescription',row.description||'');
+  setVal('v229ListingUrl',row.external_url||'');
+  setVal('v229ListingStart',String(row.start_date||'').slice(0,10));
+  setVal('v229ListingEnd',String(row.end_date||'').slice(0,10));
+  setVal('v229ListingImages',v229ListingImages(row).join('\n'));
+  setChecked('v229ListingFeatured',row.is_featured===true);
+  const btn=qs('v229ListingSave'); if(btn) btn.textContent='수정 저장';
+}
+async function v229LoadListings(businessId=selectedId){
+  ensureV229ListingAdminUI();
+  v229UpdateListingUIState();
+  const list=qs('v229ListingList');
+  if(!businessId){v229BusinessListings=[];safeText('v229ListingCount','0개');if(list)list.innerHTML='<div class="muted">업소를 선택하세요.</div>';return;}
+  if(list) list.innerHTML='<div class="muted">리스팅 불러오는 중...</div>';
+  const {data,error}=await supabase.from('business_listings').select('*').eq('business_id',String(businessId)).order('is_featured',{ascending:false}).order('created_at',{ascending:false});
+  if(error){
+    console.warn('[V229 listings] load failed',error);
+    v229BusinessListings=[];
+    safeText('v229ListingCount','오류');
+    if(list) list.innerHTML=`<div class="muted">리스팅 테이블을 읽지 못했습니다. 먼저 제공된 Supabase SQL을 실행하세요.<br>${esc(error.message)}</div>`;
+    return;
+  }
+  v229BusinessListings=data||[];
+  safeText('v229ListingCount',`${v229BusinessListings.length}개`);
+  if(!list) return;
+  list.innerHTML=v229BusinessListings.length?v229BusinessListings.map(row=>{
+    const images=v229ListingImages(row); const img=images[0]||'https://placehold.co/180x120?text=Listing';
+    const price=row.price_label || (row.price!=null ? `$${Number(row.price).toLocaleString()}` : '가격 문의');
+    return `<div class="v229-listing-row" data-listing-id="${esc(row.id)}">
+      <img src="${esc(img)}" alt="">
+      <div><h4>${esc(row.title||'리스팅')}</h4><p><span class="v229-listing-pill">${esc(v229ListingTypeLabel(row.listing_type))}</span><span class="v229-listing-pill">${esc(v229ListingStatusLabel(row.status))}</span>${row.is_featured?'<span class="v229-listing-pill">대표</span>':''}</p><p><b>${esc(price)}</b> · ${esc(row.city||row.address||'')}</p><p>${row.beds!=null?`${esc(row.beds)} Beds · `:''}${row.baths!=null?`${esc(row.baths)} Baths · `:''}${row.sqft!=null?`${Number(row.sqft).toLocaleString()} sqft`:''}</p></div>
+      <div class="v229-listing-row-actions"><button type="button" class="btn secondary" data-listing-edit="${esc(row.id)}">수정</button><button type="button" class="btn danger" data-listing-remove="${esc(row.id)}">삭제</button></div>
+    </div>`;
+  }).join(''):'<div class="muted">등록된 리스팅이 없습니다.</div>';
+  list.querySelectorAll('[data-listing-edit]').forEach(btn=>btn.addEventListener('click',()=>{const row=v229BusinessListings.find(x=>String(x.id)===String(btn.dataset.listingEdit));if(row)v229FillListingEditor(row);}));
+  list.querySelectorAll('[data-listing-remove]').forEach(btn=>btn.addEventListener('click',async()=>{v229ListingEditId=btn.dataset.listingRemove;await v229DeleteListing();}));
+}
+async function v229UploadListingFiles(){
+  const files=Array.from(qs('v229ListingFiles')?.files||[]);
+  const urls=[];
+  for(const file of files){
+    const url=await uploadFileToStorage(file,`business-listings/${selectedId}`);
+    if(url) urls.push(url);
+  }
+  return urls;
+}
+async function v229SaveListing(){
+  if(!selectedId) return alert('먼저 업소를 선택하세요.');
+  const title=val('v229ListingTitle').trim();
+  if(!title) return alert('리스팅 제목을 입력하세요.');
+  const existing=String(val('v229ListingImages')||'').split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
+  const btn=qs('v229ListingSave'); const old=btn?.textContent||'리스팅 저장';
+  if(btn){btn.disabled=true;btn.textContent='저장 중...';}
+  try{
+    const uploaded=await v229UploadListingFiles();
+    const images=[...new Set([...existing,...uploaded])];
+    const price=v229ListingMoney(val('v229ListingPrice'));
+    const payload={
+      business_id:String(selectedId),
+      region:getAppRegion(),
+      title,
+      listing_type:val('v229ListingType')||'sale',
+      status:val('v229ListingStatus')||'active',
+      price,
+      price_label:val('v229ListingPriceLabel').trim()||null,
+      address:val('v229ListingAddress').trim()||null,
+      city:val('v229ListingCity').trim()||null,
+      beds:val('v229ListingBeds')===''?null:Number(val('v229ListingBeds')),
+      baths:val('v229ListingBaths')===''?null:Number(val('v229ListingBaths')),
+      sqft:val('v229ListingSqft')===''?null:Number(val('v229ListingSqft')),
+      description:val('v229ListingDescription').trim()||null,
+      external_url:val('v229ListingUrl').trim()||null,
+      start_date:val('v229ListingStart')||null,
+      end_date:val('v229ListingEnd')||null,
+      is_featured:checked('v229ListingFeatured'),
+      images,
+      image_url:images[0]||null,
+      updated_at:new Date().toISOString()
+    };
+    const query=v229ListingEditId
+      ? supabase.from('business_listings').update(payload).eq('id',v229ListingEditId)
+      : supabase.from('business_listings').insert(payload);
+    const {error}=await query;
+    if(error) throw error;
+    v229ClearListingEditor();
+    await v229LoadListings(selectedId);
+    alert('리스팅 저장 완료');
+  }catch(error){
+    alert(`리스팅 저장 실패: ${error.message||error}`);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent=v229ListingEditId?'수정 저장':'리스팅 저장';}
+  }
+}
+async function v229DeleteListing(){
+  if(!v229ListingEditId) return alert('삭제할 리스팅을 선택하세요.');
+  const row=v229BusinessListings.find(x=>String(x.id)===String(v229ListingEditId));
+  if(!confirm(`“${row?.title||'선택 리스팅'}”을 삭제할까요?`)) return;
+  const {error}=await supabase.from('business_listings').delete().eq('id',v229ListingEditId);
+  if(error) return alert(`리스팅 삭제 실패: ${error.message}`);
+  v229ClearListingEditor();
+  await v229LoadListings(selectedId);
+}
+window.v229LoadListings=v229LoadListings;
+window.v229ClearListingEditor=v229ClearListingEditor;
+
+const v229OriginalFillBusinessForm=fillBusinessForm;
+fillBusinessForm=function(row){
+  v229OriginalFillBusinessForm(row);
+  ensureV229ListingAdminUI();
+  v229ClearListingEditor();
+  v229UpdateListingUIState();
+  setTimeout(()=>v229LoadListings(row?.id||selectedId),0);
+};
+const v229OriginalClearBusinessForm=clearBusinessForm;
+clearBusinessForm=function(){
+  v229OriginalClearBusinessForm();
+  ensureV229ListingAdminUI();
+  v229ClearListingEditor();
+  v229UpdateListingUIState();
+  setTimeout(()=>v229LoadListings(null),0);
+};
+document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{ensureV229ListingAdminUI();v229UpdateListingUIState();},900));
+
