@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V227 performance center render fix build');
 console.info('[DalTownMap Admin] V226 smart flyer compatibility build');
 console.info('[DalTownMap Admin] V225 ad performance center + source tracking build');
 console.info('[DalTownMap Admin] V224 newsroom auto-collection + 14-day cleanup build');
@@ -5216,8 +5217,18 @@ function performanceApply(stat,row){
 }
 function performancePct(n,d){return d?`${((n/d)*100).toFixed(1)}%`:'—';}
 function ensurePerformanceCenterUI(){
-  const sec=qs('section-performance');
-  if(!sec) return null;
+  // V227: 일부 admin/index.html에는 메뉴 버튼만 있고 section-performance 자체가 없습니다.
+  // 그런 경우 제목만 바뀌고 본문이 완전히 빈 화면이 되므로 섹션을 런타임에 생성합니다.
+  let sec=qs('section-performance');
+  if(!sec){
+    const host=document.querySelector('.main-content, main, #adminMain, .content')||document.body;
+    sec=document.createElement('section');
+    sec.id='section-performance';
+    sec.className='admin-section';
+    host.appendChild(sec);
+    console.info('[DalTownMap Admin] V227 performance section created dynamically');
+  }
+  if(currentSection==='performance') sec.classList.add('active-section');
   if(sec.querySelector('#performanceV225Root')) return sec.querySelector('#performanceV225Root');
   sec.innerHTML=`<div id="performanceV225Root" class="v225-performance">
     <style>
@@ -5241,11 +5252,22 @@ async function loadPerformanceCenter(){
   if(!root||!supabase) return;
   safeText('performanceStatus','성과 데이터를 불러오는 중...');
   try{
-    let query=supabase.from('business_activity').select('*').order('created_at',{ascending:false}).limit(20000);
-    const since=performanceSinceISO(); if(since) query=query.gte('created_at',since);
-    const region=getAppRegion(); if(region && region!=='all') query=query.eq('region',region);
-    const {data,error}=await query; if(error) throw error;
-    const rows=data||[];
+    const since=performanceSinceISO();
+    const region=getAppRegion();
+    const buildQuery=(withRegion=true)=>{
+      let q=supabase.from('business_activity').select('*').order('created_at',{ascending:false}).limit(20000);
+      if(since) q=q.gte('created_at',since);
+      if(withRegion && region && region!=='all') q=q.eq('region',region);
+      return q;
+    };
+    let result=await buildQuery(true);
+    // 구형 business_activity 테이블에 region 컬럼이 없는 경우에도 성과 화면 자체는 표시합니다.
+    if(result.error && /region|column .* does not exist|schema cache/i.test(String(result.error.message||''))){
+      console.warn('[V227 performance] region filter fallback',result.error.message);
+      result=await buildQuery(false);
+    }
+    if(result.error) throw result.error;
+    const rows=result.data||[];
     const total=performanceStatSeed(); rows.forEach(r=>performanceApply(total,r));
     const metrics=qs('performanceMetrics');
     if(metrics) metrics.innerHTML=`
@@ -5270,8 +5292,23 @@ async function loadPerformanceCenter(){
     const rangeLabel=performanceRange==='today'?'오늘':performanceRange==='all'?'전체 기간':`${performanceRange}일`;
     safeText('performanceStatus',`${rangeLabel} 기준 · ${rows.length.toLocaleString()}개 활동 기록 · 기존 기록은 유입 위치가 '기존/미분류'로 표시될 수 있습니다.`);
   }catch(e){
-    console.error('[V225 performance]',e);
-    safeText('performanceStatus',`광고 성과 조회 실패: ${e?.message||e}`);
+    console.error('[V227 performance]',e);
+    const message=e?.message||String(e);
+    safeText('performanceStatus',`광고 성과 조회 실패: ${message}`);
+    const metrics=qs('performanceMetrics');
+    if(metrics) metrics.innerHTML=`
+      <div class="v225-metric"><span>광고 노출</span><strong>0</strong></div>
+      <div class="v225-metric"><span>광고/업소 클릭</span><strong>0</strong></div>
+      <div class="v225-metric"><span>상세 조회</span><strong>0</strong></div>
+      <div class="v225-metric"><span>CTR</span><strong>—</strong></div>
+      <div class="v225-metric"><span>전화</span><strong>0</strong></div>
+      <div class="v225-metric"><span>길찾기</span><strong>0</strong></div>
+      <div class="v225-metric"><span>웹사이트</span><strong>0</strong></div>
+      <div class="v225-metric"><span>쿠폰 사용</span><strong>0</strong></div>`;
+    const bizEl=qs('performanceBusinessList');
+    if(bizEl) bizEl.innerHTML=`<div class="muted">성과 데이터를 읽지 못했습니다. business_activity 테이블/RLS를 확인해 주세요.<br><small>${esc(message)}</small></div>`;
+    const srcEl=qs('performanceSourceList');
+    if(srcEl) srcEl.innerHTML='<div class="muted">유입 위치 데이터를 불러오지 못했습니다.</div>';
   }
 }
 window.loadPerformanceCenter=loadPerformanceCenter;
