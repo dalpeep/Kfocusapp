@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V230 accurate performance tracking admin loaded');
 console.info('[DalTownMap Admin] V229 business listing manager build');
 console.info('[DalTownMap Admin] V228 performance visibility fix build');
 console.info('[DalTownMap Admin] V227 performance center render fix build');
@@ -15,7 +16,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V229';
+    badge.textContent='Admin V230';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
