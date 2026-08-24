@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V230 accurate business performance tracking loaded');
 console.info('[DalTownMap App] V229 business listings build loaded');
 console.info('[DalTownMap App] V223 market carousel timer fix loaded');
 console.info('[DalTownMap App] V222 hard one-line ticker visibility fix loaded');
@@ -1373,18 +1374,101 @@ function parseArr(v){ if(Array.isArray(v)) return v; try { const p = JSON.parse(
 function esc(s=''){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function normalizeUrl(u=''){ const s = String(u||'').trim(); if(!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; }
 
-async function logBusinessActivity(businessId, actionType){
+// V230: 광고 성과는 실제 사용자 행동만 집계합니다.
+// - business_click: 사용자가 업소 진입 요소를 실제 클릭
+// - view: 위 클릭 뒤 실제 상세 화면을 렌더링했을 때만 1회
+// - 동일 탭에서 같은 업소 상세 view는 30분 동안 중복 제거
+let v230PendingBusinessDetail = null;
+const V230_DETAIL_VIEW_DEDUPE_MS = 30 * 60 * 1000;
+const V230_CLICK_DEDUPE_MS = 1200;
+
+function v230PerformanceSourceFromPage(element=null){
+  if(element?.matches?.('[data-search-type="business"]') || element?.closest?.('[data-search-type="business"]')) return 'search';
+  if(element?.matches?.('[data-map-detail]') || element?.closest?.('[data-map-detail]')) return 'map';
+  if(element?.closest?.('.home-business-card,[data-home-biz-tab],#homeBusinessList,.home-biz-map-card')){
+    const tab=String(window.homeBusinessTab||homeBusinessTab||'featured');
+    return tab==='new'?'home_new':tab==='popular'?'home_popular':'home_featured';
+  }
+  if(element?.closest?.('.nearby-business-item')) return 'home_nearby';
+  if(element?.closest?.('.hero-slide,[data-banner-id],.banner-card,.banner-slide')) return 'home_banner';
+  if(element?.closest?.('.coupon-detail-biz')) return 'coupon_detail';
+  if(String(currentPage||'')==='business-list') return 'business_list';
+  if(String(currentPage||'')==='map') return 'map';
+  if(String(currentPage||'')==='business-detail') return 'business_detail';
+  return 'business_list';
+}
+
+function v230ActivityKey(businessId,actionType){
+  return `dtm_v230_${String(actionType)}_${String(businessId)}`;
+}
+function v230RecentlyLogged(businessId,actionType,windowMs){
+  try{
+    const key=v230ActivityKey(businessId,actionType);
+    const last=Number(sessionStorage.getItem(key)||0);
+    const now=Date.now();
+    if(last && now-last<windowMs) return true;
+    sessionStorage.setItem(key,String(now));
+  }catch(_){}
+  return false;
+}
+function v230PrepareBusinessDetail(businessId, source='business_list', actionType='business_click', contentId=''){
+  if(!businessId) return;
+  const id=String(businessId);
+  const now=Date.now();
+  v230PendingBusinessDetail={businessId:id,source:String(source||'business_list'),contentId:String(contentId||''),createdAt:now};
+  if(!v230RecentlyLogged(id,`${actionType}:${source}`,V230_CLICK_DEDUPE_MS)){
+    logBusinessActivity(id,actionType,{source,content_id:contentId});
+  }
+}
+function v230LogDetailViewIfExpected(businessId){
+  const p=v230PendingBusinessDetail;
+  const id=String(businessId||'');
+  if(!p || p.businessId!==id || Date.now()-Number(p.createdAt||0)>5000) return false;
+  v230PendingBusinessDetail=null;
+  // 같은 사용자/같은 브라우저 탭에서 동일 업소는 30분에 한 번만 상세 조회로 집계
+  if(v230RecentlyLogged(id,'detail_view',V230_DETAIL_VIEW_DEDUPE_MS)) return false;
+  logBusinessActivity(id,'view',{source:p.source,content_id:p.contentId});
+  return true;
+}
+
+async function logBusinessActivity(businessId, actionType, meta={}){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY || !businessId || !actionType) return;
   const biz = getBiz(businessId);
+  const base={ business_id: businessId, action_type: actionType, region: biz?.region || getAppRegion?.() || 'dallas', area: biz?.address || '' };
+  const rich={...base};
+  if(meta?.source) rich.source=String(meta.source);
+  if(meta?.content_id) rich.content_id=String(meta.content_id);
+
+  const send=payload=>fetch(`${SUPABASE_URL}/rest/v1/business_activity`, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, Prefer:'return=minimal' },
+    body: JSON.stringify(payload)
+  });
+
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/business_activity`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, Prefer:'return=minimal' },
-      body: JSON.stringify({ business_id: businessId, action_type: actionType, region: biz?.region || 'colorado', area: biz?.address || '' })
-    });
+    let res=await send(rich);
+    // 구형 business_activity 스키마에 source/content_id가 없으면 기존 필드로 자동 재시도
+    if(!res.ok && (rich.source || rich.content_id)){
+      const detail=await res.text().catch(()=> '');
+      if(/source|content_id|column|schema cache|PGRST/i.test(detail)){
+        res=await send(base);
+      }
+    }
+    if(!res.ok) console.warn('activity log rejected',actionType,res.status);
   } catch(e){ console.warn('activity log skipped', e); }
 }
+
+// 실제 클릭을 상세 진입보다 먼저 잡습니다. 프로그램 내부 재렌더링은 이 이벤트가 없으므로 상세 조회가 증가하지 않습니다.
+document.addEventListener('click', e=>{
+  const target=e.target.closest?.('.biz-open,.biz-open-btn,[data-search-type="business"],[data-map-detail]');
+  if(!target) return;
+  const id=target.dataset?.biz || target.dataset?.id || target.dataset?.mapDetail;
+  if(!id) return;
+  const source=v230PerformanceSourceFromPage(target);
+  v230PrepareBusinessDetail(id,source,'business_click');
+}, true);
+
 function milesToZoom(m){ if(m==='3') return 15; if(m==='5') return 13; if(m==='7') return 12; if(m==='10') return 11; return 10; }
 function radiusByZoom(z){ if(z <= 10) return '10'; if(z <= 12) return '7'; if(z <= 14) return '5'; return '3'; }
 function activeMapCoupons(){ return activeCoupons(coupons); }
@@ -1691,12 +1775,12 @@ function openBusinessChooser(ids,title='지점을 선택하세요'){
   modal.innerHTML=`<div class="modal-card branch-choice-card"><div class="modal-head"><h2>${esc(title)}</h2><button type="button" data-branch-close>×</button></div><div class="branch-choice-list">${rows.map(b=>`<button type="button" class="branch-choice-item" data-branch-id="${esc(b.id)}"><strong>${esc(b.name||b.name_ko||b.name_en||'업소')}</strong><span>${esc([b.city,b.address].filter(Boolean).join(' · '))}</span></button>`).join('')}</div></div>`;
   modal.classList.remove('hidden');
   modal.querySelector('[data-branch-close]')?.addEventListener('click',()=>modal.classList.add('hidden'));
-  modal.querySelectorAll('[data-branch-id]').forEach(btn=>btn.addEventListener('click',()=>{modal.classList.add('hidden');selectedBizId=btn.dataset.branchId;currentDetailVideoOverride='';renderDetail(selectedBizId);showPage('business-detail');}));
+  modal.querySelectorAll('[data-branch-id]').forEach(btn=>btn.addEventListener('click',()=>{modal.classList.add('hidden');selectedBizId=btn.dataset.branchId;currentDetailVideoOverride='';v230PrepareBusinessDetail(selectedBizId,'home_banner','business_click');renderDetail(selectedBizId);showPage('business-detail');}));
 }
 function openMultiBusinessBanner(banner){
   const ids=linkedBusinessIds(banner); if(!ids.length)return false;
-  if(ids.length===1||banner.multi_click_mode==='primary'){selectedBizId=ids[0];currentDetailVideoOverride='';renderDetail(selectedBizId);showPage('business-detail');return true;}
-  if(banner.multi_click_mode==='nearest'&&navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{const lat=pos.coords.latitude,lng=pos.coords.longitude;const ranked=ids.map(id=>businesses.find(b=>String(b.id)===String(id))).filter(Boolean).map(b=>({b,d:(Number(b.lat)-lat)**2+(Number(b.lng)-lng)**2})).sort((a,z)=>a.d-z.d);const id=ranked[0]?.b?.id||ids[0];selectedBizId=String(id);currentDetailVideoOverride='';renderDetail(selectedBizId);showPage('business-detail');},()=>openBusinessChooser(ids,banner.title||'지점 선택'),{enableHighAccuracy:false,timeout:5000});return true;}
+  if(ids.length===1||banner.multi_click_mode==='primary'){selectedBizId=ids[0];currentDetailVideoOverride='';v230PrepareBusinessDetail(selectedBizId,'home_banner','banner_click',banner.id||'');renderDetail(selectedBizId);showPage('business-detail');return true;}
+  if(banner.multi_click_mode==='nearest'&&navigator.geolocation){navigator.geolocation.getCurrentPosition(pos=>{const lat=pos.coords.latitude,lng=pos.coords.longitude;const ranked=ids.map(id=>businesses.find(b=>String(b.id)===String(id))).filter(Boolean).map(b=>({b,d:(Number(b.lat)-lat)**2+(Number(b.lng)-lng)**2})).sort((a,z)=>a.d-z.d);const id=ranked[0]?.b?.id||ids[0];selectedBizId=String(id);currentDetailVideoOverride='';v230PrepareBusinessDetail(selectedBizId,'home_banner','banner_click',banner.id||'');renderDetail(selectedBizId);showPage('business-detail');},()=>openBusinessChooser(ids,banner.title||'지점 선택'),{enableHighAccuracy:false,timeout:5000});return true;}
   openBusinessChooser(ids,banner.title||'지점 선택'); return true;
 }
 
@@ -4646,7 +4730,9 @@ function renderDetail(id){
   const safeEmail = (b.email || '').trim();
   const phoneDigits = (b.phone||'').replace(/[^\d]/g,'');
   const bizCoupons = activeCoupons(coupons).filter(c=>String(c.businessId)===String(b.id));
-  logBusinessActivity(b.id, 'view');
+  // V230: renderDetail() 자체 호출만으로는 상세 조회를 올리지 않습니다.
+  // 실제 사용자 클릭이 직전에 있었을 때만, 30분 중복 제거 후 상세 조회를 기록합니다.
+  v230LogDetailViewIfExpected(b.id);
 const videoHtml = businessVideoHTML(b);
 
 const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
@@ -7215,7 +7301,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   recentSearches?.addEventListener('click', e=>{ const btn=e.target.closest('[data-recent-search]'); if(!btn || !globalSearchInput) return; globalSearchInput.value = btn.dataset.recentSearch || ''; renderSearchResults(globalSearchInput.value); globalSearchInput.focus(); });
   searchResults?.addEventListener('click', e=>{
     const bizBtn = e.target.closest('[data-search-type="business"]');
-    if(bizBtn){ const id = bizBtn.dataset.biz; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); renderDetail(id); lastBasePage = currentPage; showPage('business-detail'); return; }
+    if(bizBtn){ const id = bizBtn.dataset.biz; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); v230PrepareBusinessDetail(id,'search','business_click'); renderDetail(id); lastBasePage = currentPage; showPage('business-detail'); return; }
     const couponBtn = e.target.closest('[data-search-type="coupon"]');
     if(couponBtn){ const id = couponBtn.dataset.coupon; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); renderCouponDetail(id); lastBasePage = currentPage; showPage('coupon-detail'); return; }
     const boardBtn = e.target.closest('[data-search-type="board"]');
@@ -7303,7 +7389,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapAboveBottomPanel(pos.lat, pos.lng); showMapBusinessPreview(biz); if(mapInfoWindow) mapInfoWindow.close(); });
   mapBusinessPreview?.addEventListener('click', e=>{
     const detail = e.target.closest('[data-map-detail]');
-    if(detail){ const id=detail.dataset.mapDetail; selectedBizId=id; currentDetailVideoOverride=''; lastBasePage='map'; renderDetail(id); showPage('business-detail'); return; }
+    if(detail){ const id=detail.dataset.mapDetail; selectedBizId=id; currentDetailVideoOverride=''; lastBasePage='map'; v230PrepareBusinessDetail(id,'map','business_click'); renderDetail(id); showPage('business-detail'); return; }
     const action = e.target.closest('[data-map-action]');
     if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction);
   });
