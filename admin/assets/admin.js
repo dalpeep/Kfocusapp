@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V225 ad performance center + source tracking build');
 console.info('[DalTownMap Admin] V224 newsroom auto-collection + 14-day cleanup build');
 console.info('[DalTownMap Admin] V221 weather ticker package build');
 console.info('[DalTownMap Admin] V220 popup rotation fix build');
@@ -10,7 +11,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V224';
+    badge.textContent='Admin V225';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -301,6 +302,9 @@ function switchSection(section) {
 
   if (section === 'couponRedemptions' && typeof loadCouponRedemptions === 'function') {
     loadCouponRedemptions();
+  }
+  if (section === 'performance' && typeof loadPerformanceCenter === 'function') {
+    setTimeout(()=>loadPerformanceCenter(),0);
   }
 }
 function setPageMeta() {
@@ -5175,20 +5179,102 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-async function loadPerformanceCenter(){
-  const status=qs('performanceStatus');
-  try{
-    const since=new Date(Date.now()-30*86400000).toISOString();
-    const {data,error}=await supabase.from('content_events').select('event_type,business_id,content_id,created_at').gte('created_at',since);
-    if(error) throw error;
-    const rows=data||[]; const count=t=>rows.filter(r=>r.event_type===t).length;
-    safeText('metricArticleViews',count('article_view')); safeText('metricAiPickClicks',count('ai_pick_click'));
-    safeText('metricPhoneClicks',count('phone_click')); safeText('metricDirectionClicks',count('direction_click')); safeText('metricWebsiteClicks',count('website_click'));
-    const grouped={}; rows.forEach(r=>{const k=r.business_id||'unlinked'; grouped[k]??={total:0,views:0,actions:0}; grouped[k].total++; if(r.event_type==='article_view')grouped[k].views++; else grouped[k].actions++;});
-    const el=qs('performanceBusinessList'); if(el) el.innerHTML=Object.entries(grouped).map(([id,v])=>{const b=businesses.find(x=>String(x.id)===String(id)); return `<div class="performance-row"><strong>${esc(b?.name_ko||b?.name_en||'연결 업소 없음')}</strong><span>조회 ${v.views}</span><span>행동 ${v.actions}</span><span>총 ${v.total}</span></div>`}).join('')||'<div class="muted">최근 30일 데이터가 없습니다.</div>';
-    safeText('performanceStatus','최근 30일 기준 · 관리자만 볼 수 있습니다.');
-  }catch(e){ safeText('performanceStatus',`성과 테이블 연결 필요: ${e.message}`); }
+let performanceRange='30';
+function performanceSinceISO(range=performanceRange){
+  if(range==='all') return null;
+  if(range==='today'){
+    const day=v188DallasToday();
+    return new Date(`${day}T00:00:00-05:00`).toISOString();
+  }
+  const days=Math.max(1,Number(range||30));
+  return new Date(Date.now()-days*86400000).toISOString();
 }
+function performanceSourceLabel(source=''){
+  const raw=String(source||'').trim();
+  const map={
+    home_featured:'메인 추천',home_new:'메인 신규',home_popular:'메인 인기',home_nearby:'메인 주변 업소',
+    home_banner:'메인 배너',hero_slide:'상단 슬라이드',ticker:'달타운 알림',search:'통합 검색',map:'지도',
+    business_list:'업소 목록',business_detail:'업소 상세',business_detail_icon:'업소 상세 아이콘',business_detail_banner:'업소 상세 광고',
+    coupon_detail:'쿠폰 상세',coupon_use:'쿠폰 사용'
+  };
+  return map[raw]||raw||'기존/미분류';
+}
+function performanceStatSeed(){return {impressions:0,views:0,clicks:0,calls:0,directions:0,websites:0,coupons:0,actions:0,total:0};}
+function performanceApply(stat,row){
+  const a=String(row.action_type||'').toLowerCase();
+  stat.total++;
+  if(a==='impression') stat.impressions++;
+  else if(a==='view') stat.views++;
+  else if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click'].includes(a)) stat.clicks++;
+  else if(['call','phone_click'].includes(a)){stat.calls++;stat.actions++;}
+  else if(['direction','direction_click'].includes(a)){stat.directions++;stat.actions++;}
+  else if(['website_click'].includes(a)){stat.websites++;stat.actions++;}
+  else if(['coupon_use','coupon_click'].includes(a)){stat.coupons++;stat.actions++;}
+  if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click'].includes(a)) stat.actions++;
+  return stat;
+}
+function performancePct(n,d){return d?`${((n/d)*100).toFixed(1)}%`:'—';}
+function ensurePerformanceCenterUI(){
+  const sec=qs('section-performance');
+  if(!sec) return null;
+  if(sec.querySelector('#performanceV225Root')) return sec.querySelector('#performanceV225Root');
+  sec.innerHTML=`<div id="performanceV225Root" class="v225-performance">
+    <style>
+      .v225-performance{max-width:1500px}.v225-perf-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}.v225-perf-toolbar button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:9px 14px;font-weight:800;cursor:pointer}.v225-perf-toolbar button.active{background:#2563eb;color:#fff;border-color:#2563eb}.v225-perf-toolbar .spacer{flex:1}.v225-metrics{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;margin-bottom:16px}.v225-metric{background:#fff;border:1px solid #dbe4f0;border-radius:14px;padding:16px}.v225-metric span{display:block;color:#64748b;font-size:12px;font-weight:800}.v225-metric strong{display:block;font-size:27px;margin-top:6px}.v225-perf-card{background:#fff;border:1px solid #dbe4f0;border-radius:14px;padding:16px;margin-top:14px;overflow:auto}.v225-perf-card h3{margin:0 0 12px}.v225-perf-table{width:100%;border-collapse:collapse;min-width:940px}.v225-perf-table th,.v225-perf-table td{padding:10px 8px;border-bottom:1px solid #edf2f7;text-align:right;font-size:13px}.v225-perf-table th:first-child,.v225-perf-table td:first-child{text-align:left}.v225-perf-table th{color:#475569;font-size:12px}.v225-source-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.v225-source-item{border:1px solid #e2e8f0;border-radius:12px;padding:12px}.v225-source-item b,.v225-source-item span{display:block}.v225-source-item span{color:#64748b;font-size:12px;margin-top:4px}@media(max-width:900px){.v225-metrics{grid-template-columns:repeat(2,1fr)}}
+    </style>
+    <div class="v225-perf-toolbar">
+      <button type="button" data-perf-range="today">오늘</button><button type="button" data-perf-range="7">7일</button><button type="button" data-perf-range="30" class="active">30일</button><button type="button" data-perf-range="all">전체</button>
+      <span class="spacer"></span><button type="button" id="performanceRefreshBtn">새로고침</button>
+    </div>
+    <div id="performanceStatus" class="muted">성과 데이터를 불러오는 중입니다.</div>
+    <div class="v225-metrics" id="performanceMetrics"></div>
+    <div class="v225-perf-card"><h3>업소별 광고 성과</h3><div id="performanceBusinessList"></div></div>
+    <div class="v225-perf-card"><h3>유입 위치별 성과</h3><div id="performanceSourceList"></div></div>
+  </div>`;
+  sec.querySelectorAll('[data-perf-range]').forEach(btn=>btn.addEventListener('click',()=>{performanceRange=btn.dataset.perfRange||'30';sec.querySelectorAll('[data-perf-range]').forEach(x=>x.classList.toggle('active',x===btn));loadPerformanceCenter();}));
+  sec.querySelector('#performanceRefreshBtn')?.addEventListener('click',loadPerformanceCenter);
+  return sec.querySelector('#performanceV225Root');
+}
+async function loadPerformanceCenter(){
+  const root=ensurePerformanceCenterUI();
+  if(!root||!supabase) return;
+  safeText('performanceStatus','성과 데이터를 불러오는 중...');
+  try{
+    let query=supabase.from('business_activity').select('*').order('created_at',{ascending:false}).limit(20000);
+    const since=performanceSinceISO(); if(since) query=query.gte('created_at',since);
+    const region=getAppRegion(); if(region && region!=='all') query=query.eq('region',region);
+    const {data,error}=await query; if(error) throw error;
+    const rows=data||[];
+    const total=performanceStatSeed(); rows.forEach(r=>performanceApply(total,r));
+    const metrics=qs('performanceMetrics');
+    if(metrics) metrics.innerHTML=`
+      <div class="v225-metric"><span>광고 노출</span><strong>${total.impressions.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>광고/업소 클릭</span><strong>${total.clicks.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>상세 조회</span><strong>${total.views.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>CTR</span><strong>${performancePct(total.clicks,total.impressions)}</strong></div>
+      <div class="v225-metric"><span>전화</span><strong>${total.calls.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>길찾기</span><strong>${total.directions.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>웹사이트</span><strong>${total.websites.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>쿠폰 사용</span><strong>${total.coupons.toLocaleString()}</strong></div>`;
+    const byBiz={};
+    rows.forEach(r=>{const key=String(r.business_id||'');if(!key)return;byBiz[key]??=performanceStatSeed();performanceApply(byBiz[key],r);});
+    const bizRows=Object.entries(byBiz).map(([id,st])=>({id,st,b:businesses.find(x=>String(x.id)===id)})).sort((a,b)=>(b.st.actions+b.st.views)-(a.st.actions+a.st.views));
+    const bizEl=qs('performanceBusinessList');
+    if(bizEl) bizEl.innerHTML=bizRows.length?`<table class="v225-perf-table"><thead><tr><th>업소</th><th>노출</th><th>상세</th><th>클릭</th><th>전화</th><th>길찾기</th><th>웹사이트</th><th>쿠폰</th><th>총 행동</th><th>CTR</th></tr></thead><tbody>${bizRows.map(({id,st,b})=>`<tr><td><b>${esc(b?.name_ko||b?.name_en||`ID ${id}`)}</b></td><td>${st.impressions}</td><td>${st.views}</td><td>${st.clicks}</td><td>${st.calls}</td><td>${st.directions}</td><td>${st.websites}</td><td>${st.coupons}</td><td><b>${st.actions}</b></td><td>${performancePct(st.clicks,st.impressions)}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">선택한 기간에 기록된 업소 활동이 없습니다.</div>';
+    const bySource={};
+    rows.forEach(r=>{const key=String(r.source||'');bySource[key]??=performanceStatSeed();performanceApply(bySource[key],r);});
+    const sourceRows=Object.entries(bySource).sort((a,b)=>b[1].total-a[1].total);
+    const srcEl=qs('performanceSourceList');
+    if(srcEl) srcEl.innerHTML=sourceRows.length?`<div class="v225-source-grid">${sourceRows.map(([source,st])=>`<div class="v225-source-item"><b>${esc(performanceSourceLabel(source))}</b><span>노출 ${st.impressions} · 클릭 ${st.clicks} · 상세 ${st.views}</span><span>전화 ${st.calls} · 길찾기 ${st.directions} · 웹 ${st.websites} · 쿠폰 ${st.coupons}</span></div>`).join('')}</div>`:'<div class="muted">유입 위치 데이터가 없습니다.</div>';
+    const rangeLabel=performanceRange==='today'?'오늘':performanceRange==='all'?'전체 기간':`${performanceRange}일`;
+    safeText('performanceStatus',`${rangeLabel} 기준 · ${rows.length.toLocaleString()}개 활동 기록 · 기존 기록은 유입 위치가 '기존/미분류'로 표시될 수 있습니다.`);
+  }catch(e){
+    console.error('[V225 performance]',e);
+    safeText('performanceStatus',`광고 성과 조회 실패: ${e?.message||e}`);
+  }
+}
+window.loadPerformanceCenter=loadPerformanceCenter;
+
 
 console.log('[DalTownMap Admin] v9.0 unified image manager loaded');
 
