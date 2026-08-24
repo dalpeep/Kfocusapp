@@ -327,6 +327,8 @@ function renderHomeBusinessTabs(){
     ? rows.map(homeBusinessItemHTML).join('')
     : '<div class="board-empty">등록된 업소가 없습니다.</div>';
 
+  // V225: count an impression once per business/source per 30-minute session window.
+  rows.forEach(b=>logBusinessImpressionOnce(b.id,`home_${homeBusinessTab||'business'}`,`home-tab:${homeBusinessTab||'business'}`));
   bindBizOpenButtons();
 
   if(window.lucide){
@@ -988,18 +990,71 @@ function parseArr(v){ if(Array.isArray(v)) return v; try { const p = JSON.parse(
 function esc(s=''){ return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 function normalizeUrl(u=''){ const s = String(u||'').trim(); if(!s) return ''; return /^https?:\/\//i.test(s) ? s : `https://${s}`; }
 
-async function logBusinessActivity(businessId, actionType){
+// V225: unified business/ad performance tracking.
+// `source` and `content_id` are optional so the code remains backward-compatible
+// until the supplied SQL migration is applied.
+async function logBusinessActivity(businessId, actionType, source='', contentId=''){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY || !businessId || !actionType) return;
   const biz = getBiz(businessId);
+  const base = {
+    business_id: businessId,
+    action_type: String(actionType),
+    region: biz?.region || getAppRegion?.() || 'dallas',
+    area: biz?.address || biz?.area || ''
+  };
+  const enriched = {
+    ...base,
+    source: String(source || '').slice(0,80) || null,
+    content_id: String(contentId || '').slice(0,160) || null
+  };
+  const endpoint = `${SUPABASE_URL}/rest/v1/business_activity`;
+  const headers = { 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, Prefer:'return=minimal' };
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/business_activity`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`, Prefer:'return=minimal' },
-      body: JSON.stringify({ business_id: businessId, action_type: actionType, region: biz?.region || 'colorado', area: biz?.address || '' })
-    });
-  } catch(e){ console.warn('activity log skipped', e); }
+    let res = await fetch(endpoint, { method:'POST', headers, body: JSON.stringify(enriched), keepalive:true });
+    // Before the migration is applied Supabase may reject the new columns.
+    // Retry the legacy payload so tracking never stops completely.
+    if(!res.ok && (enriched.source || enriched.content_id)){
+      res = await fetch(endpoint, { method:'POST', headers, body: JSON.stringify(base), keepalive:true });
+    }
+    if(!res.ok) console.warn('[V225 activity] write failed', res.status, await res.text().catch(()=>''));
+    if(typeof window.gtag === 'function'){
+      window.gtag('event', 'business_'+String(actionType), {
+        business_id: String(businessId),
+        activity_source: String(source||''),
+        content_id: String(contentId||'')
+      });
+    }
+  } catch(e){ console.warn('[V225 activity] log skipped', e); }
 }
+
+const V225_IMPRESSION_KEY='dtm_v225_impressions';
+function v225ImpressionSeen(key){
+  try{
+    const now=Date.now(), ttl=30*60*1000;
+    const obj=JSON.parse(sessionStorage.getItem(V225_IMPRESSION_KEY)||'{}');
+    Object.keys(obj).forEach(k=>{ if(now-Number(obj[k]||0)>ttl) delete obj[k]; });
+    if(obj[key] && now-Number(obj[key])<=ttl){ sessionStorage.setItem(V225_IMPRESSION_KEY,JSON.stringify(obj)); return true; }
+    obj[key]=now; sessionStorage.setItem(V225_IMPRESSION_KEY,JSON.stringify(obj)); return false;
+  }catch(_){ return false; }
+}
+function logBusinessImpressionOnce(businessId, source='', contentId=''){
+  if(!businessId) return;
+  const key=[businessId,source,contentId].map(String).join('|');
+  if(v225ImpressionSeen(key)) return;
+  logBusinessActivity(businessId,'impression',source,contentId);
+}
+function v225BusinessOpenSource(el){
+  if(!el) return currentPage || 'unknown';
+  if(el.closest('.home-biz-map-card')) return `home_${homeBusinessTab||'business'}`;
+  if(el.closest('.nearby-business-item')) return 'home_nearby';
+  if(el.closest('.mini-card')) return currentPage==='map'?'map':'business_list';
+  if(el.closest('.list-card')) return 'business_list';
+  if(el.closest('.coupon-detail-biz')) return 'coupon_detail';
+  if(el.closest('[data-map-detail]')) return 'map';
+  return currentPage || 'unknown';
+}
+console.info('[DalTownMap App] V225 ad performance tracking loaded');
 function milesToZoom(m){ if(m==='3') return 15; if(m==='5') return 13; if(m==='7') return 12; if(m==='10') return 11; return 10; }
 function radiusByZoom(z){ if(z <= 10) return '10'; if(z <= 12) return '7'; if(z <= 14) return '5'; return '3'; }
 function activeMapCoupons(){ return activeCoupons(coupons); }
@@ -1735,6 +1790,7 @@ function renderDalpicks(){
     .sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))
     .slice(0,12);
 
+  items.forEach(item=>{const d=item.data||{};const bid=String(d.business_id||d.businessId||(String(d.link_type||'')==='business'?d.link_value:'')||'');if(bid)logBusinessImpressionOnce(bid,'ticker',item.id);});
   if(!items.length){ box.closest('.home-ticker-section')?.setAttribute('hidden',''); box.innerHTML=''; return; }
   box.closest('.home-ticker-section')?.removeAttribute('hidden');
 
@@ -1752,6 +1808,8 @@ function renderDalpicks(){
   box.querySelectorAll('[data-ticker-kind]').forEach(btn=>btn.addEventListener('click',()=>{
     const item=items.find(x=>x.kind===btn.dataset.tickerKind&&String(x.id)===String(btn.dataset.tickerId));
     const d=item?.data; if(!d) return;
+    const tickerBizId=String(d.business_id||d.businessId||(String(d.link_type||'')==='business'?d.link_value:'')||'');
+    if(tickerBizId) logBusinessActivity(tickerBizId,'ticker_click','ticker',item.id);
     if(String(item.kind||'').startsWith('event-')||String(item.kind||'').startsWith('p132-')){ openEventRoutineLink(d); return; }
     if(item.kind==='coupon'){ renderCouponDetail(d.id); lastBasePage=currentPage; showPage('coupon-detail'); return; }
     if(String(d.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${d.id}`);
@@ -3579,6 +3637,8 @@ function renderMainBanners(){
   </div>`;
   const openBanner=(banner)=>{
     if(!banner)return;
+    const ids=linkedBusinessIds(banner);
+    ids.forEach(id=>logBusinessActivity(id,'banner_click','home_banner',banner.id));
     const url=banner.link_url||banner.external_url;
     if(url){ window.open(normalizeUrl(url),'_blank','noopener'); return; }
     if(openMultiBusinessBanner(banner)) return;
@@ -3597,12 +3657,12 @@ function renderMainBanners(){
     btn.addEventListener('click',(e)=>{if(e.target.closest('video,iframe'))return;openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)));});
     btn.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openBanner(rows.find(x=>String(x.id)===String(btn.dataset.bannerId)));}});
   });
-  if(rows.length<2)return;
+  if(rows.length<2){ linkedBusinessIds(rows[0]).forEach(id=>logBusinessImpressionOnce(id,'home_banner',rows[0]?.id)); return; }
   const track=box.querySelector('.main-banner-track');
   const viewport=box.querySelector('.main-banner-viewport');
   const dots=[...box.querySelectorAll('.main-banner-dot')];
   let current=0,startX=0,deltaX=0;
-  const moveTo=(index)=>{current=(index+rows.length)%rows.length;track.style.transform=`translateX(-${current*100}%)`;dots.forEach((d,i)=>d.classList.toggle('active',i===current));};
+  const moveTo=(index)=>{current=(index+rows.length)%rows.length;track.style.transform=`translateX(-${current*100}%)`;dots.forEach((d,i)=>d.classList.toggle('active',i===current));const visible=rows[current];linkedBusinessIds(visible).forEach(id=>logBusinessImpressionOnce(id,'home_banner',visible?.id));};
   const restart=()=>{if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);mainBannerCarouselTimer=setInterval(()=>moveTo(current+1),5000);};
   dots.forEach(d=>d.addEventListener('click',()=>{moveTo(Number(d.dataset.index||0));restart();}));
   viewport.addEventListener('touchstart',e=>{startX=e.touches[0].clientX;deltaX=0;if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);},{passive:true});
@@ -3610,6 +3670,7 @@ function renderMainBanners(){
   viewport.addEventListener('touchend',()=>{if(Math.abs(deltaX)>45)moveTo(current+(deltaX<0?1:-1));restart();});
   box.addEventListener('mouseenter',()=>{if(mainBannerCarouselTimer)clearInterval(mainBannerCarouselTimer);});
   box.addEventListener('mouseleave',restart);
+  moveTo(0);
   restart();
 }
 
@@ -3635,7 +3696,8 @@ function renderDetail(id){
   const safeEmail = (b.email || '').trim();
   const phoneDigits = (b.phone||'').replace(/[^\d]/g,'');
   const bizCoupons = activeCoupons(coupons).filter(c=>String(c.businessId)===String(b.id));
-  logBusinessActivity(b.id, 'view');
+  logBusinessActivity(b.id, 'view', window.__DTM_PENDING_ACTIVITY_SOURCE__ || 'business_detail');
+  window.__DTM_PENDING_ACTIVITY_SOURCE__='';
 const videoHtml = businessVideoHTML(b);
 
 const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
@@ -4066,6 +4128,7 @@ detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
     if (event.target.closest('video,iframe')) return;
     const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
     if (!promo) return;
+    logBusinessActivity(b.id,'banner_click','business_detail_banner',promo.id);
     const raw = String(promo.link_url || '').trim();
     const match = raw.match(/^(business|post|dalpick|coupon):(.+)$/i);
     if (match) {
@@ -4655,7 +4718,7 @@ function renderCouponUse(id){
   if(!c || !couponUseCard) return;
   selectedCouponId = c.id;
   const b = getBiz(c.businessId);
-  logBusinessActivity(c.businessId, 'coupon_use');
+  logBusinessActivity(c.businessId, 'coupon_use', 'coupon_use', c.id);
   clearInterval(couponUseTimer);
   
   couponUseCard.innerHTML = `
@@ -4778,6 +4841,8 @@ function setSlide(index, user=false){
   const offset = (100 / total) * slideIndex;
   if(heroTrack) heroTrack.style.transform = `translate3d(-${offset}%,0,0)`;
   $$('.dot').forEach((d,i)=>d.classList.toggle('active', i===slideIndex));
+  const visibleSlide=heroSlides[slideIndex];
+  if(visibleSlide?.bizId) logBusinessImpressionOnce(visibleSlide.bizId,'hero_slide',`hero:${slideIndex}`);
   if(user) restartAuto();
 }
 function restartAuto(){
@@ -4829,6 +4894,8 @@ function bindHeroSwipe(){
       const bizId = cta.dataset.biz;
       currentDetailVideoOverride = String(cta.dataset.video || '').trim();
 if(bizId){
+  window.__DTM_PENDING_ACTIVITY_SOURCE__='hero_slide';
+  logBusinessActivity(bizId,'slide_click','hero_slide',String(slideIndex));
   renderDetail(bizId);
   lastBasePage = currentPage;
   showPage('business-detail');
@@ -4860,6 +4927,8 @@ if (slideData) {
   }
 }
 if(bizId){
+  window.__DTM_PENDING_ACTIVITY_SOURCE__='hero_slide';
+  logBusinessActivity(bizId,'slide_click','hero_slide',String(slideIndex));
   renderDetail(bizId);
   lastBasePage = currentPage;
   showPage('business-detail');
@@ -6015,7 +6084,9 @@ function bindEvents(){
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
   communityTabs?.addEventListener('click', async e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; const type=btn.dataset.board || 'notice'; renderHomeBoardSection(type); await refreshBoardPostsSilently({force:true}); renderHomeBoardSection(type); });
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
-  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
+  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; }
+  const src=v225BusinessOpenSource(card); window.__DTM_PENDING_ACTIVITY_SOURCE__=src; logBusinessActivity(card.dataset.biz,'business_click',src);
+  currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-home-biz-tab]');
@@ -6071,7 +6142,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   recentSearches?.addEventListener('click', e=>{ const btn=e.target.closest('[data-recent-search]'); if(!btn || !globalSearchInput) return; globalSearchInput.value = btn.dataset.recentSearch || ''; renderSearchResults(globalSearchInput.value); globalSearchInput.focus(); });
   searchResults?.addEventListener('click', e=>{
     const bizBtn = e.target.closest('[data-search-type="business"]');
-    if(bizBtn){ const id = bizBtn.dataset.biz; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); renderDetail(id); lastBasePage = currentPage; showPage('business-detail'); return; }
+    if(bizBtn){ const id = bizBtn.dataset.biz; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); window.__DTM_PENDING_ACTIVITY_SOURCE__='search'; logBusinessActivity(id,'business_click','search'); renderDetail(id); lastBasePage = currentPage; showPage('business-detail'); return; }
     const couponBtn = e.target.closest('[data-search-type="coupon"]');
     if(couponBtn){ const id = couponBtn.dataset.coupon; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); renderCouponDetail(id); lastBasePage = currentPage; showPage('coupon-detail'); return; }
     const boardBtn = e.target.closest('[data-search-type="board"]');
@@ -6081,9 +6152,19 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   mapSearchInput?.addEventListener('input', ()=>{ mapSearchQuery = (mapSearchInput.value || '').trim(); if(mapReady) redrawMapMarkers(); });
   mapSearchInput?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); mapSearchInput.blur(); if(mapReady) redrawMapMarkers(); } });
   $('#couponTabs')?.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-tab'); if(!btn) return; couponViewTab = btn.dataset.couponTab || 'today'; updateCouponTabUI(); });
-  document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
+  document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); const c=getCoupon(btn.dataset.coupon); if(c?.businessId) logBusinessActivity(c.businessId,'coupon_click',currentPage==='home'?'home_coupon':(currentPage||'coupon'),c.id); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-use-open'); if(!btn) return; e.preventDefault(); renderCouponUse(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-use'); });
-  document.addEventListener('click', e=>{ const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call'); const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction'); });
+  document.addEventListener('click', e=>{
+    const link=e.target.closest('a');
+    if(link && detailCard?.contains(link) && selectedBizId){
+      const href=String(link.getAttribute('href')||'');
+      if(/^tel:/i.test(href)) logBusinessActivity(selectedBizId,'call','business_detail');
+      else if(/google\.com\/maps|maps\.google/i.test(href)) logBusinessActivity(selectedBizId,'direction','business_detail');
+      else if(/^https?:/i.test(href) && !/google\.(com|co\.)/i.test(href)) logBusinessActivity(selectedBizId,'website_click','business_detail');
+    }
+    const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call','business_detail_icon');
+    const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction','business_detail_icon');
+  });
   mapFilterRow?.addEventListener('click', e=>{
     const btn=e.target.closest('.map-filter-chip');
     if(!btn || btn.classList.contains('hidden')) return;
@@ -6159,9 +6240,9 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapAboveBottomPanel(pos.lat, pos.lng); showMapBusinessPreview(biz); if(mapInfoWindow) mapInfoWindow.close(); });
   mapBusinessPreview?.addEventListener('click', e=>{
     const detail = e.target.closest('[data-map-detail]');
-    if(detail){ const id=detail.dataset.mapDetail; selectedBizId=id; currentDetailVideoOverride=''; lastBasePage='map'; renderDetail(id); showPage('business-detail'); return; }
+    if(detail){ const id=detail.dataset.mapDetail; window.__DTM_PENDING_ACTIVITY_SOURCE__='map'; logBusinessActivity(id,'business_click','map'); selectedBizId=id; currentDetailVideoOverride=''; lastBasePage='map'; renderDetail(id); showPage('business-detail'); return; }
     const action = e.target.closest('[data-map-action]');
-    if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction);
+    if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction, 'map');
   });
   mapBottomClose?.addEventListener('click', ()=>{
     if(selectedMapBusinessId){
