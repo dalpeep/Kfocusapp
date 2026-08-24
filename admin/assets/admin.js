@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V228 performance visibility fix build');
 console.info('[DalTownMap Admin] V227 performance center render fix build');
 console.info('[DalTownMap Admin] V226 smart flyer compatibility build');
 console.info('[DalTownMap Admin] V225 ad performance center + source tracking build');
@@ -13,7 +14,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V225';
+    badge.textContent='Admin V228';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -298,7 +299,15 @@ function switchSection(section) {
     btn.classList.toggle('active', btn.dataset.section === section);
   });
   $$('.admin-section').forEach((sec) => {
-    sec.classList.toggle('active-section', sec.id === `section-${section}`);
+    const isTarget = sec.id === `section-${section}`;
+    sec.classList.toggle('active-section', isTarget);
+
+    // V228: performance 섹션은 기존 HTML에서 `hidden` 클래스가 붙어 있어
+    // active-section이 되어도 .hidden{display:none!important} 때문에 빈 화면으로 보였습니다.
+    // 광고 성과 센터를 열 때만 hidden을 제거해 실제 본문을 표시합니다.
+    if (sec.id === 'section-performance' && isTarget) {
+      sec.classList.remove('hidden');
+    }
   });
   setPageMeta();
 
@@ -5228,7 +5237,10 @@ function ensurePerformanceCenterUI(){
     host.appendChild(sec);
     console.info('[DalTownMap Admin] V227 performance section created dynamically');
   }
-  if(currentSection==='performance') sec.classList.add('active-section');
+  if(currentSection==='performance'){
+    sec.classList.add('active-section');
+    sec.classList.remove('hidden');
+  }
   if(sec.querySelector('#performanceV225Root')) return sec.querySelector('#performanceV225Root');
   sec.innerHTML=`<div id="performanceV225Root" class="v225-performance">
     <style>
