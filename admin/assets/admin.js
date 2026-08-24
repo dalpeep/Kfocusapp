@@ -1,3 +1,9 @@
+console.info('[DalTownMap Admin] V228 performance visibility fix build');
+console.info('[DalTownMap Admin] V227 performance center render fix build');
+console.info('[DalTownMap Admin] V226 smart flyer compatibility build');
+console.info('[DalTownMap Admin] V225 ad performance center + source tracking build');
+console.info('[DalTownMap Admin] V224 newsroom auto-collection + 14-day cleanup build');
+console.info('[DalTownMap Admin] V221 weather ticker package build');
 console.info('[DalTownMap Admin] V220 popup rotation fix build');
 console.info('[DalTownMap Admin] V217 full-list canonical sync loaded');
 
@@ -8,7 +14,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V220';
+    badge.textContent='Admin V228';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -293,12 +299,23 @@ function switchSection(section) {
     btn.classList.toggle('active', btn.dataset.section === section);
   });
   $$('.admin-section').forEach((sec) => {
-    sec.classList.toggle('active-section', sec.id === `section-${section}`);
+    const isTarget = sec.id === `section-${section}`;
+    sec.classList.toggle('active-section', isTarget);
+
+    // V228: performance 섹션은 기존 HTML에서 `hidden` 클래스가 붙어 있어
+    // active-section이 되어도 .hidden{display:none!important} 때문에 빈 화면으로 보였습니다.
+    // 광고 성과 센터를 열 때만 hidden을 제거해 실제 본문을 표시합니다.
+    if (sec.id === 'section-performance' && isTarget) {
+      sec.classList.remove('hidden');
+    }
   });
   setPageMeta();
 
   if (section === 'couponRedemptions' && typeof loadCouponRedemptions === 'function') {
     loadCouponRedemptions();
+  }
+  if (section === 'performance' && typeof loadPerformanceCenter === 'function') {
+    setTimeout(()=>loadPerformanceCenter(),0);
   }
 }
 function setPageMeta() {
@@ -5173,20 +5190,141 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-async function loadPerformanceCenter(){
-  const status=qs('performanceStatus');
-  try{
-    const since=new Date(Date.now()-30*86400000).toISOString();
-    const {data,error}=await supabase.from('content_events').select('event_type,business_id,content_id,created_at').gte('created_at',since);
-    if(error) throw error;
-    const rows=data||[]; const count=t=>rows.filter(r=>r.event_type===t).length;
-    safeText('metricArticleViews',count('article_view')); safeText('metricAiPickClicks',count('ai_pick_click'));
-    safeText('metricPhoneClicks',count('phone_click')); safeText('metricDirectionClicks',count('direction_click')); safeText('metricWebsiteClicks',count('website_click'));
-    const grouped={}; rows.forEach(r=>{const k=r.business_id||'unlinked'; grouped[k]??={total:0,views:0,actions:0}; grouped[k].total++; if(r.event_type==='article_view')grouped[k].views++; else grouped[k].actions++;});
-    const el=qs('performanceBusinessList'); if(el) el.innerHTML=Object.entries(grouped).map(([id,v])=>{const b=businesses.find(x=>String(x.id)===String(id)); return `<div class="performance-row"><strong>${esc(b?.name_ko||b?.name_en||'연결 업소 없음')}</strong><span>조회 ${v.views}</span><span>행동 ${v.actions}</span><span>총 ${v.total}</span></div>`}).join('')||'<div class="muted">최근 30일 데이터가 없습니다.</div>';
-    safeText('performanceStatus','최근 30일 기준 · 관리자만 볼 수 있습니다.');
-  }catch(e){ safeText('performanceStatus',`성과 테이블 연결 필요: ${e.message}`); }
+let performanceRange='30';
+function performanceSinceISO(range=performanceRange){
+  if(range==='all') return null;
+  if(range==='today'){
+    const day=v188DallasToday();
+    return new Date(`${day}T00:00:00-05:00`).toISOString();
+  }
+  const days=Math.max(1,Number(range||30));
+  return new Date(Date.now()-days*86400000).toISOString();
 }
+function performanceSourceLabel(source=''){
+  const raw=String(source||'').trim();
+  const map={
+    home_featured:'메인 추천',home_new:'메인 신규',home_popular:'메인 인기',home_nearby:'메인 주변 업소',
+    home_banner:'메인 배너',hero_slide:'상단 슬라이드',ticker:'달타운 알림',search:'통합 검색',map:'지도',
+    business_list:'업소 목록',business_detail:'업소 상세',business_detail_icon:'업소 상세 아이콘',business_detail_banner:'업소 상세 광고',
+    coupon_detail:'쿠폰 상세',coupon_use:'쿠폰 사용'
+  };
+  return map[raw]||raw||'기존/미분류';
+}
+function performanceStatSeed(){return {impressions:0,views:0,clicks:0,calls:0,directions:0,websites:0,coupons:0,actions:0,total:0};}
+function performanceApply(stat,row){
+  const a=String(row.action_type||'').toLowerCase();
+  stat.total++;
+  if(a==='impression') stat.impressions++;
+  else if(a==='view') stat.views++;
+  else if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click'].includes(a)) stat.clicks++;
+  else if(['call','phone_click'].includes(a)){stat.calls++;stat.actions++;}
+  else if(['direction','direction_click'].includes(a)){stat.directions++;stat.actions++;}
+  else if(['website_click'].includes(a)){stat.websites++;stat.actions++;}
+  else if(['coupon_use','coupon_click'].includes(a)){stat.coupons++;stat.actions++;}
+  if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click'].includes(a)) stat.actions++;
+  return stat;
+}
+function performancePct(n,d){return d?`${((n/d)*100).toFixed(1)}%`:'—';}
+function ensurePerformanceCenterUI(){
+  // V227: 일부 admin/index.html에는 메뉴 버튼만 있고 section-performance 자체가 없습니다.
+  // 그런 경우 제목만 바뀌고 본문이 완전히 빈 화면이 되므로 섹션을 런타임에 생성합니다.
+  let sec=qs('section-performance');
+  if(!sec){
+    const host=document.querySelector('.main-content, main, #adminMain, .content')||document.body;
+    sec=document.createElement('section');
+    sec.id='section-performance';
+    sec.className='admin-section';
+    host.appendChild(sec);
+    console.info('[DalTownMap Admin] V227 performance section created dynamically');
+  }
+  if(currentSection==='performance'){
+    sec.classList.add('active-section');
+    sec.classList.remove('hidden');
+  }
+  if(sec.querySelector('#performanceV225Root')) return sec.querySelector('#performanceV225Root');
+  sec.innerHTML=`<div id="performanceV225Root" class="v225-performance">
+    <style>
+      .v225-performance{max-width:1500px}.v225-perf-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}.v225-perf-toolbar button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:9px 14px;font-weight:800;cursor:pointer}.v225-perf-toolbar button.active{background:#2563eb;color:#fff;border-color:#2563eb}.v225-perf-toolbar .spacer{flex:1}.v225-metrics{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:12px;margin-bottom:16px}.v225-metric{background:#fff;border:1px solid #dbe4f0;border-radius:14px;padding:16px}.v225-metric span{display:block;color:#64748b;font-size:12px;font-weight:800}.v225-metric strong{display:block;font-size:27px;margin-top:6px}.v225-perf-card{background:#fff;border:1px solid #dbe4f0;border-radius:14px;padding:16px;margin-top:14px;overflow:auto}.v225-perf-card h3{margin:0 0 12px}.v225-perf-table{width:100%;border-collapse:collapse;min-width:940px}.v225-perf-table th,.v225-perf-table td{padding:10px 8px;border-bottom:1px solid #edf2f7;text-align:right;font-size:13px}.v225-perf-table th:first-child,.v225-perf-table td:first-child{text-align:left}.v225-perf-table th{color:#475569;font-size:12px}.v225-source-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}.v225-source-item{border:1px solid #e2e8f0;border-radius:12px;padding:12px}.v225-source-item b,.v225-source-item span{display:block}.v225-source-item span{color:#64748b;font-size:12px;margin-top:4px}@media(max-width:900px){.v225-metrics{grid-template-columns:repeat(2,1fr)}}
+    </style>
+    <div class="v225-perf-toolbar">
+      <button type="button" data-perf-range="today">오늘</button><button type="button" data-perf-range="7">7일</button><button type="button" data-perf-range="30" class="active">30일</button><button type="button" data-perf-range="all">전체</button>
+      <span class="spacer"></span><button type="button" id="performanceRefreshBtn">새로고침</button>
+    </div>
+    <div id="performanceStatus" class="muted">성과 데이터를 불러오는 중입니다.</div>
+    <div class="v225-metrics" id="performanceMetrics"></div>
+    <div class="v225-perf-card"><h3>업소별 광고 성과</h3><div id="performanceBusinessList"></div></div>
+    <div class="v225-perf-card"><h3>유입 위치별 성과</h3><div id="performanceSourceList"></div></div>
+  </div>`;
+  sec.querySelectorAll('[data-perf-range]').forEach(btn=>btn.addEventListener('click',()=>{performanceRange=btn.dataset.perfRange||'30';sec.querySelectorAll('[data-perf-range]').forEach(x=>x.classList.toggle('active',x===btn));loadPerformanceCenter();}));
+  sec.querySelector('#performanceRefreshBtn')?.addEventListener('click',loadPerformanceCenter);
+  return sec.querySelector('#performanceV225Root');
+}
+async function loadPerformanceCenter(){
+  const root=ensurePerformanceCenterUI();
+  if(!root||!supabase) return;
+  safeText('performanceStatus','성과 데이터를 불러오는 중...');
+  try{
+    const since=performanceSinceISO();
+    const region=getAppRegion();
+    const buildQuery=(withRegion=true)=>{
+      let q=supabase.from('business_activity').select('*').order('created_at',{ascending:false}).limit(20000);
+      if(since) q=q.gte('created_at',since);
+      if(withRegion && region && region!=='all') q=q.eq('region',region);
+      return q;
+    };
+    let result=await buildQuery(true);
+    // 구형 business_activity 테이블에 region 컬럼이 없는 경우에도 성과 화면 자체는 표시합니다.
+    if(result.error && /region|column .* does not exist|schema cache/i.test(String(result.error.message||''))){
+      console.warn('[V227 performance] region filter fallback',result.error.message);
+      result=await buildQuery(false);
+    }
+    if(result.error) throw result.error;
+    const rows=result.data||[];
+    const total=performanceStatSeed(); rows.forEach(r=>performanceApply(total,r));
+    const metrics=qs('performanceMetrics');
+    if(metrics) metrics.innerHTML=`
+      <div class="v225-metric"><span>광고 노출</span><strong>${total.impressions.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>광고/업소 클릭</span><strong>${total.clicks.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>상세 조회</span><strong>${total.views.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>CTR</span><strong>${performancePct(total.clicks,total.impressions)}</strong></div>
+      <div class="v225-metric"><span>전화</span><strong>${total.calls.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>길찾기</span><strong>${total.directions.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>웹사이트</span><strong>${total.websites.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>쿠폰 사용</span><strong>${total.coupons.toLocaleString()}</strong></div>`;
+    const byBiz={};
+    rows.forEach(r=>{const key=String(r.business_id||'');if(!key)return;byBiz[key]??=performanceStatSeed();performanceApply(byBiz[key],r);});
+    const bizRows=Object.entries(byBiz).map(([id,st])=>({id,st,b:businesses.find(x=>String(x.id)===id)})).sort((a,b)=>(b.st.actions+b.st.views)-(a.st.actions+a.st.views));
+    const bizEl=qs('performanceBusinessList');
+    if(bizEl) bizEl.innerHTML=bizRows.length?`<table class="v225-perf-table"><thead><tr><th>업소</th><th>노출</th><th>상세</th><th>클릭</th><th>전화</th><th>길찾기</th><th>웹사이트</th><th>쿠폰</th><th>총 행동</th><th>CTR</th></tr></thead><tbody>${bizRows.map(({id,st,b})=>`<tr><td><b>${esc(b?.name_ko||b?.name_en||`ID ${id}`)}</b></td><td>${st.impressions}</td><td>${st.views}</td><td>${st.clicks}</td><td>${st.calls}</td><td>${st.directions}</td><td>${st.websites}</td><td>${st.coupons}</td><td><b>${st.actions}</b></td><td>${performancePct(st.clicks,st.impressions)}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">선택한 기간에 기록된 업소 활동이 없습니다.</div>';
+    const bySource={};
+    rows.forEach(r=>{const key=String(r.source||'');bySource[key]??=performanceStatSeed();performanceApply(bySource[key],r);});
+    const sourceRows=Object.entries(bySource).sort((a,b)=>b[1].total-a[1].total);
+    const srcEl=qs('performanceSourceList');
+    if(srcEl) srcEl.innerHTML=sourceRows.length?`<div class="v225-source-grid">${sourceRows.map(([source,st])=>`<div class="v225-source-item"><b>${esc(performanceSourceLabel(source))}</b><span>노출 ${st.impressions} · 클릭 ${st.clicks} · 상세 ${st.views}</span><span>전화 ${st.calls} · 길찾기 ${st.directions} · 웹 ${st.websites} · 쿠폰 ${st.coupons}</span></div>`).join('')}</div>`:'<div class="muted">유입 위치 데이터가 없습니다.</div>';
+    const rangeLabel=performanceRange==='today'?'오늘':performanceRange==='all'?'전체 기간':`${performanceRange}일`;
+    safeText('performanceStatus',`${rangeLabel} 기준 · ${rows.length.toLocaleString()}개 활동 기록 · 기존 기록은 유입 위치가 '기존/미분류'로 표시될 수 있습니다.`);
+  }catch(e){
+    console.error('[V227 performance]',e);
+    const message=e?.message||String(e);
+    safeText('performanceStatus',`광고 성과 조회 실패: ${message}`);
+    const metrics=qs('performanceMetrics');
+    if(metrics) metrics.innerHTML=`
+      <div class="v225-metric"><span>광고 노출</span><strong>0</strong></div>
+      <div class="v225-metric"><span>광고/업소 클릭</span><strong>0</strong></div>
+      <div class="v225-metric"><span>상세 조회</span><strong>0</strong></div>
+      <div class="v225-metric"><span>CTR</span><strong>—</strong></div>
+      <div class="v225-metric"><span>전화</span><strong>0</strong></div>
+      <div class="v225-metric"><span>길찾기</span><strong>0</strong></div>
+      <div class="v225-metric"><span>웹사이트</span><strong>0</strong></div>
+      <div class="v225-metric"><span>쿠폰 사용</span><strong>0</strong></div>`;
+    const bizEl=qs('performanceBusinessList');
+    if(bizEl) bizEl.innerHTML=`<div class="muted">성과 데이터를 읽지 못했습니다. business_activity 테이블/RLS를 확인해 주세요.<br><small>${esc(message)}</small></div>`;
+    const srcEl=qs('performanceSourceList');
+    if(srcEl) srcEl.innerHTML='<div class="muted">유입 위치 데이터를 불러오지 못했습니다.</div>';
+  }
+}
+window.loadPerformanceCenter=loadPerformanceCenter;
+
 
 console.log('[DalTownMap Admin] v9.0 unified image manager loaded');
 
@@ -5715,7 +5853,7 @@ async function v487DeleteHomeLink(id){
 async function v489SetArchiveKeep(id,enabled=true){
   try{
     await newsroomEdgeCall('set_archive_keep',{id,enabled,region:getAppRegion()});
-    safeText('newsroomStatus',enabled?'선택한 기사를 30일 자동 삭제 대상에서 제외했습니다.':'보관을 해제했습니다. 이 기사는 수집일 기준 30일 후 자동 삭제됩니다.');
+    safeText('newsroomStatus',enabled?'선택한 기사를 14일 자동 삭제 대상에서 제외했습니다.':'보관을 해제했습니다. 이 기사는 원문 발행일 기준 14일 후 자동 삭제됩니다.');
     await loadNewsroom();
   }catch(e){alert(e.message||String(e));}
 }
@@ -6831,7 +6969,10 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
           <h2>오늘 자동 수집·기사 생성 확인</h2>
           <div class="p0022-sub">조회 전용입니다. 새로고침해도 수집이나 기사 생성을 다시 실행하지 않습니다.</div>
         </div>
-        <button type="button" class="btn primary" id="${P}Refresh">현황 새로고침</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          <button type="button" class="btn ghost" id="${P}Cleanup14">14일 지난 기사 정리</button>
+          <button type="button" class="btn primary" id="${P}Refresh">현황 새로고침</button>
+        </div>
       </div>
       <div id="${P}State" class="p0022-state waiting">확인 중...</div>
       <div class="p0022-grid">
@@ -6859,6 +7000,18 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
     if(first) first.insertAdjacentElement('afterend', panel);
     else section.prepend(panel);
     el(P+'Refresh')?.addEventListener('click', load);
+    el(P+'Cleanup14')?.addEventListener('click', async()=>{
+      if(!confirm('원문 발행일 기준 14일이 지난 기사를 모두 삭제할까요?\n\n관리자가 ‘보관’한 기사는 삭제하지 않습니다.')) return;
+      const b=el(P+'Cleanup14'); const oldText=b?.textContent||'14일 지난 기사 정리';
+      if(b){b.disabled=true;b.textContent='정리 중...';}
+      try{
+        const r=await newsroomEdgeCall('cleanup',{region:getAppRegion()},'14일 지난 기사를 정리하고 있습니다...');
+        alert(`정리 완료: ${Number(r.cleaned||0)}건 삭제\n보관 기간: ${Number(r.retention_days||14)}일`);
+        if(typeof loadNewsroom==='function') await loadNewsroom();
+        await load();
+      }catch(e){alert(`기사 정리 실패: ${e.message||e}`);}
+      finally{if(b){b.disabled=false;b.textContent=oldText;}}
+    });
     return panel;
   }
 
@@ -7559,6 +7712,188 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.P006AutomationStatus={load};
 })();
 
+
+// === V226: Smart Flyer Edge Function compatibility + direct DB fallback ===
+// The deployed newsroom Edge Function may be older than this admin bundle.
+// Smart Flyer list/status/delete/item-edit operations therefore use the Edge
+// Function first and transparently fall back to the existing Supabase tables.
+console.info('[DalTownMap Admin] V226 smart flyer Edge fallback loaded');
+
+function dtmSmartFlyerNumber(value){
+  if(value===null||value===undefined||value==='') return null;
+  const n=Number(value);
+  return Number.isFinite(n)?n:null;
+}
+function dtmSmartFlyerDiscount(regular,sale){
+  const r=dtmSmartFlyerNumber(regular), s=dtmSmartFlyerNumber(sale);
+  if(r===null||s===null||r<=0||s>r) return null;
+  return Math.max(0,Math.round(((r-s)/r)*100));
+}
+function dtmSmartFlyerEdgeFallbackReason(error){
+  const msg=String(error?.message||error||'');
+  return /오래된 버전|지원하지 않는 뉴스룸 작업|list_weekly_flyers|set_weekly_flyer_status|delete_weekly_flyer|update_weekly_flyer_items|activate_weekly_flyer|404|not found/i.test(msg);
+}
+async function dtmSmartFlyerDirectList(body={}){
+  if(!supabase) throw new Error('Supabase 연결이 준비되지 않았습니다.');
+  const region=String(body.region||getAppRegion()||'dallas').toLowerCase();
+  const businessId=String(body.business_id||'').trim();
+
+  let q=supabase.from('weekly_flyers')
+    .select('*,weekly_flyer_items(*)')
+    .eq('region',region)
+    .order('created_at',{ascending:false})
+    .limit(200);
+  if(businessId) q=q.eq('business_id',businessId);
+
+  const {data,error}=await q;
+  if(error) throw error;
+
+  const rows=data||[];
+  const ids=[...new Set(rows.map(f=>String(f.business_id||'')).filter(Boolean))];
+  const localMap=Object.fromEntries((businesses||[]).map(b=>[String(b.id),b]));
+  let remoteMap={};
+
+  const missing=ids.filter(id=>!localMap[id]);
+  if(missing.length){
+    const first=await supabase.from('businesses')
+      .select('id,name_ko,name_en,name,area,region')
+      .in('id',missing);
+    if(!first.error){
+      remoteMap=Object.fromEntries((first.data||[]).map(b=>[String(b.id),b]));
+    }else{
+      // Some older schemas do not have every display-name column.
+      const second=await supabase.from('businesses').select('id,name_ko,name_en,area,region').in('id',missing);
+      if(!second.error) remoteMap=Object.fromEntries((second.data||[]).map(b=>[String(b.id),b]));
+    }
+  }
+
+  return {
+    ok:true,
+    source:'direct_db_fallback',
+    flyers:rows.map(f=>({
+      ...f,
+      businesses:localMap[String(f.business_id)]||remoteMap[String(f.business_id)]||null
+    }))
+  };
+}
+async function dtmSmartFlyerList(body={}){
+  try{
+    const result=await newsroomEdgeCall('list_weekly_flyers',body);
+    return {...result,source:result?.source||'edge'};
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge list failed; direct DB fallback',error?.message||error);
+    return await dtmSmartFlyerDirectList(body);
+  }
+}
+async function dtmSmartFlyerSetStatus(body={}){
+  try{
+    return await dtmSmartFlyerSetStatus(body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge status failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const id=Number(body.id||0);
+    if(!id) throw new Error('전단 ID가 없습니다.');
+    const patch={updated_at:new Date().toISOString()};
+    if(body.status!==undefined) patch.status=body.status;
+    if(body.show_on_home!==undefined) patch.show_on_home=!!body.show_on_home;
+    if(String(body.status||'').toLowerCase()==='archived') patch.show_on_home=false;
+    const {data,error:dbError}=await supabase.from('weekly_flyers').update(patch).eq('id',id).select().maybeSingle();
+    if(dbError) throw dbError;
+    return {ok:true,source:'direct_db_fallback',flyer:data};
+  }
+}
+async function dtmSmartFlyerDelete(body={}){
+  try{
+    return await newsroomEdgeCall('delete_weekly_flyer',body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge delete failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const id=Number(body.id||0);
+    if(!id) throw new Error('전단 ID가 없습니다.');
+    const itemDelete=await supabase.from('weekly_flyer_items').delete().eq('flyer_id',id);
+    if(itemDelete.error) throw itemDelete.error;
+    const flyerDelete=await supabase.from('weekly_flyers').delete().eq('id',id);
+    if(flyerDelete.error) throw flyerDelete.error;
+    return {ok:true,source:'direct_db_fallback',deleted:1};
+  }
+}
+async function dtmSmartFlyerUpdateItems(body={}){
+  try{
+    return await newsroomEdgeCall('update_weekly_flyer_items',body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge item update failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const flyerId=Number(body.id||body.flyer_id||0);
+    const items=Array.isArray(body.items)?body.items:[];
+    if(!flyerId) throw new Error('전단 ID가 없습니다.');
+    let updated=0;
+    for(const item of items){
+      const id=Number(item?.id||0);
+      if(!id) continue;
+      const regular=dtmSmartFlyerNumber(item.regular_price);
+      const sale=dtmSmartFlyerNumber(item.sale_price);
+      const patch={
+        product_name:String(item.product_name||'').trim(),
+        regular_price:regular,
+        sale_price:sale,
+        unit_text:String(item.unit_text||'').trim()||null,
+        discount_percent:dtmSmartFlyerDiscount(regular,sale),
+        is_featured:!!item.is_featured,
+        updated_at:new Date().toISOString()
+      };
+      if(!patch.product_name) continue;
+      const {error:dbError}=await supabase.from('weekly_flyer_items')
+        .update(patch).eq('id',id).eq('flyer_id',flyerId);
+      if(dbError) throw dbError;
+      updated++;
+    }
+    return {ok:true,source:'direct_db_fallback',updated};
+  }
+}
+async function dtmSmartFlyerActivate(body={}){
+  try{
+    return await newsroomEdgeCall('activate_weekly_flyer',body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge activate failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const id=Number(body.id||0);
+    if(!id) throw new Error('전단 ID가 없습니다.');
+
+    const {data:flyer,error:flyerError}=await supabase.from('weekly_flyers')
+      .select('id,business_id,region,start_date,end_date,analysis_status')
+      .eq('id',id).maybeSingle();
+    if(flyerError) throw flyerError;
+    if(!flyer) throw new Error('전단을 찾지 못했습니다.');
+
+    const {count,error:countError}=await supabase.from('weekly_flyer_items')
+      .select('id',{count:'exact',head:true}).eq('flyer_id',id);
+    if(countError) throw countError;
+    if(!count) throw new Error('추출된 상품이 없습니다. 상품 검토 후 다시 시도하세요.');
+
+    const today=v188DallasToday();
+    if(flyer.end_date&&String(flyer.end_date)<today) throw new Error('이미 종료된 전단입니다. 종료일을 수정하세요.');
+
+    const old=await supabase.from('weekly_flyers').update({
+      status:'archived',show_on_home:false,updated_at:new Date().toISOString()
+    }).eq('business_id',flyer.business_id).eq('region',flyer.region).eq('status','active').neq('id',id);
+    if(old.error) throw old.error;
+
+    const {data:activated,error:activateError}=await supabase.from('weekly_flyers').update({
+      status:'active',show_on_home:true,updated_at:new Date().toISOString()
+    }).eq('id',id).select().maybeSingle();
+    if(activateError) throw activateError;
+    return {ok:true,source:'direct_db_fallback',flyer:activated,item_count:count};
+  }
+}
+window.DTMSmartFlyerCompat={
+  list:dtmSmartFlyerList,
+  setStatus:dtmSmartFlyerSetStatus,
+  delete:dtmSmartFlyerDelete,
+  updateItems:dtmSmartFlyerUpdateItems,
+  activate:dtmSmartFlyerActivate
+};
+
+
 // === P010-1: AI Smart Flyer 관리자 기반 ===
 (() => {
   const P='p010';
@@ -7663,7 +7998,7 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
 
       el(P+'Status').textContent=`3/3 앱 메인 연결을 준비하고 있습니다.`;
       if(flyerId){
-        await newsroomEdgeCall('activate_weekly_flyer',{id:flyerId});
+        await dtmSmartFlyerActivate({id:flyerId});
         try{
           localStorage.setItem('daltownmap_content_changed',String(Date.now()));
           localStorage.removeItem('daltownmap_v38_home');
@@ -7690,7 +8025,7 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
     if(!list||!selectedId)return;
     list.innerHTML='<div class="p010-sub">전단 목록을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion(),business_id:selectedId});
+      const result=await dtmSmartFlyerList({region:getAppRegion(),business_id:selectedId});
       currentFlyers=result.flyers||[];
       if(!currentFlyers.length){
         list.innerHTML='<div class="p010-sub">등록된 주간 전단이 없습니다.</div>';
@@ -7715,9 +8050,9 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
         const act=btn.dataset.p010Act;
         if(act==='delete'){
           if(!confirm('이 전단과 추출 상품을 삭제할까요?'))return;
-          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          await dtmSmartFlyerDelete({id});
         }else{
-          await newsroomEdgeCall('set_weekly_flyer_status',{id,status:act});
+          await dtmSmartFlyerSetStatus({id,status:act});
         }
         await load();
       }));
@@ -7788,7 +8123,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   async function loadItems(id,body){
     body.innerHTML='<div class="p010-sub">상품을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion(),business_id:selectedId});
+      const result=await dtmSmartFlyerList({region:getAppRegion(),business_id:selectedId});
       const flyer=(result.flyers||[]).find(f=>Number(f.id)===Number(id));
       const items=Array.isArray(flyer?.weekly_flyer_items)?flyer.weekly_flyer_items:[];
       body.innerHTML=items.length?items.map(item=>`
@@ -7815,7 +8150,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       is_featured:row.querySelector('.p0102-featured').checked
     }));
     try{
-      await newsroomEdgeCall('update_weekly_flyer_items',{id,items});
+      await dtmSmartFlyerUpdateItems({id,items});
       alert('상품 정보를 저장했습니다.');
       if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
     }catch(e){alert(`저장 실패: ${e.message}`);}
@@ -7967,7 +8302,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const list=el(P+'List');
     if(list)list.innerHTML='<div class="p0103-meta">전단을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const result=await dtmSmartFlyerList({region:getAppRegion()});
       allFlyers=result.flyers||[];
       render();
     }catch(e){
@@ -8021,7 +8356,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
 
     list.querySelectorAll('[data-p0103-preview]').forEach(btn=>btn.addEventListener('click',()=>preview(Number(btn.dataset.p0103Preview))));
     list.querySelectorAll('[data-p0103-status]').forEach(btn=>btn.addEventListener('click',async()=>{
-      await newsroomEdgeCall('set_weekly_flyer_status',{id:Number(btn.dataset.id),status:btn.dataset.p0103Status});
+      await dtmSmartFlyerSetStatus({id:Number(btn.dataset.id),status:btn.dataset.p0103Status});
       await load();
       if(window.P010SmartFlyer?.load)window.P010SmartFlyer.load();
     }));
@@ -8211,8 +8546,11 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const list=el(P+'List');
     if(list)list.innerHTML='<div class="p011-empty">전단 목록을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const result=await dtmSmartFlyerList({region:getAppRegion()});
       flyers=result.flyers||[];
+      const sourceNote=result?.source==='direct_db_fallback'?' · DB 직접 조회':' · Edge Function';
+      const hero=el(P+'List')?.closest('#section-smartFlyer')?.querySelector('.p011-hero p');
+      if(hero) hero.dataset.dataSource=sourceNote;
       updateStats();
       render();
     }catch(error){
@@ -8287,7 +8625,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       btn.addEventListener('click',async()=>{
         btn.disabled=true;
         try{
-          await newsroomEdgeCall('set_weekly_flyer_status',{
+          await dtmSmartFlyerSetStatus({
             id:Number(btn.dataset.id),
             status:btn.dataset.p011Status
           });
@@ -8301,7 +8639,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       btn.addEventListener('click',async()=>{
         btn.disabled=true;
         try{
-          await newsroomEdgeCall('set_weekly_flyer_status',{
+          await dtmSmartFlyerSetStatus({
             id:Number(btn.dataset.id),
             show_on_home:btn.dataset.p011Home==='true'
           });
@@ -8322,7 +8660,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
         const oldText=btn.textContent;
         btn.textContent='삭제 중...';
         try{
-          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          await dtmSmartFlyerDelete({id});
           try{
             localStorage.setItem('daltownmap_content_changed',String(Date.now()));
             localStorage.removeItem('daltownmap_v38_home');
@@ -8712,7 +9050,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     button.textContent='상품 이미지 생성 중...';
     statusNode.textContent='전단 원본과 AI 상품 위치를 확인하고 있습니다.';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const result=await dtmSmartFlyerList({region:getAppRegion()});
       const flyer=(result.flyers||[]).find(f=>Number(f.id)===Number(flyerId));
       if(!flyer)throw new Error('전단을 찾지 못했습니다.');
       const items=(flyer.weekly_flyer_items||[])
@@ -9820,7 +10158,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       b.disabled=true;b.textContent='삭제 중...';
       try{
         if(typeof newsroomEdgeCall!=='function')throw new Error('삭제 API를 찾을 수 없습니다.');
-        await newsroomEdgeCall('delete_weekly_flyer',{id});
+        await dtmSmartFlyerDelete({id});
         alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
         location.reload();
       }catch(e){
