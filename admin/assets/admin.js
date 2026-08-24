@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V226 smart flyer compatibility build');
 console.info('[DalTownMap Admin] V225 ad performance center + source tracking build');
 console.info('[DalTownMap Admin] V224 newsroom auto-collection + 14-day cleanup build');
 console.info('[DalTownMap Admin] V221 weather ticker package build');
@@ -7662,6 +7663,188 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
   window.P006AutomationStatus={load};
 })();
 
+
+// === V226: Smart Flyer Edge Function compatibility + direct DB fallback ===
+// The deployed newsroom Edge Function may be older than this admin bundle.
+// Smart Flyer list/status/delete/item-edit operations therefore use the Edge
+// Function first and transparently fall back to the existing Supabase tables.
+console.info('[DalTownMap Admin] V226 smart flyer Edge fallback loaded');
+
+function dtmSmartFlyerNumber(value){
+  if(value===null||value===undefined||value==='') return null;
+  const n=Number(value);
+  return Number.isFinite(n)?n:null;
+}
+function dtmSmartFlyerDiscount(regular,sale){
+  const r=dtmSmartFlyerNumber(regular), s=dtmSmartFlyerNumber(sale);
+  if(r===null||s===null||r<=0||s>r) return null;
+  return Math.max(0,Math.round(((r-s)/r)*100));
+}
+function dtmSmartFlyerEdgeFallbackReason(error){
+  const msg=String(error?.message||error||'');
+  return /오래된 버전|지원하지 않는 뉴스룸 작업|list_weekly_flyers|set_weekly_flyer_status|delete_weekly_flyer|update_weekly_flyer_items|activate_weekly_flyer|404|not found/i.test(msg);
+}
+async function dtmSmartFlyerDirectList(body={}){
+  if(!supabase) throw new Error('Supabase 연결이 준비되지 않았습니다.');
+  const region=String(body.region||getAppRegion()||'dallas').toLowerCase();
+  const businessId=String(body.business_id||'').trim();
+
+  let q=supabase.from('weekly_flyers')
+    .select('*,weekly_flyer_items(*)')
+    .eq('region',region)
+    .order('created_at',{ascending:false})
+    .limit(200);
+  if(businessId) q=q.eq('business_id',businessId);
+
+  const {data,error}=await q;
+  if(error) throw error;
+
+  const rows=data||[];
+  const ids=[...new Set(rows.map(f=>String(f.business_id||'')).filter(Boolean))];
+  const localMap=Object.fromEntries((businesses||[]).map(b=>[String(b.id),b]));
+  let remoteMap={};
+
+  const missing=ids.filter(id=>!localMap[id]);
+  if(missing.length){
+    const first=await supabase.from('businesses')
+      .select('id,name_ko,name_en,name,area,region')
+      .in('id',missing);
+    if(!first.error){
+      remoteMap=Object.fromEntries((first.data||[]).map(b=>[String(b.id),b]));
+    }else{
+      // Some older schemas do not have every display-name column.
+      const second=await supabase.from('businesses').select('id,name_ko,name_en,area,region').in('id',missing);
+      if(!second.error) remoteMap=Object.fromEntries((second.data||[]).map(b=>[String(b.id),b]));
+    }
+  }
+
+  return {
+    ok:true,
+    source:'direct_db_fallback',
+    flyers:rows.map(f=>({
+      ...f,
+      businesses:localMap[String(f.business_id)]||remoteMap[String(f.business_id)]||null
+    }))
+  };
+}
+async function dtmSmartFlyerList(body={}){
+  try{
+    const result=await newsroomEdgeCall('list_weekly_flyers',body);
+    return {...result,source:result?.source||'edge'};
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge list failed; direct DB fallback',error?.message||error);
+    return await dtmSmartFlyerDirectList(body);
+  }
+}
+async function dtmSmartFlyerSetStatus(body={}){
+  try{
+    return await dtmSmartFlyerSetStatus(body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge status failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const id=Number(body.id||0);
+    if(!id) throw new Error('전단 ID가 없습니다.');
+    const patch={updated_at:new Date().toISOString()};
+    if(body.status!==undefined) patch.status=body.status;
+    if(body.show_on_home!==undefined) patch.show_on_home=!!body.show_on_home;
+    if(String(body.status||'').toLowerCase()==='archived') patch.show_on_home=false;
+    const {data,error:dbError}=await supabase.from('weekly_flyers').update(patch).eq('id',id).select().maybeSingle();
+    if(dbError) throw dbError;
+    return {ok:true,source:'direct_db_fallback',flyer:data};
+  }
+}
+async function dtmSmartFlyerDelete(body={}){
+  try{
+    return await newsroomEdgeCall('delete_weekly_flyer',body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge delete failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const id=Number(body.id||0);
+    if(!id) throw new Error('전단 ID가 없습니다.');
+    const itemDelete=await supabase.from('weekly_flyer_items').delete().eq('flyer_id',id);
+    if(itemDelete.error) throw itemDelete.error;
+    const flyerDelete=await supabase.from('weekly_flyers').delete().eq('id',id);
+    if(flyerDelete.error) throw flyerDelete.error;
+    return {ok:true,source:'direct_db_fallback',deleted:1};
+  }
+}
+async function dtmSmartFlyerUpdateItems(body={}){
+  try{
+    return await newsroomEdgeCall('update_weekly_flyer_items',body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge item update failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const flyerId=Number(body.id||body.flyer_id||0);
+    const items=Array.isArray(body.items)?body.items:[];
+    if(!flyerId) throw new Error('전단 ID가 없습니다.');
+    let updated=0;
+    for(const item of items){
+      const id=Number(item?.id||0);
+      if(!id) continue;
+      const regular=dtmSmartFlyerNumber(item.regular_price);
+      const sale=dtmSmartFlyerNumber(item.sale_price);
+      const patch={
+        product_name:String(item.product_name||'').trim(),
+        regular_price:regular,
+        sale_price:sale,
+        unit_text:String(item.unit_text||'').trim()||null,
+        discount_percent:dtmSmartFlyerDiscount(regular,sale),
+        is_featured:!!item.is_featured,
+        updated_at:new Date().toISOString()
+      };
+      if(!patch.product_name) continue;
+      const {error:dbError}=await supabase.from('weekly_flyer_items')
+        .update(patch).eq('id',id).eq('flyer_id',flyerId);
+      if(dbError) throw dbError;
+      updated++;
+    }
+    return {ok:true,source:'direct_db_fallback',updated};
+  }
+}
+async function dtmSmartFlyerActivate(body={}){
+  try{
+    return await newsroomEdgeCall('activate_weekly_flyer',body);
+  }catch(error){
+    console.warn('[V226 Smart Flyer] Edge activate failed; direct DB fallback',error?.message||error);
+    if(!supabase) throw error;
+    const id=Number(body.id||0);
+    if(!id) throw new Error('전단 ID가 없습니다.');
+
+    const {data:flyer,error:flyerError}=await supabase.from('weekly_flyers')
+      .select('id,business_id,region,start_date,end_date,analysis_status')
+      .eq('id',id).maybeSingle();
+    if(flyerError) throw flyerError;
+    if(!flyer) throw new Error('전단을 찾지 못했습니다.');
+
+    const {count,error:countError}=await supabase.from('weekly_flyer_items')
+      .select('id',{count:'exact',head:true}).eq('flyer_id',id);
+    if(countError) throw countError;
+    if(!count) throw new Error('추출된 상품이 없습니다. 상품 검토 후 다시 시도하세요.');
+
+    const today=v188DallasToday();
+    if(flyer.end_date&&String(flyer.end_date)<today) throw new Error('이미 종료된 전단입니다. 종료일을 수정하세요.');
+
+    const old=await supabase.from('weekly_flyers').update({
+      status:'archived',show_on_home:false,updated_at:new Date().toISOString()
+    }).eq('business_id',flyer.business_id).eq('region',flyer.region).eq('status','active').neq('id',id);
+    if(old.error) throw old.error;
+
+    const {data:activated,error:activateError}=await supabase.from('weekly_flyers').update({
+      status:'active',show_on_home:true,updated_at:new Date().toISOString()
+    }).eq('id',id).select().maybeSingle();
+    if(activateError) throw activateError;
+    return {ok:true,source:'direct_db_fallback',flyer:activated,item_count:count};
+  }
+}
+window.DTMSmartFlyerCompat={
+  list:dtmSmartFlyerList,
+  setStatus:dtmSmartFlyerSetStatus,
+  delete:dtmSmartFlyerDelete,
+  updateItems:dtmSmartFlyerUpdateItems,
+  activate:dtmSmartFlyerActivate
+};
+
+
 // === P010-1: AI Smart Flyer 관리자 기반 ===
 (() => {
   const P='p010';
@@ -7766,7 +7949,7 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
 
       el(P+'Status').textContent=`3/3 앱 메인 연결을 준비하고 있습니다.`;
       if(flyerId){
-        await newsroomEdgeCall('activate_weekly_flyer',{id:flyerId});
+        await dtmSmartFlyerActivate({id:flyerId});
         try{
           localStorage.setItem('daltownmap_content_changed',String(Date.now()));
           localStorage.removeItem('daltownmap_v38_home');
@@ -7793,7 +7976,7 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
     if(!list||!selectedId)return;
     list.innerHTML='<div class="p010-sub">전단 목록을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion(),business_id:selectedId});
+      const result=await dtmSmartFlyerList({region:getAppRegion(),business_id:selectedId});
       currentFlyers=result.flyers||[];
       if(!currentFlyers.length){
         list.innerHTML='<div class="p010-sub">등록된 주간 전단이 없습니다.</div>';
@@ -7818,9 +8001,9 @@ console.info('[DalTownMap Admin] V55 fixed map/subcategory dropdown loaded');
         const act=btn.dataset.p010Act;
         if(act==='delete'){
           if(!confirm('이 전단과 추출 상품을 삭제할까요?'))return;
-          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          await dtmSmartFlyerDelete({id});
         }else{
-          await newsroomEdgeCall('set_weekly_flyer_status',{id,status:act});
+          await dtmSmartFlyerSetStatus({id,status:act});
         }
         await load();
       }));
@@ -7891,7 +8074,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
   async function loadItems(id,body){
     body.innerHTML='<div class="p010-sub">상품을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion(),business_id:selectedId});
+      const result=await dtmSmartFlyerList({region:getAppRegion(),business_id:selectedId});
       const flyer=(result.flyers||[]).find(f=>Number(f.id)===Number(id));
       const items=Array.isArray(flyer?.weekly_flyer_items)?flyer.weekly_flyer_items:[];
       body.innerHTML=items.length?items.map(item=>`
@@ -7918,7 +8101,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       is_featured:row.querySelector('.p0102-featured').checked
     }));
     try{
-      await newsroomEdgeCall('update_weekly_flyer_items',{id,items});
+      await dtmSmartFlyerUpdateItems({id,items});
       alert('상품 정보를 저장했습니다.');
       if(window.P010SmartFlyer?.load)await window.P010SmartFlyer.load();
     }catch(e){alert(`저장 실패: ${e.message}`);}
@@ -8070,7 +8253,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const list=el(P+'List');
     if(list)list.innerHTML='<div class="p0103-meta">전단을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const result=await dtmSmartFlyerList({region:getAppRegion()});
       allFlyers=result.flyers||[];
       render();
     }catch(e){
@@ -8124,7 +8307,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
 
     list.querySelectorAll('[data-p0103-preview]').forEach(btn=>btn.addEventListener('click',()=>preview(Number(btn.dataset.p0103Preview))));
     list.querySelectorAll('[data-p0103-status]').forEach(btn=>btn.addEventListener('click',async()=>{
-      await newsroomEdgeCall('set_weekly_flyer_status',{id:Number(btn.dataset.id),status:btn.dataset.p0103Status});
+      await dtmSmartFlyerSetStatus({id:Number(btn.dataset.id),status:btn.dataset.p0103Status});
       await load();
       if(window.P010SmartFlyer?.load)window.P010SmartFlyer.load();
     }));
@@ -8314,8 +8497,11 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const list=el(P+'List');
     if(list)list.innerHTML='<div class="p011-empty">전단 목록을 불러오는 중입니다.</div>';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const result=await dtmSmartFlyerList({region:getAppRegion()});
       flyers=result.flyers||[];
+      const sourceNote=result?.source==='direct_db_fallback'?' · DB 직접 조회':' · Edge Function';
+      const hero=el(P+'List')?.closest('#section-smartFlyer')?.querySelector('.p011-hero p');
+      if(hero) hero.dataset.dataSource=sourceNote;
       updateStats();
       render();
     }catch(error){
@@ -8390,7 +8576,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       btn.addEventListener('click',async()=>{
         btn.disabled=true;
         try{
-          await newsroomEdgeCall('set_weekly_flyer_status',{
+          await dtmSmartFlyerSetStatus({
             id:Number(btn.dataset.id),
             status:btn.dataset.p011Status
           });
@@ -8404,7 +8590,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       btn.addEventListener('click',async()=>{
         btn.disabled=true;
         try{
-          await newsroomEdgeCall('set_weekly_flyer_status',{
+          await dtmSmartFlyerSetStatus({
             id:Number(btn.dataset.id),
             show_on_home:btn.dataset.p011Home==='true'
           });
@@ -8425,7 +8611,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
         const oldText=btn.textContent;
         btn.textContent='삭제 중...';
         try{
-          await newsroomEdgeCall('delete_weekly_flyer',{id});
+          await dtmSmartFlyerDelete({id});
           try{
             localStorage.setItem('daltownmap_content_changed',String(Date.now()));
             localStorage.removeItem('daltownmap_v38_home');
@@ -8815,7 +9001,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     button.textContent='상품 이미지 생성 중...';
     statusNode.textContent='전단 원본과 AI 상품 위치를 확인하고 있습니다.';
     try{
-      const result=await newsroomEdgeCall('list_weekly_flyers',{region:getAppRegion()});
+      const result=await dtmSmartFlyerList({region:getAppRegion()});
       const flyer=(result.flyers||[]).find(f=>Number(f.id)===Number(flyerId));
       if(!flyer)throw new Error('전단을 찾지 못했습니다.');
       const items=(flyer.weekly_flyer_items||[])
@@ -9923,7 +10109,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       b.disabled=true;b.textContent='삭제 중...';
       try{
         if(typeof newsroomEdgeCall!=='function')throw new Error('삭제 API를 찾을 수 없습니다.');
-        await newsroomEdgeCall('delete_weekly_flyer',{id});
+        await dtmSmartFlyerDelete({id});
         alert('지난 전단과 관련 상품 데이터를 삭제했습니다.');
         location.reload();
       }catch(e){
