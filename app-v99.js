@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V231 business priority policy loaded');
 console.info('[DalTownMap App] V230 accurate business performance tracking loaded');
 console.info('[DalTownMap App] V229 business listings build loaded');
 console.info('[DalTownMap App] V223 market carousel timer fix loaded');
@@ -2752,6 +2753,7 @@ function nearbyBusinessItemHTML(b){
   const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const meta = [getBusinessDisplayCategory(b)];
   const promoBadges = [
+    isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '',
     businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '',
     businessHasActiveBanner(b) ? '<span class="business-banner-badge">배너</span>' : ''
   ].filter(Boolean).join('');
@@ -4419,7 +4421,15 @@ function renderBusinessList() {
     });
   }
 
-  rows = sortBusinessesByDistance(rows).sort((a,b)=> Number(isPremiumBusiness(b))-Number(isPremiumBusiness(a)) || Number(b.is_featured)-Number(a.is_featured));
+  // V231 전체 업소 목록: Premium 유료 광고 우선, 그 다음 추천, 이후 일반 업소.
+  // 같은 그룹 안에서는 기존 거리 정렬을 유지합니다.
+  rows = sortBusinessesByDistance(rows).sort((a,b)=>{
+    const premiumDiff=Number(isPremiumBusiness(b))-Number(isPremiumBusiness(a));
+    if(premiumDiff) return premiumDiff;
+    const featuredDiff=Number(b.is_featured===true)-Number(a.is_featured===true);
+    if(featuredDiff) return featuredDiff;
+    return 0;
+  });
 
   if (!rows.length) {
     listEl.innerHTML = `<div class="board-empty">등록된 업소가 없습니다.</div>`;
