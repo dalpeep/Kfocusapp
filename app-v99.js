@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V232 admin-app rotation canonical sync loaded');
 console.info('[DalTownMap App] V231 business priority policy loaded');
 console.info('[DalTownMap App] V230 accurate business performance tracking loaded');
 console.info('[DalTownMap App] V229 business listings build loaded');
@@ -588,7 +589,15 @@ function homeBusinessItemHTML(b){
   `;
 }
 function todayKey(){
-  return new Date().toISOString().slice(0, 10);
+  // V232: 관리자 로테이션 미리보기와 실제 앱이 같은 Dallas 날짜를 사용합니다.
+  try{
+    return new Intl.DateTimeFormat('en-CA',{
+      timeZone:'America/Chicago',
+      year:'numeric',month:'2-digit',day:'2-digit'
+    }).format(new Date());
+  }catch(_){
+    return new Date().toISOString().slice(0,10);
+  }
 }
 function isBusinessVisibleByPaidDate(b){
   const hasPaidAd =
@@ -644,17 +653,25 @@ function sectionAssigned(b, section){
   return false;
 }
 function freeFillSort(rows, section, dateKey){
+  // V232: 관리자 adsFreeFillSort()와 완전히 동일한 정렬 기준.
+  // 신규: 등록일 최신순 → 관리자 지정 rank
+  // 추천/인기: 관리자 지정 rank → 날짜 기반 deterministic rotation
+  // 인기 탭도 별도 Google rating 우선 정렬을 하지 않습니다.
   const copy=[...rows];
   if(section==='new'){
-    return copy.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')) || businessGroupRank(a,section)-businessGroupRank(b,section));
+    return copy.sort((a,b)=>
+      String(b.created_at||'').localeCompare(String(a.created_at||'')) ||
+      businessGroupRank(a,section)-businessGroupRank(b,section)
+    );
   }
-  if(section==='popular'){
-    return copy.sort((a,b)=>Number(b.rating||b.google_rating||0)-Number(a.rating||a.google_rating||0) || businessGroupRank(a,section)-businessGroupRank(b,section) || rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`));
-  }
-  return copy.sort((a,b)=>businessGroupRank(a,section)-businessGroupRank(b,section) || rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`));
+  return copy.sort((a,b)=>
+    businessGroupRank(a,section)-businessGroupRank(b,section) ||
+    rotationHash(`${dateKey}-${section}-${a.id}`)-rotationHash(`${dateKey}-${section}-${b.id}`)
+  );
 }
 function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses){
-  // V213: 관리자에서 해당 그룹으로 지정된 업체만 메인에 표시합니다.
+  // V232 canonical rotation: 관리자 pickRotation()과 실제 앱이 동일한 알고리즘을 사용합니다.
+  // 유료 고정 → 유료 로테이션(날짜+가중치) → 그룹 지정 무료 업소(rank+날짜 rotation)
   // 미지정 업체 자동 보충은 하지 않습니다.
   const dateKey=rotationDateKey(dateValue);
   const assigned=(rows||[]).filter(
@@ -699,8 +716,12 @@ function renderHomeBusinessTabs(){
     btn.classList.toggle('active', btn.dataset.homeBizTab === homeBusinessTab);
   });
 
-  const canonical=canonicalHomeGroups(todayKey(), businesses, 6);
+  const rotationDay=todayKey();
+  const canonical=canonicalHomeGroups(rotationDay, businesses, 6);
   let rows = canonical[homeBusinessTab] || [];
+  if(window.__DTM_ROTATION_DEBUG__===true){
+    console.info('[V232 rotation]',rotationDay,homeBusinessTab,rows.map((b,i)=>`${i+1}. ${b.name||b.id}`));
+  }
 
   box.innerHTML = rows.length
     ? rows.map(homeBusinessItemHTML).join('')
