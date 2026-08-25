@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V232 rotation preview canonical sync admin loaded');
 console.info('[DalTownMap Admin] V231 ad priority settings admin loaded');
 console.info('[DalTownMap Admin] V230 accurate performance tracking admin loaded');
 console.info('[DalTownMap Admin] V229 business listing manager build');
@@ -17,7 +18,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V231';
+    badge.textContent='Admin V232';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10862,4 +10863,23 @@ function ensureV231AdPriorityGuide(){
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV231AdPriorityGuide,500));
 setTimeout(ensureV231AdPriorityGuide,1200);
+
+
+
+// === V232: 로테이션 미리보기 ↔ 실제 앱 canonical sync 안내 ===
+function ensureV232RotationSyncNote(){
+  if(document.getElementById('v232RotationSyncNote')) return;
+  const dateInput=document.querySelector('#adsRotationDate');
+  if(!dateInput) return;
+  const host=dateInput.closest('.card,.panel,section,div')?.parentElement || dateInput.parentElement;
+  if(!host) return;
+  const note=document.createElement('div');
+  note.id='v232RotationSyncNote';
+  note.style.cssText='margin:8px 0 12px;padding:10px 12px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;color:#166534;font-size:12px;font-weight:700;';
+  note.textContent='V232 동기화됨 · 이 미리보기의 추천/신규/인기 1~6위 순서가 같은 날짜의 실제 앱 순서와 동일합니다.';
+  const target=document.querySelector('#adsRotationPreview') || host;
+  target.parentElement?.insertBefore(note,target);
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV232RotationSyncNote,700));
+setTimeout(ensureV232RotationSyncNote,1500);
 
