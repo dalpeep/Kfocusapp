@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V231 ad priority settings admin loaded');
 console.info('[DalTownMap Admin] V230 accurate performance tracking admin loaded');
 console.info('[DalTownMap Admin] V229 business listing manager build');
 console.info('[DalTownMap Admin] V228 performance visibility fix build');
@@ -16,7 +17,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V230';
+    badge.textContent='Admin V231';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10817,4 +10818,48 @@ clearBusinessForm=function(){
   setTimeout(()=>v229LoadListings(null),0);
 };
 document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{ensureV229ListingAdminUI();v229UpdateListingUIState();},900));
+
+
+
+// === V231: 추천 vs Premium 유료 광고 우선순위 안내 ===
+function ensureV231AdPriorityGuide(){
+  if(document.getElementById('v231AdPriorityGuide')) return;
+  const style=document.createElement('style');
+  style.id='v231AdPriorityGuideStyle';
+  style.textContent=`
+    #v231AdPriorityGuide{margin:14px 0 18px;padding:14px 16px;border:1px solid #dce8f7;border-radius:14px;background:#f8fbff}
+    #v231AdPriorityGuide h4{margin:0 0 8px;font-size:14px}
+    #v231AdPriorityGuide p{margin:4px 0;color:#52657b;font-size:12px;line-height:1.55}
+    #v231AdPriorityGuide .priority-flow{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+    #v231AdPriorityGuide .priority-chip{display:inline-flex;padding:6px 9px;border-radius:999px;background:#fff;border:1px solid #d8e3ef;font-size:11px;font-weight:800}
+    #v231AdPriorityGuide .premium-chip{background:#fff7e7;border-color:#f2cf87;color:#8b5a00}
+  `;
+  document.head.appendChild(style);
+
+  const mount=()=>{
+    const host=document.querySelector('.ad-settings-section') || document.querySelector('[data-ads-panel="schedule"]');
+    if(!host || document.getElementById('v231AdPriorityGuide')) return false;
+    const box=document.createElement('div');
+    box.id='v231AdPriorityGuide';
+    box.innerHTML=`
+      <h4>업소 노출 우선순위</h4>
+      <p><b>추천</b>과 <b>유료 Premium</b>은 별도 설정입니다. 전체 업소 목록에서는 Premium이 추천보다 우선합니다.</p>
+      <div class="priority-flow">
+        <span class="priority-chip premium-chip">1. Premium + 추천</span>
+        <span class="priority-chip premium-chip">2. Premium</span>
+        <span class="priority-chip">3. 추천</span>
+        <span class="priority-chip">4. 일반 업소</span>
+      </div>
+      <p>Premium = 유료 광고 ON + 광고 상품 Premium + 유효한 시작/종료일. 추천 = 추천(is_featured) ON.</p>
+      <p>메인 추천/신규/인기 탭은 해당 그룹에 지정된 업소만 표시하며, 그 그룹 안에서는 유료 광고 업소를 우선합니다.</p>`;
+    host.insertBefore(box,host.firstChild);
+    return true;
+  };
+  if(!mount()){
+    let tries=0;
+    const timer=setInterval(()=>{tries++;if(mount()||tries>20)clearInterval(timer);},350);
+  }
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV231AdPriorityGuide,500));
+setTimeout(ensureV231AdPriorityGuide,1200);
 
