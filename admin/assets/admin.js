@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V233 new-tab rotation sync admin loaded');
 console.info('[DalTownMap Admin] V232 rotation preview canonical sync admin loaded');
 console.info('[DalTownMap Admin] V231 ad priority settings admin loaded');
 console.info('[DalTownMap Admin] V230 accurate performance tracking admin loaded');
@@ -18,7 +19,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V232';
+    badge.textContent='Admin V233';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10876,7 +10877,7 @@ function ensureV232RotationSyncNote(){
   const note=document.createElement('div');
   note.id='v232RotationSyncNote';
   note.style.cssText='margin:8px 0 12px;padding:10px 12px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;color:#166534;font-size:12px;font-weight:700;';
-  note.textContent='V232 동기화됨 · 이 미리보기의 추천/신규/인기 1~6위 순서가 같은 날짜의 실제 앱 순서와 동일합니다.';
+  note.textContent='V233 동기화됨 · 추천/신규/인기 모두 같은 날짜의 실제 앱 1~6위 순서와 동일합니다.';
   const target=document.querySelector('#adsRotationPreview') || host;
   target.parentElement?.insertBefore(note,target);
 }
