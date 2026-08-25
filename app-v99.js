@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V233 new-tab created_at sync loaded');
 console.info('[DalTownMap App] V232 admin-app rotation canonical sync loaded');
 console.info('[DalTownMap App] V231 business priority policy loaded');
 console.info('[DalTownMap App] V230 accurate business performance tracking loaded');
@@ -654,7 +655,7 @@ function sectionAssigned(b, section){
 }
 function freeFillSort(rows, section, dateKey){
   // V232: 관리자 adsFreeFillSort()와 완전히 동일한 정렬 기준.
-  // 신규: 등록일 최신순 → 관리자 지정 rank
+  // 신규: 등록일(created_at) 최신순 → 관리자 지정 rank
   // 추천/인기: 관리자 지정 rank → 날짜 기반 deterministic rotation
   // 인기 탭도 별도 Google rating 우선 정렬을 하지 않습니다.
   const copy=[...rows];
@@ -1660,6 +1661,10 @@ async function loadRealData(){
           review_count: row.review_count,
           google_maps_url: row.google_maps_url,
           google_review_url: row.google_review_url,
+          // V233: 신규 탭은 관리자와 동일하게 created_at 최신순을 1차 기준으로 사용합니다.
+          // 기존에는 SELECT에는 created_at이 있었지만 mapped business 객체에 누락되어
+          // 앱 신규 탭만 new_rank/원래 배열순서로 계산되는 문제가 있었습니다.
+          created_at: row.created_at || '',
           // 관리자에서 '목록 숨김'으로 저장한 업소는 모든 공개 업소 노출에서 제외합니다.
           list_visible: row.list_visible !== false,
           monday: row.monday,
