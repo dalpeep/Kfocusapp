@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V241.1 coupon confirmation fix loaded');
+console.info('[DalTownMap App] V241.2 coupon issue -> email -> store-use flow restored');
 console.info('[DalTownMap App] V241 coupon + smart flyer final QA loaded');
 console.info('[DalTownMap App] V240 core user-flow QA loaded');
 console.info('[DalTownMap App] V239 launch public fallback cleanup loaded');
@@ -5678,7 +5678,7 @@ function renderCouponDetail(id){
         <button
   class="coupon-primary-use"
   type="button"
-  onclick="${String(c.delivery_mode||'display')==='display'?`renderCouponUse('${esc(c.id)}'); showPage('coupon-use');`:`openCouponCampaignForm('${esc(c.id)}')`}"
+  onclick="${String(c.delivery_mode||'instant_email')==='display'?`renderCouponUse('${esc(c.id)}'); showPage('coupon-use');`:`openCouponCampaignForm('${esc(c.id)}')`}"
   style="
     width:100%;
     height:54px;
@@ -5695,7 +5695,7 @@ function renderCouponDetail(id){
     box-shadow:0 12px 24px rgba(42,96,171,.24);
   ">
   <i data-lucide="ticket"></i>
-  ${String(c.delivery_mode||'display')==='instant_email'?'이메일로 쿠폰 받기':String(c.delivery_mode||'display')==='raffle'?'이벤트 응모하기':'쿠폰 사용하기'}
+  ${String(c.delivery_mode||'instant_email')==='raffle'?'이벤트 응모하기':String(c.delivery_mode||'instant_email')==='display'?'매장에서 쿠폰 사용':'이메일로 쿠폰 받기'}
   </button>
       </section>
 
@@ -5793,14 +5793,18 @@ function renderCouponDetail(id){
 
 // P140: restore legacy confirmCouponUse compatibility used by existing coupon UI bindings.
 async function confirmCouponUse(id){
+  const coupon=getCoupon(id);
+  if(!coupon) return false;
+
+  const mode=String(coupon.delivery_mode||'instant_email');
+  if(mode!=='display'){
+    // 이메일 발급형/추첨형은 여기서 사용 처리하지 않고 발급 모달로 보냅니다.
+    openCouponCampaignForm(id);
+    return true;
+  }
+
   const btn=document.querySelector('.coupon-confirm-btn');
   if(btn?.dataset.busy==='1') return false;
-
-  const coupon=getCoupon(id);
-  if(!coupon){
-    alert('쿠폰 정보를 찾을 수 없습니다.');
-    return false;
-  }
 
   if(btn){
     btn.dataset.busy='1';
@@ -5809,26 +5813,23 @@ async function confirmCouponUse(id){
   }
 
   try{
-    // V241.1 핵심 수정:
-    // 기존에는 확인 버튼을 눌러도 renderCouponUse()를 다시 호출해 같은 화면만 재렌더링했습니다.
-    // 이제 실제 coupon_redemptions 저장 + used_count 증가 로직을 실행합니다.
     await useCouponNow(coupon);
     return true;
   }catch(e){
-    console.error('[DalTownMap] coupon redeem failed',e);
-    alert(`쿠폰 사용 처리 실패: ${e?.message||e}`);
+    console.error('[V241.2] display coupon redeem failed',e);
     if(btn){
       btn.dataset.busy='0';
       btn.disabled=false;
       btn.innerHTML='<span class="coupon-confirm-icon">✓</span> 쿠폰 사용 확인';
     }
+    alert(`쿠폰 사용 처리 실패: ${e?.message||e}`);
     return false;
   }
 }
 window.confirmCouponUse=confirmCouponUse;
 
 function ensureCouponCampaignUI(){if(document.getElementById('couponCampaignOverlay'))return;const s=document.createElement('style');s.textContent=`.coupon-campaign-overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:120000;display:flex;align-items:center;justify-content:center;padding:18px}.coupon-campaign-overlay.hidden{display:none}.coupon-campaign-dialog{width:min(440px,96vw);background:#fff;border-radius:22px;padding:22px;box-shadow:0 28px 70px rgba(15,23,42,.3)}.coupon-campaign-dialog h3{margin:0 0 7px;font-size:23px}.coupon-campaign-dialog p{color:#64748b;line-height:1.5}.coupon-campaign-dialog label{display:block;font-size:13px;font-weight:800;margin:13px 0 6px}.coupon-campaign-dialog input[type=email]{width:100%;box-sizing:border-box;padding:13px;border:1px solid #cfd8e6;border-radius:12px;font-size:16px}.coupon-campaign-check{display:flex!important;gap:8px;align-items:flex-start;font-weight:500!important;line-height:1.4}.coupon-campaign-actions{display:flex;gap:9px;margin-top:18px}.coupon-campaign-actions button{flex:1;height:46px;border:0;border-radius:13px;font-weight:900}.coupon-campaign-submit{background:#245fe5;color:#fff}.coupon-campaign-cancel{background:#eef2f7;color:#334155}.coupon-campaign-result{margin-top:14px;padding:13px;border-radius:13px;background:#f3f7ff;color:#1749b8;white-space:pre-wrap}`;document.head.appendChild(s);const o=document.createElement('div');o.id='couponCampaignOverlay';o.className='coupon-campaign-overlay hidden';o.innerHTML=`<div class="coupon-campaign-dialog"><h3 id="couponCampaignTitle">쿠폰 받기</h3><p id="couponCampaignDesc"></p><label for="couponCampaignEmail">이메일</label><input id="couponCampaignEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com"><label class="coupon-campaign-check" id="couponCampaignMarketingWrap"><input id="couponCampaignMarketing" type="checkbox"><span>DalTownMap 및 해당 업소의 프로모션 정보를 이메일로 받겠습니다. (선택)</span></label><div id="couponCampaignResult" class="coupon-campaign-result hidden"></div><div class="coupon-campaign-actions"><button type="button" class="coupon-campaign-cancel">닫기</button><button type="button" class="coupon-campaign-submit">신청하기</button></div></div>`;document.body.appendChild(o);o.querySelector('.coupon-campaign-cancel').onclick=()=>o.classList.add('hidden');o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')});o.querySelector('.coupon-campaign-submit').onclick=submitCouponCampaign}
-let couponCampaignId='';function openCouponCampaignForm(id){const c=getCoupon(id);if(!c)return;ensureCouponCampaignUI();couponCampaignId=String(id);const mode=String(c.delivery_mode||'display');document.getElementById('couponCampaignTitle').textContent=mode==='raffle'?'이벤트 응모하기':'이메일로 쿠폰 받기';document.getElementById('couponCampaignDesc').textContent=mode==='raffle'?'이메일로 응모번호를 보내드립니다. 당첨자는 추첨 후 별도의 당첨 쿠폰을 이메일로 받습니다.':'이메일을 입력하면 고유 쿠폰 코드를 바로 발급해 드립니다.';document.getElementById('couponCampaignMarketingWrap').style.display=c.marketing_opt_in_enabled===false?'none':'flex';document.getElementById('couponCampaignResult').classList.add('hidden');document.getElementById('couponCampaignEmail').value='';document.getElementById('couponCampaignMarketing').checked=false;document.getElementById('couponCampaignOverlay').classList.remove('hidden')}window.openCouponCampaignForm=openCouponCampaignForm;
+let couponCampaignId='';function openCouponCampaignForm(id){const c=getCoupon(id);if(!c)return;ensureCouponCampaignUI();couponCampaignId=String(id);const mode=String(c.delivery_mode||'instant_email');document.getElementById('couponCampaignTitle').textContent=mode==='raffle'?'이벤트 응모하기':'이메일로 쿠폰 받기';document.getElementById('couponCampaignDesc').textContent=mode==='raffle'?'이메일을 입력하면 응모번호를 보내드립니다. 당첨자는 추첨 후 별도의 당첨 쿠폰을 이메일로 받습니다.':'이메일을 입력하면 실제 사용 가능한 고유 쿠폰을 이메일로 보내드립니다. 매장에서 받은 쿠폰을 제시해 주세요.';document.getElementById('couponCampaignMarketingWrap').style.display=c.marketing_opt_in_enabled===false?'none':'flex';document.getElementById('couponCampaignResult').classList.add('hidden');document.getElementById('couponCampaignEmail').value='';document.getElementById('couponCampaignMarketing').checked=false;document.getElementById('couponCampaignOverlay').classList.remove('hidden')}window.openCouponCampaignForm=openCouponCampaignForm;
 async function submitCouponCampaign(){
   const c=getCoupon(couponCampaignId);if(!c)return;
   const email=String(document.getElementById('couponCampaignEmail')?.value||'').trim();
@@ -5847,8 +5848,8 @@ async function submitCouponCampaign(){
     const r=document.getElementById('couponCampaignResult');
     r.classList.remove('hidden');
     r.textContent=d.mode==='raffle'
-      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n확인 이메일도 발송했습니다.`
-      :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n이메일에서도 확인할 수 있습니다.`;
+      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n확인 이메일을 발송했습니다.`
+      :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n입력하신 이메일로 실제 쿠폰을 발송했습니다. 매장에서 이메일 쿠폰을 제시해 주세요.`;
     btn.textContent='완료';
     success=true;
     // V177: 신청자가 직접 입력한 이메일만 이후 쿠폰 사용 기록에 연결합니다.
@@ -5856,6 +5857,16 @@ async function submitCouponCampaign(){
     try {
       localStorage.setItem(`daltown_coupon_customer_email_${String(c.id)}`, email);
     } catch (_) {}
+
+    // V241.2: 이메일 발급/응모는 '사용 완료'와 분리해서 기록합니다.
+    const issueBusinessId=c.business_id||c.businessId||c.biz_id||c.bizId||null;
+    if(issueBusinessId){
+      logBusinessActivity(
+        issueBusinessId,
+        d.mode==='raffle' ? 'coupon_entry' : 'coupon_issue',
+        {source:'coupon_email_issue',content_id:String(c.id||'')}
+      );
+    }
     // P139: 성공 후에는 기존 모달을 DOM에서 완전히 제거합니다.
     // hidden 클래스 충돌이나 재렌더링과 관계없이 확실하게 닫힙니다.
     setTimeout(()=>{
@@ -5926,23 +5937,21 @@ async function useCouponNow(coupon){
     throw new Error('쿠폰 사용 저장 실패: ' + error.message);
   }
 
-  const nextUsedCount=Number(coupon.used_count || 0) + 1;
+  const nextUsedCount=Number(coupon.used_count || 0)+1;
   const {error:updateError}=await client
     .from('coupons')
-    .update({ used_count: nextUsedCount })
-    .eq('id', coupon.id);
+    .update({used_count:nextUsedCount})
+    .eq('id',coupon.id);
 
   if(updateError){
-    console.warn('[V241.1] redemption saved but used_count update failed',updateError);
+    console.warn('[V241.2] used_count update failed after redemption',updateError);
   }else{
-    // 현재 브라우저에서도 즉시 숫자가 맞게 보이도록 로컬 객체를 갱신합니다.
     coupon.used_count=nextUsedCount;
   }
 
-  const businessIdForActivity=businessId || coupon.businessId || coupon.business_id || null;
-  if(businessIdForActivity){
-    logBusinessActivity(businessIdForActivity,'coupon_use',{
-      source:'coupon_confirm',
+  if(businessId){
+    logBusinessActivity(businessId,'coupon_use',{
+      source:'store_confirm',
       content_id:String(coupon.id||'')
     });
   }
@@ -5966,7 +5975,6 @@ try {
 
 const useLink = String(coupon.use_link_url || '').trim();
 
-// 사용자가 버튼을 눌렀을 때 변화가 즉시 보이도록 성공 상태를 표시합니다.
 if(couponUseCard){
   couponUseCard.innerHTML=`
     <div class="coupon-use-wrap">
@@ -5977,7 +5985,7 @@ if(couponUseCard){
 }
 
 if (useLink) {
-  setTimeout(()=>window.open(v241SafeExternalUrl(useLink)||useLink, '_blank', 'noopener'),500);
+  setTimeout(()=>window.open(v241SafeExternalUrl(useLink)||useLink,'_blank','noopener'),500);
 }else{
   setTimeout(()=>showPage('home'),1200);
 }
@@ -6031,10 +6039,18 @@ function getDirectionsUrl(b){
 function renderCouponUse(id){
   const c = getCoupon(id);
   if(!c || !couponUseCard) return;
+
+  // V241.2: 매장 확인 화면은 명시적으로 display 방식인 쿠폰만 허용합니다.
+  // delivery_mode가 없으면 이메일 발급형으로 취급합니다.
+  const mode=String(c.delivery_mode||'instant_email');
+  if(mode!=='display'){
+    openCouponCampaignForm(id);
+    return;
+  }
+
   selectedCouponId = c.id;
   const b = getBiz(c.businessId);
-  // V241.1: 확인 화면을 연 것만으로 '쿠폰 사용'으로 집계하지 않습니다.
-  // 실제 사용 저장 성공 후에만 coupon_use를 기록합니다.
+  // V241.2: 확인 화면 진입만으로 사용 완료를 기록하지 않습니다.
   clearInterval(couponUseTimer);
   
   couponUseCard.innerHTML = `
