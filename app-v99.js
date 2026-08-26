@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V252 companion loaded');
 console.info('[DalTownMap App] V251 email accepted vs delivered wording loaded');
 console.info('[DalTownMap App] V250 campaign email retry fix loaded');
 console.info('[DalTownMap App] V249 raffle time + hero slider fix loaded');

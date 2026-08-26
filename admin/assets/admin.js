@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V252 campaign history fallback loaded');
 console.info('[DalTownMap Admin] V251 campaign records + mail config loaded');
 console.info('[DalTownMap Admin] V250 campaign email retry fix loaded');
 console.info('[DalTownMap Admin] V249 raffle time + hero slider fix loaded');
@@ -36,7 +37,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V251';
+    badge.textContent='Admin V252';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11651,11 +11652,46 @@ async function loadV251CouponCampaignHistory(){
   wrap.innerHTML='<div style="font-weight:900;">쿠폰 발급·응모 내역</div><div class="muted" style="margin-top:6px;">불러오는 중...</div>';
 
   try{
-    const d=await couponCampaignAdminRequest({action:'list_all'});
-    const rows=Array.isArray(d.entries)?d.entries:[];
-    const couponMap=new Map((coupons||[]).map(c=>[String(c.id),c]));
+    let rows=[];
 
+    // V252:
+    // 우선 list_all을 시도합니다. 구버전 Netlify Function이면 coupon_id 오류가 나므로
+    // 등록된 쿠폰을 하나씩 list 호출하여 모든 발급/응모 내역을 합칩니다.
+    try{
+      const d=await couponCampaignAdminRequest({action:'list_all'});
+      rows=Array.isArray(d.entries)?d.entries:[];
+    }catch(listAllErr){
+      console.warn('[V252] list_all unavailable, coupon-by-coupon fallback',listAllErr);
+
+      const couponRows=Array.isArray(coupons)?coupons:[];
+      const results=await Promise.allSettled(
+        couponRows.map(c=>couponCampaignAdminRequest({
+          action:'list',
+          coupon_id:String(c.id)
+        }))
+      );
+
+      rows=results.flatMap(r=>
+        r.status==='fulfilled' && Array.isArray(r.value?.entries)
+          ? r.value.entries
+          : []
+      );
+
+      // 중복 ID 제거
+      const seen=new Set();
+      rows=rows.filter(r=>{
+        const key=String(r.id||`${r.coupon_id}:${r.email}:${r.created_at}`);
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      rows.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+    }
+
+    const couponMap=new Map((coupons||[]).map(c=>[String(c.id),c]));
     const groups=new Map();
+
     rows.forEach(r=>{
       const cid=String(r.coupon_id||'');
       if(!groups.has(cid)) groups.set(cid,[]);
@@ -11676,6 +11712,7 @@ async function loadV251CouponCampaignHistory(){
               <div style="font-size:11px;color:#64748b;margin-top:3px;">${esc(type)} · ${items.length}건</div>
             </div>
           </div>
+
           <div style="margin-top:8px;">
             ${items.map(r=>`
               <div style="display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(110px,.8fr) minmax(140px,1fr) minmax(130px,1fr);gap:8px;align-items:center;border-top:1px solid #e5e7eb;padding:9px 0;font-size:12px;">
@@ -11698,14 +11735,16 @@ async function loadV251CouponCampaignHistory(){
         <div>
           <div style="font-weight:1000;font-size:16px;">쿠폰 발급·응모 내역</div>
           <div style="font-size:11px;color:#64748b;margin-top:3px;">
-            응모/발급은 실제 사용과 별도 기록입니다. '이메일 API 접수'는 Resend가 발송 요청을 받은 상태이며 실제 수신함 도착을 의미하지 않습니다.
+            총 ${rows.length}건 · 응모/발급은 실제 사용과 별도 기록입니다.
           </div>
         </div>
         <button class="btn ghost" type="button" onclick="loadV251CouponCampaignHistory()">새로고침</button>
       </div>
       ${cards||'<div class="board-empty" style="margin-top:10px;">발급·응모 내역이 없습니다.</div>'}`;
   }catch(e){
-    wrap.innerHTML=`<div style="font-weight:900;">쿠폰 발급·응모 내역</div><div style="margin-top:8px;color:#b91c1c;">조회 실패: ${esc(e.message||e)}</div>`;
+    wrap.innerHTML=`
+      <div style="font-weight:900;">쿠폰 발급·응모 내역</div>
+      <div style="margin-top:8px;color:#b91c1c;">조회 실패: ${esc(e.message||e)}</div>`;
   }
 }
 window.loadV251CouponCampaignHistory=loadV251CouponCampaignHistory;
