@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V242 ad performance QA loaded');
 console.info('[DalTownMap Admin] V241.7 coupon usage grouped sections loaded');
 console.info('[DalTownMap Admin] V241.6 coupon usage records loaded');
 console.info('[DalTownMap Admin] V238 paid toggle autosave + group activation loaded');
@@ -26,7 +27,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V241.7';
+    badge.textContent='Admin V242';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -5504,22 +5505,23 @@ function performanceSourceLabel(source=''){
     home_featured:'메인 추천',home_new:'메인 신규',home_popular:'메인 인기',home_nearby:'메인 주변 업소',
     home_banner:'메인 배너',hero_slide:'상단 슬라이드',ticker:'달타운 알림',search:'통합 검색',map:'지도',
     business_list:'업소 목록',business_detail:'업소 상세',business_detail_icon:'업소 상세 아이콘',business_detail_banner:'업소 상세 광고',
-    coupon_detail:'쿠폰 상세',coupon_use:'쿠폰 사용'
+    coupon_detail:'쿠폰 상세',coupon_use:'쿠폰 사용',coupon_email_issue:'쿠폰 이메일 발급/응모',slide:'스마트 전단',smart_flyer:'스마트 전단'
   };
   return map[raw]||raw||'기존/미분류';
 }
-function performanceStatSeed(){return {impressions:0,views:0,clicks:0,calls:0,directions:0,websites:0,coupons:0,actions:0,total:0};}
+function performanceStatSeed(){return {impressions:0,views:0,clicks:0,calls:0,sms:0,directions:0,websites:0,couponLeads:0,coupons:0,actions:0,total:0};}
 function performanceApply(stat,row){
-  const a=String(row.action_type||'').toLowerCase();
-  stat.total++;
+  const a=String(row.action_type||'').toLowerCase(); stat.total++;
   if(a==='impression') stat.impressions++;
   else if(a==='view') stat.views++;
-  else if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click'].includes(a)) stat.clicks++;
-  else if(['call','phone_click'].includes(a)){stat.calls++;stat.actions++;}
-  else if(['direction','direction_click'].includes(a)){stat.directions++;stat.actions++;}
-  else if(['website_click'].includes(a)){stat.websites++;stat.actions++;}
+  else if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click','listing_click'].includes(a)) stat.clicks++;
+  else if(['call','phone','phone_click'].includes(a)){stat.calls++;stat.actions++;}
+  else if(['sms','text','sms_click'].includes(a)){stat.sms++;stat.actions++;}
+  else if(['direction','directions','direction_click','directions_click'].includes(a)){stat.directions++;stat.actions++;}
+  else if(['website','website_click','web_click'].includes(a)){stat.websites++;stat.actions++;}
+  else if(['coupon_issue','coupon_entry'].includes(a)){stat.couponLeads++;stat.actions++;}
   else if(['coupon_use','coupon_click'].includes(a)){stat.coupons++;stat.actions++;}
-  if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click'].includes(a)) stat.actions++;
+  if(['business_click','banner_click','slide_click','ticker_click','ai_pick_click','listing_click'].includes(a)) stat.actions++;
   return stat;
 }
 function performancePct(n,d){return d?`${((n/d)*100).toFixed(1)}%`:'—';}
@@ -5586,19 +5588,21 @@ async function loadPerformanceCenter(){
       <div class="v225-metric"><span>상세 조회</span><strong>${total.views.toLocaleString()}</strong></div>
       <div class="v225-metric"><span>CTR</span><strong>${performancePct(total.clicks,total.impressions)}</strong></div>
       <div class="v225-metric"><span>전화</span><strong>${total.calls.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>문자</span><strong>${total.sms.toLocaleString()}</strong></div>
       <div class="v225-metric"><span>길찾기</span><strong>${total.directions.toLocaleString()}</strong></div>
       <div class="v225-metric"><span>웹사이트</span><strong>${total.websites.toLocaleString()}</strong></div>
+      <div class="v225-metric"><span>쿠폰 발급/응모</span><strong>${total.couponLeads.toLocaleString()}</strong></div>
       <div class="v225-metric"><span>쿠폰 사용</span><strong>${total.coupons.toLocaleString()}</strong></div>`;
     const byBiz={};
     rows.forEach(r=>{const key=String(r.business_id||'');if(!key)return;byBiz[key]??=performanceStatSeed();performanceApply(byBiz[key],r);});
     const bizRows=Object.entries(byBiz).map(([id,st])=>({id,st,b:businesses.find(x=>String(x.id)===id)})).sort((a,b)=>(b.st.actions+b.st.views)-(a.st.actions+a.st.views));
     const bizEl=qs('performanceBusinessList');
-    if(bizEl) bizEl.innerHTML=bizRows.length?`<table class="v225-perf-table"><thead><tr><th>업소</th><th>노출</th><th>상세</th><th>클릭</th><th>전화</th><th>길찾기</th><th>웹사이트</th><th>쿠폰</th><th>총 행동</th><th>CTR</th></tr></thead><tbody>${bizRows.map(({id,st,b})=>`<tr><td><b>${esc(b?.name_ko||b?.name_en||`ID ${id}`)}</b></td><td>${st.impressions}</td><td>${st.views}</td><td>${st.clicks}</td><td>${st.calls}</td><td>${st.directions}</td><td>${st.websites}</td><td>${st.coupons}</td><td><b>${st.actions}</b></td><td>${performancePct(st.clicks,st.impressions)}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">선택한 기간에 기록된 업소 활동이 없습니다.</div>';
+    if(bizEl) bizEl.innerHTML=bizRows.length?`<table class="v225-perf-table"><thead><tr><th>업소</th><th>노출</th><th>상세</th><th>클릭</th><th>전화</th><th>문자</th><th>길찾기</th><th>웹사이트</th><th>쿠폰 발급/응모</th><th>쿠폰 사용</th><th>총 행동</th><th>CTR</th></tr></thead><tbody>${bizRows.map(({id,st,b})=>`<tr><td><b>${esc(b?.name_ko||b?.name_en||`ID ${id}`)}</b></td><td>${st.impressions}</td><td>${st.views}</td><td>${st.clicks}</td><td>${st.calls}</td><td>${st.sms}</td><td>${st.directions}</td><td>${st.websites}</td><td>${st.couponLeads}</td><td>${st.coupons}</td><td><b>${st.actions}</b></td><td>${performancePct(st.clicks,st.impressions)}</td></tr>`).join('')}</tbody></table>`:'<div class="muted">선택한 기간에 기록된 업소 활동이 없습니다.</div>';
     const bySource={};
     rows.forEach(r=>{const key=String(r.source||'');bySource[key]??=performanceStatSeed();performanceApply(bySource[key],r);});
     const sourceRows=Object.entries(bySource).sort((a,b)=>b[1].total-a[1].total);
     const srcEl=qs('performanceSourceList');
-    if(srcEl) srcEl.innerHTML=sourceRows.length?`<div class="v225-source-grid">${sourceRows.map(([source,st])=>`<div class="v225-source-item"><b>${esc(performanceSourceLabel(source))}</b><span>노출 ${st.impressions} · 클릭 ${st.clicks} · 상세 ${st.views}</span><span>전화 ${st.calls} · 길찾기 ${st.directions} · 웹 ${st.websites} · 쿠폰 ${st.coupons}</span></div>`).join('')}</div>`:'<div class="muted">유입 위치 데이터가 없습니다.</div>';
+    if(srcEl) srcEl.innerHTML=sourceRows.length?`<div class="v225-source-grid">${sourceRows.map(([source,st])=>`<div class="v225-source-item"><b>${esc(performanceSourceLabel(source))}</b><span>노출 ${st.impressions} · 클릭 ${st.clicks} · 상세 ${st.views}</span><span>전화 ${st.calls} · 문자 ${st.sms} · 길찾기 ${st.directions} · 웹 ${st.websites}</span><span>쿠폰 발급/응모 ${st.couponLeads} · 쿠폰 사용 ${st.coupons}</span></div>`).join('')}</div>`:'<div class="muted">유입 위치 데이터가 없습니다.</div>';
     const rangeLabel=performanceRange==='today'?'오늘':performanceRange==='all'?'전체 기간':`${performanceRange}일`;
     safeText('performanceStatus',`${rangeLabel} 기준 · ${rows.length.toLocaleString()}개 활동 기록 · 기존 기록은 유입 위치가 '기존/미분류'로 표시될 수 있습니다.`);
   }catch(e){
@@ -5612,8 +5616,10 @@ async function loadPerformanceCenter(){
       <div class="v225-metric"><span>상세 조회</span><strong>0</strong></div>
       <div class="v225-metric"><span>CTR</span><strong>—</strong></div>
       <div class="v225-metric"><span>전화</span><strong>0</strong></div>
+      <div class="v225-metric"><span>문자</span><strong>0</strong></div>
       <div class="v225-metric"><span>길찾기</span><strong>0</strong></div>
       <div class="v225-metric"><span>웹사이트</span><strong>0</strong></div>
+      <div class="v225-metric"><span>쿠폰 발급/응모</span><strong>0</strong></div>
       <div class="v225-metric"><span>쿠폰 사용</span><strong>0</strong></div>`;
     const bizEl=qs('performanceBusinessList');
     if(bizEl) bizEl.innerHTML=`<div class="muted">성과 데이터를 읽지 못했습니다. business_activity 테이블/RLS를 확인해 주세요.<br><small>${esc(message)}</small></div>`;

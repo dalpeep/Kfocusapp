@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V242 ad performance QA loaded');
 console.info('[DalTownMap App] V241.7 redemption schema fix loaded');
 console.info('[DalTownMap App] V241.6 coupon admin records + admin-only display notify loaded');
 console.info('[DalTownMap App] V241.5 display coupon proof screen loaded');
@@ -823,6 +824,9 @@ function renderHomeBusinessTabs(){
     ? rows.map(homeBusinessItemHTML).join('')
     : '<div class="board-empty">등록된 업소가 없습니다.</div>';
 
+  const v242HomeSource=homeBusinessTab==='new'?'home_new':homeBusinessTab==='popular'?'home_popular':'home_featured';
+  v242LogBusinessImpressions(rows,v242HomeSource);
+
   bindBizOpenButtons();
 
   if(window.lucide){
@@ -1499,6 +1503,14 @@ function normalizeUrl(u=''){ const s = String(u||'').trim(); if(!s) return ''; r
 let v230PendingBusinessDetail = null;
 const V230_DETAIL_VIEW_DEDUPE_MS = 30 * 60 * 1000;
 const V230_CLICK_DEDUPE_MS = 1200;
+const V242_IMPRESSION_DEDUPE_MS = 30 * 60 * 1000;
+function v242LogBusinessImpressions(rows=[], source='business_list'){
+  (rows||[]).forEach(b=>{
+    const id=String(b?.id||'').trim();
+    if(!id || v230RecentlyLogged(id,`impression:${source}`,V242_IMPRESSION_DEDUPE_MS)) return;
+    logBusinessActivity(id,'impression',{source});
+  });
+}
 
 function v230PerformanceSourceFromPage(element=null){
   if(element?.matches?.('[data-search-type="business"]') || element?.closest?.('[data-search-type="business"]')) return 'search';
