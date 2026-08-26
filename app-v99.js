@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V241.5 display coupon proof screen loaded');
 console.info('[DalTownMap App] V241.4 coupon mode routing restored');
 console.info('[DalTownMap App] V241.3 coupon email modal force fix loaded');
 console.info('[DalTownMap App] V241.2 coupon issue -> email -> store-use flow restored');
@@ -5976,13 +5977,18 @@ async function useCouponNow(coupon){
       '',
     // V177: 쿠폰 사용자의 이메일은 사용자가 쿠폰 신청 시 직접 입력한 값만 기록합니다.
     // 업소 이메일/전화번호를 사용자 연락처로 대체하지 않습니다.
-    notify_emails: (()=>{
-      try {
-        return localStorage.getItem(`daltown_coupon_customer_email_${String(coupon.id)}`) || '';
-      } catch (_) {
-        return '';
-      }
-    })(),
+    // V241.5:
+    // 일반 표시 쿠폰(display)은 과거 브라우저 localStorage 이메일을 절대 재사용하지 않습니다.
+    // 이메일 즉시발급/응모형만 해당 발급/응모 과정에서 수집된 이메일을 사용할 수 있습니다.
+    notify_emails: String(coupon.delivery_mode||'display')==='display'
+      ? ''
+      : (()=>{
+          try {
+            return localStorage.getItem(`daltown_coupon_customer_email_${String(coupon.id)}`) || '';
+          } catch (_) {
+            return '';
+          }
+        })(),
     notify_phones: null,
     used_by: 'customer'
   };
@@ -6014,6 +6020,7 @@ async function useCouponNow(coupon){
     });
   }
 
+if(String(coupon.delivery_mode||'display')!=='display'){
 try {
     const notifyRes = await fetch('/.netlify/functions/coupon-used-notify', {
         method:'POST',
@@ -6030,23 +6037,105 @@ try {
 } catch(e){
     console.warn('coupon email notify error', e);
 }
+}else{
+  console.log('[V241.5] display coupon: customer email notification skipped');
+}
 
 const useLink = String(coupon.use_link_url || '').trim();
 
+const usedAt=new Date();
+const usedAtText=usedAt.toLocaleString('ko-KR',{
+  timeZone:'America/Chicago',
+  year:'numeric',month:'2-digit',day:'2-digit',
+  hour:'2-digit',minute:'2-digit',second:'2-digit'
+});
+
+const proofImg = coupon.imageUrl || coupon.image_url || coupon.image || business?.image || business?.image_url || '/assets/kfocus-icon.png';
+const proofBiz = business?.name_ko || business?.name || coupon.business_name || '';
+const proofTitle = coupon.title || '쿠폰';
+
 if(couponUseCard){
   couponUseCard.innerHTML=`
-    <div class="coupon-use-wrap">
-      <div class="coupon-use-title" style="color:#15803d;">✓ 쿠폰 사용이 확인되었습니다</div>
-      <div class="coupon-use-business">${esc(business?.name_ko||business?.name||coupon.business_name||'')}</div>
-      <p style="margin-top:12px;color:#64748b;">매장 사용 기록이 저장되었습니다.</p>
+    <div class="coupon-use-wrap" style="text-align:center;">
+      <div class="coupon-use-title" style="color:#15803d;margin-bottom:8px;">
+        ✓ 쿠폰 사용이 확인되었습니다
+      </div>
+
+      <div class="coupon-use-business" style="margin-bottom:14px;">
+        ${esc(proofBiz)} · ${esc(proofTitle)}
+      </div>
+
+      <div style="
+        position:relative;
+        width:min(100%,420px);
+        margin:0 auto 16px;
+        border-radius:18px;
+        overflow:hidden;
+        background:#fff;
+        border:2px solid #86efac;
+        box-shadow:0 10px 30px rgba(15,23,42,.08);
+      ">
+        <img
+          src="${esc(proofImg)}"
+          alt="${esc(proofTitle)}"
+          style="display:block;width:100%;height:auto;object-fit:contain;background:#fff;"
+        >
+        <div style="
+          position:absolute;
+          inset:0;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          pointer-events:none;
+          background:rgba(255,255,255,.08);
+        ">
+          <div style="
+            transform:rotate(-10deg);
+            border:4px solid #16a34a;
+            color:#15803d;
+            background:rgba(255,255,255,.88);
+            padding:10px 18px;
+            border-radius:14px;
+            font-size:28px;
+            font-weight:1000;
+            letter-spacing:.04em;
+            box-shadow:0 6px 18px rgba(21,128,61,.15);
+          ">사용 완료</div>
+        </div>
+      </div>
+
+      <div style="
+        margin:0 auto 14px;
+        width:min(100%,420px);
+        padding:12px 14px;
+        border-radius:14px;
+        background:#f0fdf4;
+        border:1px solid #bbf7d0;
+        color:#166534;
+        text-align:left;
+        font-size:13px;
+        line-height:1.55;
+      ">
+        <b>사용 확인 시간</b><br>
+        ${esc(usedAtText)} (Dallas 시간)
+      </div>
+
+      <p style="margin:0 0 14px;color:#64748b;font-size:13px;">
+        이 화면을 고객과 매장 직원이 함께 확인할 수 있습니다.
+      </p>
+
+      <button
+        type="button"
+        class="coupon-confirm-btn"
+        onclick="showPage('home')"
+      >
+        확인 후 닫기
+      </button>
     </div>`;
 }
 
-if (useLink) {
-  setTimeout(()=>window.open(v241SafeExternalUrl(useLink)||useLink,'_blank','noopener'),500);
-}else{
-  setTimeout(()=>showPage('home'),1200);
-}
+// 일반 표시 쿠폰은 사용 완료 화면을 자동으로 닫지 않습니다.
+// 사용 링크가 있는 특수 쿠폰도 자동 이동하지 않고, 필요하면 별도 버튼 UX로 확장합니다.
 return true;
 }
 	
@@ -6098,8 +6187,6 @@ function renderCouponUse(id){
   const c = getCoupon(id);
   if(!c || !couponUseCard) return;
 
-  // V241.2: 매장 확인 화면은 명시적으로 display 방식인 쿠폰만 허용합니다.
-  // delivery_mode가 없으면 이메일 발급형으로 취급합니다.
   const mode=String(c.delivery_mode||'display');
   if(mode!=='display'){
     openCouponCampaignForm(id);
@@ -6107,33 +6194,55 @@ function renderCouponUse(id){
   }
 
   selectedCouponId = c.id;
-  const b = getBiz(c.businessId);
-  // V241.2: 확인 화면 진입만으로 사용 완료를 기록하지 않습니다.
+  const b = getBiz(c.businessId || c.business_id) || {};
   clearInterval(couponUseTimer);
-  
+
+  const img = c.imageUrl || c.image_url || c.image || b.image || b.image_url || '/assets/kfocus-icon.png';
+  const bizName = b.name || b.name_ko || b.name_en || '';
+  const couponTitle = c.title || '쿠폰';
+
   couponUseCard.innerHTML = `
-<div class="coupon-use-wrap">
+    <div class="coupon-use-wrap" style="text-align:center;">
+      <div class="coupon-use-title" style="margin-bottom:8px;">
+        매장에서 쿠폰을 보여주세요
+      </div>
 
-    <div class="coupon-use-title">
-        매장에서 확인 버튼을 눌러주세요
+      <div class="coupon-use-business" style="margin-bottom:14px;">
+        ${esc(bizName)} · ${esc(couponTitle)}
+      </div>
+
+      <div style="
+        position:relative;
+        width:min(100%,420px);
+        margin:0 auto 16px;
+        border-radius:18px;
+        overflow:hidden;
+        background:#fff;
+        border:1px solid #dbe5f2;
+        box-shadow:0 10px 30px rgba(15,23,42,.08);
+      ">
+        <img
+          src="${esc(img)}"
+          alt="${esc(couponTitle)}"
+          style="display:block;width:100%;height:auto;object-fit:contain;background:#fff;"
+        >
+      </div>
+
+      <p style="margin:6px 0 16px;color:#64748b;font-size:13px;line-height:1.5;">
+        매장 직원이 쿠폰 내용을 확인한 뒤 아래 버튼을 눌러주세요.<br>
+        사용 확인 후에는 사용 완료 화면이 그대로 유지됩니다.
+      </p>
+
+      <button
+        class="coupon-confirm-btn"
+        type="button"
+        onclick="confirmCouponUse('${c.id}')"
+      >
+        <span class="coupon-confirm-icon">✓</span>
+        쿠폰 사용 확인
+      </button>
     </div>
-
-    <div class="coupon-use-business">
-        ${esc(b.name)}
-        ·
-        ${esc(c.title)}
-    </div>
-
-<button
-  class="coupon-confirm-btn"
-  onclick="confirmCouponUse('${c.id}')">
-  <span class="coupon-confirm-icon">✓</span>
-  쿠폰 사용 확인
-</button>
-
-</div>
-`;
-
+  `;
 }
 window.confirmCouponUse = confirmCouponUse;
 function getYouTubeId(url) {
