@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V241.1 coupon confirmation fix loaded');
 console.info('[DalTownMap App] V241 coupon + smart flyer final QA loaded');
 console.info('[DalTownMap App] V240 core user-flow QA loaded');
 console.info('[DalTownMap App] V239 launch public fallback cleanup loaded');
@@ -5792,12 +5793,35 @@ function renderCouponDetail(id){
 
 // P140: restore legacy confirmCouponUse compatibility used by existing coupon UI bindings.
 async function confirmCouponUse(id){
+  const btn=document.querySelector('.coupon-confirm-btn');
+  if(btn?.dataset.busy==='1') return false;
+
+  const coupon=getCoupon(id);
+  if(!coupon){
+    alert('쿠폰 정보를 찾을 수 없습니다.');
+    return false;
+  }
+
+  if(btn){
+    btn.dataset.busy='1';
+    btn.disabled=true;
+    btn.innerHTML='<span class="coupon-confirm-icon">✓</span> 처리 중...';
+  }
+
   try{
-    if(typeof renderCouponUse==='function') renderCouponUse(id);
-    if(typeof showPage==='function') showPage('coupon-use');
+    // V241.1 핵심 수정:
+    // 기존에는 확인 버튼을 눌러도 renderCouponUse()를 다시 호출해 같은 화면만 재렌더링했습니다.
+    // 이제 실제 coupon_redemptions 저장 + used_count 증가 로직을 실행합니다.
+    await useCouponNow(coupon);
     return true;
   }catch(e){
-    console.error('[DalTownMap] confirmCouponUse compatibility error',e);
+    console.error('[DalTownMap] coupon redeem failed',e);
+    alert(`쿠폰 사용 처리 실패: ${e?.message||e}`);
+    if(btn){
+      btn.dataset.busy='0';
+      btn.disabled=false;
+      btn.innerHTML='<span class="coupon-confirm-icon">✓</span> 쿠폰 사용 확인';
+    }
     return false;
   }
 }
@@ -5852,12 +5876,11 @@ async function submitCouponCampaign(){
 window.confirmCouponUse = confirmCouponUse;
 
 async function useCouponNow(coupon){
-  if(!coupon) return;
+  if(!coupon) throw new Error('쿠폰 정보가 없습니다.');
 
   const client = getAuthClient();
   if(!client){
-    alert('Supabase 연결 오류');
-    return;
+    throw new Error('Supabase 연결 오류');
   }
 
   const businessId =
@@ -5900,16 +5923,29 @@ async function useCouponNow(coupon){
     .insert(payload);
 
   if(error){
-    alert('쿠폰 사용 저장 실패 : ' + error.message);
-    return;
+    throw new Error('쿠폰 사용 저장 실패: ' + error.message);
   }
 
-  await client
+  const nextUsedCount=Number(coupon.used_count || 0) + 1;
+  const {error:updateError}=await client
     .from('coupons')
-    .update({
-      used_count: Number(coupon.used_count || 0) + 1
-    })
+    .update({ used_count: nextUsedCount })
     .eq('id', coupon.id);
+
+  if(updateError){
+    console.warn('[V241.1] redemption saved but used_count update failed',updateError);
+  }else{
+    // 현재 브라우저에서도 즉시 숫자가 맞게 보이도록 로컬 객체를 갱신합니다.
+    coupon.used_count=nextUsedCount;
+  }
+
+  const businessIdForActivity=businessId || coupon.businessId || coupon.business_id || null;
+  if(businessIdForActivity){
+    logBusinessActivity(businessIdForActivity,'coupon_use',{
+      source:'coupon_confirm',
+      content_id:String(coupon.id||'')
+    });
+  }
 
 try {
     const notifyRes = await fetch('/.netlify/functions/coupon-used-notify', {
@@ -5928,15 +5964,24 @@ try {
     console.warn('coupon email notify error', e);
 }
 
-alert('쿠폰 사용이 확인되었습니다.');
-
 const useLink = String(coupon.use_link_url || '').trim();
 
-if (useLink) {
-  window.open(useLink, '_blank');
-} else {
-  showPage('home');
+// 사용자가 버튼을 눌렀을 때 변화가 즉시 보이도록 성공 상태를 표시합니다.
+if(couponUseCard){
+  couponUseCard.innerHTML=`
+    <div class="coupon-use-wrap">
+      <div class="coupon-use-title" style="color:#15803d;">✓ 쿠폰 사용이 확인되었습니다</div>
+      <div class="coupon-use-business">${esc(business?.name_ko||business?.name||coupon.business_name||'')}</div>
+      <p style="margin-top:12px;color:#64748b;">매장 사용 기록이 저장되었습니다.</p>
+    </div>`;
 }
+
+if (useLink) {
+  setTimeout(()=>window.open(v241SafeExternalUrl(useLink)||useLink, '_blank', 'noopener'),500);
+}else{
+  setTimeout(()=>showPage('home'),1200);
+}
+return true;
 }
 	
 function renderLucideStars(rating){
@@ -5988,7 +6033,8 @@ function renderCouponUse(id){
   if(!c || !couponUseCard) return;
   selectedCouponId = c.id;
   const b = getBiz(c.businessId);
-  logBusinessActivity(c.businessId, 'coupon_use');
+  // V241.1: 확인 화면을 연 것만으로 '쿠폰 사용'으로 집계하지 않습니다.
+  // 실제 사용 저장 성공 후에만 coupon_use를 기록합니다.
   clearInterval(couponUseTimer);
   
   couponUseCard.innerHTML = `
