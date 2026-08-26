@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V238 paid toggle autosave + group activation loaded');
 console.info('[DalTownMap Admin] V237 free-business admin UI cleanup loaded');
 console.info('[DalTownMap Admin] V236 paid/free fair rotation admin loaded');
 console.info('[DalTownMap Admin] V235 free fairness pool admin loaded');
@@ -23,7 +24,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V237';
+    badge.textContent='Admin V238';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -734,9 +735,12 @@ async function setAdsGroupQuick(id,group){
   }
   const row=adsOpsRows.find(b=>String(b.id)===String(id));
   if(!row){ showAdsToast('업소 데이터를 찾지 못했습니다.',true); return; }
-  // V237: 추천/신규/인기 그룹은 유료 광고 전용입니다.
-  if(row.paid_active!==true && group!=='none'){
-    showAdsToast('무료 업소는 추천/신규/인기 그룹을 설정하지 않습니다. 먼저 유료 ON 후 그룹을 선택하세요.',true);
+  // V238: 그룹 클릭 시 DB의 과거 값이 아니라 현재 행의 '유료' 체크 상태를 봅니다.
+  // 사용자가 유료 ON을 막 체크한 직후에도 바로 추천/신규/인기 선택이 가능합니다.
+  const tr=document.querySelector(`tr[data-ads-row-id="${CSS.escape(String(id))}"]`);
+  const livePaid=tr?.querySelector('.ads-inline-paid')?.checked ?? (row.paid_active===true);
+  if(!livePaid && group!=='none'){
+    showAdsToast('무료 업소는 추천/신규/인기 그룹을 설정하지 않습니다. 이 행의 유료를 ON으로 바꿔 주세요.',true);
     return;
   }
   if(adsQuickSavingId)return;
@@ -752,13 +756,16 @@ async function setAdsGroupQuick(id,group){
   renderAdsOpsList();
   showAdsToast(`${row.name_ko||row.name_en||'업소'} → ${adsGroupLabel(group)} 저장 중...`);
 
+  const livePaidForPayload=tr?.querySelector('.ads-inline-paid')?.checked ?? (row.paid_active===true);
   const payload={
+    paid_active: group==='none' ? row.paid_active===true : !!livePaidForPayload,
     is_featured:group==='featured',
     is_new:group==='new',
     is_popular:group==='popular'
   };
 
   // 클릭 즉시 로컬 상태에도 반영해 사용자가 버튼 반응을 바로 확인할 수 있게 합니다.
+  row.paid_active=payload.paid_active;
   row.is_featured=payload.is_featured;
   row.is_new=payload.is_new;
   row.is_popular=payload.is_popular;
@@ -770,7 +777,7 @@ async function setAdsGroupQuick(id,group){
       .from('businesses')
       .update(payload)
       .eq('id',id)
-      .select('id,is_featured,is_new,is_popular')
+      .select('id,paid_active,is_featured,is_new,is_popular')
       .maybeSingle();
 
     if(error) throw error;
@@ -1108,6 +1115,63 @@ async function v237CleanupFreeBusinesses(){
 }
 window.v237CleanupFreeBusinesses=v237CleanupFreeBusinesses;
 
+
+// V238: '유료' 체크는 별도 저장 버튼을 누르지 않아도 즉시 DB에 저장합니다.
+// ON 후 바로 추천/신규/인기 버튼을 눌러도 무료 업소로 오인하지 않습니다.
+async function v238SavePaidToggle(input){
+  if(!input) return false;
+  const tr=input.closest('tr');
+  const id=input.dataset.id || tr?.dataset.adsRowId;
+  const row=adsOpsRows.find(b=>String(b.id)===String(id));
+  if(!row){showAdsToast('업소 데이터를 찾지 못했습니다.',true);return false;}
+
+  const next=!!input.checked;
+  input.disabled=true;
+  v237SyncAdsRowPaidUI(tr,next);
+
+  try{
+    const payload=next
+      ? {paid_active:true}
+      : {
+          paid_active:false,
+          paid_product:null,
+          paid_weight:1,
+          paid_start_at:null,
+          paid_end_at:null,
+          rotation_enabled:true,
+          is_featured:false,
+          is_new:false,
+          is_popular:false
+        };
+
+    const {data,error}=await supabase
+      .from('businesses')
+      .update(payload)
+      .eq('id',id)
+      .select('id,paid_active,paid_product,is_featured,is_new,is_popular')
+      .maybeSingle();
+
+    if(error) throw error;
+    if(!data) throw new Error('유료 상태 저장 결과를 확인하지 못했습니다.');
+
+    Object.assign(row,payload,data);
+    showAdsToast(`${row.name_ko||row.name_en||'업소'} → ${next?'유료 광고 ON':'무료 자동 로테이션'}으로 변경했습니다.`);
+    renderAdsSummary();
+    renderAdsOverviewGroups();
+    renderAdsOpsList();
+    const preview=document.querySelector('#rotationPreview');
+    if(preview?.innerHTML) previewRotation();
+  }catch(err){
+    console.error('[V238 paid toggle save failed]',err);
+    input.checked=!next;
+    input.disabled=false;
+    v237SyncAdsRowPaidUI(tr,!next);
+    showAdsToast(`유료 상태 저장 실패: ${err?.message||err}`,true);
+  }
+  return false;
+}
+window.v238SavePaidToggle=v238SavePaidToggle;
+
 function renderAdsOpsList(){
   const rows=adsFilteredRows();
   // V205: 추천/신규/인기 필터를 선택한 경우 이 표는 '오늘 실제 메인 목록' 자체입니다.
@@ -1125,13 +1189,12 @@ function renderAdsOpsList(){
   host.innerHTML=`<div class="ads-status-legend"><b>상태 안내</b><span><i class="ads-status inactive">비활성</i> 업소 자체 OFF</span><span><i class="ads-status hidden">목록 숨김</i> 업소 목록 비노출</span><span><i class="ads-status unpaid">일반</i> 유료 광고 꺼짐</span><span><i class="ads-status active">게시 중</i> 유료 광고 켜짐·기간 내</span><span><i class="ads-status scheduled">예약</i> 시작일 전</span><span><i class="ads-status expired">종료</i> 종료일 지남</span><span style="font-weight:700">※ 로테이션 / 업소 활성 / 목록 표시는 서로 다른 설정입니다.</span></div><div class="ads-list-caption"><b>${selectedGroupLabel|| (adsCategoryKey==='all'?'전체 업소':esc(adsCategoryKey))}</b><div class="ads-list-caption-actions"><span>${rows.length}개 표시</span><button id="adsSaveSelectedRowsBtn" class="btn primary" type="button" ${adsSelectedRowsSaving?'disabled':''}>${adsSelectedRowsSaving?'저장 중...':'선택 행 일괄 저장'}</button></div></div><div class="ads-table-wrap"><table class="request-table ads-table ads-inline-table"><thead><tr><th><input id="adsToggleAll" type="checkbox"></th><th>업소명</th><th>노출 그룹 (유료 전용)</th><th>유료</th><th>상품</th><th>가중치</th><th>시작일</th><th>종료일</th><th>로테이션</th><th>업소 활성</th><th>목록 표시</th><th>광고 상태</th><th>저장</th></tr></thead><tbody>${rows.map(b=>{const storedGroup=adsGroupOf(b),idKey=String(b.id),canonicalGroup=effectiveToday.featured.has(idKey)?'featured':effectiveToday.new.has(idKey)?'new':effectiveToday.popular.has(idKey)?'popular':'none',displayGroup=isEffectiveGroup?selectedGroup:canonicalGroup,saving=adsQuickSavingId===String(b.id);return `<tr data-ads-row-id="${esc(b.id)}" class="${saving?'is-saving':''}"><td><input class="ads-row-check" type="checkbox" data-id="${esc(b.id)}" ${adsSelectedIds.has(String(b.id))?'checked':''}></td><td><b>${esc(b.name_ko||b.name_en||'')}</b><small>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</small>${(()=>{if(isEffectiveGroup){const source=adsSectionAssigned(b,selectedGroup)?'원래 편성':'자동 보충';return `<small style="display:block;margin-top:4px;color:#0b57d0;font-weight:800">오늘 메인: ${adsGroupLabel(selectedGroup)} · ${source}</small>`;}if(canonicalGroup!=='none')return `<small style="display:block;margin-top:4px;color:#0b57d0;font-weight:800">오늘 메인: ${adsGroupLabel(canonicalGroup)}</small>`;if(storedGroup!=='none')return `<small style="display:block;margin-top:4px;color:#64748b;font-weight:700">저장 편성: ${adsGroupLabel(storedGroup)} · ${esc(adsTodayExclusionReason(b))}</small>`;return ''})()}</td><td>
   <div class="ads-free-auto-badge" style="${b.paid_active?'display:none;':''}padding:7px 9px;border-radius:999px;background:#ecfdf5;color:#047857;font-size:11px;font-weight:900;white-space:nowrap">무료 자동 로테이션</div>
   <div class="ads-group-switch ads-paid-group-controls" aria-label="광고 그룹 변경" style="${b.paid_active?'':'display:none;'}">${[['featured','추천'],['new','신규'],['popular','인기'],['none','해제']].map(([g,label])=>`<button type="button" class="ads-group-choice ${displayGroup===g?'active '+g:''}" data-action="ads-group-change" data-id="${esc(b.id)}" data-group="${g}" onclick="return window.dtmAdsGroupClick(this)" ${saving?'disabled':''}>${saving&&storedGroup===g?'저장 중':label}</button>`).join('')}</div>
-</td><td><label class="ads-inline-toggle"><input class="ads-inline-paid" type="checkbox" data-id="${esc(b.id)}" ${b.paid_active?'checked':''} ${saving?'disabled':''}><span>${b.paid_active?'ON':'OFF'}</span></label></td><td><select class="ads-inline-control ads-inline-product ads-paid-only" ${(!b.paid_active||saving)?'disabled':''}><option value="none" ${!b.paid_product||b.paid_product==='none'?'selected':''}>없음</option><option value="basic" ${b.paid_product==='basic'?'selected':''}>Basic</option><option value="premium" ${b.paid_product==='premium'?'selected':''}>Premium</option></select></td><td><input class="ads-inline-control ads-inline-weight ads-paid-only" type="number" min="1" value="${esc(b.paid_weight||1)}" ${(!b.paid_active||saving)?'disabled':''}></td><td><input class="ads-inline-control ads-inline-start ads-paid-only" type="date" value="${esc(String(b.paid_start_at||'').slice(0,10))}" ${(!b.paid_active||saving)?'disabled':''}></td><td><input class="ads-inline-control ads-inline-end ads-paid-only" type="date" value="${esc(String(b.paid_end_at||'').slice(0,10))}" ${(!b.paid_active||saving)?'disabled':''}></td><td><label class="ads-inline-toggle"><input class="ads-inline-rotation ads-paid-only" type="checkbox" ${b.rotation_enabled===false?'':'checked'} ${(!b.paid_active||saving)?'disabled':''}><span>${b.paid_active?(b.rotation_enabled===false?'OFF':'ON'):'자동'}</span></label></td><td><label class="ads-inline-toggle ads-business-active-toggle" title="업소 자체 활성/비활성"><input class="ads-inline-business-active" type="checkbox" data-id="${esc(b.id)}" onchange="return window.dtmAdsBusinessActiveToggle(this)" ${b.is_active===false?'':'checked'} ${saving?'disabled':''}><span>${b.is_active===false?'OFF':'ON'}</span></label></td><td><label class="ads-inline-toggle ads-list-visible-toggle" title="업소 목록 표시/숨김"><input class="ads-inline-list-visible" type="checkbox" data-id="${esc(b.id)}" onchange="return window.dtmAdsListVisibleToggle(this)" ${b.list_visible===false?'':'checked'} ${saving?'disabled':''}><span>${b.list_visible===false?'OFF':'ON'}</span></label></td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span>${(adsStatusOf(b)==='inactive'||adsStatusOf(b)==='hidden'||(adsGroupOf(b)!=='none'&&!adsEligibleOnDate(b,todayKey())))?`<small style="display:block;margin-top:3px;color:#9a6700;font-weight:700">${esc(adsTodayExclusionReason(b))}</small>`:''}</td><td><button type="button" class="btn primary ads-row-save" data-id="${esc(b.id)}" ${saving?'disabled':''}>${saving?'저장 중':'저장'}</button></td></tr>`}).join('')}</tbody></table></div>`;
+</td><td><label class="ads-inline-toggle"><input class="ads-inline-paid" type="checkbox" data-id="${esc(b.id)}" onchange="return window.v238SavePaidToggle(this)" ${b.paid_active?'checked':''} ${saving?'disabled':''}><span>${b.paid_active?'ON':'OFF'}</span></label></td><td><select class="ads-inline-control ads-inline-product ads-paid-only" ${(!b.paid_active||saving)?'disabled':''}><option value="none" ${!b.paid_product||b.paid_product==='none'?'selected':''}>없음</option><option value="basic" ${b.paid_product==='basic'?'selected':''}>Basic</option><option value="premium" ${b.paid_product==='premium'?'selected':''}>Premium</option></select></td><td><input class="ads-inline-control ads-inline-weight ads-paid-only" type="number" min="1" value="${esc(b.paid_weight||1)}" ${(!b.paid_active||saving)?'disabled':''}></td><td><input class="ads-inline-control ads-inline-start ads-paid-only" type="date" value="${esc(String(b.paid_start_at||'').slice(0,10))}" ${(!b.paid_active||saving)?'disabled':''}></td><td><input class="ads-inline-control ads-inline-end ads-paid-only" type="date" value="${esc(String(b.paid_end_at||'').slice(0,10))}" ${(!b.paid_active||saving)?'disabled':''}></td><td><label class="ads-inline-toggle"><input class="ads-inline-rotation ads-paid-only" type="checkbox" ${b.rotation_enabled===false?'':'checked'} ${(!b.paid_active||saving)?'disabled':''}><span>${b.paid_active?(b.rotation_enabled===false?'OFF':'ON'):'자동'}</span></label></td><td><label class="ads-inline-toggle ads-business-active-toggle" title="업소 자체 활성/비활성"><input class="ads-inline-business-active" type="checkbox" data-id="${esc(b.id)}" onchange="return window.dtmAdsBusinessActiveToggle(this)" ${b.is_active===false?'':'checked'} ${saving?'disabled':''}><span>${b.is_active===false?'OFF':'ON'}</span></label></td><td><label class="ads-inline-toggle ads-list-visible-toggle" title="업소 목록 표시/숨김"><input class="ads-inline-list-visible" type="checkbox" data-id="${esc(b.id)}" onchange="return window.dtmAdsListVisibleToggle(this)" ${b.list_visible===false?'':'checked'} ${saving?'disabled':''}><span>${b.list_visible===false?'OFF':'ON'}</span></label></td><td><span class="ads-status ${adsStatusOf(b)}">${adsStatusLabel(adsStatusOf(b))}</span>${(adsStatusOf(b)==='inactive'||adsStatusOf(b)==='hidden'||(adsGroupOf(b)!=='none'&&!adsEligibleOnDate(b,todayKey())))?`<small style="display:block;margin-top:3px;color:#9a6700;font-weight:700">${esc(adsTodayExclusionReason(b))}</small>`:''}</td><td><button type="button" class="btn primary ads-row-save" data-id="${esc(b.id)}" ${saving?'disabled':''}>${saving?'저장 중':'저장'}</button></td></tr>`}).join('')}</tbody></table></div>`;
   host.querySelectorAll('.ads-row-check').forEach(ch=>ch.onchange=()=>{const id=String(ch.dataset.id);ch.checked?adsSelectedIds.add(id):adsSelectedIds.delete(id);updateAdsSelectedCount();});
   host.querySelectorAll('.ads-row-save').forEach(btn=>btn.onclick=()=>saveAdsRowSettings(btn.dataset.id));
   host.querySelector('#adsSaveSelectedRowsBtn')?.addEventListener('click',saveSelectedAdsRows);
-  host.querySelectorAll('.ads-inline-paid').forEach(ch=>ch.onchange=()=>{
+  host.querySelectorAll('.ads-inline-paid').forEach(ch=>{
     const span=ch.closest('label')?.querySelector('span'); if(span)span.textContent=ch.checked?'ON':'OFF';
-    v237SyncAdsRowPaidUI(ch.closest('tr'),!!ch.checked);
   });
   host.querySelectorAll('.ads-inline-rotation').forEach(ch=>ch.onchange=()=>{
     const span=ch.closest('label')?.querySelector('span'); if(span)span.textContent=ch.checked?'ON':'OFF';
