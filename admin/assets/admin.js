@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V248 sale source fix loaded');
 console.info('[DalTownMap Admin] V247 sale grouped by business loaded');
 console.info('[DalTownMap Admin] V246 sale page + event board routing loaded');
 console.info('[DalTownMap Admin] V245 Today shortcuts + event list loaded');
@@ -32,7 +33,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V247';
+    badge.textContent='Admin V248';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11589,7 +11590,7 @@ loadCouponRedemptions=async function(){
     const n=document.createElement('div');
     n.id='v246SaleAdminNote';
     n.style.cssText='margin-top:8px;padding:10px 12px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:12px;line-height:1.55;';
-    n.innerHTML='<b>세일 메뉴</b> · 메인의 세일 버튼은 별도 세일 목록으로 이동합니다. 스마트 전단과 업소 프로모션을 업소별로 묶어 보여줍니다. 같은 업소에 전단이 여러 장 있어도 한 번만 표시되며 클릭하면 업소 상세로 이동합니다.';
+    n.innerHTML='<b>세일 메뉴</b> · 메인의 세일 버튼은 별도 세일 목록으로 이동합니다. 스마트 전단 DB의 연결 업소 ID(featured_business_id/business_id)를 기준으로 업소별 그룹화합니다. H마트·시온마트처럼 전단이 여러 장이어도 업소는 한 번만 표시되고 클릭하면 해당 업소 상세로 이동합니다.';
     box.appendChild(n);
   }
   document.addEventListener('click',()=>setTimeout(mountV246SaleNote,80));

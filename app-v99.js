@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V248 sale source fix loaded');
 console.info('[DalTownMap App] V247 sale grouped by business loaded');
 console.info('[DalTownMap App] V246 sale page + event board routing loaded');
 console.info('[DalTownMap App] V245 Today shortcuts + event list loaded');
@@ -8830,6 +8831,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 // === P130/V187: Weekly market hard restore (independent home mount + tolerant schema) ===
 (() => {
   const S={rows:[],i:0,timer:null,imageTimer:null,loading:null};
+  window.V248_WEEKLY_FLYER_ROWS=window.V248_WEEKLY_FLYER_ROWS||[];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const imgs=r=>[...new Set([
@@ -8932,6 +8934,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       const raw=await res.json().catch(()=>[]);
       if(!res.ok)throw new Error(raw?.message||`HTTP ${res.status}`);
       S.rows=(Array.isArray(raw)?raw:[]).filter(valid);
+      // V248: 세일 페이지가 DOM이 아니라 실제 전단 데이터와 업소 연결 ID를 사용하도록 공개합니다.
+      window.V248_WEEKLY_FLYER_ROWS=[...S.rows];
+      setTimeout(()=>window.renderV245TodayShortcuts?.(),0);
+      if(document.getElementById('page-sale')?.classList.contains('active')){
+        setTimeout(()=>window.renderV246SaleList?.(),0);
+      }
       if(S.i>=S.rows.length)S.i=0;
       console.info('[P130 V187 DATA]',{region,raw:Array.isArray(raw)?raw.length:0,valid:S.rows.length,fields:Array.isArray(raw)&&raw[0]?Object.keys(raw[0]):[]});
       return S.rows;
@@ -10135,6 +10143,7 @@ function v246ActivePromoRows(){
 }
 
 
+
 function v247MarketBusinessGroups(){
   const groups=new Map();
 
@@ -10145,43 +10154,45 @@ function v247MarketBusinessGroups(){
     let b=null;
     try{ b=(businesses||[]).find(x=>String(x.id)===id) || null; }catch(_){}
 
-    const key=id;
-    if(!groups.has(key)){
-      groups.set(key,{
+    if(!groups.has(id)){
+      groups.set(id,{
         businessId:id,
         business:b,
         title:b?.name_ko||b?.name||b?.name_en||fallbackName||'세일 업소',
         subtitle:b?.area||b?.city||b?.category_main||'현재 세일 진행 중',
         image:b?.image||b?.image_url||image||'',
-        sources:new Set()
+        sources:new Set(),
+        flyerCount:0,
+        promoCount:0
       });
     }
 
-    const g=groups.get(key);
+    const g=groups.get(id);
+    if(sourceType==='flyer') g.flyerCount++;
+    if(sourceType==='promotion') g.promoCount++;
     if(sourceType) g.sources.add(sourceType);
     if(!g.image && image) g.image=image;
   };
 
-  // 스마트 전단에서 연결 업소를 추출
-  const host=document.getElementById('p130MarketHost');
-  if(host){
-    host.querySelectorAll('.p130-panel').forEach((el)=>{
-      const bid=
-        el.dataset.businessId ||
-        el.querySelector('[data-business-id]')?.dataset.businessId ||
-        el.querySelector('[data-flyer-business-id]')?.dataset.flyerBusinessId ||
-        '';
+  // V248: 스마트 전단의 실제 DB row에서 featured_business_id / business_id를 읽습니다.
+  const flyerRows=Array.isArray(window.V248_WEEKLY_FLYER_ROWS)
+    ? window.V248_WEEKLY_FLYER_ROWS
+    : [];
 
-      const fallbackName=
-        el.querySelector('.p130-name,.p130-title')?.textContent?.trim() ||
-        '마트 세일';
+  flyerRows.forEach(r=>{
+    const bid=String(r?.featured_business_id||r?.business_id||'').trim();
+    const fallbackName=String(r?.market_name||r?.title||'마트 세일');
+    const image=String(
+      r?.market_main_image_url||
+      r?.main_image_url||
+      r?.image_url||
+      r?.featured_image_url||
+      ''
+    );
+    add(bid,fallbackName,image,'flyer');
+  });
 
-      const image=el.querySelector('img')?.src||'';
-      add(bid,fallbackName,image,'flyer');
-    });
-  }
-
-  // 업소 프로모션에서 연결 업소를 추가
+  // 업소 프로모션도 같은 업소 기준으로 합칩니다.
   v246ActivePromoRows().forEach(r=>{
     const bid=String(r.business_id||r.businessId||'').trim();
     add(
@@ -10200,10 +10211,10 @@ function v246SaleItems(){
     type:'business',
     title:g.title,
     subtitle:g.sources.has('flyer') && g.sources.has('promotion')
-      ? '전단 · 프로모션 진행 중'
+      ? `전단 ${g.flyerCount}건 · 프로모션 ${g.promoCount}건`
       : g.sources.has('flyer')
-        ? '이번 주 세일 전단'
-        : '현재 프로모션 진행 중',
+        ? `이번 주 세일 전단 ${g.flyerCount}건`
+        : `현재 프로모션 ${g.promoCount}건`,
     image:g.image,
     businessId:g.businessId,
     action:`v246OpenSaleBusiness('${g.businessId.replace(/'/g,"\\'")}')`
