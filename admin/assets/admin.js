@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V246 sale page + event board routing loaded');
 console.info('[DalTownMap Admin] V245 Today shortcuts + event list loaded');
 console.info('[DalTownMap Admin] V244 Today Daltown loaded');
 console.info('[DalTownMap Admin] V243 coupon type badges + raffle states loaded');
@@ -30,7 +31,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V245';
+    badge.textContent='Admin V246';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11577,4 +11578,20 @@ loadCouponRedemptions=async function(){
   document.addEventListener('click',()=>setTimeout(mountV245EventAdminNote,80));
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV245EventAdminNote,700));
   else setTimeout(mountV245EventAdminNote,700);
+})();
+
+(function(){
+  function mountV246SaleNote(){
+    if(document.getElementById('v246SaleAdminNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v246SaleAdminNote';
+    n.style.cssText='margin-top:8px;padding:10px 12px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:12px;line-height:1.55;';
+    n.innerHTML='<b>세일 메뉴</b> · 메인의 세일 버튼은 별도 세일 목록으로 이동합니다. 스마트 전단과 현재 진행 중인 업소 프로모션을 한곳에 모아 보여줍니다.';
+    box.appendChild(n);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV246SaleNote,80));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV246SaleNote,700));
+  else setTimeout(mountV246SaleNote,700);
 })();

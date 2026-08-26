@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V246 sale page + event board routing loaded');
 console.info('[DalTownMap App] V245 Today shortcuts + event list loaded');
 console.info('[DalTownMap App] V244 Today Daltown loaded');
 console.info('[DalTownMap App] V243 coupon type badge companion loaded');
@@ -2466,7 +2467,7 @@ function v87OpenPublicRoute(){
   }
   return false;
 }
-function getPageOrder(){ return ['home','business','coupon','event','map','guide']; }
+function getPageOrder(){ return ['home','business','coupon','event','sale','map','guide']; }
 function getBiz(id){
     if (!id) return null;
 
@@ -10043,6 +10044,9 @@ function v245EnsureEventPage(){
 }
 function renderV245EventList(){
   v245EnsureEventPage();
+
+  v246EnsureSalePage();
+
   const box=document.getElementById('v245EventList');
   if(!box) return;
   const rows=v245EventCoupons();
@@ -10093,6 +10097,156 @@ window.v245OpenCoupons=v245OpenCoupons;
 window.v245OpenSale=v245OpenSale;
 window.v245OpenCommunityEvents=v245OpenCommunityEvents;
 
+function v246EnsureSalePage(){
+  let page=document.getElementById('page-sale');
+  if(page) return page;
+  page=document.createElement('section');
+  page.className='page';
+  page.id='page-sale';
+  page.innerHTML=`
+    <section class="card section-card v246-sale-page">
+      <div class="section-head compact-head">
+        <h3 class="section-title">세일</h3>
+        <button type="button" class="text-link" onclick="showPage('home')">홈으로</button>
+      </div>
+      <div id="v246SaleList" class="v246-sale-list"></div>
+    </section>`;
+  document.getElementById('appMain')?.appendChild(page);
+  return page;
+}
+
+function v246ActivePromoRows(){
+  let rows=[];
+  try{
+    if(Array.isArray(businessPromotions)) rows=businessPromotions;
+  }catch(_){}
+  if(!rows.length && Array.isArray(window.businessPromotions)) rows=window.businessPromotions;
+
+  const now=Date.now();
+  return (rows||[]).filter(r=>{
+    if(!r || r.active===false || r.is_active===false || r.hidden===true) return false;
+    const start=r.start_at||r.startAt||'';
+    const end=r.end_at||r.endAt||'';
+    if(start && new Date(start).getTime()>now) return false;
+    if(end && new Date(end).getTime()+86400000<=now) return false;
+    return true;
+  });
+}
+
+function v246SaleItems(){
+  const items=[];
+
+  // 1) 스마트 전단
+  const host=document.getElementById('p130MarketHost');
+  if(host){
+    host.querySelectorAll('.p130-panel').forEach((el,idx)=>{
+      const title=el.querySelector('.p130-name,.p130-title')?.textContent?.trim() || `마트 세일 ${idx+1}`;
+      items.push({
+        type:'flyer',
+        title,
+        subtitle:'이번 주 마트 전단',
+        image:el.querySelector('img')?.src||'',
+        action:`v246OpenSmartFlyer()`
+      });
+    });
+  }
+
+  // 2) 업소 프로모션
+  v246ActivePromoRows().forEach(r=>{
+    const bid=String(r.business_id||r.businessId||'');
+    let b=null;
+    try{ b=(businesses||[]).find(x=>String(x.id)===bid); }catch(_){}
+    items.push({
+      type:'promotion',
+      title:r.title||r.name||b?.name||'업소 세일',
+      subtitle:b?.name||r.description||'현재 진행 중인 프로모션',
+      image:r.image_url||r.image||b?.image||b?.image_url||'',
+      businessId:bid,
+      action:bid?`v246OpenSaleBusiness('${bid.replace(/'/g,"\\'")}')`:`showPage('business')`
+    });
+  });
+
+  return items;
+}
+
+function renderV246SaleList(){
+  v246EnsureSalePage();
+  const box=document.getElementById('v246SaleList');
+  if(!box) return;
+
+  const rows=v246SaleItems();
+  if(!rows.length){
+    box.innerHTML=`
+      <div class="board-empty">
+        현재 진행 중인 세일 정보가 없습니다.
+        <div style="margin-top:10px;">
+          <button type="button" class="btn secondary" onclick="showPage('coupon')">쿠폰 보기</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  box.innerHTML=`
+    <div class="v246-sale-section-title">현재 진행 중인 세일</div>
+    <div class="v246-sale-grid">
+      ${rows.map(r=>`
+        <button type="button" class="v246-sale-item" onclick="${r.action}">
+          <div class="v246-sale-thumb">
+            ${r.image?`<img src="${esc(r.image)}" alt="${esc(r.title)}">`:`<span>${r.type==='flyer'?'🛒':'🏷️'}</span>`}
+          </div>
+          <div class="v246-sale-copy">
+            <b>${esc(r.title)}</b>
+            <small>${esc(r.subtitle||'')}</small>
+          </div>
+          <span class="v246-sale-arrow">›</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="v246-sale-footer">
+      <button type="button" class="text-link" onclick="showPage('coupon')">할인 쿠폰도 보기 →</button>
+    </div>`;
+}
+window.renderV246SaleList=renderV246SaleList;
+
+function v246OpenSaleBusiness(id){
+  const b=getBiz(id);
+  if(!b){showPage('business');return;}
+  selectedBizId=id;
+  if(typeof v230PrepareBusinessDetail==='function') v230PrepareBusinessDetail(id,'sale_page','business_click');
+  renderDetail(id);
+  showPage('business-detail');
+}
+window.v246OpenSaleBusiness=v246OpenSaleBusiness;
+
+function v246OpenSmartFlyer(){
+  showPage('home');
+  setTimeout(()=>document.getElementById('p130MarketHost')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+window.v246OpenSmartFlyer=v246OpenSmartFlyer;
+
+function v246OpenSalePage(){
+  renderV246SaleList();
+  showPage('sale');
+}
+window.v246OpenSalePage=v246OpenSalePage;
+
+// 행사 버튼은 커뮤니티 행사안내 "전체" 목록을 직접 엽니다.
+function v246OpenEventBoard(){
+  showPage('home');
+  setTimeout(()=>{
+    const full=document.querySelector('.community-full-btn[data-board="notice"]');
+    if(full){
+      full.click();
+      return;
+    }
+    const tab=document.querySelector('.community-tab[data-board="notice"]');
+    if(tab) tab.click();
+    document.querySelector('.community-home-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+}
+window.v246OpenEventBoard=v246OpenEventBoard;
+
+
 function renderV245TodayShortcuts(){
   let host=document.getElementById('v244TodayDaltown');
   if(!host){
@@ -10109,7 +10263,7 @@ function renderV245TodayShortcuts(){
 
   const eventCount=v245EventCoupons().length;
   const couponCount=v245RegularCoupons().length;
-  const saleCount=v245SaleCount();
+  const saleCount=v245SaleCount()+v246ActivePromoRows().length;
   const postCount=v245EventPostCount();
 
   host.innerHTML=`
@@ -10117,8 +10271,8 @@ function renderV245TodayShortcuts(){
     <div class="v245-shortcuts-grid">
       ${v245Shortcut('🎁','이벤트',eventCount,'v245OpenEvents()')}
       ${v245Shortcut('🎟','쿠폰',couponCount,'v245OpenCoupons()')}
-      ${v245Shortcut('🛒','세일',saleCount,'v245OpenSale()')}
-      ${v245Shortcut('🎉','행사',postCount,'v245OpenCommunityEvents()')}
+      ${v245Shortcut('🛒','세일',saleCount,'v246OpenSalePage()')}
+      ${v245Shortcut('🎉','행사',postCount,'v246OpenEventBoard()')}
     </div>`;
 }
 window.renderV245TodayShortcuts=renderV245TodayShortcuts;
@@ -10149,6 +10303,18 @@ window.renderV244TodayDaltown=renderV245TodayShortcuts;
       .v245-event-copy b{font-size:15px;color:#0f172a}
       .v245-event-copy small{font-size:11px;color:#64748b}
       .v245-event-arrow{font-size:24px;color:#94a3b8}
+      .v246-sale-list{display:grid;gap:10px}
+      .v246-sale-section-title{font-size:13px;font-weight:900;color:#475569;margin-bottom:2px}
+      .v246-sale-grid{display:grid;gap:9px}
+      .v246-sale-item{width:100%;border:1px solid #e2e8f0;background:#fff;border-radius:15px;padding:10px;display:flex;align-items:center;gap:11px;text-align:left;cursor:pointer}
+      .v246-sale-thumb{width:72px;height:72px;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto;font-size:28px}
+      .v246-sale-thumb img{width:100%;height:100%;object-fit:cover}
+      .v246-sale-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+      .v246-sale-copy b{font-size:14px;color:#0f172a}
+      .v246-sale-copy small{font-size:11px;color:#64748b;line-height:1.35}
+      .v246-sale-arrow{font-size:24px;color:#94a3b8}
+      .v246-sale-footer{margin-top:10px;text-align:right}
+
       @media(min-width:701px){
         .v245-shortcuts-wrap{max-width:720px;margin:12px auto 16px}
         .v245-shortcut{aspect-ratio:auto;min-height:92px}
