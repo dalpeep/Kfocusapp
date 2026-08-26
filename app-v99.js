@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V241.6 coupon admin records + admin-only display notify loaded');
 console.info('[DalTownMap App] V241.5 display coupon proof screen loaded');
 console.info('[DalTownMap App] V241.4 coupon mode routing restored');
 console.info('[DalTownMap App] V241.3 coupon email modal force fix loaded');
@@ -5980,8 +5981,17 @@ async function useCouponNow(coupon){
     // V241.5:
     // 일반 표시 쿠폰(display)은 과거 브라우저 localStorage 이메일을 절대 재사용하지 않습니다.
     // 이메일 즉시발급/응모형만 해당 발급/응모 과정에서 수집된 이메일을 사용할 수 있습니다.
+    // V241.6:
+    // 일반 표시 쿠폰은 고객의 과거 이메일을 재사용하지 않습니다.
+    // 대신 쿠폰 관리자에서 지정한 '사용 알림 이메일'로만 사용 완료 알림을 보냅니다.
+    // 이메일 발급/응모형은 사용자가 직접 입력했던 이메일을 발급 기록에 연결합니다.
     notify_emails: String(coupon.delivery_mode||'display')==='display'
-      ? ''
+      ? String(
+          coupon.notify_emails ||
+          coupon.notifyEmails ||
+          coupon.admin_notify_emails ||
+          ''
+        ).trim()
       : (()=>{
           try {
             return localStorage.getItem(`daltown_coupon_customer_email_${String(coupon.id)}`) || '';
@@ -5990,7 +6000,8 @@ async function useCouponNow(coupon){
           }
         })(),
     notify_phones: null,
-    used_by: 'customer'
+    used_by: 'customer',
+    delivery_mode: String(coupon.delivery_mode||'display')
   };
 
   const { error } = await client
@@ -6020,7 +6031,6 @@ async function useCouponNow(coupon){
     });
   }
 
-if(String(coupon.delivery_mode||'display')!=='display'){
 try {
     const notifyRes = await fetch('/.netlify/functions/coupon-used-notify', {
         method:'POST',
@@ -6036,9 +6046,6 @@ try {
     }
 } catch(e){
     console.warn('coupon email notify error', e);
-}
-}else{
-  console.log('[V241.5] display coupon: customer email notification skipped');
 }
 
 const useLink = String(coupon.use_link_url || '').trim();

@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V241.6 coupon usage records loaded');
 console.info('[DalTownMap Admin] V238 paid toggle autosave + group activation loaded');
 console.info('[DalTownMap Admin] V237 free-business admin UI cleanup loaded');
 console.info('[DalTownMap Admin] V236 paid/free fair rotation admin loaded');
@@ -24,7 +25,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V238';
+    badge.textContent='Admin V241.6';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2391,7 +2392,20 @@ function updateCouponCampaignAdminVisibility(){const mode=val('coupon_delivery_m
 function ensureCouponCampaignManagerUI(){if(qs('couponCampaignManagerOverlay'))return;const st=document.createElement('style');st.textContent=`.ccm-overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:120000;display:flex;align-items:center;justify-content:center;padding:20px}.ccm-overlay.hidden{display:none}.ccm-dialog{width:min(1040px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 25px 70px rgba(15,23,42,.3)}.ccm-head{position:sticky;top:0;background:#fff;z-index:2;padding:16px 18px;border-bottom:1px solid #e5eaf1;display:flex;justify-content:space-between;align-items:center}.ccm-body{padding:18px}.ccm-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}.ccm-stat{padding:12px;background:#f7f9fc;border-radius:12px}.ccm-stat b{display:block;font-size:20px}.ccm-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.ccm-table{width:100%;border-collapse:collapse;font-size:13px}.ccm-table th,.ccm-table td{padding:9px;border-bottom:1px solid #edf1f5;text-align:left}.ccm-marketing{color:#137333;font-weight:800}@media(max-width:760px){.ccm-stats{grid-template-columns:repeat(2,1fr)}.ccm-table{min-width:760px}.ccm-table-wrap{overflow:auto}}`;document.head.appendChild(st);const o=document.createElement('div');o.id='couponCampaignManagerOverlay';o.className='ccm-overlay hidden';o.innerHTML=`<div class="ccm-dialog"><div class="ccm-head"><div><strong style="font-size:18px">쿠폰 응모·발급 관리</strong><div id="ccmSubtitle" class="muted"></div></div><button id="ccmClose" class="btn ghost" type="button">닫기</button></div><div class="ccm-body" id="ccmBody"></div></div>`;document.body.appendChild(o);qs('ccmClose').onclick=()=>o.classList.add('hidden');o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')})}
 async function couponCampaignAdminRequest(payload){const{data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw new Error('관리자 로그인이 필요합니다.');const r=await fetch('/.netlify/functions/coupon-campaign-admin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||`HTTP ${r.status}`);return d}
 async function openCouponCampaignAdminManager(){if(!selectedCouponId)return alert('먼저 저장된 쿠폰을 선택하세요.');ensureCouponCampaignManagerUI();qs('couponCampaignManagerOverlay').classList.remove('hidden');qs('ccmSubtitle').textContent=val('coupon_title')||`쿠폰 #${selectedCouponId}`;await refreshCouponCampaignManager()}
-async function refreshCouponCampaignManager(){const body=qs('ccmBody');if(!body)return;body.innerHTML='불러오는 중...';try{const d=await couponCampaignAdminRequest({action:'list',coupon_id:selectedCouponId});const s=d.stats||{},entries=d.entries||[];body.innerHTML=`<div class="ccm-stats"><div class="ccm-stat">전체<b>${s.total||0}</b></div><div class="ccm-stat">응모 대기<b>${s.entered||0}</b></div><div class="ccm-stat">발급/당첨<b>${s.winners||0}</b></div><div class="ccm-stat">사용<b>${s.redeemed||0}</b></div><div class="ccm-stat">마케팅 동의<b>${s.marketing_opt_in||0}</b></div></div><div class="ccm-actions">${String(d.coupon?.delivery_mode||'')==='raffle'?`<button id="ccmDraw" class="btn primary" type="button">무작위 추첨 (${Number(d.coupon?.winner_count||1)}명)</button><button id="ccmDesignate" class="btn secondary" type="button">선택 당첨 지정</button>`:''}<button id="ccmRefresh" class="btn ghost" type="button">새로고침</button></div><div class="ccm-table-wrap"><table class="ccm-table"><thead><tr><th>선택</th><th>이메일</th><th>상태</th><th>응모/쿠폰 코드</th><th>마케팅</th><th>등록일</th><th></th></tr></thead><tbody>${entries.map(r=>`<tr><td><input type="checkbox" class="ccm-entry-check" value="${esc(r.id)}" ${r.status==='entered'?'':'disabled'}></td><td>${esc(r.email)}</td><td>${esc(r.status)}</td><td>${esc(r.coupon_code||r.entry_code||'')}</td><td>${r.marketing_opt_in?'<span class="ccm-marketing">동의</span>':'-'}</td><td>${esc(fmtLocal(r.created_at)||r.created_at||'')}</td><td><button class="btn ghost ccm-resend" data-id="${esc(r.id)}" type="button">메일 재발송</button></td></tr>`).join('')}</tbody></table></div>`;qs('ccmRefresh')?.addEventListener('click',refreshCouponCampaignManager);qs('ccmDraw')?.addEventListener('click',async()=>{if(!confirm('설정된 인원만큼 무작위로 추첨하고 당첨 메일을 발송할까요?'))return;try{const r=await couponCampaignAdminRequest({action:'draw',coupon_id:selectedCouponId,count:Number(val('coupon_winner_count')||1)});alert(`${r.selected||0}명 당첨 처리 완료`);await refreshCouponCampaignManager()}catch(e){alert(e.message)}});qs('ccmDesignate')?.addEventListener('click',async()=>{const ids=$$('.ccm-entry-check:checked').map(x=>x.value);if(!ids.length)return alert('당첨자로 지정할 응모자를 선택하세요.');if(!confirm(`${ids.length}명을 당첨자로 지정하고 당첨 메일을 발송할까요?`))return;try{const r=await couponCampaignAdminRequest({action:'designate',coupon_id:selectedCouponId,entry_ids:ids});alert(`${r.selected||0}명 당첨 처리 완료`);await refreshCouponCampaignManager()}catch(e){alert(e.message)}});$$('.ccm-resend').forEach(b=>b.addEventListener('click',async()=>{try{await couponCampaignAdminRequest({action:'resend',coupon_id:selectedCouponId,entry_id:b.dataset.id});alert('메일 재발송 완료')}catch(e){alert(e.message)}}))}catch(e){body.innerHTML=`<div class="muted">불러오기 실패: ${esc(e.message)}</div>`}}
+async function refreshCouponCampaignManager(){const body=qs('ccmBody');if(!body)return;body.innerHTML='불러오는 중...';try{const d=await couponCampaignAdminRequest({action:'list',coupon_id:selectedCouponId});const s=d.stats||{},entries=d.entries||[];body.innerHTML=`<div class="ccm-stats"><div class="ccm-stat">전체<b>${s.total||0}</b></div><div class="ccm-stat">응모 대기<b>${s.entered||0}</b></div><div class="ccm-stat">발급/당첨<b>${s.winners||0}</b></div><div class="ccm-stat">사용<b>${s.redeemed||0}</b></div><div class="ccm-stat">마케팅 동의<b>${s.marketing_opt_in||0}</b></div></div><div class="ccm-actions">${String(d.coupon?.delivery_mode||'')==='raffle'?`<button id="ccmDraw" class="btn primary" type="button">무작위 추첨 (${Number(d.coupon?.winner_count||1)}명)</button><button id="ccmDesignate" class="btn secondary" type="button">선택 당첨 지정</button>`:''}<button id="ccmRefresh" class="btn ghost" type="button">새로고침</button></div><div class="ccm-table-wrap"><table class="ccm-table"><thead><tr><th>선택</th><th>이메일</th><th>상태</th><th>응모/쿠폰 코드</th><th>마케팅</th><th>등록일</th><th></th></tr></thead><tbody>${entries.map(r=>`<tr><td><input type="checkbox" class="ccm-entry-check" value="${esc(r.id)}" ${r.status==='entered'?'':'disabled'}></td><td>${esc(r.email)}</td><td>${esc(r.status)}</td><td>${esc(r.coupon_code||r.entry_code||'')}</td><td>${r.marketing_opt_in?'<span class="ccm-marketing">동의</span>':'-'}</td><td>${esc(fmtLocal(r.created_at)||r.created_at||'')}</td><td style="display:flex;gap:6px;flex-wrap:wrap;">
+  <button class="btn ghost ccm-resend" data-id="${esc(r.id)}" type="button">메일 재발송</button>
+  ${['coupon_issued','winner'].includes(String(r.status||'')) ? `<button class="btn primary ccm-redeem" data-id="${esc(r.id)}" type="button">사용 처리</button>` : ''}
+  ${String(r.status||'')==='redeemed' ? '<span style="font-weight:900;color:#15803d;">사용 완료</span>' : ''}
+</td></tr>`).join('')}</tbody></table></div>`;qs('ccmRefresh')?.addEventListener('click',refreshCouponCampaignManager);qs('ccmDraw')?.addEventListener('click',async()=>{if(!confirm('설정된 인원만큼 무작위로 추첨하고 당첨 메일을 발송할까요?'))return;try{const r=await couponCampaignAdminRequest({action:'draw',coupon_id:selectedCouponId,count:Number(val('coupon_winner_count')||1)});alert(`${r.selected||0}명 당첨 처리 완료`);await refreshCouponCampaignManager()}catch(e){alert(e.message)}});qs('ccmDesignate')?.addEventListener('click',async()=>{const ids=$$('.ccm-entry-check:checked').map(x=>x.value);if(!ids.length)return alert('당첨자로 지정할 응모자를 선택하세요.');if(!confirm(`${ids.length}명을 당첨자로 지정하고 당첨 메일을 발송할까요?`))return;try{const r=await couponCampaignAdminRequest({action:'designate',coupon_id:selectedCouponId,entry_ids:ids});alert(`${r.selected||0}명 당첨 처리 완료`);await refreshCouponCampaignManager()}catch(e){alert(e.message)}});$$('.ccm-resend').forEach(b=>b.addEventListener('click',async()=>{try{await couponCampaignAdminRequest({action:'resend',coupon_id:selectedCouponId,entry_id:b.dataset.id});alert('메일 재발송 완료')}catch(e){alert(e.message)}}));
+$$('.ccm-redeem').forEach(b=>b.addEventListener('click',async()=>{
+  if(!confirm('이 이메일 쿠폰을 실제 사용 완료로 처리할까요?\n처리 후 쿠폰 사용 내역에 저장됩니다.')) return;
+  try{
+    const r=await couponCampaignAdminRequest({action:'redeem',coupon_id:selectedCouponId,entry_id:b.dataset.id});
+    alert(r.existing?'이미 사용 처리된 쿠폰입니다.':'사용 처리 완료 · 쿠폰 사용 내역에 저장했습니다.');
+    await refreshCouponCampaignManager();
+    if(typeof loadCouponRedemptions==='function') loadCouponRedemptions();
+  }catch(e){alert(e.message)}
+}))}catch(e){body.innerHTML=`<div class="muted">불러오기 실패: ${esc(e.message)}</div>`}}
 
 function clearCouponForm() {
   ['coupon_id', 'coupon_title', 'coupon_code',  'coupon_use_link_url', 'coupon_notify_emails', 'coupon_notify_phones', 'coupon_discount_label', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order','coupon_raffle_end_at','coupon_winner_count','coupon_email_image_url'].forEach((id) => setVal(id, ''));
@@ -2705,6 +2719,20 @@ async function deleteCoupon() {
 }
 let couponRedemptions = [];
 
+
+function v2416CouponModeLabel(couponId){
+  const c=(coupons||[]).find(x=>String(x.id)===String(couponId));
+  const mode=String(c?.delivery_mode||'display');
+  if(mode==='instant_email') return '이메일 즉시 발급';
+  if(mode==='raffle') return '이메일 응모·추첨';
+  return '일반 표시';
+}
+function v2416CouponModeClass(couponId){
+  const c=(coupons||[]).find(x=>String(x.id)===String(couponId));
+  const mode=String(c?.delivery_mode||'display');
+  return mode==='raffle'?'raffle':mode==='instant_email'?'instant':'display';
+}
+
 function getFilteredCouponRedemptions(){
   const q = (document.getElementById('couponRedemptionSearch')?.value || '').trim().toLowerCase();
   return couponRedemptions.filter(r=>{
@@ -2866,7 +2894,9 @@ async function loadCouponRedemptions(){
       <div class="biz-main">
         <div class="biz-title">${esc(r.business_name || '-')}</div>
         <div class="biz-meta">쿠폰: ${esc(r.coupon_title || '-')}</div>
-        <div class="biz-meta">사용일: ${new Date(r.created_at).toLocaleString()}</div>
+        <div class="biz-meta"><b>방식:</b> ${esc(v2416CouponModeLabel(r.coupon_id))}</div>
+        <div class="biz-meta">사용일: ${new Date(r.created_at).toLocaleString('ko-KR',{timeZone:'America/Chicago'})}</div>
+        <div class="biz-meta">기록 ID: ${esc(r.id || '-')}</div>
         <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
         <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
       </div>
