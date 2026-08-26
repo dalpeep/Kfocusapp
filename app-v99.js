@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V241 coupon + smart flyer final QA loaded');
 console.info('[DalTownMap App] V240 core user-flow QA loaded');
 console.info('[DalTownMap App] V239 launch public fallback cleanup loaded');
 console.info('[DalTownMap App] V238 paid-toggle companion loaded');
@@ -5483,6 +5484,40 @@ function openReservation(id) {
     alert('예약 정보가 없습니다.');
 }
 
+
+// === V241: 쿠폰 + 스마트 전단 최종 QA ===
+let v241CouponSubmitting=false;
+const v241FlyerClickLock=new Map();
+
+function v241SetCouponSubmitBusy(btn,busy){
+  if(!btn) return;
+  btn.disabled=!!busy;
+  btn.setAttribute('aria-busy',busy?'true':'false');
+  if(busy){
+    if(!btn.dataset.v241Label) btn.dataset.v241Label=btn.textContent||'신청하기';
+    btn.textContent='처리 중...';
+  }else if(btn.dataset.v241Label){
+    btn.textContent=btn.dataset.v241Label;
+  }
+}
+function v241ValidEmail(value){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value||'').trim());
+}
+function v241SafeExternalUrl(value){
+  const raw=String(value||'').trim();
+  if(!raw) return '';
+  try{
+    const u=new URL(/^https?:\/\//i.test(raw)?raw:`https://${raw}`);
+    return /^https?:$/.test(u.protocol)?u.href:'';
+  }catch(_){ return ''; }
+}
+function v241FlyerCanClick(key){
+  const now=Date.now(), prev=v241FlyerClickLock.get(key)||0;
+  if(now-prev<900) return false;
+  v241FlyerClickLock.set(key,now);
+  return true;
+}
+
 function renderCouponDetail(id){
   const c = getCoupon(id);
   if(!c) return;
@@ -9605,3 +9640,87 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
   window.V200Recommendation={refresh:apply};
 })();
 
+
+
+// V241: 쿠폰 신청 폼 최종 안전장치.
+// 기존 백엔드 발급/응모 로직은 유지하고, 잘못된 이메일과 연속 더블클릭만 차단합니다.
+document.addEventListener('submit',(ev)=>{
+  const form=ev.target;
+  if(!(form instanceof HTMLFormElement)) return;
+  const couponContext=form.closest('[id*="coupon" i],[class*="coupon" i]');
+  if(!couponContext) return;
+  const email=form.querySelector('input[type="email"],input[name*="email" i]');
+  if(email && !v241ValidEmail(email.value)){
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    email.focus();
+    if(typeof showToast==='function') showToast('이메일 주소를 정확히 입력해 주세요.');
+    else alert('이메일 주소를 정확히 입력해 주세요.');
+    return;
+  }
+  const btn=form.querySelector('button[type="submit"],input[type="submit"]');
+  if(btn && btn.dataset.v241Busy==='1'){
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    return;
+  }
+  if(btn){
+    btn.dataset.v241Busy='1';
+    v241SetCouponSubmitBusy(btn,true);
+    setTimeout(()=>{
+      btn.dataset.v241Busy='0';
+      v241SetCouponSubmitBusy(btn,false);
+    },5000);
+  }
+},true);
+
+// 클릭형 쿠폰 신청 버튼도 빠른 중복 클릭 방지.
+document.addEventListener('click',(ev)=>{
+  const btn=ev.target.closest('button');
+  if(!btn) return;
+  const couponContext=btn.closest('[id*="coupon" i],[class*="coupon" i]');
+  if(!couponContext) return;
+  const txt=String(btn.textContent||'').trim();
+  if(!/(신청|응모|발급|받기)/.test(txt)) return;
+  if(btn.dataset.v241ClickLock==='1'){
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    return;
+  }
+  btn.dataset.v241ClickLock='1';
+  setTimeout(()=>{btn.dataset.v241ClickLock='0';},1200);
+},true);
+
+// 스마트 전단: 실제 링크가 없으면 빈 탭/# 이동을 만들지 않습니다.
+// 전단/상품 클릭은 빠른 더블클릭을 차단하고, 연결 업소가 있으면 동일 상세 진입 추적을 사용합니다.
+document.addEventListener('click',(ev)=>{
+  const el=ev.target.closest('[data-flyer-business-id],[data-market-business-id],[data-flyer-url],[data-market-url]');
+  if(!el) return;
+  const key=String(el.dataset.flyerBusinessId||el.dataset.marketBusinessId||el.dataset.flyerUrl||el.dataset.marketUrl||'flyer');
+  if(!v241FlyerCanClick(key)){
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    return;
+  }
+  const bid=el.dataset.flyerBusinessId||el.dataset.marketBusinessId;
+  if(bid && typeof v230PrepareBusinessDetail==='function'){
+    v230PrepareBusinessDetail(bid,'smart_flyer','business_click');
+  }
+  const rawUrl=el.dataset.flyerUrl||el.dataset.marketUrl;
+  if(rawUrl && !v241SafeExternalUrl(rawUrl)){
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }
+},true);
+
+
+// V241: 동적으로 생성되는 외부 링크에도 opener 보호 적용.
+function v241HardenExternalLinks(root=document){
+  root.querySelectorAll('a[target="_blank"]').forEach(a=>{
+    const rel=new Set(String(a.getAttribute('rel')||'').split(/\s+/).filter(Boolean));
+    rel.add('noopener');
+    a.setAttribute('rel',[...rel].join(' '));
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>v241HardenExternalLinks());
+setTimeout(()=>v241HardenExternalLinks(),1200);
