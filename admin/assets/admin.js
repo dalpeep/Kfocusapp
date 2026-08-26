@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V255 auto + manual raffle loaded');
 console.info('[DalTownMap Admin] V254 coupon group delete loaded');
 console.info('[DalTownMap Admin] V253 raffle confirmation mail controls loaded');
 console.info('[DalTownMap Admin] V252 campaign history fallback loaded');
@@ -39,7 +40,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V254';
+    badge.textContent='Admin V255';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2406,7 +2407,10 @@ function updateCouponCampaignAdminVisibility(){const mode=val('coupon_delivery_m
 function ensureCouponCampaignManagerUI(){if(qs('couponCampaignManagerOverlay'))return;const st=document.createElement('style');st.textContent=`.ccm-overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:120000;display:flex;align-items:center;justify-content:center;padding:20px}.ccm-overlay.hidden{display:none}.ccm-dialog{width:min(1040px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 25px 70px rgba(15,23,42,.3)}.ccm-head{position:sticky;top:0;background:#fff;z-index:2;padding:16px 18px;border-bottom:1px solid #e5eaf1;display:flex;justify-content:space-between;align-items:center}.ccm-body{padding:18px}.ccm-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}.ccm-stat{padding:12px;background:#f7f9fc;border-radius:12px}.ccm-stat b{display:block;font-size:20px}.ccm-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.ccm-table{width:100%;border-collapse:collapse;font-size:13px}.ccm-table th,.ccm-table td{padding:9px;border-bottom:1px solid #edf1f5;text-align:left}.ccm-marketing{color:#137333;font-weight:800}@media(max-width:760px){.ccm-stats{grid-template-columns:repeat(2,1fr)}.ccm-table{min-width:760px}.ccm-table-wrap{overflow:auto}}`;document.head.appendChild(st);const o=document.createElement('div');o.id='couponCampaignManagerOverlay';o.className='ccm-overlay hidden';o.innerHTML=`<div class="ccm-dialog"><div class="ccm-head"><div><strong style="font-size:18px">쿠폰 응모·발급 관리</strong><div id="ccmSubtitle" class="muted"></div></div><button id="ccmClose" class="btn ghost" type="button">닫기</button></div><div class="ccm-body" id="ccmBody"></div></div>`;document.body.appendChild(o);qs('ccmClose').onclick=()=>o.classList.add('hidden');o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')})}
 async function couponCampaignAdminRequest(payload){const{data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw new Error('관리자 로그인이 필요합니다.');const r=await fetch('/.netlify/functions/coupon-campaign-admin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||`HTTP ${r.status}`);return d}
 async function openCouponCampaignAdminManager(){if(!selectedCouponId)return alert('먼저 저장된 쿠폰을 선택하세요.');ensureCouponCampaignManagerUI();qs('couponCampaignManagerOverlay').classList.remove('hidden');qs('ccmSubtitle').textContent=val('coupon_title')||`쿠폰 #${selectedCouponId}`;await refreshCouponCampaignManager()}
-async function refreshCouponCampaignManager(){const body=qs('ccmBody');if(!body)return;body.innerHTML='불러오는 중...';try{const d=await couponCampaignAdminRequest({action:'list',coupon_id:selectedCouponId});const s=d.stats||{},entries=d.entries||[];body.innerHTML=`<div class="ccm-stats"><div class="ccm-stat">전체<b>${s.total||0}</b></div><div class="ccm-stat">응모 대기<b>${s.entered||0}</b></div><div class="ccm-stat">발급/당첨<b>${s.winners||0}</b></div><div class="ccm-stat">사용<b>${s.redeemed||0}</b></div><div class="ccm-stat">마케팅 동의<b>${s.marketing_opt_in||0}</b></div></div><div class="ccm-actions">${String(d.coupon?.delivery_mode||'')==='raffle'?`<button id="ccmDraw" class="btn primary" type="button">무작위 추첨 (${Number(d.coupon?.winner_count||1)}명)</button><button id="ccmDesignate" class="btn secondary" type="button">선택 당첨 지정</button>`:''}<button id="ccmRefresh" class="btn ghost" type="button">새로고침</button></div><div class="ccm-table-wrap"><table class="ccm-table"><thead><tr><th>선택</th><th>이메일</th><th>상태</th><th>응모/쿠폰 코드</th><th>마케팅</th><th>등록일</th><th></th></tr></thead><tbody>${entries.map(r=>`<tr><td><input type="checkbox" class="ccm-entry-check" value="${esc(r.id)}" ${r.status==='entered'?'':'disabled'}></td><td>${esc(r.email)}</td><td>${esc(r.status)}</td><td>${esc(r.coupon_code||r.entry_code||'')}</td><td>${r.marketing_opt_in?'<span class="ccm-marketing">동의</span>':'-'}</td><td>${esc(fmtLocal(r.created_at)||r.created_at||'')}</td><td style="display:flex;gap:6px;flex-wrap:wrap;">
+async function refreshCouponCampaignManager(){const body=qs('ccmBody');if(!body)return;body.innerHTML='불러오는 중...';try{const d=await couponCampaignAdminRequest({action:'list',coupon_id:selectedCouponId});const s=d.stats||{},entries=d.entries||[];body.innerHTML=`<div class="ccm-stats"><div class="ccm-stat">전체<b>${s.total||0}</b></div><div class="ccm-stat">응모 대기<b>${s.entered||0}</b></div><div class="ccm-stat">발급/당첨<b>${s.winners||0}</b></div><div class="ccm-stat">사용<b>${s.redeemed||0}</b></div><div class="ccm-stat">마케팅 동의<b>${s.marketing_opt_in||0}</b></div></div><div class="ccm-actions">${String(d.coupon?.delivery_mode||'')==='raffle'?`
+  <span style="display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:900;">자동 추첨 ON · 마감 후 최대 10분</span>
+  <button id="ccmDraw" class="btn primary" type="button">수동 무작위 추첨 (${Number(d.coupon?.winner_count||1)}명)</button>
+  <button id="ccmDesignate" class="btn secondary" type="button">선택 당첨 지정</button>`:''}<button id="ccmRefresh" class="btn ghost" type="button">새로고침</button></div><div class="ccm-table-wrap"><table class="ccm-table"><thead><tr><th>선택</th><th>이메일</th><th>상태</th><th>응모/쿠폰 코드</th><th>마케팅</th><th>등록일</th><th></th></tr></thead><tbody>${entries.map(r=>`<tr><td><input type="checkbox" class="ccm-entry-check" value="${esc(r.id)}" ${r.status==='entered'?'':'disabled'}></td><td>${esc(r.email)}</td><td>${esc(r.status)}</td><td>${esc(r.coupon_code||r.entry_code||'')}</td><td>${r.marketing_opt_in?'<span class="ccm-marketing">동의</span>':'-'}</td><td>${esc(fmtLocal(r.created_at)||r.created_at||'')}</td><td style="display:flex;gap:6px;flex-wrap:wrap;">
   <button class="btn ghost ccm-resend" data-id="${esc(r.id)}" type="button">메일 재발송</button>
   ${['coupon_issued','winner'].includes(String(r.status||'')) ? `<button class="btn primary ccm-redeem" data-id="${esc(r.id)}" type="button">사용 처리</button>` : ''}
   ${String(r.status||'')==='redeemed' ? '<span style="font-weight:900;color:#15803d;">사용 완료</span>' : ''}
@@ -11824,3 +11828,21 @@ async function v254DeleteCampaignGroup(couponId,couponTitle,count){
   }
 }
 window.v254DeleteCampaignGroup=v254DeleteCampaignGroup;
+
+(function(){
+  function mountV255AutoDrawNote(){
+    if(document.getElementById('v255AutoDrawNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v255AutoDrawNote';
+    n.className='coupon-raffle-only';
+    n.style.cssText='margin-top:10px;padding:11px 12px;border-radius:12px;background:#ecfdf5;border:1px solid #a7f3d0;color:#166534;font-size:12px;line-height:1.6;';
+    n.innerHTML='<b>추첨 방식</b> · 자동 추첨과 수동 추첨을 모두 사용할 수 있습니다. 자동은 응모 마감 후 최대 10분 안에 설정된 당첨 인원까지 선정합니다. 수동 추첨을 먼저 실행해도 자동 추첨은 남은 인원만 채우므로 중복 초과 선정하지 않습니다.';
+    box.appendChild(n);
+    updateCouponCampaignAdminVisibility();
+  }
+  document.addEventListener('click',()=>setTimeout(mountV255AutoDrawNote,80));
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV255AutoDrawNote,700));
+  else setTimeout(mountV255AutoDrawNote,700);
+})();

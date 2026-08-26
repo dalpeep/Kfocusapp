@@ -7,7 +7,47 @@ if(action==='list_all'){
   return json(200,{ok:true,entries:Array.isArray(entries)?entries:[]});
 }
 
-const couponId=String(b.coupon_id||'').trim();if(!couponId)return json(400,{ok:false,error:'coupon_id가 필요합니다.'});const coupon=await getCoupon(couponId);if(!coupon)return json(404,{ok:false,error:'쿠폰을 찾을 수 없습니다.'});const biz=await getBusiness(coupon.business_id);const bizName=biz?.name_ko||biz?.name||biz?.name_en||'';if(action==='list'){const r=await rows(couponId);return json(200,{ok:true,coupon,stats:{total:r.length,entered:r.filter(x=>x.status==='entered').length,winners:r.filter(x=>['winner','coupon_issued','redeemed'].includes(x.status)).length,redeemed:r.filter(x=>x.status==='redeemed').length,marketing_opt_in:r.filter(x=>x.marketing_opt_in===true).length},entries:r})}if(action==='draw'){if(String(coupon.delivery_mode||'')!=='raffle')return json(400,{ok:false,error:'추첨형 쿠폰이 아닙니다.'});const r=await rows(couponId);const eligible=r.filter(x=>x.status==='entered');const n=Math.max(1,Math.min(500,Number(b.count||coupon.winner_count||1)));const sel=shuffle(eligible).slice(0,n);const winners=[];for(const row of sel)winners.push(await issue(row,coupon,bizName));return json(200,{ok:true,selected:winners.length,winners})}if(action==='designate'){const ids=Array.isArray(b.entry_ids)?b.entry_ids.map(String):[];if(!ids.length)return json(400,{ok:false,error:'당첨자로 지정할 응모자를 선택하세요.'});const r=await rows(couponId);const sel=r.filter(x=>ids.includes(String(x.id))&&x.status==='entered');const winners=[];for(const row of sel)winners.push(await issue(row,coupon,bizName));return json(200,{ok:true,selected:winners.length,winners})}if(action==='redeem'){
+const couponId=String(b.coupon_id||'').trim();if(!couponId)return json(400,{ok:false,error:'coupon_id가 필요합니다.'});const coupon=await getCoupon(couponId);if(!coupon)return json(404,{ok:false,error:'쿠폰을 찾을 수 없습니다.'});const biz=await getBusiness(coupon.business_id);const bizName=biz?.name_ko||biz?.name||biz?.name_en||'';if(action==='list'){const r=await rows(couponId);return json(200,{ok:true,coupon,stats:{total:r.length,entered:r.filter(x=>x.status==='entered').length,winners:r.filter(x=>['winner','coupon_issued','redeemed'].includes(x.status)).length,redeemed:r.filter(x=>x.status==='redeemed').length,marketing_opt_in:r.filter(x=>x.marketing_opt_in===true).length},entries:r})}if(action==='draw'){
+  if(String(coupon.delivery_mode||'')!=='raffle')return json(400,{ok:false,error:'추첨형 쿠폰이 아닙니다.'});
+  const r=await rows(couponId);
+  const target=Math.max(1,Math.min(500,Number(coupon.winner_count||1)));
+  const already=r.filter(x=>['winner','redeemed'].includes(String(x.status||''))).length;
+  const remaining=Math.max(0,target-already);
+  if(remaining<=0)return json(200,{ok:true,selected:0,winners:[],already,target,message:'설정된 당첨 인원이 이미 모두 선정되었습니다.'});
+  const eligible=r.filter(x=>x.status==='entered');
+  const requestCount=b.count==null?remaining:Math.max(1,Math.min(remaining,Number(b.count||remaining)));
+  const sel=shuffle(eligible).slice(0,requestCount);
+  const winners=[];
+  for(const row of sel){
+    try{winners.push(await issue(row,coupon,bizName))}
+    catch(e){console.error('[manual raffle issue failed]',row?.id,e)}
+  }
+  return json(200,{ok:true,selected:winners.length,winners,already,target,remaining_after:Math.max(0,remaining-winners.length)});
+}if(action==='designate'){
+  const ids=Array.isArray(b.entry_ids)?b.entry_ids.map(String):[];
+  if(!ids.length)return json(400,{ok:false,error:'당첨자로 지정할 응모자를 선택하세요.'});
+  const r=await rows(couponId);
+  const target=Math.max(1,Math.min(500,Number(coupon.winner_count||1)));
+  const already=r.filter(x=>['winner','redeemed'].includes(String(x.status||''))).length;
+  const remaining=Math.max(0,target-already);
+  if(remaining<=0)return json(409,{ok:false,error:'설정된 당첨 인원이 이미 모두 선정되었습니다.'});
+  const sel=r.filter(x=>ids.includes(String(x.id))&&x.status==='entered').slice(0,remaining);
+  const winners=[];
+  for(const row of sel){
+    try{winners.push(await issue(row,coupon,bizName))}
+    catch(e){console.error('[manual designate failed]',row?.id,e)}
+  }
+  return json(200,{ok:true,selected:winners.length,winners,already,target,remaining_after:Math.max(0,remaining-winners.length)});
+}if(action==='delete_entries'){
+  const r=await rows(couponId);
+  if(!r.length)return json(200,{ok:true,deleted:0});
+  await rest(`coupon_entries?coupon_id=eq.${encodeURIComponent(couponId)}`,{
+    method:'DELETE',
+    headers:{Prefer:'return=representation'}
+  });
+  return json(200,{ok:true,deleted:r.length});
+}
+if(action==='redeem'){
   const id=String(b.entry_id||'').trim();
   if(!id)return json(400,{ok:false,error:'entry_id가 필요합니다.'});
   const r=await rows(couponId);

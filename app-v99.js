@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V255 raffle companion loaded');
 console.info('[DalTownMap App] V254 companion loaded');
 console.info('[DalTownMap App] V253 raffle confirmation mail UX loaded');
 console.info('[DalTownMap App] V252 companion loaded');
