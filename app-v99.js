@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V247 sale grouped by business loaded');
 console.info('[DalTownMap App] V246 sale page + event board routing loaded');
 console.info('[DalTownMap App] V245 Today shortcuts + event list loaded');
 console.info('[DalTownMap App] V244 Today Daltown loaded');
@@ -10133,40 +10134,80 @@ function v246ActivePromoRows(){
   });
 }
 
-function v246SaleItems(){
-  const items=[];
 
-  // 1) 스마트 전단
+function v247MarketBusinessGroups(){
+  const groups=new Map();
+
+  const add=(bid, fallbackName, image, sourceType)=>{
+    const id=String(bid||'').trim();
+    if(!id) return;
+
+    let b=null;
+    try{ b=(businesses||[]).find(x=>String(x.id)===id) || null; }catch(_){}
+
+    const key=id;
+    if(!groups.has(key)){
+      groups.set(key,{
+        businessId:id,
+        business:b,
+        title:b?.name_ko||b?.name||b?.name_en||fallbackName||'세일 업소',
+        subtitle:b?.area||b?.city||b?.category_main||'현재 세일 진행 중',
+        image:b?.image||b?.image_url||image||'',
+        sources:new Set()
+      });
+    }
+
+    const g=groups.get(key);
+    if(sourceType) g.sources.add(sourceType);
+    if(!g.image && image) g.image=image;
+  };
+
+  // 스마트 전단에서 연결 업소를 추출
   const host=document.getElementById('p130MarketHost');
   if(host){
-    host.querySelectorAll('.p130-panel').forEach((el,idx)=>{
-      const title=el.querySelector('.p130-name,.p130-title')?.textContent?.trim() || `마트 세일 ${idx+1}`;
-      items.push({
-        type:'flyer',
-        title,
-        subtitle:'이번 주 마트 전단',
-        image:el.querySelector('img')?.src||'',
-        action:`v246OpenSmartFlyer()`
-      });
+    host.querySelectorAll('.p130-panel').forEach((el)=>{
+      const bid=
+        el.dataset.businessId ||
+        el.querySelector('[data-business-id]')?.dataset.businessId ||
+        el.querySelector('[data-flyer-business-id]')?.dataset.flyerBusinessId ||
+        '';
+
+      const fallbackName=
+        el.querySelector('.p130-name,.p130-title')?.textContent?.trim() ||
+        '마트 세일';
+
+      const image=el.querySelector('img')?.src||'';
+      add(bid,fallbackName,image,'flyer');
     });
   }
 
-  // 2) 업소 프로모션
+  // 업소 프로모션에서 연결 업소를 추가
   v246ActivePromoRows().forEach(r=>{
-    const bid=String(r.business_id||r.businessId||'');
-    let b=null;
-    try{ b=(businesses||[]).find(x=>String(x.id)===bid); }catch(_){}
-    items.push({
-      type:'promotion',
-      title:r.title||r.name||b?.name||'업소 세일',
-      subtitle:b?.name||r.description||'현재 진행 중인 프로모션',
-      image:r.image_url||r.image||b?.image||b?.image_url||'',
-      businessId:bid,
-      action:bid?`v246OpenSaleBusiness('${bid.replace(/'/g,"\\'")}')`:`showPage('business')`
-    });
+    const bid=String(r.business_id||r.businessId||'').trim();
+    add(
+      bid,
+      r.business_name||r.title||r.name||'업소 세일',
+      r.image_url||r.image||'',
+      'promotion'
+    );
   });
 
-  return items;
+  return [...groups.values()];
+}
+
+function v246SaleItems(){
+  return v247MarketBusinessGroups().map(g=>({
+    type:'business',
+    title:g.title,
+    subtitle:g.sources.has('flyer') && g.sources.has('promotion')
+      ? '전단 · 프로모션 진행 중'
+      : g.sources.has('flyer')
+        ? '이번 주 세일 전단'
+        : '현재 프로모션 진행 중',
+    image:g.image,
+    businessId:g.businessId,
+    action:`v246OpenSaleBusiness('${g.businessId.replace(/'/g,"\\'")}')`
+  }));
 }
 
 function renderV246SaleList(){
@@ -10178,7 +10219,7 @@ function renderV246SaleList(){
   if(!rows.length){
     box.innerHTML=`
       <div class="board-empty">
-        현재 진행 중인 세일 정보가 없습니다.
+        현재 세일 중인 업소가 없습니다.
         <div style="margin-top:10px;">
           <button type="button" class="btn secondary" onclick="showPage('coupon')">쿠폰 보기</button>
         </div>
@@ -10187,7 +10228,7 @@ function renderV246SaleList(){
   }
 
   box.innerHTML=`
-    <div class="v246-sale-section-title">현재 진행 중인 세일</div>
+    <div class="v246-sale-section-title">현재 세일 중인 업소</div>
     <div class="v246-sale-grid">
       ${rows.map(r=>`
         <button type="button" class="v246-sale-item" onclick="${r.action}">
@@ -10197,6 +10238,7 @@ function renderV246SaleList(){
           <div class="v246-sale-copy">
             <b>${esc(r.title)}</b>
             <small>${esc(r.subtitle||'')}</small>
+            <span style="font-size:10px;color:#2563eb;font-weight:800;">업소 상세 보기</span>
           </div>
           <span class="v246-sale-arrow">›</span>
         </button>
@@ -10263,7 +10305,7 @@ function renderV245TodayShortcuts(){
 
   const eventCount=v245EventCoupons().length;
   const couponCount=v245RegularCoupons().length;
-  const saleCount=v245SaleCount()+v246ActivePromoRows().length;
+  const saleCount=v247MarketBusinessGroups().length;
   const postCount=v245EventPostCount();
 
   host.innerHTML=`
