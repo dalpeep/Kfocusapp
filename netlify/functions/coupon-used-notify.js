@@ -61,9 +61,12 @@ exports.handler = async (event) => {
   });
   
 
-  const subject = `🔔 [DalTownMap] ${businessName} 쿠폰 사용 알림`;
+  const isDisplay = String(payload.delivery_mode||'') === 'display';
+  const subject = isDisplay
+    ? `📌 [DalTownMap 관리자] ${businessName} 일반 쿠폰 사용 기록`
+    : `🔔 [DalTownMap] ${businessName} 쿠폰 사용 알림`;
   const text = [
-    'DalTownMap 쿠폰 사용 알림',
+    isDisplay ? 'DalTownMap 관리자 쿠폰 사용 기록' : 'DalTownMap 쿠폰 사용 알림',
     '',
     `업소명: ${businessName}`,
     `쿠폰명: ${couponTitle}`,
@@ -75,7 +78,7 @@ exports.handler = async (event) => {
 
   const html = `
     <div style="font-family:Arial,'Noto Sans KR',sans-serif;line-height:1.6;color:#0f172a;max-width:560px">
-      <h2 style="margin:0 0 12px;color:#1d4ed8">DalTownMap 쿠폰 사용 알림</h2>
+      <h2 style="margin:0 0 12px;color:#1d4ed8">${isDisplay?'DalTownMap 관리자 쿠폰 사용 기록':'DalTownMap 쿠폰 사용 알림'}</h2>
       <div style="border:1px solid #d9e2ef;border-radius:14px;padding:16px;background:#f8fbff">
         <p><b>업소명</b><br>${esc(businessName)}</p>
         <p><b>쿠폰명</b><br>${esc(couponTitle)}</p>

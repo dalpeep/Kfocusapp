@@ -129,7 +129,7 @@
 </script>
 </script>
 
-  <meta name="daltownmap-version" content="V229 one-line weather recovery">
+  <meta name="daltownmap-version" content="V241.7 redemption schema fix grouped usage">
 
 <style>
 #p130MarketHost{display:block;width:100%;margin:12px 0}
@@ -304,8 +304,8 @@ onclick="showPage('contact');closeMenu();">
             </div>
             <button type="button" class="v51-today-main" id="v51TodayMain">
               <span class="v51-today-category" id="v51TodayCategory">생활 정보</span>
-              <strong class="v51-today-title" id="v37BriefTitle">오늘의 정보를 준비하고 있습니다.</strong>
-              <span class="v51-today-summary" id="v37BriefSummary">날씨·교통·쇼핑 정보를 확인해 보세요.</span>
+              <strong class="v51-today-title" id="v37BriefTitle">오늘의 DFW 생활정보</strong>
+              <span class="v51-today-summary" id="v37BriefSummary">날씨·교통·쇼핑 정보를 한곳에서 확인하세요.</span>
               <span class="v51-today-meta">
                 <small id="v51TodayRelativeTime"></small>
                 <b id="v51TodayLinkLabel"></b>
@@ -318,8 +318,8 @@ onclick="showPage('contact');closeMenu();">
             <button class="v37-recommend-main" id="v37RecommendMain" type="button">
               <span class="v37-recommend-badge">📍 달타운 추천 <small id="v45BusinessModeLabel">오늘의 추천</small></span>
               <span class="v37-recommend-copy">
-                <strong id="v37RecommendTitle">추천 업체를 준비하고 있습니다.</strong>
-                <span id="v37RecommendSummary">달타운이 선별한 업체를 확인해 보세요.</span>
+                <strong id="v37RecommendTitle">달타운 추천 업소</strong>
+                <span id="v37RecommendSummary">오늘 확인할 만한 지역 업소를 살펴보세요.</span>
                 <span class="v37-recommend-tags" id="v37RecommendTags"></span>
               </span>
               <span class="v37-recommend-arrow" aria-hidden="true">→</span>
@@ -457,12 +457,7 @@ onclick="showPage('contact');closeMenu();">
       <section class="page" id="page-board-detail">
         <section class="card section-card">
           <h3 id="boardTitle">게시판</h3>
-          <p class="board-detail-copy">게시판 상세 테스트 화면입니다.</p>
-          <div class="action-buttons">
-            <a class="action-btn call" href="tel:3037454592">📞 전화하기</a>
-            <a class="action-btn sms" href="sms:3037454592">💬 문자하기</a>
-            <a class="action-btn map" href="https://www.google.com/maps?q=2751%20S%20Parker%20Rd%2C%20Aurora%2C%20CO" target="_blank">📍 길찾기</a>
-          </div>
+          <div id="boardDetailContent" class="board-detail-copy" aria-live="polite"></div>
         </section>
       </section>
 
@@ -661,7 +656,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=225"></script>
+<script src="app-v99.js?v=243"></script>
 <script src="main-banners.js?v=100.0-ios-pwa-data-refresh"></script>
 
 <div id="videoModal" class="video-modal hidden">
