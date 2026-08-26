@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V236 paid-group + free fair-fill rotation loaded');
 console.info('[DalTownMap App] V235 free-pool companion build loaded');
 console.info('[DalTownMap App] V234 admin fairness audit companion build loaded');
 console.info('[DalTownMap App] V233 new-tab created_at sync loaded');
@@ -698,17 +699,98 @@ function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses)
 }
 
 
+
+// === V236: 유료 그룹 + 무료 전체 Fair Rotation ===
+function v236PublicActiveBusiness(b){
+  return !!b &&
+    b.is_active!==false &&
+    b.status!=='hidden' &&
+    b.list_visible!==false &&
+    b.listing_visible!==false;
+}
+function v236FreePool(allRows, dateValue){
+  const dateKey=rotationDateKey(dateValue);
+  return (allRows||[]).filter(b=>
+    v236PublicActiveBusiness(b) &&
+    !paidAdActiveOnDate(b,dateKey)
+  );
+}
+function v236PaidGroupRows(allRows, section, dateValue){
+  const dateKey=rotationDateKey(dateValue);
+  return (allRows||[]).filter(b=>
+    v236PublicActiveBusiness(b) &&
+    paidAdActiveOnDate(b,dateKey) &&
+    sectionAssigned(b,section)
+  );
+}
+function v236PaidOrder(rows, section, dateValue){
+  const dateKey=rotationDateKey(dateValue);
+  const fixed=(rows||[]).filter(b=>b.rotation_enabled===false)
+    .sort((a,b)=>
+      businessGroupRank(a,section)-businessGroupRank(b,section) ||
+      String(b.created_at||'').localeCompare(String(a.created_at||''))
+    );
+  const rotating=(rows||[]).filter(b=>b.rotation_enabled!==false)
+    .sort((a,b)=>{
+      const aw=Math.max(1,Number(a.paid_weight||1));
+      const bw=Math.max(1,Number(b.paid_weight||1));
+      return rotationHash(`${dateKey}|paid|${section}|${a.id}`)/aw -
+             rotationHash(`${dateKey}|paid|${section}|${b.id}`)/bw;
+    });
+  return [...fixed,...rotating];
+}
+function v236FreeOrder(rows, section, dateValue){
+  const dateKey=rotationDateKey(dateValue);
+  return [...(rows||[])].sort((a,b)=>
+    rotationHash(`${dateKey}|free|${section}|${a.id}`) -
+    rotationHash(`${dateKey}|free|${section}|${b.id}`)
+  );
+}
+function v236BuildGroup(section, dateValue, allRows, limit, usedFreeIds){
+  const paidOrdered=v236PaidOrder(v236PaidGroupRows(allRows,section,dateValue),section,dateValue);
+  const paidShown=paidOrdered.slice(0,limit);
+  const need=Math.max(0,limit-paidShown.length);
+
+  if(!need) return {rows:paidShown, paid:paidShown.length, free:0};
+
+  const allFree=v236FreePool(allRows,dateValue);
+  let freeCandidates=allFree.filter(b=>!usedFreeIds.has(String(b.id)));
+
+  // 무료 업소 수가 부족할 때만 다른 탭과의 중복을 허용합니다.
+  if(freeCandidates.length<need){
+    const existing=new Set(freeCandidates.map(b=>String(b.id)));
+    freeCandidates=freeCandidates.concat(allFree.filter(b=>!existing.has(String(b.id))));
+  }
+
+  const freeShown=v236FreeOrder(freeCandidates,section,dateValue).slice(0,need);
+  freeShown.forEach(b=>usedFreeIds.add(String(b.id)));
+
+  return {rows:[...paidShown,...freeShown], paid:paidShown.length, free:freeShown.length};
+}
+
+
 // V212: 추천/신규/인기의 실제 메인 목록을 한 번에 계산합니다.
 // 한 업체가 두 그룹 이상에 동시에 자동 보충되지 않도록 전역적으로 중복을 막습니다.
 function canonicalHomeGroups(dateValue=todayKey(), allRows=businesses, limit=6){
-  const result={featured:[],new:[],popular:[]};
-  for(const section of ['featured','new','popular']){
-    const assigned=(allRows||[]).filter(
-      b=>rotationEligibleOnDate(b,dateValue) && sectionAssigned(b,section)
-    );
-    result[section]=homeRotationRows(assigned,section,dateValue,limit,allRows||[]);
-  }
-  return result;
+  // V236 운영 기준:
+  // 1) 추천/신규/인기 각 탭의 '유료 그룹' 업소를 먼저 배치
+  // 2) 남는 자리는 그룹 체크와 무관한 전체 무료 업소에서 자동 보충
+  // 3) 무료 업소는 같은 날 세 탭에 가능한 한 중복되지 않게 배분
+  const usedFreeIds=new Set();
+  const featured=v236BuildGroup('featured',dateValue,allRows||[],limit,usedFreeIds);
+  const fresh=v236BuildGroup('new',dateValue,allRows||[],limit,usedFreeIds);
+  const popular=v236BuildGroup('popular',dateValue,allRows||[],limit,usedFreeIds);
+
+  return {
+    featured:featured.rows,
+    new:fresh.rows,
+    popular:popular.rows,
+    meta:{
+      featured:{paid:featured.paid,free:featured.free},
+      new:{paid:fresh.paid,free:fresh.free},
+      popular:{paid:popular.paid,free:popular.free}
+    }
+  };
 }
 
 function renderHomeBusinessTabs(){
