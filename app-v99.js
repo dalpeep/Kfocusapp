@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V238 paid-toggle companion loaded');
 console.info('[DalTownMap App] V237 free-business settings companion loaded');
 console.info('[DalTownMap App] V236 paid-group + free fair-fill rotation loaded');
 console.info('[DalTownMap App] V235 free-pool companion build loaded');
