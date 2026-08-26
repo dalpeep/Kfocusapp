@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V234 admin fairness audit companion build loaded');
 console.info('[DalTownMap App] V233 new-tab created_at sync loaded');
 console.info('[DalTownMap App] V232 admin-app rotation canonical sync loaded');
 console.info('[DalTownMap App] V231 business priority policy loaded');
