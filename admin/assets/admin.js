@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V243 coupon type badges + raffle states loaded');
 console.info('[DalTownMap Admin] V242 ad performance QA loaded');
 console.info('[DalTownMap Admin] V241.7 coupon usage grouped sections loaded');
 console.info('[DalTownMap Admin] V241.6 coupon usage records loaded');
@@ -27,7 +28,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V242';
+    badge.textContent='Admin V243';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2734,6 +2735,28 @@ function v2416CouponModeClass(couponId){
   const mode=String(c?.delivery_mode||'display');
   return mode==='raffle'?'raffle':mode==='instant_email'?'instant':'display';
 }
+function v243CouponTypeBadge(couponId){
+  const c=(coupons||[]).find(x=>String(x.id)===String(couponId));
+  const mode=String(c?.delivery_mode||'display');
+  if(mode==='raffle') return '<span class="v243-coupon-badge raffle">응모권</span>';
+  if(mode==='instant_email') return '<span class="v243-coupon-badge instant">즉시 발급</span>';
+  return '<span class="v243-coupon-badge display">일반 쿠폰</span>';
+}
+function v243EntryStatusLabel(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='entry') return '응모 완료';
+  if(s==='winner') return '당첨';
+  if(s==='coupon_issued') return '발급 완료';
+  if(s==='redeemed') return '사용 완료';
+  if(s==='not_winner') return '미당첨';
+  return s||'-';
+}
+function v243EntryStatusBadge(status){
+  const s=String(status||'').toLowerCase();
+  const cls=s==='winner'?'winner':s==='redeemed'?'redeemed':s==='coupon_issued'?'issued':s==='entry'?'entry':'default';
+  return `<span class="v243-status-badge ${cls}">${esc(v243EntryStatusLabel(status))}</span>`;
+}
+
 
 function getFilteredCouponRedemptions(){
   const q = (document.getElementById('couponRedemptionSearch')?.value || '').trim().toLowerCase();
@@ -2927,7 +2950,10 @@ async function loadCouponRedemptions(){
       ">
         <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
           <div>
-            <div style="font-size:17px;font-weight:1000;color:#0f172a;">${esc(g.coupon_title)}</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              <div style="font-size:17px;font-weight:1000;color:#0f172a;">${esc(g.coupon_title)}</div>
+              ${v243CouponTypeBadge(g.coupon_id)}
+            </div>
             <div style="margin-top:3px;color:#475569;font-size:12px;">${esc(g.business_name)}</div>
             <div style="margin-top:5px;color:#64748b;font-size:12px;">${esc(mode)}</div>
           </div>
@@ -2960,7 +2986,7 @@ async function loadCouponRedemptions(){
                 <div class="biz-meta">처리: ${esc(r.used_by || '-')}</div>
               </div>
               <div class="biz-actions" style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <span style="font-size:11px;font-weight:900;color:#15803d;background:#ecfdf5;padding:5px 8px;border-radius:999px;">사용 완료</span>
+                ${v243EntryStatusBadge('redeemed')}
                 <button type="button" class="btn danger" onclick="deleteCouponRedemption('${esc(r.id)}')">삭제</button>
               </div>
             </div>
@@ -11491,3 +11517,21 @@ loadCouponRedemptions=async function(){
   v2417CouponUsageTopStats();
 };
 
+
+(function(){
+  if(document.getElementById('v243CouponBadgeStyle')) return;
+  const s=document.createElement('style');
+  s.id='v243CouponBadgeStyle';
+  s.textContent=`
+    .v243-coupon-badge,.v243-status-badge{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:900;white-space:nowrap}
+    .v243-coupon-badge.display{background:#eef2ff;color:#3730a3}
+    .v243-coupon-badge.instant{background:#eff6ff;color:#1d4ed8}
+    .v243-coupon-badge.raffle{background:#fff7ed;color:#c2410c}
+    .v243-status-badge.entry{background:#f1f5f9;color:#475569}
+    .v243-status-badge.winner{background:#fef3c7;color:#92400e}
+    .v243-status-badge.issued{background:#e0f2fe;color:#075985}
+    .v243-status-badge.redeemed{background:#dcfce7;color:#166534}
+    .v243-status-badge.default{background:#f8fafc;color:#64748b}
+  `;
+  document.head.appendChild(s);
+})();

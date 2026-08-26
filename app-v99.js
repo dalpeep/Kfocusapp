@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V243 coupon type badge companion loaded');
 console.info('[DalTownMap App] V242 ad performance QA loaded');
 console.info('[DalTownMap App] V241.7 redemption schema fix loaded');
 console.info('[DalTownMap App] V241.6 coupon admin records + admin-only display notify loaded');
