@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V253 raffle confirmation mail controls loaded');
 console.info('[DalTownMap Admin] V252 campaign history fallback loaded');
 console.info('[DalTownMap Admin] V251 campaign records + mail config loaded');
 console.info('[DalTownMap Admin] V250 campaign email retry fix loaded');
@@ -37,7 +38,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V252';
+    badge.textContent='Admin V253';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11723,6 +11724,14 @@ async function loadV251CouponCampaignHistory(){
                   ${r.emailed_at
                     ? `<span style="color:#0369a1;font-weight:900;">이메일 API 접수</span><br><small style="color:#64748b;">${esc(fmtLocal(r.emailed_at)||r.emailed_at||'')}</small>`
                     : '<span style="color:#b45309;font-weight:900;">이메일 미접수</span>'}
+                  <div style="margin-top:5px;">
+                    <button type="button"
+                      class="btn ghost"
+                      style="padding:5px 8px;font-size:11px;"
+                      onclick="v253ResendCampaignMail('${esc(cid)}','${esc(r.id)}')">
+                      ${r.emailed_at?'메일 재발송':'응모 확인 메일 보내기'}
+                    </button>
+                  </div>
                 </div>
               </div>
             `).join('')}
@@ -11755,3 +11764,19 @@ loadCouponRedemptions=async function(){
   await loadV251CouponCampaignHistory();
 };
 
+
+async function v253ResendCampaignMail(couponId,entryId){
+  if(!couponId||!entryId) return alert('응모 기록을 확인할 수 없습니다.');
+  try{
+    const d=await couponCampaignAdminRequest({
+      action:'resend',
+      coupon_id:String(couponId),
+      entry_id:String(entryId)
+    });
+    alert('응모/쿠폰 확인 이메일 발송 요청이 접수되었습니다.');
+    await loadV251CouponCampaignHistory();
+  }catch(e){
+    alert(`이메일 발송 실패: ${e.message||e}`);
+  }
+}
+window.v253ResendCampaignMail=v253ResendCampaignMail;
