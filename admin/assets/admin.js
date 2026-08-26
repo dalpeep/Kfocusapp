@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V241.7 coupon usage grouped sections loaded');
 console.info('[DalTownMap Admin] V241.6 coupon usage records loaded');
 console.info('[DalTownMap Admin] V238 paid toggle autosave + group activation loaded');
 console.info('[DalTownMap Admin] V237 free-business admin UI cleanup loaded');
@@ -25,7 +26,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V241.6';
+    badge.textContent='Admin V241.7';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2867,7 +2868,7 @@ async function loadCouponRedemptions(){
     .from('coupon_redemptions')
     .select('*')
     .order('created_at', { ascending:false })
-    .limit(300);
+    .limit(500);
 
   console.log('coupon redemption data', data);
   console.log('coupon redemption error', error);
@@ -2881,7 +2882,8 @@ async function loadCouponRedemptions(){
   const rows = getFilteredCouponRedemptions();
 
   if(summary){
-    summary.textContent = `총 ${rows.length}건 사용`;
+    const couponCount=new Set(rows.map(r=>String(r.coupon_id||''))).size;
+    summary.textContent = `총 ${rows.length}건 사용 · ${couponCount}개 쿠폰`;
   }
 
   if(!rows.length){
@@ -2889,22 +2891,83 @@ async function loadCouponRedemptions(){
     return;
   }
 
-  box.innerHTML = rows.map(r=>`
-    <div class="business-row">
-      <div class="biz-main">
-        <div class="biz-title">${esc(r.business_name || '-')}</div>
-        <div class="biz-meta">쿠폰: ${esc(r.coupon_title || '-')}</div>
-        <div class="biz-meta"><b>방식:</b> ${esc(v2416CouponModeLabel(r.coupon_id))}</div>
-        <div class="biz-meta">사용일: ${new Date(r.created_at).toLocaleString('ko-KR',{timeZone:'America/Chicago'})}</div>
-        <div class="biz-meta">기록 ID: ${esc(r.id || '-')}</div>
-        <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
-        <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
-      </div>
-      <div class="biz-actions" style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-        <button type="button" class="btn danger" onclick="deleteCouponRedemption('${esc(r.id || '')}')">삭제</button>
-      </div>
-    </div>
-  `).join('');
+  // V241.7: 사용 기록을 쿠폰별 섹션으로 묶어서 관리합니다.
+  const grouped=new Map();
+  for(const r of rows){
+    const key=String(r.coupon_id||`legacy:${r.coupon_title||''}:${r.business_name||''}`);
+    if(!grouped.has(key)){
+      grouped.set(key,{
+        coupon_id:r.coupon_id||'',
+        coupon_title:r.coupon_title||'-',
+        business_name:r.business_name||'-',
+        records:[]
+      });
+    }
+    grouped.get(key).records.push(r);
+  }
+
+  const groups=[...grouped.values()].sort((a,b)=>{
+    const ta=Math.max(...a.records.map(r=>new Date(r.created_at||0).getTime()||0));
+    const tb=Math.max(...b.records.map(r=>new Date(r.created_at||0).getTime()||0));
+    return tb-ta;
+  });
+
+  box.innerHTML = groups.map(g=>{
+    const records=[...g.records].sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+    const mode=v2416CouponModeLabel(g.coupon_id);
+
+    return `
+      <section class="coupon-redemption-group" style="
+        border:1px solid #dbe5f1;
+        border-radius:16px;
+        background:#f8fbff;
+        padding:14px;
+        margin-bottom:14px;
+      ">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:17px;font-weight:1000;color:#0f172a;">${esc(g.coupon_title)}</div>
+            <div style="margin-top:3px;color:#475569;font-size:12px;">${esc(g.business_name)}</div>
+            <div style="margin-top:5px;color:#64748b;font-size:12px;">${esc(mode)}</div>
+          </div>
+          <div style="
+            min-width:76px;
+            text-align:center;
+            padding:8px 12px;
+            border-radius:12px;
+            background:#2563eb;
+            color:#fff;
+            font-weight:1000;
+          ">${records.length}회 사용</div>
+        </div>
+
+        <div style="margin-top:10px;">
+          ${records.map((r,idx)=>`
+            <div class="business-row" style="
+              background:#fff;
+              border:1px solid #e5e7eb;
+              border-radius:12px;
+              margin-top:8px;
+              padding:12px;
+            ">
+              <div class="biz-main">
+                <div class="biz-title">사용 기록 #${records.length-idx}</div>
+                <div class="biz-meta">사용일: ${new Date(r.created_at).toLocaleString('ko-KR',{timeZone:'America/Chicago'})}</div>
+                <div class="biz-meta">기록 ID: ${esc(r.id || '-')}</div>
+                <div class="biz-meta">이메일: ${esc(r.notify_emails || '-')}</div>
+                <div class="biz-meta">전화: ${esc(r.notify_phones || '-')}</div>
+                <div class="biz-meta">처리: ${esc(r.used_by || '-')}</div>
+              </div>
+              <div class="biz-actions" style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:900;color:#15803d;background:#ecfdf5;padding:5px 8px;border-radius:999px;">사용 완료</span>
+                <button type="button" class="btn danger" onclick="deleteCouponRedemption('${esc(r.id)}')">삭제</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    `;
+  }).join('');
 }
 
 window.loadCouponRedemptions = loadCouponRedemptions;
@@ -11386,3 +11449,39 @@ function ensureV237FreeUiNote(){
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV237FreeUiNote,900));
 setTimeout(ensureV237FreeUiNote,1700);
+
+
+function v2417CouponUsageTopStats(){
+  const box=document.getElementById('couponRedemptionList');
+  if(!box||!box.parentElement)return;
+  let stats=document.getElementById('v2417CouponUsageStats');
+  if(!stats){
+    stats=document.createElement('div');
+    stats.id='v2417CouponUsageStats';
+    stats.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px;';
+    box.parentElement.insertBefore(stats,box);
+  }
+  const rows=getFilteredCouponRedemptions();
+  const couponCount=new Set(rows.map(r=>String(r.coupon_id||''))).size;
+  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const todayCount=rows.filter(r=>{
+    try{
+      return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(r.created_at))===today;
+    }catch(_){return false;}
+  }).length;
+  stats.innerHTML=[
+    ['전체 사용',rows.length],
+    ['사용된 쿠폰',couponCount],
+    ['오늘 사용',todayCount]
+  ].map(([label,value])=>`
+    <div style="border:1px solid #dbe5f1;border-radius:13px;background:#fff;padding:12px;">
+      <div style="font-size:11px;color:#64748b;">${label}</div>
+      <div style="font-size:22px;font-weight:1000;">${value}</div>
+    </div>`).join('');
+}
+const _v2417LoadCouponRedemptions=loadCouponRedemptions;
+loadCouponRedemptions=async function(){
+  await _v2417LoadCouponRedemptions();
+  v2417CouponUsageTopStats();
+};
+

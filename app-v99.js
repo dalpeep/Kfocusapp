@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V241.7 redemption schema fix loaded');
 console.info('[DalTownMap App] V241.6 coupon admin records + admin-only display notify loaded');
 console.info('[DalTownMap App] V241.5 display coupon proof screen loaded');
 console.info('[DalTownMap App] V241.4 coupon mode routing restored');
@@ -6000,9 +6001,7 @@ async function useCouponNow(coupon){
           }
         })(),
     notify_phones: null,
-    used_by: 'customer',
-    delivery_mode: String(coupon.delivery_mode||'display')
-  };
+    used_by: 'customer',};
 
   const { error } = await client
     .from('coupon_redemptions')
