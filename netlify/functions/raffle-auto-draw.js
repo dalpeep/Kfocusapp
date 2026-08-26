@@ -45,7 +45,7 @@ async function claimWinner(row,coupon,bizName){
       codeLabel:'WINNER COUPON',
       codeValue:cc,
       buttonUrl:process.env.APP_PUBLIC_URL||'https://daltownmap.com',
-      imageUrl:coupon.email_image_url||coupon.image_url||''
+      imageUrl:coupon.winner_email_image_url||coupon.email_image_url||coupon.image_url||''
     });
 
     await rest(`coupon_entries?id=eq.${encodeURIComponent(row.id)}`,{
