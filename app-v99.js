@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V257 raffle mode companion loaded');
 console.info('[DalTownMap App] V256 ended event/coupon badge hide loaded');
 console.info('[DalTownMap App] V255 raffle companion loaded');
 console.info('[DalTownMap App] V254 companion loaded');

@@ -75,6 +75,7 @@ exports.handler=async()=>{
     );
 
     const due=(Array.isArray(coupons)?coupons:[]).filter(c=>{
+      if(String(c.raffle_draw_mode||'manual')!=='auto') return false;
       const t=new Date(c.raffle_end_at||0).getTime();
       return Number.isFinite(t) && t<=now.getTime();
     });
@@ -124,7 +125,7 @@ exports.handler=async()=>{
       });
     }
 
-    console.log('[V255 raffle auto draw]',JSON.stringify(report));
+    console.log('[V257 raffle auto draw]',JSON.stringify(report));
     return {
       statusCode:200,
       headers:{'Content-Type':'application/json'},
