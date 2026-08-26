@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V234 rotation fairness audit admin loaded');
 console.info('[DalTownMap Admin] V233 new-tab rotation sync admin loaded');
 console.info('[DalTownMap Admin] V232 rotation preview canonical sync admin loaded');
 console.info('[DalTownMap Admin] V231 ad priority settings admin loaded');
@@ -19,7 +20,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V233';
+    badge.textContent='Admin V234';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10883,4 +10884,209 @@ function ensureV232RotationSyncNote(){
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV232RotationSyncNote,700));
 setTimeout(ensureV232RotationSyncNote,1500);
+
+
+
+
+// === V234: 자동 로테이션 공평 노출 검사 ===
+// 실제 홈/관리자 미리보기에서 사용하는 pickRotation()을 날짜별로 반복 실행해
+// 추천/신규/인기 각 그룹의 향후 7일/30일 노출 편차를 검사합니다.
+let v234FairnessDays = 30;
+
+function v234DateKeyAdd(baseKey, offset){
+  const [y,m,d]=String(baseKey||adsDallasDateKey()).split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d+Number(offset||0),12,0,0));
+  return new Intl.DateTimeFormat('en-CA',{
+    timeZone:'America/Chicago',
+    year:'numeric',month:'2-digit',day:'2-digit'
+  }).format(dt);
+}
+function v234GroupCandidates(section, allRows){
+  const rows=(allRows||[]).filter(b=>b&&b.status!=='hidden'&&b.listing_visible!==false);
+  if(section==='featured') return rows.filter(b=>b.is_featured===true);
+  if(section==='new') return rows.filter(b=>b.is_new===true);
+  return rows.filter(b=>b.is_popular===true);
+}
+function v234FairnessRating(stats){
+  const counts=stats.map(s=>s.exposures);
+  if(!counts.length) return {label:'대상 없음', cls:'muted', spread:0, avg:0};
+  const avg=counts.reduce((a,b)=>a+b,0)/counts.length;
+  const max=Math.max(...counts), min=Math.min(...counts);
+  const spread=max-min;
+  const ratio=avg>0?spread/avg:0;
+  if(min===0 && max>0) return {label:'불균형',cls:'bad',spread,avg};
+  if(ratio<=0.25) return {label:'공평',cls:'good',spread,avg};
+  if(ratio<=0.5) return {label:'주의',cls:'warn',spread,avg};
+  return {label:'불균형',cls:'bad',spread,avg};
+}
+function v234BuildFairnessStats(section, days){
+  const allRows=(allBusinesses||[]).filter(b=>b&&b.status!=='hidden'&&b.listing_visible!==false);
+  const candidates=v234GroupCandidates(section,allRows);
+  const map=new Map(candidates.map(b=>[String(b.id),{
+    id:String(b.id), name:b.name||b.id, area:b.area||b.region||'',
+    exposures:0, first:0, lastDate:'—', positions:[], dates:[]
+  }]));
+  const base=adsDallasDateKey();
+
+  for(let i=0;i<days;i++){
+    const dateKey=v234DateKeyAdd(base,i);
+    const result=pickRotation(section,dateKey,allRows,6);
+    (result.rows||[]).forEach((b,idx)=>{
+      const key=String(b.id);
+      if(!map.has(key)){
+        map.set(key,{id:key,name:b.name||b.id,area:b.area||b.region||'',exposures:0,first:0,lastDate:'—',positions:[],dates:[]});
+      }
+      const s=map.get(key);
+      s.exposures++;
+      if(idx===0) s.first++;
+      s.lastDate=dateKey;
+      s.positions.push(idx+1);
+      s.dates.push(dateKey);
+    });
+  }
+
+  // longest gap (including leading/trailing range)
+  for(const s of map.values()){
+    const seen=new Set(s.dates);
+    let maxGap=0, cur=0;
+    for(let i=0;i<days;i++){
+      const dateKey=v234DateKeyAdd(base,i);
+      if(seen.has(dateKey)){ cur=0; }
+      else { cur++; if(cur>maxGap) maxGap=cur; }
+    }
+    s.maxGap=maxGap;
+    s.avgPos=s.positions.length ? s.positions.reduce((a,b)=>a+b,0)/s.positions.length : null;
+  }
+
+  const stats=[...map.values()].sort((a,b)=>a.exposures-b.exposures || String(a.name).localeCompare(String(b.name)));
+  return {stats,candidates,days,base};
+}
+function ensureV234FairnessStyles(){
+  if(document.getElementById('v234FairnessStyles')) return;
+  const st=document.createElement('style');
+  st.id='v234FairnessStyles';
+  st.textContent=`
+    #v234FairnessAudit{margin-top:18px;border:1px solid #dbe5f1;border-radius:18px;background:#fff;overflow:hidden}
+    .v234-fa-head{padding:16px 18px;background:#f8fbff;border-bottom:1px solid #e5edf7;display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+    .v234-fa-head h3{margin:0;font-size:18px}.v234-fa-head p{margin:4px 0 0;color:#64748b;font-size:12px}
+    .v234-fa-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .v234-fa-actions button{border:1px solid #cbd5e1;background:#fff;border-radius:10px;padding:8px 12px;font-weight:800;cursor:pointer}
+    .v234-fa-actions button.active{background:#2563eb;color:#fff;border-color:#2563eb}
+    .v234-fa-body{padding:16px}
+    .v234-fa-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}
+    .v234-fa-card{border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#fff}
+    .v234-fa-card h4{margin:0 0 8px}.v234-fa-card p{margin:3px 0;color:#64748b;font-size:12px}
+    .v234-fa-card strong.good{color:#15803d}.v234-fa-card strong.warn{color:#b45309}.v234-fa-card strong.bad{color:#b91c1c}
+    .v234-fa-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+    .v234-fa-tabs button{border:1px solid #dbe3ec;background:#f8fafc;border-radius:999px;padding:7px 11px;font-weight:800;cursor:pointer}
+    .v234-fa-tabs button.active{background:#0f5bd7;color:#fff;border-color:#0f5bd7}
+    .v234-fa-tablewrap{overflow:auto;border:1px solid #e5e7eb;border-radius:12px}
+    .v234-fa-table{width:100%;border-collapse:collapse;font-size:12px}
+    .v234-fa-table th,.v234-fa-table td{padding:10px 11px;border-bottom:1px solid #eef2f7;text-align:left;white-space:nowrap}
+    .v234-fa-table th{background:#f8fafc;position:sticky;top:0;z-index:1}
+    .v234-fa-low{background:#fff7ed}.v234-fa-zero{background:#fef2f2}
+    .v234-fa-note{margin-top:10px;color:#64748b;font-size:11px;line-height:1.55}
+    @media(max-width:900px){.v234-fa-summary{grid-template-columns:1fr}}
+  `;
+  document.head.appendChild(st);
+}
+function ensureV234FairnessUI(){
+  ensureV234FairnessStyles();
+  if(document.getElementById('v234FairnessAudit')) return;
+  const preview=document.querySelector('#adsRotationPreview') || document.querySelector('[data-ads-panel="rotation"]');
+  if(!preview) return;
+
+  const root=document.createElement('section');
+  root.id='v234FairnessAudit';
+  root.innerHTML=`
+    <div class="v234-fa-head">
+      <div>
+        <h3>공평 노출 검사</h3>
+        <p>현재 실제 로테이션 계산식을 앞으로 7일/30일 반복 실행해 무료·유료 포함 실제 1~6위 노출 편차를 점검합니다.</p>
+      </div>
+      <div class="v234-fa-actions">
+        <button type="button" data-fa-days="7">7일</button>
+        <button type="button" data-fa-days="30" class="active">30일</button>
+        <button type="button" id="v234FairnessRefresh">다시 계산</button>
+      </div>
+    </div>
+    <div class="v234-fa-body">
+      <div id="v234FairnessSummary" class="v234-fa-summary"></div>
+      <div class="v234-fa-tabs">
+        <button type="button" data-fa-section="featured" class="active">추천</button>
+        <button type="button" data-fa-section="new">신규</button>
+        <button type="button" data-fa-section="popular">인기</button>
+      </div>
+      <div id="v234FairnessTable"></div>
+      <div class="v234-fa-note">판정 기준은 업소별 노출 횟수의 최대-최소 편차를 평균 노출 횟수와 비교합니다. 먼저 현재 알고리즘을 검증하기 위한 진단 기능이며, 실제 로테이션 알고리즘은 변경하지 않습니다.</div>
+    </div>`;
+  preview.parentElement?.appendChild(root);
+
+  root.dataset.section='featured';
+  root.querySelectorAll('[data-fa-days]').forEach(btn=>btn.addEventListener('click',()=>{
+    v234FairnessDays=Number(btn.dataset.faDays)||30;
+    root.querySelectorAll('[data-fa-days]').forEach(b=>b.classList.toggle('active',b===btn));
+    renderV234Fairness();
+  }));
+  root.querySelectorAll('[data-fa-section]').forEach(btn=>btn.addEventListener('click',()=>{
+    root.dataset.section=btn.dataset.faSection;
+    root.querySelectorAll('[data-fa-section]').forEach(b=>b.classList.toggle('active',b===btn));
+    renderV234Fairness();
+  }));
+  document.getElementById('v234FairnessRefresh')?.addEventListener('click',renderV234Fairness);
+  renderV234Fairness();
+}
+function renderV234Fairness(){
+  const root=document.getElementById('v234FairnessAudit');
+  if(!root) return;
+  const sections=['featured','new','popular'];
+  const labels={featured:'추천',new:'신규',popular:'인기'};
+  const results={};
+  for(const section of sections) results[section]=v234BuildFairnessStats(section,v234FairnessDays);
+
+  const summary=document.getElementById('v234FairnessSummary');
+  if(summary){
+    summary.innerHTML=sections.map(section=>{
+      const r=results[section];
+      const rating=v234FairnessRating(r.stats);
+      const total=r.stats.reduce((a,b)=>a+b.exposures,0);
+      return `<div class="v234-fa-card">
+        <h4>${labels[section]}</h4>
+        <p>대상 ${r.stats.length}개 · ${v234FairnessDays}일 총 노출 ${total}회</p>
+        <p>평균 ${rating.avg.toFixed(1)}회 · 최대-최소 편차 ${rating.spread}회</p>
+        <strong class="${rating.cls}">${rating.label}</strong>
+      </div>`;
+    }).join('');
+  }
+
+  const section=root.dataset.section||'featured';
+  const r=results[section], rating=v234FairnessRating(r.stats);
+  const avg=rating.avg;
+  const table=document.getElementById('v234FairnessTable');
+  if(!table) return;
+
+  if(!r.stats.length){
+    table.innerHTML='<div class="muted">이 그룹에 지정된 업소가 없습니다.</div>';
+    return;
+  }
+
+  table.innerHTML=`<div class="v234-fa-tablewrap"><table class="v234-fa-table">
+    <thead><tr><th>업소</th><th>${v234FairnessDays}일 노출</th><th>1위</th><th>평균 순위</th><th>최장 미노출</th><th>마지막 노출</th><th>평균 대비</th></tr></thead>
+    <tbody>${r.stats.map(s=>{
+      const diff=s.exposures-avg;
+      const cls=s.exposures===0?'v234-fa-zero':(avg>0&&s.exposures<avg*.75?'v234-fa-low':'');
+      return `<tr class="${cls}">
+        <td><b>${esc(s.name)}</b>${s.area?`<br><small>${esc(s.area)}</small>`:''}</td>
+        <td>${s.exposures}</td>
+        <td>${s.first}</td>
+        <td>${s.avgPos?s.avgPos.toFixed(2):'—'}</td>
+        <td>${s.maxGap}일</td>
+        <td>${esc(s.lastDate)}</td>
+        <td>${diff>=0?'+':''}${diff.toFixed(1)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>`;
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV234FairnessUI,1100));
+setTimeout(ensureV234FairnessUI,1900);
 
