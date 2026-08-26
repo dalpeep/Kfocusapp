@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V250 campaign email retry fix loaded');
 console.info('[DalTownMap App] V249 raffle time + hero slider fix loaded');
 console.info('[DalTownMap App] V248 sale source fix loaded');
 console.info('[DalTownMap App] V247 sale grouped by business loaded');

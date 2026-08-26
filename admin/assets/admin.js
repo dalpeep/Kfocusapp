@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V250 campaign email retry fix loaded');
 console.info('[DalTownMap Admin] V249 raffle time + hero slider fix loaded');
 console.info('[DalTownMap Admin] V248 sale source fix loaded');
 console.info('[DalTownMap Admin] V247 sale grouped by business loaded');
@@ -34,7 +35,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V249';
+    badge.textContent='Admin V250';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
