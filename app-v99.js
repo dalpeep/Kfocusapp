@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V251 email accepted vs delivered wording loaded');
 console.info('[DalTownMap App] V250 campaign email retry fix loaded');
 console.info('[DalTownMap App] V249 raffle time + hero slider fix loaded');
 console.info('[DalTownMap App] V248 sale source fix loaded');
@@ -5931,7 +5932,7 @@ let couponCampaignId='';function openCouponCampaignForm(id){
   document.getElementById('couponCampaignDesc').textContent=
     mode==='raffle'
       ?'이메일을 입력하면 응모번호를 보내드립니다. 추첨 후 당첨자에게만 실제 당첨 쿠폰을 이메일로 발송합니다.'
-      :'이메일을 입력하면 실제 사용 가능한 고유 쿠폰을 즉시 이메일로 보내드립니다. 매장에서 받은 쿠폰을 제시해 주세요.';
+      :'이메일을 입력하면 실제 사용 가능한 고유 쿠폰의 이메일 발송을 즉시 요청합니다. 매장에서 받은 쿠폰을 제시해 주세요.';
 
   document.getElementById('couponCampaignMarketingWrap').style.display=
     c.marketing_opt_in_enabled===false?'none':'flex';
@@ -5970,7 +5971,7 @@ async function submitCouponCampaign(){
     const r=document.getElementById('couponCampaignResult');
     r.classList.remove('hidden');
     r.textContent=d.mode==='raffle'
-      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n응모 확인 이메일을 발송했습니다. 당첨 시 별도의 당첨 쿠폰 이메일을 보내드립니다.`
+      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n응모 확인 이메일 발송 요청이 접수되었습니다. 당첨 시 별도의 당첨 쿠폰 이메일을 보내드립니다.`
       :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n입력하신 이메일로 실제 쿠폰을 발송했습니다. 매장에서 이메일 쿠폰을 제시해 주세요.`;
     btn.textContent='완료';
     success=true;

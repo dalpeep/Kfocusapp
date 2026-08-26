@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V251 campaign records + mail config loaded');
 console.info('[DalTownMap Admin] V250 campaign email retry fix loaded');
 console.info('[DalTownMap Admin] V249 raffle time + hero slider fix loaded');
 console.info('[DalTownMap Admin] V248 sale source fix loaded');
@@ -35,7 +36,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V250';
+    badge.textContent='Admin V251';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11615,3 +11616,103 @@ loadCouponRedemptions=async function(){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV249RaffleTimeNote,700));
   else setTimeout(mountV249RaffleTimeNote,700);
 })();
+
+
+// ===== V251 쿠폰 사용 내역: 실제 사용과 발급/응모 기록 분리 표시 =====
+function v251EntryStatusText(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='entered') return '응모 완료';
+  if(s==='winner') return '당첨';
+  if(s==='coupon_issued') return '즉시 발급';
+  if(s==='redeemed') return '사용 완료';
+  if(s==='not_winner') return '미당첨';
+  return s||'-';
+}
+function v251EntryStatusClass(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='winner') return 'winner';
+  if(s==='redeemed') return 'redeemed';
+  if(s==='coupon_issued') return 'issued';
+  if(s==='entered') return 'entry';
+  return 'default';
+}
+async function loadV251CouponCampaignHistory(){
+  const usageBox=document.getElementById('couponRedemptionList');
+  if(!usageBox?.parentElement) return;
+
+  let wrap=document.getElementById('v251CampaignHistory');
+  if(!wrap){
+    wrap=document.createElement('section');
+    wrap.id='v251CampaignHistory';
+    wrap.style.cssText='margin-top:18px;border:1px solid #dbe5f1;border-radius:16px;background:#fff;padding:14px;';
+    usageBox.parentElement.appendChild(wrap);
+  }
+
+  wrap.innerHTML='<div style="font-weight:900;">쿠폰 발급·응모 내역</div><div class="muted" style="margin-top:6px;">불러오는 중...</div>';
+
+  try{
+    const d=await couponCampaignAdminRequest({action:'list_all'});
+    const rows=Array.isArray(d.entries)?d.entries:[];
+    const couponMap=new Map((coupons||[]).map(c=>[String(c.id),c]));
+
+    const groups=new Map();
+    rows.forEach(r=>{
+      const cid=String(r.coupon_id||'');
+      if(!groups.has(cid)) groups.set(cid,[]);
+      groups.get(cid).push(r);
+    });
+
+    const cards=[...groups.entries()].map(([cid,items])=>{
+      const c=couponMap.get(cid)||{};
+      const title=c.title||items[0]?.coupon_title||`쿠폰 ${cid.slice(0,8)}`;
+      const mode=String(c.delivery_mode||'display');
+      const type=mode==='raffle'?'응모권':mode==='instant_email'?'즉시 발급':'일반 쿠폰';
+
+      return `
+        <section style="border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin-top:10px;background:#f8fbff;">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:1000;font-size:15px;">${esc(title)}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:3px;">${esc(type)} · ${items.length}건</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            ${items.map(r=>`
+              <div style="display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(110px,.8fr) minmax(140px,1fr) minmax(130px,1fr);gap:8px;align-items:center;border-top:1px solid #e5e7eb;padding:9px 0;font-size:12px;">
+                <div><b>${esc(r.email||'-')}</b></div>
+                <div><span class="v243-status-badge ${v251EntryStatusClass(r.status)}">${esc(v251EntryStatusText(r.status))}</span></div>
+                <div>${esc(r.coupon_code||r.entry_code||'-')}</div>
+                <div>
+                  ${r.emailed_at
+                    ? `<span style="color:#0369a1;font-weight:900;">이메일 API 접수</span><br><small style="color:#64748b;">${esc(fmtLocal(r.emailed_at)||r.emailed_at||'')}</small>`
+                    : '<span style="color:#b45309;font-weight:900;">이메일 미접수</span>'}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>`;
+    }).join('');
+
+    wrap.innerHTML=`
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:1000;font-size:16px;">쿠폰 발급·응모 내역</div>
+          <div style="font-size:11px;color:#64748b;margin-top:3px;">
+            응모/발급은 실제 사용과 별도 기록입니다. '이메일 API 접수'는 Resend가 발송 요청을 받은 상태이며 실제 수신함 도착을 의미하지 않습니다.
+          </div>
+        </div>
+        <button class="btn ghost" type="button" onclick="loadV251CouponCampaignHistory()">새로고침</button>
+      </div>
+      ${cards||'<div class="board-empty" style="margin-top:10px;">발급·응모 내역이 없습니다.</div>'}`;
+  }catch(e){
+    wrap.innerHTML=`<div style="font-weight:900;">쿠폰 발급·응모 내역</div><div style="margin-top:8px;color:#b91c1c;">조회 실패: ${esc(e.message||e)}</div>`;
+  }
+}
+window.loadV251CouponCampaignHistory=loadV251CouponCampaignHistory;
+
+const _v251LoadCouponRedemptions=loadCouponRedemptions;
+loadCouponRedemptions=async function(){
+  await _v251LoadCouponRedemptions();
+  await loadV251CouponCampaignHistory();
+};
+
