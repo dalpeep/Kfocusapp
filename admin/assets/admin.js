@@ -1,3 +1,13 @@
+console.info('[DalTownMap Admin] V253 raffle confirmation mail controls loaded');
+console.info('[DalTownMap Admin] V252 campaign history fallback loaded');
+console.info('[DalTownMap Admin] V251 campaign records + mail config loaded');
+console.info('[DalTownMap Admin] V250 campaign email retry fix loaded');
+console.info('[DalTownMap Admin] V249 raffle time + hero slider fix loaded');
+console.info('[DalTownMap Admin] V248 sale source fix loaded');
+console.info('[DalTownMap Admin] V247 sale grouped by business loaded');
+console.info('[DalTownMap Admin] V246 sale page + event board routing loaded');
+console.info('[DalTownMap Admin] V245 Today shortcuts + event list loaded');
+console.info('[DalTownMap Admin] V244 Today Daltown loaded');
 console.info('[DalTownMap Admin] V243 coupon type badges + raffle states loaded');
 console.info('[DalTownMap Admin] V242 ad performance QA loaded');
 console.info('[DalTownMap Admin] V241.7 coupon usage grouped sections loaded');
@@ -28,7 +38,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V243';
+    badge.textContent='Admin V253';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11535,3 +11545,238 @@ loadCouponRedemptions=async function(){
   `;
   document.head.appendChild(s);
 })();
+
+// ===== V244 오늘의 달타운맵 운영 안내 =====
+(function(){
+  function mountV244TodayAdmin(){
+    if(document.getElementById('v244TodayAdmin')) return;
+    const couponList=document.getElementById('couponList')||document.getElementById('couponAdminList');
+    if(!couponList||!couponList.parentElement)return;
+    const box=document.createElement('div');
+    box.id='v244TodayAdmin';
+    box.style.cssText='border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;padding:14px;margin:0 0 14px;';
+    box.innerHTML=`
+      <div style="font-weight:1000;color:#1e3a8a;">오늘의 달타운맵 자동 노출</div>
+      <div style="font-size:12px;color:#475569;line-height:1.6;margin-top:6px;">
+        메인 첫 카드는 <b>진행 중인 이메일 응모·추첨 쿠폰</b>을 자동 우선 노출합니다.<br>
+        오픈 이벤트를 만들 때 쿠폰 방식을 <b>이메일 응모·추첨</b>으로 설정하면 별도 메인 등록 없이 자동 표시됩니다.
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:7px;">
+        나머지 카드는 진행 중 쿠폰 · 마트 전단 · 오늘의 행사 수를 자동 집계합니다.
+      </div>`;
+    couponList.parentElement.insertBefore(box,couponList);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV244TodayAdmin,100));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV244TodayAdmin,800));
+  else setTimeout(mountV244TodayAdmin,800);
+})();
+
+(function(){
+  function mountV245EventAdminNote(){
+    if(document.getElementById('v245EventAdminNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v245EventAdminNote';
+    n.style.cssText='margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;line-height:1.55;';
+    n.innerHTML='<b>이벤트 연결</b> · 발급 방식을 <b>이메일 응모·추첨</b>으로 설정한 활성 쿠폰은 메인 <b>이벤트</b> 숫자와 이벤트 목록에 자동 포함됩니다.';
+    box.appendChild(n);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV245EventAdminNote,80));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV245EventAdminNote,700));
+  else setTimeout(mountV245EventAdminNote,700);
+})();
+
+(function(){
+  function mountV246SaleNote(){
+    if(document.getElementById('v246SaleAdminNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v246SaleAdminNote';
+    n.style.cssText='margin-top:8px;padding:10px 12px;border-radius:12px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:12px;line-height:1.55;';
+    n.innerHTML='<b>세일 메뉴</b> · 메인의 세일 버튼은 별도 세일 목록으로 이동합니다. 스마트 전단 DB의 연결 업소 ID(featured_business_id/business_id)를 기준으로 업소별 그룹화합니다. H마트·시온마트처럼 전단이 여러 장이어도 업소는 한 번만 표시되고 클릭하면 해당 업소 상세로 이동합니다.';
+    box.appendChild(n);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV246SaleNote,80));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV246SaleNote,700));
+  else setTimeout(mountV246SaleNote,700);
+})();
+
+(function(){
+  function mountV249RaffleTimeNote(){
+    if(document.getElementById('v249RaffleTimeNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v249RaffleTimeNote';
+    n.style.cssText='margin-top:8px;padding:10px 12px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:12px;line-height:1.55;';
+    n.innerHTML='<b>응모·추첨 이벤트 시간 기준</b> · 이벤트 상세의 남은 시간과 응모 가능 여부는 <b>응모 마감일시</b>를 기준으로 계산합니다. 메인 슬라이드 노출은 <b>메인 슬라이드 노출 체크 + 시작/응모 마감 기간 내</b>일 때 표시됩니다.';
+    box.appendChild(n);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV249RaffleTimeNote,80));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV249RaffleTimeNote,700));
+  else setTimeout(mountV249RaffleTimeNote,700);
+})();
+
+
+// ===== V251 쿠폰 사용 내역: 실제 사용과 발급/응모 기록 분리 표시 =====
+function v251EntryStatusText(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='entered') return '응모 완료';
+  if(s==='winner') return '당첨';
+  if(s==='coupon_issued') return '즉시 발급';
+  if(s==='redeemed') return '사용 완료';
+  if(s==='not_winner') return '미당첨';
+  return s||'-';
+}
+function v251EntryStatusClass(status){
+  const s=String(status||'').toLowerCase();
+  if(s==='winner') return 'winner';
+  if(s==='redeemed') return 'redeemed';
+  if(s==='coupon_issued') return 'issued';
+  if(s==='entered') return 'entry';
+  return 'default';
+}
+async function loadV251CouponCampaignHistory(){
+  const usageBox=document.getElementById('couponRedemptionList');
+  if(!usageBox?.parentElement) return;
+
+  let wrap=document.getElementById('v251CampaignHistory');
+  if(!wrap){
+    wrap=document.createElement('section');
+    wrap.id='v251CampaignHistory';
+    wrap.style.cssText='margin-top:18px;border:1px solid #dbe5f1;border-radius:16px;background:#fff;padding:14px;';
+    usageBox.parentElement.appendChild(wrap);
+  }
+
+  wrap.innerHTML='<div style="font-weight:900;">쿠폰 발급·응모 내역</div><div class="muted" style="margin-top:6px;">불러오는 중...</div>';
+
+  try{
+    let rows=[];
+
+    // V252:
+    // 우선 list_all을 시도합니다. 구버전 Netlify Function이면 coupon_id 오류가 나므로
+    // 등록된 쿠폰을 하나씩 list 호출하여 모든 발급/응모 내역을 합칩니다.
+    try{
+      const d=await couponCampaignAdminRequest({action:'list_all'});
+      rows=Array.isArray(d.entries)?d.entries:[];
+    }catch(listAllErr){
+      console.warn('[V252] list_all unavailable, coupon-by-coupon fallback',listAllErr);
+
+      const couponRows=Array.isArray(coupons)?coupons:[];
+      const results=await Promise.allSettled(
+        couponRows.map(c=>couponCampaignAdminRequest({
+          action:'list',
+          coupon_id:String(c.id)
+        }))
+      );
+
+      rows=results.flatMap(r=>
+        r.status==='fulfilled' && Array.isArray(r.value?.entries)
+          ? r.value.entries
+          : []
+      );
+
+      // 중복 ID 제거
+      const seen=new Set();
+      rows=rows.filter(r=>{
+        const key=String(r.id||`${r.coupon_id}:${r.email}:${r.created_at}`);
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      rows.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+    }
+
+    const couponMap=new Map((coupons||[]).map(c=>[String(c.id),c]));
+    const groups=new Map();
+
+    rows.forEach(r=>{
+      const cid=String(r.coupon_id||'');
+      if(!groups.has(cid)) groups.set(cid,[]);
+      groups.get(cid).push(r);
+    });
+
+    const cards=[...groups.entries()].map(([cid,items])=>{
+      const c=couponMap.get(cid)||{};
+      const title=c.title||items[0]?.coupon_title||`쿠폰 ${cid.slice(0,8)}`;
+      const mode=String(c.delivery_mode||'display');
+      const type=mode==='raffle'?'응모권':mode==='instant_email'?'즉시 발급':'일반 쿠폰';
+
+      return `
+        <section style="border:1px solid #e2e8f0;border-radius:14px;padding:12px;margin-top:10px;background:#f8fbff;">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:1000;font-size:15px;">${esc(title)}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:3px;">${esc(type)} · ${items.length}건</div>
+            </div>
+          </div>
+
+          <div style="margin-top:8px;">
+            ${items.map(r=>`
+              <div style="display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(110px,.8fr) minmax(140px,1fr) minmax(130px,1fr);gap:8px;align-items:center;border-top:1px solid #e5e7eb;padding:9px 0;font-size:12px;">
+                <div><b>${esc(r.email||'-')}</b></div>
+                <div><span class="v243-status-badge ${v251EntryStatusClass(r.status)}">${esc(v251EntryStatusText(r.status))}</span></div>
+                <div>${esc(r.coupon_code||r.entry_code||'-')}</div>
+                <div>
+                  ${r.emailed_at
+                    ? `<span style="color:#0369a1;font-weight:900;">이메일 API 접수</span><br><small style="color:#64748b;">${esc(fmtLocal(r.emailed_at)||r.emailed_at||'')}</small>`
+                    : '<span style="color:#b45309;font-weight:900;">이메일 미접수</span>'}
+                  <div style="margin-top:5px;">
+                    <button type="button"
+                      class="btn ghost"
+                      style="padding:5px 8px;font-size:11px;"
+                      onclick="v253ResendCampaignMail('${esc(cid)}','${esc(r.id)}')">
+                      ${r.emailed_at?'메일 재발송':'응모 확인 메일 보내기'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>`;
+    }).join('');
+
+    wrap.innerHTML=`
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <div style="font-weight:1000;font-size:16px;">쿠폰 발급·응모 내역</div>
+          <div style="font-size:11px;color:#64748b;margin-top:3px;">
+            총 ${rows.length}건 · 응모/발급은 실제 사용과 별도 기록입니다.
+          </div>
+        </div>
+        <button class="btn ghost" type="button" onclick="loadV251CouponCampaignHistory()">새로고침</button>
+      </div>
+      ${cards||'<div class="board-empty" style="margin-top:10px;">발급·응모 내역이 없습니다.</div>'}`;
+  }catch(e){
+    wrap.innerHTML=`
+      <div style="font-weight:900;">쿠폰 발급·응모 내역</div>
+      <div style="margin-top:8px;color:#b91c1c;">조회 실패: ${esc(e.message||e)}</div>`;
+  }
+}
+window.loadV251CouponCampaignHistory=loadV251CouponCampaignHistory;
+
+const _v251LoadCouponRedemptions=loadCouponRedemptions;
+loadCouponRedemptions=async function(){
+  await _v251LoadCouponRedemptions();
+  await loadV251CouponCampaignHistory();
+};
+
+
+async function v253ResendCampaignMail(couponId,entryId){
+  if(!couponId||!entryId) return alert('응모 기록을 확인할 수 없습니다.');
+  try{
+    const d=await couponCampaignAdminRequest({
+      action:'resend',
+      coupon_id:String(couponId),
+      entry_id:String(entryId)
+    });
+    alert('응모/쿠폰 확인 이메일 발송 요청이 접수되었습니다.');
+    await loadV251CouponCampaignHistory();
+  }catch(e){
+    alert(`이메일 발송 실패: ${e.message||e}`);
+  }
+}
+window.v253ResendCampaignMail=v253ResendCampaignMail;

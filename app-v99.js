@@ -1,3 +1,13 @@
+console.info('[DalTownMap App] V253 raffle confirmation mail UX loaded');
+console.info('[DalTownMap App] V252 companion loaded');
+console.info('[DalTownMap App] V251 email accepted vs delivered wording loaded');
+console.info('[DalTownMap App] V250 campaign email retry fix loaded');
+console.info('[DalTownMap App] V249 raffle time + hero slider fix loaded');
+console.info('[DalTownMap App] V248 sale source fix loaded');
+console.info('[DalTownMap App] V247 sale grouped by business loaded');
+console.info('[DalTownMap App] V246 sale page + event board routing loaded');
+console.info('[DalTownMap App] V245 Today shortcuts + event list loaded');
+console.info('[DalTownMap App] V244 Today Daltown loaded');
 console.info('[DalTownMap App] V243 coupon type badge companion loaded');
 console.info('[DalTownMap App] V242 ad performance QA loaded');
 console.info('[DalTownMap App] V241.7 redemption schema fix loaded');
@@ -2315,6 +2325,11 @@ function finalizeData(){
   businesses.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
   if(!coupons.length) buildFallbackCoupons();
   buildHeroSlides();
+  if(slideIndex>=heroSlides.length) slideIndex=0;
+  if(typeof renderHero==='function') renderHero();
+  if(typeof setSlide==='function' && heroSlides.length) setSlide(slideIndex);
+  if(typeof restartAuto==='function') restartAuto();
+  console.log('[V249 hero coupons]', heroSlides.filter(s=>s.couponId).map(s=>({couponId:s.couponId,title:s.title})));
 }
 
 function buildHeroSlides() {
@@ -2366,7 +2381,7 @@ function buildHeroSlides() {
   // V174: 쿠폰 등록 화면의 '메인 슬라이드 노출' 체크(is_today_coupon)를
   // 별도 슬라이드 재등록 없이 홈 슬라이드에 직접 연결합니다.
   const couponSlides = activeCoupons(coupons)
-    .filter(c => c.isToday === true && !!(c.image_url || c.imageUrl || c.image))
+    .filter(c => (c.isToday === true || c.is_today_coupon === true) && !!(c.image_url || c.imageUrl || c.image))
     .map(c => {
       const b = bizMap.get(String(c.businessId || c.business_id || '')) || {};
       return {
@@ -2464,7 +2479,7 @@ function v87OpenPublicRoute(){
   }
   return false;
 }
-function getPageOrder(){ return ['home','business','coupon','map','guide']; }
+function getPageOrder(){ return ['home','business','coupon','event','sale','map','guide']; }
 function getBiz(id){
     if (!id) return null;
 
@@ -2666,14 +2681,42 @@ function countdownLabel(endAt, short=false){
   if(c.days > 0) return `${c.days}일 ${c.hours}시간 ${c.mins}분`;
   return `${String(c.hours).padStart(2,'0')}:${String(c.mins).padStart(2,'0')}:${String(c.secs).padStart(2,'0')}`;
 }
+
+function v249CouponEffectiveEnd(c){
+  const mode=String(c?.delivery_mode||'display');
+  if(mode==='raffle'){
+    return c?.raffle_end_at || c?.endAt || c?.end_at || c?.expire_date || '';
+  }
+  return c?.endAt || c?.end_at || c?.expire_date || '';
+}
+function v249CouponEffectiveStart(c){
+  return c?.startAt || c?.start_at || '';
+}
+function v249CouponTimeState(c){
+  const now=Date.now();
+  const start=v249CouponEffectiveStart(c);
+  const end=v249CouponEffectiveEnd(c);
+  const st=start?new Date(start).getTime():null;
+  const et=end?new Date(end).getTime():null;
+  if(st && Number.isFinite(st) && st>now) return {key:'scheduled',start:st,end:et};
+  if(et && Number.isFinite(et) && et<=now) return {key:'ended',start:st,end:et};
+  return {key:'active',start:st,end:et};
+}
+
 function activeCoupons(list=coupons){
   const now = Date.now();
   return list.filter(c=>{
-    if(c.isActive === false) return false;
-    const startOk = !c.startAt || new Date(c.startAt).getTime() <= now;
-    const endOk = !c.endAt || new Date(c.endAt).getTime() >= now;
+    if(c.isActive === false || c.is_active === false) return false;
+    const start=v249CouponEffectiveStart(c);
+    const end=v249CouponEffectiveEnd(c);
+    const startOk = !start || new Date(start).getTime() <= now;
+    const endOk = !end || new Date(end).getTime() >= now;
     return startOk && endOk;
-  }).sort((a,b)=> (a.sortOrder||1000)-(b.sortOrder||1000) || (new Date(a.endAt||'2999-01-01') - new Date(b.endAt||'2999-01-01')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  }).sort((a,b)=>
+    (a.sortOrder||a.sort_order||1000)-(b.sortOrder||b.sort_order||1000) ||
+    (new Date(v249CouponEffectiveEnd(a)||'2999-01-01') - new Date(v249CouponEffectiveEnd(b)||'2999-01-01')) ||
+    String(b.createdAt||b.created_at||'').localeCompare(String(a.createdAt||a.created_at||''))
+  );
 }
 function todayCoupons(){
   // '오늘의 쿠폰'으로 명시적으로 지정된 활성 쿠폰만 반환합니다.
@@ -5549,8 +5592,10 @@ function renderCouponDetail(id){
   const desc = c.description || '';
   const badge = c.discount_label || c.badge || 'DEAL';
 
-  const start = c.startAt || c.start_at || '';
-  const end = c.endAt || c.end_at || c.expire_date || '';
+  const start = v249CouponEffectiveStart(c);
+  const end = v249CouponEffectiveEnd(c);
+  const v249TimeState=v249CouponTimeState(c);
+  const v249CanAct=v249TimeState.key==='active';
 
   const address = b.address || '주소 정보 없음';
   const phone = b.phone || b.phone_number || '';
@@ -5703,9 +5748,9 @@ function renderCouponDetail(id){
         <button
   class="coupon-primary-use"
   type="button"
-  onclick="${String(c.delivery_mode||'display')==='display'
+  ${v249CanAct?`onclick="${String(c.delivery_mode||'display')==='display'
     ? `renderCouponUse('${esc(c.id)}'); showPage('coupon-use');`
-    : `openCouponCampaignForm('${esc(c.id)}')`}"
+    : `openCouponCampaignForm('${esc(c.id)}')`}"`:'disabled'}"
   style="
     width:100%;
     height:54px;
@@ -5720,13 +5765,16 @@ function renderCouponDetail(id){
     justify-content:center;
     gap:8px;
     box-shadow:0 12px 24px rgba(42,96,171,.24);
+  ${!v249CanAct?'opacity:.55;cursor:not-allowed;':''}
   ">
   <i data-lucide="ticket"></i>
-  ${String(c.delivery_mode||'display')==='raffle'
-    ? '이벤트 응모하기'
-    : String(c.delivery_mode||'display')==='instant_email'
-      ? '이메일로 쿠폰 받기'
-      : '쿠폰 사용하기'}
+  ${!v249CanAct
+    ? (v249TimeState.key==='scheduled'?'이벤트 시작 전':'이벤트 종료')
+    : String(c.delivery_mode||'display')==='raffle'
+      ? '이벤트 응모하기'
+      : String(c.delivery_mode||'display')==='instant_email'
+        ? '이메일로 쿠폰 받기'
+        : '쿠폰 사용하기'}
   </button>
       </section>
 
@@ -5865,6 +5913,9 @@ let couponCampaignId='';function openCouponCampaignForm(id){
   if(!c){alert('쿠폰 정보를 찾을 수 없습니다.');return;}
 
   const mode=String(c.delivery_mode||'display');
+  const timeState=v249CouponTimeState(c);
+  if(timeState.key==='scheduled'){alert('아직 응모/발급 시작 전입니다.');return;}
+  if(timeState.key==='ended'){alert(mode==='raffle'?'이벤트 응모가 마감되었습니다.':'쿠폰 발급 기간이 종료되었습니다.');return;}
 
   // V241.4: 이메일 모달은 이메일 발급형 / 응모·추첨형에서만 사용합니다.
   if(mode!=='instant_email' && mode!=='raffle'){
@@ -5883,7 +5934,7 @@ let couponCampaignId='';function openCouponCampaignForm(id){
   document.getElementById('couponCampaignDesc').textContent=
     mode==='raffle'
       ?'이메일을 입력하면 응모번호를 보내드립니다. 추첨 후 당첨자에게만 실제 당첨 쿠폰을 이메일로 발송합니다.'
-      :'이메일을 입력하면 실제 사용 가능한 고유 쿠폰을 즉시 이메일로 보내드립니다. 매장에서 받은 쿠폰을 제시해 주세요.';
+      :'이메일을 입력하면 실제 사용 가능한 고유 쿠폰의 이메일 발송을 즉시 요청합니다. 매장에서 받은 쿠폰을 제시해 주세요.';
 
   document.getElementById('couponCampaignMarketingWrap').style.display=
     c.marketing_opt_in_enabled===false?'none':'flex';
@@ -5922,7 +5973,7 @@ async function submitCouponCampaign(){
     const r=document.getElementById('couponCampaignResult');
     r.classList.remove('hidden');
     r.textContent=d.mode==='raffle'
-      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n응모 확인 이메일을 발송했습니다. 당첨 시 별도의 당첨 쿠폰 이메일을 보내드립니다.`
+      ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n응모 확인 이메일 발송 요청이 접수되었습니다. 당첨 시 별도의 당첨 쿠폰 이메일을 보내드립니다.`
       :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n입력하신 이메일로 실제 쿠폰을 발송했습니다. 매장에서 이메일 쿠폰을 제시해 주세요.`;
     btn.textContent='완료';
     success=true;
@@ -6180,19 +6231,22 @@ function renderLucideStars(rating){
 }
 
 function getRemainText(c){
-  const end = c.endAt || c.end_at || c.expire_date || '';
-  if(!end) return '기간 확인';
+  const state=v249CouponTimeState(c);
+  if(state.key==='scheduled'){
+    const diff=state.start-Date.now();
+    const days=Math.floor(diff/86400000);
+    const hours=Math.floor((diff/3600000)%24);
+    const mins=Math.max(0,Math.floor((diff/60000)%60));
+    return days>0?`${days}일 ${hours}시간 후 시작`:`${hours}시간 ${mins}분 후 시작`;
+  }
+  if(state.key==='ended') return '종료됨';
+  if(!state.end) return '기간 확인';
 
-  const endDate = new Date(end);
-  if(Number.isNaN(endDate.getTime())) return '기간 확인';
-
-  const diff = endDate.getTime() - Date.now();
-  if(diff <= 0) return '종료됨';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-
-  return `${days}일 ${hours}시간`;
+  const diff=state.end-Date.now();
+  const days=Math.floor(diff/86400000);
+  const hours=Math.floor((diff/3600000)%24);
+  const mins=Math.max(0,Math.floor((diff/60000)%60));
+  return days>0?`${days}일 ${hours}시간`:`${hours}시간 ${mins}분`;
 }
 function getDirectionsUrl(b){
   const address = b.address || '';
@@ -8826,6 +8880,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 // === P130/V187: Weekly market hard restore (independent home mount + tolerant schema) ===
 (() => {
   const S={rows:[],i:0,timer:null,imageTimer:null,loading:null};
+  window.V248_WEEKLY_FLYER_ROWS=window.V248_WEEKLY_FLYER_ROWS||[];
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const imgs=r=>[...new Set([
@@ -8928,6 +8983,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
       const raw=await res.json().catch(()=>[]);
       if(!res.ok)throw new Error(raw?.message||`HTTP ${res.status}`);
       S.rows=(Array.isArray(raw)?raw:[]).filter(valid);
+      // V248: 세일 페이지가 DOM이 아니라 실제 전단 데이터와 업소 연결 ID를 사용하도록 공개합니다.
+      window.V248_WEEKLY_FLYER_ROWS=[...S.rows];
+      setTimeout(()=>window.renderV245TodayShortcuts?.(),0);
+      if(document.getElementById('page-sale')?.classList.contains('active')){
+        setTimeout(()=>window.renderV246SaleList?.(),0);
+      }
       if(S.i>=S.rows.length)S.i=0;
       console.info('[P130 V187 DATA]',{region,raw:Array.isArray(raw)?raw.length:0,valid:S.rows.length,fields:Array.isArray(raw)&&raw[0]?Object.keys(raw[0]):[]});
       return S.rows;
@@ -9972,3 +10033,416 @@ function v241HardenExternalLinks(root=document){
 }
 document.addEventListener('DOMContentLoaded',()=>v241HardenExternalLinks());
 setTimeout(()=>v241HardenExternalLinks(),1200);
+
+
+
+// ===== V245 오늘의 달타운맵: 4개 바로가기 =====
+function v245ActiveCoupons(){
+  const now=Date.now();
+  return (coupons||[]).filter(c=>{
+    if(c.is_active===false || c.active===false || c.hidden===true) return false;
+    const start=v249CouponEffectiveStart(c);
+    const end=v249CouponEffectiveEnd(c);
+    if(start && new Date(start).getTime()>now) return false;
+    if(end && new Date(end).getTime()+86400000<=now) return false;
+    return true;
+  });
+}
+function v245EventCoupons(){
+  return v245ActiveCoupons().filter(c=>String(c.delivery_mode||'display')==='raffle');
+}
+function v245RegularCoupons(){
+  return v245ActiveCoupons().filter(c=>String(c.delivery_mode||'display')!=='raffle');
+}
+function v245SaleCount(){
+  const host=document.getElementById('p130MarketHost');
+  if(!host) return 0;
+  const panels=host.querySelectorAll('.p130-panel');
+  if(panels.length) return panels.length;
+  const reels=host.querySelectorAll('.p130-reel > *');
+  return reels.length;
+}
+function v245EventPostCount(){
+  const rows=Array.isArray(boardPosts)?boardPosts:[];
+  return rows.filter(p=>{
+    if(p.hidden===true || p.is_active===false) return false;
+    const t=String(p.type||p.board||p.category||'').toLowerCase();
+    return t==='notice' || t.includes('event') || t.includes('행사');
+  }).length;
+}
+function v245Badge(n){
+  const num=Number(n||0);
+  if(num<=0) return '';
+  const text=num>99?'99+':String(num);
+  return `<span class="v245-shortcut-badge">${text}</span>`;
+}
+function v245Shortcut(icon,label,count,handler){
+  return `<button type="button" class="v245-shortcut" onclick="${handler}">
+    ${v245Badge(count)}
+    <span class="v245-shortcut-icon">${icon}</span>
+    <span class="v245-shortcut-label">${esc(label)}</span>
+  </button>`;
+}
+function v245EnsureEventPage(){
+  let page=document.getElementById('page-event');
+  if(page) return page;
+  page=document.createElement('section');
+  page.className='page';
+  page.id='page-event';
+  page.innerHTML=`
+    <section class="card section-card v245-event-page">
+      <div class="section-head compact-head">
+        <h3 class="section-title">이벤트</h3>
+        <button type="button" class="text-link" onclick="showPage('home')">홈으로</button>
+      </div>
+      <div id="v245EventList" class="v245-event-list"></div>
+    </section>`;
+  document.getElementById('appMain')?.appendChild(page);
+  return page;
+}
+function renderV245EventList(){
+  v245EnsureEventPage();
+
+  v246EnsureSalePage();
+
+  const box=document.getElementById('v245EventList');
+  if(!box) return;
+  const rows=v245EventCoupons();
+  if(!rows.length){
+    box.innerHTML='<div class="board-empty">현재 진행 중인 이벤트가 없습니다.</div>';
+    return;
+  }
+  box.innerHTML=rows.map(c=>{
+    const img=c.imageUrl||c.image_url||c.image||'/assets/kfocus-icon.png';
+    const end=c.raffle_end_at||c.end_at||c.endAt||'';
+    const winners=Math.max(1,Number(c.winner_count||1));
+    return `<button type="button" class="v245-event-item" onclick="renderCouponDetail('${esc(c.id)}');showPage('coupon-detail')">
+      <img src="${esc(img)}" alt="${esc(c.title||'이벤트')}">
+      <span class="v245-event-copy">
+        <b>${esc(c.title||'이벤트')}</b>
+        <small>${winners}명 추첨${end?` · ${esc(new Date(end).toLocaleDateString('ko-KR',{timeZone:'America/Chicago'}))} 마감`:''}</small>
+      </span>
+      <span class="v245-event-arrow">›</span>
+    </button>`;
+  }).join('');
+}
+window.renderV245EventList=renderV245EventList;
+
+function v245OpenEvents(){
+  renderV245EventList();
+  showPage('event');
+}
+function v245OpenCoupons(){
+  showPage('coupon');
+}
+function v245OpenSale(){
+  showPage('home');
+  setTimeout(()=>{
+    const el=document.getElementById('p130MarketHost');
+    if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+}
+function v245OpenCommunityEvents(){
+  showPage('home');
+  setTimeout(()=>{
+    const tab=document.querySelector('.community-tab[data-board="notice"]');
+    if(tab) tab.click();
+    document.querySelector('.community-home-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+}
+window.v245OpenEvents=v245OpenEvents;
+window.v245OpenCoupons=v245OpenCoupons;
+window.v245OpenSale=v245OpenSale;
+window.v245OpenCommunityEvents=v245OpenCommunityEvents;
+
+function v246EnsureSalePage(){
+  let page=document.getElementById('page-sale');
+  if(page) return page;
+  page=document.createElement('section');
+  page.className='page';
+  page.id='page-sale';
+  page.innerHTML=`
+    <section class="card section-card v246-sale-page">
+      <div class="section-head compact-head">
+        <h3 class="section-title">세일</h3>
+        <button type="button" class="text-link" onclick="showPage('home')">홈으로</button>
+      </div>
+      <div id="v246SaleList" class="v246-sale-list"></div>
+    </section>`;
+  document.getElementById('appMain')?.appendChild(page);
+  return page;
+}
+
+function v246ActivePromoRows(){
+  let rows=[];
+  try{
+    if(Array.isArray(businessPromotions)) rows=businessPromotions;
+  }catch(_){}
+  if(!rows.length && Array.isArray(window.businessPromotions)) rows=window.businessPromotions;
+
+  const now=Date.now();
+  return (rows||[]).filter(r=>{
+    if(!r || r.active===false || r.is_active===false || r.hidden===true) return false;
+    const start=r.start_at||r.startAt||'';
+    const end=r.end_at||r.endAt||'';
+    if(start && new Date(start).getTime()>now) return false;
+    if(end && new Date(end).getTime()+86400000<=now) return false;
+    return true;
+  });
+}
+
+
+
+function v247MarketBusinessGroups(){
+  const groups=new Map();
+
+  const add=(bid, fallbackName, image, sourceType)=>{
+    const id=String(bid||'').trim();
+    if(!id) return;
+
+    let b=null;
+    try{ b=(businesses||[]).find(x=>String(x.id)===id) || null; }catch(_){}
+
+    if(!groups.has(id)){
+      groups.set(id,{
+        businessId:id,
+        business:b,
+        title:b?.name_ko||b?.name||b?.name_en||fallbackName||'세일 업소',
+        subtitle:b?.area||b?.city||b?.category_main||'현재 세일 진행 중',
+        image:b?.image||b?.image_url||image||'',
+        sources:new Set(),
+        flyerCount:0,
+        promoCount:0
+      });
+    }
+
+    const g=groups.get(id);
+    if(sourceType==='flyer') g.flyerCount++;
+    if(sourceType==='promotion') g.promoCount++;
+    if(sourceType) g.sources.add(sourceType);
+    if(!g.image && image) g.image=image;
+  };
+
+  // V248: 스마트 전단의 실제 DB row에서 featured_business_id / business_id를 읽습니다.
+  const flyerRows=Array.isArray(window.V248_WEEKLY_FLYER_ROWS)
+    ? window.V248_WEEKLY_FLYER_ROWS
+    : [];
+
+  flyerRows.forEach(r=>{
+    const bid=String(r?.featured_business_id||r?.business_id||'').trim();
+    const fallbackName=String(r?.market_name||r?.title||'마트 세일');
+    const image=String(
+      r?.market_main_image_url||
+      r?.main_image_url||
+      r?.image_url||
+      r?.featured_image_url||
+      ''
+    );
+    add(bid,fallbackName,image,'flyer');
+  });
+
+  // 업소 프로모션도 같은 업소 기준으로 합칩니다.
+  v246ActivePromoRows().forEach(r=>{
+    const bid=String(r.business_id||r.businessId||'').trim();
+    add(
+      bid,
+      r.business_name||r.title||r.name||'업소 세일',
+      r.image_url||r.image||'',
+      'promotion'
+    );
+  });
+
+  return [...groups.values()];
+}
+
+function v246SaleItems(){
+  return v247MarketBusinessGroups().map(g=>({
+    type:'business',
+    title:g.title,
+    subtitle:g.sources.has('flyer') && g.sources.has('promotion')
+      ? `전단 ${g.flyerCount}건 · 프로모션 ${g.promoCount}건`
+      : g.sources.has('flyer')
+        ? `이번 주 세일 전단 ${g.flyerCount}건`
+        : `현재 프로모션 ${g.promoCount}건`,
+    image:g.image,
+    businessId:g.businessId,
+    action:`v246OpenSaleBusiness('${g.businessId.replace(/'/g,"\\'")}')`
+  }));
+}
+
+function renderV246SaleList(){
+  v246EnsureSalePage();
+  const box=document.getElementById('v246SaleList');
+  if(!box) return;
+
+  const rows=v246SaleItems();
+  if(!rows.length){
+    box.innerHTML=`
+      <div class="board-empty">
+        현재 세일 중인 업소가 없습니다.
+        <div style="margin-top:10px;">
+          <button type="button" class="btn secondary" onclick="showPage('coupon')">쿠폰 보기</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  box.innerHTML=`
+    <div class="v246-sale-section-title">현재 세일 중인 업소</div>
+    <div class="v246-sale-grid">
+      ${rows.map(r=>`
+        <button type="button" class="v246-sale-item" onclick="${r.action}">
+          <div class="v246-sale-thumb">
+            ${r.image?`<img src="${esc(r.image)}" alt="${esc(r.title)}">`:`<span>${r.type==='flyer'?'🛒':'🏷️'}</span>`}
+          </div>
+          <div class="v246-sale-copy">
+            <b>${esc(r.title)}</b>
+            <small>${esc(r.subtitle||'')}</small>
+            <span style="font-size:10px;color:#2563eb;font-weight:800;">업소 상세 보기</span>
+          </div>
+          <span class="v246-sale-arrow">›</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="v246-sale-footer">
+      <button type="button" class="text-link" onclick="showPage('coupon')">할인 쿠폰도 보기 →</button>
+    </div>`;
+}
+window.renderV246SaleList=renderV246SaleList;
+
+function v246OpenSaleBusiness(id){
+  const b=getBiz(id);
+  if(!b){showPage('business');return;}
+  selectedBizId=id;
+  if(typeof v230PrepareBusinessDetail==='function') v230PrepareBusinessDetail(id,'sale_page','business_click');
+  renderDetail(id);
+  showPage('business-detail');
+}
+window.v246OpenSaleBusiness=v246OpenSaleBusiness;
+
+function v246OpenSmartFlyer(){
+  showPage('home');
+  setTimeout(()=>document.getElementById('p130MarketHost')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+window.v246OpenSmartFlyer=v246OpenSmartFlyer;
+
+function v246OpenSalePage(){
+  renderV246SaleList();
+  showPage('sale');
+}
+window.v246OpenSalePage=v246OpenSalePage;
+
+// 행사 버튼은 커뮤니티 행사안내 "전체" 목록을 직접 엽니다.
+function v246OpenEventBoard(){
+  showPage('home');
+  setTimeout(()=>{
+    const full=document.querySelector('.community-full-btn[data-board="notice"]');
+    if(full){
+      full.click();
+      return;
+    }
+    const tab=document.querySelector('.community-tab[data-board="notice"]');
+    if(tab) tab.click();
+    document.querySelector('.community-home-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+}
+window.v246OpenEventBoard=v246OpenEventBoard;
+
+
+function renderV245TodayShortcuts(){
+  let host=document.getElementById('v244TodayDaltown');
+  if(!host){
+    host=document.createElement('section');
+    host.id='v244TodayDaltown';
+  }
+  host.className='v245-shortcuts-wrap';
+
+  // 메인 슬라이드 바로 아래에 고정 배치
+  const hero=document.getElementById('homeHeroSection');
+  if(hero?.parentNode && host.previousElementSibling!==hero){
+    hero.parentNode.insertBefore(host,hero.nextSibling);
+  }
+
+  const eventCount=v245EventCoupons().length;
+  const couponCount=v245RegularCoupons().length;
+  const saleCount=v247MarketBusinessGroups().length;
+  const postCount=v245EventPostCount();
+
+  host.innerHTML=`
+    <div class="v245-shortcuts-title">오늘의 달타운맵</div>
+    <div class="v245-shortcuts-grid">
+      ${v245Shortcut('🎁','이벤트',eventCount,'v245OpenEvents()')}
+      ${v245Shortcut('🎟','쿠폰',couponCount,'v245OpenCoupons()')}
+      ${v245Shortcut('🛒','세일',saleCount,'v246OpenSalePage()')}
+      ${v245Shortcut('🎉','행사',postCount,'v246OpenEventBoard()')}
+    </div>`;
+}
+window.renderV245TodayShortcuts=renderV245TodayShortcuts;
+
+// 기존 V244 렌더 함수 호출이 남아 있어도 V245 UI로 대체
+window.renderV244TodayDaltown=renderV245TodayShortcuts;
+
+(function(){
+  const old=document.getElementById('v244TodayStyle');
+  if(old) old.remove();
+  if(!document.getElementById('v245TodayStyle')){
+    const s=document.createElement('style');
+    s.id='v245TodayStyle';
+    s.textContent=`
+      .v245-shortcuts-wrap{margin:10px 0 14px;padding:0 10px}
+      .v245-shortcuts-title{font-size:14px;font-weight:900;color:#0f172a;margin:0 0 8px 2px}
+      .v245-shortcuts-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+      .v245-shortcut{position:relative;aspect-ratio:1/1;border:1px solid #dce5f0;border-radius:16px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.045);min-width:0}
+      .v245-shortcut:active{transform:scale(.98)}
+      .v245-shortcut-icon{font-size:25px;line-height:1}
+      .v245-shortcut-label{font-size:12px;font-weight:900;color:#172033;white-space:nowrap}
+      .v245-shortcut-badge{position:absolute;right:-3px;top:-5px;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:1000;line-height:1;box-shadow:0 2px 5px rgba(239,68,68,.28)}
+      .v245-event-page{margin-top:10px}
+      .v245-event-list{display:grid;gap:10px}
+      .v245-event-item{width:100%;border:1px solid #e2e8f0;background:#fff;border-radius:15px;padding:10px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer}
+      .v245-event-item img{width:76px;height:76px;border-radius:12px;object-fit:cover;background:#f8fafc;flex:0 0 auto}
+      .v245-event-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+      .v245-event-copy b{font-size:15px;color:#0f172a}
+      .v245-event-copy small{font-size:11px;color:#64748b}
+      .v245-event-arrow{font-size:24px;color:#94a3b8}
+      .v246-sale-list{display:grid;gap:10px}
+      .v246-sale-section-title{font-size:13px;font-weight:900;color:#475569;margin-bottom:2px}
+      .v246-sale-grid{display:grid;gap:9px}
+      .v246-sale-item{width:100%;border:1px solid #e2e8f0;background:#fff;border-radius:15px;padding:10px;display:flex;align-items:center;gap:11px;text-align:left;cursor:pointer}
+      .v246-sale-thumb{width:72px;height:72px;border-radius:12px;background:#f8fafc;display:flex;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto;font-size:28px}
+      .v246-sale-thumb img{width:100%;height:100%;object-fit:cover}
+      .v246-sale-copy{display:flex;flex-direction:column;gap:5px;min-width:0;flex:1}
+      .v246-sale-copy b{font-size:14px;color:#0f172a}
+      .v246-sale-copy small{font-size:11px;color:#64748b;line-height:1.35}
+      .v246-sale-arrow{font-size:24px;color:#94a3b8}
+      .v246-sale-footer{margin-top:10px;text-align:right}
+
+      @media(min-width:701px){
+        .v245-shortcuts-wrap{max-width:720px;margin:12px auto 16px}
+        .v245-shortcut{aspect-ratio:auto;min-height:92px}
+        .v245-shortcut-icon{font-size:28px}
+        .v245-shortcut-label{font-size:13px}
+      }
+      @media(max-width:420px){
+        .v245-shortcuts-grid{gap:7px}
+        .v245-shortcut{border-radius:14px;padding:6px}
+        .v245-shortcut-icon{font-size:23px}
+        .v245-shortcut-label{font-size:11px}
+      }
+    `;
+    document.head.appendChild(s);
+  }
+  v245EnsureEventPage();
+  const run=()=>{renderV245TodayShortcuts();setTimeout(renderV245TodayShortcuts,1000);setTimeout(renderV245TodayShortcuts,2500)};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run);
+  else run();
+})();
+
+if(typeof renderHomeBusinesses==='function'){
+  const _v244RenderHomeBusinesses=renderHomeBusinesses;
+  renderHomeBusinesses=function(...args){
+    const r=_v244RenderHomeBusinesses.apply(this,args);
+    setTimeout(()=>window.renderV244TodayDaltown?.(),0);
+    return r;
+  };
+}
