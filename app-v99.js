@@ -1,3 +1,5 @@
+console.info('[DalTownMap App] V240 core user-flow QA loaded');
+console.info('[DalTownMap App] V239 launch public fallback cleanup loaded');
 console.info('[DalTownMap App] V238 paid-toggle companion loaded');
 console.info('[DalTownMap App] V237 free-business settings companion loaded');
 console.info('[DalTownMap App] V236 paid-group + free fair-fill rotation loaded');
@@ -3274,7 +3276,7 @@ function v45PaintCommunity(){
   if(!enabled){ el.hidden=true; el.innerHTML=''; return; }
   el.hidden=false;
   if(!v45CommunityItems.length){
-    el.innerHTML='<button type="button" class="v71-community-slide" disabled><b>커뮤니티</b><span class="v71-community-type">새 소식</span><strong>새 소식을 준비하고 있습니다.</strong><i aria-hidden="true">›</i></button>';
+    el.innerHTML='<button type="button" class="v71-community-slide" disabled><b>커뮤니티</b><span class="v71-community-type">새 소식</span><strong>달라스 지역의 새로운 소식을 확인해 보세요.</strong><i aria-hidden="true">›</i></button>';
     return;
   }
   if(v45CommunityIndex>=v45CommunityItems.length)v45CommunityIndex=0;
@@ -3310,7 +3312,7 @@ function openV37Recommendation(item){
 function paintV37Recommendation(){
   const title=document.getElementById('v37RecommendTitle'),summary=document.getElementById('v37RecommendSummary'),tagsNode=document.getElementById('v37RecommendTags'),dots=document.getElementById('v37RecommendDots');
   if(!title||!summary||!dots)return;const item=v37RecommendationItems[v37RecommendationIndex];
-  if(!item){title.textContent='추천 업체를 준비하고 있습니다.';summary.textContent='달타운이 선별한 업체를 확인해 보세요.';dots.innerHTML='';return;}
+  if(!item){title.textContent='달타운 추천 업소';summary.textContent='오늘 확인할 만한 지역 업소를 살펴보세요.';dots.innerHTML='';return;}
   const b=item.data||item;title.textContent=v45BusinessName(b);summary.textContent=v45BusinessSummary(b);
   if(tagsNode)tagsNode.innerHTML=[b.subcategory||b.category_sub||b.subcategory_ko||b.category_ko||b.category,b.area].filter(Boolean).slice(0,2).map(t=>`<span class="v37-recommend-tag">${esc(t)}</span>`).join('');
   dots.innerHTML=v37RecommendationItems.length>1?v37RecommendationItems.map((_,i)=>`<span class="${i===v37RecommendationIndex?'active':''}"></span>`).join(''):'';
@@ -4151,7 +4153,7 @@ async function v51OpenPublicNoticeModal(item){
 function v51OpenItem(item){
   if(!item)return;
   if(item.target_type==='post'&&item.target_id){openBoardPost(item.target_id);return;}
-  if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;renderDetail(item.target_id);showPage('business-detail');return;}
+  if(item.target_type==='business'&&item.target_id){selectedBizId=item.target_id;v230PrepareBusinessDetail(item.target_id,'today_card','business_click');renderDetail(item.target_id);showPage('business-detail');return;}
   // 긴급·공공 알림과 링크 없는 오늘의 달타운 카드는 앱 내부 모달로 표시합니다.
   v51OpenPublicNoticeModal(item);
 }
@@ -4169,8 +4171,8 @@ function v51PaintToday(){
   card.className='v37-brief-card v51-today-card';
   if(!item){
     if(category)category.textContent='생활 정보';
-    title.textContent='오늘의 정보를 준비하고 있습니다.';
-    summary.textContent='날씨·교통·쇼핑 정보가 수집되면 이곳에 표시됩니다.';
+    title.textContent='오늘의 DFW 생활정보';
+    summary.textContent='날씨·교통·쇼핑 정보를 한곳에서 확인하세요.';
     if(time)time.textContent='';if(link)link.textContent='';if(dots)dots.innerHTML='';
     if(main){main.disabled=true;main.classList.remove('has-link');}
     return;
@@ -4851,6 +4853,9 @@ function renderDetail(id){
   const safeWebsite = normalizeUrl(b.website || '');
   const safeEmail = (b.email || '').trim();
   const phoneDigits = (b.phone||'').replace(/[^\d]/g,'');
+  const safePhoneHref = phoneDigits ? `tel:${phoneDigits}` : '';
+  const safeSmsHref = phoneDigits ? `sms:${phoneDigits}` : '';
+  const safeDirections = getDirectionsUrl(b);
   const bizCoupons = activeCoupons(coupons).filter(c=>String(c.businessId)===String(b.id));
   // V230: renderDetail() 자체 호출만으로는 상세 조회를 올리지 않습니다.
   // 실제 사용자 클릭이 직전에 있었을 때만, 30분 중복 제거 후 상세 조회를 기록합니다.
@@ -5171,17 +5176,19 @@ ${b.rating ? `
 </div>
 
       <div class="biz-action-row">
-        <a href="tel:${esc(phone)}">전화</a>
-        <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
-        <a href="${esc(website || '#')}" target="_blank">웹사이트</a>
+        ${safePhoneHref ? `<a href="${esc(safePhoneHref)}" data-biz-detail-action="phone">전화</a>` : ''}
+        ${safeSmsHref ? `<a href="${esc(safeSmsHref)}" data-biz-detail-action="sms">문자</a>` : ''}
+        ${safeDirections ? `<a href="${esc(safeDirections)}" target="_blank" rel="noopener" data-biz-detail-action="directions">길찾기</a>` : ''}
+        ${safeWebsite ? `<a href="${esc(safeWebsite)}" target="_blank" rel="noopener" data-biz-detail-action="website">웹사이트</a>` : ''}
         ${b.reservation_enabled && (b.reservation_url || b.phone) ? `
         <button
            type="button"
+           data-biz-detail-action="reservation"
            onclick="openReservation('${b.id}')">
            예약
         </button>
          ` : ''}
-        <button type="button" onclick="shareBusiness('${b.id}')">
+        <button type="button" data-biz-detail-action="share" onclick="shareBusiness('${b.id}')">
         공유
        </button>
       </div>
@@ -5194,7 +5201,7 @@ ${b.rating ? `
     <div>
     <strong>진행중인 혜택</strong>
     <p>${esc(activeCoupon.title || activeCoupon.description || '쿠폰 혜택이 있습니다.')}</p>
-    <button type="button" onclick="renderCouponDetail('${esc(activeCoupon.id)}'); showPage('coupon-detail');">
+    <button type="button" data-biz-detail-action="coupon" data-coupon-id="${esc(activeCoupon.id)}" onclick="renderCouponDetail('${esc(activeCoupon.id)}'); showPage('coupon-detail');">
       쿠폰 보기
     </button>
     </div>
@@ -5268,13 +5275,38 @@ ${getDescriptionImages(b).length ? `
       <p class="biz-phone">📞 ${esc(phone)}</p>
 
       <div class="biz-bottom-actions">
-        <a href="${esc(getDirectionsUrl(b))}" target="_blank">길찾기</a>
-        <a href="tel:${esc(phone)}">전화하기</a>
+        ${safeDirections ? `<a href="${esc(safeDirections)}" target="_blank" rel="noopener" data-biz-detail-action="directions">길찾기</a>` : ''}
+        ${safePhoneHref ? `<a href="${esc(safePhoneHref)}" data-biz-detail-action="phone">전화하기</a>` : ''}
       </div>
     </section>
 
   </article>
 `;
+
+
+// V240: 업소 상세의 실제 행동을 광고 성과에 정확히 기록합니다.
+// 동일 버튼을 빠르게 두 번 눌러 생기는 중복은 V230의 activity logger 쪽 짧은 중복 방지와 함께 처리합니다.
+detailCard.querySelectorAll('[data-biz-detail-action]').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    const action=String(el.dataset.bizDetailAction||'').toLowerCase();
+    const actionMap={
+      phone:'phone',
+      sms:'sms',
+      directions:'directions',
+      website:'website',
+      reservation:'reservation',
+      share:'share',
+      coupon:'coupon_click'
+    };
+    const activity=actionMap[action];
+    if(activity){
+      logBusinessActivity(b.id,activity,{
+        source:'business_detail',
+        content_id: action==='coupon' ? String(el.dataset.couponId||'') : ''
+      });
+    }
+  }, {capture:true});
+});
 
 bindV229ListingCards(detailCard);
 
@@ -5283,6 +5315,7 @@ detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
     if (event.target.closest('video,iframe')) return;
     const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
     if (!promo) return;
+    logBusinessActivity(b.id,'banner_click',{source:'business_detail',content_id:String(promo.id||'')});
     const raw = String(promo.link_url || '').trim();
     const match = raw.match(/^(business|post|dalpick|coupon):(.+)$/i);
     if (match) {
@@ -5318,6 +5351,8 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     const url = btn.dataset.url || '';
     const label = btn.dataset.label || '연결';
     if (url) {
+      const action=/배달/.test(label)?'delivery':(/예약/.test(label)?'reservation':'order');
+      logBusinessActivity(b.id,action,{source:'business_detail'});
       window.open(url, '_blank', 'noopener');
       return;
     }
