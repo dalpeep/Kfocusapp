@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V256 ended event/coupon badge hide loaded');
 console.info('[DalTownMap App] V255 raffle companion loaded');
 console.info('[DalTownMap App] V254 companion loaded');
 console.info('[DalTownMap App] V253 raffle confirmation mail UX loaded');
@@ -10045,8 +10046,13 @@ function v245ActiveCoupons(){
     if(c.is_active===false || c.active===false || c.hidden===true) return false;
     const start=v249CouponEffectiveStart(c);
     const end=v249CouponEffectiveEnd(c);
-    if(start && new Date(start).getTime()>now) return false;
-    if(end && new Date(end).getTime()+86400000<=now) return false;
+    const st=start?new Date(start).getTime():null;
+    const et=end?new Date(end).getTime():null;
+
+    // V256: 시작 전/종료 후 항목은 메인 알림 배지 수에서 즉시 제외
+    if(st && Number.isFinite(st) && st>now) return false;
+    if(et && Number.isFinite(et) && et<=now) return false;
+
     return true;
   });
 }
@@ -10448,3 +10454,45 @@ if(typeof renderHomeBusinesses==='function'){
     return r;
   };
 }
+
+
+let v256BadgeExpiryTimer=null;
+function v256ScheduleShortcutExpiryRefresh(){
+  if(v256BadgeExpiryTimer) clearTimeout(v256BadgeExpiryTimer);
+
+  const now=Date.now();
+  const futureEnds=(coupons||[])
+    .filter(c=>c && c.is_active!==false && c.active!==false && c.hidden!==true)
+    .map(c=>v249CouponEffectiveEnd(c))
+    .filter(Boolean)
+    .map(x=>new Date(x).getTime())
+    .filter(t=>Number.isFinite(t) && t>now)
+    .sort((a,b)=>a-b);
+
+  if(!futureEnds.length) return;
+
+  const wait=Math.min(2147483000, Math.max(1000, futureEnds[0]-now+750));
+  v256BadgeExpiryTimer=setTimeout(()=>{
+    window.renderV245TodayShortcuts?.();
+    if(document.getElementById('page-event')?.classList.contains('active')){
+      window.renderV245EventList?.();
+    }
+    v256ScheduleShortcutExpiryRefresh();
+  },wait);
+}
+
+const _v256RenderTodayShortcuts=window.renderV245TodayShortcuts;
+if(typeof _v256RenderTodayShortcuts==='function'){
+  window.renderV245TodayShortcuts=function(...args){
+    const out=_v256RenderTodayShortcuts.apply(this,args);
+    v256ScheduleShortcutExpiryRefresh();
+    return out;
+  };
+  renderV245TodayShortcuts=window.renderV245TodayShortcuts;
+}
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',()=>setTimeout(v256ScheduleShortcutExpiryRefresh,1200));
+}else{
+  setTimeout(v256ScheduleShortcutExpiryRefresh,1200);
+}
+
