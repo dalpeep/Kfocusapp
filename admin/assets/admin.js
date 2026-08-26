@@ -1,4 +1,4 @@
-console.info('[DalTownMap Admin] V258 winner email image loaded');
+console.info('[DalTownMap Admin] V259 email image upload loaded');
 console.info('[DalTownMap Admin] V257 raffle mode selector loaded');
 console.info('[DalTownMap Admin] V256 ended event/coupon badge hide loaded');
 console.info('[DalTownMap Admin] V255 auto + manual raffle loaded');
@@ -43,7 +43,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V258';
+    badge.textContent='Admin V259';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2404,8 +2404,28 @@ function fillBusinessOptions() {
    Coupons
 --------------------------- */
 function ensureCouponCampaignAdminUI(){if(qs('couponCampaignAdminBox'))return;const anchor=qs('coupon_start_at')?.closest('.field')||qs('coupon_start_at')?.parentElement;if(!anchor)return;const box=document.createElement('div');box.id='couponCampaignAdminBox';box.style.cssText='grid-column:1/-1;border:1px solid #d8e4f5;border-radius:16px;padding:16px;background:#f8fbff;margin:8px 0 14px';box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px"><div><strong style="font-size:16px">쿠폰 발급 방식</strong><div class="muted" style="margin-top:3px">기존 일반 쿠폰 / 이메일 즉시 발급 / 이메일 응모·추첨 중 선택합니다.</div></div><button id="couponCampaignManageBtn" type="button" class="btn secondary">응모·발급 관리</button></div><div class="form-grid"><label class="field"><span>발급 방식</span><select id="coupon_delivery_mode"><option value="display">일반 표시 쿠폰</option><option value="instant_email">이메일 즉시 발급 (100%)</option><option value="raffle">이메일 응모·추첨</option></select></label><label class="field coupon-raffle-only"><span>응모 마감일시</span><input id="coupon_raffle_end_at" type="datetime-local"></label><label class="field coupon-raffle-only"><span>당첨 인원</span><input id="coupon_winner_count" type="number" min="1" max="500" value="1"></label><label class="field coupon-raffle-only"><span>추첨 방식</span><select id="coupon_raffle_draw_mode"><option value="manual">수동 추첨</option><option value="auto">자동 추첨</option></select><small class="muted">자동: 응모 마감 후 시스템이 자동 추첨 · 수동: 관리자가 직접 추첨 버튼 실행</small></label><label class="field checkbox-line"><input id="coupon_one_per_email" type="checkbox" checked><span>이메일당 1회만 발급/응모</span></label><label class="field checkbox-line"><input id="coupon_marketing_opt_in_enabled" type="checkbox" checked><span>마케팅 수신 동의(선택) 표시</span></label>
-      <label class="field full"><span>이메일 쿠폰 이미지 URL</span><input id="coupon_email_image_url" type="url" placeholder="비워두면 현재 쿠폰 이미지를 사용합니다."><small class="muted">이메일 즉시 발급 쿠폰에 사용할 이미지입니다. 비워두면 현재 쿠폰 이미지 URL을 사용합니다.</small></label>
-      <label class="field full coupon-raffle-only"><span>당첨 이메일 이미지 URL</span><input id="coupon_winner_email_image_url" type="url" placeholder="당첨자에게 보낼 전용 이미지를 입력하세요."><small class="muted">응모 확인 메일에는 사용하지 않고, 당첨 메일에만 표시합니다. 비워두면 이메일 쿠폰 이미지 → 현재 쿠폰 이미지 순으로 자동 대체합니다.</small></label>
+      <div class="field full">
+        <span>이메일 쿠폰 이미지</span>
+        <input id="coupon_email_image_url" type="hidden">
+        <input id="coupon_email_image_file" type="file" accept="image/*">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button type="button" class="btn" id="couponEmailImageUploadBtn">이미지 업로드</button>
+          <button type="button" class="btn danger" id="couponEmailImageClearBtn">이미지 삭제</button>
+        </div>
+        <div id="couponEmailImagePreviewWrap" hidden style="margin-top:10px"><img id="couponEmailImagePreview" alt="이메일 쿠폰 이미지 미리보기" style="display:block;max-width:360px;width:100%;max-height:220px;object-fit:contain;border:1px solid #dbe4f3;border-radius:12px;background:#f8fafc"></div>
+        <small class="muted">즉시 발급 메일에 사용할 이미지입니다. 별도 업로드하지 않으면 현재 쿠폰 이미지를 사용합니다.</small>
+      </div>
+      <div class="field full coupon-raffle-only">
+        <span>당첨 이메일 이미지</span>
+        <input id="coupon_winner_email_image_url" type="hidden">
+        <input id="coupon_winner_email_image_file" type="file" accept="image/*">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button type="button" class="btn" id="couponWinnerEmailImageUploadBtn">이미지 업로드</button>
+          <button type="button" class="btn danger" id="couponWinnerEmailImageClearBtn">이미지 삭제</button>
+        </div>
+        <div id="couponWinnerEmailImagePreviewWrap" hidden style="margin-top:10px"><img id="couponWinnerEmailImagePreview" alt="당첨 이메일 이미지 미리보기" style="display:block;max-width:360px;width:100%;max-height:220px;object-fit:contain;border:1px solid #dbe4f3;border-radius:12px;background:#f8fafc"></div>
+        <small class="muted">응모 확인 메일에는 사용하지 않고 당첨 메일에만 표시합니다. 비워두면 이메일 쿠폰 이미지 → 현재 쿠폰 이미지 순으로 자동 대체합니다.</small>
+      </div>
     </div>`;anchor.parentElement?.insertBefore(box,anchor);qs('coupon_delivery_mode')?.addEventListener('change',updateCouponCampaignAdminVisibility);qs('couponCampaignManageBtn')?.addEventListener('click',openCouponCampaignAdminManager);updateCouponCampaignAdminVisibility()}
 function updateCouponCampaignAdminVisibility(){const mode=val('coupon_delivery_mode')||'display';$$('.coupon-raffle-only').forEach(x=>x.style.display=mode==='raffle'?'':'none');const btn=qs('couponCampaignManageBtn');if(btn)btn.style.display=selectedCouponId&&mode!=='display'?'':'none'}
 function ensureCouponCampaignManagerUI(){if(qs('couponCampaignManagerOverlay'))return;const st=document.createElement('style');st.textContent=`.ccm-overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:120000;display:flex;align-items:center;justify-content:center;padding:20px}.ccm-overlay.hidden{display:none}.ccm-dialog{width:min(1040px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 25px 70px rgba(15,23,42,.3)}.ccm-head{position:sticky;top:0;background:#fff;z-index:2;padding:16px 18px;border-bottom:1px solid #e5eaf1;display:flex;justify-content:space-between;align-items:center}.ccm-body{padding:18px}.ccm-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}.ccm-stat{padding:12px;background:#f7f9fc;border-radius:12px}.ccm-stat b{display:block;font-size:20px}.ccm-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.ccm-table{width:100%;border-collapse:collapse;font-size:13px}.ccm-table th,.ccm-table td{padding:9px;border-bottom:1px solid #edf1f5;text-align:left}.ccm-marketing{color:#137333;font-weight:800}@media(max-width:760px){.ccm-stats{grid-template-columns:repeat(2,1fr)}.ccm-table{min-width:760px}.ccm-table-wrap{overflow:auto}}`;document.head.appendChild(st);const o=document.createElement('div');o.id='couponCampaignManagerOverlay';o.className='ccm-overlay hidden';o.innerHTML=`<div class="ccm-dialog"><div class="ccm-head"><div><strong style="font-size:18px">쿠폰 응모·발급 관리</strong><div id="ccmSubtitle" class="muted"></div></div><button id="ccmClose" class="btn ghost" type="button">닫기</button></div><div class="ccm-body" id="ccmBody"></div></div>`;document.body.appendChild(o);qs('ccmClose').onclick=()=>o.classList.add('hidden');o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')})}
@@ -2469,6 +2489,7 @@ function fillCouponForm(row) {
   setVal('coupon_raffle_draw_mode',row.raffle_draw_mode||'manual');
   setVal('coupon_email_image_url',row.email_image_url||'');
   setVal('coupon_winner_email_image_url',row.winner_email_image_url||'');
+  setTimeout(()=>{renderCouponMailImagePreview('email');renderCouponMailImagePreview('winner');},0);
   setChecked('coupon_one_per_email',row.one_per_email!==false);
   setChecked('coupon_marketing_opt_in_enabled',row.marketing_opt_in_enabled!==false);
   ensureCouponCampaignAdminUI();
@@ -4335,6 +4356,46 @@ async function uploadCouponImage() {
 function clearCouponImage() {
   setVal('coupon_image_url', '');
   if (qs('coupon_image_file')) qs('coupon_image_file').value = '';
+}
+
+
+function renderCouponMailImagePreview(kind){
+  const isWinner=kind==='winner';
+  const inputId=isWinner?'coupon_winner_email_image_url':'coupon_email_image_url';
+  const wrapId=isWinner?'couponWinnerEmailImagePreviewWrap':'couponEmailImagePreviewWrap';
+  const imgId=isWinner?'couponWinnerEmailImagePreview':'couponEmailImagePreview';
+  const url=val(inputId).trim(), wrap=qs(wrapId), img=qs(imgId);
+  if(!wrap||!img) return;
+  if(!url){wrap.hidden=true;img.removeAttribute('src');return;}
+  wrap.hidden=false; img.src=url;
+  img.onerror=()=>{wrap.hidden=true;};
+}
+async function uploadCouponMailImage(kind){
+  const isWinner=kind==='winner';
+  const fileId=isWinner?'coupon_winner_email_image_file':'coupon_email_image_file';
+  const urlId=isWinner?'coupon_winner_email_image_url':'coupon_email_image_url';
+  const btnId=isWinner?'couponWinnerEmailImageUploadBtn':'couponEmailImageUploadBtn';
+  const file=qs(fileId)?.files?.[0];
+  if(!file) return alert(isWinner?'당첨 이메일 이미지를 선택하세요.':'이메일 쿠폰 이미지를 선택하세요.');
+  const btn=qs(btnId), old=btn?.textContent||'이미지 업로드';
+  if(btn){btn.disabled=true;btn.textContent='업로드 중...';}
+  try{
+    await validatePromoArtwork(file,isWinner?'당첨 이메일 이미지':'이메일 쿠폰 이미지');
+    const url=await uploadFileToStorage(file,isWinner?'coupons/winner-email':'coupons/email');
+    if(!url) throw new Error('공개 URL 생성 실패');
+    setVal(urlId,url);
+    if(qs(fileId)) qs(fileId).value='';
+    renderCouponMailImagePreview(kind);
+    alert((isWinner?'당첨 이메일':'이메일 쿠폰')+' 이미지 업로드 완료. 쿠폰 저장 버튼을 눌러 반영하세요.');
+  }catch(e){alert(`이미지 업로드 실패: ${e.message}`);}
+  finally{if(btn){btn.disabled=false;btn.textContent=old;}}
+}
+function clearCouponMailImage(kind){
+  const isWinner=kind==='winner';
+  setVal(isWinner?'coupon_winner_email_image_url':'coupon_email_image_url','');
+  const file=qs(isWinner?'coupon_winner_email_image_file':'coupon_email_image_file');
+  if(file) file.value='';
+  renderCouponMailImagePreview(kind);
 }
 
 async function uploadSlideImage() {
@@ -11902,3 +11963,11 @@ window.v254DeleteCampaignGroup=v254DeleteCampaignGroup;
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV258WinnerImageNote,700));
   else setTimeout(mountV258WinnerImageNote,700);
 })();
+
+document.addEventListener('click',function(e){
+  const id=e.target?.id;
+  if(id==='couponEmailImageUploadBtn'){e.preventDefault();uploadCouponMailImage('email');}
+  if(id==='couponWinnerEmailImageUploadBtn'){e.preventDefault();uploadCouponMailImage('winner');}
+  if(id==='couponEmailImageClearBtn'){e.preventDefault();clearCouponMailImage('email');}
+  if(id==='couponWinnerEmailImageClearBtn'){e.preventDefault();clearCouponMailImage('winner');}
+});
