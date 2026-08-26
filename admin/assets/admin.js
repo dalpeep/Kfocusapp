@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V254 coupon group delete loaded');
 console.info('[DalTownMap Admin] V253 raffle confirmation mail controls loaded');
 console.info('[DalTownMap Admin] V252 campaign history fallback loaded');
 console.info('[DalTownMap Admin] V251 campaign records + mail config loaded');
@@ -38,7 +39,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V253';
+    badge.textContent='Admin V254';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2861,6 +2862,25 @@ async function deleteCouponRedemption(id){
   }
 }
 
+async function v254DeleteCouponUsageGroup(couponId,couponTitle){
+  const id=String(couponId||'').trim();
+  const rows=(couponRedemptions||[]).filter(r=>String(r.coupon_id||'')===id);
+  if(!id || !rows.length) return alert('삭제할 쿠폰 사용 기록이 없습니다.');
+
+  if(!confirm(`"${couponTitle||'이 쿠폰'}"의 사용 기록 ${rows.length}건만 삭제할까요?\n다른 쿠폰 기록은 유지됩니다.`)) return;
+
+  const ids=rows.map(r=>r.id).filter(Boolean);
+  try{
+    const result=await couponRedemptionAdminCall('delete_many',{ids});
+    await loadCouponRedemptions();
+    alert(`${Number(result.deleted||ids.length)}건을 삭제했습니다.`);
+  }catch(e){
+    alert(`쿠폰별 사용 기록 삭제 실패: ${e.message||e}`);
+  }
+}
+window.v254DeleteCouponUsageGroup=v254DeleteCouponUsageGroup;
+
+
 async function deleteAllCouponRedemptions(){
   const rows = getFilteredCouponRedemptions();
   if(!rows.length) return alert('삭제할 쿠폰 사용 내역이 없습니다.');
@@ -2967,15 +2987,21 @@ async function loadCouponRedemptions(){
             <div style="margin-top:3px;color:#475569;font-size:12px;">${esc(g.business_name)}</div>
             <div style="margin-top:5px;color:#64748b;font-size:12px;">${esc(mode)}</div>
           </div>
-          <div style="
-            min-width:76px;
-            text-align:center;
-            padding:8px 12px;
-            border-radius:12px;
-            background:#2563eb;
-            color:#fff;
-            font-weight:1000;
-          ">${records.length}회 사용</div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div style="
+              min-width:76px;
+              text-align:center;
+              padding:8px 12px;
+              border-radius:12px;
+              background:#2563eb;
+              color:#fff;
+              font-weight:1000;
+            ">${records.length}회 사용</div>
+            <button type="button" class="btn danger" style="padding:7px 9px;font-size:11px;"
+              onclick="v254DeleteCouponUsageGroup('${esc(g.coupon_id)}','${esc(g.coupon_title).replace(/'/g,"&#39;")}')">
+              이 쿠폰 기록 삭제
+            </button>
+          </div>
         </div>
 
         <div style="margin-top:10px;">
@@ -11712,6 +11738,10 @@ async function loadV251CouponCampaignHistory(){
               <div style="font-weight:1000;font-size:15px;">${esc(title)}</div>
               <div style="font-size:11px;color:#64748b;margin-top:3px;">${esc(type)} · ${items.length}건</div>
             </div>
+            <button type="button" class="btn danger" style="padding:6px 9px;font-size:11px;"
+              onclick="v254DeleteCampaignGroup('${esc(cid)}','${esc(title).replace(/'/g,"&#39;")}',${items.length})">
+              이 쿠폰 기록 삭제
+            </button>
           </div>
 
           <div style="margin-top:8px;">
@@ -11780,3 +11810,17 @@ async function v253ResendCampaignMail(couponId,entryId){
   }
 }
 window.v253ResendCampaignMail=v253ResendCampaignMail;
+
+async function v254DeleteCampaignGroup(couponId,couponTitle,count){
+  const id=String(couponId||'').trim();
+  if(!id) return alert('쿠폰 ID를 확인할 수 없습니다.');
+  if(!confirm(`"${couponTitle||'이 쿠폰'}"의 발급·응모 기록 ${Number(count||0)}건을 모두 삭제할까요?\n\n응모번호, 발급코드, 당첨 상태도 함께 삭제됩니다.`)) return;
+  try{
+    const d=await couponCampaignAdminRequest({action:'delete_entries',coupon_id:id});
+    await loadV251CouponCampaignHistory();
+    alert(`${Number(d.deleted||0)}건을 삭제했습니다.`);
+  }catch(e){
+    alert(`발급·응모 기록 삭제 실패: ${e.message||e}`);
+  }
+}
+window.v254DeleteCampaignGroup=v254DeleteCampaignGroup;
