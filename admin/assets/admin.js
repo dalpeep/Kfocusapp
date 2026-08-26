@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V236 paid/free fair rotation admin loaded');
 console.info('[DalTownMap Admin] V235 free fairness pool admin loaded');
 console.info('[DalTownMap Admin] V234 rotation fairness audit admin loaded');
 console.info('[DalTownMap Admin] V233 new-tab rotation sync admin loaded');
@@ -21,7 +22,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V235';
+    badge.textContent='Admin V236';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -564,19 +565,76 @@ function pickRotation(list, section, limit=6, dateValue=todayKey(), allRows=adsO
   return fixed.concat(automatic,freeAssigned).slice(0,limit);
 }
 
+
+// === V236: 관리자 미리보기용 유료 그룹 + 무료 전체 Fair Rotation ===
+function adsV236PublicActive(b){
+  return !!b && b.is_active!==false && b.list_visible!==false;
+}
+function adsV236FreePool(allRows,dateValue){
+  return (allRows||[]).filter(b=>
+    adsV236PublicActive(b) &&
+    !paidActiveOnDate(b,dateValue)
+  );
+}
+function adsV236PaidGroupRows(allRows,section,dateValue){
+  return (allRows||[]).filter(b=>
+    adsV236PublicActive(b) &&
+    paidActiveOnDate(b,dateValue) &&
+    adsSectionAssigned(b,section)
+  );
+}
+function adsV236PaidOrder(rows,section,dateValue){
+  const fixed=(rows||[]).filter(b=>b.rotation_enabled===false)
+    .sort((a,b)=>adsGroupRank(a,section)-adsGroupRank(b,section)||String(b.created_at||'').localeCompare(String(a.created_at||'')));
+  const rotating=(rows||[]).filter(b=>b.rotation_enabled!==false)
+    .sort((a,b)=>rotationScore(a,section,dateValue)-rotationScore(b,section,dateValue));
+  return [...fixed,...rotating];
+}
+function adsV236FreeOrder(rows,section,dateValue){
+  const dateKey=String(dateValue||todayKey()).slice(0,10);
+  return [...(rows||[])].sort((a,b)=>
+    adSeededRandom(`${dateKey}|free|${section}|${a.id}`) -
+    adSeededRandom(`${dateKey}|free|${section}|${b.id}`)
+  );
+}
+function adsV236BuildGroup(section,dateValue,allRows,limit,usedFreeIds){
+  const paidOrdered=adsV236PaidOrder(adsV236PaidGroupRows(allRows,section,dateValue),section,dateValue);
+  const paidShown=paidOrdered.slice(0,limit);
+  const need=Math.max(0,limit-paidShown.length);
+  if(!need) return {rows:paidShown,paid:paidShown.length,free:0};
+
+  const allFree=adsV236FreePool(allRows,dateValue);
+  let freeCandidates=allFree.filter(b=>!usedFreeIds.has(String(b.id)));
+  if(freeCandidates.length<need){
+    const existing=new Set(freeCandidates.map(b=>String(b.id)));
+    freeCandidates=freeCandidates.concat(allFree.filter(b=>!existing.has(String(b.id))));
+  }
+
+  const freeShown=adsV236FreeOrder(freeCandidates,section,dateValue).slice(0,need);
+  freeShown.forEach(b=>usedFreeIds.add(String(b.id)));
+  return {rows:[...paidShown,...freeShown],paid:paidShown.length,free:freeShown.length};
+}
+
+
 // V212: 추천/신규/인기의 실제 노출 목록을 전역적으로 한 번에 계산합니다.
 // 같은 무료 보충 업체가 여러 그룹에 중복 노출되는 것을 막습니다.
 function adsCanonicalGroups(dateValue=todayKey(),allRows=adsOpsRows,limit=6){
-  // V213: 세 그룹은 관리자 저장값만 사용합니다.
-  // 자동 보충이 없으므로 '해제'하면 즉시 메인에서도 빠집니다.
-  const result={featured:[],new:[],popular:[]};
-  for(const section of ['featured','new','popular']){
-    const assigned=(allRows||[]).filter(
-      b=>adsEligibleOnDate(b,dateValue) && adsSectionAssigned(b,section)
-    );
-    result[section]=pickRotation(assigned,section,limit,dateValue,allRows||[]);
-  }
-  return result;
+  // V236: 실제 홈과 동일.
+  // 유료 그룹 먼저 → 남는 자리는 전체 무료 업소 Fair Rotation 자동 보충.
+  const usedFreeIds=new Set();
+  const featured=adsV236BuildGroup('featured',dateValue,allRows||[],limit,usedFreeIds);
+  const fresh=adsV236BuildGroup('new',dateValue,allRows||[],limit,usedFreeIds);
+  const popular=adsV236BuildGroup('popular',dateValue,allRows||[],limit,usedFreeIds);
+  return {
+    featured:featured.rows,
+    new:fresh.rows,
+    popular:popular.rows,
+    meta:{
+      featured:{paid:featured.paid,free:featured.free},
+      new:{paid:fresh.paid,free:fresh.free},
+      popular:{paid:popular.paid,free:popular.free}
+    }
+  };
 }
 
 function adsEffectiveSectionRows(section,dateValue=todayKey(),allRows=adsOpsRows){
@@ -1063,7 +1121,7 @@ async function previewRotation(){
   };
   const host=document.querySelector('#rotationPreview');
   if(!host)return;
-  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">그룹별 6개 · 유료 고정 → 유료 로테이션 → 부족분 무료 업소 자동 보충</p></div><span class="pill success">홈 노출 기준</span></div>${render('featured')}${render('new')}${render('popular')}`;
+  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">그룹별 6개 · 유료 그룹 우선 → 남는 자리 전체 무료 업소 Fair Rotation</p></div><span class="pill success">홈 노출 기준</span></div>${render('featured')}${render('new')}${render('popular')}`;
 }
 
 function initAdsOpsCenter(){
@@ -11036,7 +11094,7 @@ function ensureV234FairnessUI(){
         <button type="button" data-fa-section="free">무료 전체</button>
       </div>
       <div id="v234FairnessTable"></div>
-      <div class="v234-fa-note">추천·신규·인기는 기존 그룹 로테이션을 검사합니다. 무료 전체는 그룹 체크와 상관없이 유료 광고가 아닌 모든 활성 업소를 날짜 기반으로 6개씩 순환시켜 공평성을 검사합니다. V235에서는 검사 기능만 추가하며 실제 홈 탭 구조는 변경하지 않습니다.</div>
+      <div class="v234-fa-note">추천·신규·인기는 유료 그룹 우선 노출을 검사합니다. 무료 전체는 그룹 체크와 상관없이 모든 활성 무료 업소를 검사합니다. V236부터 실제 홈도 유료 그룹 우선 + 남는 자리 무료 Fair Rotation 구조를 사용합니다.</div>
     </div>`;
   preview.parentElement?.appendChild(root);
 
@@ -11122,4 +11180,26 @@ function ensureV235FreePoolPolicy(){
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV235FreePoolPolicy,900));
 setTimeout(ensureV235FreePoolPolicy,1700);
+
+
+
+// === V236 운영 기준 안내 ===
+function ensureV236PaidFreePolicy(){
+  if(document.getElementById('v236PaidFreePolicy')) return;
+  const host=document.querySelector('[data-ads-panel="schedule"]') || document.querySelector('#section-adsOps');
+  if(!host) return;
+  const box=document.createElement('div');
+  box.id='v236PaidFreePolicy';
+  box.style.cssText='margin:12px 0 16px;padding:14px 16px;border:1px solid #bfdbfe;border-radius:14px;background:#eff6ff;color:#1e3a8a;font-size:12px;line-height:1.65;';
+  box.innerHTML=`
+    <b>V236 메인 노출 기준</b><br>
+    • <b>무료 업소</b> = 업소 활성 ON + 목록 표시 ON + 유료 OFF. 추천/신규/인기 체크를 하지 않아도 자동으로 무료 전체 로테이션 대상입니다.<br>
+    • <b>유료 업소</b> = 유료 ON + Basic/Premium + 유효 기간. 추천/신규/인기 중 원하는 탭을 지정합니다.<br>
+    • 각 탭은 유료 업소를 먼저 보여주고 <b>6개가 되지 않는 나머지 자리를 무료 업소로 자동 보충</b>합니다.<br>
+    • 같은 날 무료 업소는 세 탭 사이에서 가능한 한 중복되지 않게 배분됩니다.
+  `;
+  host.insertBefore(box,host.firstChild);
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV236PaidFreePolicy,700));
+setTimeout(ensureV236PaidFreePolicy,1500);
 
