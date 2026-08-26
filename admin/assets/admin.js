@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V244 Today Daltown loaded');
 console.info('[DalTownMap Admin] V243 coupon type badges + raffle states loaded');
 console.info('[DalTownMap Admin] V242 ad performance QA loaded');
 console.info('[DalTownMap Admin] V241.7 coupon usage grouped sections loaded');
@@ -28,7 +29,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V243';
+    badge.textContent='Admin V244';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11534,4 +11535,29 @@ loadCouponRedemptions=async function(){
     .v243-status-badge.default{background:#f8fafc;color:#64748b}
   `;
   document.head.appendChild(s);
+})();
+
+// ===== V244 오늘의 달타운맵 운영 안내 =====
+(function(){
+  function mountV244TodayAdmin(){
+    if(document.getElementById('v244TodayAdmin')) return;
+    const couponList=document.getElementById('couponList')||document.getElementById('couponAdminList');
+    if(!couponList||!couponList.parentElement)return;
+    const box=document.createElement('div');
+    box.id='v244TodayAdmin';
+    box.style.cssText='border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;padding:14px;margin:0 0 14px;';
+    box.innerHTML=`
+      <div style="font-weight:1000;color:#1e3a8a;">오늘의 달타운맵 자동 노출</div>
+      <div style="font-size:12px;color:#475569;line-height:1.6;margin-top:6px;">
+        메인 첫 카드는 <b>진행 중인 이메일 응모·추첨 쿠폰</b>을 자동 우선 노출합니다.<br>
+        오픈 이벤트를 만들 때 쿠폰 방식을 <b>이메일 응모·추첨</b>으로 설정하면 별도 메인 등록 없이 자동 표시됩니다.
+      </div>
+      <div style="font-size:11px;color:#64748b;margin-top:7px;">
+        나머지 카드는 진행 중 쿠폰 · 마트 전단 · 오늘의 행사 수를 자동 집계합니다.
+      </div>`;
+    couponList.parentElement.insertBefore(box,couponList);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV244TodayAdmin,100));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV244TodayAdmin,800));
+  else setTimeout(mountV244TodayAdmin,800);
 })();

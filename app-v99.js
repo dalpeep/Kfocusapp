@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V244 Today Daltown loaded');
 console.info('[DalTownMap App] V243 coupon type badge companion loaded');
 console.info('[DalTownMap App] V242 ad performance QA loaded');
 console.info('[DalTownMap App] V241.7 redemption schema fix loaded');
@@ -9972,3 +9973,152 @@ function v241HardenExternalLinks(root=document){
 }
 document.addEventListener('DOMContentLoaded',()=>v241HardenExternalLinks());
 setTimeout(()=>v241HardenExternalLinks(),1200);
+
+
+// ===== V244 오늘의 달타운맵 =====
+function v244TodayDaltownData(){
+  const now=Date.now();
+  const activeCoupons=(coupons||[]).filter(c=>{
+    if(c.active===false || c.hidden===true) return false;
+    const end=c.end_date||c.endDate||c.expires_at||'';
+    return !end || new Date(end).getTime()+86400000>now;
+  });
+  const raffles=activeCoupons.filter(c=>String(c.delivery_mode||'display')==='raffle');
+  const flyers=(window.marketFlyers||window.flyers||[]).filter(x=>x && x.active!==false && x.hidden!==true);
+  const posts=(window.posts||window.communityPosts||[]).filter(x=>x && x.hidden!==true);
+  const events=posts.filter(p=>{
+    const s=`${p.category||''} ${p.board||''} ${p.type||''}`.toLowerCase();
+    return s.includes('행사') || s.includes('event');
+  });
+  const benefitBiz=(businesses||[]).filter(b=>{
+    if(b.hidden===true || b.active===false) return false;
+    return activeCoupons.some(c=>String(c.businessId||c.business_id||'')===String(b.id));
+  });
+
+  return {activeCoupons,raffles,flyers,events,benefitBiz};
+}
+function v244TodayCard(icon,label,value,sub,action,featured=false){
+  return `<button type="button" class="v244-today-card ${featured?'featured':''}" onclick="${action}">
+    <span class="v244-today-icon">${icon}</span>
+    <span class="v244-today-copy">
+      <b>${esc(label)}</b>
+      <strong>${esc(value)}</strong>
+      <small>${esc(sub)}</small>
+    </span>
+    <span class="v244-today-arrow">›</span>
+  </button>`;
+}
+function v244OpenFeaturedRaffle(id){
+  const c=getCoupon(id);
+  if(!c){showPage('coupons');return;}
+  selectedCouponId=c.id;
+  renderCouponDetail(c.id);
+  showPage('coupon-detail');
+  logBusinessActivity(String(c.businessId||c.business_id||''),'coupon_click',{source:'today_daltown_event'});
+}
+window.v244OpenFeaturedRaffle=v244OpenFeaturedRaffle;
+
+function renderV244TodayDaltown(){
+  let host=document.getElementById('v244TodayDaltown');
+  if(!host){
+    host=document.createElement('section');
+    host.id='v244TodayDaltown';
+    host.className='v244-today';
+    const home=document.getElementById('homePage')||document.querySelector('[data-page="home"]')||document.querySelector('.home-page')||document.querySelector('main');
+    if(!home)return;
+    const search=home.querySelector('.search-wrap,.home-search,#homeSearch,.search-bar');
+    if(search && search.parentNode) search.parentNode.insertBefore(host,search.nextSibling);
+    else home.insertBefore(host,home.firstChild);
+  }
+
+  const d=v244TodayDaltownData();
+  const featured=d.raffles[0];
+  const cards=[];
+
+  if(featured){
+    const prize=featured.benefit||featured.discount||featured.subtitle||'경품 이벤트';
+    cards.push(v244TodayCard(
+      '🎁','오픈 이벤트',
+      featured.title||'DalTownMap 경품 이벤트',
+      `${prize} · 무료 응모하기`,
+      `v244OpenFeaturedRaffle('${String(featured.id).replace(/'/g,"\\'")}')`,
+      true
+    ));
+  }else{
+    cards.push(v244TodayCard('🎁','오픈 이벤트','준비 중','새 이벤트가 곧 시작됩니다.',"showPage('coupons')",true));
+  }
+
+  cards.push(v244TodayCard(
+    '🎟','진행 중 쿠폰',
+    `${d.activeCoupons.length}개`,
+    d.activeCoupons.length?'지금 받을 수 있는 혜택 보기':'새 쿠폰을 준비 중입니다.',
+    "showPage('coupons')"
+  ));
+
+  cards.push(v244TodayCard(
+    '🛒','이번 주 마트 전단',
+    `${d.flyers.length}개`,
+    d.flyers.length?'새 전단과 세일 정보 보기':'전단 정보를 준비 중입니다.',
+    "showPage('home'); document.querySelector('#marketSection,.market-section,[data-section=\"market\"]')?.scrollIntoView({behavior:'smooth'})"
+  ));
+
+  cards.push(v244TodayCard(
+    '🎉','오늘의 행사',
+    `${d.events.length}개`,
+    d.events.length?'DFW 행사와 소식 보기':'오늘의 새 소식을 확인하세요.',
+    "showPage('community')"
+  ));
+
+  host.innerHTML=`
+    <div class="v244-today-head">
+      <div><span>Today</span><h2>오늘의 달타운맵</h2></div>
+      <small>오늘 볼 만한 정보만 빠르게 확인하세요.</small>
+    </div>
+    <div class="v244-today-grid">${cards.join('')}</div>
+  `;
+}
+window.renderV244TodayDaltown=renderV244TodayDaltown;
+
+(function(){
+  if(!document.getElementById('v244TodayStyle')){
+    const s=document.createElement('style');
+    s.id='v244TodayStyle';
+    s.textContent=`
+      .v244-today{margin:14px 0 18px;padding:0 14px}
+      .v244-today-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin-bottom:10px}
+      .v244-today-head span{font-size:10px;font-weight:900;color:#2563eb;text-transform:uppercase;letter-spacing:.08em}
+      .v244-today-head h2{margin:1px 0 0;font-size:19px;color:#0f172a}
+      .v244-today-head small{font-size:11px;color:#64748b}
+      .v244-today-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+      .v244-today-card{appearance:none;border:1px solid #dbe5f1;background:#fff;border-radius:15px;padding:12px;text-align:left;display:flex;align-items:center;gap:10px;cursor:pointer;min-height:88px;box-shadow:0 5px 18px rgba(15,23,42,.045)}
+      .v244-today-card.featured{border-color:#bfdbfe;background:linear-gradient(135deg,#eff6ff,#fff)}
+      .v244-today-icon{font-size:25px;flex:0 0 auto}
+      .v244-today-copy{display:flex;flex-direction:column;min-width:0;flex:1}
+      .v244-today-copy b{font-size:11px;color:#64748b}
+      .v244-today-copy strong{font-size:14px;color:#0f172a;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .v244-today-copy small{font-size:10px;color:#64748b;margin-top:3px;line-height:1.3}
+      .v244-today-arrow{font-size:22px;color:#94a3b8}
+      @media(max-width:700px){
+        .v244-today{padding:0 10px}
+        .v244-today-head{align-items:flex-start;flex-direction:column;gap:2px}
+        .v244-today-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .v244-today-card{min-height:102px;padding:11px;align-items:flex-start}
+        .v244-today-icon{font-size:22px}
+        .v244-today-copy strong{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+      }
+    `;
+    document.head.appendChild(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(renderV244TodayDaltown,700));
+  else setTimeout(renderV244TodayDaltown,700);
+})();
+
+
+if(typeof renderHomeBusinesses==='function'){
+  const _v244RenderHomeBusinesses=renderHomeBusinesses;
+  renderHomeBusinesses=function(...args){
+    const r=_v244RenderHomeBusinesses.apply(this,args);
+    setTimeout(()=>window.renderV244TodayDaltown?.(),0);
+    return r;
+  };
+}
