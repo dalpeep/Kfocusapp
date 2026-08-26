@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V235 free fairness pool admin loaded');
 console.info('[DalTownMap Admin] V234 rotation fairness audit admin loaded');
 console.info('[DalTownMap Admin] V233 new-tab rotation sync admin loaded');
 console.info('[DalTownMap Admin] V232 rotation preview canonical sync admin loaded');
@@ -20,7 +21,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V234';
+    badge.textContent='Admin V235';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -10901,8 +10902,13 @@ function v234DateKeyAdd(baseKey, offset){
     year:'numeric',month:'2-digit',day:'2-digit'
   }).format(dt);
 }
-function v234GroupCandidates(section, allRows){
+function v234GroupCandidates(section, allRows, dateKey=adsDallasDateKey()){
   const rows=(allRows||[]).filter(b=>b&&b.status!=='hidden'&&b.listing_visible!==false);
+  if(section==='free'){
+    // V235: 추천/신규/인기 그룹 지정과 무관한 '무료 전체 풀'.
+    // 해당 날짜에 paid_active 광고가 유효하지 않은 활성 업소만 포함합니다.
+    return rows.filter(b=>!adsPaidActiveOnDay(b,dateKey));
+  }
   if(section==='featured') return rows.filter(b=>b.is_featured===true);
   if(section==='new') return rows.filter(b=>b.is_new===true);
   return rows.filter(b=>b.is_popular===true);
@@ -10921,7 +10927,7 @@ function v234FairnessRating(stats){
 }
 function v234BuildFairnessStats(section, days){
   const allRows=(allBusinesses||[]).filter(b=>b&&b.status!=='hidden'&&b.listing_visible!==false);
-  const candidates=v234GroupCandidates(section,allRows);
+  const candidates=v234GroupCandidates(section,allRows,adsDallasDateKey());
   const map=new Map(candidates.map(b=>[String(b.id),{
     id:String(b.id), name:b.name||b.id, area:b.area||b.region||'',
     exposures:0, first:0, lastDate:'—', positions:[], dates:[]
@@ -10930,8 +10936,19 @@ function v234BuildFairnessStats(section, days){
 
   for(let i=0;i<days;i++){
     const dateKey=v234DateKeyAdd(base,i);
-    const result=pickRotation(section,dateKey,allRows,6);
-    (result.rows||[]).forEach((b,idx)=>{
+    let dayRows=[];
+    if(section==='free'){
+      // 무료 전체 풀은 유료 광고가 아닌 모든 활성 업소를 대상으로
+      // 날짜 기반 deterministic shuffle 후 하루 6개를 검사합니다.
+      // 실제 앱에 향후 '무료 순환 슬롯'을 붙일 때 그대로 사용할 수 있는 기준입니다.
+      const freeRows=v234GroupCandidates('free',allRows,dateKey);
+      dayRows=[...freeRows].sort((a,b)=>
+        adsHash32(`${dateKey}|free|${a.id}`)-adsHash32(`${dateKey}|free|${b.id}`)
+      ).slice(0,6);
+    }else{
+      dayRows=(pickRotation(section,dateKey,allRows,6).rows||[]);
+    }
+    dayRows.forEach((b,idx)=>{
       const key=String(b.id);
       if(!map.has(key)){
         map.set(key,{id:key,name:b.name||b.id,area:b.area||b.region||'',exposures:0,first:0,lastDate:'—',positions:[],dates:[]});
@@ -11002,7 +11019,7 @@ function ensureV234FairnessUI(){
     <div class="v234-fa-head">
       <div>
         <h3>공평 노출 검사</h3>
-        <p>현재 실제 로테이션 계산식을 앞으로 7일/30일 반복 실행해 무료·유료 포함 실제 1~6위 노출 편차를 점검합니다.</p>
+        <p>추천·신규·인기는 유료 광고 그룹 기준으로, 무료 전체는 모든 활성 무료 업소를 대상으로 7일/30일 공평 노출 편차를 점검합니다.</p>
       </div>
       <div class="v234-fa-actions">
         <button type="button" data-fa-days="7">7일</button>
@@ -11016,9 +11033,10 @@ function ensureV234FairnessUI(){
         <button type="button" data-fa-section="featured" class="active">추천</button>
         <button type="button" data-fa-section="new">신규</button>
         <button type="button" data-fa-section="popular">인기</button>
+        <button type="button" data-fa-section="free">무료 전체</button>
       </div>
       <div id="v234FairnessTable"></div>
-      <div class="v234-fa-note">판정 기준은 업소별 노출 횟수의 최대-최소 편차를 평균 노출 횟수와 비교합니다. 먼저 현재 알고리즘을 검증하기 위한 진단 기능이며, 실제 로테이션 알고리즘은 변경하지 않습니다.</div>
+      <div class="v234-fa-note">추천·신규·인기는 기존 그룹 로테이션을 검사합니다. 무료 전체는 그룹 체크와 상관없이 유료 광고가 아닌 모든 활성 업소를 날짜 기반으로 6개씩 순환시켜 공평성을 검사합니다. V235에서는 검사 기능만 추가하며 실제 홈 탭 구조는 변경하지 않습니다.</div>
     </div>`;
   preview.parentElement?.appendChild(root);
 
@@ -11039,8 +11057,8 @@ function ensureV234FairnessUI(){
 function renderV234Fairness(){
   const root=document.getElementById('v234FairnessAudit');
   if(!root) return;
-  const sections=['featured','new','popular'];
-  const labels={featured:'추천',new:'신규',popular:'인기'};
+  const sections=['featured','new','popular','free'];
+  const labels={featured:'추천',new:'신규',popular:'인기',free:'무료 전체'};
   const results={};
   for(const section of sections) results[section]=v234BuildFairnessStats(section,v234FairnessDays);
 
@@ -11089,4 +11107,19 @@ function renderV234Fairness(){
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV234FairnessUI,1100));
 setTimeout(ensureV234FairnessUI,1900);
+
+
+
+function ensureV235FreePoolPolicy(){
+  if(document.getElementById('v235FreePoolPolicy')) return;
+  const preview=document.querySelector('#adsRotationPreview') || document.querySelector('[data-ads-panel="rotation"]');
+  if(!preview) return;
+  const box=document.createElement('div');
+  box.id='v235FreePoolPolicy';
+  box.style.cssText='margin:12px 0;padding:12px 14px;border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:12px;line-height:1.6;';
+  box.innerHTML='<b>V235 운영 기준</b> · 추천 / 신규 / 인기는 유료 광고 그룹으로 관리하고, 무료 업소는 별도의 <b>무료 전체 공평 로테이션 풀</b>에서 검사합니다. 초기 오픈 동안 유료 업소가 부족한 경우 실제 홈의 빈 자리를 무료 풀로 보충하는 구조로 확장할 수 있습니다.';
+  preview.parentElement?.insertBefore(box,preview);
+}
+document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV235FreePoolPolicy,900));
+setTimeout(ensureV235FreePoolPolicy,1700);
 
