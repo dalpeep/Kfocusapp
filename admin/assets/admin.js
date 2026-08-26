@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V249 raffle time + hero slider fix loaded');
 console.info('[DalTownMap Admin] V248 sale source fix loaded');
 console.info('[DalTownMap Admin] V247 sale grouped by business loaded');
 console.info('[DalTownMap Admin] V246 sale page + event board routing loaded');
@@ -33,7 +34,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V248';
+    badge.textContent='Admin V249';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11596,4 +11597,20 @@ loadCouponRedemptions=async function(){
   document.addEventListener('click',()=>setTimeout(mountV246SaleNote,80));
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV246SaleNote,700));
   else setTimeout(mountV246SaleNote,700);
+})();
+
+(function(){
+  function mountV249RaffleTimeNote(){
+    if(document.getElementById('v249RaffleTimeNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v249RaffleTimeNote';
+    n.style.cssText='margin-top:8px;padding:10px 12px;border-radius:12px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;font-size:12px;line-height:1.55;';
+    n.innerHTML='<b>응모·추첨 이벤트 시간 기준</b> · 이벤트 상세의 남은 시간과 응모 가능 여부는 <b>응모 마감일시</b>를 기준으로 계산합니다. 메인 슬라이드 노출은 <b>메인 슬라이드 노출 체크 + 시작/응모 마감 기간 내</b>일 때 표시됩니다.';
+    box.appendChild(n);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV249RaffleTimeNote,80));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV249RaffleTimeNote,700));
+  else setTimeout(mountV249RaffleTimeNote,700);
 })();

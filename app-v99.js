@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V249 raffle time + hero slider fix loaded');
 console.info('[DalTownMap App] V248 sale source fix loaded');
 console.info('[DalTownMap App] V247 sale grouped by business loaded');
 console.info('[DalTownMap App] V246 sale page + event board routing loaded');
@@ -2320,6 +2321,11 @@ function finalizeData(){
   businesses.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
   if(!coupons.length) buildFallbackCoupons();
   buildHeroSlides();
+  if(slideIndex>=heroSlides.length) slideIndex=0;
+  if(typeof renderHero==='function') renderHero();
+  if(typeof setSlide==='function' && heroSlides.length) setSlide(slideIndex);
+  if(typeof restartAuto==='function') restartAuto();
+  console.log('[V249 hero coupons]', heroSlides.filter(s=>s.couponId).map(s=>({couponId:s.couponId,title:s.title})));
 }
 
 function buildHeroSlides() {
@@ -2371,7 +2377,7 @@ function buildHeroSlides() {
   // V174: 쿠폰 등록 화면의 '메인 슬라이드 노출' 체크(is_today_coupon)를
   // 별도 슬라이드 재등록 없이 홈 슬라이드에 직접 연결합니다.
   const couponSlides = activeCoupons(coupons)
-    .filter(c => c.isToday === true && !!(c.image_url || c.imageUrl || c.image))
+    .filter(c => (c.isToday === true || c.is_today_coupon === true) && !!(c.image_url || c.imageUrl || c.image))
     .map(c => {
       const b = bizMap.get(String(c.businessId || c.business_id || '')) || {};
       return {
@@ -2671,14 +2677,42 @@ function countdownLabel(endAt, short=false){
   if(c.days > 0) return `${c.days}일 ${c.hours}시간 ${c.mins}분`;
   return `${String(c.hours).padStart(2,'0')}:${String(c.mins).padStart(2,'0')}:${String(c.secs).padStart(2,'0')}`;
 }
+
+function v249CouponEffectiveEnd(c){
+  const mode=String(c?.delivery_mode||'display');
+  if(mode==='raffle'){
+    return c?.raffle_end_at || c?.endAt || c?.end_at || c?.expire_date || '';
+  }
+  return c?.endAt || c?.end_at || c?.expire_date || '';
+}
+function v249CouponEffectiveStart(c){
+  return c?.startAt || c?.start_at || '';
+}
+function v249CouponTimeState(c){
+  const now=Date.now();
+  const start=v249CouponEffectiveStart(c);
+  const end=v249CouponEffectiveEnd(c);
+  const st=start?new Date(start).getTime():null;
+  const et=end?new Date(end).getTime():null;
+  if(st && Number.isFinite(st) && st>now) return {key:'scheduled',start:st,end:et};
+  if(et && Number.isFinite(et) && et<=now) return {key:'ended',start:st,end:et};
+  return {key:'active',start:st,end:et};
+}
+
 function activeCoupons(list=coupons){
   const now = Date.now();
   return list.filter(c=>{
-    if(c.isActive === false) return false;
-    const startOk = !c.startAt || new Date(c.startAt).getTime() <= now;
-    const endOk = !c.endAt || new Date(c.endAt).getTime() >= now;
+    if(c.isActive === false || c.is_active === false) return false;
+    const start=v249CouponEffectiveStart(c);
+    const end=v249CouponEffectiveEnd(c);
+    const startOk = !start || new Date(start).getTime() <= now;
+    const endOk = !end || new Date(end).getTime() >= now;
     return startOk && endOk;
-  }).sort((a,b)=> (a.sortOrder||1000)-(b.sortOrder||1000) || (new Date(a.endAt||'2999-01-01') - new Date(b.endAt||'2999-01-01')) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  }).sort((a,b)=>
+    (a.sortOrder||a.sort_order||1000)-(b.sortOrder||b.sort_order||1000) ||
+    (new Date(v249CouponEffectiveEnd(a)||'2999-01-01') - new Date(v249CouponEffectiveEnd(b)||'2999-01-01')) ||
+    String(b.createdAt||b.created_at||'').localeCompare(String(a.createdAt||a.created_at||''))
+  );
 }
 function todayCoupons(){
   // '오늘의 쿠폰'으로 명시적으로 지정된 활성 쿠폰만 반환합니다.
@@ -5554,8 +5588,10 @@ function renderCouponDetail(id){
   const desc = c.description || '';
   const badge = c.discount_label || c.badge || 'DEAL';
 
-  const start = c.startAt || c.start_at || '';
-  const end = c.endAt || c.end_at || c.expire_date || '';
+  const start = v249CouponEffectiveStart(c);
+  const end = v249CouponEffectiveEnd(c);
+  const v249TimeState=v249CouponTimeState(c);
+  const v249CanAct=v249TimeState.key==='active';
 
   const address = b.address || '주소 정보 없음';
   const phone = b.phone || b.phone_number || '';
@@ -5708,9 +5744,9 @@ function renderCouponDetail(id){
         <button
   class="coupon-primary-use"
   type="button"
-  onclick="${String(c.delivery_mode||'display')==='display'
+  ${v249CanAct?`onclick="${String(c.delivery_mode||'display')==='display'
     ? `renderCouponUse('${esc(c.id)}'); showPage('coupon-use');`
-    : `openCouponCampaignForm('${esc(c.id)}')`}"
+    : `openCouponCampaignForm('${esc(c.id)}')`}"`:'disabled'}"
   style="
     width:100%;
     height:54px;
@@ -5725,13 +5761,16 @@ function renderCouponDetail(id){
     justify-content:center;
     gap:8px;
     box-shadow:0 12px 24px rgba(42,96,171,.24);
+  ${!v249CanAct?'opacity:.55;cursor:not-allowed;':''}
   ">
   <i data-lucide="ticket"></i>
-  ${String(c.delivery_mode||'display')==='raffle'
-    ? '이벤트 응모하기'
-    : String(c.delivery_mode||'display')==='instant_email'
-      ? '이메일로 쿠폰 받기'
-      : '쿠폰 사용하기'}
+  ${!v249CanAct
+    ? (v249TimeState.key==='scheduled'?'이벤트 시작 전':'이벤트 종료')
+    : String(c.delivery_mode||'display')==='raffle'
+      ? '이벤트 응모하기'
+      : String(c.delivery_mode||'display')==='instant_email'
+        ? '이메일로 쿠폰 받기'
+        : '쿠폰 사용하기'}
   </button>
       </section>
 
@@ -5870,6 +5909,9 @@ let couponCampaignId='';function openCouponCampaignForm(id){
   if(!c){alert('쿠폰 정보를 찾을 수 없습니다.');return;}
 
   const mode=String(c.delivery_mode||'display');
+  const timeState=v249CouponTimeState(c);
+  if(timeState.key==='scheduled'){alert('아직 응모/발급 시작 전입니다.');return;}
+  if(timeState.key==='ended'){alert(mode==='raffle'?'이벤트 응모가 마감되었습니다.':'쿠폰 발급 기간이 종료되었습니다.');return;}
 
   // V241.4: 이메일 모달은 이메일 발급형 / 응모·추첨형에서만 사용합니다.
   if(mode!=='instant_email' && mode!=='raffle'){
@@ -6185,19 +6227,22 @@ function renderLucideStars(rating){
 }
 
 function getRemainText(c){
-  const end = c.endAt || c.end_at || c.expire_date || '';
-  if(!end) return '기간 확인';
+  const state=v249CouponTimeState(c);
+  if(state.key==='scheduled'){
+    const diff=state.start-Date.now();
+    const days=Math.floor(diff/86400000);
+    const hours=Math.floor((diff/3600000)%24);
+    const mins=Math.max(0,Math.floor((diff/60000)%60));
+    return days>0?`${days}일 ${hours}시간 후 시작`:`${hours}시간 ${mins}분 후 시작`;
+  }
+  if(state.key==='ended') return '종료됨';
+  if(!state.end) return '기간 확인';
 
-  const endDate = new Date(end);
-  if(Number.isNaN(endDate.getTime())) return '기간 확인';
-
-  const diff = endDate.getTime() - Date.now();
-  if(diff <= 0) return '종료됨';
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-
-  return `${days}일 ${hours}시간`;
+  const diff=state.end-Date.now();
+  const days=Math.floor(diff/86400000);
+  const hours=Math.floor((diff/3600000)%24);
+  const mins=Math.max(0,Math.floor((diff/60000)%60));
+  return days>0?`${days}일 ${hours}시간`:`${hours}시간 ${mins}분`;
 }
 function getDirectionsUrl(b){
   const address = b.address || '';
@@ -9992,8 +10037,8 @@ function v245ActiveCoupons(){
   const now=Date.now();
   return (coupons||[]).filter(c=>{
     if(c.is_active===false || c.active===false || c.hidden===true) return false;
-    const start=c.start_at||c.startAt||'';
-    const end=c.end_at||c.endAt||c.end_date||c.endDate||c.expires_at||'';
+    const start=v249CouponEffectiveStart(c);
+    const end=v249CouponEffectiveEnd(c);
     if(start && new Date(start).getTime()>now) return false;
     if(end && new Date(end).getTime()+86400000<=now) return false;
     return true;
