@@ -1,4 +1,5 @@
 console.info('[DalTownMap App] V271 recommended theme links loaded');
+console.info('[DalTownMap App] V272 bottom navigation click fix loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
 console.info('[DalTownMap App] V268 smart flyer title companion loaded');
@@ -10846,3 +10847,45 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   document.head.appendChild(s);
 })();
 
+
+
+// V272: 하단 기본 내비게이션 클릭 안정화.
+// 일부 홈 레이어가 하단 내비게이션 위에 투명하게 겹치는 경우에도
+// 홈/업소/쿠폰/지도/가이드 버튼이 항상 클릭되도록 보장합니다.
+(function v272FixBottomNavigation(){
+  const style=document.createElement('style');
+  style.id='v272-bottom-nav-fix';
+  style.textContent=`
+    .bottom-nav:not(.board-bottom-nav){
+      position:fixed!important;
+      z-index:90000!important;
+      pointer-events:auto!important;
+      isolation:isolate;
+    }
+    .bottom-nav:not(.board-bottom-nav) .nav-item{
+      position:relative;
+      z-index:1;
+      pointer-events:auto!important;
+      touch-action:manipulation;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // capture 단계에서 먼저 처리하여 다른 레이어/핸들러의 간섭을 막습니다.
+  document.addEventListener('click', function(e){
+    const btn=e.target.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
+    if(!btn) return;
+    const page=String(btn.dataset.nav||'').trim();
+    if(!page) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof showPage==='function') showPage(page);
+  }, true);
+
+  document.addEventListener('touchend', function(e){
+    const btn=e.target.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
+    if(!btn) return;
+    // click 이벤트가 이어서 발생하므로 여기서는 기본 동작만 방해하지 않습니다.
+    btn.style.pointerEvents='auto';
+  }, {passive:true, capture:true});
+})();
