@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V261 promotion label loaded');
 console.info('[DalTownMap App] V260 mobile event route fix loaded');
 console.info('[DalTownMap App] V258 winner image companion loaded');
 console.info('[DalTownMap App] V257 raffle mode companion loaded');
@@ -10103,7 +10104,7 @@ function v245EnsureEventPage(){
   page.innerHTML=`
     <section class="card section-card v245-event-page">
       <div class="section-head compact-head">
-        <h3 class="section-title">이벤트</h3>
+        <h3 class="section-title">프로모션</h3>
         <button type="button" class="text-link" onclick="showPage('home')">홈으로</button>
       </div>
       <div id="v245EventList" class="v245-event-list"></div>
@@ -10120,7 +10121,7 @@ function renderV245EventList(){
   if(!box) return;
   const rows=v245EventCoupons();
   if(!rows.length){
-    box.innerHTML='<div class="board-empty">현재 진행 중인 이벤트가 없습니다.</div>';
+    box.innerHTML='<div class="board-empty">현재 진행 중인 프로모션이 없습니다.</div>';
     return;
   }
   box.innerHTML=rows.map(c=>{
