@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V265 secure smart flyer admin loaded');
 console.info('[DalTownMap Admin] V264 smart flyer admin fix loaded');
 console.info('[DalTownMap Admin] V263 release candidate loaded');
 console.info('[DalTownMap Admin] V262 promotion main label fix loaded');
@@ -48,7 +49,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V264';
+    badge.textContent='Admin V265';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -8241,26 +8242,42 @@ async function dtmSmartFlyerList(body={}){
     return await dtmSmartFlyerDirectList(body);
   }
 }
+
+async function v265SmartFlyerAdminCall(action,body={}){
+  if(!supabase) throw new Error('Supabase 연결이 없습니다.');
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session?.access_token) throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
+  const res=await fetch('/.netlify/functions/smart-flyer-admin',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      Authorization:`Bearer ${session.access_token}`
+    },
+    body:JSON.stringify({action,...body})
+  });
+  const text=await res.text();
+  let d={};
+  try{d=text?JSON.parse(text):{};}catch(_){d={error:text};}
+  if(!res.ok||d.ok===false) throw new Error(d.error||`스마트 전단 관리자 서버 오류 (${res.status})`);
+  return d;
+}
+
 async function dtmSmartFlyerSetStatus(body={}){
   try{
-    return await newsroomEdgeCall('set_weekly_flyer_status',body);
-  }catch(error){
-    console.warn('[V226 Smart Flyer] Edge status failed; direct DB fallback',error?.message||error);
-    if(!supabase) throw error;
-    const id=Number(body.id||0);
-    if(!id) throw new Error('전단 ID가 없습니다.');
-    const patch={updated_at:new Date().toISOString()};
-    if(body.status!==undefined) patch.status=body.status;
-    if(body.show_on_home!==undefined) patch.show_on_home=!!body.show_on_home;
-    if(String(body.status||'').toLowerCase()==='archived') patch.show_on_home=false;
-    const {data,error:dbError}=await supabase.from('weekly_flyers').update(patch).eq('id',id).select().maybeSingle();
-    if(dbError) throw dbError;
-    return {ok:true,source:'direct_db_fallback',flyer:data};
+    return await v265SmartFlyerAdminCall('set_status',body);
+  }catch(serverError){
+    console.warn('[V265 Smart Flyer] Netlify admin status failed; trying Edge compatibility',serverError?.message||serverError);
+    try{
+      return await newsroomEdgeCall('set_weekly_flyer_status',body);
+    }catch(edgeError){
+      console.warn('[V265 Smart Flyer] Edge status failed. Browser direct update is blocked by RLS.',edgeError?.message||edgeError);
+      throw new Error(`전단 상태 변경 서버를 확인하세요. ${serverError?.message||edgeError?.message||''}`);
+    }
   }
 }
 async function dtmSmartFlyerDelete(body={}){
   try{
-    const result=await newsroomEdgeCall('delete_weekly_flyer',body);
+    const result=await v265SmartFlyerAdminCall('delete',body);
     try{
       localStorage.setItem('daltownmap_content_changed',String(Date.now()));
       localStorage.removeItem('daltownmap_v38_home');
@@ -8269,35 +8286,13 @@ async function dtmSmartFlyerDelete(body={}){
       bc.close();
     }catch(_){}
     return result;
-  }catch(edgeError){
-    console.warn('[V264 Smart Flyer] Edge delete failed; direct DB fallback',edgeError?.message||edgeError);
-    if(!supabase) throw edgeError;
-    const id=Number(body.id||0);
-    if(!id) throw new Error('전단 ID가 없습니다.');
-
-    const itemDelete=await supabase.from('weekly_flyer_items').delete().eq('flyer_id',id);
-    if(itemDelete.error){
-      throw new Error(`전단 상품 삭제 실패: ${itemDelete.error.message}`);
-    }
-
-    const flyerDelete=await supabase.from('weekly_flyers').delete().eq('id',id).select('id');
-    if(flyerDelete.error){
-      throw new Error(`전단 본문 삭제 실패: ${flyerDelete.error.message}`);
-    }
-
-    if(!Array.isArray(flyerDelete.data) || !flyerDelete.data.length){
-      throw new Error('삭제 권한 또는 RLS 정책 때문에 전단이 삭제되지 않았습니다.');
-    }
-
+  }catch(serverError){
+    console.warn('[V265 Smart Flyer] Netlify admin delete failed; trying Edge compatibility',serverError?.message||serverError);
     try{
-      localStorage.setItem('daltownmap_content_changed',String(Date.now()));
-      localStorage.removeItem('daltownmap_v38_home');
-      const bc=new BroadcastChannel('daltownmap-content');
-      bc.postMessage({type:'weekly_flyer_deleted',flyer_id:id,at:Date.now()});
-      bc.close();
-    }catch(_){}
-
-    return {ok:true,source:'direct_db_fallback',deleted:1};
+      return await newsroomEdgeCall('delete_weekly_flyer',body);
+    }catch(edgeError){
+      throw new Error(`전단 삭제 서버를 확인하세요. ${serverError?.message||edgeError?.message||''}`);
+    }
   }
 }
 async function dtmSmartFlyerUpdateItems(body={}){
@@ -8335,37 +8330,14 @@ async function dtmSmartFlyerUpdateItems(body={}){
 }
 async function dtmSmartFlyerActivate(body={}){
   try{
-    return await newsroomEdgeCall('activate_weekly_flyer',body);
-  }catch(error){
-    console.warn('[V226 Smart Flyer] Edge activate failed; direct DB fallback',error?.message||error);
-    if(!supabase) throw error;
-    const id=Number(body.id||0);
-    if(!id) throw new Error('전단 ID가 없습니다.');
-
-    const {data:flyer,error:flyerError}=await supabase.from('weekly_flyers')
-      .select('id,business_id,region,start_date,end_date,analysis_status')
-      .eq('id',id).maybeSingle();
-    if(flyerError) throw flyerError;
-    if(!flyer) throw new Error('전단을 찾지 못했습니다.');
-
-    const {count,error:countError}=await supabase.from('weekly_flyer_items')
-      .select('id',{count:'exact',head:true}).eq('flyer_id',id);
-    if(countError) throw countError;
-    if(!count) throw new Error('추출된 상품이 없습니다. 상품 검토 후 다시 시도하세요.');
-
-    const today=v188DallasToday();
-    if(flyer.end_date&&String(flyer.end_date)<today) throw new Error('이미 종료된 전단입니다. 종료일을 수정하세요.');
-
-    const old=await supabase.from('weekly_flyers').update({
-      status:'archived',show_on_home:false,updated_at:new Date().toISOString()
-    }).eq('business_id',flyer.business_id).eq('region',flyer.region).eq('status','active').neq('id',id);
-    if(old.error) throw old.error;
-
-    const {data:activated,error:activateError}=await supabase.from('weekly_flyers').update({
-      status:'active',show_on_home:true,updated_at:new Date().toISOString()
-    }).eq('id',id).select().maybeSingle();
-    if(activateError) throw activateError;
-    return {ok:true,source:'direct_db_fallback',flyer:activated,item_count:count};
+    return await v265SmartFlyerAdminCall('activate',body);
+  }catch(serverError){
+    console.warn('[V265 Smart Flyer] Netlify admin activate failed; trying Edge compatibility',serverError?.message||serverError);
+    try{
+      return await newsroomEdgeCall('activate_weekly_flyer',body);
+    }catch(edgeError){
+      throw new Error(`전단 활성화 서버를 확인하세요. ${serverError?.message||edgeError?.message||''}`);
+    }
   }
 }
 window.DTMSmartFlyerCompat={
@@ -12036,4 +12008,20 @@ document.addEventListener('click',function(e){
   document.addEventListener('click',()=>setTimeout(mountV261PromotionNote,80));
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV261PromotionNote,700));
   else setTimeout(mountV261PromotionNote,700);
+})();
+
+(function(){
+  function mountV265SmartFlyerServerNote(){
+    if(document.getElementById('v265SmartFlyerServerNote')) return;
+    const p=document.getElementById('p010Panel');
+    if(!p) return;
+    const n=document.createElement('div');
+    n.id='v265SmartFlyerServerNote';
+    n.style.cssText='margin-top:8px;padding:9px 10px;border-radius:10px;background:#ecfdf5;border:1px solid #a7f3d0;color:#166534;font-size:11px;line-height:1.55;';
+    n.innerHTML='<b>V265 관리자 처리</b> · 비활성화/활성화/삭제는 브라우저에서 직접 DB를 수정하지 않고 관리자 인증이 적용된 서버 함수로 처리합니다. 따라서 weekly_flyers RLS 정책에 막히지 않습니다.';
+    p.appendChild(n);
+  }
+  document.addEventListener('click',()=>setTimeout(mountV265SmartFlyerServerNote,80));
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV265SmartFlyerServerNote,900));
+  else setTimeout(mountV265SmartFlyerServerNote,900);
 })();
