@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V266 smart flyer coordinate companion loaded');
 console.info('[DalTownMap App] V265 companion loaded');
 console.info('[DalTownMap App] V264 companion loaded');
 console.info('[DalTownMap App] V263 PWA install + freshness control loaded');

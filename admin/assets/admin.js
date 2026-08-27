@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V266 P016 coordinate workflow loaded');
 console.info('[DalTownMap Admin] V265 secure smart flyer admin loaded');
 console.info('[DalTownMap Admin] V264 smart flyer admin fix loaded');
 console.info('[DalTownMap Admin] V263 release candidate loaded');
@@ -49,7 +50,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V265';
+    badge.textContent='Admin V266';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -9528,7 +9529,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
         .filter(x=>x.source_box&&Object.keys(x.source_box).length)
         .sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.ai_score)-Number(a.ai_score))
         .slice(0,12);
-      if(!items.length)throw new Error('이 전단에는 상품 위치 좌표가 없습니다. P016 적용 후 새로 AI 분석해야 합니다.');
+      if(!items.length)throw new Error('이 전단에는 상품 위치 좌표가 없습니다. newsroom V67 배포 후 새로 AI 분석하거나 기존 전단 상품 이미지 재분석을 실행하세요.');
 
       const img=await loadImage(flyer.image_url);
       const crops=[];
