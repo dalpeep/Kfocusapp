@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V268 smart flyer low-recognition rescue + fixed title loaded');
 console.info('[DalTownMap Admin] V267 main flyer image server upload loaded');
 console.info('[DalTownMap Admin] V266 P016 coordinate workflow loaded');
 console.info('[DalTownMap Admin] V265 secure smart flyer admin loaded');
@@ -51,7 +52,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V267';
+    badge.textContent='Admin V268';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -8443,7 +8444,7 @@ window.DTMSmartFlyerCompat={
         show_on_home:el(P+'Home').checked
       });
       const flyerId=Number(result?.flyer?.id||0);
-      el(P+'Status').textContent=`1/3 AI 분석 완료: 상품 ${result.item_count||0}개 · 상품 이미지를 만들고 있습니다.`;
+      el(P+'Status').textContent=`1/3 AI 분석 완료: 상품 ${result.item_count||0}개${result.rescue_used?' · 저인식 자동 정밀 재분석 적용':''} · 상품 이미지를 만들고 있습니다.`;
       el(P+'File').value='';
       await load();
 

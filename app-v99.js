@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V268 smart flyer title companion loaded');
 console.info('[DalTownMap App] V267 main flyer dual-image companion loaded');
 console.info('[DalTownMap App] V266 smart flyer coordinate companion loaded');
 console.info('[DalTownMap App] V265 companion loaded');
