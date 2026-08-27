@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V277 business list + bottom navigation restore loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
 console.info('[DalTownMap App] V276 bottom navigation + page render restore loaded');
 console.info('[DalTownMap App] V275 bottom navigation resilient click loaded');
@@ -10870,67 +10871,89 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
 
 
 
-// V272: 하단 기본 내비게이션 클릭 안정화.
-// 일부 홈 레이어가 하단 내비게이션 위에 투명하게 겹치는 경우에도
-// 홈/업소/쿠폰/지도/가이드 버튼이 항상 클릭되도록 보장합니다.
-(function v272FixBottomNavigation(){
+// V277: 하단 내비게이션 + 업소 목록 최종 복구
+// V272~V276에서 추가했던 중복 capture 내비게이션을 제거하고,
+// 기존 showPage 흐름은 유지하면서 업소 목록만 비동기 보정합니다.
+(function v277BottomNavAndBusinessRestore(){
+  console.info('[DalTownMap App] V277 business list + bottom navigation restore loaded');
+
   const style=document.createElement('style');
-  style.id='v272-bottom-nav-fix';
+  style.id='v277-bottom-nav-business-fix';
   style.textContent=`
     .bottom-nav:not(.board-bottom-nav){
       position:fixed!important;
       z-index:90000!important;
       pointer-events:auto!important;
-      isolation:isolate;
     }
     .bottom-nav:not(.board-bottom-nav) .nav-item{
-      position:relative;
-      z-index:1;
       pointer-events:auto!important;
-      touch-action:manipulation;
+      touch-action:manipulation!important;
+    }
+    #page-business.active #businessList{
+      display:block!important;
+      visibility:visible!important;
+      opacity:1!important;
+      position:relative!important;
+      z-index:1!important;
+      min-height:24px;
     }
   `;
   document.head.appendChild(style);
 
-  // V275: 상세 화면 등에서 일반 click listener가 먹지 않는 경우를 위해
-  // capture 단계에서 하단 내비게이션을 먼저 처리합니다.
-  // 중요: preventDefault / stopPropagation / stopImmediatePropagation은 절대 사용하지 않습니다.
-  // 따라서 기존 앱의 [data-nav] 후속 핸들러(식당 자동 선택 등)도 그대로 실행됩니다.
-  const runNav=(target)=>{
-    const btn=target?.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
-    if(!btn) return;
-    const page=String(btn.dataset.nav||'').trim();
-    if(!page) return;
-    try{
-      // V276: 하단 탭으로 들어갈 때 해당 페이지의 콘텐츠를 먼저 확실히 다시 그립니다.
-      // 상세화면에서 돌아왔을 때 업소 목록 DOM이 비어 있는 현상을 방지합니다.
-      if(page==='business'){
-        businessQuickFilter='';
-        try{ renderCategories(); }catch(_){}
-        try{ renderMainBanners(); }catch(_){}
-        try{ renderBusinessList(); }catch(err){ console.warn('[V276 bottom nav] business render failed',err); }
-      }else if(page==='coupon'){
-        try{ renderCoupons(); }catch(err){ console.warn('[V276 bottom nav] coupon render failed',err); }
-      }else if(page==='home'){
-        try{ renderHome(); }catch(err){ console.warn('[V276 bottom nav] home render failed',err); }
-      }else if(page==='guide'){
-        try{ renderGuidePosts(); }catch(err){ console.warn('[V276 bottom nav] guide render failed',err); }
+  let reloadingBusinesses=false;
+  async function ensureBusinessList(){
+    const page=document.getElementById('page-business');
+    const list=document.getElementById('businessList');
+    if(!page||!list) return;
+
+    // 화면 전환 애니메이션 잔여 클래스가 남아도 업소 페이지는 확실히 표시합니다.
+    page.classList.add('active');
+    page.classList.remove('page-animating','slide-in-left','slide-in-right','slide-out-left','slide-out-right','slide-run');
+    list.style.display='block';
+    list.style.visibility='visible';
+    list.style.opacity='1';
+
+    try{ renderCategories(); }catch(e){ console.warn('[V277] renderCategories failed',e); }
+    try{ renderMainBanners(); }catch(e){ console.warn('[V277] renderMainBanners failed',e); }
+    try{ renderBusinessList(); }catch(e){ console.warn('[V277] renderBusinessList failed',e); }
+
+    // 데이터 배열이 아직 비어 있다면 공개 데이터를 한 번 다시 읽고 재렌더링합니다.
+    if((!Array.isArray(businesses)||!businesses.length) && !reloadingBusinesses){
+      reloadingBusinesses=true;
+      try{
+        await loadRealData();
+        renderCategories();
+        renderMainBanners();
+        renderBusinessList();
+      }catch(e){
+        console.warn('[V277] business data reload failed',e);
+      }finally{
+        reloadingBusinesses=false;
       }
-      showPage(page);
-      if(page==='business'){
-        // showPage/기존 리스너가 이어서 실행된 뒤에도 한 번 더 보정합니다.
-        setTimeout(()=>{
-          try{
-            const el=document.getElementById('businessList');
-            if(el && !el.children.length) renderBusinessList();
-          }catch(err){ console.warn('[V276 bottom nav] business retry failed',err); }
-        },80);
-      }
-    }catch(err){ console.warn('[V276 bottom nav] showPage failed',page,err); }
-  };
-  document.addEventListener('click',e=>runNav(e.target),true);
-  document.addEventListener('pointerup',e=>{
+    }
+
+    // 어떠한 경우에도 완전히 빈 화면으로 남기지 않습니다.
+    if(!list.innerHTML.trim()){
+      list.innerHTML='<div class="board-empty">업소 목록을 불러오고 있습니다. 잠시 후 다시 눌러 주세요.</div>';
+    }
+    console.info('[V277 business page]',{count:Array.isArray(businesses)?businesses.length:0,html:list.children.length});
+  }
+
+  // 기존 bindEvents의 nav click을 방해하지 않고, 클릭 완료 후 업소 화면만 보정합니다.
+  document.addEventListener('click',e=>{
     const btn=e.target?.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
-    if(btn) btn.style.pointerEvents='auto';
-  },true);
-})();
+    if(!btn) return;
+    const page=String(btn.dataset.nav||'');
+    if(page==='business') setTimeout(()=>ensureBusinessList(),30);
+  },false);
+
+  // 해시/뒤로가기 등으로 업소 페이지에 진입하는 경우도 보정합니다.
+  const observer=new MutationObserver(()=>{
+    const page=document.getElementById('page-business');
+    if(page?.classList.contains('active')) setTimeout(()=>ensureBusinessList(),20);
+  });
+  const page=document.getElementById('page-business');
+  if(page) observer.observe(page,{attributes:true,attributeFilter:['class']});
+
+  window.V277EnsureBusinessList=ensureBusinessList;
+})();;
