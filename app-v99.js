@@ -1,5 +1,5 @@
 console.info('[DalTownMap App] V271 recommended theme links loaded');
-console.info('[DalTownMap App] V272 bottom navigation click fix loaded');
+console.info('[DalTownMap App] V273 business detail restore loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
 console.info('[DalTownMap App] V268 smart flyer title companion loaded');
@@ -6890,6 +6890,24 @@ function boardBottomList(){
 function showPage(page, opts={}){
   const prevPage = currentPage;
   currentPage = page;
+
+  // V273: 업소 상세 화면으로 이동할 때 상세 DOM이 비어 있으면 즉시 복원합니다.
+  // 공개 경로(/business/:id), 카드 클릭, 배너/추천 링크 등 모든 진입점을 보호합니다.
+  if(page==='business-detail' && selectedBizId){
+    try{
+      const target=getBiz(selectedBizId) || (businesses||[]).find(v=>String(v.id)===String(selectedBizId));
+      if(target && detailCard){
+        const hasDetail=detailCard.querySelector?.('.biz-detail-v2');
+        if(!hasDetail) renderDetail(selectedBizId);
+      }
+    }catch(err){ console.warn('[V273 detail restore] immediate render failed',err); }
+    [80,250,600].forEach(delay=>setTimeout(()=>{
+      try{
+        if(currentPage!=='business-detail' || !selectedBizId || !detailCard) return;
+        if(!detailCard.querySelector?.('.biz-detail-v2')) renderDetail(selectedBizId);
+      }catch(err){ console.warn('[V273 detail restore] retry failed',delay,err); }
+    },delay));
+  }
   if (typeof setMapPageMode === 'function') {
   setMapPageMode(page === 'map');
 }
@@ -7873,7 +7891,7 @@ function bindEvents(){
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
   communityTabs?.addEventListener('click', async e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; const type=btn.dataset.board || 'notice'; renderHomeBoardSection(type); await refreshBoardPostsSilently({force:true}); renderHomeBoardSection(type); });
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
-  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
+  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; const bizId=String(card.dataset.biz||'').trim(); if(!bizId) return; selectedBizId=bizId; v230PrepareBusinessDetail?.(bizId,'business_list','business_click'); renderDetail(bizId); lastBasePage = currentPage;
   showPage('business-detail'); });
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-home-biz-tab]');
