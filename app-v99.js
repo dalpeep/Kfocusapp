@@ -1,9 +1,5 @@
-console.info('[DalTownMap App] V277 business list + bottom navigation restore loaded');
+console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
-console.info('[DalTownMap App] V276 bottom navigation + page render restore loaded');
-console.info('[DalTownMap App] V275 bottom navigation resilient click loaded');
-console.info('[DalTownMap App] V274 bottom navigation propagation restore loaded');
-console.info('[DalTownMap App] V273 business detail restore loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
 console.info('[DalTownMap App] V268 smart flyer title companion loaded');
@@ -4565,6 +4561,15 @@ function getBusinessPageThemes(){
 }
 function getBusinessPageTheme(){ return getBusinessPageThemes()[0] || null; }
 let businessThemeCarouselTimer = null;
+// V278: 추천 테마 CTA는 렌더 함수보다 먼저 정의해 초기 렌더 시 ReferenceError를 방지합니다.
+function v278ThemeCtaHTML(theme,cls='business-theme-cta'){
+  const raw=String(theme?.link_url||'').trim();
+  if(!raw) return '';
+  const lower=raw.toLowerCase();
+  const label=(lower==='internal:business-register'||lower==='#business-register')?'업소 등록':
+    (lower==='internal:advertise'||lower==='#advertise')?'광고 문의':'바로가기';
+  return `<span class="${cls}" role="button" tabindex="0" data-theme-link="${esc(theme.id)}">${esc(label)} →</span>`;
+}
 function renderBusinessThemeSpot(){
   const spot = document.getElementById('businessThemeSpot');
   if (!spot) return;
@@ -4579,7 +4584,7 @@ function renderBusinessThemeSpot(){
         const short=summary.length>92?summary.slice(0,92).trim()+'…':summary;
         return `<div class="business-theme-slide"><button type="button" class="business-main-theme-card" data-theme-id="${esc(theme.id)}">
           <div class="business-main-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
-          <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}${v271ThemeCtaHTML(theme,'business-main-theme-cta')}</div>
+          <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}${v278ThemeCtaHTML(theme,'business-main-theme-cta')}</div>
         </button></div>`;
       }).join('')}
     </div></div>
@@ -5143,7 +5148,7 @@ function renderBusinessThemeCard(theme){
   const short=summary.length>105?summary.slice(0,105).trim()+'…':summary;
   return `<button type="button" class="business-theme-card" data-theme-id="${esc(theme.id)}" aria-label="추천 테마 기사 열기">
     <div class="business-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
-    <div class="business-theme-copy"><div class="business-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}${v271ThemeCtaHTML(theme)}</div>
+    <div class="business-theme-copy"><div class="business-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}${v278ThemeCtaHTML(theme)}</div>
   </button>`;
 }
 function openThemeArticle(theme){
@@ -6894,24 +6899,6 @@ function boardBottomList(){
 function showPage(page, opts={}){
   const prevPage = currentPage;
   currentPage = page;
-
-  // V273: 업소 상세 화면으로 이동할 때 상세 DOM이 비어 있으면 즉시 복원합니다.
-  // 공개 경로(/business/:id), 카드 클릭, 배너/추천 링크 등 모든 진입점을 보호합니다.
-  if(page==='business-detail' && selectedBizId){
-    try{
-      const target=getBiz(selectedBizId) || (businesses||[]).find(v=>String(v.id)===String(selectedBizId));
-      if(target && detailCard){
-        const hasDetail=detailCard.querySelector?.('.biz-detail-v2');
-        if(!hasDetail) renderDetail(selectedBizId);
-      }
-    }catch(err){ console.warn('[V273 detail restore] immediate render failed',err); }
-    [80,250,600].forEach(delay=>setTimeout(()=>{
-      try{
-        if(currentPage!=='business-detail' || !selectedBizId || !detailCard) return;
-        if(!detailCard.querySelector?.('.biz-detail-v2')) renderDetail(selectedBizId);
-      }catch(err){ console.warn('[V273 detail restore] retry failed',delay,err); }
-    },delay));
-  }
   if (typeof setMapPageMode === 'function') {
   setMapPageMode(page === 'map');
 }
@@ -7895,7 +7882,7 @@ function bindEvents(){
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
   communityTabs?.addEventListener('click', async e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; const type=btn.dataset.board || 'notice'; renderHomeBoardSection(type); await refreshBoardPostsSilently({force:true}); renderHomeBoardSection(type); });
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
-  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; const bizId=String(card.dataset.biz||'').trim(); if(!bizId) return; selectedBizId=bizId; v230PrepareBusinessDetail?.(bizId,'business_list','business_click'); renderDetail(bizId); lastBasePage = currentPage;
+  document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-home-biz-tab]');
@@ -10871,89 +10858,34 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
 
 
 
-// V277: 하단 내비게이션 + 업소 목록 최종 복구
-// V272~V276에서 추가했던 중복 capture 내비게이션을 제거하고,
-// 기존 showPage 흐름은 유지하면서 업소 목록만 비동기 보정합니다.
-(function v277BottomNavAndBusinessRestore(){
-  console.info('[DalTownMap App] V277 business list + bottom navigation restore loaded');
-
-  const style=document.createElement('style');
-  style.id='v277-bottom-nav-business-fix';
-  style.textContent=`
-    .bottom-nav:not(.board-bottom-nav){
-      position:fixed!important;
-      z-index:90000!important;
-      pointer-events:auto!important;
-    }
-    .bottom-nav:not(.board-bottom-nav) .nav-item{
-      pointer-events:auto!important;
-      touch-action:manipulation!important;
-    }
-    #page-business.active #businessList{
-      display:block!important;
-      visibility:visible!important;
-      opacity:1!important;
-      position:relative!important;
-      z-index:1!important;
-      min-height:24px;
-    }
-  `;
-  document.head.appendChild(style);
-
-  let reloadingBusinesses=false;
-  async function ensureBusinessList(){
-    const page=document.getElementById('page-business');
-    const list=document.getElementById('businessList');
-    if(!page||!list) return;
-
-    // 화면 전환 애니메이션 잔여 클래스가 남아도 업소 페이지는 확실히 표시합니다.
-    page.classList.add('active');
-    page.classList.remove('page-animating','slide-in-left','slide-in-right','slide-out-left','slide-out-right','slide-run');
-    list.style.display='block';
-    list.style.visibility='visible';
-    list.style.opacity='1';
-
-    try{ renderCategories(); }catch(e){ console.warn('[V277] renderCategories failed',e); }
-    try{ renderMainBanners(); }catch(e){ console.warn('[V277] renderMainBanners failed',e); }
-    try{ renderBusinessList(); }catch(e){ console.warn('[V277] renderBusinessList failed',e); }
-
-    // 데이터 배열이 아직 비어 있다면 공개 데이터를 한 번 다시 읽고 재렌더링합니다.
-    if((!Array.isArray(businesses)||!businesses.length) && !reloadingBusinesses){
-      reloadingBusinesses=true;
-      try{
-        await loadRealData();
-        renderCategories();
-        renderMainBanners();
-        renderBusinessList();
-      }catch(e){
-        console.warn('[V277] business data reload failed',e);
-      }finally{
-        reloadingBusinesses=false;
-      }
-    }
-
-    // 어떠한 경우에도 완전히 빈 화면으로 남기지 않습니다.
-    if(!list.innerHTML.trim()){
-      list.innerHTML='<div class="board-empty">업소 목록을 불러오고 있습니다. 잠시 후 다시 눌러 주세요.</div>';
-    }
-    console.info('[V277 business page]',{count:Array.isArray(businesses)?businesses.length:0,html:list.children.length});
+// V278: 하단 내비게이션을 앱 내부 stacking context 밖으로 이동합니다.
+// 클릭 이벤트를 가로채거나 재호출하지 않고, 기존 bindEvents/showPage 흐름을 그대로 사용합니다.
+(function v278BottomNavStructuralFix(){
+  function apply(){
+    const normal=document.querySelector('.bottom-nav:not(.board-bottom-nav)');
+    const board=document.querySelector('.board-bottom-nav');
+    [normal,board].forEach(nav=>{
+      if(!nav) return;
+      if(nav.parentElement!==document.body) document.body.appendChild(nav);
+      nav.style.position='fixed';
+      nav.style.left='50%';
+      nav.style.right='auto';
+      nav.style.bottom='0';
+      nav.style.transform='translateX(-50%)';
+      nav.style.zIndex='2147483000';
+      nav.style.pointerEvents='auto';
+      nav.style.width='min(100%, 430px)';
+      nav.style.maxWidth='430px';
+      nav.style.boxSizing='border-box';
+    });
+    document.querySelectorAll('.bottom-nav .nav-item, .bottom-nav .board-bottom-item').forEach(btn=>{
+      btn.style.pointerEvents='auto';
+      btn.style.touchAction='manipulation';
+      btn.style.position='relative';
+      btn.style.zIndex='1';
+    });
+    console.info('[V278 bottom nav]',{normalParent:normal?.parentElement?.tagName,boardParent:board?.parentElement?.tagName});
   }
-
-  // 기존 bindEvents의 nav click을 방해하지 않고, 클릭 완료 후 업소 화면만 보정합니다.
-  document.addEventListener('click',e=>{
-    const btn=e.target?.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
-    if(!btn) return;
-    const page=String(btn.dataset.nav||'');
-    if(page==='business') setTimeout(()=>ensureBusinessList(),30);
-  },false);
-
-  // 해시/뒤로가기 등으로 업소 페이지에 진입하는 경우도 보정합니다.
-  const observer=new MutationObserver(()=>{
-    const page=document.getElementById('page-business');
-    if(page?.classList.contains('active')) setTimeout(()=>ensureBusinessList(),20);
-  });
-  const page=document.getElementById('page-business');
-  if(page) observer.observe(page,{attributes:true,attributeFilter:['class']});
-
-  window.V277EnsureBusinessList=ensureBusinessList;
-})();;
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',apply,{once:true});
+  else apply();
+})();
