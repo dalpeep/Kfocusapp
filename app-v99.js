@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
 console.info('[DalTownMap App] V268 smart flyer title companion loaded');
 console.info('[DalTownMap App] V267 main flyer dual-image companion loaded');
@@ -4701,6 +4702,63 @@ function bannerMatchesCurrentHomeCategory(banner){
   return categories.includes(selected);
 }
 
+function v270OpenInternalBannerPage(raw=''){
+  const value=String(raw||'').trim().toLowerCase();
+  const map={
+    'internal:business-register':'business-register',
+    '#business-register':'business-register',
+    'internal:advertise':'advertise',
+    '#advertise':'advertise'
+  };
+  const page=map[value];
+  if(!page) return false;
+  lastBasePage=currentPage;
+  showPage(page);
+  return true;
+}
+function v270OpenBannerLink(banner){
+  if(!banner) return false;
+  const raw=String(banner.link_url||banner.external_url||'').trim();
+  if(v270OpenInternalBannerPage(raw)) return true;
+  const match=raw.match(/^(business|post|dalpick|coupon):(.+)$/i);
+  if(match){
+    const type=match[1].toLowerCase();
+    const target=match[2];
+    if(type==='business'){
+      selectedBizId=target; currentDetailVideoOverride='';
+      if(typeof v230PrepareBusinessDetail==='function') v230PrepareBusinessDetail(target,'home_banner','banner_click',banner.id||'');
+      renderDetail(target); showPage('business-detail'); return true;
+    }
+    if(type==='post'){ openBoardPost(target); return true; }
+    if(type==='coupon'){ renderCouponDetail(target); lastBasePage=currentPage; showPage('coupon-detail'); return true; }
+    if(type==='dalpick'){
+      const item=(dalpicks||[]).find(x=>String(x.id)===String(target));
+      if(!item){ alert('연결된 DalPick을 찾을 수 없습니다.'); return true; }
+      if(String(item.category||'').toLowerCase()==='business_story') openBoardPost(`dalpick-story-${item.id}`);
+      else if(isThemeDalpick(item)) openThemeArticle(item);
+      else if(item.business_id){ selectedBizId=item.business_id; renderDetail(item.business_id); showPage('business-detail'); }
+      else if(item.content||item.summary) openDalpickArticle(item);
+      return true;
+    }
+  }
+  if(/^tel:/i.test(raw)){ window.location.href=raw; return true; }
+  if(raw){ window.open(normalizeUrl(raw),'_blank','noopener'); return true; }
+  if(openMultiBusinessBanner(banner)) return true;
+  return false;
+}
+function ensureV270MainBannerCtaStyle(){
+  if(document.getElementById('v270MainBannerCtaStyle')) return;
+  const style=document.createElement('style');
+  style.id='v270MainBannerCtaStyle';
+  style.textContent=`
+    .main-banner-card{position:relative;overflow:hidden}
+    .main-banner-cta{position:absolute;left:16px;bottom:16px;z-index:5;display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 16px;border-radius:999px;background:rgba(15,23,42,.88);color:#fff;font-weight:800;font-size:14px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.2);pointer-events:none}
+    @media (max-width:768px){.main-banner-cta{left:12px;bottom:12px;min-height:36px;padding:8px 13px;font-size:13px}}
+  `;
+  document.head.appendChild(style);
+}
+ensureV270MainBannerCtaStyle();
+
 function renderMainBanners(){
   const box = document.getElementById('mainBanners');
   if(!box) return;
@@ -4736,15 +4794,13 @@ function renderMainBanners(){
   box.style.removeProperty('min-height');
   box.innerHTML=`<div class="main-banner-carousel ${rows.length===1?'is-single':''}">
     <div class="main-banner-viewport"><div class="main-banner-track">
-      ${rows.map(b=>`<div class="main-banner-slide"><div class="main-banner-card" role="button" tabindex="0" data-banner-id="${esc(b.id)}">${bannerMediaHTML(b,'main-banner-media')}</div></div>`).join('')}
+      ${rows.map(b=>`<div class="main-banner-slide"><div class="main-banner-card" role="button" tabindex="0" data-banner-id="${esc(b.id)}">${bannerMediaHTML(b,'main-banner-media')}${String(b.button_label||'').trim()?`<span class="main-banner-cta">${esc(b.button_label)} →</span>`:''}</div></div>`).join('')}
     </div></div>
     ${rows.length>1?`<div class="main-banner-dots">${rows.map((_,i)=>`<button type="button" class="main-banner-dot ${i===0?'active':''}" data-index="${i}" aria-label="배너 ${i+1}"></button>`).join('')}</div>`:''}
   </div>`;
   const openBanner=(banner)=>{
     if(!banner)return;
-    const url=banner.link_url||banner.external_url;
-    if(url){ window.open(normalizeUrl(url),'_blank','noopener'); return; }
-    if(openMultiBusinessBanner(banner)) return;
+    v270OpenBannerLink(banner);
   };
   box.querySelectorAll('[data-banner-media-image]').forEach(img=>{
     img.addEventListener('error',()=>{
@@ -5428,27 +5484,7 @@ detailCard.querySelectorAll('[data-business-promo]').forEach(btn => {
     const promo = businessPromotions.find(row => String(row.id) === String(btn.dataset.businessPromo));
     if (!promo) return;
     logBusinessActivity(b.id,'banner_click',{source:'business_detail',content_id:String(promo.id||'')});
-    const raw = String(promo.link_url || '').trim();
-    const match = raw.match(/^(business|post|dalpick|coupon):(.+)$/i);
-    if (match) {
-      const type = match[1].toLowerCase();
-      const target = match[2];
-      if (type === 'business') { selectedBizId = target; renderDetail(target); showPage('business-detail'); return; }
-      if (type === 'post') { openBoardPost(target); return; }
-      if (type === 'coupon') { renderCouponDetail(target); lastBasePage = currentPage; showPage('coupon-detail'); return; }
-      if (type === 'dalpick') {
-        const item = (dalpicks || []).find(x => String(x.id) === String(target));
-        if (!item) return alert('연결된 DalPick을 찾을 수 없습니다.');
-        if (String(item.category || '').toLowerCase() === 'business_story') openBoardPost(`dalpick-story-${item.id}`);
-        else if (isThemeDalpick(item)) openThemeArticle(item);
-        else if (item.business_id) { selectedBizId=item.business_id; renderDetail(item.business_id); showPage('business-detail'); }
-        else if (item.content) alert(`${item.title || 'DalPick'}\n\n${item.content}`);
-        return;
-      }
-    }
-    if (/^tel:/i.test(raw)) { window.location.href = raw; return; }
-    if (raw) { window.open(normalizeUrl(raw), '_blank', 'noopener'); return; }
-    if (openMultiBusinessBanner(promo)) return;
+    v270OpenBannerLink(promo);
 
   });
 });
