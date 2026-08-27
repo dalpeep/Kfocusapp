@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V263 PWA install + freshness control loaded');
 console.info('[DalTownMap App] V262 promotion main label fix loaded');
 console.info('[DalTownMap App] V261 promotion label loaded');
 console.info('[DalTownMap App] V260 mobile event route fix loaded');
@@ -10522,3 +10523,202 @@ if(document.readyState==='loading'){
     e.stopImmediatePropagation();
   },true);
 })();
+
+
+// ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
+const DTM_BUILD_VERSION='263';
+const DTM_INSTALL_NAG_DAYS=7;
+let dtmDeferredInstallPrompt=null;
+
+function dtmIsStandalone(){
+  return window.matchMedia?.('(display-mode: standalone)')?.matches === true ||
+    window.navigator.standalone === true;
+}
+function dtmUA(){
+  return String(navigator.userAgent||'');
+}
+function dtmDeviceContext(){
+  const ua=dtmUA();
+  const ios=/iPhone|iPad|iPod/i.test(ua);
+  const android=/Android/i.test(ua);
+  const googleApp=ios && (/\bGSA\//i.test(ua) || /GoogleApp/i.test(ua));
+  const crios=ios && /\bCriOS\//i.test(ua);
+  const fxios=ios && /\bFxiOS\//i.test(ua);
+  const safari=ios && /Safari/i.test(ua) && !crios && !fxios && !googleApp;
+  return {ios,android,googleApp,crios,fxios,safari,standalone:dtmIsStandalone()};
+}
+function dtmInstallDismissedRecently(){
+  try{
+    const t=Number(localStorage.getItem('dtm_install_hint_dismissed_at')||0);
+    return t && (Date.now()-t)<DTM_INSTALL_NAG_DAYS*86400000;
+  }catch(_){return false;}
+}
+function dtmRememberInstallDismiss(){
+  try{localStorage.setItem('dtm_install_hint_dismissed_at',String(Date.now()));}catch(_){}
+}
+function dtmRemoveInstallGuide(remember=true){
+  document.getElementById('dtmInstallGuide')?.remove();
+  if(remember) dtmRememberInstallDismiss();
+}
+function dtmInstallGuideMarkup(ctx){
+  let title='DalTownMap을 앱처럼 사용하세요';
+  let desc='홈 화면에 추가하면 검색 없이 바로 열 수 있습니다.';
+  let steps='';
+  let action='';
+
+  if(ctx.googleApp){
+    title='Safari에서 열어 홈 화면에 추가하세요';
+    desc='Google 앱 안에서는 iPhone 홈 화면 설치가 제한됩니다.';
+    steps=`<ol>
+      <li>Google 앱의 <b>⋯ 메뉴</b>를 누르세요.</li>
+      <li><b>Safari에서 열기</b>를 선택하세요.</li>
+      <li>Safari의 <b>공유</b> 버튼 → <b>홈 화면에 추가</b>를 누르세요.</li>
+    </ol>`;
+    action='<button type="button" class="dtm-install-primary" data-dtm-install-help="google">방법 확인</button>';
+  }else if(ctx.safari){
+    title='DalTownMap을 홈 화면에 추가하세요';
+    desc='Safari에서는 앱처럼 홈 화면에서 바로 실행할 수 있습니다.';
+    steps=`<ol>
+      <li>화면 아래의 <b>공유</b> 버튼을 누르세요.</li>
+      <li><b>홈 화면에 추가</b>를 선택하세요.</li>
+      <li>오른쪽 위 <b>추가</b>를 누르세요.</li>
+    </ol>`;
+    action='<button type="button" class="dtm-install-primary" data-dtm-install-help="ios">추가 방법 보기</button>';
+  }else if(ctx.crios){
+    title='DalTownMap을 홈 화면에 추가하세요';
+    desc='Chrome의 공유 메뉴에서 홈 화면 바로가기를 만들 수 있습니다.';
+    steps=`<ol>
+      <li>Chrome의 <b>공유</b> 버튼을 누르세요.</li>
+      <li><b>홈 화면에 추가</b>를 선택하세요.</li>
+      <li><b>추가</b>를 눌러 완료하세요.</li>
+    </ol>`;
+    action='<button type="button" class="dtm-install-primary" data-dtm-install-help="ios">추가 방법 보기</button>';
+  }else if(ctx.android){
+    title='DalTownMap 앱을 설치하세요';
+    desc='홈 화면에서 앱처럼 빠르게 실행할 수 있습니다.';
+    action=dtmDeferredInstallPrompt
+      ? '<button type="button" class="dtm-install-primary" id="dtmAndroidInstallBtn">앱 설치</button>'
+      : '<button type="button" class="dtm-install-primary" data-dtm-install-help="android">설치 방법 보기</button>';
+    steps=`<ol><li>브라우저 메뉴에서 <b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 선택할 수도 있습니다.</li></ol>`;
+  }
+
+  return {title,desc,steps,action};
+}
+function dtmShowInstallGuide(force=false){
+  const ctx=dtmDeviceContext();
+  if(ctx.standalone) return;
+  if(!ctx.ios && !ctx.android) return;
+  if(!force && dtmInstallDismissedRecently()) return;
+  if(document.getElementById('dtmInstallGuide')) return;
+
+  const copy=dtmInstallGuideMarkup(ctx);
+  const el=document.createElement('aside');
+  el.id='dtmInstallGuide';
+  el.className='dtm-install-guide';
+  el.innerHTML=`
+    <button type="button" class="dtm-install-x" aria-label="닫기">×</button>
+    <div class="dtm-install-icon">📲</div>
+    <div class="dtm-install-text">
+      <strong>${copy.title}</strong>
+      <span>${copy.desc}</span>
+      <div class="dtm-install-steps" hidden>${copy.steps}</div>
+      <div class="dtm-install-actions">${copy.action}<button type="button" class="dtm-install-later">나중에</button></div>
+    </div>`;
+  document.body.appendChild(el);
+
+  el.querySelector('.dtm-install-x')?.addEventListener('click',()=>dtmRemoveInstallGuide(true));
+  el.querySelector('.dtm-install-later')?.addEventListener('click',()=>dtmRemoveInstallGuide(true));
+  el.querySelector('[data-dtm-install-help]')?.addEventListener('click',()=>{
+    const steps=el.querySelector('.dtm-install-steps');
+    if(steps) steps.hidden=!steps.hidden;
+  });
+  el.querySelector('#dtmAndroidInstallBtn')?.addEventListener('click',async()=>{
+    if(!dtmDeferredInstallPrompt) return;
+    dtmDeferredInstallPrompt.prompt();
+    try{
+      const choice=await dtmDeferredInstallPrompt.userChoice;
+      if(choice?.outcome==='accepted') dtmRemoveInstallGuide(false);
+    }catch(_){}
+    dtmDeferredInstallPrompt=null;
+  });
+}
+window.dtmShowInstallGuide=dtmShowInstallGuide;
+
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  dtmDeferredInstallPrompt=e;
+  if(dtmDeviceContext().android && !dtmInstallDismissedRecently()){
+    setTimeout(()=>dtmShowInstallGuide(false),1200);
+  }
+});
+window.addEventListener('appinstalled',()=>{
+  dtmDeferredInstallPrompt=null;
+  dtmRemoveInstallGuide(false);
+  try{localStorage.setItem('dtm_pwa_installed','1');}catch(_){}
+});
+
+// 8초 후 설치 안내. 홈화면 실행 중에는 절대 표시하지 않음.
+setTimeout(()=>dtmShowInstallGuide(false),8000);
+
+// 홈화면(PWA)에서 오래된 index/app을 계속 쓰는 문제 보완.
+// 서버의 최신 index를 no-store로 확인하고 build version이 다르면 1회 강제 새로고침.
+let dtmVersionCheckBusy=false;
+async function dtmCheckForFreshBuild(){
+  if(dtmVersionCheckBusy) return;
+  dtmVersionCheckBusy=true;
+  try{
+    const url=`/?__dtm_build_check=${Date.now()}`;
+    const r=await fetch(url,{cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+    if(!r.ok) return;
+    const html=await r.text();
+    const m=html.match(/name=["']daltownmap-version["']\s+content=["']([^"']+)["']/i) ||
+            html.match(/content=["']([^"']+)["']\s+name=["']daltownmap-version["']/i);
+    const remote=String(m?.[1]||'');
+    if(!remote) return;
+    const local=String(document.querySelector('meta[name="daltownmap-version"]')?.content||'');
+    if(remote!==local){
+      const guard=`${remote}:${location.pathname}`;
+      const last=sessionStorage.getItem('dtm_reload_guard');
+      if(last!==guard){
+        sessionStorage.setItem('dtm_reload_guard',guard);
+        const u=new URL(location.href);
+        u.searchParams.set('__dtm_update',Date.now().toString());
+        location.replace(u.toString());
+      }
+    }
+  }catch(e){
+    console.warn('[V263 build check]',e);
+  }finally{
+    dtmVersionCheckBusy=false;
+  }
+}
+window.dtmCheckForFreshBuild=dtmCheckForFreshBuild;
+
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') setTimeout(dtmCheckForFreshBuild,250);
+});
+window.addEventListener('pageshow',()=>setTimeout(dtmCheckForFreshBuild,600));
+if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
+
+// 설치 안내 스타일
+(function(){
+  if(document.getElementById('dtmInstallGuideStyle')) return;
+  const s=document.createElement('style');
+  s.id='dtmInstallGuideStyle';
+  s.textContent=`
+  .dtm-install-guide{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:2147482000;max-width:520px;margin:auto;background:#fff;border:1px solid #dbe5f1;border-radius:18px;padding:14px 42px 14px 13px;box-shadow:0 16px 46px rgba(15,23,42,.22);display:flex;gap:11px;align-items:flex-start}
+  .dtm-install-icon{width:38px;height:38px;border-radius:11px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:21px;flex:0 0 auto}
+  .dtm-install-text{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}
+  .dtm-install-text strong{font-size:14px;color:#0f172a;line-height:1.35}
+  .dtm-install-text>span{font-size:11px;color:#64748b;line-height:1.45}
+  .dtm-install-x{position:absolute;right:9px;top:8px;border:0;background:transparent;font-size:22px;color:#94a3b8;cursor:pointer}
+  .dtm-install-actions{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}
+  .dtm-install-primary,.dtm-install-later{border:0;border-radius:10px;padding:8px 11px;font-size:11px;font-weight:900;cursor:pointer}
+  .dtm-install-primary{background:#2563eb;color:#fff}.dtm-install-later{background:#f1f5f9;color:#475569}
+  .dtm-install-steps{margin-top:6px;padding:9px 10px;background:#f8fafc;border-radius:10px;color:#334155;font-size:11px;line-height:1.55}
+  .dtm-install-steps ol{margin:0;padding-left:18px}.dtm-install-steps li+li{margin-top:3px}
+  @media(min-width:760px){.dtm-install-guide{left:auto;right:22px;width:440px;bottom:22px}}
+  `;
+  document.head.appendChild(s);
+})();
+

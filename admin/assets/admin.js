@@ -1,3 +1,7 @@
+console.info('[DalTownMap Admin] V263 release candidate loaded');
+console.info('[DalTownMap Admin] V262 promotion main label fix loaded');
+console.info('[DalTownMap Admin] V261 promotion label loaded');
+console.info('[DalTownMap Admin] V260 mobile event route fix loaded');
 console.info('[DalTownMap Admin] V259 email image upload loaded');
 console.info('[DalTownMap Admin] V257 raffle mode selector loaded');
 console.info('[DalTownMap Admin] V256 ended event/coupon badge hide loaded');
@@ -43,7 +47,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V259';
+    badge.textContent='Admin V263';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -11690,7 +11694,7 @@ loadCouponRedemptions=async function(){
     const n=document.createElement('div');
     n.id='v245EventAdminNote';
     n.style.cssText='margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:12px;line-height:1.55;';
-    n.innerHTML='<b>이벤트 연결</b> · 발급 방식을 <b>이메일 응모·추첨</b>으로 설정한 활성 쿠폰은 메인 <b>이벤트</b> 숫자와 이벤트 목록에 자동 포함됩니다.';
+    n.innerHTML='<b>이벤트 연결</b> · 발급 방식을 <b>이메일 응모·추첨</b>으로 설정한 활성 쿠폰은 메인 <b>이벤트</b> 숫자와 프로모션 목록에 자동 포함됩니다.';
     box.appendChild(n);
   }
   document.addEventListener('click',()=>setTimeout(mountV245EventAdminNote,80));
@@ -11971,3 +11975,21 @@ document.addEventListener('click',function(e){
   if(id==='couponEmailImageClearBtn'){e.preventDefault();clearCouponMailImage('email');}
   if(id==='couponWinnerEmailImageClearBtn'){e.preventDefault();clearCouponMailImage('winner');}
 });
+
+(function(){
+  function mountV261PromotionNote(){
+    if(document.getElementById('v261PromotionNote')) return;
+    const box=document.getElementById('couponCampaignAdminBox');
+    if(!box) return;
+    const n=document.createElement('div');
+    n.id='v261PromotionNote';
+    n.className='coupon-raffle-only';
+    n.style.cssText='margin-top:10px;padding:11px 12px;border-radius:12px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:12px;line-height:1.6;';
+    n.innerHTML='<b>메인 표시명 변경</b> · 이메일 응모·추첨형 쿠폰은 사용자 메인에서 <b>프로모션</b>으로 표시됩니다. 기존 <b>행사</b>는 커뮤니티 행사안내 게시판으로 그대로 유지됩니다.';
+    box.appendChild(n);
+    updateCouponCampaignAdminVisibility();
+  }
+  document.addEventListener('click',()=>setTimeout(mountV261PromotionNote,80));
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV261PromotionNote,700));
+  else setTimeout(mountV261PromotionNote,700);
+})();
