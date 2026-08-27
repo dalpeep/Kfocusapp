@@ -1,4 +1,5 @@
 console.info('[DalTownMap App] V271 recommended theme links loaded');
+console.info('[DalTownMap App] V274 bottom navigation propagation restore loaded');
 console.info('[DalTownMap App] V273 business detail restore loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
@@ -10889,21 +10890,8 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   `;
   document.head.appendChild(style);
 
-  // capture 단계에서 먼저 처리하여 다른 레이어/핸들러의 간섭을 막습니다.
-  document.addEventListener('click', function(e){
-    const btn=e.target.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
-    if(!btn) return;
-    const page=String(btn.dataset.nav||'').trim();
-    if(!page) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if(typeof showPage==='function') showPage(page);
-  }, true);
-
-  document.addEventListener('touchend', function(e){
-    const btn=e.target.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
-    if(!btn) return;
-    // click 이벤트가 이어서 발생하므로 여기서는 기본 동작만 방해하지 않습니다.
-    btn.style.pointerEvents='auto';
-  }, {passive:true, capture:true});
+  // V274: 클릭 이벤트 전파는 기존 앱 핸들러에 맡깁니다.
+  // V272의 capture + stopPropagation이 [data-nav] 후속 핸들러를 막아
+  // 업소 탭 진입 시 카테고리 선택/목록 렌더링이 실행되지 않는 문제가 있었습니다.
+  // 겹침 방지는 위 z-index/pointer-events CSS만으로 처리합니다.
 })();
