@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V269 detail banner category targeting loaded');
 console.info('[DalTownMap App] V268 smart flyer title companion loaded');
 console.info('[DalTownMap App] V267 main flyer dual-image companion loaded');
 console.info('[DalTownMap App] V266 smart flyer coordinate companion loaded');
@@ -5124,13 +5125,47 @@ function renderBusinessAiPick(pick) {
 }
 
 
+// V269: 상세 배너 타기팅 규칙
+// 1) 연결 업소가 있으면 해당 업소에만 노출합니다.
+// 2) 연결 업소가 없으면 home_categories를 상세 카테고리 타기팅에도 사용합니다.
+//    예: placement=detail + home_categories=["식당"] => 모든 식당 상세에 노출
+// 3) all/전체는 모든 업소 상세에 노출합니다.
+function bannerMatchesBusinessDetailCategory(row,businessId){
+  const business = getBiz(businessId);
+  if(!business) return false;
+
+  const linkedIds = linkedBusinessIds(row);
+  if(linkedIds.length){
+    return linkedIds.includes(String(businessId));
+  }
+
+  const categories = normalizedBannerHomeCategories(row)
+    .map(v => String(v || '').trim())
+    .filter(Boolean);
+
+  if(!categories.length || categories.includes('all') || categories.includes('전체')){
+    return true;
+  }
+
+  const businessMainCategory = getMainCategoryLabel(
+    business.map_category || business.category_main || business.category || ''
+  );
+
+  return categories.some(category =>
+    getMainCategoryLabel(category) === businessMainCategory ||
+    category === businessMainCategory
+  );
+}
+
 function getBusinessPromotions(businessId){
   const now = Date.now();
   return (mainBanners || []).filter(row => {
-    if (!rowLinksBusiness(row,businessId)) return false;
     if (row.is_active === false) return false;
+    const status = String(row.status || '').toLowerCase();
+    if (status === 'draft' || status === 'inactive') return false;
     const placement = String(row.placement || 'both').toLowerCase();
     if (!['detail','both'].includes(placement)) return false;
+    if (!bannerMatchesBusinessDetailCategory(row,businessId)) return false;
     if (row.start_at && new Date(row.start_at).getTime() > now) return false;
     if (row.end_at && new Date(row.end_at).getTime() < now) return false;
     return true;
