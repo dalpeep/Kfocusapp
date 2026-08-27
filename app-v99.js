@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V262 promotion main label fix loaded');
 console.info('[DalTownMap App] V261 promotion label loaded');
 console.info('[DalTownMap App] V260 mobile event route fix loaded');
 console.info('[DalTownMap App] V258 winner image companion loaded');
@@ -10129,9 +10130,9 @@ function renderV245EventList(){
     const end=c.raffle_end_at||c.end_at||c.endAt||'';
     const winners=Math.max(1,Number(c.winner_count||1));
     return `<button type="button" class="v245-event-item" onclick="renderCouponDetail('${esc(c.id)}');showPage('coupon-detail')">
-      <img src="${esc(img)}" alt="${esc(c.title||'이벤트')}">
+      <img src="${esc(img)}" alt="${esc(c.title||'프로모션')}">
       <span class="v245-event-copy">
-        <b>${esc(c.title||'이벤트')}</b>
+        <b>${esc(c.title||'프로모션')}</b>
         <small>${winners}명 추첨${end?` · ${esc(new Date(end).toLocaleDateString('ko-KR',{timeZone:'America/Chicago'}))} 마감`:''}</small>
       </span>
       <span class="v245-event-arrow">›</span>
@@ -10384,7 +10385,7 @@ function renderV245TodayShortcuts(){
   host.innerHTML=`
     <div class="v245-shortcuts-title">오늘의 달타운맵</div>
     <div class="v245-shortcuts-grid">
-      ${v245Shortcut('🎁','이벤트',eventCount,'v245OpenEvents()')}
+      ${v245Shortcut('🎁','프로모션',eventCount,'v245OpenEvents()')}
       ${v245Shortcut('🎟','쿠폰',couponCount,'v245OpenCoupons()')}
       ${v245Shortcut('🛒','세일',saleCount,'v246OpenSalePage()')}
       ${v245Shortcut('🎉','행사',postCount,'event.stopPropagation();event.preventDefault();v260OpenEventBoard();return false;')}
