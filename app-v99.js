@@ -1,4 +1,5 @@
 console.info('[DalTownMap App] V271 recommended theme links loaded');
+console.info('[DalTownMap App] V276 bottom navigation + page render restore loaded');
 console.info('[DalTownMap App] V275 bottom navigation resilient click loaded');
 console.info('[DalTownMap App] V274 bottom navigation propagation restore loaded');
 console.info('[DalTownMap App] V273 business detail restore loaded');
@@ -10900,7 +10901,32 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
     if(!btn) return;
     const page=String(btn.dataset.nav||'').trim();
     if(!page) return;
-    try{ showPage(page); }catch(err){ console.warn('[V275 bottom nav] showPage failed',page,err); }
+    try{
+      // V276: 하단 탭으로 들어갈 때 해당 페이지의 콘텐츠를 먼저 확실히 다시 그립니다.
+      // 상세화면에서 돌아왔을 때 업소 목록 DOM이 비어 있는 현상을 방지합니다.
+      if(page==='business'){
+        businessQuickFilter='';
+        try{ renderCategories(); }catch(_){}
+        try{ renderMainBanners(); }catch(_){}
+        try{ renderBusinessList(); }catch(err){ console.warn('[V276 bottom nav] business render failed',err); }
+      }else if(page==='coupon'){
+        try{ renderCoupons(); }catch(err){ console.warn('[V276 bottom nav] coupon render failed',err); }
+      }else if(page==='home'){
+        try{ renderHome(); }catch(err){ console.warn('[V276 bottom nav] home render failed',err); }
+      }else if(page==='guide'){
+        try{ renderGuidePosts(); }catch(err){ console.warn('[V276 bottom nav] guide render failed',err); }
+      }
+      showPage(page);
+      if(page==='business'){
+        // showPage/기존 리스너가 이어서 실행된 뒤에도 한 번 더 보정합니다.
+        setTimeout(()=>{
+          try{
+            const el=document.getElementById('businessList');
+            if(el && !el.children.length) renderBusinessList();
+          }catch(err){ console.warn('[V276 bottom nav] business retry failed',err); }
+        },80);
+      }
+    }catch(err){ console.warn('[V276 bottom nav] showPage failed',page,err); }
   };
   document.addEventListener('click',e=>runNav(e.target),true);
   document.addEventListener('pointerup',e=>{
