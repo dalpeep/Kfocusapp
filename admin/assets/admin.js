@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V271 recommended theme links loaded');
 console.info('[DalTownMap Admin] V270 banner inquiry links loaded');
 console.info('[DalTownMap Admin] V268 smart flyer low-recognition rescue + fixed title loaded');
 console.info('[DalTownMap Admin] V267 main flyer image server upload loaded');
@@ -53,7 +54,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V270';
+    badge.textContent='Admin V271';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -3269,6 +3270,67 @@ function renderBusinessMultiPicker(selectId){
   wrap.querySelector('.business-multi-search').addEventListener('input',e=>draw(e.target.value)); draw();
 }
 
+// V271: 추천 테마 전용 연결 링크 UI. 기존 admin HTML을 바꾸지 않고 JS에서 안전하게 추가합니다.
+function v271ParseThemeLink(raw=''){
+  const value=String(raw||'').trim();
+  const lower=value.toLowerCase();
+  if(lower==='internal:business-register'||lower==='#business-register') return {type:'business-register',url:''};
+  if(lower==='internal:advertise'||lower==='#advertise') return {type:'advertise',url:''};
+  if(value) return {type:'external',url:value};
+  return {type:'none',url:''};
+}
+function v271BuildThemeLink(){
+  const type=val('dalpick_theme_link_type')||'none';
+  if(type==='business-register') return 'internal:business-register';
+  if(type==='advertise') return 'internal:advertise';
+  if(type==='external') return val('dalpick_theme_external_url').trim();
+  return '';
+}
+function v271SyncThemeLinkUI(){
+  const type=val('dalpick_theme_link_type')||'none';
+  const external=qs('dalpick_theme_external_url');
+  const help=qs('dalpickThemeLinkHelp');
+  if(external) external.hidden=type!=='external';
+  if(help){
+    help.textContent=type==='business-register'?'추천 테마에 “업소 등록” 버튼을 표시하고 달타운맵 내부 업소 등록 페이지로 연결합니다.':
+      type==='advertise'?'추천 테마에 “광고 문의” 버튼을 표시하고 달타운맵 내부 광고 문의 페이지로 연결합니다.':
+      type==='external'?'추천 테마에 “바로가기” 버튼을 표시하고 입력한 외부 주소를 새 창으로 엽니다.':
+      '추천 테마 카드 자체는 기존처럼 기사로 열리며, 연결 버튼은 표시하지 않습니다.';
+  }
+}
+function ensureV271DalpickThemeLinkUI(){
+  const host=qs('dalpickThemeFields');
+  if(!host || qs('dalpickThemeLinkFields')) return;
+  const wrap=document.createElement('div');
+  wrap.id='dalpickThemeLinkFields';
+  wrap.className='field full';
+  wrap.innerHTML=`
+    <div style="margin-top:12px;padding:14px;border:1px solid #dbe5f4;border-radius:14px;background:#f8fbff">
+      <strong style="display:block;margin-bottom:8px">추천 테마 연결 링크</strong>
+      <div class="form-grid" style="gap:10px">
+        <label class="field"><span>클릭 연결 방식</span>
+          <select id="dalpick_theme_link_type">
+            <option value="none">연결 없음</option>
+            <option value="business-register">업소 등록</option>
+            <option value="advertise">광고 문의</option>
+            <option value="external">외부 링크</option>
+          </select>
+        </label>
+        <label class="field"><span>외부 URL</span><input id="dalpick_theme_external_url" type="url" placeholder="https://example.com" hidden></label>
+        <div id="dalpickThemeLinkHelp" class="muted" style="grid-column:1/-1"></div>
+      </div>
+    </div>`;
+  host.appendChild(wrap);
+  qs('dalpick_theme_link_type')?.addEventListener('change',v271SyncThemeLinkUI);
+  v271SyncThemeLinkUI();
+}
+function v271FillDalpickThemeLink(row={}){
+  ensureV271DalpickThemeLinkUI();
+  const parsed=v271ParseThemeLink(row?.link_url||'');
+  setVal('dalpick_theme_link_type',parsed.type);
+  setVal('dalpick_theme_external_url',parsed.url);
+  v271SyncThemeLinkUI();
+}
 function renderDalpickBusinessOptions(){const el=qs('dalpick_business_id');if(!el)return;const cur=el.value;el.innerHTML='<option value="">연결 안 함</option>'+businesses.map(b=>`<option value="${esc(b.id)}">${esc(b.name_ko||b.name_en||b.id)}</option>`).join('');el.value=cur;if(!el.dataset.businessIds)setMultiBusinessIds('dalpick_business_id',cur?[cur]:[]);renderBusinessMultiPicker('dalpick_business_id');}
 async function loadDalpicks(){if(!supabase)return;const {data,error}=await supabase.from('dalpick').select('*').eq('region',getAppRegion()).order('is_featured',{ascending:false}).order('priority',{ascending:false}).order('created_at',{ascending:false});if(error){console.warn('DalPick load:',error.message);safeText('dalpickCountText','테이블 필요');return;}dalpicks=data||[];window.KFocusAdminBridge=window.KFocusAdminBridge||{};window.KFocusAdminBridge.getDalpicks=()=>[...dalpicks];window.dispatchEvent(new CustomEvent('kfocus:dalpicks-loaded',{detail:[...dalpicks]}));renderDalpickBusinessOptions();renderDalpickList(filterDalpicks());renderDalpickHomeExposure();}
 function filterDalpicks(){const q=val('dalpickSearchInput').trim().toLowerCase(),cat=val('dalpickCategoryFilter')||'all';return dalpicks.filter(d=>{if(cat!=='all'&&d.category!==cat)return false;if(!q)return true;const b=businesses.find(x=>String(x.id)===String(d.business_id));return [d.title,d.summary,d.content,b?.name_ko,b?.name_en].join(' ').toLowerCase().includes(q);});}
@@ -3324,7 +3386,7 @@ function updateDalpickImagePreview(){
   };
   img.src=url;
 }
-function clearDalpickForm(){window.dalpickTopicFirstReady=false;selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_image_instruction','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setMultiBusinessIds('dalpick_business_id',[]);setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_is_active',true);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_auto_image',true);document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=false);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();updateDalpickImagePreview();renderDalpickList(filterDalpicks());}
+function clearDalpickForm(){window.dalpickTopicFirstReady=false;selectedDalpickId=null;setVal('dalpick_id','');setVal('dalpick_image_instruction','');setVal('dalpick_category','local_info');setVal('dalpick_region',getAppRegion());setVal('dalpick_title','');setVal('dalpick_summary','');setVal('dalpick_content','');setVal('dalpick_business_id','');setMultiBusinessIds('dalpick_business_id',[]);setVal('dalpick_image_url','');setVal('dalpick_start_at','');setVal('dalpick_end_at','');setVal('dalpick_priority','0');setChecked('dalpick_is_featured',false);setChecked('dalpick_is_active',true);setChecked('dalpick_show_in_dalpick',false);setChecked('dalpick_auto_image',true);document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=false);setVal('dalpick_topic','');setVal('dalpick_instructions','');setVal('dalpick_sources','');safeText('dalpickAiStatus','준비됨');safeText('dalpickFormTitle','DalPick 콘텐츠 스튜디오');updateDalpickTypeUI();v271FillDalpickThemeLink({link_url:''});updateDalpickImagePreview();renderDalpickList(filterDalpicks());}
 function startNewDalpick(){
   clearDalpickForm();
   safeText('dalpickFormTitle','새 한 줄 광고·콘텐츠 등록');
@@ -3332,12 +3394,13 @@ function startNewDalpick(){
   target?.scrollIntoView({behavior:'smooth',block:'start'});
   window.setTimeout(()=>qs('dalpick_category')?.focus(),350);
 }
-function fillDalpickForm(d){window.dalpickTopicFirstReady=true;selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'local_info');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setMultiBusinessIds('dalpick_business_id',normalizeLinkedBusinessIds(d));renderBusinessMultiPicker('dalpick_business_id');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_is_active',d.is_active!==false);setChecked('dalpick_show_in_dalpick',!!d.show_in_dalpick);{const targets=Array.isArray(d.target_categories)?d.target_categories:[];document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=targets.includes(x.value));}safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);updateDalpickTypeUI();updateDalpickImagePreview();}
+function fillDalpickForm(d){window.dalpickTopicFirstReady=true;selectedDalpickId=d.id;setVal('dalpick_id',d.id);setVal('dalpick_category',d.category||'local_info');setVal('dalpick_region',d.region||getAppRegion());setVal('dalpick_title',d.title||'');setVal('dalpick_summary',d.summary||'');setVal('dalpick_content',d.content||'');setVal('dalpick_business_id',d.business_id||'');setMultiBusinessIds('dalpick_business_id',normalizeLinkedBusinessIds(d));renderBusinessMultiPicker('dalpick_business_id');setVal('dalpick_image_url',d.image_url||'');setVal('dalpick_start_at',fmtLocal(d.start_at));setVal('dalpick_end_at',fmtLocal(d.end_at));setVal('dalpick_priority',d.priority||0);setChecked('dalpick_is_featured',!!d.is_featured);setChecked('dalpick_is_active',d.is_active!==false);setChecked('dalpick_show_in_dalpick',!!d.show_in_dalpick);{const targets=Array.isArray(d.target_categories)?d.target_categories:[];document.querySelectorAll('[name="dalpick_target_category"]').forEach(x=>x.checked=targets.includes(x.value));}safeText('dalpickFormTitle',`DalPick 수정 #${d.id}`);updateDalpickTypeUI();v271FillDalpickThemeLink(d);updateDalpickImagePreview();}
 async function saveDalpick(){
   const selectedCategory=val('dalpick_category')||'local_info';
   const themeMode=selectedCategory==='themed';
   const selectedTargets=themeMode?[...document.querySelectorAll('[name="dalpick_target_category"]:checked')].map(x=>x.value):[];
   const payload={region:getAppRegion(),category:selectedCategory,title:val('dalpick_title').trim(),summary:val('dalpick_summary').trim()||null,content:val('dalpick_content').trim()||null,business_ids:getMultiBusinessIds('dalpick_business_id'),business_id:getMultiBusinessIds('dalpick_business_id')[0]||null,image_url:val('dalpick_image_url').trim()||null,start_at:fromLocal(val('dalpick_start_at')),end_at:fromLocal(val('dalpick_end_at')),priority:Number(val('dalpick_priority')||0),is_featured:checked('dalpick_is_featured'),is_active:checked('dalpick_is_active'),status:checked('dalpick_is_active')?'published':'draft',target_categories:selectedTargets,show_in_dalpick:themeMode&&checked('dalpick_show_in_dalpick')};
+  if(themeMode){payload.link_url=v271BuildThemeLink()||null;if((val('dalpick_theme_link_type')||'none')==='external'&&!payload.link_url)return alert('외부 링크 주소를 입력하세요.');}
   if(!payload.title)return alert('제목을 입력하세요.');
   if(payload.category==='themed'&&!payload.target_categories.length)return alert('추천 테마를 표시할 업종을 하나 이상 선택하세요.');
   if(DALPICK_BUSINESS_REQUIRED.has(payload.category)&&!payload.business_ids.length)return alert('이 콘텐츠 유형은 연결 업소를 선택해야 합니다.');
@@ -3358,7 +3421,7 @@ function updateDalpickTypeUI(){
   const required=DALPICK_BUSINESS_REQUIRED.has(category);
   safeText('dalpickBusinessRequirement',required?'필수':'선택 사항');
   const businessSelect=qs('dalpick_business_id');
-  const storyFields=qs('businessStoryFields'); if(storyFields) storyFields.hidden=category!=='business_story'; const themeFields=qs('dalpickThemeFields'); if(themeFields) themeFields.hidden=category!=='themed';
+  const storyFields=qs('businessStoryFields'); if(storyFields) storyFields.hidden=category!=='business_story'; const themeFields=qs('dalpickThemeFields'); if(themeFields) themeFields.hidden=category!=='themed'; ensureV271DalpickThemeLinkUI();
   if(businessSelect) businessSelect.required=required;
 }
 

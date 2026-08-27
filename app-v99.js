@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V271 recommended theme links loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
 console.info('[DalTownMap App] V268 smart flyer title companion loaded');
@@ -4573,7 +4574,7 @@ function renderBusinessThemeSpot(){
         const short=summary.length>92?summary.slice(0,92).trim()+'…':summary;
         return `<div class="business-theme-slide"><button type="button" class="business-main-theme-card" data-theme-id="${esc(theme.id)}">
           <div class="business-main-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
-          <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
+          <div class="business-main-theme-copy"><div class="business-main-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}${v271ThemeCtaHTML(theme,'business-main-theme-cta')}</div>
         </button></div>`;
       }).join('')}
     </div></div>
@@ -5074,6 +5075,42 @@ function parseThemeTargets(value){
   }
   return [];
 }
+// V271: 추천 테마의 기사 클릭은 유지하고 별도 CTA만 내부 신청/문의 또는 외부 링크로 연결합니다.
+function v271ThemeLinkMeta(theme){
+  const raw=String(theme?.link_url||'').trim();
+  const lower=raw.toLowerCase();
+  if(lower==='internal:business-register'||lower==='#business-register') return {raw,label:'업소 등록'};
+  if(lower==='internal:advertise'||lower==='#advertise') return {raw,label:'광고 문의'};
+  if(raw) return {raw,label:'바로가기'};
+  return null;
+}
+function v271OpenThemeLink(theme){
+  const meta=v271ThemeLinkMeta(theme); if(!meta) return false;
+  const lower=meta.raw.toLowerCase();
+  if(lower==='internal:business-register'||lower==='#business-register'){
+    lastBasePage=currentPage; showPage('business-register'); return true;
+  }
+  if(lower==='internal:advertise'||lower==='#advertise'){
+    lastBasePage=currentPage; showPage('advertise'); return true;
+  }
+  window.open(normalizeUrl(meta.raw),'_blank','noopener'); return true;
+}
+function v271ThemeCtaHTML(theme,cls='business-theme-cta'){
+  const meta=v271ThemeLinkMeta(theme); if(!meta) return '';
+  return `<span class="${cls}" role="button" tabindex="0" data-theme-link="${esc(theme.id)}">${esc(meta.label)} →</span>`;
+}
+function ensureV271ThemeCtaStyle(){
+  if(document.getElementById('v271ThemeCtaStyle')) return;
+  const style=document.createElement('style'); style.id='v271ThemeCtaStyle';
+  style.textContent=`
+    .business-theme-copy,.business-main-theme-copy{min-width:0}
+    .business-theme-cta,.business-main-theme-cta{display:inline-flex;align-items:center;justify-content:center;width:max-content;max-width:100%;margin-top:9px;padding:7px 12px;border-radius:999px;background:#2563eb;color:#fff;font-size:12px;font-weight:800;line-height:1.15;box-sizing:border-box}
+    .business-theme-card [data-theme-link],.business-main-theme-card [data-theme-link]{pointer-events:auto}
+    @media(max-width:768px){.business-theme-cta,.business-main-theme-cta{margin-top:7px;padding:7px 11px;font-size:12px}}
+  `;
+  document.head.appendChild(style);
+}
+ensureV271ThemeCtaStyle();
 function getBusinessTheme(business){
   // business.category may be a UUID/internal value. Build targets from every available
   // category field plus the same normalized label used by the business list UI.
@@ -5101,7 +5138,7 @@ function renderBusinessThemeCard(theme){
   const short=summary.length>105?summary.slice(0,105).trim()+'…':summary;
   return `<button type="button" class="business-theme-card" data-theme-id="${esc(theme.id)}" aria-label="추천 테마 기사 열기">
     <div class="business-theme-thumb">${theme.image_url?`<img src="${esc(theme.image_url)}" alt="${esc(theme.title||'추천 테마')}">`:'<span>✨</span>'}</div>
-    <div class="business-theme-copy"><div class="business-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}</div>
+    <div class="business-theme-copy"><div class="business-theme-top"><span>추천 테마</span><small>${themeReadingMinutes(theme.content||theme.summary)}분 읽기 →</small></div><h3>${esc(theme.title||'오늘의 추천 테마')}</h3>${short?`<p>${esc(short)}</p>`:''}${v271ThemeCtaHTML(theme)}</div>
   </button>`;
 }
 function openThemeArticle(theme){
@@ -6908,12 +6945,23 @@ window.openThemeArticle = function(theme){
   showPage('board-detail');
 };
 
-// 추천 테마 카드 클릭
+// V271 추천 테마 클릭: CTA는 연결 페이지로, 카드 나머지 영역은 기존 기사로 이동합니다.
  document.addEventListener('click',e=>{
+  const link=e.target.closest('[data-theme-link]');
+  if(link){
+    const theme=(dalpicks||[]).find(d=>String(d.id)===String(link.dataset.themeLink));
+    if(theme){e.preventDefault();e.stopPropagation();v271OpenThemeLink(theme);}
+    return;
+  }
   const btn=e.target.closest('.business-main-theme-card, .business-theme-card');
   if(!btn)return;
   const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));
   if(theme) window.openThemeArticle(theme);
+});
+ document.addEventListener('keydown',e=>{
+  if((e.key!=='Enter'&&e.key!==' ')||!e.target?.matches?.('[data-theme-link]')) return;
+  const theme=(dalpicks||[]).find(d=>String(d.id)===String(e.target.dataset.themeLink));
+  if(theme){e.preventDefault();e.stopPropagation();v271OpenThemeLink(theme);}
 });
 
 function initPageSwipe(){
