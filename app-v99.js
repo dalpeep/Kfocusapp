@@ -1,4 +1,5 @@
 console.info('[DalTownMap App] V271 recommended theme links loaded');
+console.info('[DalTownMap App] V275 bottom navigation resilient click loaded');
 console.info('[DalTownMap App] V274 bottom navigation propagation restore loaded');
 console.info('[DalTownMap App] V273 business detail restore loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
@@ -10890,8 +10891,20 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   `;
   document.head.appendChild(style);
 
-  // V274: 클릭 이벤트 전파는 기존 앱 핸들러에 맡깁니다.
-  // V272의 capture + stopPropagation이 [data-nav] 후속 핸들러를 막아
-  // 업소 탭 진입 시 카테고리 선택/목록 렌더링이 실행되지 않는 문제가 있었습니다.
-  // 겹침 방지는 위 z-index/pointer-events CSS만으로 처리합니다.
+  // V275: 상세 화면 등에서 일반 click listener가 먹지 않는 경우를 위해
+  // capture 단계에서 하단 내비게이션을 먼저 처리합니다.
+  // 중요: preventDefault / stopPropagation / stopImmediatePropagation은 절대 사용하지 않습니다.
+  // 따라서 기존 앱의 [data-nav] 후속 핸들러(식당 자동 선택 등)도 그대로 실행됩니다.
+  const runNav=(target)=>{
+    const btn=target?.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
+    if(!btn) return;
+    const page=String(btn.dataset.nav||'').trim();
+    if(!page) return;
+    try{ showPage(page); }catch(err){ console.warn('[V275 bottom nav] showPage failed',page,err); }
+  };
+  document.addEventListener('click',e=>runNav(e.target),true);
+  document.addEventListener('pointerup',e=>{
+    const btn=e.target?.closest?.('.bottom-nav:not(.board-bottom-nav) .nav-item[data-nav]');
+    if(btn) btn.style.pointerEvents='auto';
+  },true);
 })();
