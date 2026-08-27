@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V264 smart flyer admin fix loaded');
 console.info('[DalTownMap Admin] V263 release candidate loaded');
 console.info('[DalTownMap Admin] V262 promotion main label fix loaded');
 console.info('[DalTownMap Admin] V261 promotion label loaded');
@@ -47,7 +48,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V263';
+    badge.textContent='Admin V264';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -8242,7 +8243,7 @@ async function dtmSmartFlyerList(body={}){
 }
 async function dtmSmartFlyerSetStatus(body={}){
   try{
-    return await dtmSmartFlyerSetStatus(body);
+    return await newsroomEdgeCall('set_weekly_flyer_status',body);
   }catch(error){
     console.warn('[V226 Smart Flyer] Edge status failed; direct DB fallback',error?.message||error);
     if(!supabase) throw error;
@@ -8259,16 +8260,43 @@ async function dtmSmartFlyerSetStatus(body={}){
 }
 async function dtmSmartFlyerDelete(body={}){
   try{
-    return await newsroomEdgeCall('delete_weekly_flyer',body);
-  }catch(error){
-    console.warn('[V226 Smart Flyer] Edge delete failed; direct DB fallback',error?.message||error);
-    if(!supabase) throw error;
+    const result=await newsroomEdgeCall('delete_weekly_flyer',body);
+    try{
+      localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+      localStorage.removeItem('daltownmap_v38_home');
+      const bc=new BroadcastChannel('daltownmap-content');
+      bc.postMessage({type:'weekly_flyer_deleted',flyer_id:Number(body.id||0),at:Date.now()});
+      bc.close();
+    }catch(_){}
+    return result;
+  }catch(edgeError){
+    console.warn('[V264 Smart Flyer] Edge delete failed; direct DB fallback',edgeError?.message||edgeError);
+    if(!supabase) throw edgeError;
     const id=Number(body.id||0);
     if(!id) throw new Error('전단 ID가 없습니다.');
+
     const itemDelete=await supabase.from('weekly_flyer_items').delete().eq('flyer_id',id);
-    if(itemDelete.error) throw itemDelete.error;
-    const flyerDelete=await supabase.from('weekly_flyers').delete().eq('id',id);
-    if(flyerDelete.error) throw flyerDelete.error;
+    if(itemDelete.error){
+      throw new Error(`전단 상품 삭제 실패: ${itemDelete.error.message}`);
+    }
+
+    const flyerDelete=await supabase.from('weekly_flyers').delete().eq('id',id).select('id');
+    if(flyerDelete.error){
+      throw new Error(`전단 본문 삭제 실패: ${flyerDelete.error.message}`);
+    }
+
+    if(!Array.isArray(flyerDelete.data) || !flyerDelete.data.length){
+      throw new Error('삭제 권한 또는 RLS 정책 때문에 전단이 삭제되지 않았습니다.');
+    }
+
+    try{
+      localStorage.setItem('daltownmap_content_changed',String(Date.now()));
+      localStorage.removeItem('daltownmap_v38_home');
+      const bc=new BroadcastChannel('daltownmap-content');
+      bc.postMessage({type:'weekly_flyer_deleted',flyer_id:id,at:Date.now()});
+      bc.close();
+    }catch(_){}
+
     return {ok:true,source:'direct_db_fallback',deleted:1};
   }
 }
@@ -8389,6 +8417,7 @@ window.DTMSmartFlyerCompat={
     box.innerHTML=`
       <h3>AI 스마트 전단 · 이번 주 세일</h3>
       <div class="p010-sub">전단 이미지 한 장을 올리면 상품 분석·이미지 생성·앱 메인 연결까지 자동으로 처리합니다.</div>
+      <div class="p010-sub" style="margin-top:5px;color:#166534"><b>새 전단 활성화 시 같은 업소의 기존 활성 전단은 자동 비활성화(보관)됩니다.</b></div>
       <div class="p010-grid">
         <input type="file" id="${P}File" accept="image/jpeg,image/png,image/webp">
         <input type="date" id="${P}Start" aria-label="행사 시작일">
@@ -8469,8 +8498,13 @@ window.DTMSmartFlyerCompat={
         `자동 처리 완료: 상품 ${result.item_count||0}개 · 이미지 ${cropResult.complete||0}개 · 앱 메인 노출 중`;
       await load();
     }catch(e){
-      el(P+'Status').textContent=`분석 실패: ${e.message}`;
-      alert(`스마트 전단 분석 실패: ${e.message}`);
+      const msg=String(e?.message||e||'');
+      el(P+'Status').textContent=`분석 실패: ${msg}`;
+      if(/analyze_weekly_flyer|오래된 버전|지원하지 않는 뉴스룸 작업/i.test(msg)){
+        alert('스마트 전단 분석 기능의 관리자 코드는 준비되어 있지만, 배포된 newsroom Edge Function이 이전 버전입니다.\n\n새 전단 AI 분석을 사용하려면 newsroom 함수에 analyze_weekly_flyer 작업이 포함된 최신 서버 함수를 배포해야 합니다.');
+      }else{
+        alert(`스마트 전단 분석 실패: ${msg}`);
+      }
     }finally{btn.disabled=false;}
   }
 
@@ -8503,13 +8537,23 @@ window.DTMSmartFlyerCompat={
       list.querySelectorAll('[data-p010-act]').forEach(btn=>btn.addEventListener('click',async()=>{
         const id=Number(btn.dataset.id);
         const act=btn.dataset.p010Act;
-        if(act==='delete'){
-          if(!confirm('이 전단과 추출 상품을 삭제할까요?'))return;
-          await dtmSmartFlyerDelete({id});
-        }else{
-          await dtmSmartFlyerSetStatus({id,status:act});
+        const oldText=btn.textContent;
+        btn.disabled=true;
+        try{
+          if(act==='delete'){
+            if(!confirm('이 전단과 추출 상품을 완전히 삭제할까요?\n\n메인 노출만 중단하려면 삭제 대신 비활성화를 사용하세요.'))return;
+            const r=await dtmSmartFlyerDelete({id});
+            alert(`전단 삭제 완료${r?.source==='direct_db_fallback'?' · 직접 DB 처리':''}`);
+          }else{
+            await dtmSmartFlyerSetStatus({id,status:act});
+          }
+          await load();
+        }catch(e){
+          alert(`${act==='delete'?'전단 삭제':'전단 상태 변경'} 실패: ${e.message||e}`);
+        }finally{
+          btn.disabled=false;
+          btn.textContent=oldText;
         }
-        await load();
       }));
     }catch(e){
       list.innerHTML=`<div class="p010-sub">전단 목록 조회 실패: ${esc(e.message)}</div>`;
