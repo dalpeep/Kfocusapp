@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V270 banner inquiry links loaded');
 console.info('[DalTownMap Admin] V268 smart flyer low-recognition rescue + fixed title loaded');
 console.info('[DalTownMap Admin] V267 main flyer image server upload loaded');
 console.info('[DalTownMap Admin] V266 P016 coordinate workflow loaded');
@@ -52,7 +53,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V268';
+    badge.textContent='Admin V270';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -4687,6 +4688,8 @@ function ensureBannerExtrasUI() {
         <option value="post">게시글</option>
         <option value="dalpick">DalPick / 추천 테마</option>
         <option value="coupon">쿠폰</option>
+        <option value="business-register">업소 등록</option>
+        <option value="advertise">광고 문의</option>
         <option value="external">외부 링크</option>
         <option value="phone">전화 걸기</option>
         <option value="none">클릭 없음</option>
@@ -4824,7 +4827,7 @@ function renderBannerLinkOptions() {
   const custom = qs('bnLinkCustom');
   const help = qs('bnLinkHelp');
   if (!target || !custom) return;
-  target.hidden = ['business','external','phone','none'].includes(type);
+  target.hidden = ['business','business-register','advertise','external','phone','none'].includes(type);
   custom.hidden = !['external','phone'].includes(type);
   let rows = [];
   if (type === 'business') rows = businesses.map(x => ({id:x.id,label:x.name_ko||x.name_en||x.name||x.id}));
@@ -4834,12 +4837,16 @@ function renderBannerLinkOptions() {
   const current = target.dataset.value || '';
   target.innerHTML = '<option value="">대상을 선택하세요</option>' + rows.map(x=>`<option value="${esc(x.id)}">${esc(x.label)}</option>`).join('');
   if (current) target.value = current;
-  if (help) help.textContent = ({business:'아래 연결 업소 체크박스에서 여러 지점을 선택하세요. 2개 이상이면 지점 선택 또는 가까운 지점 열기가 적용됩니다.',post:'특정 게시글 상세로 이동합니다.',dalpick:'DalPick 또는 추천 테마 상세를 엽니다.',coupon:'선택한 쿠폰 상세를 엽니다.',external:'웹사이트나 예약 페이지 주소를 입력하세요.',phone:'전화번호를 입력하면 클릭 시 전화 앱이 열립니다.',none:'배너는 표시되지만 클릭 동작은 없습니다.'})[type] || '';
+  if (help) help.textContent = ({business:'아래 연결 업소 체크박스에서 여러 지점을 선택하세요. 2개 이상이면 지점 선택 또는 가까운 지점 열기가 적용됩니다.',post:'특정 게시글 상세로 이동합니다.',dalpick:'DalPick 또는 추천 테마 상세를 엽니다.',coupon:'선택한 쿠폰 상세를 엽니다.','business-register':'달타운맵 내부의 업소 등록 신청 페이지로 이동합니다.',advertise:'달타운맵 내부의 광고 문의 페이지로 이동합니다.',external:'웹사이트나 예약 페이지 주소를 입력하세요.',phone:'전화번호를 입력하면 클릭 시 전화 앱이 열립니다.',none:'배너는 표시되지만 클릭 동작은 없습니다.'})[type] || '';
 }
 
 function parseBannerLink(linkUrl, businessId) {
   const raw = String(linkUrl || '').trim();
   if (!raw && businessId) return {type:'business', target:String(businessId), custom:''};
+  const internal = raw.match(/^internal:(business-register|advertise)$/i);
+  if (internal) return {type:internal[1].toLowerCase(), target:'', custom:''};
+  if (raw === '#business-register') return {type:'business-register', target:'', custom:''};
+  if (raw === '#advertise') return {type:'advertise', target:'', custom:''};
   const m = raw.match(/^(post|dalpick|coupon|business):(.+)$/i);
   if (m) return {type:m[1].toLowerCase(), target:m[2], custom:''};
   if (/^tel:/i.test(raw)) return {type:'phone', target:'', custom:raw.replace(/^tel:/i,'')};
@@ -4852,6 +4859,8 @@ function buildBannerLink() {
   const target = val('bnLinkTarget').trim();
   const custom = val('bnLinkCustom').trim();
   if (type === 'business') return ''; // 다중 업소 연결은 business_ids와 multi_click_mode로 처리
+  if (type === 'business-register') return 'internal:business-register';
+  if (type === 'advertise') return 'internal:advertise';
   if (['post','dalpick','coupon'].includes(type)) return target ? `${type}:${target}` : '';
   if (type === 'phone') return custom ? `tel:${custom.replace(/[^0-9+]/g,'')}` : '';
   if (type === 'external') return custom;
@@ -5379,7 +5388,6 @@ async function saveBanner() {
   if (payload.media_type === 'image' && !payload.image_url) return alert('이미지 배너는 이미지 URL이 필요합니다.');
   if (payload.media_type !== 'image' && !payload.video_url) return alert('영상 배너는 영상 URL이 필요합니다.');
   if (payload.media_type !== 'image' && !payload.image_url) return alert('모바일 썸네일과 영상 로딩 전 표시를 위해 대표 이미지 URL을 입력해 주세요.');
-  if (['detail','both'].includes(payload.placement) && !payload.business_ids.length) return alert('업소 상세에 노출하려면 연결 업소를 하나 이상 선택해 주세요.');
   const linkType = val('bnLinkType') || 'business';
   if (['post','dalpick','coupon'].includes(linkType) && !val('bnLinkTarget').trim()) return alert('클릭 연결 대상을 선택해 주세요.');
   if (linkType==='business' && !payload.business_ids.length && !val('bnLinkTarget').trim()) return alert('연결 업소를 하나 이상 선택해 주세요.');
