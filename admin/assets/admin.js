@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V267 main flyer image server upload loaded');
 console.info('[DalTownMap Admin] V266 P016 coordinate workflow loaded');
 console.info('[DalTownMap Admin] V265 secure smart flyer admin loaded');
 console.info('[DalTownMap Admin] V264 smart flyer admin fix loaded');
@@ -50,7 +51,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V266';
+    badge.textContent='Admin V267';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
