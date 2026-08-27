@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V260 mobile event route fix loaded');
 console.info('[DalTownMap App] V258 winner image companion loaded');
 console.info('[DalTownMap App] V257 raffle mode companion loaded');
 console.info('[DalTownMap App] V256 ended event/coupon badge hide loaded');
@@ -10342,20 +10343,21 @@ function v246OpenSalePage(){
 }
 window.v246OpenSalePage=v246OpenSalePage;
 
-// 행사 버튼은 커뮤니티 행사안내 "전체" 목록을 직접 엽니다.
-function v246OpenEventBoard(){
-  showPage('home');
-  setTimeout(()=>{
-    const full=document.querySelector('.community-full-btn[data-board="notice"]');
-    if(full){
-      full.click();
-      return;
-    }
-    const tab=document.querySelector('.community-tab[data-board="notice"]');
-    if(tab) tab.click();
-    document.querySelector('.community-home-card')?.scrollIntoView({behavior:'smooth',block:'start'});
-  },80);
+// V260: 행사 버튼은 중간에 홈 화면을 열거나 다른 버튼을 강제 click하지 않고
+// 행사안내(notice) 전체 게시판을 직접 렌더링합니다.
+// 모바일에서 화면 전환 직후 같은 탭/터치가 뒤의 업소 카드에 전달되는 click-through를 방지합니다.
+function v260OpenEventBoard(){
+  selectedBoardType='notice';
+  selectedBoardPost=null;
+  boardDetailReturn={mode:'page',page:'home',type:'notice'};
+  renderBoardPage('notice');
+  lastBasePage=currentPage;
+  showPage('board-detail');
 }
+window.v260OpenEventBoard=v260OpenEventBoard;
+
+// 이전 호출 호환
+function v246OpenEventBoard(){ return v260OpenEventBoard(); }
 window.v246OpenEventBoard=v246OpenEventBoard;
 
 
@@ -10384,7 +10386,7 @@ function renderV245TodayShortcuts(){
       ${v245Shortcut('🎁','이벤트',eventCount,'v245OpenEvents()')}
       ${v245Shortcut('🎟','쿠폰',couponCount,'v245OpenCoupons()')}
       ${v245Shortcut('🛒','세일',saleCount,'v246OpenSalePage()')}
-      ${v245Shortcut('🎉','행사',postCount,'v246OpenEventBoard()')}
+      ${v245Shortcut('🎉','행사',postCount,'event.stopPropagation();event.preventDefault();v260OpenEventBoard();return false;')}
     </div>`;
 }
 window.renderV245TodayShortcuts=renderV245TodayShortcuts;
@@ -10498,3 +10500,23 @@ if(document.readyState==='loading'){
   setTimeout(v256ScheduleShortcutExpiryRefresh,1200);
 }
 
+
+(function(){
+  let v260EventTouchAt=0;
+
+  document.addEventListener('pointerdown',e=>{
+    const btn=e.target.closest?.('.v245-shortcut');
+    if(!btn) return;
+    const label=btn.querySelector('.v245-shortcut-label')?.textContent?.trim();
+    if(label==='행사') v260EventTouchAt=Date.now();
+  },true);
+
+  // 행사 탭 직후 업소 카드로 전달되는 모바일 ghost click 차단.
+  document.addEventListener('click',e=>{
+    if(Date.now()-v260EventTouchAt>700) return;
+    const biz=e.target.closest?.('.biz-open,.biz-open-btn,[data-biz]');
+    if(!biz) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  },true);
+})();
