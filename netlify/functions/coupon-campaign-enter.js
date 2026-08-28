@@ -38,7 +38,8 @@ async function sendRaffleEmail({coupon,bizName,email,entryCode,appUrl}){
     ].filter(Boolean),
     codeLabel:'ENTRY CODE',
     codeValue:entryCode,
-    buttonUrl:appUrl
+    buttonUrl:appUrl,
+    imageUrl:coupon.email_image_url||coupon.image_url||''
   });
 }
 

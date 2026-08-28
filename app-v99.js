@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V281 iPhone coupon refresh + raffle email image fix loaded');
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
 console.info('[DalTownMap App] V280 recommended theme link scope fix loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
@@ -2241,8 +2242,11 @@ async function loadCouponsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones,delivery_mode,raffle_end_at,winner_count,one_per_email,marketing_opt_in_enabled';
-    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
-    const res = await fetch(url,{ headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` } });
+    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast&_dtm=${Date.now()}`;
+    const res = await fetch(url,{
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`,'Cache-Control':'no-cache' },
+      cache:'no-store'
+    });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
     const rows = await res.json();
     // 쿠폰은 연결 업소가 현재 지역 업소 목록에 없더라도 쿠폰 자체 데이터로 노출합니다.
@@ -2287,6 +2291,38 @@ async function loadCouponsFromSupabase(){
     return false;
   }
 }
+
+// V281: iPhone 홈 화면(PWA)에서도 예약 시작 시각이 지나면 쿠폰을 자동 갱신합니다.
+// 쿠폰 데이터 변경뿐 아니라 "시간 경과" 자체로 활성 상태가 바뀌므로 realtime 이벤트만으로는 부족합니다.
+let v281CouponRefreshBusy=false;
+async function v281RefreshCoupons(reason='manual'){
+  if(v281CouponRefreshBusy) return;
+  v281CouponRefreshBusy=true;
+  try{
+    await loadCouponsFromSupabase();
+    if(typeof renderCoupons==='function') renderCoupons();
+    if(typeof buildHeroSlides==='function') buildHeroSlides();
+    if(typeof renderHero==='function') renderHero();
+    if(typeof setSlide==='function' && Array.isArray(heroSlides) && heroSlides.length) setSlide(Math.min(slideIndex,heroSlides.length-1));
+    if(typeof renderHome==='function' && currentPage==='home') renderHome();
+    if(typeof renderBusinessList==='function' && currentPage==='business') renderBusinessList();
+    console.info('[V281 coupon refresh]',reason,new Date().toISOString());
+  }catch(e){
+    console.warn('[V281 coupon refresh failed]',reason,e);
+  }finally{
+    v281CouponRefreshBusy=false;
+  }
+}
+window.v281RefreshCoupons=v281RefreshCoupons;
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') setTimeout(()=>v281RefreshCoupons('visible'),120);
+});
+window.addEventListener('pageshow',()=>setTimeout(()=>v281RefreshCoupons('pageshow'),250));
+window.addEventListener('focus',()=>setTimeout(()=>v281RefreshCoupons('focus'),120));
+setInterval(()=>{
+  if(!document.hidden) v281RefreshCoupons('timer');
+},30000);
+
 async function loadBannersFromSupabase(){
   console.log('[BANNERS] load start', currentRegion);
 
