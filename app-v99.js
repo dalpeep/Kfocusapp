@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V286 coupon deadline label + safe business link loaded');
+console.info('[DalTownMap App] V287 coupon custom terms only loaded');
 console.info('[DalTownMap App] V285 pull-to-refresh loaded');
 console.info('[DalTownMap App] V283 coupon shortcut active-count badge loaded');
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
@@ -5912,8 +5912,6 @@ function renderCouponDetail(id){
     <p>${esc(desc || '쿠폰 혜택을 확인하세요.')}</p>
 
     <ul>
-      <li>방문 고객 대상</li>
-      <li>행사 기간 내 사용 가능</li>
     </ul>
   </div>
 </div>
