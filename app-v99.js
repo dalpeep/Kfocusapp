@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V289 QR/source traffic tracking loaded');
+console.info('[DalTownMap App] V290 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
 console.info('[DalTownMap App] V285 pull-to-refresh loaded');
@@ -634,7 +634,7 @@ function homeBusinessItemHTML(b){
 
       <div class="home-biz-map-side">
         <span class="home-biz-map-cat">${esc(b.subcategory || b.category_sub || b.subcategory_ko || b.category_ko || b.category || '업소')}</span>
-        ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)}</span>` : ''}
+        ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)} <span class="gmp-attribution" translate="no">Google Maps</span></span>` : ''}
       </div>
     </button>
   `;
@@ -1082,6 +1082,24 @@ async function fetchGooglePlaceRating(placeId) {
         reviewCount: place.userRatingCount ?? 0
     };
 }
+
+async function refreshBusinessGoogleRatingLive(b, container){
+  if(!b?.google_place_id || !container) return;
+  try{
+    const fresh=await fetchGooglePlaceRating(b.google_place_id);
+    if(!fresh || fresh.rating == null) return;
+    const score=container.querySelector('.rating-score');
+    const count=container.querySelector('.rating-count');
+    if(score) score.textContent=Number(fresh.rating).toFixed(1);
+    if(count) count.textContent=`(${fresh.reviewCount || 0})`;
+    // 화면 세션 안에서는 최신값으로 정렬/공유에도 활용하되 DB에는 다시 저장하지 않습니다.
+    b.rating=fresh.rating;
+    b.review_count=fresh.reviewCount || 0;
+  }catch(err){
+    console.warn('[V290] Google rating live refresh skipped', err);
+  }
+}
+
 async function shareBoardPost(postId) {
   const post = boardPosts.find(
     p => String(p.id) === String(postId)
@@ -1730,7 +1748,7 @@ async function loadRealData(){
       'paid_product','paid_active','paid_start_at','paid_end_at','paid_weight','rotation_enabled',
       'promo_enabled','home_fixed','home_fixed_sort','promo_image_url','promo_text',
       'order_url','delivery_url','reservation_url','created_at','region','is_active',
-      'rating','review_count','google_maps_url','google_review_url','list_visible'
+      'rating','review_count','google_maps_url','google_review_url','google_place_id','list_visible'
     ].join(',');
 
     const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
@@ -1803,6 +1821,7 @@ async function loadRealData(){
           review_count: row.review_count,
           google_maps_url: row.google_maps_url,
           google_review_url: row.google_review_url,
+          google_place_id: row.google_place_id || '',
           // V233: 신규 탭은 관리자와 동일하게 created_at 최신순을 1차 기준으로 사용합니다.
           // 기존에는 SELECT에는 created_at이 있었지만 mapped business 객체에 누락되어
           // 앱 신규 탭만 new_rank/원래 배열순서로 계산되는 문제가 있었습니다.
@@ -5423,6 +5442,7 @@ ${b.rating ? `
     <span class="rating-count">
         (${b.review_count || 0})
     </span>
+    <span class="gmp-attribution" translate="no">Google Maps</span>
 
     </a>
 ` : `
@@ -5541,6 +5561,8 @@ ${getDescriptionImages(b).length ? `
   </article>
 `;
 
+
+refreshBusinessGoogleRatingLive(b, detailCard);
 
 // V240: 업소 상세의 실제 행동을 광고 성과에 정확히 기록합니다.
 // 동일 버튼을 빠르게 두 번 눌러 생기는 중복은 V230의 activity logger 쪽 짧은 중복 방지와 함께 처리합니다.
@@ -11113,3 +11135,12 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',v289TrackSourceVisit,{once:true});
   else v289TrackSourceVisit();
 })();
+
+
+/* V290 Google Maps attribution */
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`.gmp-attribution{font-family:Arial,Sans-Serif;font-style:normal;font-weight:400;font-size:12px;letter-spacing:normal;white-space:nowrap;color:#5e5e5e;margin-left:5px}.biz-rating-link .gmp-attribution{display:inline-flex;align-items:center}.home-biz-map-rating .gmp-attribution{font-size:12px}`;
+  document.head.appendChild(s);
+})();
+console.info('[DalTownMap App] V290 Google Maps attribution + live rating refresh loaded');

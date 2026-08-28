@@ -56,7 +56,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V289';
+    badge.textContent='Admin V290';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -273,7 +273,7 @@ const BUSINESS_FIELDS = [
   'reservation_url',
   'languages',
   'google_maps_url',
-  'google_maps_url',
+  'google_place_id',
   'rating',
   'review_count',
   'insurance',
@@ -1937,7 +1937,7 @@ function collectBusinessPayload() {
     'reservation_url',
     'languages',
     'google_maps_url',
-    'google_maps_url',
+    'google_place_id',
     'insurance',
     'image_url',
     'video_url',
@@ -2137,6 +2137,7 @@ async function fetchGoogleRating(){
   if(!res.ok) return alert(`Google 평점 조회 실패: ${data.error}`);
 
   setVal('google_maps_url', data.google_maps_url || google_maps_url);
+  setVal('google_place_id', data.place_id || val('google_place_id') || '');
   setVal('rating', data.rating || '');
   setVal('review_count', data.review_count || 0);
 
@@ -12165,3 +12166,5 @@ async function loadTrafficSourceAnalytics(){
 }
 window.loadTrafficSourceAnalytics=loadTrafficSourceAnalytics;
 document.addEventListener('change',e=>{if(e.target?.id==='trafficRange')loadTrafficSourceAnalytics();});
+
+console.info('[DalTownMap Admin] V290 Google Place ID storage loaded');
