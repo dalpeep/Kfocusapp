@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V281 iPhone coupon refresh + raffle email image fix loaded');
+console.info('[DalTownMap App] V282 coupon REST query fix + iPhone refresh loaded');
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
 console.info('[DalTownMap App] V280 recommended theme link scope fix loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
@@ -2242,9 +2242,9 @@ async function loadCouponsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
     const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones,delivery_mode,raffle_end_at,winner_count,one_per_email,marketing_opt_in_enabled';
-    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast&_dtm=${Date.now()}`;
+    const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{
-      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}`,'Cache-Control':'no-cache' },
+      headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` },
       cache:'no-store'
     });
     if(!res.ok) throw new Error(`Coupons ${res.status}`);
@@ -2299,7 +2299,8 @@ async function v281RefreshCoupons(reason='manual'){
   if(v281CouponRefreshBusy) return;
   v281CouponRefreshBusy=true;
   try{
-    await loadCouponsFromSupabase();
+    const loaded = await loadCouponsFromSupabase();
+    if(!loaded) return;
     if(typeof renderCoupons==='function') renderCoupons();
     if(typeof buildHeroSlides==='function') buildHeroSlides();
     if(typeof renderHero==='function') renderHero();
