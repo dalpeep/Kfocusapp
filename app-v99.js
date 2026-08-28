@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V286 coupon deadline label + safe business link loaded');
 console.info('[DalTownMap App] V285 pull-to-refresh loaded');
 console.info('[DalTownMap App] V283 coupon shortcut active-count badge loaded');
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
@@ -2787,7 +2788,8 @@ function couponCardHTML(c, mode='all'){
   const img = c.image_url || c.image || b.image || b.image_url || '/assets/kfocus-icon.png';
   const title = c.title || '쿠폰';
   const bizName = b.name || b.name_ko || b.name_en || '';
-  const expire = c.end_at || c.expires_at || c.expire_date || c.endDate || '';
+  const expire = v249CouponEffectiveEnd(c);
+  const deadlineLabel = String(c.delivery_mode||'display')==='raffle' ? '응모기한' : '사용기한';
   return `
     <article class="coupon-card coupon-card-v2 coupon-open" data-coupon="${esc(c.id)}">
       <div class="coupon-v2-thumb">
@@ -2797,7 +2799,7 @@ function couponCardHTML(c, mode='all'){
       <div class="coupon-v2-main">
         <strong>${esc(title)}</strong>
         ${bizName ? `<span class="coupon-v2-biz">${esc(bizName)}</span>` : ''}
-        ${expire ? `<span class="coupon-v2-exp">사용기한 ${esc(formatDateLabel(expire))}</span>` : ''}
+        ${expire ? `<span class="coupon-v2-exp">${deadlineLabel} ${esc(formatDateLabel(expire))}</span>` : ''}
       </div>
 
       <div class="coupon-v2-side">
@@ -5814,10 +5816,10 @@ function renderCouponDetail(id){
       : '🏷 일반 표시 쿠폰'}
 </div>
 
-        <button
+        ${b && b.id && bizName ? `<button
   class="coupon-detail-biz biz-open"
   type="button"
-  data-biz="${esc(b.id || c.businessId || c.business_id || '')}"
+  data-biz="${esc(b.id)}"
   style="
     display:inline-flex;
     align-items:center;
@@ -5833,7 +5835,7 @@ function renderCouponDetail(id){
   ">
   ${esc(bizName)}
   <i data-lucide="chevron-right"></i>
-</button>
+</button>` : ''}
 
 
         <div style="
