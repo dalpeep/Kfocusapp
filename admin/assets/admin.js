@@ -1,4 +1,5 @@
-console.info('[DalTownMap Admin] V271 recommended theme links loaded');
+console.info('[DalTownMap Admin] V284 request management visibility + autoload fix loaded');
+console.info('[DalTownMap Admin] V271 recommended theme links retained');
 console.info('[DalTownMap Admin] V270 banner inquiry links loaded');
 console.info('[DalTownMap Admin] V268 smart flyer low-recognition rescue + fixed title loaded');
 console.info('[DalTownMap Admin] V267 main flyer image server upload loaded');
@@ -54,7 +55,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V271';
+    badge.textContent='Admin V284';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -356,6 +357,16 @@ function switchSection(section) {
   }
   if (section === 'performance' && typeof loadPerformanceCenter === 'function') {
     setTimeout(()=>loadPerformanceCenter(),0);
+  }
+  // V284: 신청 관리 섹션은 HTML에 hidden 클래스가 있어 active-section만으로는 보이지 않았습니다.
+  // 메뉴 진입 시 hidden을 제거하고 기본 탭(업소 등록 신청)을 즉시 조회합니다.
+  if (section === 'requests') {
+    const requestsSection = document.getElementById('section-requests');
+    if (requestsSection) requestsSection.classList.remove('hidden');
+    setTimeout(()=>{
+      if (typeof showRequestTab === 'function') showRequestTab('business');
+      else if (typeof loadBusinessRequests === 'function') loadBusinessRequests(1);
+    }, 0);
   }
 }
 function setPageMeta() {
