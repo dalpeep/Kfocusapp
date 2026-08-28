@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V282 coupon REST query fix + iPhone refresh loaded');
+console.info('[DalTownMap App] V283 coupon shortcut active-count badge loaded');
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
 console.info('[DalTownMap App] V280 recommended theme link scope fix loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
@@ -10586,7 +10586,9 @@ function renderV245TodayShortcuts(){
   }
 
   const eventCount=v245EventCoupons().length;
-  const couponCount=v245RegularCoupons().length;
+  // V283: 쿠폰 배지는 추첨형(프로모션) 포함, 현재 실제 활성 쿠폰 전체 수를 표시합니다.
+  // 따라서 같은 추첨형 쿠폰은 '프로모션'에도 집계되고 '쿠폰'에도 집계됩니다.
+  const couponCount=v245ActiveCoupons().length;
   const saleCount=v247MarketBusinessGroups().length;
   const postCount=v245EventPostCount();
 
