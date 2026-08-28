@@ -1,4 +1,4 @@
-console.info('[DalTownMap App] V290 QR/source traffic tracking loaded');
+console.info('[DalTownMap App] V291 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
 console.info('[DalTownMap App] V285 pull-to-refresh loaded');
@@ -8921,7 +8921,7 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
       #p0102Modal .p0102-close{width:38px;height:38px;border:0;border-radius:12px;background:#eef4ff;color:#24456f;font-size:23px}
       #p0102Modal .p0102-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}
       #p0102Modal .p0102-original{width:100%;margin-top:14px;border-radius:16px;display:block}
-      #p0102Modal .p0102-original-link{display:block;margin-top:12px;text-align:center;text-decoration:none;padding:12px;border-radius:12px;background:#eef4ff;color:#1d4ed8;font-weight:900}
+      #p0102Modal .p0102-original-link{display:none!important}#p0102Modal .p0102-original{display:none!important}.p0102-source-note{margin:14px 2px 2px;color:#64748b;font-size:11px;line-height:1.55;text-align:center}
       @media(min-width:700px){#p0102Modal{align-items:center;padding:20px}#p0102Modal .p0102-sheet{border-radius:24px}}
       @media(max-width:360px){.smart-flyer-products,#p0102Modal .p0102-grid{grid-template-columns:1fr}}
     `;
@@ -8950,7 +8950,7 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
           <h3>🛒 이번 주 세일</h3>
           <p>${escHtml(f.title||business?.name||'주간 세일')} · ${escHtml(dateRange(f))}</p>
         </div>
-        <button type="button" class="smart-flyer-original" data-smart-flyer-open="${escHtml(f.id)}">전단 보기</button>
+        <button type="button" class="smart-flyer-original" data-smart-flyer-open="${escHtml(f.id)}">세일 품목 보기</button>
       </div>
       ${f.ai_summary?`<p style="margin:10px 0 0;color:#475569;font-size:13px;line-height:1.5">${escHtml(f.ai_summary)}</p>`:''}
       <div class="smart-flyer-products">${top.map(productCard).join('')}</div>
@@ -9004,8 +9004,7 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
       </div>
       ${f.ai_summary?`<p style="line-height:1.6;color:#475569">${escHtml(f.ai_summary)}</p>`:''}
       <div class="p0102-grid">${items.map(productCard).join('')}</div>
-      <img class="p0102-original" src="${escHtml(f.image_url)}" alt="${escHtml(f.title||'주간 전단')}">
-      <a class="p0102-original-link" href="${escHtml(f.image_url)}" target="_blank" rel="noopener">원본 전단 크게 보기</a>`;
+      <p class="p0102-source-note">세일 정보는 각 마켓의 공개 정보를 바탕으로 정리되었습니다. 실제 가격 및 행사 기간은 해당 매장에서 확인해 주세요.</p>`;
     content.querySelector('.p0102-close')?.addEventListener('click',closeModal);
     modal.classList.add('open');
     document.body.style.overflow='hidden';
@@ -9027,7 +9026,7 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
       business_id:f.business_id,
       target_type:'business',
       target_id:f.business_id,
-      url:f.image_url,
+      url:'',
       link_label:'전체 세일 보기 →',
       priority:220,
       selected_by_admin:Boolean(f.show_on_home),
@@ -9135,8 +9134,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     return !['inactive','deleted','draft','archived'].includes(st)
       && home!==false && home!=='false'
       && (!r?.start_date||String(r.start_date).slice(0,10)<=d)
-      && (!r?.end_date||String(r.end_date).slice(0,10)>=d)
-      && imgs(r).length;
+      && (!r?.end_date||String(r.end_date).slice(0,10)>=d);
   };
   const fmt=v=>{const m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${+m[2]}/${+m[3]}`:''};
   const period=r=>{const a=fmt(r?.start_date),b=fmt(r?.end_date);return a&&b?`${a} ~ ${b}`:a?`${a}부터`:b?`${b}까지`:''};
@@ -9177,11 +9175,16 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
 #p130MarketHost .p130-titlebar{min-height:43px;padding:8px 13px;display:flex;align-items:center;justify-content:space-between;gap:10px;color:#15386d;background:linear-gradient(180deg,#f8fbff,#eaf2ff);border-bottom:1px solid #dbe7f7}
 #p130MarketHost .p130-title{display:flex;gap:7px;align-items:center;font-size:16px;font-weight:900}
 #p130MarketHost .p130-period{font-size:12px;font-weight:800;color:#64748b}
-#p130MarketHost .p130-window{position:relative;width:100%;aspect-ratio:20/7;overflow:hidden;background:#eef3fb}
-#p130MarketHost .p130-reel{display:flex;width:100%;height:100%}
-#p130MarketHost .p130-panel{flex:0 0 100%;width:100%;height:100%}
-#p130MarketHost .p130-panel img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
-#p130MarketHost .p130-arrow{position:absolute;right:12px;bottom:12px;width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.94);color:#174fb8;box-shadow:0 5px 16px rgba(15,23,42,.18);font-size:25px;font-weight:900}
+#p130MarketHost .p130-window{position:relative;width:100%;min-height:150px;overflow:hidden;background:linear-gradient(135deg,#f8fbff,#eef4ff);display:flex;align-items:center;justify-content:center;padding:20px 58px 20px 20px;box-sizing:border-box}
+#p130MarketHost .p130-reel{display:flex;width:100%;height:100%;align-items:center;justify-content:center}
+#p130MarketHost .p130-panel{width:100%;display:flex!important;align-items:center;justify-content:center}
+#p130MarketHost .p130-market-summary{display:flex;align-items:center;justify-content:center;gap:18px;width:100%}
+#p130MarketHost .p130-logo{width:96px;height:96px;flex:0 0 96px;border-radius:20px;background:#fff;border:1px solid #dbe6f7;box-shadow:0 6px 18px rgba(15,23,42,.08);display:flex;align-items:center;justify-content:center;overflow:hidden;padding:8px;box-sizing:border-box}
+#p130MarketHost .p130-logo img{width:100%;height:100%;object-fit:contain;display:block}
+#p130MarketHost .p130-logo-fallback{font-size:20px;font-weight:950;color:#174fb8;text-align:center;line-height:1.1}
+#p130MarketHost .p130-market-copy{min-width:0}.p130-market-copy strong{display:block;font-size:20px;color:#15386d;line-height:1.25}.p130-market-copy span{display:block;margin-top:7px;font-size:14px;font-weight:800;color:#64748b}.p130-market-copy em{display:inline-block;margin-top:10px;font-style:normal;font-size:12px;font-weight:900;color:#1d4ed8;background:#dbeafe;border-radius:999px;padding:5px 9px}
+#p130MarketHost .p130-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:38px;height:38px;border:0;border-radius:50%;background:#fff;color:#174fb8;box-shadow:0 5px 16px rgba(15,23,42,.16);font-size:25px;font-weight:900}
+@media(max-width:380px){#p130MarketHost .p130-window{min-height:132px;padding-left:14px}.p130-market-summary{gap:12px!important}#p130MarketHost .p130-logo{width:78px;height:78px;flex-basis:78px}#p130MarketHost .p130-market-copy strong{font-size:17px}}
 `;document.head.appendChild(s);
   }
 
@@ -9191,24 +9194,15 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     // Without this, refresh()/market rotation creates stacked intervals and the images appear to change too fast.
     if(S.imageTimer){ clearInterval(S.imageTimer); S.imageTimer=null; }
     if(!h||!r){if(h)h.hidden=true;return false}
-    const im=imgs(r),nm=name(r),pd=period(r);
+    const nm=name(r),pd=period(r),b=biz(r);
+    const logo=String(b?.image||b?.image_url||'').trim();
+    const count=Array.isArray(r?.weekly_flyer_items)?r.weekly_flyer_items.length:25;
     h.hidden=false;h.removeAttribute('hidden');
     h.innerHTML=`<div class="p130-storebar"><div class="p130-storeleft"><span class="p130-icon">🛒</span><strong class="p130-name">${esc(nm)}</strong></div>${S.rows.length>1?`<span class="p130-count">${S.i+1}/${S.rows.length}</span>`:''}</div>
 <div class="p130-titlebar"><div class="p130-title"><span>📅</span><span>이번 주 마켓 정보</span></div>${pd?`<span class="p130-period">${esc(pd)}</span>`:''}</div>
-<div class="p130-window"><div class="p130-reel">${im.map((u,j)=>`<div class="p130-panel" style="${j?'display:none':''}"><img src="${esc(u)}" alt="${esc(nm)} 전단 ${j+1}"></div>`).join('')}</div><button class="p130-arrow" type="button">›</button></div>`;
-    h.querySelector('.p130-arrow')?.addEventListener('click',()=>{const id=bid(r);if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){window.selectedBizId=id;renderDetail(id);showPage('business-detail')}});
-    if(im.length>1){
-      let j=0;
-      S.imageTimer=setInterval(()=>{
-        if(!h.isConnected){ clearInterval(S.imageTimer); S.imageTimer=null; return; }
-        const ps=h.querySelectorAll('.p130-panel');
-        if(ps.length<2)return;
-        ps[j].style.display='none';
-        j=(j+1)%ps.length;
-        ps[j].style.display='block';
-      },6000);
-    }
-    console.info('[P130 V187 SHOW]',{total:S.rows.length,index:S.i,name:nm,images:im.length});
+<div class="p130-window"><div class="p130-reel"><div class="p130-panel"><div class="p130-market-summary"><div class="p130-logo">${logo?`<img src="${esc(logo)}" alt="${esc(nm)} 로고">`:`<span class="p130-logo-fallback">${esc(nm)}</span>`}</div><div class="p130-market-copy"><strong>${esc(nm)}</strong><span>${pd?`세일 기간 ${esc(pd)}`:'이번 주 세일'}</span><em>${count||25}개 세일 품목 보기</em></div></div></div></div><button class="p130-arrow" type="button" aria-label="${esc(nm)} 세일 품목 보기">›</button></div>`;
+    h.querySelector('.p130-window')?.addEventListener('click',()=>{const id=bid(r);if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){window.selectedBizId=id;renderDetail(id);showPage('business-detail')}});
+    console.info('[P130 V291 SHOW]',{total:S.rows.length,index:S.i,name:nm,period:pd});
     return true;
   }
 
@@ -11143,4 +11137,6 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   s.textContent=`.gmp-attribution{font-family:Arial,Sans-Serif;font-style:normal;font-weight:400;font-size:12px;letter-spacing:normal;white-space:nowrap;color:#5e5e5e;margin-left:5px}.biz-rating-link .gmp-attribution{display:inline-flex;align-items:center}.home-biz-map-rating .gmp-attribution{font-size:12px}`;
   document.head.appendChild(s);
 })();
-console.info('[DalTownMap App] V290 Google Maps attribution + live rating refresh loaded');
+console.info('[DalTownMap App] V291 Google Maps attribution + live rating refresh loaded');
+
+console.info('[DalTownMap App] V291 text-only market sale public UI loaded');
