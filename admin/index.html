@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=284"></script>
+  <script type="module" src="assets/admin.js?v=289"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -88,6 +88,7 @@
         <button class="nav-item" data-section="slide">슬라이드 관리</button>
 		<button class="nav-item" data-section="banners">배너 관리</button>
 		<button class="nav-item" data-section="requests">신청 관리</button>
+		<button class="nav-item" data-section="trafficSources">유입 분석 <span class="nav-badge">NEW</span></button>
 		<button class="nav-item" data-section="adsOps" onclick="loadAdsOps()">광고 센터 <span class="nav-badge">NEW</span></button>
         <button class="nav-item" data-section="performance">광고 성과 센터</button>
 		<button class="nav-item" type="button" data-section="push">푸시 발송</button>
@@ -255,6 +256,41 @@
           </article>
         </section>
       </section>
+
+
+<section id="section-trafficSources" class="admin-section hidden">
+  <h2>유입 분석</h2>
+  <p class="muted">QR 코드와 홍보 링크의 <code>src</code> 값을 기준으로 유입을 집계합니다. 개인정보는 저장하지 않습니다.</p>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px 0">
+    <select id="trafficRange" class="input" style="max-width:180px">
+      <option value="7">최근 7일</option>
+      <option value="30" selected>최근 30일</option>
+      <option value="90">최근 90일</option>
+      <option value="all">전체</option>
+    </select>
+    <button class="btn primary" type="button" onclick="loadTrafficSourceAnalytics()">새로고침</button>
+    <span id="trafficStatus" class="muted"></span>
+  </div>
+  <div id="trafficSummaryCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px"></div>
+  <div class="card" style="padding:16px;overflow:auto">
+    <h3 style="margin-top:0">유입 경로별 방문</h3>
+    <div id="trafficSourceTable"></div>
+  </div>
+  <div class="card" style="padding:16px;overflow:auto;margin-top:16px">
+    <h3 style="margin-top:0">플라이어 배포처별 방문</h3>
+    <div id="trafficPlaceTable"></div>
+  </div>
+  <div class="card" style="padding:16px;margin-top:16px">
+    <b>QR 제작용 주소</b>
+    <div style="margin-top:10px;line-height:1.9;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px">
+      주간포커스: https://www.daltownmap.com/?src=focus<br>
+      일반 플라이어: https://www.daltownmap.com/?src=flyer<br>
+      Instagram: https://www.daltownmap.com/?src=instagram<br>
+      Facebook: https://www.daltownmap.com/?src=facebook<br>
+      매장별 플라이어: https://www.daltownmap.com/?src=flyer&amp;place=업소코드
+    </div>
+  </div>
+</section>
 
 <section id="section-requests" class="admin-section hidden">
   <h2>신청 관리</h2>

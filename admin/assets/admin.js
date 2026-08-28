@@ -1,3 +1,4 @@
+console.info('[DalTownMap Admin] V289 traffic source analytics loaded');
 console.info('[DalTownMap Admin] V284 request management visibility + autoload fix loaded');
 console.info('[DalTownMap Admin] V271 recommended theme links retained');
 console.info('[DalTownMap Admin] V270 banner inquiry links loaded');
@@ -55,7 +56,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V284';
+    badge.textContent='Admin V289';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -368,6 +369,11 @@ function switchSection(section) {
       else if (typeof loadBusinessRequests === 'function') loadBusinessRequests(1);
     }, 0);
   }
+  if (section === 'trafficSources') {
+    const trafficSection = document.getElementById('section-trafficSources');
+    if (trafficSection) trafficSection.classList.remove('hidden');
+    setTimeout(()=>{ if (typeof loadTrafficSourceAnalytics === 'function') loadTrafficSourceAnalytics(); }, 0);
+  }
 }
 function setPageMeta() {
   const titleMap = {
@@ -383,6 +389,7 @@ function setPageMeta() {
     newsroom: ['AI 운영센터', '수집부터 AI 기사 작성과 게시까지 관리자 화면에서 처리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
     requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
+    trafficSources: ['유입 분석', '신문·플라이어·SNS 등 홍보 경로별 유입을 확인합니다.'],
     adsOps: ['광고 센터', '광고 현황, 편성, 오늘 로테이션과 종료 예정 광고를 관리합니다.'],
     push: ['푸시 발송', '공지와 알림 메시지를 발송합니다.'],
     adminUsers: ['관리자 관리', '관리자 계정과 권한을 관리합니다.']
@@ -12110,3 +12117,51 @@ document.addEventListener('click',function(e){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mountV265SmartFlyerServerNote,900));
   else setTimeout(mountV265SmartFlyerServerNote,900);
 })();
+
+
+// V289: QR/source traffic analytics (admin only)
+function v289TrafficEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function v289TrafficLabel(src){
+  const map={focus:'주간포커스',flyer:'플라이어',instagram:'Instagram',facebook:'Facebook'};
+  return map[String(src||'').toLowerCase()]||String(src||'기타');
+}
+async function loadTrafficSourceAnalytics(){
+  const status=document.getElementById('trafficStatus');
+  const cards=document.getElementById('trafficSummaryCards');
+  const sourceHost=document.getElementById('trafficSourceTable');
+  const placeHost=document.getElementById('trafficPlaceTable');
+  if(!cards||!sourceHost||!placeHost) return;
+  try{
+    if(status) status.textContent='불러오는 중...';
+    const range=String(document.getElementById('trafficRange')?.value||'30');
+    const {data:{session}}=await supabase.auth.getSession();
+    if(!session?.access_token) throw new Error('관리자 로그인이 필요합니다.');
+    const r=await fetch(`/.netlify/functions/traffic-source-track?days=${encodeURIComponent(range)}`,{
+      headers:{Authorization:`Bearer ${session.access_token}`}, cache:'no-store'
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||d.ok===false) throw new Error(d.error||`HTTP ${r.status}`);
+    const total=Number(d.total||0);
+    const sources=Array.isArray(d.sources)?d.sources:[];
+    const places=Array.isArray(d.places)?d.places:[];
+    const today=Number(d.today||0);
+    const top=sources[0];
+    cards.innerHTML=[
+      ['선택 기간 유입',total.toLocaleString('ko-KR')],
+      ['오늘 유입',today.toLocaleString('ko-KR')],
+      ['가장 많은 경로',top?v289TrafficLabel(top.source):'-'],
+      ['추적 경로 수',sources.length.toLocaleString('ko-KR')]
+    ].map(([a,b])=>`<div class="card" style="padding:15px"><div class="muted" style="font-size:12px">${v289TrafficEsc(a)}</div><div style="font-size:24px;font-weight:900;margin-top:5px">${v289TrafficEsc(b)}</div></div>`).join('');
+    sourceHost.innerHTML=sources.length?`<table class="request-table"><thead><tr><th>유입 경로</th><th>방문 수</th><th>비중</th></tr></thead><tbody>${sources.map(x=>`<tr><td><b>${v289TrafficEsc(v289TrafficLabel(x.source))}</b><small style="display:block;color:#64748b">src=${v289TrafficEsc(x.source)}</small></td><td>${Number(x.count||0).toLocaleString('ko-KR')}</td><td>${total?((Number(x.count||0)/total)*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'<p class="muted">아직 추적된 유입이 없습니다.</p>';
+    placeHost.innerHTML=places.length?`<table class="request-table"><thead><tr><th>배포처 코드</th><th>방문 수</th></tr></thead><tbody>${places.map(x=>`<tr><td><b>${v289TrafficEsc(x.place)}</b></td><td>${Number(x.count||0).toLocaleString('ko-KR')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">매장별 place 코드가 포함된 플라이어 유입이 아직 없습니다.</p>';
+    if(status) status.textContent=`마지막 조회 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+  }catch(e){
+    console.error('[V289 traffic analytics]',e);
+    if(status) status.textContent='조회 실패';
+    cards.innerHTML='';
+    sourceHost.innerHTML=`<p style="color:#b91c1c">${v289TrafficEsc(e.message||e)}</p>`;
+    placeHost.innerHTML='';
+  }
+}
+window.loadTrafficSourceAnalytics=loadTrafficSourceAnalytics;
+document.addEventListener('change',e=>{if(e.target?.id==='trafficRange')loadTrafficSourceAnalytics();});

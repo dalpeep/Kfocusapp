@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V289 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
 console.info('[DalTownMap App] V285 pull-to-refresh loaded');
@@ -11067,4 +11068,48 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   document.addEventListener('touchcancel',()=>{ if(!refreshing) reset(); },{passive:true});
 
   console.info('[V285 pull-to-refresh] ready',{standalone:typeof dtmIsStandalone==='function'?dtmIsStandalone():false});
+})();
+
+
+// V289: QR / campaign source tracking.
+// Supported examples:
+//   ?src=focus
+//   ?src=flyer
+//   ?src=flyer&place=restaurant-a
+//   ?src=instagram / ?src=facebook
+(function(){
+  function clean(v,max){
+    return String(v||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'-').replace(/-+/g,'-').slice(0,max||80);
+  }
+  async function v289TrackSourceVisit(){
+    try{
+      const q=new URLSearchParams(location.search);
+      const source=clean(q.get('src')||q.get('utm_source'),40);
+      if(!source) return;
+      const place=clean(q.get('place'),80);
+      const campaign=clean(q.get('campaign')||q.get('utm_campaign'),80);
+      const dedupeKey=['dtm-v289-source',source,place,campaign,location.pathname].join(':');
+      try{ if(sessionStorage.getItem(dedupeKey)==='1') return; }catch(_e){}
+      const res=await fetch('/.netlify/functions/traffic-source-track',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        cache:'no-store',
+        keepalive:true,
+        body:JSON.stringify({
+          source,
+          place:place||null,
+          campaign:campaign||null,
+          path:String(location.pathname||'/').slice(0,300),
+          referrer:String(document.referrer||'').slice(0,500)
+        })
+      });
+      if(res.ok){
+        try{ sessionStorage.setItem(dedupeKey,'1'); }catch(_e){}
+      }
+    }catch(err){
+      console.warn('[V289 traffic tracking skipped]',err);
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',v289TrackSourceVisit,{once:true});
+  else v289TrackSourceVisit();
 })();
