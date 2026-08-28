@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
 console.info('[DalTownMap App] V285 pull-to-refresh loaded');
 console.info('[DalTownMap App] V283 coupon shortcut active-count badge loaded');

@@ -662,7 +662,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="app-v99.js?v=287"></script>
+<script src="app-v99.js?v=288"></script>
 <script src="main-banners.js?v=263"></script>
 
 <div id="videoModal" class="video-modal hidden">
@@ -807,10 +807,10 @@ function requestPush() {
   </section>
 </div>
 <style>
-.promo-video-modal{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;padding:18px}
+.promo-video-modal{position:fixed;inset:0;z-index:2147483646;display:grid;place-items:center;padding:12px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 .promo-video-modal[hidden]{display:none!important}
-.promo-video-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
-.promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:94vh;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.promo-video-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(3px)}
+.promo-video-dialog{position:relative;z-index:1;width:min(92vw,390px);max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#fff;border-radius:20px;padding:12px 12px 14px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
 .promo-video-frame{
   position:relative;
   width:100%;
@@ -841,7 +841,18 @@ function requestPush() {
 .promo-video-instagram{display:block;margin:8px auto 2px;width:max-content;padding:8px 13px;border-radius:999px;background:#eef2ff;color:#1d4ed8;text-decoration:none;font-weight:800;font-size:13px}
 .promo-video-instagram[hidden]{display:none!important}
 .promo-video-dismiss{width:100%;border:0;background:transparent;color:#5d6673;padding:8px;cursor:pointer}
-.promo-video-modal.is-image .promo-video-frame{aspect-ratio:auto;min-height:240px;max-height:78vh}.promo-video-modal.is-image #promoImagePlayer{position:relative!important;width:100%!important;height:auto!important;max-height:78vh!important;object-fit:contain!important;background:#fff!important}@media(max-height:720px){.promo-video-dialog{width:min(72vw,330px)}}
+.promo-video-modal.is-image .promo-video-frame{aspect-ratio:auto;min-height:240px;max-height:72dvh}.promo-video-modal.is-image #promoImagePlayer{position:relative!important;width:100%!important;height:auto!important;max-height:72dvh!important;object-fit:contain!important;background:#fff!important}
+@media(max-width:600px){
+  .promo-video-modal{padding:8px;place-items:start center}
+  .promo-video-dialog{width:min(94vw,390px);max-height:calc(100dvh - 16px);margin:auto;scrollbar-width:thin}
+  .promo-video-frame{width:min(100%,calc((100dvh - 170px)*9/16));margin:0 auto;flex:0 0 auto}
+  .promo-video-title{margin-top:9px}
+  .promo-video-dismiss{position:relative;z-index:2;min-height:42px;padding:10px 8px calc(10px + env(safe-area-inset-bottom));background:#fff}
+}
+@media(max-height:720px){
+  .promo-video-dialog{width:min(88vw,330px)}
+  .promo-video-frame{width:min(100%,calc((100dvh - 160px)*9/16))}
+}
 </style>
 <script>
 (function(){
