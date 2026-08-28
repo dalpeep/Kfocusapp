@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V285 pull-to-refresh loaded');
 console.info('[DalTownMap App] V283 coupon shortcut active-count badge loaded');
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
 console.info('[DalTownMap App] V280 recommended theme link scope fix loaded');
@@ -10963,4 +10964,106 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',apply,{once:true});
   else apply();
+})();
+
+
+// V285: iPhone 홈 화면 앱/모바일 웹에서 화면 최상단을 아래로 당기면 강제 최신 새로고침.
+(function v285PullToRefresh(){
+  if(window.__dtmV285PullRefreshBound) return;
+  window.__dtmV285PullRefreshBound=true;
+
+  const THRESHOLD=78;
+  const MAX_PULL=118;
+  let startY=null;
+  let pulling=false;
+  let distance=0;
+  let refreshing=false;
+
+  const style=document.createElement('style');
+  style.id='v285PullRefreshStyle';
+  style.textContent=`
+    #v285PullRefresh{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 7px);transform:translate(-50%,-70px);z-index:2147483640;pointer-events:none;opacity:0;transition:transform .18s ease,opacity .18s ease;display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:999px;background:rgba(15,23,42,.92);color:#fff;font-size:12px;font-weight:800;box-shadow:0 8px 24px rgba(15,23,42,.25);white-space:nowrap}
+    #v285PullRefresh.show{opacity:1}
+    #v285PullRefresh .v285-spin{display:inline-block;font-size:16px;line-height:1;transform:rotate(0deg)}
+    #v285PullRefresh.ready .v285-spin{transform:rotate(180deg)}
+    #v285PullRefresh.refreshing .v285-spin{animation:v285Spin .8s linear infinite}
+    @keyframes v285Spin{to{transform:rotate(360deg)}}
+  `;
+  document.head.appendChild(style);
+
+  const indicator=document.createElement('div');
+  indicator.id='v285PullRefresh';
+  indicator.setAttribute('aria-live','polite');
+  indicator.innerHTML='<span class="v285-spin">↻</span><span class="v285-label">아래로 당겨 새로고침</span>';
+  document.body.appendChild(indicator);
+  const label=indicator.querySelector('.v285-label');
+
+  function blockedTarget(target){
+    return !!target?.closest?.('input,textarea,select,[contenteditable="true"],.side-menu,.search-overlay,.modal,.sheet,[role="dialog"]');
+  }
+  function reset(){
+    startY=null; pulling=false; distance=0;
+    indicator.classList.remove('show','ready');
+    if(!refreshing){
+      indicator.classList.remove('refreshing');
+      indicator.style.transform='translate(-50%,-70px)';
+      if(label) label.textContent='아래로 당겨 새로고침';
+    }
+  }
+  function forceFreshReload(){
+    if(refreshing) return;
+    refreshing=true;
+    indicator.classList.add('show','refreshing');
+    indicator.classList.remove('ready');
+    indicator.style.transform='translate(-50%,0)';
+    if(label) label.textContent='최신 정보 불러오는 중…';
+    try{
+      sessionStorage.removeItem('dtm_reload_guard');
+      const u=new URL(location.href);
+      u.searchParams.set('__dtm_refresh',Date.now().toString());
+      location.replace(u.toString());
+    }catch(_){
+      location.reload();
+    }
+  }
+  window.dtmForceFreshReload=forceFreshReload;
+
+  document.addEventListener('touchstart',e=>{
+    if(refreshing || e.touches.length!==1 || window.scrollY>1 || blockedTarget(e.target)) return;
+    startY=e.touches[0].clientY;
+    pulling=false;
+    distance=0;
+  },{passive:true});
+
+  document.addEventListener('touchmove',e=>{
+    if(startY===null || refreshing || e.touches.length!==1) return;
+    const dy=e.touches[0].clientY-startY;
+    if(dy<=0){ reset(); return; }
+    if(window.scrollY>1){ reset(); return; }
+    if(dy<7) return;
+    pulling=true;
+    distance=Math.min(MAX_PULL,dy*0.62);
+    // standalone iPhone의 rubber-band overscroll 대신 우리 갱신 UI가 확실히 동작하도록 제어합니다.
+    if(e.cancelable) e.preventDefault();
+    indicator.classList.add('show');
+    const y=Math.max(-48,Math.min(8,-48+distance*0.58));
+    indicator.style.transform=`translate(-50%,${y}px)`;
+    const ready=distance>=THRESHOLD;
+    indicator.classList.toggle('ready',ready);
+    if(label) label.textContent=ready?'놓으면 최신 정보로 새로고침':'아래로 당겨 새로고침';
+  },{passive:false});
+
+  document.addEventListener('touchend',()=>{
+    if(startY===null || refreshing) return;
+    const shouldRefresh=pulling && distance>=THRESHOLD;
+    startY=null;
+    if(shouldRefresh){
+      forceFreshReload();
+    }else{
+      reset();
+    }
+  },{passive:true});
+  document.addEventListener('touchcancel',()=>{ if(!refreshing) reset(); },{passive:true});
+
+  console.info('[V285 pull-to-refresh] ready',{standalone:typeof dtmIsStandalone==='function'?dtmIsStandalone():false});
 })();
