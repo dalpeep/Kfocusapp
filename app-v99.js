@@ -1,4 +1,5 @@
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
+console.info('[DalTownMap App] V279 recommended theme full-card link loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
@@ -6955,7 +6956,8 @@ window.openThemeArticle = function(theme){
   showPage('board-detail');
 };
 
-// V271 추천 테마 클릭: CTA는 연결 페이지로, 카드 나머지 영역은 기존 기사로 이동합니다.
+// V279 추천 테마 클릭: 연결 링크가 설정된 테마는 카드 전체가 해당 연결로 이동합니다.
+// 연결 없음인 테마만 기존처럼 기사 상세를 엽니다.
  document.addEventListener('click',e=>{
   const link=e.target.closest('[data-theme-link]');
   if(link){
@@ -6966,7 +6968,14 @@ window.openThemeArticle = function(theme){
   const btn=e.target.closest('.business-main-theme-card, .business-theme-card');
   if(!btn)return;
   const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));
-  if(theme) window.openThemeArticle(theme);
+  if(!theme) return;
+  if(v271ThemeLinkMeta(theme)){
+    e.preventDefault();
+    e.stopPropagation();
+    v271OpenThemeLink(theme);
+    return;
+  }
+  window.openThemeArticle(theme);
 });
  document.addEventListener('keydown',e=>{
   if((e.key!=='Enter'&&e.key!==' ')||!e.target?.matches?.('[data-theme-link]')) return;
