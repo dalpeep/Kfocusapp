@@ -1,5 +1,5 @@
 console.info('[DalTownMap App] V278 bottom navigation structural fix loaded');
-console.info('[DalTownMap App] V279 recommended theme full-card link loaded');
+console.info('[DalTownMap App] V280 recommended theme link scope fix loaded');
 console.info('[DalTownMap App] V271 recommended theme links loaded');
 console.info('[DalTownMap App] V270 banner inquiry links + CTA loaded');
 console.info('[DalTownMap App] V269 detail banner category targeting loaded');
@@ -6956,23 +6956,50 @@ window.openThemeArticle = function(theme){
   showPage('board-detail');
 };
 
-// V279 추천 테마 클릭: 연결 링크가 설정된 테마는 카드 전체가 해당 연결로 이동합니다.
+// V280: 추천 테마 링크 헬퍼를 전역 범위에서 다시 정의합니다.
+// V271 구현이 renderDetail() 내부에 들어가 있었던 빌드에서도 카드 클릭이 정상 동작하도록 합니다.
+function v280ThemeLinkMeta(theme){
+  const raw=String(theme?.link_url||'').trim();
+  const lower=raw.toLowerCase();
+  if(lower==='internal:business-register'||lower==='#business-register') return {raw,label:'업소 등록'};
+  if(lower==='internal:advertise'||lower==='#advertise') return {raw,label:'광고 문의'};
+  if(raw) return {raw,label:'바로가기'};
+  return null;
+}
+function v280OpenThemeLink(theme){
+  const meta=v280ThemeLinkMeta(theme); if(!meta) return false;
+  const lower=meta.raw.toLowerCase();
+  if(lower==='internal:business-register'||lower==='#business-register'){
+    lastBasePage=currentPage;
+    showPage('business-register');
+    return true;
+  }
+  if(lower==='internal:advertise'||lower==='#advertise'){
+    lastBasePage=currentPage;
+    showPage('advertise');
+    return true;
+  }
+  window.open(normalizeUrl(meta.raw),'_blank','noopener');
+  return true;
+}
+
+// V280 추천 테마 클릭: 연결 링크가 있으면 카드 전체가 해당 연결로 이동합니다.
 // 연결 없음인 테마만 기존처럼 기사 상세를 엽니다.
  document.addEventListener('click',e=>{
   const link=e.target.closest('[data-theme-link]');
   if(link){
     const theme=(dalpicks||[]).find(d=>String(d.id)===String(link.dataset.themeLink));
-    if(theme){e.preventDefault();e.stopPropagation();v271OpenThemeLink(theme);}
+    if(theme){e.preventDefault();e.stopPropagation();v280OpenThemeLink(theme);}
     return;
   }
   const btn=e.target.closest('.business-main-theme-card, .business-theme-card');
   if(!btn)return;
   const theme=(dalpicks||[]).find(d=>String(d.id)===String(btn.dataset.themeId));
   if(!theme) return;
-  if(v271ThemeLinkMeta(theme)){
+  if(v280ThemeLinkMeta(theme)){
     e.preventDefault();
     e.stopPropagation();
-    v271OpenThemeLink(theme);
+    v280OpenThemeLink(theme);
     return;
   }
   window.openThemeArticle(theme);
@@ -6980,7 +7007,7 @@ window.openThemeArticle = function(theme){
  document.addEventListener('keydown',e=>{
   if((e.key!=='Enter'&&e.key!==' ')||!e.target?.matches?.('[data-theme-link]')) return;
   const theme=(dalpicks||[]).find(d=>String(d.id)===String(e.target.dataset.themeLink));
-  if(theme){e.preventDefault();e.stopPropagation();v271OpenThemeLink(theme);}
+  if(theme){e.preventDefault();e.stopPropagation();v280OpenThemeLink(theme);}
 });
 
 function initPageSwipe(){
