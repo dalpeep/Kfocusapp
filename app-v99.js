@@ -770,28 +770,50 @@ function v236PaidGroupRows(allRows, section, dateValue){
     sectionAssigned(b,section)
   );
 }
+function v294OrderByUserDistance(rows, fallbackOrdered){
+  const origin=v293DistanceOrigin();
+  if(!origin) return [...(fallbackOrdered||rows||[])];
+  const fallbackIndex=new Map((fallbackOrdered||rows||[]).map((b,i)=>[String(b.id),i]));
+  return [...(rows||[])].sort((a,b)=>{
+    const aValid=v292ValidBusinessCoords(a.lat,a.lng);
+    const bValid=v292ValidBusinessCoords(b.lat,b.lng);
+    if(aValid && !bValid) return -1;
+    if(!aValid && bValid) return 1;
+    if(aValid && bValid){
+      const da=haversineMiles(origin.lat,origin.lng,Number(a.lat),Number(a.lng));
+      const db=haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng));
+      if(Math.abs(da-db)>0.01) return da-db;
+    }
+    return (fallbackIndex.get(String(a.id))??999999)-(fallbackIndex.get(String(b.id))??999999);
+  });
+}
 function v236PaidOrder(rows, section, dateValue){
   const dateKey=rotationDateKey(dateValue);
-  const fixed=(rows||[]).filter(b=>b.rotation_enabled===false)
+  const fixedFallback=(rows||[]).filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>
       businessGroupRank(a,section)-businessGroupRank(b,section) ||
       String(b.created_at||'').localeCompare(String(a.created_at||''))
     );
-  const rotating=(rows||[]).filter(b=>b.rotation_enabled!==false)
+  const rotatingFallback=(rows||[]).filter(b=>b.rotation_enabled!==false)
     .sort((a,b)=>{
       const aw=Math.max(1,Number(a.paid_weight||1));
       const bw=Math.max(1,Number(b.paid_weight||1));
       return rotationHash(`${dateKey}|paid|${section}|${a.id}`)/aw -
              rotationHash(`${dateKey}|paid|${section}|${b.id}`)/bw;
     });
+  // V294: 유료 고정/로테이션의 구분은 유지하되 각 그룹 안에서는 GPS 가까운 순서를 우선합니다.
+  const fixed=v294OrderByUserDistance(fixedFallback,fixedFallback);
+  const rotating=v294OrderByUserDistance(rotatingFallback,rotatingFallback);
   return [...fixed,...rotating];
 }
 function v236FreeOrder(rows, section, dateValue){
   const dateKey=rotationDateKey(dateValue);
-  return [...(rows||[])].sort((a,b)=>
+  const fallback=[...(rows||[])].sort((a,b)=>
     rotationHash(`${dateKey}|free|${section}|${a.id}`) -
     rotationHash(`${dateKey}|free|${section}|${b.id}`)
   );
+  // V294: 위치가 있으면 가까운 업소 우선, 위치가 없으면 기존 날짜 로테이션 그대로.
+  return v294OrderByUserDistance(rows,fallback);
 }
 function v236BuildGroup(section, dateValue, allRows, limit, usedFreeIds){
   const paidOrdered=v236PaidOrder(v236PaidGroupRows(allRows,section,dateValue),section,dateValue);
@@ -2935,7 +2957,26 @@ function v293DistanceOrigin(){
   if(lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return {lat,lng};
 }
+
 console.info('[DalTownMap App] V293 user-location distance fix loaded');
+
+// V294: 메인 추천/신규/인기는 사용자의 실제 위치가 있으면 가까운 업소를 우선합니다.
+// 위치 권한이 없거나 거부되면 기존 날짜 기반 로테이션을 그대로 사용합니다.
+let v294HomeLocationRequested=false;
+function v294RequestHomeLocation(){
+  if(v294HomeLocationRequested || !navigator.geolocation) return;
+  v294HomeLocationRequested=true;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat=Number(pos?.coords?.latitude), lng=Number(pos?.coords?.longitude);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
+    currentLocationPosition={lat,lng};
+    if(typeof renderHomeBusinessTabs==='function') renderHomeBusinessTabs();
+    console.info('[V294 home location] nearby ordering enabled');
+  },()=>{
+    console.info('[V294 home location] permission unavailable; using existing rotation');
+  },{enableHighAccuracy:false,timeout:8000,maximumAge:300000});
+}
+console.info('[DalTownMap App] V294 home nearby-first ordering loaded');
 
 function mapBottomItemHTML(b){
   const origin = v293DistanceOrigin();
@@ -7910,6 +7951,10 @@ setInterval(()=>{
   if(!document.hidden) refreshBoardPostsSilently({force:true});
 },60*1000);
 
+
+document.addEventListener('DOMContentLoaded',()=>{
+  setTimeout(v294RequestHomeLocation,700);
+});
 
 // === P009: 메인 안정화 · 빠른 반영 코디네이터 ===
 let p009RefreshTimer=null;
