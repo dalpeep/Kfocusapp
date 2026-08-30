@@ -895,34 +895,72 @@ function v295PopularFreeOrder(rows,dateValue){
     return rotationHash(`${dateKey}|v295-popular-tie|${a.id}`)-rotationHash(`${dateKey}|v295-popular-tie|${b.id}`);
   });
 }
-function v295BuildGroup(section,dateValue,allRows,limit){
-  const paidOrdered=v295PaidOrder(v295PaidPool(allRows,dateValue),section,dateValue);
-  const paidShown=paidOrdered.slice(0,limit);
+// === V296: 추천 거리순 보정 + 중복 업소 제거 ===
+// V295의 추천은 거리순으로 정렬한 뒤 다시 날짜 chunk를 돌려서, 실제 화면에서는 먼 업소가 앞에 나올 수 있었습니다.
+// V296에서는 GPS가 있으면 추천 무료 업소를 '실제 거리순' 그대로 사용합니다.
+// 또한 DB에 같은 업소가 중복 등록되어 있어도 메인 3개 탭에서는 한 번만 보이도록 정규화합니다.
+function v296NormText(v){
+  return String(v||'').toLowerCase().replace(/\s+/g,' ').trim();
+}
+function v296BusinessDedupeKey(b){
+  const id=v296NormText(b?.id);
+  const name=v296NormText(b?.name);
+  const address=v296NormText(b?.address);
+  const phone=v296NormText(b?.phone).replace(/\D/g,'');
+  // 같은 지점 판별은 이름+주소를 우선. 주소가 없으면 이름+전화번호를 사용합니다.
+  if(name && address) return `na:${name}|${address}`;
+  if(name && phone) return `np:${name}|${phone}`;
+  return id ? `id:${id}` : `fallback:${name}|${address}|${phone}`;
+}
+function v296DedupeBusinesses(rows){
+  const out=[];
+  const seen=new Set();
+  for(const b of (rows||[])){
+    const key=v296BusinessDedupeKey(b);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    out.push(b);
+  }
+  return out;
+}
+function v296BuildGroup(section,dateValue,allRows,limit){
+  const cleanRows=v296DedupeBusinesses(allRows||[]);
+  const paidOrdered=v295PaidOrder(v295PaidPool(cleanRows,dateValue),section,dateValue);
+  const paidShown=v296DedupeBusinesses(paidOrdered).slice(0,limit);
+  const paidKeys=new Set(paidShown.map(v296BusinessDedupeKey));
   const need=Math.max(0,limit-paidShown.length);
   if(!need) return {rows:paidShown,paid:paidShown.length,free:0};
 
-  const free=v295FreePool(allRows,dateValue);
+  // 유료로 이미 노출된 동일 업소는 무료 후보에서 다시 나오지 않게 합니다.
+  const free=v295FreePool(cleanRows,dateValue).filter(b=>!paidKeys.has(v296BusinessDedupeKey(b)));
   let freeShown=[];
   if(section==='featured'){
     const ordered=v295DistanceOrderedFree(free,dateValue);
-    // GPS가 있으면 거리순 전체 리스트를 날짜별 묶음으로 순환. GPS가 없으면 deterministic rotation.
-    freeShown=v295RotateChunk(ordered,dateValue,need,'featured');
+    if(v293DistanceOrigin()){
+      // 실제 GPS가 있으면 반드시 가까운 순서부터 노출합니다.
+      // 같은 거리권의 동률만 V295의 날짜 해시가 tie-breaker로 순환시킵니다.
+      freeShown=ordered.slice(0,need);
+    }else{
+      // 위치 권한이 없을 때만 기존 전체 로테이션을 사용합니다.
+      freeShown=v295RotateChunk(ordered,dateValue,need,'featured');
+    }
   }else if(section==='new'){
     const fresh=free.filter(v295IsNewWithin7Days).sort((a,b)=>
       v295CreatedAtMs(b)-v295CreatedAtMs(a) ||
-      rotationHash(`${rotationDateKey(dateValue)}|v295-new|${a.id}`)-rotationHash(`${rotationDateKey(dateValue)}|v295-new|${b.id}`)
+      rotationHash(`${rotationDateKey(dateValue)}|v296-new|${a.id}`)-rotationHash(`${rotationDateKey(dateValue)}|v296-new|${b.id}`)
     );
     freeShown=fresh.slice(0,need);
   }else if(section==='popular'){
     freeShown=v295PopularFreeOrder(free,dateValue).slice(0,need);
   }
-  return {rows:[...paidShown,...freeShown],paid:paidShown.length,free:freeShown.length};
+  freeShown=v296DedupeBusinesses(freeShown).slice(0,need);
+  return {rows:v296DedupeBusinesses([...paidShown,...freeShown]).slice(0,limit),paid:paidShown.length,free:freeShown.length};
 }
 
 function canonicalHomeGroups(dateValue=todayKey(),allRows=businesses,limit=6){
-  const featured=v295BuildGroup('featured',dateValue,allRows||[],limit);
-  const fresh=v295BuildGroup('new',dateValue,allRows||[],limit);
-  const popular=v295BuildGroup('popular',dateValue,allRows||[],limit);
+  const featured=v296BuildGroup('featured',dateValue,allRows||[],limit);
+  const fresh=v296BuildGroup('new',dateValue,allRows||[],limit);
+  const popular=v296BuildGroup('popular',dateValue,allRows||[],limit);
   return {
     featured:featured.rows,
     new:fresh.rows,
@@ -935,6 +973,7 @@ function canonicalHomeGroups(dateValue=todayKey(),allRows=businesses,limit=6){
   };
 }
 console.info('[DalTownMap App] V295 paid-first + nearby/new7d/weekly-click home ranking loaded');
+console.info('[DalTownMap App] V296 strict-nearby + home dedupe fix loaded');
 
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
