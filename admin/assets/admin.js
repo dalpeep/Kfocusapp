@@ -56,7 +56,7 @@ console.info('[DalTownMap Admin] V209 cache/version sync loaded');
     if(document.getElementById('dtmV217Badge')) return;
     const badge=document.createElement('div');
     badge.id='dtmV217Badge';
-    badge.textContent='Admin V290';
+    badge.textContent='Admin V292';
     badge.title='현재 로드된 관리자 코드 버전: V217';
     badge.style.cssText=[
       'position:fixed','right:14px','bottom:14px','z-index:2147483647',
@@ -2167,10 +2167,20 @@ async function geocodeAddress() {
     if (btn) { btn.disabled = false; btn.textContent = '주소→좌표'; }
   }
 }
+function v292AdminCoordsValid(latValue, lngValue){
+  if(latValue === null || latValue === undefined || lngValue === null || lngValue === undefined) return false;
+  if(String(latValue).trim() === '' || String(lngValue).trim() === '') return false;
+  const lat=Number(latValue), lng=Number(lngValue);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if(lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  if(Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return false;
+  return true;
+}
+
 async function bulkGeocodeMissing() {
-  const targets = filterBusinesses().filter((row) => row.address && (row.lat == null || row.lng == null));
-  if (!targets.length) return alert('좌표가 비어 있는 업소가 없습니다.');
-  if (!confirm(`좌표 없는 업소 ${targets.length}개를 일괄 생성할까요?`)) return;
+  const targets = filterBusinesses().filter((row) => row.address && !v292AdminCoordsValid(row.lat, row.lng));
+  if (!targets.length) return alert('좌표가 비어 있거나 잘못된 업소가 없습니다.');
+  if (!confirm(`좌표가 비어 있거나 잘못된 업소 ${targets.length}개를 주소 기준으로 다시 생성할까요?`)) return;
 
   const btn = qs('bulkGeocodeBtn');
   const old = btn?.textContent || '';
@@ -12168,3 +12178,5 @@ window.loadTrafficSourceAnalytics=loadTrafficSourceAnalytics;
 document.addEventListener('change',e=>{if(e.target?.id==='trafficRange')loadTrafficSourceAnalytics();});
 
 console.info('[DalTownMap Admin] V290 Google Place ID storage loaded');
+
+console.info('[DalTownMap Admin] V292 map coordinate repair loaded');

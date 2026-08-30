@@ -1808,8 +1808,8 @@ async function loadRealData(){
           reservation: row.reservation || '',
           languages: row.languages || '',
           insurance: row.insurance || '',
-          lat: row.lat == null ? null : Number(row.lat),
-          lng: row.lng == null ? null : Number(row.lng),
+          lat: (row.lat == null || String(row.lat).trim()==='') ? null : Number(row.lat),
+          lng: (row.lng == null || String(row.lng).trim()==='') ? null : Number(row.lng),
           featured: !!row.is_featured,
           is_featured: !!row.is_featured,
           is_new: !!row.is_new,
@@ -2912,8 +2912,21 @@ function boardListItemHTML(post) {
     </button>
   `;
 }
+// V292: Prevent blank/0,0/out-of-range coordinates from being treated as real map locations.
+function v292ValidBusinessCoords(latValue, lngValue){
+  if(latValue === null || latValue === undefined || lngValue === null || lngValue === undefined) return false;
+  if(String(latValue).trim() === '' || String(lngValue).trim() === '') return false;
+  const lat = Number(latValue);
+  const lng = Number(lngValue);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if(lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  if(Math.abs(lat) < 0.0001 && Math.abs(lng) < 0.0001) return false;
+  return true;
+}
+console.info('[DalTownMap App] V292 map coordinate validation loaded');
+
 function mapBottomItemHTML(b){
-  const miles = (b.lat != null && b.lng != null && currentCenter)
+  const miles = (v292ValidBusinessCoords(b.lat, b.lng) && currentCenter)
     ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng))
     : null;
 
@@ -2951,7 +2964,7 @@ function renderMapBottomList(list, categorySummaryRows = null){
 }
 function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
-  const miles = currentCenter && Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
+  const miles = currentCenter && v292ValidBusinessCoords(b.lat, b.lng)
     ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
   const meta = [getBusinessDisplayCategory(b)];
   if(Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
@@ -7195,7 +7208,7 @@ function ensureMarkerClusterer(cb){
 }
 
 function getFilteredMapBusinesses(){
-  let list = businesses.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  let list = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(mapMode==='coupon'){
     const couponBizIds = new Set(activeMapCoupons().map(c=>String(c.businessId)));
     list = list.filter(b=>couponBizIds.has(String(b.id)));
@@ -7259,8 +7272,8 @@ function sortBusinessesByDistance(list){
   }
 
   return list.slice().sort((a, b) => {
-    const aHas = Number.isFinite(Number(a.lat)) && Number.isFinite(Number(a.lng));
-    const bHas = Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng));
+    const aHas = v292ValidBusinessCoords(a.lat, a.lng);
+    const bHas = v292ValidBusinessCoords(b.lat, b.lng);
 
     if (!aHas && !bHas) return 0;
     if (!aHas) return 1;
@@ -7291,7 +7304,7 @@ function panMapForVisibleInfo(lat, lng){
 
 function focusMapOnBusinesses(list){
   if(!map || !window.google?.maps || !Array.isArray(list) || !list.length) return;
-  const valid = list.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  const valid = list.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(!valid.length) return;
   if(valid.length === 1){
     const b = valid[0];
@@ -7312,7 +7325,7 @@ function focusMapOnBusinesses(list){
 
 function fitMapToCurrentResultRows(){
   const rows = Array.isArray(window.__mapCurrentRows) ? window.__mapCurrentRows : [];
-  const valid = rows.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  const valid = rows.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(!map || !window.google?.maps || !valid.length) return;
   mapBusinessPreview?.classList.add('hidden');
   selectedMapBusinessId = '';
@@ -7354,7 +7367,7 @@ function redrawMapMarkers(){
   markers = [];
   const focus = currentCenter || getRegionCenter(currentRegion);
   const radiusMiles = String(mapRadius)==='all' ? null : Number(mapRadius || radiusByZoom(map?.getZoom?.() || 12));
-  let baseList = businesses.filter(b=>Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng)));
+  let baseList = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)]));
   const nearbyBase = !radiusMiles ? baseList : baseList.filter(b=>haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng)) <= radiusMiles);
   updateMapFilterAvailability(nearbyBase.length ? nearbyBase : baseList);
@@ -7372,7 +7385,7 @@ function redrawMapMarkers(){
   // 지도에는 선택한 분류의 전체 업소 핀을 표시한다.
   // 반경은 하단의 “주변 업소” 목록을 정렬·제한하는 용도로만 사용한다.
   const finalList = list.filter(b =>
-    Number.isFinite(Number(b.lat)) && Number.isFinite(Number(b.lng))
+    v292ValidBusinessCoords(b.lat, b.lng)
   );
   const nearbyList = filtered.length ? filtered : (mapMode==='event' ? [] : finalList.slice(0,60));
 
@@ -8419,7 +8432,7 @@ window.openBusinessMapCard = function(id){
     const lat = Number(biz.lat);
     const lng = Number(biz.lng);
 
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    if (v292ValidBusinessCoords(lat, lng)) {
       currentCenter = { lat, lng };
 
       if (map && window.google?.maps) {
