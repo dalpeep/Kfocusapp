@@ -2925,9 +2925,22 @@ function v292ValidBusinessCoords(latValue, lngValue){
 }
 console.info('[DalTownMap App] V292 map coordinate validation loaded');
 
+// V293: Distance labels must use the user's actual geolocation, not the movable map center.
+// Selecting/panning to a business changes currentCenter, which previously made the selected business show 0.0mi.
+function v293DistanceOrigin(){
+  const p = currentLocationPosition;
+  if(!p) return null;
+  const lat = Number(p.lat), lng = Number(p.lng);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if(lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return {lat,lng};
+}
+console.info('[DalTownMap App] V293 user-location distance fix loaded');
+
 function mapBottomItemHTML(b){
-  const miles = (v292ValidBusinessCoords(b.lat, b.lng) && currentCenter)
-    ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng))
+  const origin = v293DistanceOrigin();
+  const miles = (v292ValidBusinessCoords(b.lat, b.lng) && origin)
+    ? haversineMiles(origin.lat, origin.lng, Number(b.lat), Number(b.lng))
     : null;
 
   const meta = [getBusinessDisplayCategory(b)];
@@ -2964,8 +2977,9 @@ function renderMapBottomList(list, categorySummaryRows = null){
 }
 function mapBusinessPreviewHTML(b){
   const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
-  const miles = currentCenter && v292ValidBusinessCoords(b.lat, b.lng)
-    ? haversineMiles(currentCenter.lat, currentCenter.lng, Number(b.lat), Number(b.lng)) : null;
+  const origin = v293DistanceOrigin();
+  const miles = origin && v292ValidBusinessCoords(b.lat, b.lng)
+    ? haversineMiles(origin.lat, origin.lng, Number(b.lat), Number(b.lng)) : null;
   const meta = [getBusinessDisplayCategory(b)];
   if(Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
   return `<div class="map-preview-card">
