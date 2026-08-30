@@ -763,10 +763,12 @@ function v295PublicActiveBusiness(b){
     b.list_visible!==false &&
     b.listing_visible!==false;
 }
-function v295PaidPool(allRows,dateValue){
+function v295PaidPool(allRows,dateValue,section){
   const dateKey=rotationDateKey(dateValue);
   return (allRows||[]).filter(b=>
-    v295PublicActiveBusiness(b) && paidAdActiveOnDate(b,dateKey)
+    v295PublicActiveBusiness(b) &&
+    paidAdActiveOnDate(b,dateKey) &&
+    (!section || sectionAssigned(b,section))
   );
 }
 function v295FreePool(allRows,dateValue){
@@ -925,7 +927,7 @@ function v296DedupeBusinesses(rows){
 }
 function v296BuildGroup(section,dateValue,allRows,limit){
   const cleanRows=v296DedupeBusinesses(allRows||[]);
-  const paidOrdered=v295PaidOrder(v295PaidPool(cleanRows,dateValue),section,dateValue);
+  const paidOrdered=v295PaidOrder(v295PaidPool(cleanRows,dateValue,section),section,dateValue);
   const paidShown=v296DedupeBusinesses(paidOrdered).slice(0,limit);
   const paidKeys=new Set(paidShown.map(v296BusinessDedupeKey));
   const need=Math.max(0,limit-paidShown.length);
@@ -974,6 +976,7 @@ function canonicalHomeGroups(dateValue=todayKey(),allRows=businesses,limit=6){
 }
 console.info('[DalTownMap App] V295 paid-first + nearby/new7d/weekly-click home ranking loaded');
 console.info('[DalTownMap App] V296 strict-nearby + home dedupe fix loaded');
+console.info('[DalTownMap App] V297 section-specific paid placement fix loaded');
 
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
