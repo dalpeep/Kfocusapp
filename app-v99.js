@@ -747,109 +747,182 @@ function homeRotationRows(rows, section, dateValue, limit=6, allRows=businesses)
 
 
 
-// === V236: 유료 그룹 + 무료 전체 Fair Rotation ===
-function v236PublicActiveBusiness(b){
+// === V295: 메인 추천 / 신규 / 인기 운영 기준 ===
+// 공통: 현재 유료 체크(paid_active)된 공개 업소를 항상 먼저 배치합니다.
+// 추천: 무료 업소는 사용자 GPS 기준 가까운 순서의 전체 목록을 날짜별 chunk로 순환합니다.
+// 신규: 무료 업소는 등록 후 7일 동안만 후보이며 최신 등록순입니다.
+// 인기: 무료 업소는 Dallas 주간(월~일)의 실제 business_click 수가 높은 순이며, 새 주에는 집계가 자동으로 0부터 시작합니다.
+// 과거 business_activity 기록은 삭제하지 않습니다.
+let v295WeeklyClickCounts = new Map();
+let v295WeeklyClickStartKey = '';
+
+function v295PublicActiveBusiness(b){
   return !!b &&
     b.is_active!==false &&
     b.status!=='hidden' &&
     b.list_visible!==false &&
     b.listing_visible!==false;
 }
-function v236FreePool(allRows, dateValue){
+function v295PaidPool(allRows,dateValue){
   const dateKey=rotationDateKey(dateValue);
   return (allRows||[]).filter(b=>
-    v236PublicActiveBusiness(b) &&
-    !paidAdActiveOnDate(b,dateKey)
+    v295PublicActiveBusiness(b) && paidAdActiveOnDate(b,dateKey)
   );
 }
-function v236PaidGroupRows(allRows, section, dateValue){
+function v295FreePool(allRows,dateValue){
   const dateKey=rotationDateKey(dateValue);
   return (allRows||[]).filter(b=>
-    v236PublicActiveBusiness(b) &&
-    paidAdActiveOnDate(b,dateKey) &&
-    sectionAssigned(b,section)
+    v295PublicActiveBusiness(b) && !paidAdActiveOnDate(b,dateKey)
   );
 }
-function v294OrderByUserDistance(rows, fallbackOrdered){
-  const origin=v293DistanceOrigin();
-  if(!origin) return [...(fallbackOrdered||rows||[])];
-  const fallbackIndex=new Map((fallbackOrdered||rows||[]).map((b,i)=>[String(b.id),i]));
-  return [...(rows||[])].sort((a,b)=>{
-    const aValid=v292ValidBusinessCoords(a.lat,a.lng);
-    const bValid=v292ValidBusinessCoords(b.lat,b.lng);
-    if(aValid && !bValid) return -1;
-    if(!aValid && bValid) return 1;
-    if(aValid && bValid){
-      const da=haversineMiles(origin.lat,origin.lng,Number(a.lat),Number(a.lng));
-      const db=haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng));
-      if(Math.abs(da-db)>0.01) return da-db;
-    }
-    return (fallbackIndex.get(String(a.id))??999999)-(fallbackIndex.get(String(b.id))??999999);
-  });
-}
-function v236PaidOrder(rows, section, dateValue){
+function v295PaidOrder(rows,section,dateValue){
   const dateKey=rotationDateKey(dateValue);
-  const fixedFallback=(rows||[]).filter(b=>b.rotation_enabled===false)
+  const fixed=(rows||[]).filter(b=>b.rotation_enabled===false)
     .sort((a,b)=>
       businessGroupRank(a,section)-businessGroupRank(b,section) ||
       String(b.created_at||'').localeCompare(String(a.created_at||''))
     );
-  const rotatingFallback=(rows||[]).filter(b=>b.rotation_enabled!==false)
+  const rotating=(rows||[]).filter(b=>b.rotation_enabled!==false)
     .sort((a,b)=>{
       const aw=Math.max(1,Number(a.paid_weight||1));
       const bw=Math.max(1,Number(b.paid_weight||1));
-      return rotationHash(`${dateKey}|paid|${section}|${a.id}`)/aw -
-             rotationHash(`${dateKey}|paid|${section}|${b.id}`)/bw;
+      return rotationHash(`${dateKey}|v295-paid|${section}|${a.id}`)/aw -
+             rotationHash(`${dateKey}|v295-paid|${section}|${b.id}`)/bw;
     });
-  // V294: 유료 고정/로테이션의 구분은 유지하되 각 그룹 안에서는 GPS 가까운 순서를 우선합니다.
-  const fixed=v294OrderByUserDistance(fixedFallback,fixedFallback);
-  const rotating=v294OrderByUserDistance(rotatingFallback,rotatingFallback);
   return [...fixed,...rotating];
 }
-function v236FreeOrder(rows, section, dateValue){
+function v295CalendarDayNumber(dateKey){
+  const [y,m,d]=String(dateKey||todayKey()).split('-').map(Number);
+  return Math.floor(Date.UTC(y||1970,(m||1)-1,d||1)/86400000);
+}
+function v295RotateChunk(rows,dateValue,limit,seed='default'){
+  const list=[...(rows||[])];
+  if(list.length<=limit) return list;
+  const dateKey=rotationDateKey(dateValue);
+  // 날짜가 바뀔 때 다음 묶음으로 넘어가 전체 후보가 순차적으로 노출됩니다.
+  const day=v295CalendarDayNumber(dateKey);
+  const base=rotationHash(`v295|${seed}`)%list.length;
+  const offset=(base + (day*limit)) % list.length;
+  const out=[];
+  for(let i=0;i<Math.min(limit,list.length);i++) out.push(list[(offset+i)%list.length]);
+  return out;
+}
+function v295DistanceOrderedFree(rows,dateValue){
   const dateKey=rotationDateKey(dateValue);
   const fallback=[...(rows||[])].sort((a,b)=>
-    rotationHash(`${dateKey}|free|${section}|${a.id}`) -
-    rotationHash(`${dateKey}|free|${section}|${b.id}`)
+    rotationHash(`${dateKey}|v295-featured|${a.id}`)-rotationHash(`${dateKey}|v295-featured|${b.id}`)
   );
-  // V294: 위치가 있으면 가까운 업소 우선, 위치가 없으면 기존 날짜 로테이션 그대로.
-  return v294OrderByUserDistance(rows,fallback);
+  const origin=v293DistanceOrigin();
+  if(!origin) return fallback;
+  return [...(rows||[])].sort((a,b)=>{
+    const av=v292ValidBusinessCoords(a.lat,a.lng), bv=v292ValidBusinessCoords(b.lat,b.lng);
+    if(av&&!bv) return -1;
+    if(!av&&bv) return 1;
+    if(av&&bv){
+      const da=haversineMiles(origin.lat,origin.lng,Number(a.lat),Number(a.lng));
+      const db=haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng));
+      if(Math.abs(da-db)>0.01) return da-db;
+    }
+    return rotationHash(`${dateKey}|v295-featured-tie|${a.id}`)-rotationHash(`${dateKey}|v295-featured-tie|${b.id}`);
+  });
 }
-function v236BuildGroup(section, dateValue, allRows, limit, usedFreeIds){
-  const paidOrdered=v236PaidOrder(v236PaidGroupRows(allRows,section,dateValue),section,dateValue);
+function v295CreatedAtMs(b){
+  const t=new Date(b?.created_at||0).getTime();
+  return Number.isFinite(t)?t:0;
+}
+function v295IsNewWithin7Days(b){
+  const t=v295CreatedAtMs(b);
+  if(!t) return false;
+  const age=Date.now()-t;
+  return age>=0 && age < 7*24*60*60*1000;
+}
+function v295WeekStartDateKey(dateValue=todayKey()){
+  const [y,m,d]=rotationDateKey(dateValue).split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d));
+  const dow=dt.getUTCDay(); // Sun=0
+  const subtract=(dow+6)%7; // Monday=0
+  dt.setUTCDate(dt.getUTCDate()-subtract);
+  return dt.toISOString().slice(0,10);
+}
+function v295ChicagoMidnightUtcIso(dateKey){
+  try{
+    const [y,m,d]=String(dateKey).split('-').map(Number);
+    const desired=Date.UTC(y,m-1,d,0,0,0);
+    const probe=new Date(desired);
+    const parts=new Intl.DateTimeFormat('en-US',{
+      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',
+      hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+    }).formatToParts(probe).reduce((o,p)=>(o[p.type]=p.value,o),{});
+    const seenAsUtc=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute),Number(parts.second));
+    const offset=seenAsUtc-desired;
+    return new Date(desired-offset).toISOString();
+  }catch(_){
+    return `${dateKey}T00:00:00.000Z`;
+  }
+}
+async function v295LoadWeeklyPopularClicks(force=false){
+  const weekKey=v295WeekStartDateKey(todayKey());
+  if(!force && v295WeeklyClickStartKey===weekKey && v295WeeklyClickCounts.size) return v295WeeklyClickCounts;
+  const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY) return v295WeeklyClickCounts;
+  try{
+    const since=v295ChicagoMidnightUtcIso(weekKey);
+    const url=`${SUPABASE_URL}/rest/v1/business_activity?select=business_id,created_at&action_type=eq.business_click&created_at=gte.${encodeURIComponent(since)}&limit=20000`;
+    const res=await fetch(url,{cache:'no-store',headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
+    if(!res.ok) throw new Error(`weekly click ${res.status}`);
+    const rows=await res.json();
+    const counts=new Map();
+    (Array.isArray(rows)?rows:[]).forEach(r=>{
+      const id=String(r?.business_id||'').trim();
+      if(id) counts.set(id,(counts.get(id)||0)+1);
+    });
+    v295WeeklyClickCounts=counts;
+    v295WeeklyClickStartKey=weekKey;
+    console.info('[V295 weekly popular]',{weekStart:weekKey,clicks:[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10)});
+    if(typeof renderHomeBusinessTabs==='function') renderHomeBusinessTabs();
+    return counts;
+  }catch(err){
+    console.warn('[V295 weekly popular] load skipped',err);
+    return v295WeeklyClickCounts;
+  }
+}
+function v295PopularFreeOrder(rows,dateValue){
+  const dateKey=rotationDateKey(dateValue);
+  return [...(rows||[])].sort((a,b)=>{
+    const ac=Number(v295WeeklyClickCounts.get(String(a.id))||0);
+    const bc=Number(v295WeeklyClickCounts.get(String(b.id))||0);
+    if(ac!==bc) return bc-ac;
+    return rotationHash(`${dateKey}|v295-popular-tie|${a.id}`)-rotationHash(`${dateKey}|v295-popular-tie|${b.id}`);
+  });
+}
+function v295BuildGroup(section,dateValue,allRows,limit){
+  const paidOrdered=v295PaidOrder(v295PaidPool(allRows,dateValue),section,dateValue);
   const paidShown=paidOrdered.slice(0,limit);
   const need=Math.max(0,limit-paidShown.length);
+  if(!need) return {rows:paidShown,paid:paidShown.length,free:0};
 
-  if(!need) return {rows:paidShown, paid:paidShown.length, free:0};
-
-  const allFree=v236FreePool(allRows,dateValue);
-  let freeCandidates=allFree.filter(b=>!usedFreeIds.has(String(b.id)));
-
-  // 무료 업소 수가 부족할 때만 다른 탭과의 중복을 허용합니다.
-  if(freeCandidates.length<need){
-    const existing=new Set(freeCandidates.map(b=>String(b.id)));
-    freeCandidates=freeCandidates.concat(allFree.filter(b=>!existing.has(String(b.id))));
+  const free=v295FreePool(allRows,dateValue);
+  let freeShown=[];
+  if(section==='featured'){
+    const ordered=v295DistanceOrderedFree(free,dateValue);
+    // GPS가 있으면 거리순 전체 리스트를 날짜별 묶음으로 순환. GPS가 없으면 deterministic rotation.
+    freeShown=v295RotateChunk(ordered,dateValue,need,'featured');
+  }else if(section==='new'){
+    const fresh=free.filter(v295IsNewWithin7Days).sort((a,b)=>
+      v295CreatedAtMs(b)-v295CreatedAtMs(a) ||
+      rotationHash(`${rotationDateKey(dateValue)}|v295-new|${a.id}`)-rotationHash(`${rotationDateKey(dateValue)}|v295-new|${b.id}`)
+    );
+    freeShown=fresh.slice(0,need);
+  }else if(section==='popular'){
+    freeShown=v295PopularFreeOrder(free,dateValue).slice(0,need);
   }
-
-  const freeShown=v236FreeOrder(freeCandidates,section,dateValue).slice(0,need);
-  freeShown.forEach(b=>usedFreeIds.add(String(b.id)));
-
-  return {rows:[...paidShown,...freeShown], paid:paidShown.length, free:freeShown.length};
+  return {rows:[...paidShown,...freeShown],paid:paidShown.length,free:freeShown.length};
 }
 
-
-// V212: 추천/신규/인기의 실제 메인 목록을 한 번에 계산합니다.
-// 한 업체가 두 그룹 이상에 동시에 자동 보충되지 않도록 전역적으로 중복을 막습니다.
-function canonicalHomeGroups(dateValue=todayKey(), allRows=businesses, limit=6){
-  // V236 운영 기준:
-  // 1) 추천/신규/인기 각 탭의 '유료 그룹' 업소를 먼저 배치
-  // 2) 남는 자리는 그룹 체크와 무관한 전체 무료 업소에서 자동 보충
-  // 3) 무료 업소는 같은 날 세 탭에 가능한 한 중복되지 않게 배분
-  const usedFreeIds=new Set();
-  const featured=v236BuildGroup('featured',dateValue,allRows||[],limit,usedFreeIds);
-  const fresh=v236BuildGroup('new',dateValue,allRows||[],limit,usedFreeIds);
-  const popular=v236BuildGroup('popular',dateValue,allRows||[],limit,usedFreeIds);
-
+function canonicalHomeGroups(dateValue=todayKey(),allRows=businesses,limit=6){
+  const featured=v295BuildGroup('featured',dateValue,allRows||[],limit);
+  const fresh=v295BuildGroup('new',dateValue,allRows||[],limit);
+  const popular=v295BuildGroup('popular',dateValue,allRows||[],limit);
   return {
     featured:featured.rows,
     new:fresh.rows,
@@ -861,6 +934,7 @@ function canonicalHomeGroups(dateValue=todayKey(), allRows=businesses, limit=6){
     }
   };
 }
+console.info('[DalTownMap App] V295 paid-first + nearby/new7d/weekly-click home ranking loaded');
 
 function renderHomeBusinessTabs(){
   const box = document.getElementById('homeBusinessTabList');
@@ -1661,6 +1735,11 @@ async function logBusinessActivity(businessId, actionType, meta={}){
       }
     }
     if(!res.ok) console.warn('activity log rejected',actionType,res.status);
+    else if(actionType==='business_click'){
+      const key=String(businessId);
+      v295WeeklyClickCounts.set(key,Number(v295WeeklyClickCounts.get(key)||0)+1);
+      if(String(homeBusinessTab||'')==='popular' && typeof renderHomeBusinessTabs==='function') renderHomeBusinessTabs();
+    }
   } catch(e){ console.warn('activity log skipped', e); }
 }
 
@@ -1893,6 +1972,7 @@ async function loadRealData(){
     console.warn('Using fallback data', e);
   }
 
+  await v295LoadWeeklyPopularClicks(true);
   await loadCouponsFromSupabase();
   await loadDalpicksFromSupabase();
   await loadBoardPostsFromSupabase();
