@@ -1,6 +1,9 @@
 [functions."raffle-auto-draw"]
   schedule = "*/10 * * * *"
 
+[functions."daily-core-refresh"]
+  schedule = "15 11 * * *"
+
 
 # V263: HTML/manifest는 항상 최신 여부를 확인하고, 버전된 정적자산만 장기 캐시합니다.
 [[headers]]
