@@ -1,4 +1,4 @@
-const {loadTodayRows,ensureDailyCore}=require('./lib/daily-core');
+const {loadTodayRows}=require('./lib/daily-core');
 
 exports.handler = async function(event) {
   const headers = {
@@ -15,20 +15,7 @@ exports.handler = async function(event) {
     const region = String(event.queryStringParameters?.region || 'dallas').toLowerCase();
     let loaded = await loadTodayRows(region);
 
-    // P135: 오늘 weather/traffic 중 하나라도 없으면 Daily Core 생성기를 한 번 실행해 자동 복구합니다.
     const missing = ['weather','traffic'].filter(key => !loaded.byCategory.has(key));
-    let repaired = false;
-    let repairError = '';
-    if (missing.length) {
-      try {
-        await ensureDailyCore(region, { force:false });
-        loaded = await loadTodayRows(region);
-        repaired = true;
-      } catch (error) {
-        repairError = error?.message || String(error);
-        console.warn('[P135 daily core auto-repair]', repairError);
-      }
-    }
 
     const items = ['weather', 'traffic'].map(category => {
       const row = loaded.byCategory.get(category);
@@ -67,8 +54,10 @@ exports.handler = async function(event) {
         region,
         count: items.length,
         categories: items.map(x => x.category),
-        repaired,
-        repair_error: repairError || undefined,
+        // 기존 공개 응답 필드는 유지하되, 조회 요청에서는 자동 생성/복구를 하지 않습니다.
+        repaired: false,
+        repair_error: undefined,
+        missing,
         items
       })
     };

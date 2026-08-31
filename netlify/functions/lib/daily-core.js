@@ -1,3 +1,5 @@
+const crypto=require('crypto');
+
 function centralDate(value=new Date()){
   return new Intl.DateTimeFormat('en-CA',{
     timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
@@ -68,6 +70,20 @@ async function generateDailyCore(region='dallas'){
   if(!parsed?.weather||!parsed?.traffic)throw new Error('Daily Core AI 결과에 weather 또는 traffic이 없습니다.');
   return {today,weather:parsed.weather,traffic:parsed.traffic};
 }
+async function claimGenerationLock(region,today){
+  const token=crypto.randomUUID();
+  const claimed=await sb('rpc/claim_daily_core_generation_lock',{
+    method:'POST',
+    body:JSON.stringify({p_region:region,p_date_key:today,p_lock_token:token,p_ttl_seconds:120})
+  });
+  return {claimed:claimed===true,token};
+}
+async function releaseGenerationLock(region,today,token){
+  await sb('rpc/release_daily_core_generation_lock',{
+    method:'POST',
+    body:JSON.stringify({p_region:region,p_date_key:today,p_lock_token:token})
+  });
+}
 async function saveCategory(region,today,category,item){
   const now=new Date().toISOString();
   const duplicateKey=`daily-core-${category}-${today}`;
@@ -112,11 +128,24 @@ async function ensureDailyCore(region='dallas',{force=false}={}){
   const before=await loadTodayRows(region);
   const missing=['weather','traffic'].filter(k=>!before.byCategory.has(k));
   if(!force&&!missing.length)return {ok:true,date:before.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>before.byCategory.get(k)).filter(Boolean)};
-  const generated=await generateDailyCore(region);
-  const targets=force?['weather','traffic']:missing;
-  const saved=[];
-  for(const category of targets)saved.push(await saveCategory(region,generated.today,category,generated[category]));
-  const after=await loadTodayRows(region);
-  return {ok:true,date:after.today,region,generated:true,missing:['weather','traffic'].filter(k=>!after.byCategory.has(k)),saved,items:['weather','traffic'].map(k=>after.byCategory.get(k)).filter(Boolean)};
+  const lock=await claimGenerationLock(region,before.today);
+  if(!lock.claimed){
+    const current=await loadTodayRows(region);
+    return {ok:true,date:current.today,region,generated:false,locked:true,missing:['weather','traffic'].filter(k=>!current.byCategory.has(k)),items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
+  }
+  try{
+    // 최초 조회와 잠금 획득 사이에 다른 실행이 저장했을 수 있으므로 잠금 안에서 다시 확인합니다.
+    const current=await loadTodayRows(region);
+    const currentMissing=['weather','traffic'].filter(k=>!current.byCategory.has(k));
+    if(!force&&!currentMissing.length)return {ok:true,date:current.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
+    const generated=await generateDailyCore(region);
+    const targets=force?['weather','traffic']:currentMissing;
+    const saved=[];
+    for(const category of targets)saved.push(await saveCategory(region,generated.today,category,generated[category]));
+    const after=await loadTodayRows(region);
+    return {ok:true,date:after.today,region,generated:true,missing:['weather','traffic'].filter(k=>!after.byCategory.has(k)),saved,items:['weather','traffic'].map(k=>after.byCategory.get(k)).filter(Boolean)};
+  }finally{
+    try{await releaseGenerationLock(region,before.today,lock.token);}catch(error){console.warn('[daily-core lock release]',error?.message||String(error));}
+  }
 }
 module.exports={centralDate,loadTodayRows,ensureDailyCore};
