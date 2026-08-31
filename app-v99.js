@@ -1,3 +1,4 @@
+console.info('[DalTownMap App] V298 map zoom auto-refresh + recenter-only current location loaded');
 console.info('[DalTownMap App] V291 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
@@ -7912,6 +7913,14 @@ map.addListener('dragend', () => {
 map.addListener('zoom_changed', () => {
   if (suppressMapUiChange) return;
 
+  // V298: 줌 단계가 바뀌면 현재 지도 중심을 유지한 채 검색 반경과
+  // 하단 주변 업소 목록/개수를 즉시 다시 계산합니다.
+  const nextRadius = radiusByZoom(map.getZoom() || 12);
+  if (mapRadius !== nextRadius) {
+    mapRadius = nextRadius;
+    redrawMapMarkers();
+  }
+
   activateMapSearchAreaButton();
 });
 
@@ -8297,14 +8306,14 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
       suppressMapUiChange = true;
+      // V298: 현재 위치 버튼은 사용자가 보고 있던 줌/반경을 그대로 유지하고
+      // GPS 위치만 화면 중앙으로 되돌립니다.
+      const zoom = map.getZoom() || 12;
       map.setCenter(currentCenter);
-      const zoom = Math.max(map.getZoom() || 12, 13);
-      map.setZoom(zoom);
       mapRadius = radiusByZoom(zoom);
       showCurrentLocationMarker(currentCenter);
       startCurrentLocationTracking();
       redrawMapMarkers();
-      setTimeout(()=>panMapAboveBottomPanel(currentCenter.lat, currentCenter.lng), 120);
       google.maps.event.addListenerOnce(map, 'idle', ()=>{
         suppressMapUiChange = false;
         setMapUiState('current');
