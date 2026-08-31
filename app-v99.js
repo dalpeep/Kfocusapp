@@ -613,8 +613,18 @@ function isSingleCityMode() {
 
   return value === true || value === 'true';
 }
+const BUSINESS_IMAGE_FALLBACK='/assets/kfocus-icon.png';
+function businessImageSource(b={}){
+  const url=[b?.image,b?.image_url].map(value=>String(value||'').trim()).find(Boolean)||BUSINESS_IMAGE_FALLBACK;
+  const normalized=url.replace(/^\.?\//,'/');
+  return {url,isFallback:normalized===BUSINESS_IMAGE_FALLBACK};
+}
+function businessImageHTML(b,className='',alt=''){
+  const image=businessImageSource(b);
+  const classes=[String(className||'').trim(),image.isFallback?'business-image-fallback':''].filter(Boolean).join(' ');
+  return `<img${classes?` class="${esc(classes)}"`:''} src="${esc(image.url)}" alt="${image.isFallback?'':esc(alt)}" onerror="this.onerror=null;this.alt='';this.classList.add('business-image-fallback');this.src='${BUSINESS_IMAGE_FALLBACK}'">`;
+}
 function homeBusinessItemHTML(b){
-  const img = b.image || b.image_url || '/assets/kfocus-icon.png';
   const rating = b.rating ? Number(b.rating).toFixed(1) : '';
   const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
@@ -626,7 +636,7 @@ function homeBusinessItemHTML(b){
 
   return `
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
-      <span class="home-biz-map-img-wrap"><img class="home-biz-map-img" src="${esc(img)}" alt="${esc(b.name || '')}"><span class="home-business-promo-badges">${promoBadges}</span></span>
+      <span class="home-biz-map-img-wrap">${businessImageHTML(b,'home-biz-map-img',b.name||'')}<span class="home-business-promo-badges">${promoBadges}</span></span>
 
       <div class="home-biz-map-main">
         <div class="home-biz-map-name">${esc(b.name || '이름 없음')} ${premiumBadge} ${videoBadge}</div>
@@ -1911,7 +1921,7 @@ async function loadRealData(){
     if(Array.isArray(rows) && rows.length){
       const mapped = rows.map((row) => {
         const images = parseArr(row.image_urls);
-        const image = row.image_url || images[0] || 'assets/kfocus-icon.png';
+        const image = String(row.image_url || '').trim() || String(images[0] || '').trim() || BUSINESS_IMAGE_FALLBACK;
 
         return {
           id: row.id,
@@ -2867,10 +2877,10 @@ function badgeStackHTML(b, compact=true){
   return arr.join('');
 }
 function miniCardHTML(b){
-  return `<button class="mini-card biz-open" data-biz="${esc(b.id)}"><div class="mini-image-wrap"><img class="mini-image" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="mini-badge-stack">${badgeStackHTML(b,true)}</div></div><div class="mini-name">${esc(b.name)}</div></button>`;
+  return `<button class="mini-card biz-open" data-biz="${esc(b.id)}"><div class="mini-image-wrap">${businessImageHTML(b,'mini-image',b.name)}<div class="mini-badge-stack">${badgeStackHTML(b,true)}</div></div><div class="mini-name">${esc(b.name)}</div></button>`;
 }
 function listCardHTML(b){
-  return `<button class="list-card biz-open" data-biz="${esc(b.id)}"><img class="list-thumb" src="${esc(b.image)}" alt="${esc(b.name)}"><div class="list-main"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
+  return `<button class="list-card biz-open" data-biz="${esc(b.id)}">${businessImageHTML(b,'list-thumb',b.name)}<div class="list-main"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
 }
 function formatDateLabel(v){
   if(!v) return '';
@@ -3114,7 +3124,7 @@ function mapBottomItemHTML(b){
 
   return `
     <button class="map-bottom-item" data-map-biz="${esc(b.id)}">
-      <img class="map-bottom-thumb" src="${esc(b.image || '/assets/kfocus-icon.png')}" alt="${esc(b.name)}">
+      ${businessImageHTML(b,'map-bottom-thumb',b.name)}
       <span class="map-bottom-copy">
         <strong>${esc(b.name)}</strong>
         <span>${esc(meta.join(' · '))}</span>
@@ -3148,7 +3158,7 @@ function mapBusinessPreviewHTML(b){
   if(Number.isFinite(miles)) meta.push(`${miles.toFixed(1)}mi`);
   return `<div class="map-preview-card">
     <div class="map-preview-main">
-      <img src="${esc(b.image || b.image_url || '/assets/kfocus-icon.png')}" alt="${esc(b.name)}">
+      ${businessImageHTML(b,'',b.name)}
       <div><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span><p>${esc(b.address || '')}</p>${hasCoupon?'<em>🎟 사용 가능한 쿠폰</em>':''}</div>
     </div>
     <div class="map-preview-actions">
@@ -3198,7 +3208,6 @@ function businessHasActiveBanner(b){
 }
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
-  const thumb = b.image || b.image_url || '/assets/kfocus-icon.png';
   const meta = [getBusinessDisplayCategory(b)];
   const promoBadges = [
     isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '',
@@ -3208,7 +3217,7 @@ function nearbyBusinessItemHTML(b){
 
   return `
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
-      <span class="nearby-thumb-wrap"><img class="nearby-thumb" src="${esc(thumb)}" alt="${esc(bizName)}"><span class="business-promo-badges">${promoBadges}</span></span>
+      <span class="nearby-thumb-wrap">${businessImageHTML(b,'nearby-thumb',bizName)}<span class="business-promo-badges">${promoBadges}</span></span>
       <div class="nearby-copy">
         <strong>${esc(bizName)}</strong>
         <span>${esc(meta.join(' · '))}</span>
@@ -5297,7 +5306,6 @@ const orderActionHtml = `
     <div class="detail-order-note">업소별 주문·예약 링크는 순차적으로 연결됩니다.</div>
   </div>`;
   
-  const img = b.image || b.image_url || '/assets/kfocus-icon.png';
 const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
 const category = b.subcategory || b.category_sub || getMainCategoryLabel(b.category) || b.category || '업소';
 const address = b.address || '';
@@ -5582,7 +5590,7 @@ detailCard.innerHTML = `
 
     ${renderBusinessTopPromo(businessPromotions, activeCoupon, businessAiPick)}
     <div class="biz-detail-hero">
-      <img src="${esc(img)}" alt="${esc(bizName)}">
+      ${businessImageHTML(b,'',bizName)}
 
       <div class="biz-detail-badges">
         ${b.is_new ? '<span class="badge-new">NEW</span>' : ''}
