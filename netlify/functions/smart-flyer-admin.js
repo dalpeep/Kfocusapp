@@ -9,6 +9,35 @@ async function getItems(id){
   const r=await rest(`weekly_flyer_items?select=*&flyer_id=eq.${encodeURIComponent(id)}&order=id.asc`);
   return Array.isArray(r)?r:[];
 }
+async function listFlyers(region,businessId){
+  let q='weekly_flyers?select=*';
+  if(region) q+=`&region=eq.${encodeURIComponent(region)}`;
+  if(businessId) q+=`&business_id=eq.${encodeURIComponent(businessId)}`;
+  q+='&order=created_at.desc&limit=200';
+  const flyers=await rest(q);
+  const rows=Array.isArray(flyers)?flyers:[];
+  const flyerIds=rows.map(row=>String(row.id||'')).filter(Boolean);
+  const businessIds=[...new Set(rows.map(row=>String(row.business_id||'')).filter(Boolean))];
+  const items=flyerIds.length
+    ? await rest(`weekly_flyer_items?select=*&flyer_id=in.(${flyerIds.map(encodeURIComponent).join(',')})&order=id.asc`)
+    : [];
+  const linkedBusinesses=businessIds.length
+    ? await rest(`businesses?select=*&id=in.(${businessIds.map(encodeURIComponent).join(',')})`)
+    : [];
+  const itemsByFlyer=new Map();
+  for(const item of Array.isArray(items)?items:[]){
+    const key=String(item.flyer_id||'');
+    if(!itemsByFlyer.has(key)) itemsByFlyer.set(key,[]);
+    itemsByFlyer.get(key).push(item);
+  }
+  const businessById=new Map((Array.isArray(linkedBusinesses)?linkedBusinesses:[])
+    .map(row=>[String(row.id||''),row]));
+  return rows.map(row=>({
+    ...row,
+    weekly_flyer_items:itemsByFlyer.get(String(row.id||''))||[],
+    businesses:businessById.get(String(row.business_id||''))||null
+  }));
+}
 async function patchFlyer(id,patch,extraQuery=''){
   const q=`weekly_flyers?id=eq.${encodeURIComponent(id)}${extraQuery||''}`;
   const r=await rest(q,{
@@ -28,8 +57,15 @@ exports.handler=async(event)=>{
     const action=String(b.action||'').trim();
     const id=num(b.id);
 
-    if(!['set_status','delete','activate'].includes(action)){
+    if(!['list','set_status','delete','activate'].includes(action)){
       return json(400,{ok:false,error:'지원하지 않는 smart flyer admin action입니다.'});
+    }
+    if(action==='list'){
+      const flyers=await listFlyers(
+        String(b.region||'dallas').trim().toLowerCase(),
+        String(b.business_id||'').trim()
+      );
+      return json(200,{ok:true,source:'netlify_service_role',flyers});
     }
     if(!id) return json(400,{ok:false,error:'전단 ID가 필요합니다.'});
 

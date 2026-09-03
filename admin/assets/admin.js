@@ -91,14 +91,20 @@ function v188DallasToday(){
 }
 function v188FlyerEffectiveStatus(row){
   const today=v188DallasToday();
-  const start=String(row?.start_date||'').slice(0,10);
-  const end=String(row?.end_date||'').slice(0,10);
+  const dateKey=value=>{
+    const key=String(value||'').slice(0,10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(key)&&!Number.isNaN(new Date(`${key}T12:00:00`).getTime())?key:'';
+  };
+  const start=dateKey(row?.start_date);
+  const end=dateKey(row?.end_date);
   const raw=String(row?.status||'active').toLowerCase();
 
   if(['deleted','archived'].includes(raw)) return {key:'archived',label:'종료·보관',className:'is-archived'};
-  if(['inactive','draft'].includes(raw)) return {key:'inactive',label:'비활성',className:'is-inactive'};
+  if(raw==='expired') return {key:'expired',label:'기간 종료',className:'is-expired'};
+  if(['inactive','draft','pending','review'].includes(raw)) return {key:'inactive',label:'검토 대기',className:'is-inactive'};
   if(end && end < today) return {key:'expired',label:`기간 종료 · ${end}`,className:'is-expired'};
   if(start && start > today) return {key:'scheduled',label:`예정 · ${start}`,className:'is-scheduled'};
+  if(!['active','live','published'].includes(raw)) return {key:'inactive',label:`상태 확인 · ${raw||'unknown'}`,className:'is-inactive'};
   return {key:'live',label:'LIVE · 업로드중',className:'is-live'};
 }
 console.info('[DalTownMap Admin] P137 coupon campaign v1 loaded');
@@ -8337,27 +8343,32 @@ async function dtmSmartFlyerDirectList(body={}){
   };
 }
 async function dtmSmartFlyerList(body={}){
-  try{
-    const result=await newsroomEdgeCall('list_weekly_flyers',body);
-    return {...result,source:result?.source||'edge'};
-  }catch(error){
-    console.warn('[V226 Smart Flyer] Edge list failed; direct DB fallback',error?.message||error);
-    return await dtmSmartFlyerDirectList(body);
-  }
+  return await v265SmartFlyerAdminCall('list',body);
 }
 
 async function v265SmartFlyerAdminCall(action,body={}){
   if(!supabase) throw new Error('Supabase 연결이 없습니다.');
   const {data:{session}}=await supabase.auth.getSession();
   if(!session?.access_token) throw new Error('관리자 로그인 세션이 만료되었습니다. 다시 로그인하세요.');
-  const res=await fetch('/.netlify/functions/smart-flyer-admin',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      Authorization:`Bearer ${session.access_token}`
-    },
-    body:JSON.stringify({action,...body})
-  });
+  const controller=action==='list'?new AbortController():null;
+  const timer=controller?setTimeout(()=>controller.abort(),15000):null;
+  let res;
+  try{
+    res=await fetch('/.netlify/functions/smart-flyer-admin',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        Authorization:`Bearer ${session.access_token}`
+      },
+      body:JSON.stringify({action,...body}),
+      ...(controller?{signal:controller.signal}:{})
+    });
+  }catch(error){
+    if(error?.name==='AbortError') throw new Error('스마트 전단 관리자 서버 응답 시간이 초과되었습니다.');
+    throw error;
+  }finally{
+    if(timer)clearTimeout(timer);
+  }
   const text=await res.text();
   let d={};
   try{d=text?JSON.parse(text):{};}catch(_){d={error:text};}
@@ -9059,10 +9070,10 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
       </div>
 
       <div class="p011-stats">
-        <div class="p011-stat"><small>전체 전단</small><strong id="${P}Total">0</strong></div>
-        <div class="p011-stat"><small>활성 전단</small><strong id="${P}Active">0</strong></div>
-        <div class="p011-stat"><small>검토 대기</small><strong id="${P}Draft">0</strong></div>
-        <div class="p011-stat"><small>종료·보관</small><strong id="${P}Closed">0</strong></div>
+        <div class="p011-stat"><small>전체 전단</small><strong id="${P}Total">—</strong></div>
+        <div class="p011-stat"><small>활성 전단</small><strong id="${P}Active">—</strong></div>
+        <div class="p011-stat"><small>검토 대기</small><strong id="${P}Draft">—</strong></div>
+        <div class="p011-stat"><small>종료·보관</small><strong id="${P}Closed">—</strong></div>
       </div>
 
       <div class="p011-toolbar">
@@ -9115,21 +9126,33 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     if(el(P+'Closed'))el(P+'Closed').textContent=String(effective.filter(s=>['expired','archived'].includes(s.key)).length);
   }
 
+  let loadPromise=null;
   async function load(){
+    if(loadPromise)return loadPromise;
+    loadPromise=(async()=>{
     ensureSection();
     const list=el(P+'List');
+    const refresh=el(P+'Refresh');
+    if(refresh)refresh.disabled=true;
+    [P+'Total',P+'Active',P+'Draft',P+'Closed'].forEach(id=>{if(el(id))el(id).textContent='—';});
     if(list)list.innerHTML='<div class="p011-empty">전단 목록을 불러오는 중입니다.</div>';
     try{
       const result=await dtmSmartFlyerList({region:getAppRegion()});
       flyers=result.flyers||[];
-      const sourceNote=result?.source==='direct_db_fallback'?' · DB 직접 조회':' · Edge Function';
+      const sourceNote=' · 관리자 서버 조회';
       const hero=el(P+'List')?.closest('#section-smartFlyer')?.querySelector('.p011-hero p');
       if(hero) hero.dataset.dataSource=sourceNote;
       updateStats();
       render();
     }catch(error){
-      if(list)list.innerHTML=`<div class="p011-empty">전단 목록 조회 실패<br><small>${esc(error.message)}</small></div>`;
+      flyers=[];
+      console.error('[Smart Flyer list]',error);
+      if(list)list.innerHTML='<div class="p011-empty">전단 목록을 불러오지 못했습니다. 다시 시도해 주세요.</div>';
+    }finally{
+      if(refresh)refresh.disabled=false;
     }
+    })();
+    try{return await loadPromise;}finally{loadPromise=null;}
   }
 
   function render(){
@@ -9148,7 +9171,7 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     });
 
     if(!rows.length){
-      list.innerHTML='<div class="p011-empty">조건에 맞는 전단이 없습니다.</div>';
+      list.innerHTML=`<div class="p011-empty">${flyers.length?'조건에 맞는 전단이 없습니다.':'등록된 전단이 없습니다.'}</div>`;
       return;
     }
 
