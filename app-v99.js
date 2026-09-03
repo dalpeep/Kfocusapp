@@ -7510,7 +7510,10 @@ function focusMapOnBusinesses(list){
 }
 
 function fitMapToCurrentResultRows(){
-  const rows = Array.isArray(window.__mapCurrentRows) ? window.__mapCurrentRows : [];
+  // The bottom counters represent every valid business matching the explicit
+  // search/category/content filters, so the same complete result set must be
+  // used when the counter asks Google Maps to show all results.
+  const rows = Array.isArray(window.__mapAllFilteredRows) ? window.__mapAllFilteredRows : [];
   const valid = rows.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(!map || !window.google?.maps || !valid.length) return;
   mapBusinessPreview?.classList.add('hidden');
@@ -7556,7 +7559,9 @@ function redrawMapMarkers(){
   let baseList = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)]));
   const nearbyBase = !radiusMiles ? baseList : baseList.filter(b=>haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng)) <= radiusMiles);
-  updateMapFilterAvailability(nearbyBase.length ? nearbyBase : baseList);
+  // Bottom counters are totals for the explicit filters, never proximity
+  // counts. Radius remains limited to the nearby list/distance experience.
+  updateMapFilterAvailability(baseList);
   // 상단 세부 카테고리 개수는 현재 위치/검색 범위의 전체 업소를 기준으로 유지한다.
   // 카테고리를 선택해도 다른 카테고리 버튼과 개수가 사라지지 않게 한다.
   let categorySummaryList = nearbyBase.length ? nearbyBase : baseList;
@@ -7573,6 +7578,9 @@ function redrawMapMarkers(){
   const finalList = list.filter(b =>
     v292ValidBusinessCoords(b.lat, b.lng)
   );
+  window.__mapAllFilteredRows = finalList;
+  mapVisibleCounts[mapMode] = finalList.length;
+  renderMapFilters();
   const nearbyList = filtered.length ? filtered : (mapMode==='event' ? [] : finalList.slice(0,60));
 
   finalList.forEach(b=>{
@@ -8008,13 +8016,13 @@ setTimeout(() => {
 
       suppressMapUiChange = true;
 
+      mapRadius = '7';
       map.panTo(currentCenter);
-      map.setZoom(11);
+      map.setZoom(milesToZoom(mapRadius));
 
       showCurrentLocationMarker(currentCenter);
       startCurrentLocationTracking();
 
-      mapRadius = radiusByZoom(11);
       redrawMapMarkers();
 
       mapNotice?.classList.add('hidden');
@@ -8263,9 +8271,10 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   mapFilterRow?.addEventListener('click', e=>{
     const btn=e.target.closest('.map-filter-chip');
     if(!btn || btn.classList.contains('hidden')) return;
-    mapMode = btn.dataset.mapFilter || 'business';
+    const nextMode = btn.dataset.mapFilter || 'business';
+    if(nextMode !== mapMode && nextMode !== 'business') mapCategory='';
+    mapMode = nextMode;
     selectedMapBusinessId='';
-    mapCategory='';
     renderMapFilters();
     if(mapReady){
       redrawMapMarkers();
@@ -8314,11 +8323,10 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
       suppressMapUiChange = true;
-      // V298: 현재 위치 버튼은 사용자가 보고 있던 줌/반경을 그대로 유지하고
-      // GPS 위치만 화면 중앙으로 되돌립니다.
-      const zoom = map.getZoom() || 12;
+      const zoom = milesToZoom('7');
+      mapRadius = '7';
       map.setCenter(currentCenter);
-      mapRadius = radiusByZoom(zoom);
+      map.setZoom(zoom);
       showCurrentLocationMarker(currentCenter);
       startCurrentLocationTracking();
       redrawMapMarkers();
