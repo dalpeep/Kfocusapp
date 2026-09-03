@@ -10615,9 +10615,12 @@ function v188NormalizeSmartFlyerStatuses(){
     else if(start && start > today){label=`예정 · ${start}`; cls='is-scheduled';}
     const badge=[...card.querySelectorAll('span,div')].find(el=>/LIVE\s*·\s*업로드중|기간 종료|예정/.test(el.textContent||''));
     if(badge){
-      badge.textContent=(badge.textContent||'').trim().startsWith('●')?`● ${label}`:label;
-      badge.classList.remove('is-live','is-expired','is-scheduled');
-      badge.classList.add(cls);
+      const nextLabel=(badge.textContent||'').trim().startsWith('●')?`● ${label}`:label;
+      if(badge.textContent!==nextLabel) badge.textContent=nextLabel;
+      if(!badge.classList.contains(cls)){
+        badge.classList.remove('is-live','is-expired','is-scheduled');
+        badge.classList.add(cls);
+      }
     }
   });
 }
