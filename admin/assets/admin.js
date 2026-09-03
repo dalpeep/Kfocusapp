@@ -10672,14 +10672,16 @@ document.addEventListener('DOMContentLoaded',()=>{
           }
         }
         if(badge){
-          badge.className='p011-badge expired';
-          badge.textContent=end?`기간 종료 · ${end}`:'기간 종료';
+          const nextText=end?`기간 종료 · ${end}`:'기간 종료';
+          if(badge.className!=='p011-badge expired') badge.className='p011-badge expired';
+          if(badge.textContent!==nextText) badge.textContent=nextText;
         }
       }else if(eff==='scheduled'){
         const badge=card.querySelector('.p011-badge');
         if(badge){
-          badge.className='p011-badge scheduled';
-          badge.textContent=start?`예정 · ${start}`:'예정';
+          const nextText=start?`예정 · ${start}`:'예정';
+          if(badge.className!=='p011-badge scheduled') badge.className='p011-badge scheduled';
+          if(badge.textContent!==nextText) badge.textContent=nextText;
         }
       }
     });
