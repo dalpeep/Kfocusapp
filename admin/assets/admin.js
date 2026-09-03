@@ -10613,7 +10613,7 @@ function v188NormalizeSmartFlyerStatuses(){
     let label='LIVE · 업로드중', cls='is-live';
     if(end && end < today){label=`기간 종료 · ${end}`; cls='is-expired';}
     else if(start && start > today){label=`예정 · ${start}`; cls='is-scheduled';}
-    const badge=[...card.querySelectorAll('span,div')].find(el=>/LIVE\s*·\s*업로드중|기간 종료|예정/.test(el.textContent||''));
+    const badge=card.querySelector('.p011-badge,.p012-live,.is-live,.is-expired,.is-scheduled');
     if(badge){
       const nextLabel=(badge.textContent||'').trim().startsWith('●')?`● ${label}`:label;
       if(badge.textContent!==nextLabel) badge.textContent=nextLabel;
