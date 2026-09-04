@@ -132,7 +132,7 @@ test('response parsing handles plain JSON, JSON fences, and mixed web-search out
   clear(libPath);
 });
 
-test('traffic-only request minimizes reasoning, verbosity, searches, and output',async()=>{
+test('traffic-only request omits reasoning and minimizes verbosity, searches, and output',async()=>{
   clear(libPath);
   process.env.SUPABASE_URL='https://supabase.test';
   process.env.SUPABASE_SERVICE_ROLE_KEY='service-key';
@@ -157,7 +157,7 @@ test('traffic-only request minimizes reasoning, verbosity, searches, and output'
   try{
     const {ensureDailyCore}=require(libPath);
     const result=await ensureDailyCore('dallas');
-    assert.equal(request.reasoning.effort,'minimal');
+    assert.equal(Object.hasOwn(request,'reasoning'),false);
     assert.equal(request.text.verbosity,'low');
     assert.equal(request.max_tool_calls,1);
     assert.equal(request.max_output_tokens,600);

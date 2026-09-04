@@ -128,13 +128,12 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     tools:[{type:'web_search_preview'}],
     max_tool_calls:requested.length,
     max_output_tokens:600,
-    reasoning:{effort:'minimal'},
     text:{verbosity:'low',format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
     input:prompt
   };
   audit('openai_call_started',{
     dallas_date:today,region,model:payload.model,categories:requested,
-    reasoning_effort:payload.reasoning.effort,verbosity:payload.text.verbosity,
+    verbosity:payload.text.verbosity,
     max_tool_calls:payload.max_tool_calls,max_output_tokens:payload.max_output_tokens
   });
   let res,json;
