@@ -9350,7 +9350,9 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   const valid=r=>{
     const d=day(), st=String(r?.status||'active').toLowerCase();
     const home=r?.show_on_home;
-    return !['inactive','deleted','draft','archived'].includes(st)
+    const explicitlyPublished=home===true||home==='true';
+    return !['inactive','deleted','archived'].includes(st)
+      && (st!=='draft'||explicitlyPublished)
       && home!==false && home!=='false'
       && (!r?.start_date||String(r.start_date).slice(0,10)<=d)
       && (!r?.end_date||String(r.end_date).slice(0,10)>=d);
