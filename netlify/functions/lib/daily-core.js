@@ -17,15 +17,35 @@ function centralDate(value=new Date()){
   }).format(value);
 }
 function textFromResponse(json){
-  return json?.output_text || json?.output?.flatMap(x=>x.content||[]).find(x=>x.type==='output_text')?.text || '';
+  if(typeof json?.output_text==='string'&&json.output_text.trim())return json.output_text;
+  return (Array.isArray(json?.output)?json.output:[])
+    .filter(item=>item?.type==='message'&&(!item.role||item.role==='assistant'))
+    .flatMap(item=>Array.isArray(item.content)?item.content:[])
+    .filter(content=>content?.type==='output_text'&&typeof content.text==='string')
+    .map(content=>content.text)
+    .join('');
 }
 function parseJsonText(text=''){
-  const clean=String(text).replace(/^```json\s*/i,'').replace(/```$/,'').trim();
+  const clean=String(text).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
   try{return JSON.parse(clean);}catch(_){
     const a=clean.indexOf('{'),b=clean.lastIndexOf('}');
     if(a>=0&&b>a)return JSON.parse(clean.slice(a,b+1));
     throw new Error('Daily Core AI 결과를 JSON으로 해석하지 못했습니다.');
   }
+}
+function responseDiagnostics(json,text){
+  const output=Array.isArray(json?.output)?json.output:[];
+  const trimmed=String(text||'').trim();
+  return {
+    response_status:String(json?.status||''),
+    incomplete_reason:String(json?.incomplete_details?.reason||''),
+    output_item_types:output.map(item=>String(item?.type||'unknown')),
+    assistant_message:output.some(item=>item?.type==='message'&&(!item.role||item.role==='assistant')),
+    extracted_text_length:trimmed.length,
+    starts_with_json:/^[\[{]/.test(trimmed.replace(/^```(?:json)?\s*/i,'')),
+    ends_with_json:/[\]}](?:\s*```)?$/.test(trimmed),
+    has_code_fence:/```/.test(trimmed)
+  };
 }
 function env(){
   const base=String(process.env.SUPABASE_URL||'').replace(/\/$/,'');
@@ -92,11 +112,26 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     title:'한국어 제목',summary:'한국어 1-2문장',source_name:'official source',
     source_url:'https://...',source_published_at:'ISO or null'
   }]));
+  const responseSchema={
+    type:'object',
+    properties:Object.fromEntries(requested.map(category=>[category,{
+      type:'object',
+      properties:{
+        title:{type:'string'},summary:{type:'string'},source_name:{type:'string'},
+        source_url:{type:'string'},source_published_at:{type:['string','null']}
+      },
+      required:['title','summary','source_name','source_url','source_published_at'],
+      additionalProperties:false
+    }])),
+    required:requested,
+    additionalProperties:false
+  };
   const prompt=`Create only the requested current Daily Core record(s) for DalTownMap in Dallas-Fort Worth, Texas. Current time: ${now.toISOString()} (Dallas date: ${today}).\nRequested categories: ${requested.join(', ')}.\nUse web search only as needed and prefer the named first-party official sources. Do not research or return categories that were not requested. Do not invent incidents. Each source_url must be an actual official URL found during this search.\n${requested.map(category=>instructions[category]).join('\n')}\nReturn ONLY short valid JSON matching this shape:\n${JSON.stringify(schema)}`;
   const payload={
     model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',
     tools:[{type:'web_search_preview'}],
-    max_output_tokens:600,
+    max_output_tokens:1200,
+    text:{format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
     input:prompt
   };
   audit('openai_call_started',{dallas_date:today,region,model:payload.model,categories:requested,max_output_tokens:payload.max_output_tokens});
@@ -105,8 +140,16 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     json=await res.json();
     if(!res.ok)throw new Error(json?.error?.message||`OpenAI 오류 ${res.status}`);
-    audit('openai_call_completed',{dallas_date:today,region,http_status:res.status,categories:requested});
+    const extracted=textFromResponse(json);
+    const diagnostics=responseDiagnostics(json,extracted);
+    audit('openai_call_completed',{dallas_date:today,region,http_status:res.status,categories:requested,...diagnostics});
+    if(json?.status&&json.status!=='completed'){
+      const error=new Error(`OpenAI 응답이 완료되지 않았습니다: ${json.status}${diagnostics.incomplete_reason?` (${diagnostics.incomplete_reason})`:''}`);
+      auditError('openai_response_incomplete',error,{dallas_date:today,region,categories:requested,...diagnostics});
+      throw withStage(error,'openai_response_incomplete');
+    }
   }catch(error){
+    if(error?.dailyCoreStage==='openai_response_incomplete')throw error;
     auditError('openai_call_failed',error,{dallas_date:today,region,http_status:res?.status||null});
     throw withStage(error,'openai_call');
   }
@@ -272,4 +315,4 @@ async function ensureDailyCore(region='dallas',{force=false}={}){
     }
   }
 }
-module.exports={centralDate,loadTodayRows,ensureDailyCore};
+module.exports={centralDate,loadTodayRows,ensureDailyCore,_test:{textFromResponse,parseJsonText,responseDiagnostics}};

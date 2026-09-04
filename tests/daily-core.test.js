@@ -114,3 +114,52 @@ test('a contending DB lock prevents OpenAI generation',async()=>{
     clear(libPath);
   }
 });
+
+test('response parsing handles plain JSON, JSON fences, and mixed web-search output',()=>{
+  clear(libPath);
+  const {_test}=require(libPath);
+  const value={traffic:{title:'DFW 교통',summary:'정상',source_name:'TxDOT',source_url:'https://drivetexas.org',source_published_at:null}};
+  const raw=JSON.stringify(value);
+  assert.deepEqual(_test.parseJsonText(raw),value);
+  assert.deepEqual(_test.parseJsonText('```json\n'+raw+'\n\n```'),value);
+  assert.equal(_test.textFromResponse({
+    output:[
+      {type:'web_search_call',status:'completed'},
+      {type:'message',role:'assistant',content:[{type:'output_text',text:raw}]}
+    ]
+  }),raw);
+  assert.throws(()=>_test.parseJsonText('{"traffic":'),/JSON/);
+  clear(libPath);
+});
+
+test('incomplete OpenAI response does not save a missing traffic row',async()=>{
+  clear(libPath);
+  process.env.SUPABASE_URL='https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY='service-key';
+  process.env.OPENAI_API_KEY='openai-key';
+  let writes=0;
+  const originalFetch=global.fetch;
+  const weather={id:1,duplicate_key:'daily-core-weather-2026-09-04',event_data:{category:'weather'},status:'classified',updated_at:'2026-09-04T12:00:00Z',region:'dallas'};
+  global.fetch=async(url,options={})=>{
+    const target=String(url);
+    if(target.includes('api.openai.com'))return new Response(JSON.stringify({
+      status:'incomplete',incomplete_details:{reason:'max_output_tokens'},
+      output:[{type:'message',role:'assistant',content:[{type:'output_text',text:'{"traffic":'}]}]
+    }),{status:200,headers:{'Content-Type':'application/json'}});
+    if(target.includes('/rpc/claim_daily_core_generation_lock'))return new Response('true',{status:200});
+    if(target.includes('/rpc/release_daily_core_generation_lock'))return new Response('true',{status:200});
+    if(options.method==='POST'&&target.includes('/newsroom_items')){writes++;return new Response('[]',{status:200});}
+    return new Response(JSON.stringify([weather]),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const {ensureDailyCore}=require(libPath);
+    await assert.rejects(ensureDailyCore('dallas'),/완료되지 않았습니다/);
+    assert.equal(writes,0);
+  }finally{
+    global.fetch=originalFetch;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.OPENAI_API_KEY;
+    clear(libPath);
+  }
+});
