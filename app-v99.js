@@ -9056,7 +9056,10 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     }).format(new Date());
   }
   function validFlyer(f){
-    if(!f||String(f.status||'').toLowerCase()!=='active')return false;
+    if(!f)return false;
+    const status=String(f.status||'').toLowerCase();
+    const explicitlyPublished=f.show_on_home===true||f.show_on_home==='true';
+    if(status!=='active'&&!(status==='draft'&&explicitlyPublished))return false;
     const day=todayKey();
     if(f.start_date&&String(f.start_date)>day)return false;
     if(f.end_date&&String(f.end_date)<day)return false;
@@ -9090,16 +9093,11 @@ console.info('[DalTownMap] V87 dual URL compatibility loaded');
     if(loadingPromise)return loadingPromise;
     loadingPromise=(async()=>{
       try{
-        const client=getDataClient();
-        if(!client)throw new Error('Supabase data client unavailable');
-        const {data,error}=await client.from('weekly_flyers')
-          .select('*,weekly_flyer_items(*)')
-          .eq('region',typeof getAppRegion==='function'?getAppRegion():'dallas')
-          .eq('status','active')
-          .order('created_at',{ascending:false})
-          .limit(30);
-        if(error)throw error;
-        activeFlyers=(data||[]).filter(validFlyer);
+        const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
+        const res=await fetch(`/.netlify/functions/smart-flyer-public?region=${encodeURIComponent(region)}`,{cache:'no-store'});
+        const result=await res.json().catch(()=>({}));
+        if(!res.ok||result.ok===false)throw new Error(result.error||`HTTP ${res.status}`);
+        activeFlyers=(result.flyers||[]).filter(validFlyer);
         loadedAt=Date.now();
         return activeFlyers;
       }catch(error){
@@ -9430,15 +9428,12 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   async function load(){
     if(S.loading)return S.loading;
     S.loading=(async()=>{
-      const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
-      const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,''), key=String(cfg.SUPABASE_ANON_KEY||'').trim();
       const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-      if(!base||!key){console.warn('[P130 V187] config missing');return []}
-      const q=new URLSearchParams({select:'*',region:`eq.${region}`,order:'updated_at.desc',limit:'100'});
-      const res=await fetch(`${base}/rest/v1/weekly_flyers?${q}`,{cache:'no-store',headers:{apikey:key,Authorization:`Bearer ${key}`,Accept:'application/json'}});
-      const raw=await res.json().catch(()=>[]);
-      if(!res.ok)throw new Error(raw?.message||`HTTP ${res.status}`);
-      S.rows=(Array.isArray(raw)?raw:[]).filter(valid);
+      const res=await fetch(`/.netlify/functions/smart-flyer-public?region=${encodeURIComponent(region)}`,{cache:'no-store'});
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok||result.ok===false)throw new Error(result.error||`HTTP ${res.status}`);
+      const raw=Array.isArray(result.flyers)?result.flyers:[];
+      S.rows=raw.filter(valid);
       // V248: 세일 페이지가 DOM이 아니라 실제 전단 데이터와 업소 연결 ID를 사용하도록 공개합니다.
       window.V248_WEEKLY_FLYER_ROWS=[...S.rows];
       setTimeout(()=>window.renderV245TodayShortcuts?.(),0);
