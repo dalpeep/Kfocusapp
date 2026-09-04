@@ -68,23 +68,44 @@ async function loadTodayRows(region='dallas'){
   }
   return {today,byCategory};
 }
-async function generateDailyCore(region='dallas'){
+async function generateDailyCore(region='dallas',categories=['weather','traffic']){
   const now=new Date();
   const today=centralDate(now);
+  const requested=[...new Set((Array.isArray(categories)?categories:[])
+    .map(category=>String(category||'').trim().toLowerCase())
+    .filter(category=>['weather','traffic'].includes(category)))];
+  if(!requested.length){
+    const error=new Error('생성할 Daily Core category가 없습니다.');
+    auditError('generation_category_validation_failed',error,{dallas_date:today,region,categories:[]});
+    throw withStage(error,'generation_category_validation');
+  }
   if(!process.env.OPENAI_API_KEY){
     const error=new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
     auditError('openai_configuration_failed',error,{dallas_date:today,region});
     throw withStage(error,'openai_configuration');
   }
-  const prompt=`Create exactly two current Daily Core records for DalTownMap in Dallas-Fort Worth, Texas. Current time: ${now.toISOString()} (date in America/Chicago: ${today}).\n\nUse web search and prefer first-party official sources.\n1) WEATHER: use National Weather Service Fort Worth/Dallas (weather.gov / NWS) or another first-party official weather source. Describe today's practical DFW weather in concise Korean, including the most important condition or advisory.\n2) TRAFFIC: use TxDOT, DriveTexas, 511DFW, DART, City/County traffic alerts, or another first-party official transportation source. Describe today's practical DFW road/traffic condition in concise Korean. If there is no major incident or closure, explicitly say there is no major unusual road issue currently reported and advise checking live conditions before departure.\n\nDo not invent incidents. Return BOTH records even when conditions are normal. Each source_url must be an actual official URL found during search.\nReturn ONLY valid JSON:\n{"weather":{"title":"한국어 제목","summary":"한국어 1-2문장","source_name":"official source","source_url":"https://...","source_published_at":"ISO or null"},"traffic":{"title":"한국어 제목","summary":"한국어 1-2문장","source_name":"official source","source_url":"https://...","source_published_at":"ISO or null"}}`;
-  const payload={model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',tools:[{type:'web_search_preview'}],input:prompt};
-  audit('openai_call_started',{dallas_date:today,region,model:payload.model});
+  const instructions={
+    weather:'WEATHER: Check today\'s practical DFW weather using National Weather Service Fort Worth/Dallas (weather.gov / NWS) or another first-party official weather source. Write a concise Korean title and 1-2 sentence summary with the most important condition or advisory.',
+    traffic:'TRAFFIC: Check only current Dallas-Fort Worth road/transit conditions using TxDOT, DriveTexas, 511DFW, DART, or an official Dallas/DFW transportation source. Write a concise Korean title and 1-2 sentence summary. If no major incident or closure is officially reported, say so and advise checking live conditions before departure.'
+  };
+  const schema=Object.fromEntries(requested.map(category=>[category,{
+    title:'한국어 제목',summary:'한국어 1-2문장',source_name:'official source',
+    source_url:'https://...',source_published_at:'ISO or null'
+  }]));
+  const prompt=`Create only the requested current Daily Core record(s) for DalTownMap in Dallas-Fort Worth, Texas. Current time: ${now.toISOString()} (Dallas date: ${today}).\nRequested categories: ${requested.join(', ')}.\nUse web search only as needed and prefer the named first-party official sources. Do not research or return categories that were not requested. Do not invent incidents. Each source_url must be an actual official URL found during this search.\n${requested.map(category=>instructions[category]).join('\n')}\nReturn ONLY short valid JSON matching this shape:\n${JSON.stringify(schema)}`;
+  const payload={
+    model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',
+    tools:[{type:'web_search_preview'}],
+    max_output_tokens:600,
+    input:prompt
+  };
+  audit('openai_call_started',{dallas_date:today,region,model:payload.model,categories:requested,max_output_tokens:payload.max_output_tokens});
   let res,json;
   try{
     res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
     json=await res.json();
     if(!res.ok)throw new Error(json?.error?.message||`OpenAI 오류 ${res.status}`);
-    audit('openai_call_completed',{dallas_date:today,region,http_status:res.status});
+    audit('openai_call_completed',{dallas_date:today,region,http_status:res.status,categories:requested});
   }catch(error){
     auditError('openai_call_failed',error,{dallas_date:today,region,http_status:res?.status||null});
     throw withStage(error,'openai_call');
@@ -97,15 +118,16 @@ async function generateDailyCore(region='dallas'){
     auditError('openai_parse_failed',error,{dallas_date:today,region});
     throw withStage(error,'openai_parse');
   }
-  const categories=['weather','traffic'].filter(category=>Boolean(parsed?.[category]));
-  audit('openai_categories_detected',{dallas_date:today,region,categories});
-  if(!parsed?.weather||!parsed?.traffic){
-    const error=new Error('Daily Core AI 결과에 weather 또는 traffic이 없습니다.');
-    auditError('openai_category_validation_failed',error,{dallas_date:today,region,categories});
+  const detected=['weather','traffic'].filter(category=>Boolean(parsed?.[category]));
+  audit('openai_categories_detected',{dallas_date:today,region,requested_categories:requested,categories:detected});
+  const missingRequested=requested.filter(category=>!parsed?.[category]);
+  if(missingRequested.length){
+    const error=new Error(`Daily Core AI 결과에 요청 category가 없습니다: ${missingRequested.join(', ')}`);
+    auditError('openai_category_validation_failed',error,{dallas_date:today,region,requested_categories:requested,categories:detected,missing:missingRequested});
     throw withStage(error,'openai_category_validation');
   }
-  audit('openai_category_validation_succeeded',{dallas_date:today,region,categories});
-  return {today,weather:parsed.weather,traffic:parsed.traffic};
+  audit('openai_category_validation_succeeded',{dallas_date:today,region,requested_categories:requested,categories:detected});
+  return {today,...Object.fromEntries(requested.map(category=>[category,parsed[category]]))};
 }
 async function claimGenerationLock(region,today){
   const token=crypto.randomUUID();
@@ -215,7 +237,7 @@ async function ensureDailyCore(region='dallas',{force=false}={}){
       return {ok:true,date:current.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
     }
     let generated;
-    try{generated=await generateDailyCore(region);}catch(error){throw withStage(error,error?.dailyCoreStage||'generation');}
+    try{generated=await generateDailyCore(region,currentMissing);}catch(error){throw withStage(error,error?.dailyCoreStage||'generation');}
     const targets=force?['weather','traffic']:currentMissing;
     const saved=[];
     for(const category of targets){
