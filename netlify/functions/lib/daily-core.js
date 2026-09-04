@@ -127,7 +127,7 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',
     tools:[{type:'web_search_preview'}],
     max_tool_calls:requested.length,
-    max_output_tokens:600,
+    max_output_tokens:2000,
     text:{verbosity:'low',format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
     input:prompt
   };

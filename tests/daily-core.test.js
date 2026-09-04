@@ -160,7 +160,7 @@ test('traffic-only request omits reasoning and minimizes verbosity, searches, an
     assert.equal(Object.hasOwn(request,'reasoning'),false);
     assert.equal(request.text.verbosity,'low');
     assert.equal(request.max_tool_calls,1);
-    assert.equal(request.max_output_tokens,600);
+    assert.equal(request.max_output_tokens,2000);
     assert.match(request.input,/Generate only: traffic/);
     assert.doesNotMatch(request.input,/WEATHER:/);
     assert.equal(writes,1);
