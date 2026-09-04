@@ -1,5 +1,16 @@
 const crypto=require('crypto');
 
+function audit(event,details={}){
+  console.info('[daily-core]',JSON.stringify({event,...details}));
+}
+function auditError(event,error,details={}){
+  console.error('[daily-core]',JSON.stringify({event,...details,message:error?.message||String(error)}));
+}
+function withStage(error,stage){
+  if(error&&typeof error==='object'&&!error.dailyCoreStage)error.dailyCoreStage=stage;
+  return error;
+}
+
 function centralDate(value=new Date()){
   return new Intl.DateTimeFormat('en-CA',{
     timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
@@ -58,16 +69,42 @@ async function loadTodayRows(region='dallas'){
   return {today,byCategory};
 }
 async function generateDailyCore(region='dallas'){
-  if(!process.env.OPENAI_API_KEY)throw new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
   const now=new Date();
   const today=centralDate(now);
+  if(!process.env.OPENAI_API_KEY){
+    const error=new Error('OPENAI_API_KEY가 설정되지 않았습니다.');
+    auditError('openai_configuration_failed',error,{dallas_date:today,region});
+    throw withStage(error,'openai_configuration');
+  }
   const prompt=`Create exactly two current Daily Core records for DalTownMap in Dallas-Fort Worth, Texas. Current time: ${now.toISOString()} (date in America/Chicago: ${today}).\n\nUse web search and prefer first-party official sources.\n1) WEATHER: use National Weather Service Fort Worth/Dallas (weather.gov / NWS) or another first-party official weather source. Describe today's practical DFW weather in concise Korean, including the most important condition or advisory.\n2) TRAFFIC: use TxDOT, DriveTexas, 511DFW, DART, City/County traffic alerts, or another first-party official transportation source. Describe today's practical DFW road/traffic condition in concise Korean. If there is no major incident or closure, explicitly say there is no major unusual road issue currently reported and advise checking live conditions before departure.\n\nDo not invent incidents. Return BOTH records even when conditions are normal. Each source_url must be an actual official URL found during search.\nReturn ONLY valid JSON:\n{"weather":{"title":"한국어 제목","summary":"한국어 1-2문장","source_name":"official source","source_url":"https://...","source_published_at":"ISO or null"},"traffic":{"title":"한국어 제목","summary":"한국어 1-2문장","source_name":"official source","source_url":"https://...","source_published_at":"ISO or null"}}`;
   const payload={model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',tools:[{type:'web_search_preview'}],input:prompt};
-  const res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  const json=await res.json();
-  if(!res.ok)throw new Error(json?.error?.message||`OpenAI 오류 ${res.status}`);
-  const parsed=parseJsonText(textFromResponse(json));
-  if(!parsed?.weather||!parsed?.traffic)throw new Error('Daily Core AI 결과에 weather 또는 traffic이 없습니다.');
+  audit('openai_call_started',{dallas_date:today,region,model:payload.model});
+  let res,json;
+  try{
+    res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    json=await res.json();
+    if(!res.ok)throw new Error(json?.error?.message||`OpenAI 오류 ${res.status}`);
+    audit('openai_call_completed',{dallas_date:today,region,http_status:res.status});
+  }catch(error){
+    auditError('openai_call_failed',error,{dallas_date:today,region,http_status:res?.status||null});
+    throw withStage(error,'openai_call');
+  }
+  let parsed;
+  try{
+    parsed=parseJsonText(textFromResponse(json));
+    audit('openai_parse_succeeded',{dallas_date:today,region});
+  }catch(error){
+    auditError('openai_parse_failed',error,{dallas_date:today,region});
+    throw withStage(error,'openai_parse');
+  }
+  const categories=['weather','traffic'].filter(category=>Boolean(parsed?.[category]));
+  audit('openai_categories_detected',{dallas_date:today,region,categories});
+  if(!parsed?.weather||!parsed?.traffic){
+    const error=new Error('Daily Core AI 결과에 weather 또는 traffic이 없습니다.');
+    auditError('openai_category_validation_failed',error,{dallas_date:today,region,categories});
+    throw withStage(error,'openai_category_validation');
+  }
+  audit('openai_category_validation_succeeded',{dallas_date:today,region,categories});
   return {today,weather:parsed.weather,traffic:parsed.traffic};
 }
 async function claimGenerationLock(region,today){
@@ -79,7 +116,7 @@ async function claimGenerationLock(region,today){
   return {claimed:claimed===true,token};
 }
 async function releaseGenerationLock(region,today,token){
-  await sb('rpc/release_daily_core_generation_lock',{
+  return await sb('rpc/release_daily_core_generation_lock',{
     method:'POST',
     body:JSON.stringify({p_region:region,p_date_key:today,p_lock_token:token})
   });
@@ -125,27 +162,92 @@ async function saveCategory(region,today,category,item){
 }
 async function ensureDailyCore(region='dallas',{force=false}={}){
   region=String(region||'dallas').trim().toLowerCase();
-  const before=await loadTodayRows(region);
+  let before;
+  try{before=await loadTodayRows(region);}catch(error){
+    auditError('initial_db_read_failed',error,{region});
+    throw withStage(error,'initial_db_read');
+  }
   const missing=['weather','traffic'].filter(k=>!before.byCategory.has(k));
-  if(!force&&!missing.length)return {ok:true,date:before.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>before.byCategory.get(k)).filter(Boolean)};
-  const lock=await claimGenerationLock(region,before.today);
+  audit('initial_db_read_completed',{
+    dallas_date:before.today,region,
+    weather:before.byCategory.has('weather'),traffic:before.byCategory.has('traffic'),missing
+  });
+  if(!force&&!missing.length){
+    audit('generation_skipped',{dallas_date:before.today,region,reason:'complete'});
+    return {ok:true,date:before.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>before.byCategory.get(k)).filter(Boolean)};
+  }
+  let lock;
+  try{lock=await claimGenerationLock(region,before.today);}catch(error){
+    auditError('generation_lock_failed',error,{dallas_date:before.today,region});
+    throw withStage(error,'generation_lock');
+  }
   if(!lock.claimed){
-    const current=await loadTodayRows(region);
+    audit('generation_lock_denied',{
+      dallas_date:before.today,region,reason:'another_invocation_holds_unexpired_lock',initial_missing:missing
+    });
+    let current;
+    try{current=await loadTodayRows(region);}catch(error){
+      auditError('lock_denied_db_read_failed',error,{dallas_date:before.today,region});
+      throw withStage(error,'lock_denied_db_read');
+    }
+    const currentMissing=['weather','traffic'].filter(k=>!current.byCategory.has(k));
+    audit('lock_denied_db_read_completed',{
+      dallas_date:current.today,region,
+      weather:current.byCategory.has('weather'),traffic:current.byCategory.has('traffic'),missing:currentMissing
+    });
     return {ok:true,date:current.today,region,generated:false,locked:true,missing:['weather','traffic'].filter(k=>!current.byCategory.has(k)),items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
   }
+  audit('generation_lock_acquired',{dallas_date:before.today,region,initial_missing:missing});
   try{
     // 최초 조회와 잠금 획득 사이에 다른 실행이 저장했을 수 있으므로 잠금 안에서 다시 확인합니다.
-    const current=await loadTodayRows(region);
+    let current;
+    try{current=await loadTodayRows(region);}catch(error){
+      auditError('locked_db_read_failed',error,{dallas_date:before.today,region});
+      throw withStage(error,'locked_db_read');
+    }
     const currentMissing=['weather','traffic'].filter(k=>!current.byCategory.has(k));
-    if(!force&&!currentMissing.length)return {ok:true,date:current.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
-    const generated=await generateDailyCore(region);
+    audit('locked_db_read_completed',{
+      dallas_date:current.today,region,
+      weather:current.byCategory.has('weather'),traffic:current.byCategory.has('traffic'),missing:currentMissing
+    });
+    if(!force&&!currentMissing.length){
+      audit('generation_skipped',{dallas_date:current.today,region,reason:'completed_while_waiting_for_lock'});
+      return {ok:true,date:current.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
+    }
+    let generated;
+    try{generated=await generateDailyCore(region);}catch(error){throw withStage(error,error?.dailyCoreStage||'generation');}
     const targets=force?['weather','traffic']:currentMissing;
     const saved=[];
-    for(const category of targets)saved.push(await saveCategory(region,generated.today,category,generated[category]));
-    const after=await loadTodayRows(region);
-    return {ok:true,date:after.today,region,generated:true,missing:['weather','traffic'].filter(k=>!after.byCategory.has(k)),saved,items:['weather','traffic'].map(k=>after.byCategory.get(k)).filter(Boolean)};
+    for(const category of targets){
+      audit('category_save_started',{dallas_date:generated.today,region,category});
+      try{
+        const result=await saveCategory(region,generated.today,category,generated[category]);
+        saved.push(result);
+        audit('category_save_succeeded',{dallas_date:generated.today,region,category,result:{id:result.id,action:result.action}});
+      }catch(error){
+        auditError('category_save_failed',error,{dallas_date:generated.today,region,category});
+        throw withStage(error,`${category}_save`);
+      }
+    }
+    let after;
+    try{after=await loadTodayRows(region);}catch(error){
+      auditError('final_db_read_failed',error,{dallas_date:generated.today,region});
+      throw withStage(error,'final_db_read');
+    }
+    const finalMissing=['weather','traffic'].filter(k=>!after.byCategory.has(k));
+    audit('final_db_read_completed',{
+      dallas_date:after.today,region,
+      weather:after.byCategory.has('weather'),traffic:after.byCategory.has('traffic'),missing:finalMissing,
+      saved:saved.map(row=>({category:row.category,id:row.id,action:row.action}))
+    });
+    return {ok:true,date:after.today,region,generated:true,missing:finalMissing,saved,items:['weather','traffic'].map(k=>after.byCategory.get(k)).filter(Boolean)};
   }finally{
-    try{await releaseGenerationLock(region,before.today,lock.token);}catch(error){console.warn('[daily-core lock release]',error?.message||String(error));}
+    try{
+      const released=await releaseGenerationLock(region,before.today,lock.token);
+      audit('generation_lock_released',{dallas_date:before.today,region,released:released!==false});
+    }catch(error){
+      console.warn('[daily-core]',JSON.stringify({event:'generation_lock_release_failed',dallas_date:before.today,region,message:error?.message||String(error)}));
+    }
   }
 }
 module.exports={centralDate,loadTodayRows,ensureDailyCore};
