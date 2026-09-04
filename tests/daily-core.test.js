@@ -132,6 +132,48 @@ test('response parsing handles plain JSON, JSON fences, and mixed web-search out
   clear(libPath);
 });
 
+test('traffic-only request minimizes reasoning, verbosity, searches, and output',async()=>{
+  clear(libPath);
+  process.env.SUPABASE_URL='https://supabase.test';
+  process.env.SUPABASE_SERVICE_ROLE_KEY='service-key';
+  process.env.OPENAI_API_KEY='openai-key';
+  let request=null,writes=0;
+  const originalFetch=global.fetch;
+  const weather={id:1,duplicate_key:'daily-core-weather-2026-09-04',event_data:{category:'weather'},status:'classified',updated_at:'2026-09-04T12:00:00Z',region:'dallas'};
+  const traffic={id:2,duplicate_key:'daily-core-traffic-2026-09-04',event_data:{category:'traffic'},status:'classified',updated_at:'2026-09-04T12:01:00Z',region:'dallas'};
+  global.fetch=async(url,options={})=>{
+    const target=String(url);
+    if(target.includes('api.openai.com')){
+      request=JSON.parse(options.body);
+      const result={traffic:{title:'DFW 교통',summary:'특이사항 없음',source_name:'TxDOT',source_url:'https://drivetexas.org',source_published_at:null}};
+      return new Response(JSON.stringify({status:'completed',output:[{type:'web_search_call',status:'completed'},{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(result)}]}]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }
+    if(target.includes('/rpc/claim_daily_core_generation_lock'))return new Response('true',{status:200});
+    if(target.includes('/rpc/release_daily_core_generation_lock'))return new Response('true',{status:200});
+    if(target.includes('duplicate_key=eq.daily-core-traffic'))return new Response('[]',{status:200,headers:{'Content-Type':'application/json'}});
+    if(options.method==='POST'&&target.includes('/newsroom_items')){writes++;return new Response('[{"id":2}]',{status:200,headers:{'Content-Type':'application/json'}});}
+    return new Response(JSON.stringify(writes?[weather,traffic]:[weather]),{status:200,headers:{'Content-Type':'application/json'}});
+  };
+  try{
+    const {ensureDailyCore}=require(libPath);
+    const result=await ensureDailyCore('dallas');
+    assert.equal(request.reasoning.effort,'minimal');
+    assert.equal(request.text.verbosity,'low');
+    assert.equal(request.max_tool_calls,1);
+    assert.equal(request.max_output_tokens,600);
+    assert.match(request.input,/Generate only: traffic/);
+    assert.doesNotMatch(request.input,/WEATHER:/);
+    assert.equal(writes,1);
+    assert.deepEqual(result.missing,[]);
+  }finally{
+    global.fetch=originalFetch;
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.OPENAI_API_KEY;
+    clear(libPath);
+  }
+});
+
 test('incomplete OpenAI response does not save a missing traffic row',async()=>{
   clear(libPath);
   process.env.SUPABASE_URL='https://supabase.test';

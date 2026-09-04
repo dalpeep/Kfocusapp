@@ -105,13 +105,9 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     throw withStage(error,'openai_configuration');
   }
   const instructions={
-    weather:'WEATHER: Check today\'s practical DFW weather using National Weather Service Fort Worth/Dallas (weather.gov / NWS) or another first-party official weather source. Write a concise Korean title and 1-2 sentence summary with the most important condition or advisory.',
-    traffic:'TRAFFIC: Check only current Dallas-Fort Worth road/transit conditions using TxDOT, DriveTexas, 511DFW, DART, or an official Dallas/DFW transportation source. Write a concise Korean title and 1-2 sentence summary. If no major incident or closure is officially reported, say so and advise checking live conditions before departure.'
+    weather:'WEATHER: Use one official NWS Fort Worth/Dallas source. Return a short Korean title and 1-2 sentence practical summary.',
+    traffic:'TRAFFIC: Use exactly one web search and stop after the first useful official source, in this order: TxDOT/DriveTexas, 511DFW, DART. Report today\'s DFW major crash, closure, or severe delay in a short Korean title and 1-2 sentence summary. If none is reported, say "특이사항 없음" and advise checking live conditions before departure.'
   };
-  const schema=Object.fromEntries(requested.map(category=>[category,{
-    title:'한국어 제목',summary:'한국어 1-2문장',source_name:'official source',
-    source_url:'https://...',source_published_at:'ISO or null'
-  }]));
   const responseSchema={
     type:'object',
     properties:Object.fromEntries(requested.map(category=>[category,{
@@ -126,15 +122,21 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     required:requested,
     additionalProperties:false
   };
-  const prompt=`Create only the requested current Daily Core record(s) for DalTownMap in Dallas-Fort Worth, Texas. Current time: ${now.toISOString()} (Dallas date: ${today}).\nRequested categories: ${requested.join(', ')}.\nUse web search only as needed and prefer the named first-party official sources. Do not research or return categories that were not requested. Do not invent incidents. Each source_url must be an actual official URL found during this search.\n${requested.map(category=>instructions[category]).join('\n')}\nReturn ONLY short valid JSON matching this shape:\n${JSON.stringify(schema)}`;
+  const prompt=`Dallas date: ${today}. Generate only: ${requested.join(', ')}. Do not research unrequested categories or invent facts. Use only the requested minimum official search and return the structured result immediately. source_url must be the official page used.\n${requested.map(category=>instructions[category]).join('\n')}`;
   const payload={
     model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',
     tools:[{type:'web_search_preview'}],
-    max_output_tokens:1200,
-    text:{format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
+    max_tool_calls:requested.length,
+    max_output_tokens:600,
+    reasoning:{effort:'minimal'},
+    text:{verbosity:'low',format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
     input:prompt
   };
-  audit('openai_call_started',{dallas_date:today,region,model:payload.model,categories:requested,max_output_tokens:payload.max_output_tokens});
+  audit('openai_call_started',{
+    dallas_date:today,region,model:payload.model,categories:requested,
+    reasoning_effort:payload.reasoning.effort,verbosity:payload.text.verbosity,
+    max_tool_calls:payload.max_tool_calls,max_output_tokens:payload.max_output_tokens
+  });
   let res,json;
   try{
     res=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{Authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(payload)});
