@@ -132,7 +132,7 @@ test('response parsing handles plain JSON, JSON fences, and mixed web-search out
   clear(libPath);
 });
 
-test('traffic-only request omits reasoning and minimizes verbosity, searches, and output',async()=>{
+test('traffic-only request uses the fixed non-reasoning model and one low-context official search',async()=>{
   clear(libPath);
   process.env.SUPABASE_URL='https://supabase.test';
   process.env.SUPABASE_SERVICE_ROLE_KEY='service-key';
@@ -157,11 +157,15 @@ test('traffic-only request omits reasoning and minimizes verbosity, searches, an
   try{
     const {ensureDailyCore}=require(libPath);
     const result=await ensureDailyCore('dallas');
-    assert.equal(Object.hasOwn(request,'reasoning'),false);
+    assert.equal(request.model,'gpt-5.4-mini-2026-03-17');
+    assert.equal(request.reasoning.effort,'none');
+    assert.equal(request.tools[0].type,'web_search');
+    assert.equal(request.tools[0].search_context_size,'low');
+    assert.deepEqual(request.tools[0].filters.allowed_domains,['drivetexas.org','txdot.gov','511dfw.org','dart.org']);
     assert.equal(request.text.verbosity,'low');
     assert.equal(request.max_tool_calls,1);
-    assert.equal(request.max_output_tokens,2000);
-    assert.match(request.input,/Generate only: traffic/);
+    assert.equal(request.max_output_tokens,600);
+    assert.match(request.input,/Search one official DFW traffic source once/);
     assert.doesNotMatch(request.input,/WEATHER:/);
     assert.equal(writes,1);
     assert.deepEqual(result.missing,[]);

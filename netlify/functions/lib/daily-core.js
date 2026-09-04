@@ -122,12 +122,19 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     required:requested,
     additionalProperties:false
   };
-  const prompt=`Dallas date: ${today}. Generate only: ${requested.join(', ')}. Do not research unrequested categories or invent facts. Use only the requested minimum official search and return the structured result immediately. source_url must be the official page used.\n${requested.map(category=>instructions[category]).join('\n')}`;
+  const trafficOnly=requested.length===1&&requested[0]==='traffic';
+  const prompt=trafficOnly
+    ?`Dallas date: ${today}. Search one official DFW traffic source once. Return current major closure, crash, or severe delay. If none is immediately found, return "특이사항 없음". Do not perform additional research. Return the schema immediately.`
+    :`Dallas date: ${today}. Generate only: ${requested.join(', ')}. Do not research unrequested categories or invent facts. Use only the requested minimum official search and return the structured result immediately. source_url must be the official page used.\n${requested.map(category=>instructions[category]).join('\n')}`;
   const payload={
-    model:process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini',
-    tools:[{type:'web_search_preview'}],
+    model:trafficOnly?'gpt-5.4-mini-2026-03-17':(process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini'),
+    tools:[trafficOnly?{
+      type:'web_search',search_context_size:'low',
+      filters:{allowed_domains:['drivetexas.org','txdot.gov','511dfw.org','dart.org']}
+    }:{type:'web_search_preview'}],
     max_tool_calls:requested.length,
-    max_output_tokens:2000,
+    max_output_tokens:trafficOnly?600:2000,
+    ...(trafficOnly?{reasoning:{effort:'none'}}:{}),
     text:{verbosity:'low',format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
     input:prompt
   };
