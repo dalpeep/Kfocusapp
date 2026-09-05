@@ -5187,7 +5187,15 @@ function ensureV229ListingPublicStyles(){
     .business-listing-type{position:absolute;left:9px;top:9px;background:rgba(15,23,42,.88);color:#fff;padding:5px 8px;border-radius:999px;font-size:10px;font-weight:900}
     .business-listing-copy{padding:12px}.business-listing-copy h4{margin:0 0 6px;font-size:15px;line-height:1.3}.business-listing-price{font-size:18px;font-weight:900;color:#0f172a}.business-listing-meta{margin-top:5px;color:#64748b;font-size:12px;line-height:1.45}
     .v229-listing-overlay{position:fixed;inset:0;z-index:120000;background:rgba(15,23,42,.65);display:flex;align-items:center;justify-content:center;padding:16px}.v229-listing-overlay.hidden{display:none}
-    .v229-listing-dialog{width:min(760px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:22px;box-shadow:0 28px 70px rgba(15,23,42,.3)}
+    .v229-listing-overlay{z-index:2147483645;box-sizing:border-box;padding: max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+    .v229-listing-dialog{position:relative;display:flex;flex-direction:column;width:min(760px,96vw);max-height:92vh;max-height:min(92dvh,calc(100dvh - max(16px,env(safe-area-inset-top)) - max(16px,env(safe-area-inset-bottom))));overflow:hidden;background:#fff;border-radius:22px;box-shadow:0 28px 70px rgba(15,23,42,.3)}
+    .v229-listing-scroll{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+    .v229-listing-close{position:absolute;right:10px;top:10px;z-index:3;width:44px;height:44px;border:0;border-radius:50%;background:#fff;color:#0f172a;box-shadow:0 2px 10px #0004;font-size:28px;cursor:pointer}
+    .v229-listing-gallery{position:relative;touch-action:pan-y;background:#eef2f7}
+    .v229-listing-gallery .v229-listing-dialog-image{display:block}
+    .v229-listing-gallery-controls{display:flex;align-items:center;justify-content:center;gap:18px;padding:8px;background:#f8fafc;color:#0f172a}
+    .v229-listing-gallery-controls button{width:44px;height:44px;border:0;border-radius:50%;background:#e2e8f0;color:#0f172a;font-size:24px;cursor:pointer}
+    .v229-listing-image-error{position:absolute;inset:0 0 60px;display:grid;place-items:center;pointer-events:none;color:#475569}.v229-listing-image-error[hidden]{display:none}
     .v229-listing-dialog-image{width:100%;aspect-ratio:16/9;object-fit:cover;background:#eef2f7;border-radius:22px 22px 0 0}.v229-listing-dialog-body{padding:20px}.v229-listing-dialog-top{display:flex;justify-content:space-between;gap:12px}.v229-listing-dialog h2{margin:4px 0 8px}.v229-listing-dialog-price{font-size:24px;font-weight:950}.v229-listing-dialog-meta{color:#475569;line-height:1.65;margin:10px 0}.v229-listing-dialog-desc{white-space:pre-wrap;color:#334155;line-height:1.65}
     .v229-listing-dialog-actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}.v229-listing-dialog-actions a,.v229-listing-dialog-actions button{border:0;border-radius:999px;padding:11px 16px;font-weight:900;text-decoration:none;cursor:pointer}.v229-listing-dialog-actions a{background:#0f5bd7;color:#fff}.v229-listing-dialog-actions button{background:#eef2f7;color:#0f172a}
     @media(max-width:700px){.business-listings-grid{grid-template-columns:1fr}}
@@ -5219,10 +5227,29 @@ function ensureV229ListingModal(){
   modal=document.createElement('div');
   modal.id='v229ListingOverlay';
   modal.className='v229-listing-overlay hidden';
-  modal.innerHTML='<div class="v229-listing-dialog" id="v229ListingDialog"></div>';
+  modal.innerHTML='<div class="v229-listing-dialog" id="v229ListingDialog" role="dialog" aria-modal="true" aria-labelledby="v229ListingTitle"></div>';
   document.body.appendChild(modal);
-  modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.add('hidden');});
+  modal.addEventListener('click',e=>{if(e.target===modal)closeV229Listing();});
+  modal.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeV229Listing();}
+    if(e.key==='Tab'){
+      const items=Array.from(modal.querySelectorAll('button,a[href]'));
+      const first=items[0],last=items[items.length-1];
+      if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+      else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
+    }
+  });
   return modal;
+}
+let v229ListingScrollState=null;
+function closeV229Listing(){
+  document.getElementById('v229ListingOverlay')?.classList.add('hidden');
+  if(!v229ListingScrollState)return;
+  const state=v229ListingScrollState;
+  v229ListingScrollState=null;
+  Object.entries(state.styles).forEach(([key,value])=>{document.body.style[key]=value;});
+  window.scrollTo({left:state.x,top:state.y,behavior:'instant'});
+  if(state.focus?.isConnected)state.focus.focus({preventScroll:true});
 }
 function openV229Listing(listingId){
   const row=(businessListings||[]).find(x=>String(x.id)===String(listingId));
@@ -5232,19 +5259,54 @@ function openV229Listing(listingId){
   const modal=ensureV229ListingModal(), dialog=document.getElementById('v229ListingDialog');
   if(!dialog) return;
   const url=normalizeUrl(row.external_url||'');
-  dialog.innerHTML=`<img class="v229-listing-dialog-image" src="${esc(image)}" alt="${esc(row.title||'리스팅')}">
+  dialog.innerHTML=`<button type="button" class="v229-listing-close" data-v229-listing-close aria-label="리스팅 닫기">×</button><div class="v229-listing-scroll">
+    <div class="v229-listing-gallery" aria-label="리스팅 사진">
+      <img class="v229-listing-dialog-image" src="${esc(image)}" alt="${esc(row.title||'리스팅')}">
+      <span class="v229-listing-image-error" hidden>사진을 불러올 수 없습니다</span>
+      ${images.length>1?`<div class="v229-listing-gallery-controls"><button type="button" data-v229-prev aria-label="이전 사진">‹</button><span data-v229-indicator aria-live="polite">1 / ${images.length}</span><button type="button" data-v229-next aria-label="다음 사진">›</button></div>`:''}
+    </div>
     <div class="v229-listing-dialog-body">
-      <div class="v229-listing-dialog-top"><span class="business-listing-type" style="position:static">${esc(v229ListingTypeLabel(row.listing_type))}</span><button type="button" data-v229-listing-close style="border:0;background:#eef2f7;border-radius:999px;width:34px;height:34px;cursor:pointer">×</button></div>
-      <h2>${esc(row.title||'리스팅')}</h2>
+      <div class="v229-listing-dialog-top"><span class="business-listing-type" style="position:static">${esc(v229ListingTypeLabel(row.listing_type))}</span></div>
+      <h2 id="v229ListingTitle">${esc(row.title||'리스팅')}</h2>
       <div class="v229-listing-dialog-price">${esc(v229ListingPrice(row))}</div>
       <div class="v229-listing-dialog-meta">📍 ${esc(row.address||row.city||'주소 문의')}<br>${row.beds!=null?`${esc(row.beds)} Beds`:''}${row.baths!=null?` · ${esc(row.baths)} Baths`:''}${row.sqft!=null?` · ${Number(row.sqft).toLocaleString()} sqft`:''}</div>
       ${row.description?`<div class="v229-listing-dialog-desc">${esc(row.description)}</div>`:''}
       <div class="v229-listing-dialog-actions">${url?`<a href="${esc(url)}" target="_blank" rel="noopener" data-v229-listing-external>상세 보기</a>`:''}${business?.phone?`<a href="tel:${esc(business.phone)}">문의 전화</a>`:''}<button type="button" data-v229-listing-close>닫기</button></div>
-    </div>`;
-  dialog.querySelectorAll('[data-v229-listing-close]').forEach(btn=>btn.addEventListener('click',()=>modal.classList.add('hidden')));
+    </div></div>`;
+  dialog.querySelectorAll('[data-v229-listing-close]').forEach(btn=>btn.addEventListener('click',closeV229Listing));
+  const gallery=dialog.querySelector('.v229-listing-gallery');
+  const photo=gallery.querySelector('img'), error=gallery.querySelector('.v229-listing-image-error');
+  photo.addEventListener('error',()=>{photo.style.visibility='hidden';error.hidden=false;});
+  photo.addEventListener('load',()=>{photo.style.visibility='';error.hidden=true;});
+  let index=0,touch=null;
+  const showPhoto=delta=>{
+    if(images.length<2)return;
+    index=(index+delta+images.length)%images.length;
+    error.hidden=true;photo.style.visibility='';photo.src=images[index];
+    photo.alt=`${row.title||'리스팅'} (${index+1} / ${images.length})`;
+    gallery.querySelector('[data-v229-indicator]').textContent=`${index+1} / ${images.length}`;
+  };
+  gallery.querySelector('[data-v229-prev]')?.addEventListener('click',()=>showPhoto(-1));
+  gallery.querySelector('[data-v229-next]')?.addEventListener('click',()=>showPhoto(1));
+  gallery.addEventListener('touchstart',e=>{touch=e.touches.length===1?{x:e.touches[0].clientX,y:e.touches[0].clientY}:null;},{passive:true});
+  gallery.addEventListener('touchcancel',()=>{touch=null;},{passive:true});
+  gallery.addEventListener('touchend',e=>{
+    if(!touch)return;
+    const dx=e.changedTouches[0].clientX-touch.x,dy=e.changedTouches[0].clientY-touch.y;
+    touch=null;
+    if(Math.abs(dx)>45&&Math.abs(dx)>Math.abs(dy)*1.5)showPhoto(dx<0?1:-1);
+  },{passive:true});
   dialog.querySelector('[data-v229-listing-external]')?.addEventListener('click',()=>logBusinessActivity(row.business_id,'listing_click'));
   logBusinessActivity(row.business_id,'listing_view');
+  if(!v229ListingScrollState){
+    const styles={};
+    ['position','top','left','width','overflow'].forEach(key=>{styles[key]=document.body.style[key];});
+    v229ListingScrollState={x:window.scrollX,y:window.scrollY,styles,focus:document.activeElement};
+    Object.assign(document.body.style,{position:'fixed',top:`-${window.scrollY}px`,left:`-${window.scrollX}px`,width:'100%',overflow:'hidden'});
+  }
   modal.classList.remove('hidden');
+  dialog.querySelector('.v229-listing-scroll').scrollTop=0;
+  dialog.querySelector('.v229-listing-close').focus({preventScroll:true});
 }
 function bindV229ListingCards(root=document){
   root.querySelectorAll('[data-listing-id]').forEach(btn=>btn.addEventListener('click',()=>{logBusinessActivity(selectedBizId,'listing_click');openV229Listing(btn.dataset.listingId);}));
