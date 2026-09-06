@@ -105,7 +105,7 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     throw withStage(error,'openai_configuration');
   }
   const instructions={
-    weather:'WEATHER: Use one official NWS Fort Worth/Dallas source. Return a short Korean title and 1-2 sentence practical summary.',
+    weather:'WEATHER: Use exactly one web search of an official NWS Fort Worth/Dallas source. Return a short Korean title and 1-2 sentence practical summary for today.',
     traffic:'TRAFFIC: Use exactly one web search and stop after the first useful official source, in this order: TxDOT/DriveTexas, 511DFW, DART. Report today\'s DFW major crash, closure, or severe delay in a short Korean title and 1-2 sentence summary. If none is reported, say "특이사항 없음" and advise checking live conditions before departure.'
   };
   const responseSchema={
@@ -122,24 +122,24 @@ async function generateDailyCore(region='dallas',categories=['weather','traffic'
     required:requested,
     additionalProperties:false
   };
-  const trafficOnly=requested.length===1&&requested[0]==='traffic';
-  const prompt=trafficOnly
-    ?`Dallas date: ${today}. Search one official DFW traffic source once. Return current major closure, crash, or severe delay. If none is immediately found, return "특이사항 없음". Do not perform additional research. Return the schema immediately.`
-    :`Dallas date: ${today}. Generate only: ${requested.join(', ')}. Do not research unrequested categories or invent facts. Use only the requested minimum official search and return the structured result immediately. source_url must be the official page used.\n${requested.map(category=>instructions[category]).join('\n')}`;
+  const domains={weather:['weather.gov'],traffic:['drivetexas.org','txdot.gov','511dfw.org','dart.org']};
+  const prompt=`Dallas date: ${today}. Generate only: ${requested.join(', ')}. Do not research unrequested categories or invent facts. Use one official search per requested category and then return the structured result immediately. source_url must be the official page used.\n${requested.map(category=>instructions[category]).join('\n')}`;
   const payload={
-    model:trafficOnly?'gpt-5.4-mini-2026-03-17':(process.env.NEWSROOM_OPENAI_MODEL||'gpt-5-mini'),
-    tools:[trafficOnly?{
+    model:'gpt-5.4-mini-2026-03-17',
+    tools:[{
       type:'web_search',search_context_size:'low',
-      filters:{allowed_domains:['drivetexas.org','txdot.gov','511dfw.org','dart.org']}
-    }:{type:'web_search_preview'}],
+      filters:{allowed_domains:requested.flatMap(category=>domains[category])}
+    }],
     max_tool_calls:requested.length,
-    max_output_tokens:trafficOnly?600:2000,
-    ...(trafficOnly?{reasoning:{effort:'none'}}:{}),
+    max_output_tokens:600*requested.length,
+    reasoning:{effort:'none'},
     text:{verbosity:'low',format:{type:'json_schema',name:'daily_core_result',strict:true,schema:responseSchema}},
     input:prompt
   };
   audit('openai_call_started',{
     dallas_date:today,region,model:payload.model,categories:requested,
+    reasoning_effort:payload.reasoning.effort,search_tool:payload.tools[0].type,
+    search_context_size:payload.tools[0].search_context_size,
     verbosity:payload.text.verbosity,
     max_tool_calls:payload.max_tool_calls,max_output_tokens:payload.max_output_tokens
   });
@@ -226,14 +226,13 @@ async function saveCategory(region,today,category,item){
     updated_at:now
   };
   if(Array.isArray(existing)&&existing[0]?.id){
-    await sb(`newsroom_items?id=eq.${encodeURIComponent(existing[0].id)}`,{method:'PATCH',headers:{Prefer:'return=minimal'},body:JSON.stringify(payload)});
-    return {category,id:existing[0].id,action:'updated'};
+    return {category,id:existing[0].id,action:'skipped_existing'};
   }
   payload.collected_at=now;
   const inserted=await sb('newsroom_items',{method:'POST',headers:{Prefer:'return=representation'},body:JSON.stringify(payload)});
   return {category,id:Array.isArray(inserted)?inserted[0]?.id:null,action:'inserted'};
 }
-async function ensureDailyCore(region='dallas',{force=false}={}){
+async function ensureDailyCore(region='dallas'){
   region=String(region||'dallas').trim().toLowerCase();
   let before;
   try{before=await loadTodayRows(region);}catch(error){
@@ -245,7 +244,7 @@ async function ensureDailyCore(region='dallas',{force=false}={}){
     dallas_date:before.today,region,
     weather:before.byCategory.has('weather'),traffic:before.byCategory.has('traffic'),missing
   });
-  if(!force&&!missing.length){
+  if(!missing.length){
     audit('generation_skipped',{dallas_date:before.today,region,reason:'complete'});
     return {ok:true,date:before.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>before.byCategory.get(k)).filter(Boolean)};
   }
@@ -283,13 +282,13 @@ async function ensureDailyCore(region='dallas',{force=false}={}){
       dallas_date:current.today,region,
       weather:current.byCategory.has('weather'),traffic:current.byCategory.has('traffic'),missing:currentMissing
     });
-    if(!force&&!currentMissing.length){
+    if(!currentMissing.length){
       audit('generation_skipped',{dallas_date:current.today,region,reason:'completed_while_waiting_for_lock'});
       return {ok:true,date:current.today,region,generated:false,missing:[],items:['weather','traffic'].map(k=>current.byCategory.get(k)).filter(Boolean)};
     }
     let generated;
     try{generated=await generateDailyCore(region,currentMissing);}catch(error){throw withStage(error,error?.dailyCoreStage||'generation');}
-    const targets=force?['weather','traffic']:currentMissing;
+    const targets=currentMissing;
     const saved=[];
     for(const category of targets){
       audit('category_save_started',{dallas_date:generated.today,region,category});

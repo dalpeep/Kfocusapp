@@ -40,8 +40,8 @@ exports.handler=async function(event){
       return {statusCode:403,headers,body:JSON.stringify({ok:false,error:'Daily Core refresh is restricted.'})};
     }
     const region=String(event.queryStringParameters?.region||'dallas').toLowerCase();
-    // 스케줄 실행은 항상 누락분만 생성합니다. 강제 재생성은 인증된 수동 요청에서만 허용합니다.
-    const force=!scheduled&&authorized&&String(event.queryStringParameters?.force||'')==='1';
+    // 스케줄과 인증된 recovery 모두 누락분만 생성합니다. 기존 데이터는 재생성하지 않습니다.
+    const force=false;
     audit('generation_check_started',{scheduled,region,force});
     const result=await ensureDailyCore(region,{force});
     audit('generation_check_completed',{
