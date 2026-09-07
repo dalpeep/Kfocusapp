@@ -9966,7 +9966,10 @@ async function v221LoadTickerWeatherFallback(){
     if(p122Index>=p122Rows.length) p122Index=0;
     const row=p122Rows[p122Index];
     const key=String(row.category||'').toLowerCase();
-    const badge=key==='weather'?'☀️ 날씨':key==='traffic'?'🚗 교통':'광고';
+    const prefix=key==='weather'?'날씨':key==='traffic'?'교통':'';
+    const title=String(row.title||'');
+    const displayTitle=prefix&&!new RegExp(`^\\s*${prefix}\\s*[:：]`).test(title)
+      ?`${prefix}: ${title}`:title;
 
     section.hidden=false;
     section.removeAttribute('hidden');
@@ -9977,8 +9980,8 @@ async function v221LoadTickerWeatherFallback(){
       <div class="p122-shell">
         <div class="p122-label"><span>📣</span><b>${LABEL_TEXT}</b></div>
         <div class="p122-view">
-          <button type="button" class="p122-item" aria-label="${esc(String(row.title||''))}">
-            <strong class="p122-title">${esc(String(row.title||''))}</strong>
+          <button type="button" class="p122-item" aria-label="${esc(displayTitle)}">
+            <strong class="p122-title">${esc(displayTitle)}</strong>
           </button>
         </div>
       </div>
