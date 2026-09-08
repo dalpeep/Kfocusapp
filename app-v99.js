@@ -5120,6 +5120,17 @@ function updateCouponTabUI(){
 }
 
 // === V229: 업소별 부동산 리스팅 ===
+function v229YouTubeId(value){
+  try{
+    const url=new URL(String(value||'').trim());
+    if(!['https:','http:'].includes(url.protocol)||url.username||url.password||url.port)return '';
+    const host=url.hostname.toLowerCase();
+    let id='';
+    if(host==='youtu.be') id=/^\/([A-Za-z0-9_-]{11})\/?$/.exec(url.pathname)?.[1]||'';
+    else if(['youtube.com','www.youtube.com','m.youtube.com'].includes(host)&&url.pathname==='/watch') id=url.searchParams.get('v')||'';
+    return /^[A-Za-z0-9_-]{11}$/.test(id)?id:'';
+  }catch(_){return '';}
+}
 function v229DallasDate(){
   try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
   catch(_){return new Date().toISOString().slice(0,10);}
@@ -5157,7 +5168,7 @@ async function loadBusinessListingsFromSupabase(){
   const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY) return false;
   try{
-    const select='id,business_id,region,title,listing_type,status,price,price_label,address,city,beds,baths,sqft,description,image_url,images,external_url,start_date,end_date,is_featured,created_at';
+    const select='id,business_id,region,title,listing_type,status,price,price_label,address,city,beds,baths,sqft,description,image_url,images,external_url,video_url,start_date,end_date,is_featured,created_at';
     const url=`${SUPABASE_URL}/rest/v1/business_listings?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(getAppRegion())}&order=is_featured.desc,created_at.desc`;
     const res=await fetch(url,{headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`},cache:'no-store'});
     if(!res.ok){
@@ -5233,7 +5244,7 @@ function ensureV229ListingModal(){
   modal.addEventListener('keydown',e=>{
     if(e.key==='Escape'){e.preventDefault();e.stopPropagation();closeV229Listing();}
     if(e.key==='Tab'){
-      const items=Array.from(modal.querySelectorAll('button,a[href]'));
+      const items=Array.from(modal.querySelectorAll('button,a[href],iframe'));
       const first=items[0],last=items[items.length-1];
       if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
       else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
@@ -5243,6 +5254,7 @@ function ensureV229ListingModal(){
 }
 let v229ListingScrollState=null;
 function closeV229Listing(){
+  document.querySelectorAll('#v229ListingDialog [data-v229-video-player] iframe').forEach(frame=>frame.remove());
   document.getElementById('v229ListingOverlay')?.classList.add('hidden');
   if(!v229ListingScrollState)return;
   const state=v229ListingScrollState;
@@ -5259,6 +5271,7 @@ function openV229Listing(listingId){
   const modal=ensureV229ListingModal(), dialog=document.getElementById('v229ListingDialog');
   if(!dialog) return;
   const url=normalizeUrl(row.external_url||'');
+  const videoId=v229YouTubeId(row.video_url);
   dialog.innerHTML=`<button type="button" class="v229-listing-close" data-v229-listing-close aria-label="리스팅 닫기">×</button><div class="v229-listing-scroll">
     <div class="v229-listing-gallery" aria-label="리스팅 사진">
       <img class="v229-listing-dialog-image" src="${esc(image)}" alt="${esc(row.title||'리스팅')}">
@@ -5271,9 +5284,23 @@ function openV229Listing(listingId){
       <div class="v229-listing-dialog-price">${esc(v229ListingPrice(row))}</div>
       <div class="v229-listing-dialog-meta">📍 ${esc(row.address||row.city||'주소 문의')}<br>${row.beds!=null?`${esc(row.beds)} Beds`:''}${row.baths!=null?` · ${esc(row.baths)} Baths`:''}${row.sqft!=null?` · ${Number(row.sqft).toLocaleString()} sqft`:''}</div>
       ${row.description?`<div class="v229-listing-dialog-desc">${esc(row.description)}</div>`:''}
+      ${videoId?`<section aria-label="리스팅 영상" style="margin-top:16px"><button type="button" data-v229-video aria-expanded="false" style="min-height:44px;padding:10px 16px;border:0;border-radius:999px;background:#eef2f7;color:#0f172a;font-weight:900;cursor:pointer">▶ 영상 보기</button><div data-v229-video-player></div></section>`:''}
       <div class="v229-listing-dialog-actions">${url?`<a href="${esc(url)}" target="_blank" rel="noopener" data-v229-listing-external>상세 보기</a>`:''}${business?.phone?`<a href="tel:${esc(business.phone)}">문의 전화</a>`:''}<button type="button" data-v229-listing-close>닫기</button></div>
     </div></div>`;
   dialog.querySelectorAll('[data-v229-listing-close]').forEach(btn=>btn.addEventListener('click',closeV229Listing));
+  dialog.querySelector('[data-v229-video]')?.addEventListener('click',event=>{
+    const container=dialog.querySelector('[data-v229-video-player]');
+    if(container.querySelector('iframe'))return;
+    const frame=document.createElement('iframe');
+    frame.src=`https://www.youtube.com/embed/${videoId}?autoplay=0&playsinline=1`;
+    frame.title='리스팅 YouTube 영상';
+    frame.allow='encrypted-media; picture-in-picture; fullscreen';
+    frame.allowFullscreen=true;
+    frame.referrerPolicy='strict-origin-when-cross-origin';
+    frame.style.cssText='display:block;width:100%;aspect-ratio:16/9;min-height:200px;border:0;margin-top:12px';
+    container.appendChild(frame);
+    event.currentTarget.setAttribute('aria-expanded','true');
+  });
   const gallery=dialog.querySelector('.v229-listing-gallery');
   const photo=gallery.querySelector('img'), error=gallery.querySelector('.v229-listing-image-error');
   photo.addEventListener('error',()=>{photo.style.visibility='hidden';error.hidden=false;});

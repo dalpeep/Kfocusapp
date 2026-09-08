@@ -11166,6 +11166,17 @@ document.addEventListener('DOMContentLoaded',()=>{
 let v229ListingEditId = null;
 let v229BusinessListings = [];
 
+function v229YouTubeId(value){
+  try{
+    const url=new URL(String(value||'').trim());
+    if(!['https:','http:'].includes(url.protocol)||url.username||url.password||url.port)return '';
+    const host=url.hostname.toLowerCase();
+    let id='';
+    if(host==='youtu.be') id=/^\/([A-Za-z0-9_-]{11})\/?$/.exec(url.pathname)?.[1]||'';
+    else if(['youtube.com','www.youtube.com','m.youtube.com'].includes(host)&&url.pathname==='/watch') id=url.searchParams.get('v')||'';
+    return /^[A-Za-z0-9_-]{11}$/.test(id)?id:'';
+  }catch(_){return '';}
+}
 function v229ListingMoney(value=''){
   const raw=String(value??'').trim();
   if(!raw) return '';
@@ -11239,6 +11250,7 @@ function ensureV229ListingAdminUI(){
           <label class="field"><span>면적 (sqft)</span><input id="v229ListingSqft" type="number" min="0" step="1"></label>
           <label class="field full"><span>간단 설명</span><textarea id="v229ListingDescription" placeholder="매물의 핵심 특징을 간단히 입력하세요."></textarea></label>
           <label class="field full"><span>상세 링크</span><input id="v229ListingUrl" type="url" placeholder="MLS / Realtor / 업소 웹사이트 상세 페이지"></label>
+          <label class="field full"><span>YouTube 영상 URL (선택)</span><input id="v229ListingVideoUrl" type="url" placeholder="https://www.youtube.com/watch?v=... 또는 https://youtu.be/..."></label>
           <label class="field"><span>노출 시작일</span><input id="v229ListingStart" type="date"></label>
           <label class="field"><span>노출 종료일</span><input id="v229ListingEnd" type="date"></label>
           <label class="field checkbox-line"><input id="v229ListingFeatured" type="checkbox"><span>대표 리스팅</span></label>
@@ -11275,7 +11287,7 @@ function v229UpdateListingUIState(){
 }
 function v229ClearListingEditor(){
   v229ListingEditId=null;
-  ['v229ListingTitle','v229ListingPrice','v229ListingPriceLabel','v229ListingAddress','v229ListingCity','v229ListingBeds','v229ListingBaths','v229ListingSqft','v229ListingDescription','v229ListingUrl','v229ListingStart','v229ListingEnd','v229ListingImages'].forEach(id=>setVal(id,''));
+  ['v229ListingTitle','v229ListingPrice','v229ListingPriceLabel','v229ListingAddress','v229ListingCity','v229ListingBeds','v229ListingBaths','v229ListingSqft','v229ListingDescription','v229ListingVideoUrl','v229ListingUrl','v229ListingStart','v229ListingEnd','v229ListingImages'].forEach(id=>setVal(id,''));
   setVal('v229ListingType','sale');
   setVal('v229ListingStatus','active');
   setChecked('v229ListingFeatured',false);
@@ -11297,6 +11309,7 @@ function v229FillListingEditor(row){
   setVal('v229ListingSqft',row.sqft??'');
   setVal('v229ListingDescription',row.description||'');
   setVal('v229ListingUrl',row.external_url||'');
+  setVal('v229ListingVideoUrl',row.video_url||'');
   setVal('v229ListingStart',String(row.start_date||'').slice(0,10));
   setVal('v229ListingEnd',String(row.end_date||'').slice(0,10));
   setVal('v229ListingImages',v229ListingImages(row).join('\n'));
@@ -11345,6 +11358,9 @@ async function v229SaveListing(){
   if(!selectedId) return alert('먼저 업소를 선택하세요.');
   const title=val('v229ListingTitle').trim();
   if(!title) return alert('리스팅 제목을 입력하세요.');
+  const rawVideoUrl=val('v229ListingVideoUrl').trim();
+  const videoId=v229YouTubeId(rawVideoUrl);
+  if(rawVideoUrl&&!videoId){alert('올바른 YouTube 영상 URL을 입력하세요. youtube.com/watch?v= 또는 youtu.be/ 형식을 지원합니다.');qs('v229ListingVideoUrl')?.focus();return;}
   const existing=String(val('v229ListingImages')||'').split(/\r?\n|,/).map(v=>v.trim()).filter(Boolean);
   const btn=qs('v229ListingSave'); const old=btn?.textContent||'리스팅 저장';
   if(btn){btn.disabled=true;btn.textContent='저장 중...';}
@@ -11367,6 +11383,7 @@ async function v229SaveListing(){
       sqft:val('v229ListingSqft')===''?null:Number(val('v229ListingSqft')),
       description:val('v229ListingDescription').trim()||null,
       external_url:val('v229ListingUrl').trim()||null,
+      video_url:videoId?`https://www.youtube.com/watch?v=${videoId}`:null,
       start_date:val('v229ListingStart')||null,
       end_date:val('v229ListingEnd')||null,
       is_featured:checked('v229ListingFeatured'),

@@ -9,7 +9,7 @@ const path = require('node:path');
     for (const mobile of [false,true]) {
       const page = await browser.newPage({viewport:mobile?{width:390,height:844}:{width:1280,height:900},hasTouch:mobile,isMobile:mobile});
       const source=fs.readFileSync(path.join(__dirname,'../app-v99.js'),'utf8');
-      const block=source.slice(source.indexOf('function v229DallasDate()'),source.indexOf('\nfunction renderDetail(id)'));
+      const block=source.slice(source.indexOf('function v229YouTubeId('),source.indexOf('\nfunction renderDetail(id)'));
       await page.route('https://images.test/**',route=>route.request().url().endsWith('/3')?route.abort():route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"><rect width="800" height="450" fill="teal"/></svg>'}));
       await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;height:3000px}</style><button id="origin">Open</button>');
       await page.addScriptTag({content:`let businessListings=[],businesses=[],listingBusinessIds=new Set(); const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'); const normalizeUrl=s=>s; const logBusinessActivity=()=>{}; ${block}`});
