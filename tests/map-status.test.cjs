@@ -43,13 +43,13 @@ test('Dallas local calendar dates include the whole end date across UTC midnight
 test('timestamp schedules and inactive/expired/malformed content never create badges',()=>{
   for(const override of [{is_active:false},{status:'draft'},{hidden:true},{region:'colorado'},
     {start_at:'2026-09-10T19:00:00Z'},{end_at:'2026-09-10T18:00:00Z'},{end_at:'not-a-date'}]){
-    const {ctx}=runtime({coupons:[active(override)],mainBanners:[active(override)],boardPosts:[active({type:'notice',...override})]});
+    const {ctx}=runtime({coupons:[active(override)],mainBanners:[active(override)],boardPosts:[active({type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30',...override})]});
     assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
   }
 });
 test('all linked businesses receive concurrent badges without category targeting false positives',()=>{
   const link={business_id:'b',business_ids:['a','b']};
-  const {ctx}=runtime({coupons:[active(link)],mainBanners:[active(link)],boardPosts:[active({type:'notice',...link})]});
+  const {ctx}=runtime({coupons:[active(link)],mainBanners:[active(link)],boardPosts:[active({type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30',...link})]});
   assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),['coupon','promotion','event']);
   assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz('b'))),['coupon','promotion','event']);
   assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz('unlinked'))),[]);
@@ -63,17 +63,17 @@ test('paid promotions, legacy business promo periods, slides and DalPick reuse e
   assert(ctx.mapBusinessBadgeKinds({...biz(),map_promotion:{enabled:true}}).includes('promotion'));
   assert(!ctx.mapBusinessBadgeKinds({...biz(),has_event:true,coupon:true}).length);
   ctx.slideRows=[active({promo_enabled:true,promo_end_at:'2026-09-10'})];
-  ctx.dalpicks=[active({category:'event',status:'published'})];
+  ctx.dalpicks=[active({category:'event',status:'published',start_at:'2026-09-01',end_at:'2026-09-30'})];
   assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),['promotion','event']);
 });
-test('raffle keeps coupon eligibility and additionally receives the existing event classification',()=>{
+test('raffle remains a coupon without inventing an event record',()=>{
   const {ctx}=runtime({coupons:[active({delivery_mode:'raffle',end_at:'2026-09-01T00:00:00Z',raffle_end_at:'2026-09-28T05:00:00Z'})]});
-  assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),['coupon','event']);
+  assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),['coupon']);
   ctx.coupons[0].raffle_end_at='2026-09-09T05:00:00Z';
   assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
 });
 test('badge SVG remains a small single clickable marker and preserves event-first pin color',()=>{
-  const {ctx}=runtime({coupons:[active({})],mainBanners:[active({})],boardPosts:[active({type:'notice'})]});
+  const {ctx}=runtime({coupons:[active({})],mainBanners:[active({})],boardPosts:[active({type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
   const icon=ctx.getMarkerIconForBusiness(biz());
   assert(icon.scaledSize.width<=128);assert.equal(icon.scaledSize.height,44);
   const svg=decodeURIComponent(icon.url.split(',')[1]);
@@ -85,18 +85,36 @@ test('badge SVG remains a small single clickable marker and preserves event-firs
 });
 test('redraw preserves clustering, radius list, all-result markers, click preview and filters',()=>{
   const rows=Array.from({length:14},(_,i)=>biz(String(i)));rows[13].lat=33.95;
-  const {ctx,recorded}=runtime({businesses:rows,mainBanners:[active({business_id:'0'})],coupons:[active({business_id:'1',business_ids:['1','2']})],boardPosts:[active({business_id:'3',type:'notice'})]});
+  const {ctx,recorded}=runtime({businesses:rows,mainBanners:[active({business_id:'0'})],coupons:[active({business_id:'1',business_ids:['1','2']})],boardPosts:[active({business_id:'3',type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
   ctx.redrawMapMarkers();assert.equal(recorded.clusters.length,1);assert.equal(ctx.markers.length,14);assert.equal(recorded.nearby.length,13);
   assert.equal(ctx.window.__mapAllFilteredRows.length,14);
   ctx.markers[0].events.click();assert.equal(recorded.preview.id,'0');
-  ctx.mapMode='coupon';assert.deepEqual(plain(ctx.getFilteredMapBusinesses().map(x=>x.id)),['1','2']);
-  ctx.mapMode='event';assert.deepEqual(plain(ctx.getFilteredMapBusinesses().map(x=>x.id)),['3']);
+  ctx.mapMode='coupon';assert.equal(ctx.getFilteredMapBusinesses().length,14);
+  ctx.mapMode='event';assert.equal(ctx.getFilteredMapBusinesses().length,14);
   ctx.mapMode='business';ctx.mapCategory='병원';assert.equal(ctx.getFilteredMapBusinesses().length,0);
   ctx.mapCategory='';ctx.mapSearchQuery='13';assert.deepEqual(plain(ctx.getFilteredMapBusinesses().map(x=>x.id)),['13']);
 });
 test('map-only refresh detects newly active rows outside a filtered marker set',()=>{
   const {ctx,recorded}=runtime({businesses:[biz('a'),biz('b')],coupons:[active({})],mapMode:'coupon'});
-  ctx.redrawMapMarkers();assert.equal(ctx.markers.length,1);
+  ctx.redrawMapMarkers();assert.equal(ctx.markers.length,2);
   ctx.coupons.push(active({business_id:'b'}));recorded.timers[0]();assert.equal(ctx.markers.length,2);
 });
 module.exports={runtime};
+
+
+test('undated consulate registration notice is not a current event; explicit live linked events are',()=>{
+  const row=active({id:'673c97d2-263e-4238-b159-71d3391c96d7',type:'notice',subtype:'event',start_at:null,end_at:null});
+  const {ctx}=runtime({boardPosts:[row]});
+  assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
+  row.event_start_at='2026-09-10';row.event_end_at='2026-09-10';
+  assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),['event']);
+  row.is_published=false;assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
+  row.is_published=true;row.business_id='other';assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
+  row.business_id='a';row.event_end_at='2026-09-09';assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
+});
+
+test('map offers one all-results action, with no separate event or coupon mode tabs',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  assert.equal((html.match(/data-map-filter=/g)||[]).length,1);
+  assert(html.includes('data-map-filter="business"'));
+});
