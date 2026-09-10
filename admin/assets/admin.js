@@ -11139,6 +11139,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     try{const url=await uploadFileToStorage(file,isVideo?'promo-videos':'promo-images');if(!url)throw new Error('공개 URL 생성 실패');item.media_type=isVideo?'video':'image';if(isVideo)item.video_url=url;else item.image_url=url;if(el('v218UploadStatus'))el('v218UploadStatus').textContent='업로드 완료. 전체 설정 저장을 눌러 적용하세요.';draw();}catch(e){alert('업로드 실패: '+(e.message||e));}finally{if(btn){btn.disabled=false;btn.textContent='파일 업로드';}}
   }
   async function saveAll(){
+    const selectedItem=state.items.find(x=>x.id===selected);
+    if(selectedItem) applyEditor(selectedItem);
     const activeBad=state.items.find(x=>x.enabled && (x.media_type==='image'?!x.image_url:!x.video_url));if(activeBad)return alert(`“${activeBad.title||'팝업'}”의 미디어 URL이 비어 있습니다.`);
     const badDate=state.items.find(x=>x.start_date&&x.end_date&&x.start_date>x.end_date);if(badDate)return alert(`“${badDate.title||'팝업'}”의 종료일이 시작일보다 빠릅니다.`);
     const btn=el('v218SaveAll');if(btn){btn.disabled=true;btn.textContent='저장 중…';}

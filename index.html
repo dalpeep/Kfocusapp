@@ -662,7 +662,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="/app-v99.js?v=302"></script>
+<script src="/app-v99.js?v=303"></script>
 <script src="/main-banners.js?v=263"></script>
 
 <div id="videoModal" class="video-modal hidden">
@@ -1023,9 +1023,9 @@ function requestPush() {
   function shouldShow(cfg){
     if(previewMode()) return true;
     if(!cfg.enabled) return false;
+    if(cfg.frequency==='always') return true;
     if(localStorage.getItem(snoozeKey(cfg))===today()) return false;
     const seen=localStorage.getItem(seenKey(cfg));
-    if(cfg.frequency==='always') return true;
     if(cfg.frequency==='daily') return seen!==today();
     return !seen;
   }
