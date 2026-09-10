@@ -1874,13 +1874,6 @@ const MAP_STATUS_BADGES={
 };
 let mapStatusSignature='';
 let mapReturnToLocation=null;
-function positionMapLocateControl(){
-  if(!mapLocateBtn || !mapBottomPanel)return;
-  const wrap=mapLocateBtn.parentElement.getBoundingClientRect();
-  const panel=mapBottomPanel.getBoundingClientRect();
-  mapLocateBtn.style.setProperty('top',`${Math.max(100,panel.top-wrap.top-58)}px`,'important');
-  mapLocateBtn.style.setProperty('bottom','auto','important');
-}
 const MAP_BENEFIT_CATEGORIES=['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
 const MAP_BENEFIT_LABELS={event:'행사',coupon:'쿠폰',promotion:'이벤트'};
 function mapActiveBenefitRecords(now=Date.now()){
@@ -7746,25 +7739,8 @@ function fitMapToCurrentResultRows(){
 
 
 function getMarkerIconForBusiness(b){
-  const kinds=mapBusinessBadgeKinds(b);
-  if(!kinds.length) return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
-  const key=kinds.join('|');
-  if(mapStatusIconCache.has(key)) return mapStatusIconCache.get(key);
-  const width=kinds.reduce((sum,kind)=>sum+MAP_STATUS_BADGES[kind].width+2,2), height=44;
-  let x=2;
-  const badges=kinds.map(kind=>{
-    const {label,color,width:w}=MAP_STATUS_BADGES[kind];
-    const svg=`<rect x="${x}" y="1" width="${w}" height="16" rx="7" fill="${color}" stroke="white"/><text x="${x+w/2}" y="12" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="white">${label}</text>`;
-    x+=w+2;return svg;
-  }).join('');
-  // Keep the existing event-before-coupon pin priority, without hiding any badge.
-  const color=MAP_STATUS_BADGES[kinds.includes('event')?'event':kinds.includes('coupon')?'coupon':'promotion'].color;
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${badges}<path d="M${width/2} 43c-3-5-10-12-10-17a10 10 0 0 1 20 0c0 5-7 12-10 17Z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="${width/2}" cy="26" r="3" fill="white"/></svg>`;
-  const icon={url:`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,scaledSize:new google.maps.Size(width,height),anchor:new google.maps.Point(width/2,height)};
-  mapStatusIconCache.set(key,icon);
-  return icon;
+  return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
 }
-const mapStatusIconCache=new Map();
 
 function panMapAboveBottomPanel(lat, lng){
   if(!map) return;
@@ -8583,8 +8559,6 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   // 클릭 후에도 절대 숨기지 않음
   setMapAreaButtonState('location');
 });
-  if(typeof ResizeObserver!=='undefined' && mapBottomPanel)new ResizeObserver(positionMapLocateControl).observe(mapBottomPanel);
-  window.addEventListener('resize',positionMapLocateControl);
   document.getElementById('mapBenefitsClose')?.addEventListener('click',()=>document.getElementById('mapBenefitsDialog').close());
   document.getElementById('mapBenefitsDialog')?.addEventListener('click',e=>{
     const dialog=e.currentTarget;

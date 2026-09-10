@@ -4569,12 +4569,7 @@ body.map-page-open #page-map .map-category-row::-webkit-scrollbar{display:none}
   border-color:#2f7eea;
   color:#fff;
 }
-body.map-page-open #page-map #mapLocateBtn{
-  position:absolute!important;
-  top:14px!important;
-  right:10px!important;
-  z-index:10030!important;
-}
+
 body.map-page-open #page-map #mapSearchAreaBtn.hidden{display:none!important}
 body.map-page-open #page-map .map-bottom-panel{
   bottom:calc(86px + env(safe-area-inset-bottom))!important;
@@ -5233,8 +5228,9 @@ body.map-page-open #page-map .map-search-input{
 .hero-slide.coupon-hero-slide .hero-slide-bg{background-size:cover;background-position:center;}
 .hero-slide.coupon-hero-slide .hero-media{width:100%;height:100%;}
 .hero-slide.coupon-hero-slide .hero-media img{width:100%;height:100%;object-fit:cover;display:block;}
-/* Standalone GPS recenter control. */
-body.map-page-open #page-map #mapLocateBtn{display:grid!important;place-items:center;position:absolute!important;right:66px!important;width:40px;height:40px;border:1px solid #dadce0;border-radius:4px;background:white;color:#3c4043;font-size:24px;z-index:9!important;cursor:pointer}
+/* GPS recenter is a text action in the search row, not a floating map control. */
+body.map-page-open #page-map #mapLocateBtn{position:static;flex:0 0 auto;min-height:36px;padding:0 9px;border:1px solid #dce5f0;border-radius:8px;background:white;color:#24446f;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
+body.map-page-open #page-map .map-search-input{min-width:0}
 /* Category benefit counters do not participate in the category button layout. */
 body.map-page-open #page-map #mapCategoryRow{overflow:visible!important}
 #page-map .map-category-with-benefit{position:relative;display:block;min-width:0;flex:1 0 auto}

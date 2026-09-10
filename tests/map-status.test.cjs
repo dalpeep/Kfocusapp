@@ -72,17 +72,13 @@ test('raffle remains a coupon without inventing an event record',()=>{
   ctx.coupons[0].raffle_end_at='2026-09-09T05:00:00Z';
   assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
 });
-test('badge SVG remains a small single clickable marker and preserves event-first pin color',()=>{
+test('benefit businesses retain their links while map markers use the standard icon',()=>{
   const {ctx}=runtime({coupons:[active({})],mainBanners:[active({})],boardPosts:[active({type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
-  const icon=ctx.getMarkerIconForBusiness(biz());
-  assert(icon.scaledSize.width<=128);assert.equal(icon.scaledSize.height,44);
-  const svg=decodeURIComponent(icon.url.split(',')[1]);
-  for(const label of ['쿠폰','프로모션','행사'])assert(svg.includes(label));
-  assert(svg.includes('fill="#7e22ce" stroke="white" stroke-width="1.5"'));
-  assert.equal(ctx.getMarkerIconForBusiness(biz()),icon);
-  assert.match(ctx.getMarkerIconForBusiness(biz('normal')),/red-dot.png$/);
-  assert.equal((ctx.mapBusinessBadgesHTML(biz()).match(/data-map-badge=/g)||[]).length,3);
+  assert.equal(ctx.mapBusinessBadgeKinds(biz()).length,3);
+  assert.match(ctx.getMarkerIconForBusiness(biz()),/red-dot.png$/);
+  assert.equal(ctx.getMarkerIconForBusiness(biz()),ctx.getMarkerIconForBusiness(biz('normal')));
 });
+
 test('redraw preserves clustering, radius list, all-result markers, click preview and filters',()=>{
   const rows=Array.from({length:14},(_,i)=>biz(String(i)));rows[13].lat=33.95;
   const {ctx,recorded}=runtime({businesses:rows,mainBanners:[active({business_id:'0'})],coupons:[active({business_id:'1',business_ids:['1','2']})],boardPosts:[active({business_id:'3',type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
