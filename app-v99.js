@@ -1873,16 +1873,7 @@ const MAP_STATUS_BADGES={
   event:{label:'행사',color:'#7e22ce',className:'purple',width:32}
 };
 let mapStatusSignature='';
-let mapOrbitOpen=false;
-let mapOrbitSelection='';
 let mapReturnToLocation=null;
-function setMapOrbitOpen(open){
-  mapOrbitOpen=!!open;
-  document.getElementById('mapOrbit')?.classList.toggle('open',mapOrbitOpen);
-  const items=document.getElementById('mapOrbitItems');
-  if(items) items.inert=!mapOrbitOpen;
-  document.getElementById('mapOrbitAnchor')?.setAttribute('aria-expanded',String(mapOrbitOpen));
-}
 function positionMapLocateControl(){
   if(!mapLocateBtn || !mapBottomPanel)return;
   const wrap=mapLocateBtn.parentElement.getBoundingClientRect();
@@ -1890,69 +1881,53 @@ function positionMapLocateControl(){
   mapLocateBtn.style.setProperty('top',`${Math.max(100,panel.top-wrap.top-58)}px`,'important');
   mapLocateBtn.style.setProperty('bottom','auto','important');
 }
-function mapOrbitRows(kind){
-  return businesses.filter(b=>v292ValidBusinessCoords(b.lat,b.lng) && mapBusinessBadgeKinds(b).includes(kind));
+const MAP_BENEFIT_CATEGORIES=['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
+const MAP_BENEFIT_LABELS={event:'행사',coupon:'쿠폰',promotion:'이벤트'};
+function mapActiveBenefitRecords(now=Date.now()){
+  const records=new Map();
+  const add=(source,kind,row)=>{
+    const ids=mapLinkedBusinessIds(row);
+    if(!row.id || !ids.length || row.is_published===false)return;
+    const key=`${source}:${row.id}`;
+    records.set(key,{key,kind,title:row.title||row.headline||row.promo_text||MAP_BENEFIT_LABELS[kind],businessIds:ids});
+  };
+  activeMapCoupons(now).forEach(row=>add('coupons','coupon',row));
+  (mainBanners||[]).filter(row=>mapContentActive(row,now)).forEach(row=>add('banners','promotion',row));
+  (slideRows||[]).filter(row=>row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now)).forEach(row=>add('slides','promotion',row));
+  (boardPosts||[]).filter(row=>(row.type==='event'||(row.type==='notice'&&row.subtype==='event')) && mapEventActive(row,now)).forEach(row=>add('posts','event',row));
+  (dalpicks||[]).filter(row=>row.category==='event'?mapEventActive(row,now):row.category==='promotion'&&mapContentActive(row,now)).forEach(row=>add('dalpick',row.category,row));
+  return [...records.values()];
 }
-function selectMapOrbit(kind){
-  mapOrbitSelection=mapOrbitSelection===kind?'':kind;
-  redrawMapMarkers();
-  if(!mapOrbitSelection) return;
-  const rows=mapOrbitRows(mapOrbitSelection);
-  const visible=map.getBounds();
-  if(rows.length && (!visible || rows.some(b=>!visible.contains({lat:Number(b.lat),lng:Number(b.lng)})))){
-    const bounds=new google.maps.LatLngBounds();
-    rows.forEach(b=>bounds.extend({lat:Number(b.lat),lng:Number(b.lng)}));
-    // Keep the GPS anchor reachable after fitting the selected businesses.
-    if(currentLocationPosition) bounds.extend(currentLocationPosition);
-    const mapRect=document.getElementById('googleMap')?.getBoundingClientRect();
-    const panelRect=mapBottomPanel?.getBoundingClientRect?.();
-    const bottom=mapRect && panelRect?Math.ceil(mapRect.bottom-panelRect.top+20):270;
-    map.fitBounds(bounds,{top:170,right:80,bottom,left:80});
-    google.maps.event.addListenerOnce(map,'idle',()=>{if(map.getZoom()>15)map.setZoom(15);});
-  }
+function mapCategoryBenefits(now=Date.now()){
+  const groups=Object.fromEntries(MAP_BENEFIT_CATEGORIES.map(category=>[category,{records:new Map(),businesses:new Map(),kinds:new Set()}]));
+  const byId=new Map(businesses.filter(b=>b.is_active!==false && b.list_visible!==false && (!b.region||b.region===currentRegion) && v292ValidBusinessCoords(b.lat,b.lng)).map(b=>[String(b.id),b]));
+  mapActiveBenefitRecords(now).forEach(record=>record.businessIds.forEach(id=>{
+    const business=byId.get(id);if(!business)return;
+    const group=groups[getMainCategoryLabel(business.map_category||business.category)];if(!group)return;
+    group.records.set(record.key,record);group.kinds.add(record.kind);
+    if(!group.businesses.has(id))group.businesses.set(id,{business,benefits:new Map()});
+    group.businesses.get(id).benefits.set(record.key,record);
+  }));
+  return groups;
 }
-function renderMapOrbitList(){
-  if(!mapOrbitSelection || !mapBottomList) return;
-  const rows=sortBusinessesByDistance(mapOrbitRows(mapOrbitSelection));
-  mapBottomList.innerHTML=rows.map(mapBottomItemHTML).join('');
-  mapBottomList.classList.remove('hidden');
-  mapBottomPanel?.classList.remove('counts-only');
-  mapBottomPanel?.classList.add('orbit-results');
-  mapBottomTitle.textContent=`${MAP_STATUS_BADGES[mapOrbitSelection].label} ${rows.length}곳`;
-  mapBottomTitle.parentElement?.classList.remove('hidden');
-  mapBusinessPreview?.classList.add('hidden');
-  window.__mapCurrentRows=rows;
+function mapBenefitTone(group){return group.kinds.size>1?'mixed':([...group.kinds][0]||'');}
+let mapBenefitsCategory='';
+function renderMapBenefitsDialog(){
+  const dialog=document.getElementById('mapBenefitsDialog');
+  if(!dialog || !mapBenefitsCategory)return;
+  const group=mapCategoryBenefits()[mapBenefitsCategory];
+  document.getElementById('mapBenefitsTitle').textContent=`${mapBenefitsCategory} 혜택`;
+  document.getElementById('mapBenefitsSummary').textContent=`활성 혜택 ${group.records.size}건 · ${group.businesses.size}개 업소`;
+  document.getElementById('mapBenefitsList').innerHTML=[...group.businesses.values()].map(({business:b,benefits})=>`<button type="button" class="map-benefit-card" data-map-benefit-business="${esc(b.id)}">${businessImageHTML(b,'map-benefit-image',b.name)}<span class="map-benefit-copy"><strong>${esc(b.name)}</strong><span class="map-benefit-area">${esc(b.area||(b.region==='dallas'?'달라스 / DFW':b.region)||'')}</span><span class="map-benefit-offers">${[...benefits.values()].map(benefit=>`<span class="map-benefit-offer"><span class="map-benefit-type ${benefit.kind}">${MAP_BENEFIT_LABELS[benefit.kind]}</span><span>${esc(benefit.title)}</span></span>`).join('')}</span></span></button>`).join('') || '<p class="map-benefits-empty">현재 활성 혜택이 없습니다.</p>';
 }
-function applyMapOrbitEmphasis(){
-  markers.forEach(marker=>{
-    const match=!mapOrbitSelection || (marker.mapBadgeKinds||[]).includes(mapOrbitSelection);
-    marker.setOpacity?.(match?1:0.22);
-    marker.setZIndex?.(mapOrbitSelection && match?1000:undefined);
-  });
-  (markerCluster?.clusters||[]).forEach(cluster=>{if(cluster.markers?.length>1)cluster.marker?.setOpacity?.(mapOrbitSelection?0.22:1);});
-  document.querySelectorAll('[data-map-emphasis]').forEach(button=>{
-    button.setAttribute('aria-pressed',String(button.dataset.mapEmphasis===mapOrbitSelection));
-  });
-}
-function renderMapOrbit(){
-  const orbit=document.getElementById('mapOrbit'),items=document.getElementById('mapOrbitItems');
-  if(!orbit || !items) return;
-  const counts={promotion:0,coupon:0,event:0};
-  businesses.filter(b=>v292ValidBusinessCoords(b.lat,b.lng)).forEach(b=>mapBusinessBadgeKinds(b).forEach(kind=>counts[kind]++));
-  if(mapOrbitSelection && !counts[mapOrbitSelection]) mapOrbitSelection='';
-  const kinds=['promotion','coupon','event'].filter(kind=>counts[kind]>0);
-  const signature=JSON.stringify(counts);
-  if(items.dataset.counts!==signature){
-    items.dataset.counts=signature;
-    items.innerHTML=kinds.map((kind,index)=>`<button type="button" class="map-orbit-item ${kind}" data-map-emphasis="${kind}" style="--step:${index+1}" aria-label="${MAP_STATUS_BADGES[kind].label} ${counts[kind]}곳 강조" aria-pressed="false"><span aria-hidden="true">${{promotion:'📣',coupon:'🎟️',event:'🎉'}[kind]}</span><span class="map-orbit-count" aria-hidden="true">${counts[kind]}</span><span class="map-orbit-label" aria-hidden="true">${MAP_STATUS_BADGES[kind].label}</span></button>`).join('');
-  }
-  const bounds=map?.getBounds?.();
-  const nearby=kinds.some(kind=>mapOrbitRows(kind).some(b=>bounds?.contains({lat:Number(b.lat),lng:Number(b.lng)}) || (currentLocationPosition && haversineMiles(currentLocationPosition.lat,currentLocationPosition.lng,Number(b.lat),Number(b.lng))<=7)));
-  orbit.classList.toggle('has-active',nearby);
-  applyMapOrbitEmphasis();
+function openMapBenefits(category){
+  if(!MAP_BENEFIT_CATEGORIES.includes(category))return;
+  mapBenefitsCategory=category;renderMapBenefitsDialog();
+  const dialog=document.getElementById('mapBenefitsDialog');
+  if(dialog && !dialog.open)dialog.showModal();
 }
 function mapBusinessStatusSignature(){
-  return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',');
+  return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',')+';'+JSON.stringify(mapActiveBenefitRecords());
 }
 function mapBusinessBadgesHTML(b){
   const kinds=mapBusinessBadgeKinds(b);
@@ -2004,10 +1979,12 @@ function renderMapCategorySummary(list=[]){
     if(label) acc[label] = (acc[label] || 0) + 1;
     return acc;
   },{});
-  const order = ['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
-  const items = order.filter(label=>counts[label] > 0);
-  mapCategoryRow.innerHTML = items.map(label=>`<button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]}</button>`).join('');
-  mapCategoryRow.classList.toggle('hidden', items.length < 1 || mapMode !== 'business' || !!mapOrbitSelection);
+  const groups=mapCategoryBenefits();
+  mapCategoryRow.innerHTML = MAP_BENEFIT_CATEGORIES.map(label=>{
+    const group=groups[label],total=group.records.size;
+    return `<span class="map-category-with-benefit"><button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]||0}</button>${total?`<button type="button" class="map-category-benefit ${mapBenefitTone(group)}" data-map-benefits="${esc(label)}" aria-label="${esc(label)} 활성 혜택 ${total}건 보기" aria-haspopup="dialog">${total}</button>`:''}</span>`;
+  }).join('');
+  mapCategoryRow.classList.toggle('hidden', mapMode !== 'business');
 }
 function updateMapFilterAvailability(baseList){
   const rows = Array.isArray(baseList) ? baseList : [];
@@ -3293,7 +3270,6 @@ function renderMapBottomList(list, categorySummaryRows = null){
   setMapBottomStatus('');
   mapBottomPanel?.classList.remove('hidden','collapsed','preview-open');
   mapBottomPanel?.classList.add('counts-only');
-  mapBottomPanel?.classList.remove('orbit-results');
   window.__mapCurrentRows = rows;
   window.__mapCategorySummaryRows = summaryRows;
   renderMapCategorySummary(summaryRows);
@@ -7815,7 +7791,7 @@ function redrawMapMarkers(){
   let categorySummaryList = nearbyBase.length ? nearbyBase : baseList;
   if(mapMode !== 'business') categorySummaryList = [];
 
-  const list = [...new Map([...getFilteredMapBusinesses(),...(mapOrbitSelection?mapOrbitRows(mapOrbitSelection):[])].map(b=>[String(b.id),b])).values()];
+  const list = getFilteredMapBusinesses();
   const filtered = !radiusMiles ? list : list.filter(b=>{
     const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
     return miles <= radiusMiles;
@@ -7833,37 +7809,26 @@ function redrawMapMarkers(){
 
   finalList.forEach(b=>{
     const lat = Number(b.lat); const lng = Number(b.lng);
-    let icon = getMarkerIconForBusiness(b);
+    const icon = getMarkerIconForBusiness(b);
     const kinds=mapBusinessBadgeKinds(b);
-    if(mapOrbitSelection && kinds.includes(mapOrbitSelection) && typeof icon==='object'){
-      icon={...icon,scaledSize:new google.maps.Size(icon.scaledSize.width*1.18,icon.scaledSize.height*1.18),anchor:new google.maps.Point(icon.anchor.x*1.18,icon.anchor.y*1.18)};
-    }
     const marker = new google.maps.Marker({ position:{lat, lng}, title:[b.name,...kinds.map(kind=>MAP_STATUS_BADGES[kind].label)].join(' · '), icon });
-    marker.mapBadgeKinds=kinds;
-    marker.mapBusinessId=String(b.id);
     marker.addListener('click', ()=>{
-      setMapOrbitOpen(false);
       panMapAboveBottomPanel(lat, lng);
       showMapBusinessPreview({...b, lat, lng});
       if(mapInfoWindow) mapInfoWindow.close();
     });
     markers.push(marker);
   });
-  const clusterMarkers=mapOrbitSelection?markers.filter(m=>!m.mapBadgeKinds.includes(mapOrbitSelection)):markers;
-  markers.filter(m=>!clusterMarkers.includes(m)).forEach(m=>m.setMap(map));
-  if(window.markerClusterer?.MarkerClusterer && clusterMarkers.length > 12){
-    markerCluster = new window.markerClusterer.MarkerClusterer({ map, markers:clusterMarkers });
-    markerCluster.addListener?.('clusteringend',applyMapOrbitEmphasis);
+  if(window.markerClusterer?.MarkerClusterer && markers.length > 12){
+    markerCluster = new window.markerClusterer.MarkerClusterer({ map, markers });
   } else {
     markers.forEach(m=>m.setMap(map));
   }
-  if(!mapOrbitSelection && mapSearchQuery && finalList.length){
+  if(mapSearchQuery && finalList.length){
     focusMapOnBusinesses(finalList);
   }
   const sortedFinalList = sortBusinessesByDistance(nearbyList);
   renderMapBottomList(sortedFinalList, categorySummaryList);
-  renderMapOrbit();
-  renderMapOrbitList();
   if(mapNotice) mapNotice.classList.add('hidden');
   if(mapSearchQuery && finalList.length){
     setMapBottomStatus(`검색 결과 ${finalList.length}곳`);
@@ -7884,6 +7849,7 @@ setInterval(()=>{
     const selected=byId.get(selectedMapBusinessId);
     redrawMapMarkers();
     if(selected) showMapBusinessPreview(selected);
+    if(document.getElementById('mapBenefitsDialog')?.open)renderMapBenefitsDialog();
   }
 },30000);
 function setMapAreaButtonState(state = 'active') {
@@ -7987,7 +7953,6 @@ function showCurrentLocationMarker(position) {
     anchor: new google.maps.Point(21, 49)
   };
 
-  ensureMapOrbitOverlay();
   if (currentLocationMarker) {
     currentLocationMarker.setPosition(position);
     currentLocationMarker.setIcon(icon);
@@ -8010,30 +7975,6 @@ function showCurrentLocationMarker(position) {
   if (currentLocationBubbleOverlay) {
     currentLocationBubbleOverlay.setPosition(position);
   }
-}
-let mapOrbitOverlay=null;
-class MapOrbitOverlay extends google.maps.OverlayView {
-  onAdd(){
-    this.div=document.getElementById('mapOrbit');
-    if(!this.div)return;
-    this.getPanes().floatPane.appendChild(this.div);
-    google.maps.OverlayView.preventMapHitsAndGesturesFrom(this.div);
-    this.div.hidden=false;
-    renderMapOrbit();
-  }
-  draw(){
-    if(!this.div || !currentLocationPosition)return;
-    const point=this.getProjection()?.fromLatLngToDivPixel(new google.maps.LatLng(currentLocationPosition.lat,currentLocationPosition.lng));
-    if(!point)return;
-    this.div.style.left=`${point.x-23}px`;
-    this.div.style.top=`${point.y-49}px`;
-  }
-  onRemove(){if(this.div){this.div.hidden=true;document.querySelector('#page-map .map-fullscreen-wrap')?.appendChild(this.div);}}
-}
-function ensureMapOrbitOverlay(){
-  if(!map || !currentLocationPosition)return;
-  if(!mapOrbitOverlay){mapOrbitOverlay=new MapOrbitOverlay();mapOrbitOverlay.setMap(map);}
-  else mapOrbitOverlay.draw();
 }
 let currentLocationBubbleOverlay = null;
 
@@ -8207,8 +8148,6 @@ function activateMapSearchAreaButton() {
   setMapUiState('dirty');
 }
 
-map.addListener('click',()=>setMapOrbitOpen(false));
-map.addListener('idle',()=>renderMapOrbit());
 map.addListener('dragend', () => {
   if (suppressMapUiChange) return;
 
@@ -8584,7 +8523,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     if(boardBtn){ const key = boardBtn.dataset.boardResult || 'notice'; boardTitle.textContent = boardBtn.dataset.boardTitle || '게시판'; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); lastBasePage = currentPage; showPage('board-detail'); return; }
   });
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSearchOverlay(); });
-  mapSearchInput?.addEventListener('input', ()=>{ mapOrbitSelection=''; mapSearchQuery = (mapSearchInput.value || '').trim(); if(mapReady) redrawMapMarkers(); });
+  mapSearchInput?.addEventListener('input', ()=>{ mapSearchQuery = (mapSearchInput.value || '').trim(); if(mapReady) redrawMapMarkers(); });
   mapSearchInput?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); mapSearchInput.blur(); if(mapReady) redrawMapMarkers(); } });
   $('#couponTabs')?.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-tab'); if(!btn) return; couponViewTab = btn.dataset.couponTab || 'today'; updateCouponTabUI(); });
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
@@ -8593,7 +8532,6 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   mapFilterRow?.addEventListener('click', e=>{
     const btn=e.target.closest('.map-filter-chip');
     if(!btn || btn.classList.contains('hidden')) return;
-    mapOrbitSelection='';
     mapMode = 'business';
     selectedMapBusinessId='';
     renderMapFilters();
@@ -8605,10 +8543,11 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     setTimeout(()=>renderMapCategorySummary(window.__mapCategorySummaryRows || window.__mapCurrentRows || []), 0);
   });
   mapCategoryRow?.addEventListener('click', e=>{
+    const benefit=e.target.closest('[data-map-benefits]');
+    if(benefit){e.preventDefault();e.stopPropagation();openMapBenefits(benefit.dataset.mapBenefits);return;}
     const btn=e.target.closest('[data-map-category]');
     if(!btn) return;
     const next = btn.dataset.mapCategory || '';
-    mapOrbitSelection='';
     mapMode = 'business';
     mapCategory = mapCategory === next ? '' : next;
     selectedMapBusinessId='';
@@ -8639,21 +8578,18 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   // 클릭 후에도 절대 숨기지 않음
   setMapAreaButtonState('location');
 });
-  document.getElementById('mapOrbitItems')?.addEventListener('click',e=>{
-    const button=e.target.closest('[data-map-emphasis]');
-    if(!button) return;
-    selectMapOrbit(button.dataset.mapEmphasis);
-  });
-  document.getElementById('mapOrbit')?.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ setMapOrbitOpen(false); document.getElementById('mapOrbitAnchor')?.focus(); }
-  });
   if(typeof ResizeObserver!=='undefined' && mapBottomPanel)new ResizeObserver(positionMapLocateControl).observe(mapBottomPanel);
   window.addEventListener('resize',positionMapLocateControl);
-  document.getElementById('mapOrbitAnchor')?.addEventListener('click',()=>{renderMapOrbit();setMapOrbitOpen(!mapOrbitOpen);});
+  document.getElementById('mapBenefitsClose')?.addEventListener('click',()=>document.getElementById('mapBenefitsDialog').close());
+  document.getElementById('mapBenefitsDialog')?.addEventListener('click',e=>{
+    const dialog=e.currentTarget;
+    if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();return;}
+    const card=e.target.closest('[data-map-benefit-business]');if(!card)return;
+    const id=card.dataset.mapBenefitBusiness;if(!getBiz(id))return;
+    dialog.close();selectedBizId=id;currentDetailVideoOverride='';lastBasePage='map';
+    v230PrepareBusinessDetail(id,'map','business_click');renderDetail(id);showPage('business-detail');
+  });
   mapLocateBtn?.addEventListener('click', ()=>{
-    setMapOrbitOpen(false);
-    mapOrbitSelection='';
-    applyMapOrbitEmphasis();
     mapReturnToLocation?.();
   });
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapAboveBottomPanel(pos.lat, pos.lng); showMapBusinessPreview(biz); if(mapInfoWindow) mapInfoWindow.close(); });
@@ -8664,7 +8600,6 @@ mapSearchAreaBtn?.addEventListener('click', () => {
     if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction);
   });
   mapBottomClose?.addEventListener('click', ()=>{
-    if(mapOrbitSelection && !selectedMapBusinessId){selectMapOrbit(mapOrbitSelection);return;}
     if(selectedMapBusinessId){
       selectedMapBusinessId='';
       mapBusinessPreview?.classList.add('hidden');

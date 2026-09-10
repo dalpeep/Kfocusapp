@@ -119,52 +119,6 @@ test('map offers one all-results action, with no separate event or coupon mode t
   assert(html.includes('data-map-filter="business"'));
 });
 
-test('orbit shows only nonzero counts in bottom-up order and dims without removing markers',()=>{
-  const attrs={},classes={};
-  const orbit={classList:{toggle:(k,v)=>classes[k]=v},style:{},parentElement:{getBoundingClientRect:()=>({top:0})}};
-  const items={dataset:{},innerHTML:'',inert:true};
-  const {ctx}=runtime({currentLocationPosition:{lat:32.95,lng:-96.85},businesses:[biz()],coupons:[active({})],mainBanners:[active({})],boardPosts:[active({type:'event',start_at:'2026-09-01',end_at:'2026-09-30'})],mapBottomPanel:{getBoundingClientRect:()=>({top:500})},mapLocateBtn:{setAttribute:(k,v)=>attrs[k]=v},document:{getElementById:id=>id==='mapOrbit'?orbit:id==='mapOrbitItems'?items:id==='mapOrbitAnchor'?{setAttribute:(k,v)=>attrs[k]=v}:null,querySelectorAll:()=>[]}});
-  ctx.renderMapOrbit();
-  assert(items.innerHTML.indexOf('data-map-emphasis="promotion"')<items.innerHTML.indexOf('data-map-emphasis="coupon"'));
-  assert(items.innerHTML.indexOf('data-map-emphasis="coupon"')<items.innerHTML.indexOf('data-map-emphasis="event"'));
-  assert.equal(classes['has-active'],true);
-  ctx.setMapOrbitOpen(true);assert.equal(items.inert,false);assert.equal(attrs['aria-expanded'],'true');
-  ctx.setMapOrbitOpen(false);assert.equal(items.inert,true);
-  const opacity=[];ctx.markers=[{mapBadgeKinds:['promotion'],setOpacity:v=>opacity[0]=v},{mapBadgeKinds:[],setOpacity:v=>opacity[1]=v}];
-  vm.runInContext("mapOrbitSelection='promotion';applyMapOrbitEmphasis()",ctx);
-  assert.deepEqual(opacity,[1,0.22]);assert.equal(ctx.markers.length,2);
-  ctx.coupons=[];ctx.boardPosts=[];ctx.renderMapOrbit();
-  assert(!items.innerHTML.includes('data-map-emphasis="coupon"'));assert(!items.innerHTML.includes('data-map-emphasis="event"'));
-});
-
-
-test('selection uses identical business IDs for counts, visible markers, fit bounds and actual list; toggle restores',()=>{
-  const rows=Array.from({length:14},(_,i)=>biz(String(i)));
-  const classes={add:()=>{},remove:()=>{}};
-  const list={innerHTML:'',classList:classes};const bounds=[];
-  const {ctx,recorded}=runtime({businesses:rows,mainBanners:[active({business_ids:['0','1','2','3'],business_id:'0'})],
-    mapBottomList:list,mapBottomPanel:{classList:classes},mapBottomTitle:{parentElement:{classList:classes}},mapBusinessPreview:{classList:classes},
-    mapBottomItemHTML:b=>`<button data-map-biz="${b.id}">${b.id}</button>`,
-    map:{getZoom:()=>12,getBounds:()=>({contains:()=>false}),fitBounds:(b,p)=>bounds.push(b.ids),setZoom:()=>{}}});
-  ctx.google.maps.LatLngBounds=class{constructor(){this.ids=[];}extend(p){this.ids.push(p);}};
-  ctx.google.maps.event={addListenerOnce:()=>{}};
-  ctx.selectMapOrbit('promotion');
-  assert.equal(ctx.mapOrbitRows('promotion').length,4);assert.equal((list.innerHTML.match(/data-map-biz=/g)||[]).length,4);
-  assert.equal(bounds[0].length,4);assert.equal(ctx.markers.length,14);
-  assert.equal(recorded.clusters.length,0); // ten ordinary markers remain, plus four direct emphasized markers
-  ctx.selectMapOrbit('promotion');assert.equal(ctx.markers.length,14);assert.equal(recorded.clusters.length,1);
-});
-
-test('GPS overlay follows projected coordinates on every draw, independently of map panel geometry',()=>{
-  const {ctx}=runtime({currentLocationPosition:{lat:32.95,lng:-96.85}});
-  ctx.google.maps.OverlayView=class{};ctx.google.maps.LatLng=class{constructor(lat,lng){Object.assign(this,{lat,lng});}};
-  vm.runInContext(section('class MapOrbitOverlay extends','function ensureMapOrbitOverlay()')+';this.TestOverlay=MapOrbitOverlay;',ctx);
-  const overlay=new ctx.TestOverlay();overlay.div={style:{}};
-  let pixel={x:200,y:300};overlay.getProjection=()=>({fromLatLngToDivPixel:()=>pixel});
-  overlay.draw();assert.equal(overlay.div.style.left,'177px');assert.equal(overlay.div.style.top,'251px');
-  pixel={x:90,y:170};overlay.draw();assert.equal(overlay.div.style.left,'67px');assert.equal(overlay.div.style.top,'121px');
-});
-
 test('GPS recenter callback retains initialization-scope helpers and restores zoom12',()=>{
   const calls=[];
   const {ctx}=runtime({navigator:{geolocation:{getCurrentPosition:ok=>ok({coords:{latitude:32.95,longitude:-96.9}})}},
@@ -174,4 +128,30 @@ test('GPS recenter callback retains initialization-scope helpers and restores zo
   ctx.google.maps.event={addListenerOnce:(_m,_e,fn)=>fn()};
   vm.runInContext(section('mapReturnToLocation = () => {','const applyCenter = () => {')+';mapReturnToLocation();',ctx);
   assert(calls.includes('marker'));assert(calls.includes('tracking'));assert(calls.includes(12));assert(calls.includes('current'));
+});
+
+test('category counters deduplicate shared benefit records, group business cards and combine kinds',()=>{
+  const {ctx}=runtime({businesses:[biz('a'),biz('b'),{...biz('c'),category:'종교'}],
+    mainBanners:[active({id:'shared',title:'Shared promotion',business_ids:['a','b','c']})],
+    coupons:[active({id:'coupon-1'}),active({id:'coupon-2'})],
+    boardPosts:[active({id:'event-1',type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
+  const groups=ctx.mapCategoryBenefits();
+  assert.equal(groups['식당'].records.size,4);assert.equal(groups['식당'].businesses.size,2);
+  assert.equal(groups['식당'].businesses.get('a').benefits.size,4);assert.equal(ctx.mapBenefitTone(groups['식당']),'mixed');
+  assert.equal(groups['종교'].records.size,1);assert.equal(ctx.mapBenefitTone(groups['종교']),'promotion');
+  assert.equal(groups['병원'].records.size,0);
+});
+
+test('benefit counts exclude expired, unlinked, nonpublic and undated event rows',()=>{
+  const {ctx}=runtime({businesses:[biz(),{...biz('hidden'),list_visible:false}],
+    mainBanners:[active({id:'expired',end_at:'2026-09-09'}),active({id:'unlinked',business_id:null}),active({id:'hidden',business_id:'hidden'})],
+    boardPosts:[active({id:'undated',type:'notice',subtype:'event'})],
+    coupons:[active({id:'live',start_at:'2026-09-10',end_at:'2026-09-10'})]});
+  const group=ctx.mapCategoryBenefits()['식당'];assert.equal(group.records.size,1);assert.equal(ctx.mapBenefitTone(group),'coupon');
+});
+
+test('removed radial UI cannot intercept category benefit clicks',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+  assert(!/mapOrbit|map-orbit/.test(source+html));
+  assert(html.includes('id="mapBenefitsDialog"'));
 });
