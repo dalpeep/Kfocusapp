@@ -238,6 +238,11 @@
 .map-bottom-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
 .map-bottom-copy strong{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .map-bottom-copy span{font-size:12px;color:#72819b}
+.map-status-badges{display:inline-flex;flex-direction:row;flex-wrap:wrap;gap:3px;margin-top:3px;pointer-events:none}
+#page-map .map-status-badges .badge{position:static;display:inline-flex;align-items:center;min-width:0;height:18px;padding:0 6px;border:0;border-radius:999px;color:#fff;font-size:10px;font-weight:800;line-height:18px;white-space:nowrap;pointer-events:none}
+#page-map .map-status-badges .badge.green{background:#15803d}
+#page-map .map-status-badges .badge.orange{background:#c2410c}
+#page-map .map-status-badges .badge.purple{background:#7e22ce}
 .map-bottom-empty{padding:12px 8px;color:#72819b;font-size:13px}
 
 @media (max-width: 480px){.map-bottom-panel{left:10px;right:10px;bottom:10px}.map-bottom-list{max-height:182px}}

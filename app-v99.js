@@ -1808,7 +1808,69 @@ document.addEventListener('click', e=>{
 
 function milesToZoom(m){ if(m==='3') return 15; if(m==='5') return 13; if(m==='7') return 12; if(m==='10') return 11; return 10; }
 function radiusByZoom(z){ if(z <= 10) return '10'; if(z <= 12) return '7'; if(z <= 14) return '5'; return '3'; }
-function activeMapCoupons(){ return activeCoupons(coupons); }
+// Map-only eligibility: date-only bounds use Dallas dates; timestamp bounds
+// retain their exact start/end instants. Coupon issuance is unchanged.
+function mapDallasDateKey(value=new Date()){
+  const date=new Date(value);
+  if(!Number.isFinite(date.getTime())) return '';
+  const parts=mapDallasDateFormatter.formatToParts(date);
+  const part=type=>parts.find(p=>p.type===type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+const mapDallasDateFormatter=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'});
+function mapPeriodActive(start,end,now=Date.now()){
+  return [[start,true],[end,false]].every(([value,isStart])=>{
+    if(!value) return true;
+    const raw=String(value).trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
+      if(!Number.isFinite(Date.parse(raw)) || new Date(raw).toISOString().slice(0,10)!==raw) return false;
+      const today=mapDallasDateKey(now);
+      return isStart?raw<=today:raw>=today;
+    }
+    const time=Date.parse(raw);
+    return Number.isFinite(time) && (isStart?time<=now:time>now);
+  });
+}
+function mapContentActive(row,now=Date.now()){
+  if(!row || row.is_active===false || row.isActive===false || row.active===false || row.hidden===true) return false;
+  if(row.region && String(row.region).toLowerCase()!==String(currentRegion).toLowerCase()) return false;
+  if(['draft','inactive','disabled','scheduled','expired','ended','cancelled','canceled','archived'].includes(String(row.status||'').toLowerCase())) return false;
+  return mapPeriodActive(row.start_at||row.startAt||row.start_date,row.end_at||row.endAt||row.end_date,now);
+}
+function mapLinkedBusinessIds(row){
+  return [...new Set([row.businessId,row.business_id,...(Array.isArray(row.business_ids)?row.business_ids:[])].filter(Boolean).map(String))];
+}
+function activeMapCoupons(now=Date.now()){
+  return (coupons||[]).filter(c=>mapContentActive({...c,start_at:v249CouponEffectiveStart(c),end_at:v249CouponEffectiveEnd(c)},now));
+}
+function mapBusinessBadgeKinds(b,now=Date.now()){
+  if(!b || b.is_active===false || b.list_visible===false) return [];
+  const id=String(b.id), linked=row=>mapLinkedBusinessIds(row).includes(id);
+  const liveCoupon=activeMapCoupons(now).filter(linked);
+  const promo=b.map_promotion||{};
+  const promotion=(b.paid_active===true && mapPeriodActive(b.paid_start_at,b.paid_end_at,now))
+    || (promo.enabled===true && mapPeriodActive(promo.start_at,promo.end_at,now))
+    || (mainBanners||[]).some(row=>linked(row) && mapContentActive(row,now))
+    || (slideRows||[]).some(row=>linked(row) && row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now))
+    || (dalpicks||[]).some(row=>row.category==='promotion' && linked(row) && mapContentActive(row,now));
+  const event=liveCoupon.some(c=>c.delivery_mode==='raffle')
+    || (boardPosts||[]).some(row=>['notice','event'].includes(row.type) && linked(row) && mapContentActive(row,now))
+    || (dalpicks||[]).some(row=>row.category==='event' && linked(row) && mapContentActive(row,now));
+  return [liveCoupon.length?'coupon':'',promotion?'promotion':'',event?'event':''].filter(Boolean);
+}
+const MAP_STATUS_BADGES={
+  coupon:{label:'쿠폰',color:'#15803d',className:'green',width:32},
+  promotion:{label:'프로모션',color:'#c2410c',className:'orange',width:54},
+  event:{label:'행사',color:'#7e22ce',className:'purple',width:32}
+};
+let mapStatusSignature='';
+function mapBusinessStatusSignature(){
+  return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',');
+}
+function mapBusinessBadgesHTML(b){
+  const kinds=mapBusinessBadgeKinds(b);
+  return kinds.length?`<span class="map-status-badges">${kinds.map(kind=>`<span class="badge compact ${MAP_STATUS_BADGES[kind].className}" data-map-badge="${kind}">${MAP_STATUS_BADGES[kind].label}</span>`).join('')}</span>`:'';
+}
 function getMainCategoryLabel(cat=''){
   const raw = String(cat || '').trim();
   if(['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'].includes(raw)) return raw;
@@ -1862,11 +1924,11 @@ function renderMapCategorySummary(list=[]){
 }
 function updateMapFilterAvailability(baseList){
   const rows = Array.isArray(baseList) ? baseList : [];
-  const couponIds = new Set(activeMapCoupons().map(c=>String(c.businessId)));
+  const couponIds = new Set(activeMapCoupons().flatMap(mapLinkedBusinessIds));
   mapVisibleCounts = {
     business: rows.length,
     coupon: rows.filter(b=>couponIds.has(String(b.id))).length,
-    event: rows.filter(b=>Boolean(b.has_event)).length
+    event: rows.filter(b=>mapBusinessBadgeKinds(b).includes('event')).length
   };
   mapVisibleCategoryCounts = rows.reduce((acc,b)=>{
     const label = getMainCategoryLabel(b.category);
@@ -1900,7 +1962,7 @@ async function loadRealData(){
       'lat','lng','is_featured','featured_rank','is_new','new_rank',
       'is_popular','popular_rank','reservation_enabled',
       'paid_product','paid_active','paid_start_at','paid_end_at','paid_weight','rotation_enabled',
-      'promo_enabled','home_fixed','home_fixed_sort','promo_image_url','promo_text',
+      'promo_enabled','promo_start_at','promo_end_at','home_fixed','home_fixed_sort','promo_image_url','promo_text',
       'order_url','delivery_url','reservation_url','created_at','region','is_active',
       'rating','review_count','google_maps_url','google_review_url','google_place_id','list_visible'
     ].join(',');
@@ -1955,6 +2017,7 @@ async function loadRealData(){
           paid_active: !!row.paid_active,
           paid_start_at: row.paid_start_at || '',
           paid_end_at: row.paid_end_at || '',
+          map_promotion: {enabled:row.promo_enabled===true,start_at:row.promo_start_at||'',end_at:row.promo_end_at||''},
           paid_weight: Math.max(1, Number(row.paid_weight || 1)),
           rotation_enabled: row.rotation_enabled !== false,
 
@@ -3128,6 +3191,7 @@ function mapBottomItemHTML(b){
       <span class="map-bottom-copy">
         <strong>${esc(b.name)}</strong>
         <span>${esc(meta.join(' · '))}</span>
+        ${mapBusinessBadgesHTML(b)}
       </span>
     </button>
   `;
@@ -3150,7 +3214,6 @@ function renderMapBottomList(list, categorySummaryRows = null){
   renderMapCategorySummary(summaryRows);
 }
 function mapBusinessPreviewHTML(b){
-  const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
   const origin = v293DistanceOrigin();
   const miles = origin && v292ValidBusinessCoords(b.lat, b.lng)
     ? haversineMiles(origin.lat, origin.lng, Number(b.lat), Number(b.lng)) : null;
@@ -3159,7 +3222,7 @@ function mapBusinessPreviewHTML(b){
   return `<div class="map-preview-card">
     <div class="map-preview-main">
       ${businessImageHTML(b,'',b.name)}
-      <div><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span><p>${esc(b.address || '')}</p>${hasCoupon?'<em>🎟 사용 가능한 쿠폰</em>':''}</div>
+      <div><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span><p>${esc(b.address || '')}</p>${mapBusinessBadgesHTML(b)}</div>
     </div>
     <div class="map-preview-actions">
       ${b.phone?`<a href="tel:${esc(b.phone)}" data-map-action="phone" data-map-id="${esc(b.id)}">전화</a>`:''}
@@ -7485,10 +7548,10 @@ function ensureMarkerClusterer(cb){
 function getFilteredMapBusinesses(){
   let list = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
   if(mapMode==='coupon'){
-    const couponBizIds = new Set(activeMapCoupons().map(c=>String(c.businessId)));
+    const couponBizIds = new Set(activeMapCoupons().flatMap(mapLinkedBusinessIds));
     list = list.filter(b=>couponBizIds.has(String(b.id)));
   } else if(mapMode==='event'){
-    list = list.filter(b=>Boolean(b.has_event));
+    list = list.filter(b=>mapBusinessBadgeKinds(b).includes('event'));
   } else if(mapCategory){
     list = list.filter(b=>getMainCategoryLabel(b.category)===mapCategory);
   }
@@ -7499,9 +7562,9 @@ function getFilteredMapBusinesses(){
 }
 
 function createInfoWindowContent(b){
-  const hasCoupon = activeMapCoupons().some(c=>String(c.businessId)===String(b.id));
+  const hasCoupon = mapBusinessBadgeKinds(b).includes('coupon');
   const thumb = b.image || 'assets/kfocus-icon.png';
-  const badges = [hasCoupon ? '<span class=\"map-iw-badge deal\">🎟 할인</span>' : '', b.video ? '<span class=\"map-iw-badge video\">🎥 영상</span>' : '', b.has_event ? '<span class=\"map-iw-badge event\">🎉 행사</span>' : ''].filter(Boolean).join('');
+  const badges = mapBusinessBadgesHTML(b)+(b.video?'<span class="map-iw-badge video">🎥 영상</span>':'');
   return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
 }
 
@@ -7626,10 +7689,25 @@ function fitMapToCurrentResultRows(){
 
 
 function getMarkerIconForBusiness(b){
-  if(mapMode==='event' || b.has_event) return 'https://maps.google.com/mapfiles/ms/icons/purple-dot.png';
-  if(mapMode==='coupon' || activeMapCoupons().some(c=>String(c.businessId)===String(b.id))) return 'https://maps.google.com/mapfiles/ms/icons/orange-dot.png';
-  return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
+  const kinds=mapBusinessBadgeKinds(b);
+  if(!kinds.length) return 'https://maps.google.com/mapfiles/ms/icons/red-dot.png';
+  const key=kinds.join('|');
+  if(mapStatusIconCache.has(key)) return mapStatusIconCache.get(key);
+  const width=kinds.reduce((sum,kind)=>sum+MAP_STATUS_BADGES[kind].width+2,2), height=44;
+  let x=2;
+  const badges=kinds.map(kind=>{
+    const {label,color,width:w}=MAP_STATUS_BADGES[kind];
+    const svg=`<rect x="${x}" y="1" width="${w}" height="16" rx="7" fill="${color}" stroke="white"/><text x="${x+w/2}" y="12" text-anchor="middle" font-family="Arial,sans-serif" font-size="10" font-weight="bold" fill="white">${label}</text>`;
+    x+=w+2;return svg;
+  }).join('');
+  // Keep the existing event-before-coupon pin priority, without hiding any badge.
+  const color=MAP_STATUS_BADGES[kinds.includes('event')?'event':kinds.includes('coupon')?'coupon':'promotion'].color;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${badges}<path d="M${width/2} 43c-3-5-10-12-10-17a10 10 0 0 1 20 0c0 5-7 12-10 17Z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="${width/2}" cy="26" r="3" fill="white"/></svg>`;
+  const icon={url:`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,scaledSize:new google.maps.Size(width,height),anchor:new google.maps.Point(width/2,height)};
+  mapStatusIconCache.set(key,icon);
+  return icon;
 }
+const mapStatusIconCache=new Map();
 
 function panMapAboveBottomPanel(lat, lng){
   if(!map) return;
@@ -7640,6 +7718,7 @@ function panMapAboveBottomPanel(lat, lng){
 
 function redrawMapMarkers(){
   if(!map || !window.google?.maps) return;
+  mapStatusSignature=mapBusinessStatusSignature();
   if(markerCluster){ markerCluster.setMap(null); markerCluster = null; }
   markers.forEach(m=>m.setMap(null));
   markers = [];
@@ -7675,7 +7754,8 @@ function redrawMapMarkers(){
   finalList.forEach(b=>{
     const lat = Number(b.lat); const lng = Number(b.lng);
     const icon = getMarkerIconForBusiness(b);
-    const marker = new google.maps.Marker({ position:{lat, lng}, title:b.name, icon });
+    const kinds=mapBusinessBadgeKinds(b);
+    const marker = new google.maps.Marker({ position:{lat, lng}, title:[b.name,...kinds.map(kind=>MAP_STATUS_BADGES[kind].label)].join(' · '), icon });
     marker.addListener('click', ()=>{
       panMapAboveBottomPanel(lat, lng);
       showMapBusinessPreview({...b, lat, lng});
@@ -7704,6 +7784,17 @@ function redrawMapMarkers(){
     setMapBottomStatus('');
   }
 }
+// Refresh badges when time or already-loaded data changes, without continually
+// resetting the map's center, zoom, or selected business preview.
+setInterval(()=>{
+  if(document.hidden || currentPage!=='map' || !mapReady) return;
+  const byId=new Map(businesses.map(b=>[String(b.id),b]));
+  if(mapStatusSignature!==mapBusinessStatusSignature()){
+    const selected=byId.get(selectedMapBusinessId);
+    redrawMapMarkers();
+    if(selected) showMapBusinessPreview(selected);
+  }
+},30000);
 function setMapAreaButtonState(state = 'active') {
   if (!mapSearchAreaBtn) return;
 
