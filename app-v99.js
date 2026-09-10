@@ -1925,6 +1925,7 @@ function openMapBenefits(category){
   mapBenefitsCategory=category;renderMapBenefitsDialog();
   const dialog=document.getElementById('mapBenefitsDialog');
   if(dialog && !dialog.open)dialog.showModal();
+  console.info('[Map benefits] open', {category, benefits:[...mapCategoryBenefits()[category].records.keys()], modalOpen:!!dialog?.open});
 }
 function mapBusinessStatusSignature(){
   return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',')+';'+JSON.stringify(mapActiveBenefitRecords());
@@ -8544,7 +8545,13 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   });
   mapCategoryRow?.addEventListener('click', e=>{
     const benefit=e.target.closest('[data-map-benefits]');
-    if(benefit){e.preventDefault();e.stopPropagation();openMapBenefits(benefit.dataset.mapBenefits);return;}
+    if(!benefit)return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    openMapBenefits(benefit.dataset.mapBenefits);
+  }, true);
+  mapCategoryRow?.addEventListener('click', e=>{
     const btn=e.target.closest('[data-map-category]');
     if(!btn) return;
     const next = btn.dataset.mapCategory || '';

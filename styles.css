@@ -5244,6 +5244,8 @@ body.map-page-open #page-map #mapCategoryRow{overflow:visible!important}
 .map-category-benefit.coupon,.map-benefit-type.coupon{background:#facc15;color:#352600}
 .map-category-benefit.promotion,.map-benefit-type.promotion{background:#2563eb;color:white}
 .map-category-benefit.mixed{background:#a21caf;color:white}
+/* Keep the 20px counter, but catch edge taps before the category underneath. */
+#page-map .map-category-benefit::before{content:"";position:absolute;inset:-8px;border-radius:8px}
 #page-map .map-category-benefit:focus-visible{outline:2px solid #183a68;outline-offset:2px}
 .map-benefits-dialog{box-sizing:border-box;width:min(460px,calc(100vw - 32px));max-height:80dvh;margin:auto;padding:0;border:1px solid #dce5f0;border-radius:20px;background:#f7faff;color:#17385e;box-shadow:0 20px 70px #102e5940;overflow:hidden}
 .map-benefits-dialog::backdrop{background:#10294380}
