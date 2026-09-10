@@ -1983,7 +1983,7 @@ function renderMapCategorySummary(list=[]){
   const groups=mapCategoryBenefits();
   mapCategoryRow.innerHTML = MAP_BENEFIT_CATEGORIES.map(label=>{
     const group=groups[label],total=group.records.size;
-    return `<span class="map-category-with-benefit"><button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]||0}</button>${total?`<button type="button" class="map-category-benefit ${mapBenefitTone(group)}" data-map-benefits="${esc(label)}" aria-label="${esc(label)} 활성 혜택 ${total}건 보기" aria-haspopup="dialog">${total}</button>`:''}</span>`;
+    return `<span class="map-category-with-benefit"><button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]||0}</button>${total?`<button type="button" class="map-category-benefit ${mapBenefitTone(group)}" data-map-benefits="${esc(label)}" aria-label="${esc(label)} 활성 혜택 ${total}건 보기" aria-haspopup="dialog"><svg class="map-benefit-ticket" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4V5Z"/><path d="M15 5v3m0 3v2m0 3v3"/></svg><span>${total}</span></button>`:''}</span>`;
   }).join('');
   mapCategoryRow.classList.toggle('hidden', mapMode !== 'business');
 }
