@@ -155,3 +155,12 @@ test('removed radial UI cannot intercept category benefit clicks',()=>{
   assert(!/mapOrbit|map-orbit/.test(source+html));
   assert(html.includes('id="mapBenefitsDialog"'));
 });
+
+test('category totals remain global across radius, category and search changes',()=>{
+  let summary=[];
+  const {ctx}=runtime({businesses:[{...biz('near'),category:'종교'}, {...biz('far'),category:'종교',lat:33.5}, {...biz('no-coordinates'),category:'종교',lat:null},biz('other')],renderMapBottomList:(_rows,categories)=>summary=categories});
+  for(const state of [{mapRadius:'7',mapCategory:'',mapSearchQuery:''},{mapRadius:'10',mapCategory:'종교',mapSearchQuery:''},{mapRadius:'3',mapCategory:'종교',mapSearchQuery:'near'}]){
+    Object.assign(ctx,state);ctx.redrawMapMarkers();
+    assert.deepEqual(Array.from(summary,b=>b.id),['near','far','other']);
+  }
+});

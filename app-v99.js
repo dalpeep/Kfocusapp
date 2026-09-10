@@ -7781,16 +7781,14 @@ function redrawMapMarkers(){
   markers = [];
   const focus = currentCenter || getRegionCenter(currentRegion);
   const radiusMiles = String(mapRadius)==='all' ? null : Number(mapRadius || radiusByZoom(map?.getZoom?.() || 12));
-  let baseList = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
+  // Category totals use all loaded, public businesses that can appear on the map.
+  // Search, selected category, GPS radius and zoom only affect map/list results.
+  const categorySummaryList = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
+  let baseList = categorySummaryList;
   if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)]));
-  const nearbyBase = !radiusMiles ? baseList : baseList.filter(b=>haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng)) <= radiusMiles);
   // Bottom counters are totals for the explicit filters, never proximity
   // counts. Radius remains limited to the nearby list/distance experience.
   updateMapFilterAvailability(baseList);
-  // 상단 세부 카테고리 개수는 현재 위치/검색 범위의 전체 업소를 기준으로 유지한다.
-  // 카테고리를 선택해도 다른 카테고리 버튼과 개수가 사라지지 않게 한다.
-  let categorySummaryList = nearbyBase.length ? nearbyBase : baseList;
-  if(mapMode !== 'business') categorySummaryList = [];
 
   const list = getFilteredMapBusinesses();
   const filtered = !radiusMiles ? list : list.filter(b=>{
