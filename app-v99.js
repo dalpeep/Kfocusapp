@@ -1873,6 +1873,49 @@ const MAP_STATUS_BADGES={
   event:{label:'행사',color:'#7e22ce',className:'purple',width:32}
 };
 let mapStatusSignature='';
+let mapOrbitOpen=false;
+let mapOrbitSelection='';
+function setMapOrbitOpen(open){
+  mapOrbitOpen=!!open;
+  document.getElementById('mapOrbit')?.classList.toggle('open',mapOrbitOpen);
+  const items=document.getElementById('mapOrbitItems');
+  if(items) items.inert=!mapOrbitOpen;
+  mapLocateBtn?.setAttribute('aria-expanded',String(mapOrbitOpen));
+  mapLocateBtn?.setAttribute('aria-label',mapOrbitOpen?'메뉴 닫고 현재 위치로 복귀':'현재 위치 메뉴 열기');
+}
+function positionMapOrbit(){
+  const orbit=document.getElementById('mapOrbit');
+  if(!orbit || !mapBottomPanel) return;
+  const wrap=orbit.parentElement.getBoundingClientRect();
+  const panel=mapBottomPanel.getBoundingClientRect();
+  orbit.style.top=`${Math.max(240,panel.top-wrap.top-60)}px`;
+}
+function applyMapOrbitEmphasis(){
+  markers.forEach(marker=>{
+    const match=!mapOrbitSelection || (marker.mapBadgeKinds||[]).includes(mapOrbitSelection);
+    marker.setOpacity?.(match?1:0.22);
+    marker.setZIndex?.(mapOrbitSelection && match?1000:undefined);
+  });
+  document.querySelectorAll('[data-map-emphasis]').forEach(button=>{
+    button.setAttribute('aria-pressed',String(button.dataset.mapEmphasis===mapOrbitSelection));
+  });
+}
+function renderMapOrbit(){
+  const orbit=document.getElementById('mapOrbit'),items=document.getElementById('mapOrbitItems');
+  if(!orbit || !items) return;
+  const counts={promotion:0,coupon:0,event:0};
+  businesses.filter(b=>v292ValidBusinessCoords(b.lat,b.lng)).forEach(b=>mapBusinessBadgeKinds(b).forEach(kind=>counts[kind]++));
+  if(mapOrbitSelection && !counts[mapOrbitSelection]) mapOrbitSelection='';
+  const kinds=['promotion','coupon','event'].filter(kind=>counts[kind]>0);
+  const signature=JSON.stringify(counts);
+  if(items.dataset.counts!==signature){
+    items.dataset.counts=signature;
+    items.innerHTML=kinds.map((kind,index)=>`<button type="button" class="map-orbit-item ${kind}" data-map-emphasis="${kind}" style="--step:${index+1}" aria-label="${MAP_STATUS_BADGES[kind].label} ${counts[kind]}곳 강조" aria-pressed="false"><span aria-hidden="true">${{promotion:'📣',coupon:'🎟️',event:'🎉'}[kind]}</span><span class="map-orbit-count" aria-hidden="true">${counts[kind]}</span><span class="map-orbit-label" aria-hidden="true">${MAP_STATUS_BADGES[kind].label}</span></button>`).join('');
+  }
+  orbit.classList.toggle('has-active',kinds.length>0);
+  applyMapOrbitEmphasis();
+  positionMapOrbit();
+}
 function mapBusinessStatusSignature(){
   return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',');
 }
@@ -7757,7 +7800,9 @@ function redrawMapMarkers(){
     const icon = getMarkerIconForBusiness(b);
     const kinds=mapBusinessBadgeKinds(b);
     const marker = new google.maps.Marker({ position:{lat, lng}, title:[b.name,...kinds.map(kind=>MAP_STATUS_BADGES[kind].label)].join(' · '), icon });
+    marker.mapBadgeKinds=kinds;
     marker.addListener('click', ()=>{
+      setMapOrbitOpen(false);
       panMapAboveBottomPanel(lat, lng);
       showMapBusinessPreview({...b, lat, lng});
       if(mapInfoWindow) mapInfoWindow.close();
@@ -7774,6 +7819,7 @@ function redrawMapMarkers(){
   }
   const sortedFinalList = sortBusinessesByDistance(nearbyList);
   renderMapBottomList(sortedFinalList, categorySummaryList);
+  renderMapOrbit();
   if(mapNotice) mapNotice.classList.add('hidden');
   if(mapSearchQuery && finalList.length){
     setMapBottomStatus(`검색 결과 ${finalList.length}곳`);
@@ -8092,6 +8138,8 @@ function activateMapSearchAreaButton() {
   setMapUiState('dirty');
 }
 
+map.addListener('click',()=>setMapOrbitOpen(false));
+map.addListener('dragstart',()=>setMapOrbitOpen(false));
 map.addListener('dragend', () => {
   if (suppressMapUiChange) return;
 
@@ -8496,7 +8544,24 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   // 클릭 후에도 절대 숨기지 않음
   setMapAreaButtonState('location');
 });
+  document.getElementById('mapOrbitItems')?.addEventListener('click',e=>{
+    const button=e.target.closest('[data-map-emphasis]');
+    if(!button) return;
+    mapOrbitSelection=mapOrbitSelection===button.dataset.mapEmphasis?'':button.dataset.mapEmphasis;
+    applyMapOrbitEmphasis();
+  });
+  document.getElementById('mapOrbit')?.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ setMapOrbitOpen(false); mapLocateBtn?.focus(); }
+  });
+  if(typeof ResizeObserver!=='undefined' && mapBottomPanel){
+    new ResizeObserver(positionMapOrbit).observe(mapBottomPanel);
+  }
+  window.addEventListener('resize',positionMapOrbit);
   mapLocateBtn?.addEventListener('click', ()=>{
+    if(!mapOrbitOpen){ renderMapOrbit(); setMapOrbitOpen(true); return; }
+    setMapOrbitOpen(false);
+    mapOrbitSelection='';
+    applyMapOrbitEmphasis();
     if(!mapReady || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition((pos)=>{
       currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };

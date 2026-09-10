@@ -11,7 +11,7 @@ function runtime(data={}){
   class FixedDate extends Date{constructor(...args){super(...(args.length?args:[NOW]));}static now(){return NOW;}}
   class Marker{constructor(options){Object.assign(this,{options,events:{}});recorded.markers.push(this);}addListener(name,fn){this.events[name]=fn;}setMap(map){this.map=map;}}
   const google={maps:{Marker,Size:class{constructor(width,height){Object.assign(this,{width,height});}},Point:class{constructor(x,y){Object.assign(this,{x,y});}}}};
-  const ctx=vm.createContext({Date:FixedDate,Intl,console,google,document:{hidden:false},currentRegion:'dallas',currentPage:'map',mapReady:true,
+  const ctx=vm.createContext({Date:FixedDate,Intl,console,google,document:{hidden:false,getElementById:()=>null,querySelectorAll:()=>[]},mapLocateBtn:null,currentRegion:'dallas',currentPage:'map',mapReady:true,
     coupons:[],businesses:[],mainBanners:[],slideRows:[],dalpicks:[],boardPosts:[],
     mapMode:'business',mapCategory:'',mapSearchQuery:'',mapRadius:'7',currentCenter:{lat:32.95,lng:-96.85},map:{getZoom:()=>12},
     markers:[],markerCluster:null,selectedMapBusinessId:'',mapVisibleCounts:{business:0,coupon:0,event:0},mapNotice:null,mapInfoWindow:null,
@@ -117,4 +117,22 @@ test('map offers one all-results action, with no separate event or coupon mode t
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   assert.equal((html.match(/data-map-filter=/g)||[]).length,1);
   assert(html.includes('data-map-filter="business"'));
+});
+
+test('orbit shows only nonzero counts in bottom-up order and dims without removing markers',()=>{
+  const attrs={},classes={};
+  const orbit={classList:{toggle:(k,v)=>classes[k]=v},style:{},parentElement:{getBoundingClientRect:()=>({top:0})}};
+  const items={dataset:{},innerHTML:'',inert:true};
+  const {ctx}=runtime({businesses:[biz()],coupons:[active({})],mainBanners:[active({})],boardPosts:[active({type:'event',start_at:'2026-09-01',end_at:'2026-09-30'})],mapBottomPanel:{getBoundingClientRect:()=>({top:500})},mapLocateBtn:{setAttribute:(k,v)=>attrs[k]=v},document:{getElementById:id=>id==='mapOrbit'?orbit:id==='mapOrbitItems'?items:null,querySelectorAll:()=>[]}});
+  ctx.renderMapOrbit();
+  assert(items.innerHTML.indexOf('data-map-emphasis="promotion"')<items.innerHTML.indexOf('data-map-emphasis="coupon"'));
+  assert(items.innerHTML.indexOf('data-map-emphasis="coupon"')<items.innerHTML.indexOf('data-map-emphasis="event"'));
+  assert.equal(classes['has-active'],true);
+  ctx.setMapOrbitOpen(true);assert.equal(items.inert,false);assert.equal(attrs['aria-expanded'],'true');
+  ctx.setMapOrbitOpen(false);assert.equal(items.inert,true);
+  const opacity=[];ctx.markers=[{mapBadgeKinds:['promotion'],setOpacity:v=>opacity[0]=v},{mapBadgeKinds:[],setOpacity:v=>opacity[1]=v}];
+  vm.runInContext("mapOrbitSelection='promotion';applyMapOrbitEmphasis()",ctx);
+  assert.deepEqual(opacity,[1,0.22]);assert.equal(ctx.markers.length,2);
+  ctx.coupons=[];ctx.boardPosts=[];ctx.renderMapOrbit();
+  assert(!items.innerHTML.includes('data-map-emphasis="coupon"'));assert(!items.innerHTML.includes('data-map-emphasis="event"'));
 });
