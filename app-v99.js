@@ -1875,20 +1875,53 @@ const MAP_STATUS_BADGES={
 let mapStatusSignature='';
 let mapOrbitOpen=false;
 let mapOrbitSelection='';
+let mapReturnToLocation=null;
 function setMapOrbitOpen(open){
   mapOrbitOpen=!!open;
   document.getElementById('mapOrbit')?.classList.toggle('open',mapOrbitOpen);
   const items=document.getElementById('mapOrbitItems');
   if(items) items.inert=!mapOrbitOpen;
-  mapLocateBtn?.setAttribute('aria-expanded',String(mapOrbitOpen));
-  mapLocateBtn?.setAttribute('aria-label',mapOrbitOpen?'메뉴 닫고 현재 위치로 복귀':'현재 위치 메뉴 열기');
+  document.getElementById('mapOrbitAnchor')?.setAttribute('aria-expanded',String(mapOrbitOpen));
 }
-function positionMapOrbit(){
-  const orbit=document.getElementById('mapOrbit');
-  if(!orbit || !mapBottomPanel) return;
-  const wrap=orbit.parentElement.getBoundingClientRect();
+function positionMapLocateControl(){
+  if(!mapLocateBtn || !mapBottomPanel)return;
+  const wrap=mapLocateBtn.parentElement.getBoundingClientRect();
   const panel=mapBottomPanel.getBoundingClientRect();
-  orbit.style.top=`${Math.max(240,panel.top-wrap.top-60)}px`;
+  mapLocateBtn.style.setProperty('top',`${Math.max(100,panel.top-wrap.top-58)}px`,'important');
+  mapLocateBtn.style.setProperty('bottom','auto','important');
+}
+function mapOrbitRows(kind){
+  return businesses.filter(b=>v292ValidBusinessCoords(b.lat,b.lng) && mapBusinessBadgeKinds(b).includes(kind));
+}
+function selectMapOrbit(kind){
+  mapOrbitSelection=mapOrbitSelection===kind?'':kind;
+  redrawMapMarkers();
+  if(!mapOrbitSelection) return;
+  const rows=mapOrbitRows(mapOrbitSelection);
+  const visible=map.getBounds();
+  if(rows.length && (!visible || rows.some(b=>!visible.contains({lat:Number(b.lat),lng:Number(b.lng)})))){
+    const bounds=new google.maps.LatLngBounds();
+    rows.forEach(b=>bounds.extend({lat:Number(b.lat),lng:Number(b.lng)}));
+    // Keep the GPS anchor reachable after fitting the selected businesses.
+    if(currentLocationPosition) bounds.extend(currentLocationPosition);
+    const mapRect=document.getElementById('googleMap')?.getBoundingClientRect();
+    const panelRect=mapBottomPanel?.getBoundingClientRect?.();
+    const bottom=mapRect && panelRect?Math.ceil(mapRect.bottom-panelRect.top+20):270;
+    map.fitBounds(bounds,{top:170,right:80,bottom,left:80});
+    google.maps.event.addListenerOnce(map,'idle',()=>{if(map.getZoom()>15)map.setZoom(15);});
+  }
+}
+function renderMapOrbitList(){
+  if(!mapOrbitSelection || !mapBottomList) return;
+  const rows=sortBusinessesByDistance(mapOrbitRows(mapOrbitSelection));
+  mapBottomList.innerHTML=rows.map(mapBottomItemHTML).join('');
+  mapBottomList.classList.remove('hidden');
+  mapBottomPanel?.classList.remove('counts-only');
+  mapBottomPanel?.classList.add('orbit-results');
+  mapBottomTitle.textContent=`${MAP_STATUS_BADGES[mapOrbitSelection].label} ${rows.length}곳`;
+  mapBottomTitle.parentElement?.classList.remove('hidden');
+  mapBusinessPreview?.classList.add('hidden');
+  window.__mapCurrentRows=rows;
 }
 function applyMapOrbitEmphasis(){
   markers.forEach(marker=>{
@@ -1896,6 +1929,7 @@ function applyMapOrbitEmphasis(){
     marker.setOpacity?.(match?1:0.22);
     marker.setZIndex?.(mapOrbitSelection && match?1000:undefined);
   });
+  (markerCluster?.clusters||[]).forEach(cluster=>{if(cluster.markers?.length>1)cluster.marker?.setOpacity?.(mapOrbitSelection?0.22:1);});
   document.querySelectorAll('[data-map-emphasis]').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.mapEmphasis===mapOrbitSelection));
   });
@@ -1912,9 +1946,10 @@ function renderMapOrbit(){
     items.dataset.counts=signature;
     items.innerHTML=kinds.map((kind,index)=>`<button type="button" class="map-orbit-item ${kind}" data-map-emphasis="${kind}" style="--step:${index+1}" aria-label="${MAP_STATUS_BADGES[kind].label} ${counts[kind]}곳 강조" aria-pressed="false"><span aria-hidden="true">${{promotion:'📣',coupon:'🎟️',event:'🎉'}[kind]}</span><span class="map-orbit-count" aria-hidden="true">${counts[kind]}</span><span class="map-orbit-label" aria-hidden="true">${MAP_STATUS_BADGES[kind].label}</span></button>`).join('');
   }
-  orbit.classList.toggle('has-active',kinds.length>0);
+  const bounds=map?.getBounds?.();
+  const nearby=kinds.some(kind=>mapOrbitRows(kind).some(b=>bounds?.contains({lat:Number(b.lat),lng:Number(b.lng)}) || (currentLocationPosition && haversineMiles(currentLocationPosition.lat,currentLocationPosition.lng,Number(b.lat),Number(b.lng))<=7)));
+  orbit.classList.toggle('has-active',nearby);
   applyMapOrbitEmphasis();
-  positionMapOrbit();
 }
 function mapBusinessStatusSignature(){
   return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',');
@@ -1972,7 +2007,7 @@ function renderMapCategorySummary(list=[]){
   const order = ['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
   const items = order.filter(label=>counts[label] > 0);
   mapCategoryRow.innerHTML = items.map(label=>`<button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]}</button>`).join('');
-  mapCategoryRow.classList.toggle('hidden', items.length < 1 || mapMode !== 'business');
+  mapCategoryRow.classList.toggle('hidden', items.length < 1 || mapMode !== 'business' || !!mapOrbitSelection);
 }
 function updateMapFilterAvailability(baseList){
   const rows = Array.isArray(baseList) ? baseList : [];
@@ -3258,6 +3293,7 @@ function renderMapBottomList(list, categorySummaryRows = null){
   setMapBottomStatus('');
   mapBottomPanel?.classList.remove('hidden','collapsed','preview-open');
   mapBottomPanel?.classList.add('counts-only');
+  mapBottomPanel?.classList.remove('orbit-results');
   window.__mapCurrentRows = rows;
   window.__mapCategorySummaryRows = summaryRows;
   renderMapCategorySummary(summaryRows);
@@ -7779,7 +7815,7 @@ function redrawMapMarkers(){
   let categorySummaryList = nearbyBase.length ? nearbyBase : baseList;
   if(mapMode !== 'business') categorySummaryList = [];
 
-  const list = getFilteredMapBusinesses();
+  const list = [...new Map([...getFilteredMapBusinesses(),...(mapOrbitSelection?mapOrbitRows(mapOrbitSelection):[])].map(b=>[String(b.id),b])).values()];
   const filtered = !radiusMiles ? list : list.filter(b=>{
     const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
     return miles <= radiusMiles;
@@ -7797,10 +7833,14 @@ function redrawMapMarkers(){
 
   finalList.forEach(b=>{
     const lat = Number(b.lat); const lng = Number(b.lng);
-    const icon = getMarkerIconForBusiness(b);
+    let icon = getMarkerIconForBusiness(b);
     const kinds=mapBusinessBadgeKinds(b);
+    if(mapOrbitSelection && kinds.includes(mapOrbitSelection) && typeof icon==='object'){
+      icon={...icon,scaledSize:new google.maps.Size(icon.scaledSize.width*1.18,icon.scaledSize.height*1.18),anchor:new google.maps.Point(icon.anchor.x*1.18,icon.anchor.y*1.18)};
+    }
     const marker = new google.maps.Marker({ position:{lat, lng}, title:[b.name,...kinds.map(kind=>MAP_STATUS_BADGES[kind].label)].join(' · '), icon });
     marker.mapBadgeKinds=kinds;
+    marker.mapBusinessId=String(b.id);
     marker.addListener('click', ()=>{
       setMapOrbitOpen(false);
       panMapAboveBottomPanel(lat, lng);
@@ -7809,17 +7849,21 @@ function redrawMapMarkers(){
     });
     markers.push(marker);
   });
-  if(window.markerClusterer?.MarkerClusterer && markers.length > 12){
-    markerCluster = new window.markerClusterer.MarkerClusterer({ map, markers });
+  const clusterMarkers=mapOrbitSelection?markers.filter(m=>!m.mapBadgeKinds.includes(mapOrbitSelection)):markers;
+  markers.filter(m=>!clusterMarkers.includes(m)).forEach(m=>m.setMap(map));
+  if(window.markerClusterer?.MarkerClusterer && clusterMarkers.length > 12){
+    markerCluster = new window.markerClusterer.MarkerClusterer({ map, markers:clusterMarkers });
+    markerCluster.addListener?.('clusteringend',applyMapOrbitEmphasis);
   } else {
     markers.forEach(m=>m.setMap(map));
   }
-  if(mapSearchQuery && finalList.length){
+  if(!mapOrbitSelection && mapSearchQuery && finalList.length){
     focusMapOnBusinesses(finalList);
   }
   const sortedFinalList = sortBusinessesByDistance(nearbyList);
   renderMapBottomList(sortedFinalList, categorySummaryList);
   renderMapOrbit();
+  renderMapOrbitList();
   if(mapNotice) mapNotice.classList.add('hidden');
   if(mapSearchQuery && finalList.length){
     setMapBottomStatus(`검색 결과 ${finalList.length}곳`);
@@ -7943,6 +7987,7 @@ function showCurrentLocationMarker(position) {
     anchor: new google.maps.Point(21, 49)
   };
 
+  ensureMapOrbitOverlay();
   if (currentLocationMarker) {
     currentLocationMarker.setPosition(position);
     currentLocationMarker.setIcon(icon);
@@ -7965,6 +8010,30 @@ function showCurrentLocationMarker(position) {
   if (currentLocationBubbleOverlay) {
     currentLocationBubbleOverlay.setPosition(position);
   }
+}
+let mapOrbitOverlay=null;
+class MapOrbitOverlay extends google.maps.OverlayView {
+  onAdd(){
+    this.div=document.getElementById('mapOrbit');
+    if(!this.div)return;
+    this.getPanes().floatPane.appendChild(this.div);
+    google.maps.OverlayView.preventMapHitsAndGesturesFrom(this.div);
+    this.div.hidden=false;
+    renderMapOrbit();
+  }
+  draw(){
+    if(!this.div || !currentLocationPosition)return;
+    const point=this.getProjection()?.fromLatLngToDivPixel(new google.maps.LatLng(currentLocationPosition.lat,currentLocationPosition.lng));
+    if(!point)return;
+    this.div.style.left=`${point.x-23}px`;
+    this.div.style.top=`${point.y-49}px`;
+  }
+  onRemove(){if(this.div){this.div.hidden=true;document.querySelector('#page-map .map-fullscreen-wrap')?.appendChild(this.div);}}
+}
+function ensureMapOrbitOverlay(){
+  if(!map || !currentLocationPosition)return;
+  if(!mapOrbitOverlay){mapOrbitOverlay=new MapOrbitOverlay();mapOrbitOverlay.setMap(map);}
+  else mapOrbitOverlay.draw();
 }
 let currentLocationBubbleOverlay = null;
 
@@ -8139,7 +8208,7 @@ function activateMapSearchAreaButton() {
 }
 
 map.addListener('click',()=>setMapOrbitOpen(false));
-map.addListener('dragstart',()=>setMapOrbitOpen(false));
+map.addListener('idle',()=>renderMapOrbit());
 map.addListener('dragend', () => {
   if (suppressMapUiChange) return;
 
@@ -8195,6 +8264,30 @@ function startCurrentLocationTracking() {
     }
   );
 }
+
+mapReturnToLocation = () => {
+    if(!mapReady || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition((pos)=>{
+      currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
+      suppressMapUiChange = true;
+      const zoom = milesToZoom('7');
+      mapRadius = '7';
+      map.setCenter(currentCenter);
+      map.setZoom(zoom);
+      showCurrentLocationMarker(currentCenter);
+      startCurrentLocationTracking();
+      redrawMapMarkers();
+      google.maps.event.addListenerOnce(map, 'idle', ()=>{
+        suppressMapUiChange = false;
+        setMapUiState('current');
+      });
+      setTimeout(()=>{
+        suppressMapUiChange = false;
+        setMapUiState('current');
+      }, 500);
+    }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 });
+};
 
 const applyCenter = () => {
   if (TEST_FORCE_CENTER || !navigator.geolocation) {
@@ -8491,7 +8584,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     if(boardBtn){ const key = boardBtn.dataset.boardResult || 'notice'; boardTitle.textContent = boardBtn.dataset.boardTitle || '게시판'; saveRecentSearch(globalSearchInput?.value || ''); closeSearchOverlay(); lastBasePage = currentPage; showPage('board-detail'); return; }
   });
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSearchOverlay(); });
-  mapSearchInput?.addEventListener('input', ()=>{ mapSearchQuery = (mapSearchInput.value || '').trim(); if(mapReady) redrawMapMarkers(); });
+  mapSearchInput?.addEventListener('input', ()=>{ mapOrbitSelection=''; mapSearchQuery = (mapSearchInput.value || '').trim(); if(mapReady) redrawMapMarkers(); });
   mapSearchInput?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); mapSearchInput.blur(); if(mapReady) redrawMapMarkers(); } });
   $('#couponTabs')?.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-tab'); if(!btn) return; couponViewTab = btn.dataset.couponTab || 'today'; updateCouponTabUI(); });
   document.addEventListener('click', e=>{ const btn=e.target.closest('.coupon-open'); if(!btn) return; e.preventDefault(); renderCouponDetail(btn.dataset.coupon); lastBasePage = currentPage; showPage('coupon-detail'); });
@@ -8500,6 +8593,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   mapFilterRow?.addEventListener('click', e=>{
     const btn=e.target.closest('.map-filter-chip');
     if(!btn || btn.classList.contains('hidden')) return;
+    mapOrbitSelection='';
     mapMode = 'business';
     selectedMapBusinessId='';
     renderMapFilters();
@@ -8514,6 +8608,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     const btn=e.target.closest('[data-map-category]');
     if(!btn) return;
     const next = btn.dataset.mapCategory || '';
+    mapOrbitSelection='';
     mapMode = 'business';
     mapCategory = mapCategory === next ? '' : next;
     selectedMapBusinessId='';
@@ -8547,42 +8642,19 @@ mapSearchAreaBtn?.addEventListener('click', () => {
   document.getElementById('mapOrbitItems')?.addEventListener('click',e=>{
     const button=e.target.closest('[data-map-emphasis]');
     if(!button) return;
-    mapOrbitSelection=mapOrbitSelection===button.dataset.mapEmphasis?'':button.dataset.mapEmphasis;
-    applyMapOrbitEmphasis();
+    selectMapOrbit(button.dataset.mapEmphasis);
   });
   document.getElementById('mapOrbit')?.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ setMapOrbitOpen(false); mapLocateBtn?.focus(); }
+    if(e.key==='Escape'){ setMapOrbitOpen(false); document.getElementById('mapOrbitAnchor')?.focus(); }
   });
-  if(typeof ResizeObserver!=='undefined' && mapBottomPanel){
-    new ResizeObserver(positionMapOrbit).observe(mapBottomPanel);
-  }
-  window.addEventListener('resize',positionMapOrbit);
+  if(typeof ResizeObserver!=='undefined' && mapBottomPanel)new ResizeObserver(positionMapLocateControl).observe(mapBottomPanel);
+  window.addEventListener('resize',positionMapLocateControl);
+  document.getElementById('mapOrbitAnchor')?.addEventListener('click',()=>{renderMapOrbit();setMapOrbitOpen(!mapOrbitOpen);});
   mapLocateBtn?.addEventListener('click', ()=>{
-    if(!mapOrbitOpen){ renderMapOrbit(); setMapOrbitOpen(true); return; }
     setMapOrbitOpen(false);
     mapOrbitSelection='';
     applyMapOrbitEmphasis();
-    if(!mapReady || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((pos)=>{
-      currentCenter = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      persistRegion(detectRegionFromCoords(currentCenter.lat, currentCenter.lng));
-      suppressMapUiChange = true;
-      const zoom = milesToZoom('7');
-      mapRadius = '7';
-      map.setCenter(currentCenter);
-      map.setZoom(zoom);
-      showCurrentLocationMarker(currentCenter);
-      startCurrentLocationTracking();
-      redrawMapMarkers();
-      google.maps.event.addListenerOnce(map, 'idle', ()=>{
-        suppressMapUiChange = false;
-        setMapUiState('current');
-      });
-      setTimeout(()=>{
-        suppressMapUiChange = false;
-        setMapUiState('current');
-      }, 500);
-    }, ()=>{} , { enableHighAccuracy:true, timeout:6000, maximumAge:300000 });
+    mapReturnToLocation?.();
   });
   mapBottomList?.addEventListener('click', e=>{ const btn=e.target.closest('[data-map-biz]'); if(!btn) return; const biz = getBiz(btn.dataset.mapBiz); if(!biz || !map) return; const pos = { lat:Number(biz.lat), lng:Number(biz.lng) }; map.setZoom(Math.max(map.getZoom() || 12, 14)); panMapAboveBottomPanel(pos.lat, pos.lng); showMapBusinessPreview(biz); if(mapInfoWindow) mapInfoWindow.close(); });
   mapBusinessPreview?.addEventListener('click', e=>{
@@ -8592,6 +8664,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
     if(action) logBusinessActivity(action.dataset.mapId, action.dataset.mapAction);
   });
   mapBottomClose?.addEventListener('click', ()=>{
+    if(mapOrbitSelection && !selectedMapBusinessId){selectMapOrbit(mapOrbitSelection);return;}
     if(selectedMapBusinessId){
       selectedMapBusinessId='';
       mapBusinessPreview?.classList.add('hidden');

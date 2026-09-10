@@ -105,7 +105,7 @@
 
   <link rel="manifest" href="/manifest.json?v=263">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/styles.css?v=265" />
+  <link rel="stylesheet" href="/styles.css?v=266" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -424,9 +424,10 @@ onclick="showPage('contact');closeMenu();">
           </div>
           <div id="mapNotice" class="map-notice hidden"></div>
           <div id="googleMap" class="google-map fullscreen-map"></div>
-          <div class="map-orbit" id="mapOrbit">
+          <button class="map-location-btn" id="mapLocateBtn" type="button" aria-label="현재 위치로 복귀">◎</button>
+          <div class="map-orbit" id="mapOrbit" hidden>
             <div class="map-orbit-items" id="mapOrbitItems" aria-label="활성 업체 강조" inert></div>
-            <button class="map-location-btn" id="mapLocateBtn" type="button" aria-label="현재 위치 메뉴 열기" aria-expanded="false" aria-controls="mapOrbitItems">◎</button>
+            <button id="mapOrbitAnchor" type="button" aria-label="현재 위치 메뉴" aria-expanded="false" aria-controls="mapOrbitItems"></button>
           </div>
           <div class="map-bottom-panel" id="mapBottomPanel">
             <div class="map-bottom-tabs" id="mapFilterRow" aria-label="지도 전체 범위 보기">
@@ -663,7 +664,7 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
-<script src="/app-v99.js?v=306"></script>
+<script src="/app-v99.js?v=307"></script>
 <script src="/main-banners.js?v=263"></script>
 
 <div id="videoModal" class="video-modal hidden">
