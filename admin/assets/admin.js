@@ -1,4 +1,4 @@
-import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=299';
+import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
 console.info('[DalTownMap Admin] V289 traffic source analytics loaded');
 console.info('[DalTownMap Admin] V284 request management visibility + autoload fix loaded');
 console.info('[DalTownMap Admin] V271 recommended theme links retained');
@@ -1007,7 +1007,7 @@ function renderAdsOverviewGroups(){
   host.innerHTML=['featured','new','popular'].map(group=>{
     const rows=adsEffectiveSectionRows(group,todayKey(),adsOpsRows);
     const paidRows=rows.filter(b=>paidActiveOnDate(b,todayKey()));
-    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">광고 편성 ${adsV236PaidGroupRows(adsOpsRows,group,todayKey()).length}개 · 무료 보충 미리보기 ${rows.length-paidRows.length}개</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>{const paid=paidActiveOnDate(b,todayKey());return `<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small>${paid?(b.rotation_enabled===false?'유료 고정':'유료 자동 로테이션'):'무료 자동 보충'}${paid?` · 가중치 ${esc(b.paid_weight||1)}`:''}</small></div>`}).join('')}</div>`:'<p class="dashboard-empty">편성/무료 보충 후보가 없습니다.</p>'}</article>`;
+    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">광고 편성 ${adsV236PaidGroupRows(adsOpsRows,group,todayKey()).length}개 · 무료 보충 미리보기 ${rows.length-paidRows.length}개</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>{const paid=paidActiveOnDate(b,todayKey());return `<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small class="ads-compact-badge ${paid?'paid':''}">${paid?(b.rotation_enabled===false?'유료 고정':'유료'):'무료 보충'}</small></div>`}).join('')}</div>`:'<p class="dashboard-empty">편성/무료 보충 후보가 없습니다.</p>'}</article>`;
   }).join('');
   host.querySelectorAll('.ads-overview-edit').forEach(btn=>btn.onclick=()=>{
     const filter=document.querySelector('#adsGroupFilter'); if(filter){ const key=normalizeAdsGroupKey(btn.dataset.group); const opt=[...filter.options].find(o=>normalizeAdsGroupKey(o.value)===key); filter.value=opt?opt.value:btn.dataset.group; }
@@ -1320,6 +1320,14 @@ async function previewRotation(){
 }
 
 function initAdsOpsCenter(){
+  document.querySelector('#adsReferenceToggle')?.addEventListener('click',event=>{
+    const button=event.currentTarget;
+    const content=document.querySelector('#adsOverviewGroups');
+    if(!content)return;
+    content.hidden=!content.hidden;
+    button.textContent=content.hidden?'펼치기':'접기';
+    button.setAttribute('aria-expanded',String(!content.hidden));
+  });
   document.querySelector('#actualExposureRefresh')?.addEventListener('click',()=>refreshExposurePreview(getConfig(),getAppRegion()));
   document.querySelector('#actualExposureLocation')?.addEventListener('click',()=>requestPreviewLocation(getConfig(),getAppRegion()));
   document.querySelector('#adsRefreshBtn')?.addEventListener('click',loadAdsOps);

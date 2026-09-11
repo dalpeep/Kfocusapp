@@ -854,3 +854,75 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 
 /* Actual exposure preview IDs must remain readable on mobile. */
 #actualExposurePreview{margin:16px 0;padding:18px}#actualExposurePreview .ads-rotation-card{padding:16px}#actualExposurePreview .exposure-business-id{overflow-wrap:anywhere}#actualExposurePreview .ads-preview-list li>div{width:100%}
+
+/* Advertising overview density. Scoped to this screen; public styles are untouched. */
+.content:has(#section-adsOps.active-section){min-width:0;padding:16px 22px}
+.content:has(#section-adsOps.active-section)>.topbar,
+#section-adsOps{width:100%;max-width:1360px;margin-inline:auto}
+#section-adsOps{font-size:13px;line-height:1.4}
+#section-adsOps .card{border-radius:12px;box-shadow:0 3px 12px rgba(15,23,42,.025)}
+#section-adsOps .ads-hero{padding:10px 14px;margin-bottom:8px;gap:10px}
+#section-adsOps h2{font-size:17px;margin:0}
+#section-adsOps h3{font-size:14px;margin:0}
+#section-adsOps p{margin:3px 0}
+#section-adsOps .muted{font-size:12px;line-height:1.4}
+#section-adsOps .crm-kicker{font-size:10px;margin:0}
+#section-adsOps .panel-head{gap:8px;margin-bottom:7px;align-items:center}
+#section-adsOps .btn{font-size:12px;padding:6px 10px;border-radius:8px;white-space:nowrap}
+#section-adsOps .ads-center-tabs{gap:6px;margin-bottom:8px}
+#section-adsOps .ads-center-tab{font-size:12px;padding:7px 12px}
+#section-adsOps .ads-summary-grid{gap:8px;margin-bottom:8px}
+#section-adsOps .ads-summary-card{padding:8px 12px;display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center}
+#section-adsOps .ads-summary-card>span{font-size:12px;font-weight:700}
+#section-adsOps .ads-summary-card>strong{font-size:21px;line-height:1;margin:0;grid-column:2;grid-row:1/3}
+#section-adsOps .ads-summary-card>small{font-size:11px;min-width:0}
+#section-adsOps .ads-summary-card>small:nth-of-type(2){display:none}
+#section-adsOps .ads-summary-filter{margin:2px 0 0;padding:2px 0;background:none;font-size:11px;text-align:left;justify-self:start}
+#section-adsOps [data-ads-panel="overview"]>.card{padding:10px 12px}
+#section-adsOps .ads-overview-groups,#section-adsOps .ads-rotation-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:start}
+#section-adsOps #adsOverviewGroups[hidden]{display:none}
+#section-adsOps .ads-overview-group{padding:8px 10px;border-radius:9px;min-width:0}
+#section-adsOps .ads-overview-group .panel-head p{font-size:11px}
+#section-adsOps .ads-overview-list{gap:0}
+#section-adsOps .ads-overview-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 6px;padding:5px 0;border:0;border-bottom:1px solid #edf1f6;border-radius:0;background:transparent;min-width:0}
+#section-adsOps .ads-overview-item:last-child{border-bottom:0}
+#section-adsOps .ads-overview-item b{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#section-adsOps .ads-overview-item>span{grid-column:1;font-size:11px;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#section-adsOps .ads-compact-badge{display:inline-flex;font-size:10px;font-weight:600;line-height:1.4;padding:1px 5px;border-radius:5px;background:#eef7f1;color:#267144;white-space:nowrap;margin:0}
+#section-adsOps .ads-overview-item>.ads-compact-badge{grid-column:2;grid-row:1;align-self:center}
+#section-adsOps .ads-compact-badge.paid{background:#fff3df;color:#915e12}
+#section-adsOps #actualExposurePreview{padding:10px 12px;margin:8px 0}
+#section-adsOps #actualExposurePreview .ads-hero-actions{gap:6px;margin:6px 0}
+#section-adsOps #actualExposureStatus{font-size:11px;margin:4px 0 6px}
+#section-adsOps #actualExposureResults{margin-top:6px}
+#section-adsOps #actualExposurePreview .ads-rotation-card{padding:8px 10px;min-width:0}
+#section-adsOps #actualExposureResults .ads-rotation-card>p{font-size:11px;margin:2px 0 4px}
+#section-adsOps #actualExposureResults li{padding:5px 0;gap:4px}
+#section-adsOps .exposure-row-content{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 6px;min-width:0}
+#section-adsOps .exposure-row-line{display:flex;align-items:center;gap:5px;min-width:0}
+#section-adsOps .exposure-number{font-size:11px;color:#64748b;flex:none}
+#section-adsOps .exposure-row-line b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#section-adsOps .exposure-row-line .ads-compact-badge{flex:none}
+#section-adsOps .exposure-row-meta{grid-column:1;grid-row:2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:11px;margin:0!important}
+#section-adsOps .exposure-id-details{grid-column:2;grid-row:1/3;font-size:11px;align-self:start}
+#section-adsOps .exposure-id-details summary{cursor:pointer;color:#436084;list-style:none;padding:1px 3px;border-radius:4px}
+#section-adsOps .exposure-id-details summary::-webkit-details-marker{display:none}
+#section-adsOps .exposure-id-details summary:hover{background:#eef4ff}
+#section-adsOps .exposure-id-details[open]{grid-column:1/-1;grid-row:3}
+#section-adsOps .exposure-id-details[open] summary{display:inline-block}
+#section-adsOps .exposure-business-id{font-family:monospace;font-size:11px;padding:3px 0}
+@media(max-width:1000px){#section-adsOps .ads-overview-groups,#section-adsOps .ads-rotation-grid{grid-template-columns:1fr}#section-adsOps .ads-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.content:has(#section-adsOps.active-section){padding:10px}#section-adsOps .panel-head{align-items:flex-start;flex-wrap:wrap}#section-adsOps .ads-hero{flex-wrap:wrap}#section-adsOps .ads-summary-card{padding:8px}}
+
+/* Keep the two six-row sections in the desktop viewport. */
+.content:has(#section-adsOps.active-section)>.topbar{margin-bottom:8px;min-height:0}
+.content:has(#section-adsOps.active-section)>.topbar h1{font-size:23px;margin-bottom:2px}
+.content:has(#section-adsOps.active-section)>.topbar p{margin:2px 0;font-size:12px}
+#section-adsOps .ads-hero{padding:7px 12px}
+#section-adsOps .ads-center-tabs{padding:3px}
+#section-adsOps .ads-summary-card{padding:6px 10px}
+#section-adsOps .ads-overview-item,#section-adsOps #actualExposureResults li{padding:3px 0}
+#section-adsOps .ads-overview-item b,#section-adsOps .exposure-row-line{line-height:15px}
+#section-adsOps .ads-overview-item>span,#section-adsOps .exposure-row-meta{line-height:14px}
+#section-adsOps #actualExposurePreview>.panel-head{margin-bottom:4px}
+@media(min-width:1200px){#section-adsOps #actualExposurePreview{position:relative}#section-adsOps #actualExposurePreview>.panel-head{padding-right:245px}#section-adsOps #actualExposurePreview>.ads-hero-actions{position:absolute;right:12px;top:8px;margin:0}}

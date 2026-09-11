@@ -22,7 +22,7 @@ export async function refreshExposurePreview(config, region, requestedOrigin) {
   }
   try {
     if (!base || !key) throw new Error('공개 DB 연결 설정이 없습니다.');
-    const fields = 'id,name_ko,name_en,name,address,phone,lat,lng,region,is_active,list_visible,created_at,paid_active,paid_start_at,paid_end_at,paid_weight,rotation_enabled,is_featured,is_new,is_popular,featured_rank,new_rank,popular_rank';
+    const fields = 'id,name_ko,name_en,name,area,category_ko,address,phone,lat,lng,region,is_active,list_visible,created_at,paid_active,paid_start_at,paid_end_at,paid_weight,rotation_enabled,is_featured,is_new,is_popular,featured_rank,new_rank,popular_rank';
     const [raw, clicks, origin] = await Promise.all([
       read(`businesses?select=${fields}&region=eq.${encodeURIComponent(region)}&is_active=eq.true&order=created_at.desc.nullslast`),
       read(`business_activity?select=business_id,created_at&action_type=eq.business_click&created_at=gte.${encodeURIComponent(since)}&limit=20000`),
@@ -53,14 +53,32 @@ export async function refreshExposurePreview(config, region, requestedOrigin) {
         const item = document.createElement('li');
         const content = document.createElement('div');
         const name = document.createElement('b');
-        name.textContent = `${i + 1}. ${b.name}`;
-        const info = document.createElement('small');
+        name.textContent = b.name;
+        name.title = b.name;
         const paid = selector.paid(b, day);
-        info.textContent = `${paid ? (b.rotation_enabled === false ? '유료 고정' : '유료 광고') : '무료'}${group === 'popular' ? ` · 주간 클릭 ${clickCounts.get(String(b.id)) || 0}회` : ''}`;
+        const info = document.createElement('span');
+        info.className = 'ads-compact-badge' + (paid ? ' paid' : '');
+        info.textContent = paid ? (b.rotation_enabled === false ? '유료 고정' : '유료') : '무료';
+        const number = document.createElement('span');
+        number.className = 'exposure-number';
+        number.textContent = String(i + 1) + ' ·';
+        const line = document.createElement('div');
+        line.className = 'exposure-row-line';
+        line.append(number, name, info);
+        const meta = document.createElement('small');
+        meta.className = 'exposure-row-meta';
+        meta.textContent = [b.area || b.region, b.category_ko, group === 'popular' ? '주간 클릭 ' + (clickCounts.get(String(b.id)) || 0) + '회' : ''].filter(Boolean).join(' · ');
+        meta.title = meta.textContent;
+        const disclosure = document.createElement('details');
+        disclosure.className = 'exposure-id-details';
+        const summary = document.createElement('summary');
+        summary.textContent = '상세';
         const id = document.createElement('small');
         id.className = 'exposure-business-id';
-        id.textContent = `ID: ${b.id}`;
-        content.append(name, info, id);
+        id.textContent = 'ID: ' + b.id;
+        disclosure.append(summary, id);
+        content.className = 'exposure-row-content';
+        content.append(line, meta, disclosure);
         item.append(content);
         list.append(item);
       });

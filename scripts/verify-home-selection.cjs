@@ -31,7 +31,7 @@ async function main(){
   const context=vm.createContext({Date:FixedDate,Intl,Map,Promise,DtmHomeSelection:shared,navigator:{},document:{getElementById:id=>id==='actualExposureResults'?host:status,createElement:()=>new Element()},fetch:async url=>({ok:true,json:async()=>url.includes('/business_activity?')?clicks:raw})});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../admin/assets/exposure-preview.js'),'utf8').replaceAll('export async function','async function'),context);
   await context.refreshExposurePreview(cfg,'dallas');
-  const adminIds=Object.fromEntries(['featured','new','popular'].map((key,i)=>[key,host.children[i].children[2].children.map(li=>li.children[0].children[2].textContent.replace('ID: ',''))]));
+  const adminIds=Object.fromEntries(['featured','new','popular'].map((key,i)=>[key,host.children[i].children[2].children.map(li=>li.children[0].children[2].children[1].textContent.replace('ID: ',''))]));
   assert.deepEqual(adminIds,ids(actual));
   console.log(JSON.stringify({at:new Date(now).toISOString(),day,region:'dallas',gps:null,publicRows:rows.length,clickRows:clicks.length,paid:rows.filter(b=>engine.paid(b,day)).length,legacyPublicMatches:true,adminRenderedIdsMatch:true,groups:Object.fromEntries(['featured','new','popular'].map(k=>[k,actual[k].map(b=>({id:b.id,name:b.name,clicks:clickCounts.get(String(b.id))||0}))]))},null,2));
 }
