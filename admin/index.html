@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
-  <link rel="stylesheet" href="assets/admin.css?v=45.5.0" />
+  <link rel="stylesheet" href="assets/admin.css?v=45.6.0" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="assets/admin.js?v=298"></script>
+  <script src="/assets/home-selection.js?v=313"></script>
+  <script type="module" src="assets/admin.js?v=299"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -964,28 +965,37 @@
     <div>
       <span class="crm-kicker">Operations · Advertising Center</span>
       <h2>광고 센터</h2>
-      <p class="muted">광고 현황, 편성, 오늘의 로테이션, 종료 예정 광고를 한 화면에서 관리합니다.</p>
+      <p class="muted">광고 설정·무료 보충 참고 목록과 현재 실제 노출 미리보기를 구분하여 확인합니다.</p>
     </div>
     <div class="ads-hero-actions">
       <button id="adsRefreshBtn" class="btn secondary" type="button">새로고침</button>
-      <button id="adsPreviewBtn" class="btn primary" type="button">오늘 로테이션 보기</button>
+      <button id="adsPreviewBtn" class="btn primary" type="button">편성 미리보기</button>
     </div>
   </section>
 
   <nav class="ads-center-tabs" aria-label="광고 센터 메뉴">
     <button class="ads-center-tab active" type="button" data-ads-tab="overview">광고 현황</button>
     <button class="ads-center-tab" type="button" data-ads-tab="schedule">광고 편성</button>
-    <button class="ads-center-tab" type="button" data-ads-tab="rotation">오늘 로테이션</button>
+    <button class="ads-center-tab" type="button" data-ads-tab="rotation">편성 미리보기</button>
     <button class="ads-center-tab" type="button" data-ads-tab="ending">종료 예정</button>
   </nav>
 
   <div class="ads-center-panel" data-ads-panel="overview">
     <div id="adsOpsSummary" class="ads-summary-grid"></div>
     <section class="card">
-      <div class="panel-head"><div><h2>현재 광고 업체</h2><p class="muted">추천·신규·인기 광고에 편성된 업체를 그룹별로 확인합니다.</p></div><button class="btn ghost" type="button" data-open-ads-tab="schedule">편성 변경</button></div>
+      <div class="panel-head"><div><h2>광고 설정 / 무료 보충 참고</h2><p class="muted">유료 광고와 무료 자동 보충 참고 목록입니다(그룹별 최대 6개 표시). 실제 public 결과는 아래 별도 미리보기에서 확인하세요.</p></div><button class="btn ghost" type="button" data-open-ads-tab="schedule">편성 변경</button></div>
       <div id="adsOverviewGroups" class="ads-overview-groups"></div>
     </section>
   </div>
+
+  <section class="card" id="actualExposurePreview" aria-labelledby="actualExposureTitle">
+    <div class="panel-head"><div><h2 id="actualExposureTitle">현재 실제 노출 미리보기</h2>
+      <p class="muted">추천은 사용자 위치에 따라 달라집니다. 이 결과는 아래 시각과 위치 조건의 미리보기이며, 모든 사용자의 공통 노출 목록이 아닙니다.</p>
+      <p class="muted">신규: 유효한 유료 신규 광고(고정 포함) 우선 → 등록 후 168시간 미만의 무료 업체로만 보충합니다. 조건에 맞는 업체가 적으면 6개 미만으로 표시됩니다. 인기: 이번 주 business_click 순입니다.</p></div></div>
+    <div class="ads-hero-actions"><button id="actualExposureRefresh" type="button" class="btn secondary">미리보기 새로고침</button><button id="actualExposureLocation" type="button" class="btn ghost">관리자 위치 사용</button></div>
+    <p id="actualExposureStatus" class="muted" role="status" aria-live="polite">광고 센터를 열면 조회합니다.</p>
+    <div id="actualExposureResults" class="ads-rotation-grid"></div>
+  </section>
 
   <div class="ads-center-panel hidden" data-ads-panel="schedule">
     <section class="card ads-bulk-card">
@@ -1018,7 +1028,7 @@
 
   <div class="ads-center-panel hidden" data-ads-panel="rotation">
     <section class="card ads-rotation-intro">
-      <div><h2>자동 로테이션 미리보기</h2><p class="muted">선택한 날짜에 실제 홈의 추천·신규·인기 탭에 표시될 순서를 계산합니다. 유료 광고 여부와 관계없이 그룹 편성 업체가 대상이며, 광고 기간이 끝난 업체는 제외됩니다.</p></div>
+      <div><h2>광고 편성 / 무료 보충 미리보기</h2><p class="muted">선택 날짜의 유료 광고와 무료 날짜 기반 보충 참고 목록입니다. GPS·최근 168시간·주간 클릭을 반영한 실제 노출 결과와 다릅니다.</p></div>
       <div class="ads-rotation-controls">
         <label class="field compact"><span>미리보기 날짜</span><input id="adsRotationDate" type="date"></label>
         <button class="btn ghost" type="button" id="adsRotationTodayBtn">오늘</button>
@@ -1026,7 +1036,7 @@
         <button class="btn primary" type="button" id="adsPreviewBtnInline">순서 계산</button>
       </div>
     </section>
-    <section class="ads-rotation-note card"><b>실제 홈과 동일한 기준</b><span>자동 로테이션 OFF 업체는 순위값대로 먼저 고정되고, ON 업체는 날짜와 가중치로 매일 순서가 바뀝니다. 그룹별 최대 6개가 노출됩니다.</span></section>
+    <section class="ads-rotation-note card"><b>광고 편성 참고 기준</b><span>자동 로테이션 OFF 업체는 순위값대로 먼저 고정되고, ON 업체는 날짜와 가중치로 매일 순서가 바뀝니다. 그룹별 최대 6개를 참고용으로 표시합니다.</span></section>
     <section id="rotationPreview" class="ads-rotation-grid"></section>
   </div>
 

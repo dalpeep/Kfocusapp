@@ -1,3 +1,4 @@
+import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=299';
 console.info('[DalTownMap Admin] V289 traffic source analytics loaded');
 console.info('[DalTownMap Admin] V284 request management visibility + autoload fix loaded');
 console.info('[DalTownMap Admin] V271 recommended theme links retained');
@@ -675,7 +676,7 @@ function adsV236BuildGroup(section,dateValue,allRows,limit,usedFreeIds){
 // V212: 추천/신규/인기의 실제 노출 목록을 전역적으로 한 번에 계산합니다.
 // 같은 무료 보충 업체가 여러 그룹에 중복 노출되는 것을 막습니다.
 function adsCanonicalGroups(dateValue=todayKey(),allRows=adsOpsRows,limit=6){
-  // V236: 실제 홈과 동일.
+  // V236: 광고 편성 참고용. public 실제 결과는 별도 공통 선택기를 사용합니다.
   // 유료 그룹 먼저 → 남는 자리는 전체 무료 업소 Fair Rotation 자동 보충.
   const usedFreeIds=new Set();
   const featured=adsV236BuildGroup('featured',dateValue,allRows||[],limit,usedFreeIds);
@@ -1006,7 +1007,7 @@ function renderAdsOverviewGroups(){
   host.innerHTML=['featured','new','popular'].map(group=>{
     const rows=adsEffectiveSectionRows(group,todayKey(),adsOpsRows);
     const paidRows=rows.filter(b=>paidActiveOnDate(b,todayKey()));
-    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">오늘 노출 ${rows.length}개 · 유료 우선 ${paidRows.length}개 · 메인/편성 설정과 동일</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>{const paid=paidActiveOnDate(b,todayKey());return `<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small>${paid?(b.rotation_enabled===false?'유료 고정':'유료 자동 로테이션'):'무료 자동 보충'}${paid?` · 가중치 ${esc(b.paid_weight||1)}`:''}</small></div>`}).join('')}</div>`:'<p class="dashboard-empty">오늘 노출할 업체가 없습니다.</p>'}</article>`;
+    return `<article class="ads-overview-group"><div class="panel-head"><div><h3>${adsGroupLabel(group)} 광고</h3><p class="muted">광고 편성 ${adsV236PaidGroupRows(adsOpsRows,group,todayKey()).length}개 · 무료 보충 미리보기 ${rows.length-paidRows.length}개</p></div><button class="btn ghost ads-overview-edit" data-group="${group}" type="button">관리</button></div>${rows.length?`<div class="ads-overview-list">${rows.map(b=>{const paid=paidActiveOnDate(b,todayKey());return `<div class="ads-overview-item"><b>${esc(b.name_ko||b.name_en||'')}</b><span>${esc([b.area,b.category_ko].filter(Boolean).join(' · '))}</span><small>${paid?(b.rotation_enabled===false?'유료 고정':'유료 자동 로테이션'):'무료 자동 보충'}${paid?` · 가중치 ${esc(b.paid_weight||1)}`:''}</small></div>`}).join('')}</div>`:'<p class="dashboard-empty">편성/무료 보충 후보가 없습니다.</p>'}</article>`;
   }).join('');
   host.querySelectorAll('.ads-overview-edit').forEach(btn=>btn.onclick=()=>{
     const filter=document.querySelector('#adsGroupFilter'); if(filter){ const key=normalizeAdsGroupKey(btn.dataset.group); const opt=[...filter.options].find(o=>normalizeAdsGroupKey(o.value)===key); filter.value=opt?opt.value:btn.dataset.group; }
@@ -1032,11 +1033,11 @@ function renderAdsSummary(){
   const active=adsOpsRows.filter(b=>adsStatusOf(b)==='active');
   const groups=['featured','new','popular'];
   const cards=groups.map(g=>{
-    // V203: 요약 카드도 실제 메인에 노출되는 오늘의 6개와 완전히 동일하게 표시합니다.
+    // Advertising setup plus legacy free-fill reference; separate from actual exposure.
     const rows=adsEffectiveSectionRows(g,todayKey(),adsOpsRows);
     const paidRows=rows.filter(b=>paidActiveOnDate(b,todayKey()));
     const names=rows.map(b=>esc(b.name_ko||b.name_en||'')).join(' · ');
-    return `<article class="card ads-summary-card"><span>${adsGroupLabel(g)} 광고</span><strong>${rows.length}</strong><small>${names||'오늘 노출 업소 없음'}${rows.length?` · 유료 우선 ${paidRows.length}개`:''}</small><button class="ads-summary-filter" data-ads-group="${g}" type="button">목록 보기</button></article>`;
+    return `<article class="card ads-summary-card"><span>${adsGroupLabel(g)} 광고</span><strong>${adsV236PaidGroupRows(adsOpsRows,g,todayKey()).length}</strong><small>광고 편성 · 무료 보충 미리보기 ${rows.length-paidRows.length}개</small><small>${names||'보충 후보 없음'}</small><button class="ads-summary-filter" data-ads-group="${g}" type="button">목록 보기</button></article>`;
   }).join('');
   const allRows=adsOpsRows;
   const paid=allRows.filter(b=>paidActiveOnDate(b,todayKey())).length;
@@ -1228,8 +1229,8 @@ window.v238SavePaidToggle=v238SavePaidToggle;
 
 function renderAdsOpsList(){
   const rows=adsFilteredRows();
-  // V205: 추천/신규/인기 필터를 선택한 경우 이 표는 '오늘 실제 메인 목록' 자체입니다.
-  // 따라서 행의 그룹 배지도 DB의 과거 편성값이 아니라 현재 선택한 메인 그룹과 동일하게 표시합니다.
+  // V205: 추천/신규/인기 필터를 선택한 경우 이 표는 '광고 편성 참고 목록' 자체입니다.
+  // Group badges here identify the selected reference view.
   const effectiveToday={
     featured:new Set(adsEffectiveSectionRows('featured',todayKey(),adsOpsRows).map(b=>String(b.id))),
     new:new Set(adsEffectiveSectionRows('new',todayKey(),adsOpsRows).map(b=>String(b.id))),
@@ -1273,7 +1274,7 @@ function updateAdsSelectedCount(){safeText('adsSelectedCount',`${adsSelectedIds.
 async function loadAdsOps(){
   const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,list_visible,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,created_at').eq('region',getAppRegion()).order('name_ko',{ascending:true});
   if(error)return alert(error.message);
-  adsOpsRows=data||[];renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
+  adsOpsRows=data||[];refreshExposurePreview(getConfig(),getAppRegion());renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
 }
 async function applyAdsBulk(){
   if(!adsSelectedIds.size)return alert('변경할 업소를 선택하세요.');
@@ -1309,16 +1310,18 @@ async function previewRotation(){
     popular:adsOpsRows.filter(b=>b.is_popular)
   };
   const render=(key)=>{
-    const rows=pickRotation(sectionRows[key],key,6,dateValue,adsOpsRows);
+    const rows=adsCanonicalGroups(dateValue,adsOpsRows,6)[key];
     const paidCount=rows.filter(b=>paidActiveOnDate(b,dateValue)).length;
-    return `<article class="card ads-rotation-card"><div class="panel-head"><div><h3>${adsGroupLabel(key)}</h3><p class="muted">유료 우선 ${paidCount}개 · 무료 자동 보충 ${rows.length-paidCount}개 · 총 ${rows.length}/6</p></div><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map((b,i)=>{const paid=paidActiveOnDate(b,dateValue);return `<li><span class="ads-order-no">${i+1}</span><div><b>${esc(b.name_ko||b.name_en||'')}</b><small>${paid?(b.rotation_enabled===false?'유료 고정':'유료 자동 로테이션'):'무료 자동 보충'}${paid?` · 가중치 ${esc(b.paid_weight||1)}`:''}</small></div></li>`}).join('')}</ol>`:'<p class="muted">이 날짜에 노출할 업체가 없습니다.</p>'}</article>`;
+    return `<article class="card ads-rotation-card"><div class="panel-head"><div><h3>${adsGroupLabel(key)}</h3><p class="muted">유료 우선 ${paidCount}개 · 무료 자동 보충 ${rows.length-paidCount}개 · 총 ${rows.length}/6</p></div><span class="pill">${rows.length}개</span></div>${rows.length?`<ol class="ads-preview-list">${rows.map((b,i)=>{const paid=paidActiveOnDate(b,dateValue);return `<li><span class="ads-order-no">${i+1}</span><div><b>${esc(b.name_ko||b.name_en||'')}</b><small>${paid?(b.rotation_enabled===false?'유료 고정':'유료 자동 로테이션'):'무료 자동 보충'}${paid?` · 가중치 ${esc(b.paid_weight||1)}`:''}</small></div></li>`}).join('')}</ol>`:'<p class="muted">이 날짜의 편성/무료 보충 후보가 없습니다.</p>'}</article>`;
   };
   const host=document.querySelector('#rotationPreview');
   if(!host)return;
-  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">그룹별 6개 · 유료 그룹 우선 → 남는 자리 전체 무료 업소 Fair Rotation</p></div><span class="pill success">홈 노출 기준</span></div>${render('featured')}${render('new')}${render('popular')}`;
+  host.innerHTML=`<div class="ads-preview-title"><div><h2>${esc(dateValue)} 로테이션</h2><p class="muted">그룹별 6개 · 유료 그룹 우선 → 남는 자리 전체 무료 업소 Fair Rotation</p></div><span class="pill success">편성 참고용</span></div>${render('featured')}${render('new')}${render('popular')}`;
 }
 
 function initAdsOpsCenter(){
+  document.querySelector('#actualExposureRefresh')?.addEventListener('click',()=>refreshExposurePreview(getConfig(),getAppRegion()));
+  document.querySelector('#actualExposureLocation')?.addEventListener('click',()=>requestPreviewLocation(getConfig(),getAppRegion()));
   document.querySelector('#adsRefreshBtn')?.addEventListener('click',loadAdsOps);
   document.querySelector('#adsPreviewBtn')?.addEventListener('click',()=>{setAdsCenterTab('rotation');previewRotation();});
   document.querySelector('#adsPreviewBtnInline')?.addEventListener('click',previewRotation);
@@ -7285,7 +7288,7 @@ async function v45PopulateBusinessSelect(selected=[],mode){
 
   let rows=[];
   try{
-    // V204: 광고 운영센터와 동일 데이터/동일 오늘 노출 계산을 사용합니다.
+    // V204: 광고 운영센터와 동일 데이터/동일 편성 참고 계산을 사용합니다.
     const fields='id,name_ko,name_en,area,category_ko,is_active,list_visible,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,paid_active,paid_weight,paid_start_at,paid_end_at,rotation_enabled';
     const {data,error}=await supabase.from('businesses')
       .select(fields)
@@ -7299,7 +7302,7 @@ async function v45PopulateBusinessSelect(selected=[],mode){
   }
 
   if(['featured','new','popular'].includes(mode)){
-    // 광고 운영센터의 오늘 노출 6개를 그대로 사용합니다.
+    // 광고 운영센터의 편성 참고 6개를 그대로 사용합니다.
     rows=adsEffectiveSectionRows(mode,todayKey(),rows);
   } else if(mode==='coupon'){
     const set=typeof v61BusinessIdsWithCoupon==='function'?v61BusinessIdsWithCoupon():new Set();
@@ -7321,7 +7324,7 @@ async function v45PopulateBusinessSelect(selected=[],mode){
   if(hint){
     hint.textContent=mode==='direct'
       ?'전체 업소에서 최대 6개까지 직접 지정합니다. Ctrl/Command로 여러 업체를 선택한 뒤 메인 설정 저장을 누르세요.'
-      :`광고 운영센터의 오늘 노출 ${V61_MODE_LABELS[mode]||'업체'} 6개와 동일한 목록입니다. 메인 업소 탭도 같은 순서로 표시됩니다.`;
+      :`광고 운영센터의 ${V61_MODE_LABELS[mode]||'업체'} 편성 참고 목록입니다. 실제 메인 업소 탭 결과는 현재 실제 노출 미리보기에서 확인하세요.`;
   }
 }
 function v45FillHomeConfig(config={}){
@@ -11469,7 +11472,7 @@ function ensureV231AdPriorityGuide(){
         <span class="priority-chip">4. 일반 업소</span>
       </div>
       <p>Premium = 유료 광고 ON + 광고 상품 Premium + 유효한 시작/종료일. 추천 = 추천(is_featured) ON.</p>
-      <p>메인 추천/신규/인기 탭은 해당 그룹에 지정된 업소만 표시하며, 그 그룹 안에서는 유료 광고 업소를 우선합니다.</p>`;
+      <p>메인 탭은 유효한 유료 그룹 광고를 우선하고 무료 후보로 보충합니다. 신규 고정은 유료 신규 광고의 로테이션 OFF이며, 무료 신규에만 등록 후 168시간 미만 조건을 적용합니다.</p>`;
     host.insertBefore(box,host.firstChild);
     return true;
   };
@@ -11493,7 +11496,7 @@ function ensureV232RotationSyncNote(){
   const note=document.createElement('div');
   note.id='v232RotationSyncNote';
   note.style.cssText='margin:8px 0 12px;padding:10px 12px;border-radius:12px;background:#ecfdf5;border:1px solid #bbf7d0;color:#166534;font-size:12px;font-weight:700;';
-  note.textContent='V233 동기화됨 · 추천/신규/인기 모두 같은 날짜의 실제 앱 1~6위 순서와 동일합니다.';
+  note.textContent='광고 편성 참고 목록입니다. 실제 결과는 현재 실제 노출 미리보기에서 확인하세요.';
   const target=document.querySelector('#adsRotationPreview') || host;
   target.parentElement?.insertBefore(note,target);
 }
@@ -11650,7 +11653,7 @@ function ensureV234FairnessUI(){
         <button type="button" data-fa-section="free">무료 전체</button>
       </div>
       <div id="v234FairnessTable"></div>
-      <div class="v234-fa-note">추천·신규·인기는 유료 그룹 우선 노출을 검사합니다. 무료 전체는 그룹 체크와 상관없이 모든 활성 무료 업소를 검사합니다. V236부터 실제 홈도 유료 그룹 우선 + 남는 자리 무료 Fair Rotation 구조를 사용합니다.</div>
+      <div class="v234-fa-note">추천·신규·인기는 유료 그룹 우선 노출을 검사합니다. 무료 전체는 그룹 체크와 상관없이 모든 활성 무료 업소를 검사합니다. 이 검사는 광고 편성 참고용입니다. 실제 추천은 GPS, 신규는 168시간, 인기는 주간 클릭 조건을 사용합니다.</div>
     </div>`;
   preview.parentElement?.appendChild(root);
 
@@ -11731,7 +11734,7 @@ function ensureV235FreePoolPolicy(){
   const box=document.createElement('div');
   box.id='v235FreePoolPolicy';
   box.style.cssText='margin:12px 0;padding:12px 14px;border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;font-size:12px;line-height:1.6;';
-  box.innerHTML='<b>V235 운영 기준</b> · 추천 / 신규 / 인기는 유료 광고 그룹으로 관리하고, 무료 업소는 별도의 <b>무료 전체 공평 로테이션 풀</b>에서 검사합니다. 초기 오픈 동안 유료 업소가 부족한 경우 실제 홈의 빈 자리를 무료 풀로 보충하는 구조로 확장할 수 있습니다.';
+  box.innerHTML='<b>V235 운영 기준</b> · 추천 / 신규 / 인기는 유료 광고 그룹으로 관리하고, 무료 업소는 별도의 <b>무료 전체 공평 로테이션 풀</b>에서 검사합니다. 실제 노출 결과는 별도의 현재 실제 노출 미리보기에서 확인하세요.';
   preview.parentElement?.insertBefore(box,preview);
 }
 document.addEventListener('DOMContentLoaded',()=>setTimeout(ensureV235FreePoolPolicy,900));
