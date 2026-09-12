@@ -1860,8 +1860,14 @@ function renderMapFilters(){
   $$('.map-filter-chip').forEach(btn=>{
     const kind=btn.dataset.mapFilter;
     btn.classList.remove('hidden','active');
-    btn.classList.add('map-benefit-tab');
-    btn.innerHTML=`<span class="benefit-icon-wrap ${kind}" aria-hidden="true">${MAP_BENEFIT_ICONS[kind]}</span><span class="benefit-label">${MAP_BENEFIT_LABELS[kind]}</span><span class="v245-shortcut-badge benefit-count">${mapBenefitBusinesses(kind).length}</span>`;
+    const visualKind=kind==='promotion'?'discount':kind;
+    btn.classList.add('map-benefit-tab',visualKind);
+    // Preserve the icon subtree when counts refresh; repair missing markup if needed.
+    if(!btn.querySelector('.benefit-icon-wrap svg') || !btn.querySelector('.benefit-label') || !btn.querySelector('.benefit-count')){
+      btn.innerHTML=`<span class="benefit-icon-wrap ${visualKind}" aria-hidden="true">${MAP_BENEFIT_ICONS[kind]}</span><span class="benefit-label"></span><span class="v245-shortcut-badge benefit-count"></span>`;
+    }
+    btn.querySelector('.benefit-label').textContent=MAP_BENEFIT_LABELS[kind];
+    btn.querySelector('.benefit-count').textContent=mapBenefitBusinesses(kind).length;
     btn.setAttribute('aria-haspopup','dialog');
   });
 }
@@ -11156,7 +11162,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.7';
+const DTM_BUILD_VERSION='296.8';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 
