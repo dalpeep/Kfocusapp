@@ -5004,23 +5004,26 @@ body.map-page-open #page-map .map-search-input{
   -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='8' width='18' height='4' rx='1'/%3E%3Cpath d='M12 8v13M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7M7.5 8A2.5 2.5 0 1 1 10 5.5V8M16.5 8A2.5 2.5 0 1 0 14 5.5V8'/%3E%3C/svg%3E");
 }
 .v245-shortcuts-grid .v245-shortcut:nth-child(2) .v245-shortcut-icon{
-  background:#22c55e;
+  background:var(--today-coupon-color);
 }
-.v245-shortcuts-grid .v245-shortcut:nth-child(2) .v245-shortcut-icon::before{
+.v245-shortcuts-grid .v245-shortcut:nth-child(2) .v245-shortcut-icon::before,
+.map-benefit-icon.coupon::before{
   mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 0 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2M13 17v2M13 11v2'/%3E%3C/svg%3E");
   -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 0 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/%3E%3Cpath d='M13 5v2M13 17v2M13 11v2'/%3E%3C/svg%3E");
 }
 .v245-shortcuts-grid .v245-shortcut:nth-child(3) .v245-shortcut-icon{
-  background:#2563eb;
+  background:var(--today-promotion-color);
 }
-.v245-shortcuts-grid .v245-shortcut:nth-child(3) .v245-shortcut-icon::before{
+.v245-shortcuts-grid .v245-shortcut:nth-child(3) .v245-shortcut-icon::before,
+.map-benefit-icon.promotion::before{
   mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='21' r='1'/%3E%3Ccircle cx='19' cy='21' r='1'/%3E%3Cpath d='M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h7.78a2 2 0 0 0 1.95-1.57L20 7H5.12'/%3E%3C/svg%3E");
   -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='8' cy='21' r='1'/%3E%3Ccircle cx='19' cy='21' r='1'/%3E%3Cpath d='M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h7.78a2 2 0 0 0 1.95-1.57L20 7H5.12'/%3E%3C/svg%3E");
 }
 .v245-shortcuts-grid .v245-shortcut:nth-child(4) .v245-shortcut-icon{
-  background:#8b5cf6;
+  background:var(--today-event-color);
 }
-.v245-shortcuts-grid .v245-shortcut:nth-child(4) .v245-shortcut-icon::before{
+.v245-shortcuts-grid .v245-shortcut:nth-child(4) .v245-shortcut-icon::before,
+.map-benefit-icon.event::before{
   mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v3M16 2v3M3 9h18'/%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='m12 12 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 17.5l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z'/%3E%3C/svg%3E");
   -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v3M16 2v3M3 9h18'/%3E%3Crect x='3' y='4' width='18' height='17' rx='2'/%3E%3Cpath d='m12 12 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 17.5l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z'/%3E%3C/svg%3E");
 }
@@ -5295,9 +5298,14 @@ body.nearby-businesses-open{overflow:hidden!important}
 /* V296.2 unified benefit menus */
 .map-benefit-description{display:block;margin-top:4px;color:#61738a;font-size:12px;white-space:pre-line;overflow-wrap:anywhere}
 
-/* Share existing home benefit colors; only the count sits inside the circle. */
-#page-map #mapFilterRow .map-benefit-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px;white-space:nowrap}
-.benefit-count{box-sizing:border-box;min-width:24px;height:24px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:12px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-.benefit-count.event{background:var(--benefit-event-color)}
-.benefit-count.coupon{background:var(--benefit-coupon-color)}
-.benefit-count.promotion{background:var(--benefit-promotion-color)}
+/* V296.5: shared home icon masks, colors and count badge design. */
+:root{--today-event-color:#8b5cf6;--today-coupon-color:#22c55e;--today-promotion-color:#2563eb}
+.v245-shortcut-badge{position:absolute;right:-3px;top:-5px;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:1000;line-height:1;box-shadow:0 2px 5px rgba(239,68,68,.28)}
+#page-map #mapFilterRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-top:6px!important;overflow:visible!important}
+#page-map #mapFilterRow .map-benefit-tab{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:5px;padding:8px;min-width:0;height:42px;white-space:nowrap}
+.map-benefit-icon{display:inline-flex;flex:0 0 18px;width:18px;height:18px}
+.map-benefit-icon::before{content:"";display:block;width:100%;height:100%;mask-repeat:no-repeat;mask-position:center;mask-size:contain;-webkit-mask-repeat:no-repeat;-webkit-mask-position:center;-webkit-mask-size:contain}
+.map-benefit-icon.event::before{background:var(--today-event-color)}
+.map-benefit-icon.coupon::before{background:var(--today-coupon-color)}
+.map-benefit-icon.promotion::before{background:var(--today-promotion-color)}
+#mapFilterRow .benefit-count{right:0;top:-5px;pointer-events:none;font-variant-numeric:tabular-nums}

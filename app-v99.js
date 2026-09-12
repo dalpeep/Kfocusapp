@@ -1860,7 +1860,7 @@ function renderMapFilters(){
     const kind=btn.dataset.mapFilter;
     btn.classList.remove('hidden','active');
     btn.classList.add('map-benefit-tab');
-    btn.innerHTML=`<span>${MAP_BENEFIT_LABELS[kind]}</span><span class="benefit-count ${kind}">${mapBenefitBusinesses(kind).length}</span>`;
+    btn.innerHTML=`<span class="map-benefit-icon ${kind}" aria-hidden="true"></span><span>${MAP_BENEFIT_LABELS[kind]}</span><span class="v245-shortcut-badge benefit-count">${mapBenefitBusinesses(kind).length}</span>`;
     btn.setAttribute('aria-haspopup','dialog');
   });
 }
@@ -11041,7 +11041,6 @@ window.renderV244TodayDaltown=renderV245TodayShortcuts;
       .v245-shortcut:active{transform:scale(.98)}
       .v245-shortcut-icon{font-size:25px;line-height:1}
       .v245-shortcut-label{font-size:12px;font-weight:900;color:#172033;white-space:nowrap}
-      .v245-shortcut-badge{position:absolute;right:-3px;top:-5px;min-width:21px;height:21px;padding:0 5px;border-radius:999px;background:#ef4444;color:#fff;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:1000;line-height:1;box-shadow:0 2px 5px rgba(239,68,68,.28)}
       .v245-event-page{margin-top:10px}
       .v245-event-list{display:grid;gap:10px}
       .v245-event-item{width:100%;border:1px solid #e2e8f0;background:#fff;border-radius:15px;padding:10px;display:flex;align-items:center;gap:12px;text-align:left;cursor:pointer}
@@ -11156,7 +11155,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.4';
+const DTM_BUILD_VERSION='296.5';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 
