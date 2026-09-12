@@ -1814,14 +1814,14 @@ function renderMapFilters(){
     const mode = btn.dataset.mapFilter;
     const count = Number(mapVisibleCounts[mode] || 0);
     btn.classList.toggle('active', mode===mapMode);
-    btn.classList.toggle('hidden', count < 1);
-    btn.textContent = `전체 업소 ${count} · 전체보기`;
+    btn.classList.remove('hidden');
+    btn.textContent = mapModeLabel(mode);
   });
 }
 
 function renderMapCategorySummary(list=[]){
   if(!mapCategoryRow) return;
-  const rows = Array.isArray(list) ? list : [];
+  const rows = businesses.filter(b=>b.list_visible !== false && b.is_active !== false);
   const counts = rows.reduce((acc,b)=>{
     const label = getMainCategoryLabel(b.category);
     if(label) acc[label] = (acc[label] || 0) + 1;
@@ -1847,8 +1847,6 @@ function updateMapFilterAvailability(baseList){
     if(label) acc[label] = (acc[label] || 0) + 1;
     return acc;
   },{});
-  if(mapCategory && !mapVisibleCategoryCounts[mapCategory]) mapCategory = '';
-  mapMode = 'business';
   renderMapFilters();
 }
 function setMapBottomStatus(message=''){
@@ -3075,6 +3073,8 @@ function v294RequestHomeLocation(){
     const lat=Number(pos?.coords?.latitude), lng=Number(pos?.coords?.longitude);
     if(!Number.isFinite(lat)||!Number.isFinite(lng)) return;
     currentLocationPosition={lat,lng};
+    if(mapReady) redrawMapMarkers();
+    v296RenderNearby();
     if(typeof renderHomeBusinessTabs==='function') renderHomeBusinessTabs();
     console.info('[V294 home location] nearby ordering enabled');
   },()=>{
@@ -3091,7 +3091,7 @@ function mapBottomItemHTML(b){
 
   const meta = [getBusinessDisplayCategory(b)];
   if (miles != null && Number.isFinite(miles)) {
-    meta.push(`${miles.toFixed(1)}mi`);
+    meta.push(`${miles.toFixed(1)} mi`);
   }
 
   return `
@@ -3099,7 +3099,7 @@ function mapBottomItemHTML(b){
       ${businessImageHTML(b,'map-bottom-thumb',b.name)}
       <span class="map-bottom-copy">
         <strong>${esc(b.name)}</strong>
-        <span>${esc(meta.join(' · '))}</span>
+        <span>${esc(meta.join(' · '))}</span><span>${esc(b.address || '')}</span>
         ${mapBusinessBadgesHTML(b)}
       </span>
     </button>
@@ -3108,7 +3108,7 @@ function mapBottomItemHTML(b){
 
 function renderMapBottomList(list, categorySummaryRows = null){
   if(!mapBottomList) return;
-  const rows = list || [];
+  const rows = v296NearbyBusinesses();
   const summaryRows = Array.isArray(categorySummaryRows) ? categorySummaryRows : rows;
   selectedMapBusinessId = '';
   mapBusinessPreview?.classList.add('hidden');
@@ -3116,11 +3116,131 @@ function renderMapBottomList(list, categorySummaryRows = null){
   mapBottomList.innerHTML = '';
   mapBottomTitle?.parentElement?.classList.add('hidden');
   setMapBottomStatus('');
-  mapBottomPanel?.classList.remove('hidden','collapsed','preview-open');
-  mapBottomPanel?.classList.add('counts-only');
+  mapBottomPanel?.classList.remove('collapsed','preview-open','counts-only');
+  mapBottomPanel?.classList.add('hidden');
   window.__mapCurrentRows = rows;
   window.__mapCategorySummaryRows = summaryRows;
   renderMapCategorySummary(summaryRows);
+  v296RenderNearby();
+}
+
+// V296: the GPS origin is shared by pins, distances and the nearby sheet.
+function v296NearbyBusinesses(){
+  mapRadius = '7';
+  const origin = v293DistanceOrigin();
+  if(!origin) return [];
+  return getFilteredMapBusinesses().filter(b=>b.list_visible !== false &&
+    haversineMiles(origin.lat, origin.lng, Number(b.lat), Number(b.lng)) <= 7
+  ).sort((a,b)=>
+    haversineMiles(origin.lat, origin.lng, Number(a.lat), Number(a.lng)) -
+    haversineMiles(origin.lat, origin.lng, Number(b.lat), Number(b.lng)));
+}
+function v296RenderNearby(){
+  const rows = v296NearbyBusinesses();
+  const origin = v293DistanceOrigin();
+  v296EnsureNearbyUI();
+  const count = $('#mapNearbyCount');
+  if(count) count.textContent = origin ? String(rows.length) : '—';
+  const list = $('#nearbyBusinessesList');
+  if(list) list.innerHTML = !origin
+    ? '<p class="map-bottom-empty">주변 업소를 보려면 위치 권한을 허용해 주세요.</p>'
+    : rows.length ? rows.map(mapBottomItemHTML).join('')
+    : '<p class="map-bottom-empty">현재 위치에서 7마일 이내에 해당 업소가 없습니다.</p>';
+}
+function v296CloseNearby(){
+  const overlay = $('#nearbyBusinessesOverlay');
+  const wasOpen = overlay && !overlay.hidden;
+  if(overlay){ overlay.hidden = true; overlay.classList.add('hidden'); }
+  document.body.classList.remove('nearby-businesses-open');
+  $('#mapNearbyBusinessesBtn')?.setAttribute('aria-expanded', 'false');
+  if(wasOpen) $('#mapNearbyBusinessesBtn')?.focus({preventScroll:true});
+}
+function v296RequestNearbyLocation(centerMap = false){
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const lat = Number(pos.coords.latitude), lng = Number(pos.coords.longitude);
+    if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    currentLocationPosition = {lat,lng};
+    mapRadius = '7';
+    if(mapReady){
+      if(window.__v296ApplyNearbyLocation) window.__v296ApplyNearbyLocation(currentLocationPosition, centerMap);
+      else redrawMapMarkers();
+    }
+    v296RenderNearby();
+  }, ()=>v296RenderNearby(), {enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+}
+function v296EnsureNearbyUI(){
+  // Create independently of the HTML version and any hidden map panels.
+  if(!document.body) return;
+  $('#mapNearbyButton')?.remove();
+  $('#mapNearbyDialog')?.remove();
+  let button = $('#mapNearbyBusinessesBtn');
+  if(!button){
+    button = document.createElement('button');
+    button.id = 'mapNearbyBusinessesBtn';
+    button.className = 'map-nearby-businesses-btn';
+    button.type = 'button';
+    button.hidden = true;
+    button.setAttribute('aria-haspopup','dialog');
+    button.setAttribute('aria-controls','nearbyBusinessesOverlay');
+    button.setAttribute('aria-expanded','false');
+    button.innerHTML = '📍 주변 업소 <span id="mapNearbyCount" aria-live="polite">—</span>';
+  }
+  if(button.parentElement !== document.body) document.body.appendChild(button);
+  let overlay = $('#nearbyBusinessesOverlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'nearbyBusinessesOverlay';
+    overlay.className = 'nearby-businesses-overlay hidden';
+    overlay.hidden = true;
+    overlay.setAttribute('role','dialog');
+    overlay.setAttribute('aria-modal','true');
+    overlay.setAttribute('aria-labelledby','nearbyBusinessesTitle');
+    overlay.setAttribute('aria-describedby','nearbyBusinessesSubtitle');
+    overlay.innerHTML = `<div class="nearby-businesses-sheet">
+      <div class="nearby-businesses-header"><div>
+        <strong id="nearbyBusinessesTitle">주변 업소</strong>
+        <small id="nearbyBusinessesSubtitle">현재 위치에서 7마일 이내 · 가까운 순</small>
+      </div><button type="button" id="nearbyBusinessesClose" aria-label="주변 업소 닫기">×</button></div>
+      <div id="nearbyBusinessesList"></div>
+    </div>`;
+  }
+  if(overlay.parentElement !== document.body) document.body.appendChild(overlay);
+  if(button.dataset.nearbyBound) return;
+  button.dataset.nearbyBound = 'true';
+  button.addEventListener('click', ()=>{
+    v296RenderNearby();
+    overlay.hidden = false;
+    overlay.classList.remove('hidden');
+    document.body.classList.add('nearby-businesses-open');
+    button.setAttribute('aria-expanded','true');
+    $('#nearbyBusinessesClose').focus({preventScroll:true});
+    if(!v293DistanceOrigin()) v296RequestNearbyLocation();
+  });
+  $('#nearbyBusinessesClose').addEventListener('click', v296CloseNearby);
+  overlay.addEventListener('click', e=>{
+    if(e.target === overlay) v296CloseNearby();
+  });
+  overlay.addEventListener('keydown', e=>{
+    if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); v296CloseNearby(); }
+    if(e.key === 'Tab'){
+      const items = [...overlay.querySelectorAll('button:not([disabled]), a[href]')];
+      const first = items[0], last = items[items.length - 1];
+      if(e.shiftKey && document.activeElement === first){e.preventDefault();last?.focus();}
+      else if(!e.shiftKey && document.activeElement === last){e.preventDefault();first?.focus();}
+    }
+  });
+  $('#nearbyBusinessesList').addEventListener('click', e=>{
+    const item = e.target.closest('[data-map-biz]');
+    if(!item || !map) return;
+    const biz = v296NearbyBusinesses().find(b=>String(b.id)===item.dataset.mapBiz);
+    if(!biz) return;
+    v296CloseNearby();
+    map.setZoom(Math.max(map.getZoom() || 12, 14));
+    showMapBusinessPreview(biz);
+    panMapAboveBottomPanel(Number(biz.lat), Number(biz.lng));
+    if(mapInfoWindow) mapInfoWindow.close();
+  });
 }
 function mapBusinessPreviewHTML(b){
   const origin = v293DistanceOrigin();
@@ -7456,6 +7576,8 @@ function ensureMarkerClusterer(cb){
 
 function getFilteredMapBusinesses(){
   let list = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
+  if(mapMode==='coupon') list = list.filter(b=>mapBusinessBadgeKinds(b).includes('coupon'));
+  if(mapMode==='event') list = list.filter(b=>mapBusinessBadgeKinds(b).includes('event'));
   if(mapCategory){
     list = list.filter(b=>getMainCategoryLabel(b.category)===mapCategory);
   }
@@ -7575,7 +7697,7 @@ function fitMapToCurrentResultRows(){
   mapBusinessPreview?.classList.add('hidden');
   selectedMapBusinessId = '';
   mapBottomPanel?.classList.remove('preview-open');
-  mapBottomPanel?.classList.add('counts-only');
+  mapBottomPanel?.classList.add('hidden');
   if(mapInfoWindow) mapInfoWindow.close();
   if(valid.length === 1){
     const b = valid[0];
@@ -7605,36 +7727,15 @@ function panMapAboveBottomPanel(lat, lng){
 
 function redrawMapMarkers(){
   if(!map || !window.google?.maps) return;
+  const previewId = selectedMapBusinessId;
   mapStatusSignature=mapBusinessStatusSignature();
   if(markerCluster){ markerCluster.setMap(null); markerCluster = null; }
   markers.forEach(m=>m.setMap(null));
   markers = [];
-  const focus = currentCenter || getRegionCenter(currentRegion);
-  const radiusMiles = String(mapRadius)==='all' ? null : Number(mapRadius || radiusByZoom(map?.getZoom?.() || 12));
-  // Category totals use all loaded, public businesses that can appear on the map.
-  // Search, selected category, GPS radius and zoom only affect map/list results.
-  const categorySummaryList = businesses.filter(b=>v292ValidBusinessCoords(b.lat, b.lng));
-  let baseList = categorySummaryList;
-  if(mapSearchQuery) baseList = baseList.filter(b=>queryMatches(mapSearchQuery, [b.name, b.name_en, b.category, b.category_main, b.category_sub, b.subcategory, b.search_keywords, b.address, b.region, getMainCategoryLabel(b.category)]));
-  // Bottom counters are totals for the explicit filters, never proximity
-  // counts. Radius remains limited to the nearby list/distance experience.
-  updateMapFilterAvailability(baseList);
-
-  const list = getFilteredMapBusinesses();
-  const filtered = !radiusMiles ? list : list.filter(b=>{
-    const miles = haversineMiles(focus.lat, focus.lng, Number(b.lat), Number(b.lng));
-    return miles <= radiusMiles;
-  });
-
-  // 지도에는 선택한 분류의 전체 업소 핀을 표시한다.
-  // 반경은 하단의 “주변 업소” 목록을 정렬·제한하는 용도로만 사용한다.
-  const finalList = list.filter(b =>
-    v292ValidBusinessCoords(b.lat, b.lng)
-  );
+  mapRadius = '7';
+  const finalList = v296NearbyBusinesses();
+  updateMapFilterAvailability(finalList);
   window.__mapAllFilteredRows = finalList;
-  mapVisibleCounts[mapMode] = finalList.length;
-  renderMapFilters();
-  const nearbyList = filtered.length ? filtered : (mapMode==='event' ? [] : finalList.slice(0,60));
 
   finalList.forEach(b=>{
     const lat = Number(b.lat); const lng = Number(b.lng);
@@ -7656,18 +7757,10 @@ function redrawMapMarkers(){
   if(mapSearchQuery && finalList.length){
     focusMapOnBusinesses(finalList);
   }
-  const sortedFinalList = sortBusinessesByDistance(nearbyList);
-  renderMapBottomList(sortedFinalList, categorySummaryList);
+  renderMapBottomList(finalList);
+  const preview = finalList.find(b=>String(b.id)===previewId);
+  if(preview) showMapBusinessPreview(preview);
   if(mapNotice) mapNotice.classList.add('hidden');
-  if(mapSearchQuery && finalList.length){
-    setMapBottomStatus(`검색 결과 ${finalList.length}곳`);
-  } else if(!finalList.length){
-    setMapBottomStatus(mapSearchQuery ? '검색 결과가 없습니다.' : `현재 지도에 표시할 ${mapModeLabel(mapMode)}가 없습니다.`);
-  } else if(!filtered.length && radiusMiles){
-    setMapBottomStatus(`현재 반경 안에는 ${mapModeLabel(mapMode)}가 없습니다. 지도에는 전체 ${finalList.length}곳을 표시합니다.`);
-  } else {
-    setMapBottomStatus('');
-  }
 }
 // Refresh badges when time or already-loaded data changes, without continually
 // resetting the map's center, zoom, or selected business preview.
@@ -7683,22 +7776,9 @@ setInterval(()=>{
 },30000);
 function setMapAreaButtonState(state = 'active') {
   if (!mapSearchAreaBtn) return;
-
-  mapSearchAreaBtn.classList.remove('hidden');
-  mapSearchAreaBtn.removeAttribute('hidden');
-
-  if (state === 'search') {
-    mapSearchAreaBtn.disabled = false;
-    mapSearchAreaBtn.textContent = '이 지역 보기';
-  } else if (state === 'location') {
-    mapSearchAreaBtn.disabled = false;
-    mapSearchAreaBtn.textContent = '이 지역 보기';
-    mapSearchAreaBtn.classList.add('hidden');
-    mapSearchAreaBtn.setAttribute('hidden','');
-  } else {
-    mapSearchAreaBtn.disabled = false;
-    mapSearchAreaBtn.textContent = '이 지역 보기';
-  }
+  mapSearchAreaBtn.disabled = true;
+  mapSearchAreaBtn.hidden = true;
+  mapSearchAreaBtn.style.setProperty('display', 'none', 'important');
 }
 function initGoogleMap(){
   if(mapReady) return;
@@ -7712,6 +7792,20 @@ function initGoogleMap(){
     mapReady = true;
     mapInfoWindow = new google.maps.InfoWindow();
     currentCenter = getRegionCenter(currentRegion);
+    // Keep access to map-local marker/tracking helpers inside their closure.
+    window.__v296ApplyNearbyLocation = (position, centerMap = false) => {
+      showCurrentLocationMarker(position);
+      startCurrentLocationTracking();
+      if(centerMap){
+        currentCenter = {...position};
+        persistRegion(detectRegionFromCoords(position.lat, position.lng));
+        suppressMapUiChange = true;
+        map.setCenter(position);
+        map.setZoom(milesToZoom('7'));
+        setTimeout(()=>{ suppressMapUiChange = false; setMapUiState('current'); },500);
+      }
+      redrawMapMarkers();
+    };
 function showCurrentLocationMarker(position) {
   if (!map || !window.google?.maps || !position) return;
 
@@ -7921,6 +8015,8 @@ function ensureCurrentLocationBubble() {
 }
 
 function setMapUiState(state) {
+  if(state === 'dirty') state = 'current';
+  mapRadius = '7';
   const bubble = ensureCurrentLocationBubble();
 
   if (state === 'current') {
@@ -7995,13 +8091,7 @@ map.addListener('dragend', () => {
 map.addListener('zoom_changed', () => {
   if (suppressMapUiChange) return;
 
-  // V298: 줌 단계가 바뀌면 현재 지도 중심을 유지한 채 검색 반경과
-  // 하단 주변 업소 목록/개수를 즉시 다시 계산합니다.
-  const nextRadius = radiusByZoom(map.getZoom() || 12);
-  if (mapRadius !== nextRadius) {
-    mapRadius = nextRadius;
-    redrawMapMarkers();
-  }
+  mapRadius = '7';
 
   activateMapSearchAreaButton();
 });
@@ -8018,6 +8108,7 @@ function startCurrentLocationTracking() {
         lng: pos.coords.longitude
       };
       showCurrentLocationMarker(nextPosition);
+      redrawMapMarkers();
       const bubble = ensureCurrentLocationBubble();
       if (bubble) {
         bubble.setPosition(nextPosition);
@@ -8361,7 +8452,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   mapFilterRow?.addEventListener('click', e=>{
     const btn=e.target.closest('.map-filter-chip');
     if(!btn || btn.classList.contains('hidden')) return;
-    mapMode = 'business';
+    mapMode = btn.dataset.mapFilter || 'business';
     selectedMapBusinessId='';
     renderMapFilters();
     if(mapReady){
@@ -8393,26 +8484,7 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
       setTimeout(fitMapToCurrentResultRows, 80);
     }
   });
-mapSearchAreaBtn?.addEventListener('click', () => {
-  if (!mapReady || !map) return;
-
-  const center = map.getCenter();
-
-  if (center) {
-    currentCenter = {
-      lat: center.lat(),
-      lng: center.lng()
-    };
-  }
-
-  mapRadius = radiusByZoom(map.getZoom() || 12);
-  redrawMapMarkers();
-
-  mapDirty = false;
-
-  // 클릭 후에도 절대 숨기지 않음
-  setMapAreaButtonState('location');
-});
+setMapAreaButtonState();
   document.getElementById('mapBenefitsClose')?.addEventListener('click',()=>document.getElementById('mapBenefitsDialog').close());
   document.getElementById('mapBenefitsDialog')?.addEventListener('click',e=>{
     const dialog=e.currentTarget;
@@ -8422,6 +8494,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
     dialog.close();selectedBizId=id;currentDetailVideoOverride='';lastBasePage='map';
     v230PrepareBusinessDetail(id,'map','business_click');renderDetail(id);showPage('business-detail');
   });
+  v296EnsureNearbyUI();
   mapLocateBtn?.addEventListener('click', ()=>{
     mapReturnToLocation?.();
   });
@@ -8438,7 +8511,7 @@ mapSearchAreaBtn?.addEventListener('click', () => {
       mapBusinessPreview?.classList.add('hidden');
       mapBottomTitle?.parentElement?.classList.add('hidden');
       mapBottomPanel?.classList.remove('preview-open');
-      mapBottomPanel?.classList.add('counts-only');
+      mapBottomPanel?.classList.add('hidden');
       return;
     }
   });
@@ -8655,8 +8728,12 @@ init();
 
 
 function setMapPageMode(isMap) {
+  if(!isMap) v296CloseNearby();
   document.body.classList.toggle('map-page-open', !!isMap);
   document.documentElement.classList.toggle('map-page-open', !!isMap);
+  v296EnsureNearbyUI();
+  $('#mapNearbyBusinessesBtn').hidden = !isMap;
+  if(isMap) v296RenderNearby();
 
   setTimeout(() => {
     window.dispatchEvent(new Event('resize'));
@@ -8745,8 +8822,7 @@ window.openBusinessMapCard = function(id){
     if (typeof renderMapBottomList === 'function') {
       renderMapBottomList([biz]);
     }
-    mapBottomPanel?.classList.remove('hidden');
-    mapBottomPanel?.classList.remove('collapsed');
+    showMapBusinessPreview(biz);
   }, 320);
 
   return false;
@@ -11058,7 +11134,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='263';
+const DTM_BUILD_VERSION='296.1';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 
@@ -11444,3 +11520,5 @@ if(dtmIsStandalone()) setTimeout(dtmCheckForFreshBuild,500);
 console.info('[DalTownMap App] V291 Google Maps attribution + live rating refresh loaded');
 
 console.info('[DalTownMap App] V291 text-only market sale public UI loaded');
+
+console.info('[DalTownMap App] V296.1 GPS nearby sheet deployed');

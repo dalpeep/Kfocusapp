@@ -105,7 +105,7 @@
 
   <link rel="manifest" href="/manifest.json?v=263">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/styles.css?v=272" />
+  <link rel="stylesheet" href="/styles.css?v=296.1-map" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -135,7 +135,7 @@
 </script>
 </script>
 
-  <meta name="daltownmap-version" content="V287">
+  <meta name="daltownmap-version" content="296.1">
 
 <style>
 #p130MarketHost{display:block;width:100%;margin:12px 0}
@@ -421,14 +421,16 @@ onclick="showPage('contact');closeMenu();">
               <button id="mapLocateBtn" type="button" aria-label="현재 위치로 복귀">현재 위치</button>
               <button class="map-ghost-btn hidden map-inline-action" id="mapSearchAreaBtn">이 지역 보기</button>
             </div>
+            <div class="map-bottom-tabs" id="mapFilterRow" aria-label="지도 콘텐츠 선택">
+              <button class="map-filter-chip active" data-map-filter="business">업소</button>
+              <button class="map-filter-chip" data-map-filter="coupon">쿠폰</button>
+              <button class="map-filter-chip" data-map-filter="event">행사</button>
+            </div>
             <div class="map-category-row hidden" id="mapCategoryRow"></div>
           </div>
           <div id="mapNotice" class="map-notice hidden"></div>
           <div id="googleMap" class="google-map fullscreen-map"></div>
-          <div class="map-bottom-panel" id="mapBottomPanel">
-            <div class="map-bottom-tabs" id="mapFilterRow" aria-label="지도 전체 범위 보기">
-              <button class="map-filter-chip active" data-map-filter="business">전체 업소 · 전체보기</button>
-            </div>
+          <div class="map-bottom-panel hidden" id="mapBottomPanel">
             <div id="mapBottomStatus" class="map-bottom-status hidden" role="status" aria-live="polite"></div>
             <div class="map-bottom-head"><strong id="mapBottomTitle">주변 업소</strong><button class="map-bottom-close" id="mapBottomClose" type="button" aria-label="지도 정보 닫기">✕</button></div>
             <div class="map-bottom-list" id="mapBottomList"></div>
@@ -666,7 +668,7 @@ onclick="showPage('contact');closeMenu();">
 </script>
   
 <script src="/assets/home-selection.js?v=313"></script>
-<script src="/app-v99.js?v=313"></script>
+<script src="/app-v99.js?v=314-map296.1"></script>
 <script src="/main-banners.js?v=263"></script>
 
 <div id="videoModal" class="video-modal hidden">

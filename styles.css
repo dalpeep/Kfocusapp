@@ -5262,3 +5262,31 @@ body.map-page-open #page-map #mapCategoryRow{overflow:visible!important}
 .map-benefit-type{display:inline-block;flex-shrink:0;padding:1px 5px;border-radius:5px;font-size:10px;font-weight:700;line-height:18px}
 .map-benefits-empty{padding:24px;text-align:center;font-size:14px;color:#63768c}
 @media(max-width:480px){.map-benefits-dialog{width:100%;max-width:100%;max-height:78dvh;margin:auto 0 0;border-radius:22px 22px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}.map-benefits-list{max-height:calc(78dvh - 100px - env(safe-area-inset-bottom))}}
+
+/* V296: GPS-only nearby businesses; preserve the existing preview panel. */
+#page-map #mapSearchAreaBtn{display:none!important;pointer-events:none!important}
+#page-map #mapBottomPanel:not(.preview-open){display:none!important}
+#page-map #mapFilterRow{margin:0;padding:0;max-width:300px}
+/* Body-level controls cannot be clipped by the map's overflow or preview state. */
+#mapNearbyBusinessesBtn{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom));z-index:9999;border:1px solid #dce5f2;border-radius:999px;background:#173766;color:#fff;box-shadow:0 6px 24px #17376640;padding:14px 22px;font-size:15px;font-weight:700;white-space:nowrap;min-height:48px;cursor:pointer}
+#mapNearbyBusinessesBtn[hidden],body:not(.map-page-open) #mapNearbyBusinessesBtn{display:none!important}
+body.map-page-open #mapNearbyBusinessesBtn:not([hidden]){display:block!important}
+body.map-page-open #page-map #mapBottomPanel.preview-open{bottom:calc(138px + env(safe-area-inset-bottom))!important;max-height:40dvh!important;overflow-y:auto!important}
+#nearbyBusinessesOverlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,25,48,.45);overscroll-behavior:contain}
+#nearbyBusinessesOverlay.hidden,#nearbyBusinessesOverlay[hidden]{display:none!important}
+.nearby-businesses-sheet{display:flex;flex-direction:column;width:min(560px,100%);max-height:80vh;max-height:80dvh;border-radius:22px;background:#fff;color:#18335f;box-shadow:0 20px 70px #10244555;overflow:hidden}
+.nearby-businesses-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px;border-bottom:1px solid #e6edf5;flex-shrink:0}
+.nearby-businesses-header strong{display:block;font-size:20px;margin:0 0 6px}
+.nearby-businesses-header small{display:block;font-size:13px;color:#72819b}
+#nearbyBusinessesClose{min-width:44px;min-height:44px;border:0;border-radius:50%;background:#f0f4fa;color:#18335f;font-size:24px;cursor:pointer}
+#nearbyBusinessesList{display:flex;flex-direction:column;gap:10px;overflow-y:auto;min-height:0;padding:16px 16px calc(20px + env(safe-area-inset-bottom));overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+#nearbyBusinessesList .map-bottom-item{flex-shrink:0;width:100%;min-height:80px;cursor:pointer}
+#nearbyBusinessesList .map-bottom-copy span{white-space:normal;overflow-wrap:anywhere}
+body.nearby-businesses-open{overflow:hidden!important}
+@media(max-width:600px){
+  #nearbyBusinessesOverlay{align-items:flex-end;padding:0}
+  .nearby-businesses-sheet{width:100%;border-radius:22px 22px 0 0;max-height:82vh;max-height:82dvh;animation:map-nearby-rise .2s ease-out}
+  .nearby-businesses-header{padding:16px}
+}
+@keyframes map-nearby-rise{from{transform:translateY(40px);opacity:.5}to{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){.nearby-businesses-sheet{animation:none}}

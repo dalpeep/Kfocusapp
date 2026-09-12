@@ -11,7 +11,7 @@ function runtime(data={}){
   class FixedDate extends Date{constructor(...args){super(...(args.length?args:[NOW]));}static now(){return NOW;}}
   class Marker{constructor(options){Object.assign(this,{options,events:{}});recorded.markers.push(this);}addListener(name,fn){this.events[name]=fn;}setMap(map){this.map=map;}}
   const google={maps:{Marker,Size:class{constructor(width,height){Object.assign(this,{width,height});}},Point:class{constructor(x,y){Object.assign(this,{x,y});}}}};
-  const ctx=vm.createContext({Date:FixedDate,Intl,console,google,document:{hidden:false,getElementById:()=>null,querySelectorAll:()=>[]},mapLocateBtn:null,currentLocationPosition:null,mapBottomList:null,currentRegion:'dallas',currentPage:'map',mapReady:true,
+  const ctx=vm.createContext({Date:FixedDate,Intl,console,google,document:{hidden:false,getElementById:()=>null,querySelectorAll:()=>[]},mapLocateBtn:null,currentLocationPosition:{lat:32.95,lng:-96.85},mapBottomList:null,currentRegion:'dallas',currentPage:'map',mapReady:true,
     coupons:[],businesses:[],mainBanners:[],slideRows:[],dalpicks:[],boardPosts:[],
     mapMode:'business',mapCategory:'',mapSearchQuery:'',mapRadius:'7',currentCenter:{lat:32.95,lng:-96.85},map:{getZoom:()=>12},
     markers:[],markerCluster:null,selectedMapBusinessId:'',mapVisibleCounts:{business:0,coupon:0,event:0},mapNotice:null,mapInfoWindow:null,
@@ -23,6 +23,8 @@ function runtime(data={}){
     panMapAboveBottomPanel:()=>{},showMapBusinessPreview:b=>recorded.preview=b,focusMapOnBusinesses:()=>{},...data});
   vm.runInContext(section('function v249CouponEffectiveEnd(c){','function v249CouponTimeState(c){')
     +section('function mapDallasDateKey(','function getMainCategoryLabel(')
+    +section('function v293DistanceOrigin(){','// V294:')
+    +section('function v296NearbyBusinesses(){','function v296RenderNearby(){')
     +section('function getFilteredMapBusinesses(){','function createInfoWindowContent(')
     +section('function haversineMiles(','function sortBusinessesByDistance(')
     +section('function getMarkerIconForBusiness(','function panMapAboveBottomPanel(')
@@ -79,20 +81,20 @@ test('benefit businesses retain their links while map markers use the standard i
   assert.equal(ctx.getMarkerIconForBusiness(biz()),ctx.getMarkerIconForBusiness(biz('normal')));
 });
 
-test('redraw preserves clustering, radius list, all-result markers, click preview and filters',()=>{
+test('redraw preserves clustering, GPS radius list and markers, click preview and filters',()=>{
   const rows=Array.from({length:14},(_,i)=>biz(String(i)));rows[13].lat=33.95;
   const {ctx,recorded}=runtime({businesses:rows,mainBanners:[active({business_id:'0'})],coupons:[active({business_id:'1',business_ids:['1','2']})],boardPosts:[active({business_id:'3',type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
-  ctx.redrawMapMarkers();assert.equal(recorded.clusters.length,1);assert.equal(ctx.markers.length,14);assert.equal(recorded.nearby.length,13);
-  assert.equal(ctx.window.__mapAllFilteredRows.length,14);
+  ctx.redrawMapMarkers();assert.equal(recorded.clusters.length,1);assert.equal(ctx.markers.length,13);assert.equal(recorded.nearby.length,13);
+  assert.equal(ctx.window.__mapAllFilteredRows.length,13);
   ctx.markers[0].events.click();assert.equal(recorded.preview.id,'0');
-  ctx.mapMode='coupon';assert.equal(ctx.getFilteredMapBusinesses().length,14);
-  ctx.mapMode='event';assert.equal(ctx.getFilteredMapBusinesses().length,14);
+  ctx.mapMode='coupon';assert.equal(ctx.getFilteredMapBusinesses().length,2);
+  ctx.mapMode='event';assert.equal(ctx.getFilteredMapBusinesses().length,1);
   ctx.mapMode='business';ctx.mapCategory='병원';assert.equal(ctx.getFilteredMapBusinesses().length,0);
   ctx.mapCategory='';ctx.mapSearchQuery='13';assert.deepEqual(plain(ctx.getFilteredMapBusinesses().map(x=>x.id)),['13']);
 });
 test('map-only refresh detects newly active rows outside a filtered marker set',()=>{
   const {ctx,recorded}=runtime({businesses:[biz('a'),biz('b')],coupons:[active({})],mapMode:'coupon'});
-  ctx.redrawMapMarkers();assert.equal(ctx.markers.length,2);
+  ctx.redrawMapMarkers();assert.equal(ctx.markers.length,1);
   ctx.coupons.push(active({business_id:'b'}));recorded.timers[0]();assert.equal(ctx.markers.length,2);
 });
 module.exports={runtime};
@@ -109,9 +111,9 @@ test('undated consulate registration notice is not a current event; explicit liv
   row.business_id='a';row.event_end_at='2026-09-09';assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
 });
 
-test('map offers one all-results action, with no separate event or coupon mode tabs',()=>{
+test('map retains business, coupon and event selectors without total-count UI',()=>{
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  assert.equal((html.match(/data-map-filter=/g)||[]).length,1);
+  assert.equal((html.match(/data-map-filter=/g)||[]).length,3);
   assert(html.includes('data-map-filter="business"'));
 });
 
@@ -152,11 +154,20 @@ test('removed radial UI cannot intercept category benefit clicks',()=>{
   assert(html.includes('id="mapBenefitsDialog"'));
 });
 
-test('category totals remain global across radius, category and search changes',()=>{
-  let summary=[];
-  const {ctx}=runtime({businesses:[{...biz('near'),category:'종교'}, {...biz('far'),category:'종교',lat:33.5}, {...biz('no-coordinates'),category:'종교',lat:null},biz('other')],renderMapBottomList:(_rows,categories)=>summary=categories});
+test('category totals include all public businesses independently of GPS, category and search',()=>{
+  const categoryRow={innerHTML:'',classList:{toggle(){}}};
+  const {ctx}=runtime({businesses:[{...biz('near'),category:'종교'}, {...biz('far'),category:'종교',lat:33.5}, {...biz('no-coordinates'),category:'종교',lat:null},biz('other')],mapCategoryRow:categoryRow,esc:String});
+  vm.runInContext(section('function renderMapCategorySummary(','function updateMapFilterAvailability('),ctx);
   for(const state of [{mapRadius:'7',mapCategory:'',mapSearchQuery:''},{mapRadius:'10',mapCategory:'종교',mapSearchQuery:''},{mapRadius:'3',mapCategory:'종교',mapSearchQuery:'near'}]){
-    Object.assign(ctx,state);ctx.redrawMapMarkers();
-    assert.deepEqual(Array.from(summary,b=>b.id),['near','far','other']);
+    Object.assign(ctx,state);ctx.renderMapCategorySummary([]);
+    assert.match(categoryRow.innerHTML,/종교 3/);
+    assert.match(categoryRow.innerHTML,/식당 1/);
   }
+});
+test('GPS-only nearby set stays fixed on pan/zoom and disappears without location',()=>{
+  const {ctx}=runtime({businesses:[biz('near'),{...biz('far'),lat:33.95}]});
+  ctx.currentCenter={lat:33.95,lng:-96.85};ctx.mapRadius='all';ctx.redrawMapMarkers();
+  assert.deepEqual(plain(ctx.window.__mapAllFilteredRows.map(b=>b.id)),['near']);
+  assert.equal(ctx.mapRadius,'7');
+  ctx.currentLocationPosition=null;ctx.redrawMapMarkers();assert.equal(ctx.markers.length,0);
 });
