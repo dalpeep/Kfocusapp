@@ -1855,12 +1855,13 @@ function getBusinessDisplayCategory(b={}){
 function mapModeLabel(mode){
   return mode === 'coupon' ? '쿠폰' : mode === 'event' ? '행사' : '업소';
 }
+const MAP_BENEFIT_ICONS={"event": "<svg aria-hidden='true' focusable='false' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2v3M16 2v3M3 9h18'/><rect x='3' y='4' width='18' height='17' rx='2'/><path d='m12 12 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 17.5l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z'/></svg>", "coupon": "<svg aria-hidden='true' focusable='false' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 0 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/><path d='M13 5v2M13 17v2M13 11v2'/></svg>", "promotion": "<svg aria-hidden='true' focusable='false' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='8' cy='21' r='1'/><circle cx='19' cy='21' r='1'/><path d='M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h7.78a2 2 0 0 0 1.95-1.57L20 7H5.12'/></svg>"};
 function renderMapFilters(){
   $$('.map-filter-chip').forEach(btn=>{
     const kind=btn.dataset.mapFilter;
     btn.classList.remove('hidden','active');
     btn.classList.add('map-benefit-tab');
-    btn.innerHTML=`<span class="map-benefit-icon ${kind}" aria-hidden="true"></span><span>${MAP_BENEFIT_LABELS[kind]}</span><span class="v245-shortcut-badge benefit-count">${mapBenefitBusinesses(kind).length}</span>`;
+    btn.innerHTML=`<span class="benefit-icon-wrap ${kind}" aria-hidden="true">${MAP_BENEFIT_ICONS[kind]}</span><span class="benefit-label">${MAP_BENEFIT_LABELS[kind]}</span><span class="v245-shortcut-badge benefit-count">${mapBenefitBusinesses(kind).length}</span>`;
     btn.setAttribute('aria-haspopup','dialog');
   });
 }
@@ -11155,7 +11156,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.6';
+const DTM_BUILD_VERSION='296.7';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 

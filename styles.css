@@ -5312,3 +5312,10 @@ body.nearby-businesses-open{overflow:hidden!important}
 .map-benefit-icon.coupon::before{background:var(--today-coupon-color)}
 .map-benefit-icon.promotion::before{background:var(--today-promotion-color)}
 #mapFilterRow .benefit-count{right:0;top:-5px;pointer-events:none;font-variant-numeric:tabular-nums}
+
+/* V296.7: explicit circle wrapper and inline home SVG, independent of count badges. */
+#mapFilterRow .benefit-icon-wrap{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px}
+#mapFilterRow .benefit-icon-wrap.event{background:#F1EAFE;color:var(--today-event-color)}
+#mapFilterRow .benefit-icon-wrap.coupon{background:#E8F9EF;color:var(--today-coupon-color)}
+#mapFilterRow .benefit-icon-wrap.promotion{background:#E8F1FF;color:var(--today-promotion-color)}
+#mapFilterRow .benefit-icon-wrap svg{display:block;width:16px;height:16px;stroke:currentColor;fill:none}
