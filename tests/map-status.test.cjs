@@ -131,7 +131,7 @@ test('GPS recenter callback retains initialization-scope helpers and restores zo
 
 test('category counters deduplicate shared benefit records, group business cards and combine kinds',()=>{
   const {ctx}=runtime({businesses:[biz('a'),biz('b'),{...biz('c'),category:'종교'}],
-    mainBanners:[active({id:'shared',title:'Shared promotion',business_ids:['a','b','c']})],
+    mainBanners:[active({id:'shared',title:'Shared promotion 20% off',business_ids:['a','b','c']})],
     coupons:[active({id:'coupon-1'}),active({id:'coupon-2'})],
     boardPosts:[active({id:'event-1',type:'notice',subtype:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
   const groups=ctx.mapCategoryBenefits();
@@ -176,7 +176,7 @@ test('GPS-only nearby set stays fixed on pan/zoom and disappears without locatio
 test('V296.2 menus deduplicate businesses, separate kinds and sort by GPS',()=>{
   const {ctx}=runtime({businesses:[biz('a'),{...biz('b'),lat:32.96}, {...biz('hidden'),list_visible:false}],
     coupons:[active({id:'c1',business_ids:['a','b','hidden'],discount_label:'20% OFF'}),active({id:'c2'})],
-    mainBanners:[active({id:'discount',title:'Promotion'})],
+    mainBanners:[active({id:'discount',title:'Promotion 20% OFF'})],
     boardPosts:[active({id:'event',type:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
   assert.deepEqual(plain(ctx.mapBenefitBusinesses('coupon').map(x=>x.business.id)),['a','b']);
   assert.equal(ctx.mapBenefitBusinesses('event').length,1);
@@ -193,11 +193,30 @@ test('V296.2 category badges are removed and category recenter uses GPS',()=>{
 });
 test('V296.2 benefit selection preserves radius pins and opens existing preview',()=>{
   const calls=[];
-  const {ctx}=runtime({businesses:[biz('a'),{...biz('far'),lat:33.95}],mainBanners:[active({id:'remote',business_id:'far'})],
+  const {ctx}=runtime({businesses:[biz('a'),{...biz('far'),lat:33.95}],mainBanners:[active({id:'remote',business_id:'far',title:'Save $25'})],
     mapSearchInput:{value:'query'},document:{getElementById:()=>({close:()=>calls.push('close')})},
     map:{getZoom:()=>12,setZoom:z=>calls.push(z)},panMapAboveBottomPanel:()=>calls.push('pan'),showMapBusinessPreview:b=>calls.push(b.id)});
   vm.runInContext("mapBenefitsCategory='promotion';",ctx);
   ctx.selectMapBenefitBusiness('far');
   assert.equal(ctx.markers.length,1);assert.equal(ctx.markers[0].options.position.lat,32.95);
   assert.deepEqual(calls,['close',14,'far','pan']);
+});
+
+test('V296.4 promotion flags, gifts and general campaigns are events, not discounts',()=>{
+  const {ctx}=runtime();
+  for(const row of [{title:'기도의 숲 프로젝트'},{title:'S4 구매 시 75” TV 증정!',description:'한정 이벤트!'},
+    {promo_enabled:true,paid_active:true,promo_text:'무료 등록 이벤트'}, {category:'promotion',title:'프로모션'},
+    {discount_percent:0},{discount_amount:-5},{title:'0% 할인'}])assert.equal(ctx.mapPromotionBenefitKind(row),'event');
+  for(const row of [{title:'20% OFF'},{promo_text:'10% 할인'},{description:'$25 off'},
+    {discount_percent:15},{discount_amount:10},{discount_type:'percent',discount_value:20}])assert.equal(ctx.mapPromotionBenefitKind(row),'promotion');
+});
+test('V296.4 live banner snapshot yields four distinct event businesses from two records',()=>{
+  const fixture=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures/map-v2964-benefits.json'),'utf8'));
+  const {ctx}=runtime({businesses:fixture.businesses,mainBanners:fixture.banners});
+  assert.equal(ctx.mapBenefitBusinesses('event').length,4);
+  assert.equal(ctx.mapBenefitBusinesses('coupon').length,0);
+  assert.equal(ctx.mapBenefitBusinesses('promotion').length,0);
+  assert.equal(ctx.mapActiveBenefitRecords().length,2);
+  ctx.mainBanners[0].is_active=false;assert.equal(ctx.mapBenefitBusinesses('event').length,3);
+  ctx.mainBanners[1].title='20% OFF';assert.equal(ctx.mapBenefitBusinesses('event').length,0);assert.equal(ctx.mapBenefitBusinesses('promotion').length,3);
 });

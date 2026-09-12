@@ -1730,6 +1730,17 @@ let mapStatusSignature='';
 let mapReturnToLocation=null;
 const MAP_BENEFIT_CATEGORIES=['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
 const MAP_BENEFIT_LABELS={event:'이벤트',coupon:'쿠폰',promotion:'할인'};
+// V296.4: promotion placement/paid exposure is not evidence of a price discount.
+// Gift campaigns and general linked benefit banners belong to events.
+function mapPromotionBenefitKind(row={}){
+  const positive=value=>value!==null && value!=='' && Number.isFinite(Number(value)) && Number(value)>0;
+  if(positive(row.discount_percent) || positive(row.discount_amount) ||
+    (['percent','percentage','amount','fixed'].includes(String(row.discount_type||'').toLowerCase()) && positive(row.discount_value)))return 'promotion';
+  const text=[row.discount_label,row.benefit,row.title,row.headline,row.description,row.summary,row.promo_text].filter(Boolean).join(' ');
+  const percent=/(?:[1-9]\d*(?:\.\d+)?)\s*%\s*(?:off\b|할인)|(?:할인|discount)\s*(?:[1-9]\d*(?:\.\d+)?)\s*%/i;
+  const amount=/(?:\$\s*[1-9][\d,.]*|[1-9][\d,.]*\s*(?:달러|원))\s*(?:off\b|할인)|(?:save|할인)\s*\$\s*[1-9][\d,.]*/i;
+  return percent.test(text)||amount.test(text)?'promotion':'event';
+}
 function mapActiveBenefitRecords(now=Date.now()){
   const records=new Map();
   const add=(source,kind,row)=>{
@@ -1739,14 +1750,14 @@ function mapActiveBenefitRecords(now=Date.now()){
     records.set(key,{key,kind,title:row.title||row.headline||row.promo_text||MAP_BENEFIT_LABELS[kind],businessIds:ids,benefit:row.discount_label||row.benefit||row.description||row.promo_text||''});
   };
   activeMapCoupons(now).forEach(row=>add('coupons','coupon',row));
-  (mainBanners||[]).filter(row=>mapContentActive(row,now)).forEach(row=>add('banners','promotion',row));
-  (slideRows||[]).filter(row=>row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now)).forEach(row=>add('slides','promotion',row));
+  (mainBanners||[]).filter(row=>mapContentActive(row,now)).forEach(row=>add('banners',mapPromotionBenefitKind(row),row));
+  (slideRows||[]).filter(row=>row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now)).forEach(row=>add('slides',mapPromotionBenefitKind(row),row));
   (boardPosts||[]).filter(row=>(row.type==='event'||(row.type==='notice'&&row.subtype==='event')) && mapEventActive(row,now)).forEach(row=>add('posts','event',row));
-  (dalpicks||[]).filter(row=>row.category==='event'?mapEventActive(row,now):row.category==='promotion'&&mapContentActive(row,now)).forEach(row=>add('dalpick',row.category,row));
+  (dalpicks||[]).filter(row=>row.category==='event'?mapEventActive(row,now):row.category==='promotion'&&mapContentActive(row,now)).forEach(row=>add('dalpick',row.category==='promotion'?mapPromotionBenefitKind(row):'event',row));
   businesses.filter(b=>b.is_active!==false && b.list_visible!==false).forEach(b=>{
     const promo=b.map_promotion||{};
     if(promo.enabled===true && mapPeriodActive(promo.start_at,promo.end_at,now))
-      add('business-promotion','promotion',{id:b.id,business_id:b.id,title:promo.title||promo.text||'프로모션',promo_text:promo.text});
+      add('business-promotion',mapPromotionBenefitKind({promo_text:promo.text}),{id:b.id,business_id:b.id,title:promo.title||promo.text||'프로모션',promo_text:promo.text});
   });
   return [...records.values()];
 }
@@ -11145,7 +11156,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.2';
+const DTM_BUILD_VERSION='296.4';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 
@@ -11535,3 +11546,5 @@ console.info('[DalTownMap App] V291 text-only market sale public UI loaded');
 console.info('[DalTownMap App] V296.1 GPS nearby sheet deployed');
 
 console.info('[DalTownMap App] V296.2 event coupon discount menus loaded');
+
+console.info('[DalTownMap App] V296.4 evidence-based discount classification loaded');

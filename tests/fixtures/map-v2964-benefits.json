@@ -1,0 +1,78 @@
+{
+  "businesses": [
+    {
+      "id": "d683e458-d0bf-4259-9d7d-ed2a3391684d",
+      "name": "세라젬 달라스",
+      "category": "서비스",
+      "region": "dallas",
+      "lat": 32.8956805,
+      "lng": -96.892897,
+      "list_visible": true,
+      "is_active": true
+    },
+    {
+      "id": "02e6a40b-c48e-4ec1-a9d0-5d712cd3e8c0",
+      "name": "세라젬 루이즈빌",
+      "category": "서비스",
+      "region": "dallas",
+      "lat": 33.0025859,
+      "lng": -96.9710058,
+      "list_visible": true,
+      "is_active": true
+    },
+    {
+      "id": "77763524-2aa3-4892-81e0-ce3a1c6ff3a9",
+      "name": "세라젬 캐롤톤",
+      "category": "서비스",
+      "region": "dallas",
+      "lat": 32.9855398,
+      "lng": -96.9108514,
+      "list_visible": true,
+      "is_active": true
+    },
+    {
+      "id": "d729101f-1946-4c94-9e02-bdad0352d0d0",
+      "name": "큰나무 교회",
+      "category": "종교",
+      "region": "dallas",
+      "lat": 32.9812868,
+      "lng": -96.8895583,
+      "list_visible": true,
+      "is_active": true
+    }
+  ],
+  "banners": [
+    {
+      "id": "8ece67b5-b43d-4909-8a5d-aeba6a1b671a",
+      "title": "큰나무 교회 · 기도의 숲 프로젝트",
+      "description": "도시 전체의 영적 회복\n달라스 부흥 위한 ‘기도의 숲’ 프로젝트 추진\n김귀보 목사 “한 교회 성장 넘어 도시 전체의 영적 회복 꿈꾼다”",
+      "business_id": "d729101f-1946-4c94-9e02-bdad0352d0d0",
+      "business_ids": [
+        "d729101f-1946-4c94-9e02-bdad0352d0d0"
+      ],
+      "region": "dallas",
+      "is_active": true,
+      "start_at": null,
+      "end_at": null,
+      "start_date": null,
+      "end_date": null
+    },
+    {
+      "id": "bb67b5ee-7fbb-409b-8d21-22f10600a1a3",
+      "title": "세라젬 S4 구매 시 75” TV 증정!",
+      "description": "한정 이벤트! 건강과 혜택 동시에 챙기세요.",
+      "business_id": "d683e458-d0bf-4259-9d7d-ed2a3391684d",
+      "business_ids": [
+        "d683e458-d0bf-4259-9d7d-ed2a3391684d",
+        "77763524-2aa3-4892-81e0-ce3a1c6ff3a9",
+        "02e6a40b-c48e-4ec1-a9d0-5d712cd3e8c0"
+      ],
+      "region": "dallas",
+      "is_active": true,
+      "start_at": null,
+      "end_at": null,
+      "start_date": null,
+      "end_date": null
+    }
+  ]
+}
