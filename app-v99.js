@@ -1848,7 +1848,8 @@ function renderMapFilters(){
   $$('.map-filter-chip').forEach(btn=>{
     const kind=btn.dataset.mapFilter;
     btn.classList.remove('hidden','active');
-    btn.textContent=`${MAP_BENEFIT_LABELS[kind]} ${mapBenefitBusinesses(kind).length}`;
+    btn.classList.add('map-benefit-tab');
+    btn.innerHTML=`<span>${MAP_BENEFIT_LABELS[kind]}</span><span class="benefit-count ${kind}">${mapBenefitBusinesses(kind).length}</span>`;
     btn.setAttribute('aria-haspopup','dialog');
   });
 }

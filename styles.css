@@ -4428,12 +4428,13 @@ body,
 .dalpick-dot{width:7px;height:7px;border:0;border-radius:999px;background:#cbd5e1;padding:0;transition:width .2s ease,background .2s ease}
 .dalpick-dot.active{width:25px;background:#5370f3}
 .dalpick-carousel.is-single .dalpick-viewport{overflow:visible}
-.dalpick-badge.badge-coupon{background:#fff1e7;color:#e96316}
+:root{--benefit-event-color:#df3b3b;--benefit-coupon-color:#e96316;--benefit-promotion-color:#9a6a00}
+.dalpick-badge.badge-coupon{background:#fff1e7;color:var(--benefit-coupon-color)}
 .dalpick-badge.badge-business_story{background:#eaf2ff;color:#1769e0}
 .dalpick-badge.badge-themed,.dalpick-badge.badge-recommended{background:#e9f8ef;color:#17834a}
 .dalpick-badge.badge-ai_pick{background:#f1eaff;color:#7545d6}
-.dalpick-badge.badge-event{background:#fff0f0;color:#df3b3b}
-.dalpick-badge.badge-promotion{background:#fff7dd;color:#9a6a00}
+.dalpick-badge.badge-event{background:#fff0f0;color:var(--benefit-event-color)}
+.dalpick-badge.badge-promotion{background:#fff7dd;color:var(--benefit-promotion-color)}
 @media(max-width:520px){.dalpick-slide .dalpick-card{min-height:102px}}
 
 
@@ -5293,3 +5294,10 @@ body.nearby-businesses-open{overflow:hidden!important}
 
 /* V296.2 unified benefit menus */
 .map-benefit-description{display:block;margin-top:4px;color:#61738a;font-size:12px;white-space:pre-line;overflow-wrap:anywhere}
+
+/* Share existing home benefit colors; only the count sits inside the circle. */
+#page-map #mapFilterRow .map-benefit-tab{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px;white-space:nowrap}
+.benefit-count{box-sizing:border-box;min-width:24px;height:24px;padding:0 6px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;font-size:12px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.benefit-count.event{background:var(--benefit-event-color)}
+.benefit-count.coupon{background:var(--benefit-coupon-color)}
+.benefit-count.promotion{background:var(--benefit-promotion-color)}
