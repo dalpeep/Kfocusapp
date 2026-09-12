@@ -114,7 +114,8 @@ test('undated consulate registration notice is not a current event; explicit liv
 test('map retains business, coupon and event selectors without total-count UI',()=>{
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   assert.equal((html.match(/data-map-filter=/g)||[]).length,3);
-  assert(html.includes('data-map-filter="business"'));
+  assert(html.includes('data-map-filter="event"'));
+  assert(html.includes('data-map-filter="promotion"'));
 });
 
 test('GPS recenter callback retains initialization-scope helpers and restores zoom12',()=>{
@@ -155,7 +156,7 @@ test('removed radial UI cannot intercept category benefit clicks',()=>{
 });
 
 test('category totals include all public businesses independently of GPS, category and search',()=>{
-  const categoryRow={innerHTML:'',classList:{toggle(){}}};
+  const categoryRow={innerHTML:'',classList:{toggle(){},remove(){}}};
   const {ctx}=runtime({businesses:[{...biz('near'),category:'종교'}, {...biz('far'),category:'종교',lat:33.5}, {...biz('no-coordinates'),category:'종교',lat:null},biz('other')],mapCategoryRow:categoryRow,esc:String});
   vm.runInContext(section('function renderMapCategorySummary(','function updateMapFilterAvailability('),ctx);
   for(const state of [{mapRadius:'7',mapCategory:'',mapSearchQuery:''},{mapRadius:'10',mapCategory:'종교',mapSearchQuery:''},{mapRadius:'3',mapCategory:'종교',mapSearchQuery:'near'}]){
@@ -170,4 +171,33 @@ test('GPS-only nearby set stays fixed on pan/zoom and disappears without locatio
   assert.deepEqual(plain(ctx.window.__mapAllFilteredRows.map(b=>b.id)),['near']);
   assert.equal(ctx.mapRadius,'7');
   ctx.currentLocationPosition=null;ctx.redrawMapMarkers();assert.equal(ctx.markers.length,0);
+});
+
+test('V296.2 menus deduplicate businesses, separate kinds and sort by GPS',()=>{
+  const {ctx}=runtime({businesses:[biz('a'),{...biz('b'),lat:32.96}, {...biz('hidden'),list_visible:false}],
+    coupons:[active({id:'c1',business_ids:['a','b','hidden'],discount_label:'20% OFF'}),active({id:'c2'})],
+    mainBanners:[active({id:'discount',title:'Promotion'})],
+    boardPosts:[active({id:'event',type:'event',start_at:'2026-09-01',end_at:'2026-09-30'})]});
+  assert.deepEqual(plain(ctx.mapBenefitBusinesses('coupon').map(x=>x.business.id)),['a','b']);
+  assert.equal(ctx.mapBenefitBusinesses('event').length,1);
+  assert.equal(ctx.mapBenefitBusinesses('promotion').length,1);
+  assert.equal(ctx.mapBenefitBusinesses('coupon')[0].benefits.get('coupons:c1').benefit,'20% OFF');
+  ctx.mapCategory='종교';ctx.mapSearchQuery='no match';ctx.currentCenter={lat:0,lng:0};
+  assert.equal(ctx.mapBenefitBusinesses('coupon').length,2);
+});
+test('V296.2 category badges are removed and category recenter uses GPS',()=>{
+  const summary=section('function renderMapCategorySummary(','function updateMapFilterAvailability(');
+  assert(!summary.includes('data-map-benefits'));
+  const handler=section("  mapCategoryRow?.addEventListener('click', e=>{",'setMapAreaButtonState();');
+  assert(handler.includes('map.setCenter(origin)'));assert(!handler.includes('fitMapToCurrentResultRows'));
+});
+test('V296.2 benefit selection preserves radius pins and opens existing preview',()=>{
+  const calls=[];
+  const {ctx}=runtime({businesses:[biz('a'),{...biz('far'),lat:33.95}],mainBanners:[active({id:'remote',business_id:'far'})],
+    mapSearchInput:{value:'query'},document:{getElementById:()=>({close:()=>calls.push('close')})},
+    map:{getZoom:()=>12,setZoom:z=>calls.push(z)},panMapAboveBottomPanel:()=>calls.push('pan'),showMapBusinessPreview:b=>calls.push(b.id)});
+  vm.runInContext("mapBenefitsCategory='promotion';",ctx);
+  ctx.selectMapBenefitBusiness('far');
+  assert.equal(ctx.markers.length,1);assert.equal(ctx.markers[0].options.position.lat,32.95);
+  assert.deepEqual(calls,['close',14,'far','pan']);
 });

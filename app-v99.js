@@ -1729,20 +1729,25 @@ const MAP_STATUS_BADGES={
 let mapStatusSignature='';
 let mapReturnToLocation=null;
 const MAP_BENEFIT_CATEGORIES=['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
-const MAP_BENEFIT_LABELS={event:'행사',coupon:'쿠폰',promotion:'이벤트'};
+const MAP_BENEFIT_LABELS={event:'이벤트',coupon:'쿠폰',promotion:'할인'};
 function mapActiveBenefitRecords(now=Date.now()){
   const records=new Map();
   const add=(source,kind,row)=>{
     const ids=mapLinkedBusinessIds(row);
     if(!row.id || !ids.length || row.is_published===false)return;
     const key=`${source}:${row.id}`;
-    records.set(key,{key,kind,title:row.title||row.headline||row.promo_text||MAP_BENEFIT_LABELS[kind],businessIds:ids});
+    records.set(key,{key,kind,title:row.title||row.headline||row.promo_text||MAP_BENEFIT_LABELS[kind],businessIds:ids,benefit:row.discount_label||row.benefit||row.description||row.promo_text||''});
   };
   activeMapCoupons(now).forEach(row=>add('coupons','coupon',row));
   (mainBanners||[]).filter(row=>mapContentActive(row,now)).forEach(row=>add('banners','promotion',row));
   (slideRows||[]).filter(row=>row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now)).forEach(row=>add('slides','promotion',row));
   (boardPosts||[]).filter(row=>(row.type==='event'||(row.type==='notice'&&row.subtype==='event')) && mapEventActive(row,now)).forEach(row=>add('posts','event',row));
   (dalpicks||[]).filter(row=>row.category==='event'?mapEventActive(row,now):row.category==='promotion'&&mapContentActive(row,now)).forEach(row=>add('dalpick',row.category,row));
+  businesses.filter(b=>b.is_active!==false && b.list_visible!==false).forEach(b=>{
+    const promo=b.map_promotion||{};
+    if(promo.enabled===true && mapPeriodActive(promo.start_at,promo.end_at,now))
+      add('business-promotion','promotion',{id:b.id,business_id:b.id,title:promo.title||promo.text||'프로모션',promo_text:promo.text});
+  });
   return [...records.values()];
 }
 function mapCategoryBenefits(now=Date.now()){
@@ -1759,20 +1764,50 @@ function mapCategoryBenefits(now=Date.now()){
 }
 function mapBenefitTone(group){return group.kinds.size>1?'mixed':([...group.kinds][0]||'');}
 let mapBenefitsCategory='';
+function mapBenefitBusinesses(kind){
+  const grouped=new Map();
+  const byId=new Map(businesses.filter(b=>b.is_active!==false && b.list_visible!==false && (!b.region||b.region===currentRegion)).map(b=>[String(b.id),b]));
+  mapActiveBenefitRecords().filter(r=>r.kind===kind).forEach(record=>record.businessIds.forEach(id=>{
+    const business=byId.get(id);if(!business)return;
+    if(!grouped.has(id))grouped.set(id,{business,benefits:new Map()});
+    grouped.get(id).benefits.set(record.key,record);
+  }));
+  const origin=v293DistanceOrigin();
+  const distance=b=>origin&&v292ValidBusinessCoords(b.lat,b.lng)?haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng)):Infinity;
+  return [...grouped.values()].sort((a,b)=>distance(a.business)-distance(b.business)||String(a.business.name).localeCompare(String(b.business.name),'ko'));
+}
 function renderMapBenefitsDialog(){
   const dialog=document.getElementById('mapBenefitsDialog');
   if(!dialog || !mapBenefitsCategory)return;
-  const group=mapCategoryBenefits()[mapBenefitsCategory];
-  document.getElementById('mapBenefitsTitle').textContent=`${mapBenefitsCategory} 혜택`;
-  document.getElementById('mapBenefitsSummary').textContent=`활성 혜택 ${group.records.size}건 · ${group.businesses.size}개 업소`;
-  document.getElementById('mapBenefitsList').innerHTML=[...group.businesses.values()].map(({business:b,benefits})=>`<button type="button" class="map-benefit-card" data-map-benefit-business="${esc(b.id)}">${businessImageHTML(b,'map-benefit-image',b.name)}<span class="map-benefit-copy"><strong>${esc(b.name)}</strong><span class="map-benefit-area">${esc(b.area||(b.region==='dallas'?'달라스 / DFW':b.region)||'')}</span><span class="map-benefit-offers">${[...benefits.values()].map(benefit=>`<span class="map-benefit-offer"><span class="map-benefit-type ${benefit.kind}">${MAP_BENEFIT_LABELS[benefit.kind]}</span><span>${esc(benefit.title)}</span></span>`).join('')}</span></span></button>`).join('') || '<p class="map-benefits-empty">현재 활성 혜택이 없습니다.</p>';
+  const kind=mapBenefitsCategory;
+  const rows=mapBenefitBusinesses(kind),origin=v293DistanceOrigin();
+  document.getElementById('mapBenefitsTitle').textContent=MAP_BENEFIT_LABELS[kind]||'이벤트';
+  document.getElementById('mapBenefitsSummary').textContent=`활성 혜택 업소 ${rows.length}곳 · ${origin?'현재 위치에서 가까운 순':'위치 권한 허용 시 거리 표시'}`;
+  document.getElementById('mapBenefitsList').innerHTML=rows.map(({business:b,benefits})=>{
+    const distance=origin&&v292ValidBusinessCoords(b.lat,b.lng)?`${haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng)).toFixed(1)} mi`:'거리 —';
+    return `<button type="button" class="map-benefit-card" data-map-benefit-business="${esc(b.id)}">${businessImageHTML(b,'map-benefit-image',b.name)}<span class="map-benefit-copy"><strong>${esc(b.name)}</strong><span class="map-benefit-area">${esc(distance)} · ${esc(b.address||'주소 정보 없음')}</span><span class="map-benefit-offers">${[...benefits.values()].map(benefit=>`<span class="map-benefit-offer"><span>${esc(benefit.title)}${benefit.benefit?`<small class="map-benefit-description">${esc(benefit.benefit)}</small>`:''}</span></span>`).join('')}</span></span></button>`;
+  }).join('') || '<p class="map-benefits-empty">현재 활성 혜택이 없습니다.</p>';
 }
-function openMapBenefits(category){
-  if(!MAP_BENEFIT_CATEGORIES.includes(category))return;
-  mapBenefitsCategory=category;renderMapBenefitsDialog();
+function openMapBenefits(kind){
+  // Legacy category calls open the unified event menu.
+  mapBenefitsCategory=Object.hasOwn(MAP_BENEFIT_LABELS,kind)?kind:'event';
+  renderMapBenefitsDialog();
   const dialog=document.getElementById('mapBenefitsDialog');
   if(dialog && !dialog.open)dialog.showModal();
-  console.info('[Map benefits] open', {category, benefits:[...mapCategoryBenefits()[category].records.keys()], modalOpen:!!dialog?.open});
+}
+function selectMapBenefitBusiness(id){
+  const entry=mapBenefitBusinesses(mapBenefitsCategory).find(row=>String(row.business.id)===String(id));
+  if(!entry || !map)return;
+  const b=entry.business;
+  document.getElementById('mapBenefitsDialog')?.close();
+  // Selecting a remote benefit never adds an out-of-radius marker.
+  mapMode='business';mapCategory='';mapSearchQuery='';
+  if(mapSearchInput)mapSearchInput.value='';
+  redrawMapMarkers();
+  map.setZoom(Math.max(map.getZoom()||12,14));
+  showMapBusinessPreview(b);
+  if(v292ValidBusinessCoords(b.lat,b.lng))panMapAboveBottomPanel(Number(b.lat),Number(b.lng));
+  if(mapInfoWindow)mapInfoWindow.close();
 }
 function mapBusinessStatusSignature(){
   return businesses.map(b=>`${b.id}:${mapBusinessBadgeKinds(b).join('|')}`).join(',')+';'+JSON.stringify(mapActiveBenefitRecords());
@@ -1811,11 +1846,10 @@ function mapModeLabel(mode){
 }
 function renderMapFilters(){
   $$('.map-filter-chip').forEach(btn=>{
-    const mode = btn.dataset.mapFilter;
-    const count = Number(mapVisibleCounts[mode] || 0);
-    btn.classList.toggle('active', mode===mapMode);
-    btn.classList.remove('hidden');
-    btn.textContent = mapModeLabel(mode);
+    const kind=btn.dataset.mapFilter;
+    btn.classList.remove('hidden','active');
+    btn.textContent=`${MAP_BENEFIT_LABELS[kind]} ${mapBenefitBusinesses(kind).length}`;
+    btn.setAttribute('aria-haspopup','dialog');
   });
 }
 
@@ -1827,12 +1861,8 @@ function renderMapCategorySummary(list=[]){
     if(label) acc[label] = (acc[label] || 0) + 1;
     return acc;
   },{});
-  const groups=mapCategoryBenefits();
-  mapCategoryRow.innerHTML = MAP_BENEFIT_CATEGORIES.map(label=>{
-    const group=groups[label],total=group.records.size;
-    return `<span class="map-category-with-benefit"><button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]||0}</button>${total?`<button type="button" class="map-category-benefit ${mapBenefitTone(group)}" data-map-benefits="${esc(label)}" aria-label="${esc(label)} 활성 혜택 ${total}건 보기" aria-haspopup="dialog"><svg class="map-benefit-ticket" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4V5Z"/><path d="M15 5v3m0 3v2m0 3v3"/></svg><span>${total}</span></button>`:''}</span>`;
-  }).join('');
-  mapCategoryRow.classList.toggle('hidden', mapMode !== 'business');
+  mapCategoryRow.innerHTML=MAP_BENEFIT_CATEGORIES.map(label=>`<button class="map-category-summary-chip${mapCategory===label?' active':''}" data-map-category="${esc(label)}">${esc(label)} ${counts[label]||0}</button>`).join('');
+  mapCategoryRow.classList.remove('hidden');
 }
 function updateMapFilterAvailability(baseList){
   const rows = Array.isArray(baseList) ? baseList : [];
@@ -1924,7 +1954,7 @@ async function loadRealData(){
           paid_active: !!row.paid_active,
           paid_start_at: row.paid_start_at || '',
           paid_end_at: row.paid_end_at || '',
-          map_promotion: {enabled:row.promo_enabled===true,start_at:row.promo_start_at||'',end_at:row.promo_end_at||''},
+          map_promotion: {enabled:row.promo_enabled===true,start_at:row.promo_start_at||'',end_at:row.promo_end_at||'',text:row.promo_text||''},
           paid_weight: Math.max(1, Number(row.paid_weight || 1)),
           rotation_enabled: row.rotation_enabled !== false,
 
@@ -7754,10 +7784,9 @@ function redrawMapMarkers(){
   } else {
     markers.forEach(m=>m.setMap(map));
   }
-  if(mapSearchQuery && finalList.length){
-    focusMapOnBusinesses(finalList);
-  }
+
   renderMapBottomList(finalList);
+  if(document.getElementById('mapBenefitsDialog')?.open)renderMapBenefitsDialog();
   const preview = finalList.find(b=>String(b.id)===previewId);
   if(preview) showMapBusinessPreview(preview);
   if(mapNotice) mapNotice.classList.add('hidden');
@@ -8451,25 +8480,8 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
   document.addEventListener('click', e=>{ const a=e.target.closest('.icon-action.call'); if(a && selectedBizId) logBusinessActivity(selectedBizId,'call'); const m=e.target.closest('.icon-action.map'); if(m && selectedBizId) logBusinessActivity(selectedBizId,'direction'); });
   mapFilterRow?.addEventListener('click', e=>{
     const btn=e.target.closest('.map-filter-chip');
-    if(!btn || btn.classList.contains('hidden')) return;
-    mapMode = btn.dataset.mapFilter || 'business';
-    selectedMapBusinessId='';
-    renderMapFilters();
-    if(mapReady){
-      redrawMapMarkers();
-      // Keep the existing all-results fit action on the single business count button.
-      setTimeout(fitMapToCurrentResultRows, 80);
-    }
-    setTimeout(()=>renderMapCategorySummary(window.__mapCategorySummaryRows || window.__mapCurrentRows || []), 0);
+    if(btn)openMapBenefits(btn.dataset.mapFilter);
   });
-  mapCategoryRow?.addEventListener('click', e=>{
-    const benefit=e.target.closest('[data-map-benefits]');
-    if(!benefit)return;
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    openMapBenefits(benefit.dataset.mapBenefits);
-  }, true);
   mapCategoryRow?.addEventListener('click', e=>{
     const btn=e.target.closest('[data-map-category]');
     if(!btn) return;
@@ -8480,8 +8492,8 @@ document.getElementById('userLoginClose')?.addEventListener('click', closeUserLo
     renderMapFilters();
     if(mapReady){
       redrawMapMarkers();
-      // 선택한 세부 카테고리 업소가 흩어져 있어도 모두 보이도록 자동 줌/중앙 정렬한다.
-      setTimeout(fitMapToCurrentResultRows, 80);
+      const origin=v293DistanceOrigin();
+      if(origin)map.setCenter(origin);
     }
   });
 setMapAreaButtonState();
@@ -8490,9 +8502,7 @@ setMapAreaButtonState();
     const dialog=e.currentTarget;
     if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();return;}
     const card=e.target.closest('[data-map-benefit-business]');if(!card)return;
-    const id=card.dataset.mapBenefitBusiness;if(!getBiz(id))return;
-    dialog.close();selectedBizId=id;currentDetailVideoOverride='';lastBasePage='map';
-    v230PrepareBusinessDetail(id,'map','business_click');renderDetail(id);showPage('business-detail');
+    selectMapBenefitBusiness(card.dataset.mapBenefitBusiness);
   });
   v296EnsureNearbyUI();
   mapLocateBtn?.addEventListener('click', ()=>{
@@ -8728,7 +8738,7 @@ init();
 
 
 function setMapPageMode(isMap) {
-  if(!isMap) v296CloseNearby();
+  if(!isMap){v296CloseNearby();document.getElementById('mapBenefitsDialog')?.close();}
   document.body.classList.toggle('map-page-open', !!isMap);
   document.documentElement.classList.toggle('map-page-open', !!isMap);
   v296EnsureNearbyUI();
@@ -11134,7 +11144,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.1';
+const DTM_BUILD_VERSION='296.2';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 
@@ -11522,3 +11532,5 @@ console.info('[DalTownMap App] V291 Google Maps attribution + live rating refres
 console.info('[DalTownMap App] V291 text-only market sale public UI loaded');
 
 console.info('[DalTownMap App] V296.1 GPS nearby sheet deployed');
+
+console.info('[DalTownMap App] V296.2 event coupon discount menus loaded');

@@ -5290,3 +5290,6 @@ body.nearby-businesses-open{overflow:hidden!important}
 }
 @keyframes map-nearby-rise{from{transform:translateY(40px);opacity:.5}to{transform:translateY(0);opacity:1}}
 @media(prefers-reduced-motion:reduce){.nearby-businesses-sheet{animation:none}}
+
+/* V296.2 unified benefit menus */
+.map-benefit-description{display:block;margin-top:4px;color:#61738a;font-size:12px;white-space:pre-line;overflow-wrap:anywhere}
