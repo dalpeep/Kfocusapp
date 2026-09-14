@@ -9531,9 +9531,7 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const day=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   const imgs=r=>[...new Set([
-    r?.market_main_image_url,r?.market_main_image_url_2,
-    r?.main_image_url,r?.main_image_url_2,r?.image_url,r?.image_url_2,
-    r?.featured_image_url,r?.featured_image_url_2
+    r?.market_main_image_url,r?.market_main_image_url_2
   ].map(v=>String(v||'').trim()).filter(v=>/^https?:\/\//i.test(v)))];
   const valid=r=>{
     const d=day(), st=String(r?.status||'active').toLowerCase();
@@ -9603,15 +9601,24 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     // Without this, refresh()/market rotation creates stacked intervals and the images appear to change too fast.
     if(S.imageTimer){ clearInterval(S.imageTimer); S.imageTimer=null; }
     if(!h||!r){if(h)h.hidden=true;return false}
-    const nm=name(r),pd=period(r),b=biz(r);
+    const nm=name(r),pd=period(r),b=biz(r),images=imgs(r);
     const logo=String(b?.image||b?.image_url||'').trim();
     const count=Array.isArray(r?.weekly_flyer_items)?r.weekly_flyer_items.length:25;
     h.hidden=false;h.removeAttribute('hidden');
     h.innerHTML=`<div class="p130-storebar"><div class="p130-storeleft"><span class="p130-icon">🛒</span><strong class="p130-name">${esc(nm)}</strong></div>${S.rows.length>1?`<span class="p130-count">${S.i+1}/${S.rows.length}</span>`:''}</div>
 <div class="p130-titlebar"><div class="p130-title"><span>📅</span><span>이번 주 마켓 정보</span></div>${pd?`<span class="p130-period">${esc(pd)}</span>`:''}</div>
-<div class="p130-window"><div class="p130-reel"><div class="p130-panel"><div class="p130-market-summary"><div class="p130-logo">${logo?`<img src="${esc(logo)}" alt="${esc(nm)} 로고">`:`<span class="p130-logo-fallback">${esc(nm)}</span>`}</div><div class="p130-market-copy"><strong>${esc(nm)}</strong><span>${pd?`세일 기간 ${esc(pd)}`:'이번 주 세일'}</span><em>${count||25}개 세일 품목 보기</em></div></div></div></div><button class="p130-arrow" type="button" aria-label="${esc(nm)} 세일 품목 보기">›</button></div>`;
+<div class="p130-window${images.length?' p130-has-images':''}">${images.length?`<div class="p130-flyer-reel">${images.map((url,i)=>`<img class="p130-flyer-image" src="${esc(url)}" alt="${esc(nm)} 마켓 전단 ${i+1}" width="1200" height="420">`).join('')}</div>`:`<div class="p130-reel"><div class="p130-panel"><div class="p130-market-summary"><div class="p130-logo">${logo?`<img src="${esc(logo)}" alt="${esc(nm)} 로고">`:`<span class="p130-logo-fallback">${esc(nm)}</span>`}</div><div class="p130-market-copy"><strong>${esc(nm)}</strong><span>${pd?`세일 기간 ${esc(pd)}`:'이번 주 세일'}</span><em>${count||25}개 세일 품목 보기</em></div></div></div></div>`}<button class="p130-arrow" type="button" aria-label="${esc(nm)} 세일 품목 보기">›</button></div>`;
     h.querySelector('.p130-window')?.addEventListener('click',()=>{const id=bid(r);if(id&&typeof renderDetail==='function'&&typeof showPage==='function'){window.selectedBizId=id;renderDetail(id);showPage('business-detail')}});
-    console.info('[P130 V291 SHOW]',{total:S.rows.length,index:S.i,name:nm,period:pd});
+    if(images.length>1){
+      let imageIndex=0;
+      S.imageTimer=setInterval(()=>{
+        if(document.hidden)return;
+        imageIndex=(imageIndex+1)%images.length;
+        const reel=h.querySelector('.p130-flyer-reel');
+        if(reel)reel.style.transform=`translateX(-${imageIndex*100}%)`;
+      },4500);
+    }
+    console.info('[P130 V296.9 SHOW]',{total:S.rows.length,index:S.i,name:nm,period:pd});
     return true;
   }
 
@@ -11162,7 +11169,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.8';
+const DTM_BUILD_VERSION='296.9';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 
