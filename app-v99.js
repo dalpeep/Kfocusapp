@@ -9260,7 +9260,6 @@ const DtmMarketImages={
   })[m]);
 
   let activeFlyers=[];
-  let modalImageTimer=null;
   let loadedAt=0;
   let loadingPromise=null;
 
@@ -9415,7 +9414,6 @@ const DtmMarketImages={
     return modal;
   }
   function closeModal(){
-    if(modalImageTimer){clearInterval(modalImageTimer);modalImageTimer=null;}
     el('p0102Modal')?.classList.remove('open');
     document.body.style.overflow='';
   }
@@ -9426,8 +9424,7 @@ const DtmMarketImages={
     const items=flyerItems(f);
     const modal=ensureModal();
     const content=el('p0102Content');
-    if(modalImageTimer){clearInterval(modalImageTimer);modalImageTimer=null;}
-    const images=DtmMarketImages.urls(f);
+    const originalImage=String(f.image_url||'').trim();
     content.innerHTML=`
       <div class="p0102-top">
         <div>
@@ -9436,11 +9433,10 @@ const DtmMarketImages={
         </div>
         <button type="button" class="p0102-close">×</button>
       </div>
-      ${images.length?`<div class="dtm-market-images p0102-main-images">${DtmMarketImages.html(images,business?.name||f.title||'마켓')}</div>`:''}
+      ${/^https?:\/\//i.test(originalImage)?`<img class="p0102-original-flyer" src="${escHtml(originalImage)}" alt="${escHtml(business?.name||f.title||'마켓')} 원본 전체 전단">`:''}
       ${f.ai_summary?`<p style="line-height:1.6;color:#475569">${escHtml(f.ai_summary)}</p>`:''}
       <div class="p0102-grid">${items.map(productCard).join('')}</div>
       <p class="p0102-source-note">세일 정보는 각 마켓의 공개 정보를 바탕으로 정리되었습니다. 실제 가격 및 행사 기간은 해당 매장에서 확인해 주세요.</p>`;
-    modalImageTimer=DtmMarketImages.start(content);
     content.querySelector('.p0102-close')?.addEventListener('click',closeModal);
     modal.classList.add('open');
     document.body.style.overflow='hidden';
@@ -11187,7 +11183,7 @@ if(document.readyState==='loading'){
 
 
 // ===== V263 · PWA 설치 안내 + iOS 홈화면 최신버전 확인 =====
-const DTM_BUILD_VERSION='296.10';
+const DTM_BUILD_VERSION='296.11';
 const DTM_INSTALL_NAG_DAYS=7;
 let dtmDeferredInstallPrompt=null;
 

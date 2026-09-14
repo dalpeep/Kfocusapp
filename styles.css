@@ -5327,4 +5327,4 @@ body.nearby-businesses-open{overflow:hidden!important}
 @media(prefers-reduced-motion:reduce){.dtm-market-images .p130-flyer-reel{transition:none}}
 
 /* Weekly Sale images scroll normally inside the existing safe-area sheet. */
-#p0102Modal .p0102-main-images{width:100%;aspect-ratio:20/7;overflow:hidden;border-radius:14px;margin-top:14px;background:#fff}
+#p0102Modal .p0102-original-flyer{display:block;width:100%;height:auto;object-fit:contain;border-radius:14px;margin-top:14px}
