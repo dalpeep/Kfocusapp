@@ -26,6 +26,26 @@ function isPublicFlyer(row,today){
   return (!start||start<=today)&&(!end||end>=today);
 }
 
+// V269: one current published flyer per business; never let edits to an old
+// flyer or its missing main image create a second home carousel entry.
+function currentFlyers(rows,today){
+  const selected=new Map();
+  const date=value=>String(value||'');
+  const hasMain=row=>[row.market_main_image_url,row.market_main_image_url_2]
+    .some(value=>/^https?:\/\//i.test(String(value||'').trim()));
+  const compare=(a,b)=>date(a.start_date).localeCompare(date(b.start_date))
+    ||date(a.created_at).localeCompare(date(b.created_at))
+    ||Number(hasMain(a))-Number(hasMain(b))
+    ||Number(a.id||0)-Number(b.id||0);
+  for(const row of Array.isArray(rows)?rows:[]){
+    if(!isPublicFlyer(row,today))continue;
+    const key=String(row.business_id||row.featured_business_id||`flyer-${row.id}`);
+    const previous=selected.get(key);
+    if(!previous||compare(row,previous)>0)selected.set(key,row);
+  }
+  return [...selected.values()];
+}
+
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS') return json(200,{ok:true});
   if(event.httpMethod!=='GET') return json(405,{ok:false,error:'GET only'});
@@ -34,7 +54,7 @@ exports.handler=async(event)=>{
     if(!/^[a-z-]{2,24}$/.test(region)) return json(400,{ok:false,error:'Invalid region'});
     const today=dallasDateKey();
     const rows=await rest(`weekly_flyers?select=*&region=eq.${encodeURIComponent(region)}&show_on_home=eq.true&order=updated_at.desc&limit=100`);
-    const flyers=(Array.isArray(rows)?rows:[]).filter(row=>isPublicFlyer(row,today));
+    const flyers=currentFlyers(rows,today);
     const ids=flyers.map(row=>String(row.id||'')).filter(Boolean);
     const items=ids.length
       ? await rest(`weekly_flyer_items?select=*&flyer_id=in.(${ids.map(encodeURIComponent).join(',')})&order=id.asc`)
@@ -54,4 +74,4 @@ exports.handler=async(event)=>{
   }
 };
 
-exports._test={dallasDateKey,isPublicFlyer};
+exports._test={dallasDateKey,isPublicFlyer,currentFlyers};

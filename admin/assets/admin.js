@@ -9603,15 +9603,8 @@ console.info('[DalTownMap] P010-1 UUID Smart Flyer loaded');
     const width=Math.max(0,Math.min(1-x,Number(box?.width||0)));
     const height=Math.max(0,Math.min(1-y,Number(box?.height||0)));
     if(width<.03||height<.03)return null;
-    // Add a small visual margin while remaining inside the image.
-    const padX=width*.07, padY=height*.07;
-    const nx=Math.max(0,x-padX);
-    const ny=Math.max(0,y-padY);
-    return {
-      x:nx,y:ny,
-      width:Math.min(1-nx,width+padX*2),
-      height:Math.min(1-ny,height+padY*2)
-    };
+    // V269: source_box already identifies the product block; do not add neighboring content.
+    return {x,y,width,height};
   }
 
   async function cropOne(img,item,flyerId){
