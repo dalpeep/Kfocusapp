@@ -67,12 +67,12 @@ test('unauthenticated refresh is rejected without generation',async t=>{
   const response=await require(refreshPath).handler({httpMethod:'POST',headers:{},queryStringParameters:{force:'1'}});
   assert.equal(response.statusCode,403);assert.equal(calls,0);
 });
-for(const scheduled of [true,false])test(`${scheduled?'scheduled':'authenticated manual'} recovery ignores force and preserves one daily schedule`,async t=>{
+for(const scheduled of [true,false])test(`${scheduled?'scheduled payload':'authenticated manual'} recovery ignores force while staging schedules stay disabled`,async t=>{
   const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
   const {handler,config}=require(refreshPath);
   const response=await handler({httpMethod:'POST',body:scheduled?JSON.stringify({next_run:'tomorrow'}):'{}',headers:scheduled?{}:{authorization:'Bearer test-secret'},queryStringParameters:{force:'1'}});
-  assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'dallas',options:{force:false}}]);assert.equal(config.schedule,'15 11 * * *');
-  assert.match(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-refresh"\]\s+schedule = "15 11 \* \* \*"/);
+  assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'dallas',options:{force:false}}]);assert.equal(config,undefined);
+  assert.doesNotMatch(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-refresh"\]\s+schedule\s*=/);
 });
 test('complete categories cause zero OpenAI calls, locks or writes, even with legacy force',async t=>{
   const {ensureDailyCore,state}=scenario(t,{existing:['weather','traffic']});const result=await ensureDailyCore('dallas',{force:true});
