@@ -298,4 +298,3 @@ exports.handler = async function(event) {
 };
 
 // 06:00 Dallas during CDT. Existing schedule preserved.
-exports.config = { schedule: '0 11 * * *' };

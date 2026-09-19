@@ -1,10 +1,9 @@
 const {ensureDailyCore}=require('./lib/daily-core');
 const crypto=require('crypto');
+const dallasTime=require('../../assets/dallas-time.js');
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, no-cache, must-revalidate','Access-Control-Allow-Origin':'*'};
 function dallasDate(){
-  return new Intl.DateTimeFormat('en-CA',{
-    timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-  }).format(new Date());
+  return dallasTime.dateKey();
 }
 function audit(event,details={}){
   console.info('[daily-core-refresh]',JSON.stringify({event,dallas_date:dallasDate(),...details}));
@@ -62,4 +61,3 @@ exports.handler=async function(event){
     return {statusCode:500,headers,body:JSON.stringify({ok:false,error:error?.message||String(error)})};
   }
 };
-exports.config={schedule:'15 11 * * *'}; // 06:15 Dallas during CDT

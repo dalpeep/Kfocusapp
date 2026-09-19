@@ -82,13 +82,7 @@ console.info('[DalTownMap Admin] P138 email coupon image setting loaded');
 
 // V188: weekly flyer effective status helper
 function v188DallasToday(){
-  try{
-    return new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-  }catch(_){
-    return new Date().toISOString().slice(0,10);
-  }
+  return globalThis.DtmDallasTime.dateKey();
 }
 function v188FlyerEffectiveStatus(row){
   const today=v188DallasToday();
@@ -327,14 +321,10 @@ function checked(id) { return !!qs(id)?.checked; }
 function setChecked(id, v) { if (qs(id)) qs(id).checked = !!v; }
 
 function fmtLocal(v) {
-  if (!v) return '';
-  const d = new Date(v);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return v ? globalThis.DtmDallasTime.formatDateTimeLocal(v) : '';
 }
 function fromLocal(v) {
-  return v ? new Date(v).toISOString() : null;
+  return v ? (globalThis.DtmDallasTime.zonedLocalToIso(v)||null) : null;
 }
 function currentRegionScope() {
   return qs('regionFilter')?.value || 'all';
@@ -557,13 +547,7 @@ function adSeededRandom(seed){
 
 function isPaidBusinessActive(b){
   if(!b.paid_active) return false;
-
-  const today = todayKey();
-
-  if(b.paid_start_at && b.paid_start_at > today) return false;
-  if(b.paid_end_at && b.paid_end_at < today) return false;
-
-  return true;
+  return globalThis.DtmDallasTime.periodActive(b.paid_start_at,b.paid_end_at);
 }
 
 function rotationDateValue(){
@@ -572,9 +556,7 @@ function rotationDateValue(){
 function adsEligibleOnDate(b, dateValue){
   const dateKey=String(dateValue||todayKey()).slice(0,10);
   if(b.is_active===false || b.list_visible===false) return false;
-  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
-  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
-  return true;
+  return globalThis.DtmDallasTime.periodActiveOnDate(b.paid_start_at,b.paid_end_at,dateKey);
 }
 function adsGroupRank(b, section){
   if(section==='featured') return Number(b.featured_rank??1000);
@@ -589,9 +571,7 @@ function rotationScore(b, section, dateValue){
 function paidActiveOnDate(b,dateValue){
   const dateKey=String(dateValue||todayKey()).slice(0,10);
   if(b.is_active===false || b.list_visible===false || b.paid_active!==true) return false;
-  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
-  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
-  return true;
+  return globalThis.DtmDallasTime.periodActiveOnDate(b.paid_start_at,b.paid_end_at,dateKey);
 }
 function adsSectionAssigned(b,section){
   if(section==='featured')return b.is_featured===true;
@@ -1272,9 +1252,15 @@ function renderAdsOpsList(){
 }
 function updateAdsSelectedCount(){safeText('adsSelectedCount',`${adsSelectedIds.size}개 선택`);}
 async function loadAdsOps(){
-  const {data,error}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,list_visible,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,created_at').eq('region',getAppRegion()).order('name_ko',{ascending:true});
-  if(error)return alert(error.message);
-  adsOpsRows=data||[];refreshExposurePreview(getConfig(),getAppRegion());renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
+  const region=getAppRegion();
+  const result=await DtmPagination.collectPages({pageSize:1000,maxPages:100,keyOf:r=>r?.id,validRow:r=>!!r&&r.id!=null,fetchPage:async({from,to,pageSize})=>{
+    const {data,error,count}=await supabase.from('businesses').select('id,name_ko,name_en,area,category_ko,paid_active,paid_product,paid_weight,paid_start_at,paid_end_at,rotation_enabled,is_active,list_visible,is_featured,featured_rank,is_new,new_rank,is_popular,popular_rank,created_at',{count:'exact'}).eq('region',region).order('name_ko',{ascending:true}).order('id',{ascending:true}).range(from,to);
+    if(error)throw error;const rows=data||[];return {rows,nextFrom:from+rows.length,done:count!=null?from+rows.length>=count:rows.length<pageSize};
+  }});
+  window.__DTM_DATA_LOAD_STATE__=window.__DTM_DATA_LOAD_STATE__||{};window.__DTM_DATA_LOAD_STATE__.adminAdsBusinesses={...result,error:result.error?.message||'',rows:result.rows.length,region};
+  if(!result.complete)return alert(result.error?.message||'업소 전체 목록을 불러오지 못했습니다.');
+  if(region!==getAppRegion())return;
+  adsOpsRows=result.rows;refreshExposurePreview(getConfig(),getAppRegion());renderAdsSummary();renderAdsOverviewGroups();renderAdsCategoryChips();renderAdsOpsList();renderAdsEndingList();const preview=document.querySelector('#rotationPreview');if(preview)preview.innerHTML='';
 }
 async function applyAdsBulk(){
   if(!adsSelectedIds.size)return alert('변경할 업소를 선택하세요.');
@@ -1337,7 +1323,7 @@ function initAdsOpsCenter(){
   if(rotationDate && !rotationDate.value) rotationDate.value=todayKey();
   rotationDate?.addEventListener('change',previewRotation);
   document.querySelector('#adsRotationTodayBtn')?.addEventListener('click',()=>{if(rotationDate)rotationDate.value=todayKey();previewRotation();});
-  document.querySelector('#adsRotationTomorrowBtn')?.addEventListener('click',()=>{const d=new Date();d.setDate(d.getDate()+1);if(rotationDate)rotationDate.value=d.toISOString().slice(0,10);previewRotation();});
+  document.querySelector('#adsRotationTomorrowBtn')?.addEventListener('click',()=>{const day=globalThis.DtmDallasTime.dateOrdinal(todayKey())+1;const d=new Date(day*86400000);if(rotationDate)rotationDate.value=d.toISOString().slice(0,10);previewRotation();});
   document.querySelectorAll('.ads-center-tab').forEach(btn=>btn.addEventListener('click',()=>setAdsCenterTab(btn.dataset.adsTab)));
   document.querySelectorAll('[data-open-ads-tab]').forEach(btn=>btn.addEventListener('click',()=>setAdsCenterTab(btn.dataset.openAdsTab)));
   document.querySelector('#adsBulkApplyBtn')?.addEventListener('click',applyAdsBulk);
@@ -2010,18 +1996,19 @@ try {
 async function loadBusinesses() {
   if (!supabase) return;
   setStatus('업소 불러오는 중');
-  const { data, error } = await supabase
-    .from('businesses')
-    .select('*')
-    .eq('region', getAppRegion())
-    .order('id', { ascending: false })
-    .limit(2000);
-  if (error) {
+  const region=getAppRegion();
+  const result=await DtmPagination.collectPages({pageSize:1000,maxPages:100,keyOf:r=>r?.id,validRow:r=>!!r&&r.id!=null,fetchPage:async({from,to,pageSize})=>{
+    const {data,error,count}=await supabase.from('businesses').select('*',{count:'exact'}).eq('region',region).order('id',{ascending:false}).range(from,to);
+    if(error)throw error;const rows=data||[];return {rows,nextFrom:from+rows.length,done:count!=null?from+rows.length>=count:rows.length<pageSize};
+  }});
+  window.__DTM_DATA_LOAD_STATE__=window.__DTM_DATA_LOAD_STATE__||{};window.__DTM_DATA_LOAD_STATE__.adminBusinesses={...result,error:result.error?.message||'',rows:result.rows.length,region};
+  if (!result.complete) {
     setStatus('업소 조회 실패');
-    alert(`업소 조회 실패: ${error.message}`);
+    alert(`업소 조회 실패: ${result.error?.message||'전체 page를 불러오지 못했습니다.'}`);
     return;
   }
-  businesses = data || [];
+  if(region!==getAppRegion())return;
+  businesses = result.rows;
   window.KFocusAdminBridge = window.KFocusAdminBridge || {};
   window.KFocusAdminBridge.getBusinesses = () => [...businesses];
   window.KFocusAdminBridge.getRegion = () => getAppRegion();
@@ -2391,9 +2378,7 @@ function eventActiveBusinessIds() {
     const bid = row.business_id || row.linked_business_id || null;
     if (!bid) return;
     const active = row.is_active !== false;
-    const startOk = !row.start_at || new Date(row.start_at).getTime() <= now;
-    const endOk = !row.end_at || new Date(row.end_at).getTime() >= now;
-    if (active && startOk && endOk) ids.add(String(bid));
+    if (active && globalThis.DtmDallasTime.periodActive(row.start_at,row.end_at,now)) ids.add(String(bid));
   });
   return ids;
 }
@@ -2562,11 +2547,9 @@ function fillCouponForm(row) {
 // 실제 앱의 시작일/종료일 노출 조건은 변경하지 않습니다.
 function couponAdminPreviewStatus(data){
   if(data.is_active===false)return {key:'inactive',label:'비활성'};
-  const now=Date.now();
-  const start=data.start_at?new Date(data.start_at).getTime():null;
-  const end=data.end_at?new Date(data.end_at).getTime():null;
-  if(start && Number.isFinite(start) && start>now)return {key:'scheduled',label:'시작 전'};
-  if(end && Number.isFinite(end) && end<now)return {key:'ended',label:'종료'};
+  const state=globalThis.DtmDallasTime.periodState(data.start_at,data.end_at);
+  if(state==='scheduled')return {key:'scheduled',label:'시작 전'};
+  if(state==='ended'||state==='invalid')return {key:'ended',label:'종료'};
   return {key:'live',label:'노출 기간'};
 }
 function couponAdminPreviewData(){
@@ -2582,8 +2565,8 @@ function couponAdminPreviewData(){
     discount_label:val('coupon_discount_label').trim()||'특별 혜택',
     description:val('coupon_description').trim()||'쿠폰 설명이 여기에 표시됩니다.',
     image_url:val('coupon_image_url').trim()||biz?.image_url||'',
-    start_at:val('coupon_start_at')?new Date(val('coupon_start_at')).toISOString():null,
-    end_at:val('coupon_end_at')?new Date(val('coupon_end_at')).toISOString():null,
+    start_at:fromLocal(val('coupon_start_at')),
+    end_at:fromLocal(val('coupon_end_at')),
     is_active:checked('coupon_is_active'),
     is_today_coupon:checked('coupon_is_today')
   };
@@ -3219,12 +3202,9 @@ function updateBoardSubtypeOptions(selectedValue='') {
 
 function adminRowIsActive(row, startKey='start_at', endKey='end_at'){
   if(!row || row.is_active === false) return false;
-  const now=Date.now();
   const start=row[startKey] || row.start_date;
   const end=row[endKey] || row.end_date;
-  const startMs=start ? new Date(start).getTime() : null;
-  const endMs=end ? new Date(end).getTime() : null;
-  return (!startMs || Number.isNaN(startMs) || startMs<=now) && (!endMs || Number.isNaN(endMs) || endMs>=now);
+  return globalThis.DtmDallasTime.periodActive(start,end);
 }
 function renderDalpickHomeExposure(){
   const box=qs('dalpickExposureList');
@@ -10638,13 +10618,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 // === V190: final expired-flyer status guard ===
 (() => {
-  const todayDallas=()=>{
-    try{
-      return new Intl.DateTimeFormat('en-CA',{
-        timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-      }).format(new Date());
-    }catch(_){return new Date().toISOString().slice(0,10);}
-  };
+  const todayDallas=()=>globalThis.DtmDallasTime.dateKey();
 
   function apply(){
     const today=todayDallas();
@@ -10705,15 +10679,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 // === V192: safe expired-flyer UI sync (no self-triggering observer) ===
 (() => {
   let syncTimer=null;
-  const todayDallas=()=>{
-    try{
-      const p=new Intl.DateTimeFormat('en-US',{
-        timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-      }).formatToParts(new Date());
-      const o={}; p.forEach(x=>o[x.type]=x.value);
-      return `${o.year}-${o.month}-${o.day}`;
-    }catch(_){return new Date().toISOString().slice(0,10);}
-  };
+  const todayDallas=()=>globalThis.DtmDallasTime.dateKey();
 
   function getInfo(card){
     const today=todayDallas();
@@ -12187,11 +12153,25 @@ function v289TrafficLabel(src){
   const map={focus:'주간포커스',flyer:'플라이어',instagram:'Instagram',facebook:'Facebook'};
   return map[String(src||'').toLowerCase()]||String(src||'기타');
 }
+function v289TrafficDateLabel(value){const raw=String(value||'');if(!/^\d{8}$/.test(raw)) return raw;return `${Number(raw.slice(4,6))}/${Number(raw.slice(6,8))}`;}
+function v289RenderTrend(rows){
+  const host=document.getElementById('trafficTrendChart');if(!host) return;
+  if(!rows.length){host.innerHTML='<p class="muted traffic-empty">표시할 GA4 추이 데이터가 없습니다.</p>';return;}
+  const series=[{key:'totalUsers',label:'방문자 수',color:'#2563eb'},{key:'sessions',label:'방문 횟수',color:'#16a34a'},{key:'screenPageViews',label:'페이지 조회수',color:'#f97316'}];
+  const width=900,height=300,left=48,right=18,top=18,bottom=42,innerWidth=width-left-right,innerHeight=height-top-bottom;
+  const max=Math.max(1,...rows.flatMap(row=>series.map(s=>Number(row[s.key]||0))));
+  const x=index=>left+(rows.length===1?innerWidth/2:index*innerWidth/(rows.length-1));const y=value=>top+innerHeight-(Number(value||0)/max)*innerHeight;
+  const grid=Array.from({length:5},(_,index)=>{const value=Math.round(max*(4-index)/4),gy=top+innerHeight*index/4;return `<line x1="${left}" y1="${gy}" x2="${width-right}" y2="${gy}" class="traffic-chart-grid"/><text x="${left-8}" y="${gy+4}" text-anchor="end" class="traffic-chart-axis">${value.toLocaleString('ko-KR')}</text>`;}).join('');
+  const labelStep=Math.max(1,Math.ceil(rows.length/7));const labels=rows.map((row,index)=>(index%labelStep===0||index===rows.length-1)?`<text x="${x(index)}" y="${height-13}" text-anchor="middle" class="traffic-chart-axis">${v289TrafficEsc(v289TrafficDateLabel(row.date))}</text>`:'').join('');
+  const lines=series.map(s=>{const points=rows.map((row,index)=>`${x(index)},${y(row[s.key])}`).join(' ');const dots=rows.map((row,index)=>`<circle cx="${x(index)}" cy="${y(row[s.key])}" r="3" fill="${s.color}"><title>${v289TrafficEsc(v289TrafficDateLabel(row.date))} ${s.label}: ${Number(row[s.key]||0).toLocaleString('ko-KR')}</title></circle>`).join('');return `<polyline points="${points}" fill="none" stroke="${s.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${dots}`;}).join('');
+  host.innerHTML=`<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="날짜별 방문자 수, 방문 횟수, 페이지 조회수 추이">${grid}${labels}${lines}</svg>`;
+}
 async function loadTrafficSourceAnalytics(){
   const status=document.getElementById('trafficStatus');
   const cards=document.getElementById('trafficSummaryCards');
   const sourceHost=document.getElementById('trafficSourceTable');
   const placeHost=document.getElementById('trafficPlaceTable');
+  const trendHost=document.getElementById('trafficTrendChart');
   if(!cards||!sourceHost||!placeHost) return;
   try{
     if(status) status.textContent='불러오는 중...';
@@ -12203,26 +12183,26 @@ async function loadTrafficSourceAnalytics(){
     });
     const d=await r.json().catch(()=>({}));
     if(!r.ok||d.ok===false) throw new Error(d.error||`HTTP ${r.status}`);
+    const analyticsAvailable=Boolean(d.analytics?.summary);
+    const summary=d.analytics?.summary||{};
+    const trend=Array.isArray(d.analytics?.trend)?d.analytics.trend:[];
     const total=Number(d.total||0);
     const sources=Array.isArray(d.sources)?d.sources:[];
     const places=Array.isArray(d.places)?d.places:[];
-    const today=Number(d.today||0);
-    const top=sources[0];
     cards.innerHTML=[
-      ['선택 기간 유입',total.toLocaleString('ko-KR')],
-      ['오늘 유입',today.toLocaleString('ko-KR')],
-      ['가장 많은 경로',top?v289TrafficLabel(top.source):'-'],
-      ['추적 경로 수',sources.length.toLocaleString('ko-KR')]
-    ].map(([a,b])=>`<div class="card" style="padding:15px"><div class="muted" style="font-size:12px">${v289TrafficEsc(a)}</div><div style="font-size:24px;font-weight:900;margin-top:5px">${v289TrafficEsc(b)}</div></div>`).join('');
-    sourceHost.innerHTML=sources.length?`<table class="request-table"><thead><tr><th>유입 경로</th><th>방문 수</th><th>비중</th></tr></thead><tbody>${sources.map(x=>`<tr><td><b>${v289TrafficEsc(v289TrafficLabel(x.source))}</b><small style="display:block;color:#64748b">src=${v289TrafficEsc(x.source)}</small></td><td>${Number(x.count||0).toLocaleString('ko-KR')}</td><td>${total?((Number(x.count||0)/total)*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'<p class="muted">아직 추적된 유입이 없습니다.</p>';
+      ['방문자 수','Users',summary.totalUsers],['방문 횟수','Sessions',summary.sessions],['페이지 조회수','Views',summary.screenPageViews],['신규 방문자','New Users',summary.newUsers],['재방문자','Returning Users',summary.returningUsers]
+    ].map(([label,english,value])=>`<div class="card traffic-metric-card"><div class="muted">${v289TrafficEsc(label)} <small>${v289TrafficEsc(english)}</small></div><strong>${analyticsAvailable?Number(value||0).toLocaleString('ko-KR'):'—'}</strong></div>`).join('');
+    if(analyticsAvailable) v289RenderTrend(trend);else if(trendHost) trendHost.innerHTML=`<p class="traffic-empty" style="color:#b45309">GA4 지표를 불러오지 못했습니다.<br><small>${v289TrafficEsc(d.analyticsError||'GA4 설정을 확인해 주세요.')}</small></p>`;
+    sourceHost.innerHTML=sources.length?`<table class="request-table"><thead><tr><th>유입 경로</th><th>기록 수</th><th>비중</th></tr></thead><tbody>${sources.map(x=>`<tr><td><b>${v289TrafficEsc(v289TrafficLabel(x.source))}</b><small style="display:block;color:#64748b">src=${v289TrafficEsc(x.source)}</small></td><td>${Number(x.count||0).toLocaleString('ko-KR')}</td><td>${total?((Number(x.count||0)/total)*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody></table>`:'<p class="muted">아직 추적된 홍보 링크 유입이 없습니다.</p>';
     placeHost.innerHTML=places.length?`<table class="request-table"><thead><tr><th>배포처 코드</th><th>방문 수</th></tr></thead><tbody>${places.map(x=>`<tr><td><b>${v289TrafficEsc(x.place)}</b></td><td>${Number(x.count||0).toLocaleString('ko-KR')}</td></tr>`).join('')}</tbody></table>`:'<p class="muted">매장별 place 코드가 포함된 플라이어 유입이 아직 없습니다.</p>';
-    if(status) status.textContent=`마지막 조회 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+    if(status) status.textContent=analyticsAvailable?`마지막 조회 ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`:'GA4 조회 실패 · Supabase 홍보 유입만 표시 중';
   }catch(e){
     console.error('[V289 traffic analytics]',e);
     if(status) status.textContent='조회 실패';
-    cards.innerHTML='';
-    sourceHost.innerHTML=`<p style="color:#b91c1c">${v289TrafficEsc(e.message||e)}</p>`;
-    placeHost.innerHTML='';
+    cards.innerHTML=['방문자 수','방문 횟수','페이지 조회수','신규 방문자','재방문자'].map(label=>`<div class="card traffic-metric-card"><div class="muted">${label}</div><strong>—</strong></div>`).join('');
+    if(trendHost) trendHost.innerHTML='<p class="traffic-empty muted">유입 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</p>';
+    sourceHost.innerHTML='<p class="muted">홍보 유입 기록을 불러오지 못했습니다.</p>';
+    placeHost.innerHTML='<p class="muted">플라이어 배포처 기록을 불러오지 못했습니다.</p>';
   }
 }
 window.loadTrafficSourceAnalytics=loadTrafficSourceAnalytics;

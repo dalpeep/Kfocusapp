@@ -1,3 +1,5 @@
+const crypto=require('crypto');
+
 function json(status, body){
   return {statusCode:status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'},body:JSON.stringify(body)};
 }
@@ -37,6 +39,64 @@ function countBy(rows,key,filter){
   }
   return [...m.entries()].map(([k,count])=>({[key]:k,count})).sort((a,b)=>b.count-a.count);
 }
+function normalizePrivateKey(value){
+  let key=String(value||'').trim();
+  try{
+    const parsed=JSON.parse(key);
+    if(typeof parsed==='string') key=parsed;
+    else if(parsed&&typeof parsed.private_key==='string') key=parsed.private_key;
+  }catch(_error){
+    if((key.startsWith('"')&&key.endsWith('"'))||(key.startsWith("'")&&key.endsWith("'"))) key=key.slice(1,-1);
+  }
+  key=key.replace(/\\+r\\+n/g,'\n').replace(/\\+n/g,'\n');
+  if(!/-----BEGIN (?:RSA )?PRIVATE KEY-----/.test(key)&&/^[A-Za-z0-9+/=\s]+$/.test(key)){
+    try{const decoded=Buffer.from(key.replace(/\s/g,''),'base64').toString('utf8');if(/-----BEGIN (?:RSA )?PRIVATE KEY-----/.test(decoded)) key=decoded;}catch(_error){}
+  }
+  return key.replace(/\r\n/g,'\n').trim();
+}
+function ga4Env(){
+  const propertyId=String(process.env.GA4_PROPERTY_ID||'').replace(/^properties\//,'').trim();
+  const clientEmail=String(process.env.GA4_CLIENT_EMAIL||process.env.GOOGLE_CLIENT_EMAIL||'').trim();
+  const privateKey=normalizePrivateKey(process.env.GA4_PRIVATE_KEY||process.env.GOOGLE_PRIVATE_KEY||'');
+  if(!propertyId||!clientEmail||!privateKey) throw new Error('GA4 Data API 환경변수(GA4_PROPERTY_ID, GA4_CLIENT_EMAIL, GA4_PRIVATE_KEY)가 필요합니다.');
+  return {propertyId,clientEmail,privateKey};
+}
+function base64url(value){return Buffer.from(value).toString('base64url')}
+async function ga4AccessToken(){
+  const {clientEmail,privateKey}=ga4Env();
+  const now=Math.floor(Date.now()/1000);
+  const header=base64url(JSON.stringify({alg:'RS256',typ:'JWT'}));
+  const claim=base64url(JSON.stringify({iss:clientEmail,scope:'https://www.googleapis.com/auth/analytics.readonly',aud:'https://oauth2.googleapis.com/token',iat:now,exp:now+3600}));
+  const unsigned=`${header}.${claim}`;
+  const signature=crypto.createSign('RSA-SHA256').update(unsigned).end().sign(privateKey,'base64url');
+  const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion:`${unsigned}.${signature}`})});
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok||!body.access_token) throw new Error(body.error_description||body.error||`GA4 인증 실패 (${response.status})`);
+  return body.access_token;
+}
+async function ga4Report(token,body){
+  const {propertyId}=ga4Env();
+  const response=await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${encodeURIComponent(propertyId)}:runReport`,{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data?.error?.message||`GA4 보고서 조회 실패 (${response.status})`);
+  return data;
+}
+function metricMap(report,row){const result={};(report.metricHeaders||[]).forEach((header,index)=>{result[header.name]=Number(row?.metricValues?.[index]?.value||0)});return result;}
+function rangeDates(raw){if(String(raw).toLowerCase()==='today') return {days:1,startDate:'today',endDate:'today'};const days=[7,30].includes(Number(raw))?Number(raw):30;return {days,startDate:`${days-1}daysAgo`,endDate:'today'};}
+function supabaseSinceISOString(raw,now=Date.now()){const {days}=rangeDates(raw);const since=new Date(now-(days-1)*86400000);since.setUTCHours(0,0,0,0);return since.toISOString();}
+async function loadGa4Analytics(raw){
+  const dateRange=rangeDates(raw);const ga4DateRange={startDate:dateRange.startDate,endDate:dateRange.endDate};const token=await ga4AccessToken();
+  const metrics=['totalUsers','sessions','screenPageViews','newUsers'].map(name=>({name}));
+  const [summaryReport,trendReport,visitorTypeReport]=await Promise.all([
+    ga4Report(token,{dateRanges:[ga4DateRange],metrics}),
+    ga4Report(token,{dateRanges:[ga4DateRange],dimensions:[{name:'date'}],metrics,orderBys:[{dimension:{dimensionName:'date'}}],keepEmptyRows:true}),
+    ga4Report(token,{dateRanges:[ga4DateRange],dimensions:[{name:'newVsReturning'}],metrics:[{name:'totalUsers'}]})
+  ]);
+  const summary=metricMap(summaryReport,summaryReport.rows?.[0]);let returningUsers=0;
+  for(const row of visitorTypeReport.rows||[]){if(String(row.dimensionValues?.[0]?.value||'').toLowerCase()==='returning') returningUsers=metricMap(visitorTypeReport,row).totalUsers||0;}
+  const trend=(trendReport.rows||[]).map(row=>({date:String(row.dimensionValues?.[0]?.value||''),...metricMap(trendReport,row)}));
+  return {range:dateRange,summary:{...summary,returningUsers},trend};
+}
 exports.handler=async(event)=>{
   if(event.httpMethod==='OPTIONS') return json(200,{ok:true});
   try{
@@ -55,17 +115,14 @@ exports.handler=async(event)=>{
     if(event.httpMethod==='GET'){
       await verifyAdmin(event);
       const raw=String(event.queryStringParameters?.days||'30').toLowerCase();
-      let since='';
-      if(raw!=='all'){
-        const days=Math.max(1,Math.min(3650,Number(raw)||30));
-        since=new Date(Date.now()-days*86400000).toISOString();
-      }
+      const since=supabaseSinceISOString(raw);
       const filter=since?`&created_at=gte.${encodeURIComponent(since)}`:'';
       const rows=await rest(`traffic_source_visits?select=source,place,campaign,created_at${filter}&order=created_at.desc&limit=10000`);
       const arr=Array.isArray(rows)?rows:[];
-      const todayStart=new Date();todayStart.setHours(0,0,0,0);
-      const today=arr.filter(x=>new Date(x.created_at)>=todayStart).length;
-      return json(200,{ok:true,total:arr.length,today,sources:countBy(arr,'source'),places:countBy(arr,'place',r=>String(r.source||'')==='flyer'),campaigns:countBy(arr,'campaign')});
+      let analytics=null,analyticsError='';
+      try{ analytics=await loadGa4Analytics(raw); }
+      catch(error){analyticsError=error?.message||String(error);console.error('[traffic-source-track] GA4 unavailable; returning Supabase traffic data only',error);}
+      return json(200,{ok:true,dataSource:analytics?'ga4':'supabase',analytics,analyticsError,total:arr.length,sources:countBy(arr,'source'),places:countBy(arr,'place',r=>String(r.source||'')==='flyer'),campaigns:countBy(arr,'campaign')});
     }
     return json(405,{ok:false,error:'GET/POST only'});
   }catch(e){
@@ -73,3 +130,5 @@ exports.handler=async(event)=>{
     return json(500,{ok:false,error:e.message||String(e)});
   }
 };
+
+exports._test={rangeDates,metricMap,normalizePrivateKey,supabaseSinceISOString};

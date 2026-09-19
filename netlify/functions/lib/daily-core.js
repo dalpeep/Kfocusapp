@@ -1,4 +1,5 @@
 const crypto=require('crypto');
+const dallasTime=require('../../../assets/dallas-time.js');
 
 function audit(event,details={}){
   console.info('[daily-core]',JSON.stringify({event,...details}));
@@ -12,9 +13,7 @@ function withStage(error,stage){
 }
 
 function centralDate(value=new Date()){
-  return new Intl.DateTimeFormat('en-CA',{
-    timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-  }).format(value);
+  return dallasTime.dateKey(value);
 }
 function textFromResponse(json){
   if(typeof json?.output_text==='string'&&json.output_text.trim())return json.output_text;
