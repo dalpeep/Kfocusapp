@@ -13,9 +13,6 @@ function safeEqual(left,right){
   const b=Buffer.from(String(right||''));
   return a.length===b.length&&crypto.timingSafeEqual(a,b);
 }
-function scheduledInvocation(event){
-  try{return Boolean(JSON.parse(event.body||'{}')?.next_run);}catch{return false;}
-}
 function manualAuthorized(event){
   const secret=String(process.env.DAILY_CORE_REFRESH_SECRET||'').trim();
   if(!secret)return false;
@@ -27,24 +24,22 @@ function manualAuthorized(event){
 exports.handler=async function(event){
   if(event.httpMethod==='OPTIONS')return {statusCode:200,headers,body:JSON.stringify({ok:true})};
   try{
-    const scheduled=scheduledInvocation(event);
     const authorized=manualAuthorized(event);
     audit('invocation_received',{
-      scheduled,
-      source:scheduled?'scheduled':authorized?'authorized_manual':'unauthorized',
+      source:authorized?'authorized_manual':'unauthorized',
       method:String(event.httpMethod||'')
     });
-    if(!scheduled&&!authorized){
-      audit('invocation_denied',{scheduled,reason:'not_scheduled_or_authorized'});
+    if(!authorized){
+      audit('invocation_denied',{reason:'not_authorized'});
       return {statusCode:403,headers,body:JSON.stringify({ok:false,error:'Daily Core refresh is restricted.'})};
     }
     const region=String(event.queryStringParameters?.region||'dallas').toLowerCase();
-    // 스케줄과 인증된 recovery 모두 누락분만 생성합니다. 기존 데이터는 재생성하지 않습니다.
+    // 인증된 recovery는 누락분만 생성합니다. 기존 데이터는 재생성하지 않습니다.
     const force=false;
-    audit('generation_check_started',{scheduled,region,force});
+    audit('generation_check_started',{source:'authorized_manual',region,force});
     const result=await ensureDailyCore(region,{force});
     audit('generation_check_completed',{
-      scheduled,region,force,
+      source:'authorized_manual',region,force,
       generated:Boolean(result?.generated),
       locked:Boolean(result?.locked),
       missing:Array.isArray(result?.missing)?result.missing:[],

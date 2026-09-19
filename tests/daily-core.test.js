@@ -6,8 +6,9 @@ const root=path.resolve(__dirname,'..');
 const libPath=path.join(root,'netlify/functions/lib/daily-core.js');
 const readPath=path.join(root,'netlify/functions/daltown-daily-core.js');
 const refreshPath=path.join(root,'netlify/functions/daily-core-refresh.js');
+const scheduledPath=path.join(root,'netlify/functions/daily-core-scheduled.js');
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-function clear(){for(const p of [libPath,readPath,refreshPath])delete require.cache[require.resolve(p)];}
+function clear(){for(const p of [libPath,readPath,refreshPath,scheduledPath])delete require.cache[require.resolve(p)];}
 function mockLib(exports){clear();require.cache[require.resolve(libPath)]={id:libPath,filename:libPath,loaded:true,exports};}
 function setEnv(t,values){
   const original=Object.fromEntries(Object.keys(values).map(key=>[key,process.env[key]]));
@@ -67,12 +68,31 @@ test('unauthenticated refresh is rejected without generation',async t=>{
   const response=await require(refreshPath).handler({httpMethod:'POST',headers:{},queryStringParameters:{force:'1'}});
   assert.equal(response.statusCode,403);assert.equal(calls,0);
 });
-for(const scheduled of [true,false])test(`${scheduled?'scheduled payload':'authenticated manual'} recovery ignores force while staging schedules stay disabled`,async t=>{
+test('forged next_run payload is rejected before generation',async t=>{
+  let calls=0;mockLib({ensureDailyCore:async()=>{calls++;}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
+  const response=await require(refreshPath).handler({httpMethod:'POST',body:JSON.stringify({next_run:'tomorrow'}),headers:{},queryStringParameters:{force:'1'}});
+  assert.equal(response.statusCode,403);assert.equal(calls,0);
+});
+test('wrong recovery secret is rejected before generation',async t=>{
+  let calls=0;mockLib({ensureDailyCore:async()=>{calls++;}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
+  const response=await require(refreshPath).handler({httpMethod:'POST',body:'{}',headers:{authorization:'Bearer wrong-secret'},queryStringParameters:{}});
+  assert.equal(response.statusCode,403);assert.equal(calls,0);
+});
+test('authenticated manual recovery ignores force',async t=>{
   const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
   const {handler,config}=require(refreshPath);
-  const response=await handler({httpMethod:'POST',body:scheduled?JSON.stringify({next_run:'tomorrow'}):'{}',headers:scheduled?{}:{authorization:'Bearer test-secret'},queryStringParameters:{force:'1'}});
+  const response=await handler({httpMethod:'POST',body:'{}',headers:{authorization:'Bearer test-secret'},queryStringParameters:{force:'1'}});
   assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'dallas',options:{force:false}}]);assert.equal(config,undefined);
   assert.doesNotMatch(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-refresh"\]\s+schedule\s*=/);
+});
+test('Netlify scheduled wrapper is the only scheduled generation entry point',async t=>{
+  const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);
+  setEnv(t,{DAILY_CORE_SCHEDULE_REGION:'staging-scheduled'});
+  const {handler,config}=require(scheduledPath);
+  const response=await handler({httpMethod:'POST',body:JSON.stringify({next_run:'ignored'})});
+  assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'staging-scheduled',options:{force:false}}]);
+  assert.deepEqual(config,{schedule:'15 11 * * *'});
+  assert.doesNotMatch(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-scheduled"\]\s+schedule\s*=/);
 });
 test('complete categories cause zero OpenAI calls, locks or writes, even with legacy force',async t=>{
   const {ensureDailyCore,state}=scenario(t,{existing:['weather','traffic']});const result=await ensureDailyCore('dallas',{force:true});
