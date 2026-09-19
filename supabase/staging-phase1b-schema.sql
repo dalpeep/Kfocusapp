@@ -73,6 +73,7 @@ create table if not exists public.banners (
   id text primary key, business_id text, business_ids jsonb default '[]', region text default 'dallas',
   title text, headline text, description text, discount_label text, benefit text,
   image_url text, link_url text, start_at text, end_at text,
+  sort_order integer default 0,
   is_active boolean default true, is_published boolean default true,
   hidden boolean default false, deleted boolean default false,
   created_at timestamptz default now()
