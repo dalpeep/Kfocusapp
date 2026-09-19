@@ -3,6 +3,8 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
+const DtmDallasTime=require('../assets/dallas-time.js');
+const DtmActiveState=require('../assets/active-state.js');
 const source=fs.readFileSync(path.join(__dirname,'../app-v99.js'),'utf8');
 const section=(start,end)=>source.slice(source.indexOf(start),source.indexOf(end,source.indexOf(start)));
 const NOW=Date.parse('2026-09-10T18:00:00Z');
@@ -11,7 +13,7 @@ function runtime(data={}){
   class FixedDate extends Date{constructor(...args){super(...(args.length?args:[NOW]));}static now(){return NOW;}}
   class Marker{constructor(options){Object.assign(this,{options,events:{}});recorded.markers.push(this);}addListener(name,fn){this.events[name]=fn;}setMap(map){this.map=map;}}
   const google={maps:{Marker,Size:class{constructor(width,height){Object.assign(this,{width,height});}},Point:class{constructor(x,y){Object.assign(this,{x,y});}}}};
-  const ctx=vm.createContext({Date:FixedDate,Intl,console,google,document:{hidden:false,getElementById:()=>null,querySelectorAll:()=>[]},mapLocateBtn:null,currentLocationPosition:{lat:32.95,lng:-96.85},mapBottomList:null,currentRegion:'dallas',currentPage:'map',mapReady:true,
+  const ctx=vm.createContext({Date:FixedDate,Intl,console,google,DtmDallasTime,DtmActiveState,document:{hidden:false,getElementById:()=>null,querySelectorAll:()=>[]},mapLocateBtn:null,currentLocationPosition:{lat:32.95,lng:-96.85},mapBottomList:null,currentRegion:'dallas',currentPage:'map',mapReady:true,
     coupons:[],businesses:[],mainBanners:[],slideRows:[],dalpicks:[],boardPosts:[],
     mapMode:'business',mapCategory:'',mapSearchQuery:'',mapRadius:'7',currentCenter:{lat:32.95,lng:-96.85},map:{getZoom:()=>12},
     markers:[],markerCluster:null,selectedMapBusinessId:'',mapVisibleCounts:{business:0,coupon:0,event:0},mapNotice:null,mapInfoWindow:null,

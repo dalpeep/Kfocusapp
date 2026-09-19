@@ -31,7 +31,7 @@ function scenario(t,{existing=[],lock=true,completeUnderLock=false,response,coll
       return json({status:'completed',output:[{type:'web_search_call',status:'completed'},{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(Object.fromEntries(requested.map(category=>[category,content(category)])))}]}]});
     }
     assert.equal(target.hostname,'supabase.test','No live network calls');
-    if(target.pathname.endsWith('/rpc/claim_daily_core_generation_lock')){assert.equal(options.method,'POST');state.locks++;return json(lock);}
+    if(target.pathname.endsWith('/rpc/claim_daily_core_generation_lock')){assert.equal(options.method,'POST');state.locks++;return json(typeof lock==='function'?await lock(state):lock);}
     if(target.pathname.endsWith('/rpc/release_daily_core_generation_lock')){assert.equal(options.method,'POST');state.releases++;return json(true);}
     assert.equal(target.pathname,'/rest/v1/newsroom_items');
     if(options.method&&options.method!=='GET'){
@@ -115,4 +115,29 @@ test('parsing supports plain JSON, code fences and mixed web search output',()=>
   assert.deepEqual(_test.parseJsonText(raw),value);assert.deepEqual(_test.parseJsonText('```json\n'+raw+'\n```'),value);
   assert.equal(_test.textFromResponse({output:[{type:'web_search_call'},{type:'message',role:'assistant',content:[{type:'output_text',text:raw}]}]}),raw);
   assert.throws(()=>_test.parseJsonText('{"traffic":'),/JSON/);clear();
+});
+test('20 concurrent generation requests permit exactly one OpenAI call',async t=>{
+  let claimed=false,releaseOpenAI;const gate=new Promise(resolve=>releaseOpenAI=resolve);
+  const {ensureDailyCore,state}=scenario(t,{lock:()=>{if(claimed)return false;claimed=true;return true;}});
+  const originalFetch=global.fetch;global.fetch=async(url,options={})=>{
+    if(String(url).includes('api.openai.com'))await gate;
+    return originalFetch(url,options);
+  };
+  const requests=Array.from({length:20},()=>ensureDailyCore('dallas'));
+  await new Promise(resolve=>setImmediate(resolve));releaseOpenAI();await Promise.all(requests);
+  assert.equal(state.requests.length,1);assert.equal(state.writes.length,2);assert.equal(state.releases,1);
+});
+test('Dallas date scope separates midnight and DST correctly',()=>{
+  clear();const {centralDate}=require(libPath);
+  assert.equal(centralDate('2026-09-19T04:59:59Z'),'2026-09-18');
+  assert.equal(centralDate('2026-09-19T05:00:00Z'),'2026-09-19');
+  assert.equal(centralDate('2026-03-08T07:59:59Z'),'2026-03-08');
+  assert.equal(centralDate('2026-11-01T06:30:00Z'),'2026-11-01');clear();
+});
+test('public ai-daily-home performs zero OpenAI calls',async t=>{
+  const aiPath=path.join(root,'netlify/functions/ai-daily-home.js');delete require.cache[require.resolve(aiPath)];
+  const originalFetch=global.fetch;let calls=0;global.fetch=async()=>{calls++;throw Error('must not call network')};
+  t.after(()=>{global.fetch=originalFetch;delete require.cache[require.resolve(aiPath)]});
+  const response=await require(aiPath).handler({httpMethod:'POST',body:JSON.stringify({date:today,items:[{title:'A'}]})});
+  assert.equal(response.statusCode,200);assert.equal(calls,0);assert.equal(JSON.parse(response.body).source,'생활 패턴 자동 분석');
 });
