@@ -87,7 +87,7 @@ test('authenticated manual recovery ignores force',async t=>{
 });
 test('Netlify scheduled wrapper is the only scheduled generation entry point',async t=>{
   const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);
-  setEnv(t,{DAILY_CORE_SCHEDULE_REGION:'staging-scheduled'});
+  setEnv(t,{APP_REGION:'staging-scheduled'});
   const {default:handler,config}=await import(`${require('node:url').pathToFileURL(scheduledPath).href}?test=${Date.now()}`);
   const response=await handler(new Request('https://scheduler.internal/'));
   assert.equal(response.status,200);assert.deepEqual(args,[{region:'staging-scheduled',options:{force:false}}]);

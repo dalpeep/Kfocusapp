@@ -118,10 +118,14 @@ admin/index.html
 
 ## Netlify and cache dependencies
 
-`netlify.toml` defines two schedules:
+The production-ready repository defines three schedules:
 
 - `raffle-auto-draw`: every 10 minutes.
-- `daily-core-refresh`: daily at 11:15 UTC.
+- `newsroom-daily`: daily at 11:00 UTC through its inline Function config.
+- `daily-core-scheduled`: daily at 11:15 UTC through its inline modern Function config.
+
+`daily-core-refresh` has no schedule declaration; it is the
+`DAILY_CORE_REFRESH_SECRET`-authenticated manual recovery endpoint only.
 
 It sets revalidation/no-cache headers for `/`, `/index.html`, `/manifest.json`,
 `/app-v99.js`, `/main-banners.js`, and `/styles.css`. The active Netlify local

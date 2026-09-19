@@ -16,7 +16,7 @@ function audit(event,details={}){
 }
 
 export default async function(){
-  const region=String(process.env.DAILY_CORE_SCHEDULE_REGION||process.env.APP_REGION||'dallas').toLowerCase();
+  const region=String(process.env.APP_REGION||'dallas').toLowerCase();
   try{
     audit('scheduled_invocation_received',{region});
     const result=await ensureDailyCore(region,{force:false});
