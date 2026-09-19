@@ -6,9 +6,9 @@ const root=path.resolve(__dirname,'..');
 const libPath=path.join(root,'netlify/functions/lib/daily-core.js');
 const readPath=path.join(root,'netlify/functions/daltown-daily-core.js');
 const refreshPath=path.join(root,'netlify/functions/daily-core-refresh.js');
-const scheduledPath=path.join(root,'netlify/functions/daily-core-scheduled.js');
+const scheduledPath=path.join(root,'netlify/functions/daily-core-scheduled.mjs');
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-function clear(){for(const p of [libPath,readPath,refreshPath,scheduledPath])delete require.cache[require.resolve(p)];}
+function clear(){for(const p of [libPath,readPath,refreshPath])delete require.cache[require.resolve(p)];}
 function mockLib(exports){clear();require.cache[require.resolve(libPath)]={id:libPath,filename:libPath,loaded:true,exports};}
 function setEnv(t,values){
   const original=Object.fromEntries(Object.keys(values).map(key=>[key,process.env[key]]));
@@ -88,9 +88,9 @@ test('authenticated manual recovery ignores force',async t=>{
 test('Netlify scheduled wrapper is the only scheduled generation entry point',async t=>{
   const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);
   setEnv(t,{DAILY_CORE_SCHEDULE_REGION:'staging-scheduled'});
-  const {handler,config}=require(scheduledPath);
-  const response=await handler({httpMethod:'POST',body:JSON.stringify({next_run:'ignored'})});
-  assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'staging-scheduled',options:{force:false}}]);
+  const {default:handler,config}=await import(`${require('node:url').pathToFileURL(scheduledPath).href}?test=${Date.now()}`);
+  const response=await handler(new Request('https://scheduler.internal/'));
+  assert.equal(response.status,200);assert.deepEqual(args,[{region:'staging-scheduled',options:{force:false}}]);
   assert.deepEqual(config,{schedule:'15 11 * * *'});
   assert.doesNotMatch(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-scheduled"\]\s+schedule\s*=/);
 });
