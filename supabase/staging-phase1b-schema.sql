@@ -108,9 +108,11 @@ create table if not exists public.newsroom_items (
   id text primary key default gen_random_uuid()::text,
   original_title text, original_summary text, original_url text,
   ai_title text, ai_summary text, ai_content text,
-  source_name text, duplicate_key text, event_data jsonb default '{}',
+  source_name text, source_kind text, area text,
+  duplicate_key text, event_data jsonb default '{}',
   status text default 'published', priority_score numeric default 0,
-  suggested_destination text, destination text,
+  suggested_destination text, destination text, confidence numeric,
+  fact_status text, category_keywords jsonb default '[]',
   source_published_at timestamptz, collected_at timestamptz default now(),
   draft_updated_at timestamptz, created_at timestamptz default now(), updated_at timestamptz default now(),
   region text not null default 'dallas'
