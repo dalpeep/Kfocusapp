@@ -523,6 +523,19 @@ const FALLBACK_BOARD_POSTS = [
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const dtmRequests=globalThis.DtmRequestCoordinator;
+function dtmRequestIdentity(resource,conditions={}){return dtmRequests.identity(resource,conditions);}
+function dtmFetchJson(resource,conditions,url,options={},ttl=0){
+  const id=dtmRequestIdentity(resource,conditions);
+  return dtmRequests.fetchShared(id,async({signal})=>{
+    const res=await fetch(url,{...options,signal});
+    const body=await res.json().catch(()=>({}));
+    if(!res.ok||body?.ok===false)throw new Error(body?.error||body?.message||`HTTP ${res.status}`);
+    return body;
+  },{ttl});
+}
+globalThis.__DTM_REQUEST_DEBUG__=()=>dtmRequests.debug();
+const dtmDataLoadState=globalThis.__DTM_DATA_LOAD_STATE__=globalThis.__DTM_DATA_LOAD_STATE__||{};
 const heroViewport = $('#heroViewport');
 const heroTrack = $('#heroTrack');
 const heroDotsWrap = $('#heroDots');
@@ -651,15 +664,7 @@ function homeBusinessItemHTML(b){
   `;
 }
 function todayKey(){
-  // V232: 관리자 로테이션 미리보기와 실제 앱이 같은 Dallas 날짜를 사용합니다.
-  try{
-    return new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',
-      year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-  }catch(_){
-    return new Date().toISOString().slice(0,10);
-  }
+  return globalThis.DtmDallasTime.dateKey();
 }
 function isBusinessVisibleByPaidDate(b){
   const hasPaidAd =
@@ -670,12 +675,7 @@ function isBusinessVisibleByPaidDate(b){
 
   if(!hasPaidAd) return true;
 
-  const today = new Date().toISOString().slice(0, 10);
-
-  if(b.paid_start_at && b.paid_start_at > today) return false;
-  if(b.paid_end_at && b.paid_end_at < today) return false;
-
-  return true;
+  return globalThis.DtmDallasTime.periodActive(b.paid_start_at,b.paid_end_at);
 }
 function businessGroupRank(b, section){
   if(section === 'featured') return Number(b.featured_rank ?? 1000);
@@ -684,14 +684,12 @@ function businessGroupRank(b, section){
   return 1000;
 }
 function rotationDateKey(dateValue){
-  return String(dateValue || new Date().toISOString().slice(0,10)).slice(0,10);
+  return globalThis.DtmDallasTime.validDateOnly(String(dateValue||'').slice(0,10))||todayKey();
 }
 function rotationEligibleOnDate(b, dateValue){
   if(b.is_active === false || b.list_visible === false) return false;
   const dateKey = rotationDateKey(dateValue);
-  if(b.paid_start_at && String(b.paid_start_at).slice(0,10) > dateKey) return false;
-  if(b.paid_end_at && String(b.paid_end_at).slice(0,10) < dateKey) return false;
-  return true;
+  return globalThis.DtmDallasTime.periodActiveOnDate(b.paid_start_at,b.paid_end_at,dateKey);
 }
 function rotationHash(seed){
   let h = 2166136261;
@@ -704,9 +702,7 @@ function rotationHash(seed){
 function paidAdActiveOnDate(b, dateValue){
   const dateKey=rotationDateKey(dateValue);
   if(b.is_active===false || b.list_visible===false || b.paid_active!==true) return false;
-  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
-  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
-  return true;
+  return globalThis.DtmDallasTime.periodActiveOnDate(b.paid_start_at,b.paid_end_at,dateKey);
 }
 function sectionAssigned(b, section){
   if(section==='featured') return b.is_featured===true;
@@ -785,46 +781,39 @@ function v295WeekStartDateKey(dateValue=todayKey()){
   return dt.toISOString().slice(0,10);
 }
 function v295ChicagoMidnightUtcIso(dateKey){
-  try{
-    const [y,m,d]=String(dateKey).split('-').map(Number);
-    const desired=Date.UTC(y,m-1,d,0,0,0);
-    const probe=new Date(desired);
-    const parts=new Intl.DateTimeFormat('en-US',{
-      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',
-      hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
-    }).formatToParts(probe).reduce((o,p)=>(o[p.type]=p.value,o),{});
-    const seenAsUtc=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute),Number(parts.second));
-    const offset=seenAsUtc-desired;
-    return new Date(desired-offset).toISOString();
-  }catch(_){
-    return `${dateKey}T00:00:00.000Z`;
-  }
+  return globalThis.DtmDallasTime.midnightIso(dateKey);
 }
 async function v295LoadWeeklyPopularClicks(force=false){
   const weekKey=v295WeekStartDateKey(todayKey());
   if(!force && v295WeeklyClickStartKey===weekKey && v295WeeklyClickCounts.size) return v295WeeklyClickCounts;
   const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
   if(!SUPABASE_URL||!SUPABASE_ANON_KEY) return v295WeeklyClickCounts;
-  try{
-    const since=v295ChicagoMidnightUtcIso(weekKey);
-    const url=`${SUPABASE_URL}/rest/v1/business_activity?select=business_id,created_at&action_type=eq.business_click&created_at=gte.${encodeURIComponent(since)}&limit=20000`;
-    const res=await fetch(url,{cache:'no-store',headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
-    if(!res.ok) throw new Error(`weekly click ${res.status}`);
-    const rows=await res.json();
+  const since=v295ChicagoMidnightUtcIso(weekKey);
+  const result=await dtmRequests.run({
+    scope:'weekly-popular',resource:'business_activity:weekly-clicks',conditions:{region:getAppRegion(),weekKey},force,ttl:30000,
+    loader:async({signal})=>{
+    const snapshot=new Date().toISOString();
+    const url=`${SUPABASE_URL}/rest/v1/business_activity?select=id,business_id,created_at&action_type=eq.business_click&created_at=gte.${encodeURIComponent(since)}&created_at=lte.${encodeURIComponent(snapshot)}&order=created_at.asc,id.asc`;
+    const pageResult=await globalThis.DtmPagination.fetchPostgrest({url,signal,pageSize:1000,maxPages:200,keyOf:r=>r?.id,validRow:r=>!!r&&r.id!=null&&r.business_id!=null,headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}});
+    dtmDataLoadState.weeklyClicks={...pageResult,error:pageResult.error?.message||'',rows:pageResult.rows.length,weekKey};
+    if(!pageResult.complete)throw pageResult.error||new Error('Weekly click pagination incomplete');
+    const rows=pageResult.rows;
     const counts=new Map();
     (Array.isArray(rows)?rows:[]).forEach(r=>{
       const id=String(r?.business_id||'').trim();
       if(id) counts.set(id,(counts.get(id)||0)+1);
     });
+    return counts;
+    },
+    commit:counts=>{
     v295WeeklyClickCounts=counts;
     v295WeeklyClickStartKey=weekKey;
+    dtmDataLoadState.weeklyClicks={...(dtmDataLoadState.weeklyClicks||{}),status:'live',complete:true};
     console.info('[V295 weekly popular]',{weekStart:weekKey,clicks:[...counts.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10)});
     if(typeof renderHomeBusinessTabs==='function') renderHomeBusinessTabs();
-    return counts;
-  }catch(err){
-    console.warn('[V295 weekly popular] load skipped',err);
-    return v295WeeklyClickCounts;
-  }
+    },fallback:err=>console.warn('[V295 weekly popular] load skipped',err)
+  });
+  return result.committed?result.value:v295WeeklyClickCounts;
 }
 
 // === V296: 추천 거리순 보정 + 중복 업소 제거 ===
@@ -1326,10 +1315,7 @@ function autoLinkText(value=''){
 }
 function isPremiumBusiness(b){
   if(!b || !b.paid_active || b.paid_product !== 'premium') return false;
-  const today = new Date().toISOString().slice(0,10);
-  if(b.paid_start_at && String(b.paid_start_at).slice(0,10) > today) return false;
-  if(b.paid_end_at && String(b.paid_end_at).slice(0,10) < today) return false;
-  return true;
+  return globalThis.DtmDallasTime.periodActive(b.paid_start_at,b.paid_end_at);
 }
 function boardPostsByType(type){
   const hiddenThemeTitles=new Set((dalpicks||[]).filter(isThemeDalpick).map(d=>String(d.title||'').trim()).filter(Boolean));
@@ -1668,44 +1654,22 @@ function radiusByZoom(z){ if(z <= 10) return '10'; if(z <= 12) return '7'; if(z 
 // Map-only eligibility: date-only bounds use Dallas dates; timestamp bounds
 // retain their exact start/end instants. Coupon issuance is unchanged.
 function mapDallasDateKey(value=new Date()){
-  const date=new Date(value);
-  if(!Number.isFinite(date.getTime())) return '';
-  const parts=mapDallasDateFormatter.formatToParts(date);
-  const part=type=>parts.find(p=>p.type===type)?.value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  return globalThis.DtmDallasTime.dateKey(value);
 }
-const mapDallasDateFormatter=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'});
 function mapPeriodActive(start,end,now=Date.now()){
-  return [[start,true],[end,false]].every(([value,isStart])=>{
-    if(!value) return true;
-    const raw=String(value).trim();
-    if(/^\d{4}-\d{2}-\d{2}$/.test(raw)){
-      if(!Number.isFinite(Date.parse(raw)) || new Date(raw).toISOString().slice(0,10)!==raw) return false;
-      const today=mapDallasDateKey(now);
-      return isStart?raw<=today:raw>=today;
-    }
-    const time=Date.parse(raw);
-    return Number.isFinite(time) && (isStart?time<=now:time>now);
-  });
+  return globalThis.DtmDallasTime.periodActive(start,end,now);
 }
 function mapContentActive(row,now=Date.now()){
-  if(!row || row.is_active===false || row.isActive===false || row.active===false || row.hidden===true) return false;
-  if(row.region && String(row.region).toLowerCase()!==String(currentRegion).toLowerCase()) return false;
-  if(['draft','inactive','disabled','scheduled','expired','ended','cancelled','canceled','archived'].includes(String(row.status||'').toLowerCase())) return false;
-  return mapPeriodActive(row.start_at||row.startAt||row.start_date,row.end_at||row.endAt||row.end_date,now);
+  return globalThis.DtmActiveState.isActive(row,'benefit',now,{region:currentRegion});
 }
 function mapLinkedBusinessIds(row){
-  return [...new Set([row.businessId,row.business_id,...(Array.isArray(row.business_ids)?row.business_ids:[])].filter(Boolean).map(String))];
+  return globalThis.DtmActiveState.linkedBusinessIds(row);
 }
 function activeMapCoupons(now=Date.now()){
-  return (coupons||[]).filter(c=>mapContentActive({...c,start_at:v249CouponEffectiveStart(c),end_at:v249CouponEffectiveEnd(c)},now));
+  return globalThis.DtmActiveState.activeRecords(coupons||[],'coupon',now,{region:currentRegion});
 }
 function mapEventActive(row,now=Date.now()){
-  // An active publication is not evidence that an undated event is happening now.
-  const start=row.event_start_at||row.start_at;
-  const end=row.event_end_at||row.end_at;
-  return row.is_active===true && row.is_published!==false && !!start && !!end
-    && mapContentActive({...row,start_at:start,end_at:end},now);
+  return globalThis.DtmActiveState.isActive(row,'event',now,{region:currentRegion});
 }
 function mapBusinessBadgeKinds(b,now=Date.now()){
   if(!b || b.is_active===false || b.list_visible===false) return [];
@@ -1907,6 +1871,7 @@ function setMapBottomStatus(message=''){
 async function loadRealData(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
+  const requestedRegion=String(currentRegion||getAppRegion()).toLowerCase();
 
   try {
     const select = [
@@ -1923,18 +1888,15 @@ async function loadRealData(){
       'rating','review_count','google_maps_url','google_review_url','google_place_id','list_visible'
     ].join(',');
 
-    const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(currentRegion)}&is_active=eq.true&order=created_at.desc.nullslast`;
-
-    const res = await fetch(url,{
-      headers:{
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-      }
-    });
-
-    if(!res.ok) throw new Error(`Supabase ${res.status}`);
-
-    const rows = await res.json();
+    const url = `${SUPABASE_URL}/rest/v1/businesses?select=${encodeURIComponent(select)}&region=eq.${encodeURIComponent(requestedRegion)}&is_active=eq.true&or=${encodeURIComponent('(list_visible.is.null,list_visible.eq.true)')}&order=created_at.desc.nullslast,id.desc`;
+    const identity=dtmRequestIdentity('businesses',{region:requestedRegion,projection:'public-v2'});
+    const token=dtmRequests.begin('public-businesses',identity);
+    const cacheHitsBefore=dtmRequests.debug().cacheHit;
+    const pageResult=await dtmRequests.fetchShared(identity,()=>globalThis.DtmPagination.fetchPostgrest({url,signal:token.controller?.signal,pageSize:1000,maxPages:100,keyOf:r=>r?.id,validRow:r=>!!r&&r.id!=null,headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}}),{ttl:5000});
+    const loadStatus=dtmRequests.debug().cacheHit>cacheHitsBefore?'cache':pageResult.status;
+    dtmDataLoadState.businesses={...pageResult,status:loadStatus,error:pageResult.error?.message||'',rows:pageResult.rows.length,region:requestedRegion};
+    if(!pageResult.complete)throw pageResult.error||new Error('Business pagination incomplete');
+    const rows=pageResult.rows;
 
     if(Array.isArray(rows) && rows.length){
       const mapped = rows.map((row) => {
@@ -2012,7 +1974,7 @@ async function loadRealData(){
       });
 
       const seen = new Set();
-      businesses = mapped.filter((b) => {
+      const nextBusinesses = mapped.filter((b) => {
       if (b.list_visible === false) return false;
       if ((b.region || '').toLowerCase() !== getAppRegion()) return false;
         const key = [
@@ -2026,6 +1988,9 @@ async function loadRealData(){
         seen.add(key);
         return true;
       });
+      if(!dtmRequests.current(token)||requestedRegion!==String(currentRegion||getAppRegion()).toLowerCase()){dtmDataLoadState.businesses={...(dtmDataLoadState.businesses||{}),status:'partial',complete:false,stale:true};return false;}
+      businesses=nextBusinesses;
+      dtmDataLoadState.businesses={...(dtmDataLoadState.businesses||{}),status:loadStatus,complete:true,committed:businesses.length};
 
       console.log(
   'LOADED BUSINESSES',
@@ -2039,9 +2004,11 @@ async function loadRealData(){
   ])
 );
       selectedBizId = businesses[0]?.id || selectedBizId;
-    }
+    }else dtmDataLoadState.businesses={...(dtmDataLoadState.businesses||{}),status:businesses.length?'fallback':'live',complete:true,committed:businesses.length};
   } catch(e){
     console.warn('Using fallback data', e);
+    const existing=dtmDataLoadState.businesses||{};
+    dtmDataLoadState.businesses={...existing,status:existing.status==='partial'?'partial':businesses.length?'fallback':'failed',complete:false,error:e?.message||String(e)};
   }
 
   await v295LoadWeeklyPopularClicks(true);
@@ -2149,7 +2116,7 @@ function openMultiBusinessBanner(banner){
 function linkedBusinessIds(row){const ids=Array.isArray(row?.business_ids)?row.business_ids.map(String).filter(Boolean):[];if(row?.business_id&&!ids.includes(String(row.business_id)))ids.unshift(String(row.business_id));return [...new Set(ids)];}
 function rowLinksBusiness(row,id){return linkedBusinessIds(row).includes(String(id));}
 
-function activeDalpicks(){const now=Date.now();return (dalpicks||[]).filter(d=>{const st=d.start_at||d.start_date,en=d.end_at||d.end_date;const status=String(d.status||'').toLowerCase();return d.is_active!==false&&status!=='draft'&&status!=='inactive'&&(!st||new Date(st).getTime()<=now)&&(!en||new Date(en).getTime()>=now);});}
+function activeDalpicks(){return (dalpicks||[]).filter(d=>{const status=String(d.status||'').toLowerCase();return d.is_active!==false&&status!=='draft'&&status!=='inactive'&&mapPeriodActive(d.start_at||d.start_date,d.end_at||d.end_date);});}
 function isThemeDalpick(row){
   if(!row)return false;
   if(String(row.category||'').toLowerCase()==='themed')return true;
@@ -2239,9 +2206,7 @@ function readActiveEventRoutines(){
       if(['draft','inactive','disabled','archived'].includes(status))return false;
       const start=r.start_at||r.start_date||'';
       const end=r.end_at||r.end_date||'';
-      if(start&&Date.parse(start)>now)return false;
-      if(end&&Date.parse(end)<now)return false;
-      return true;
+      return mapPeriodActive(start,end,now);
     }).sort((a,b)=>Date.parse(b.updated_at||b.created_at||0)-Date.parse(a.updated_at||a.created_at||0));
   }catch(e){console.warn('[Event routines] read failed',e);}
   return [];
@@ -2339,9 +2304,7 @@ function eventRoutineAlertItems(){
       const notices=noticeSource.filter(post=>{
         if(post?.is_active===false||post?.is_alert_notice!==true)return false;
         if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
-        if(post.start_at&&Date.parse(post.start_at)>now)return false;
-        if(post.end_at&&Date.parse(post.end_at)<now)return false;
-        return true;
+        return mapPeriodActive(post.start_at,post.end_at,now);
       }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:6}}));
       if(notices.length)return notices;
     }
@@ -2368,9 +2331,7 @@ function eventRoutineAlertItems(){
     const notices=noticeSource.filter(post=>{
       if(post?.is_active===false||post?.is_alert_notice!==true)return false;
       if(post.region&&normalizeRegionKey(post.region)!==currentRegion)return false;
-      if(post.start_at&&Date.parse(post.start_at)>now)return false;
-      if(post.end_at&&Date.parse(post.end_at)<now)return false;
-      return true;
+      return mapPeriodActive(post.start_at,post.end_at,now);
     }).sort((a,b)=>Number(a.alert_order||999)-Number(b.alert_order||999)||Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).map(post=>({
       kind:'event-alert-board-notice',id:`board-notice-${post.id}`,date:post.created_at||'',data:{title:post.title||'달타운 공지',summary:v38Text(post.content||'',80),badge:'공지',event_name:'게시판 공지',link_type:'board',link_value:post.id,interval_seconds:interval}
     }));
@@ -2492,12 +2453,16 @@ async function loadCouponsFromSupabase(){
 // V281: iPhone 홈 화면(PWA)에서도 예약 시작 시각이 지나면 쿠폰을 자동 갱신합니다.
 // 쿠폰 데이터 변경뿐 아니라 "시간 경과" 자체로 활성 상태가 바뀌므로 realtime 이벤트만으로는 부족합니다.
 let v281CouponRefreshBusy=false;
+let v281CouponRefreshTimer=null;
+let v281CouponLastLoadedAt=0;
 async function v281RefreshCoupons(reason='manual'){
   if(v281CouponRefreshBusy) return;
+  if(reason!=='manual'&&Date.now()-v281CouponLastLoadedAt<15000)return;
   v281CouponRefreshBusy=true;
   try{
     const loaded = await loadCouponsFromSupabase();
     if(!loaded) return;
+    v281CouponLastLoadedAt=Date.now();
     if(typeof renderCoupons==='function') renderCoupons();
     if(typeof buildHeroSlides==='function') buildHeroSlides();
     if(typeof renderHero==='function') renderHero();
@@ -2512,11 +2477,15 @@ async function v281RefreshCoupons(reason='manual'){
   }
 }
 window.v281RefreshCoupons=v281RefreshCoupons;
+function v281ScheduleCouponRefresh(reason,delay=180){
+  if(v281CouponRefreshTimer)clearTimeout(v281CouponRefreshTimer);
+  v281CouponRefreshTimer=setTimeout(()=>{v281CouponRefreshTimer=null;v281RefreshCoupons(reason);},delay);
+}
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible') setTimeout(()=>v281RefreshCoupons('visible'),120);
+  if(document.visibilityState==='visible') v281ScheduleCouponRefresh('visible');
 });
-window.addEventListener('pageshow',()=>setTimeout(()=>v281RefreshCoupons('pageshow'),250));
-window.addEventListener('focus',()=>setTimeout(()=>v281RefreshCoupons('focus'),120));
+window.addEventListener('pageshow',()=>v281ScheduleCouponRefresh('pageshow'));
+window.addEventListener('focus',()=>v281ScheduleCouponRefresh('focus'));
 setInterval(()=>{
   if(!document.hidden) v281RefreshCoupons('timer');
 },30000);
@@ -2595,13 +2564,7 @@ function buildHeroSlides() {
     const enabled = s.promo_enabled === true || s.promo_enabled === 1 || s.promo_enabled === 'true';
     if (!enabled) return false;
 
-    const startTime = s.promo_start_at ? new Date(s.promo_start_at).getTime() : null;
-    const endTime = s.promo_end_at ? new Date(s.promo_end_at).getTime() : null;
-
-    const startOk = !startTime || (Number.isFinite(startTime) && startTime <= now);
-    const endOk = !endTime || (Number.isFinite(endTime) && endTime >= now);
-
-    return startOk && endOk;
+    return mapPeriodActive(s.promo_start_at,s.promo_end_at,now);
   }).sort((a, b) =>
     (Number(a.home_fixed_sort ?? 1000) - Number(b.home_fixed_sort ?? 1000)) ||
     String(b.created_at || '').localeCompare(String(a.created_at || ''))
@@ -2936,36 +2899,23 @@ function countdownLabel(endAt, short=false){
 }
 
 function v249CouponEffectiveEnd(c){
-  const mode=String(c?.delivery_mode||'display');
-  if(mode==='raffle'){
-    return c?.raffle_end_at || c?.endAt || c?.end_at || c?.expire_date || '';
-  }
-  return c?.endAt || c?.end_at || c?.expire_date || '';
+  return globalThis.DtmActiveState.bounds(c,'coupon').end;
 }
 function v249CouponEffectiveStart(c){
-  return c?.startAt || c?.start_at || '';
+  return globalThis.DtmActiveState.bounds(c,'coupon').start;
 }
 function v249CouponTimeState(c){
   const now=Date.now();
   const start=v249CouponEffectiveStart(c);
   const end=v249CouponEffectiveEnd(c);
-  const st=start?new Date(start).getTime():null;
-  const et=end?new Date(end).getTime():null;
-  if(st && Number.isFinite(st) && st>now) return {key:'scheduled',start:st,end:et};
-  if(et && Number.isFinite(et) && et<=now) return {key:'ended',start:st,end:et};
-  return {key:'active',start:st,end:et};
+  const st=start?Date.parse(start):null,et=end?Date.parse(end):null;
+  const key=globalThis.DtmDallasTime.periodState(start,end,now);
+  return {key:key==='invalid'?'ended':key,start:st,end:et};
 }
 
 function activeCoupons(list=coupons){
   const now = Date.now();
-  return list.filter(c=>{
-    if(c.isActive === false || c.is_active === false) return false;
-    const start=v249CouponEffectiveStart(c);
-    const end=v249CouponEffectiveEnd(c);
-    const startOk = !start || new Date(start).getTime() <= now;
-    const endOk = !end || new Date(end).getTime() >= now;
-    return startOk && endOk;
-  }).sort((a,b)=>
+  return globalThis.DtmActiveState.activeRecords(list,'coupon',now,{region:currentRegion}).sort((a,b)=>
     (a.sortOrder||a.sort_order||1000)-(b.sortOrder||b.sort_order||1000) ||
     (new Date(v249CouponEffectiveEnd(a)||'2999-01-01') - new Date(v249CouponEffectiveEnd(b)||'2999-01-01')) ||
     String(b.createdAt||b.created_at||'').localeCompare(String(a.createdAt||a.created_at||''))
@@ -3325,27 +3275,13 @@ function businessHasActiveCoupon(b){
   if(!b) return false;
   const id=String(b.id||'');
   if(!id) return false;
-  return activeCoupons(Array.isArray(coupons)?coupons:[]).some(c=>{
-    const ids=[c.businessId,c.business_id,...(Array.isArray(c.business_ids)?c.business_ids:[])].filter(Boolean).map(String);
-    return ids.includes(id);
-  });
+  return globalThis.DtmActiveState.hasForBusiness(coupons,id,'coupon',Date.now(),{region:currentRegion});
 }
 function businessHasActiveBanner(b){
   if(!b) return false;
   const id=String(b.id||'');
   if(!id) return false;
-  const now=Date.now();
-  return (Array.isArray(mainBanners)?mainBanners:[]).some(row=>{
-    if(!row || row.is_active===false) return false;
-    const status=String(row.status||'').toLowerCase();
-    if(status==='draft' || status==='inactive') return false;
-    const st=row.start_at||row.start_date;
-    const en=row.end_at||row.end_date;
-    if(st && new Date(st).getTime()>now) return false;
-    if(en && new Date(en).getTime()<now) return false;
-    const ids=[row.business_id,row.businessId,...(Array.isArray(row.business_ids)?row.business_ids:[])].filter(Boolean).map(String);
-    return ids.includes(id);
-  });
+  return globalThis.DtmActiveState.hasForBusiness(mainBanners,id,'benefit',Date.now(),{region:currentRegion});
 }
 function nearbyBusinessItemHTML(b){
   const bizName = b.name || b.name_ko || b.name_en || '이름 없음';
@@ -3648,7 +3584,6 @@ function v45SelectedBusinesses(config={}){
   config=v61EffectiveHomeConfig(config);
   const MAX=6;
   const all=(businesses||[]).filter(b=>isBusinessVisibleByPaidDate(b));
-  const ids=(config.business_ids||[]).map(String);
   const consumerRows=all.filter(b=>!v45IsPublicInstitution(b));
 
   // V210 canonical groups:
@@ -3665,17 +3600,7 @@ function v45SelectedBusinesses(config={}){
   const bannerRows=consumerRows.filter(b=>bannerIds.has(String(b.id)));
   const videoRows=consumerRows.filter(b=>b.video_url||b.video||b.youtube_url||b.instagram_url);
   const promoRows=consumerRows.filter(b=>couponIds.has(String(b.id))||bannerIds.has(String(b.id))||b.video_url||b.video||b.youtube_url||b.instagram_url);
-  const adminRows=ids.length?all.filter(b=>ids.includes(String(b.id))):[];
   const randomRows=v45StableShuffle(consumerRows,todayKey());
-
-  const mode=String(config.business_mode||'featured');
-
-  if(mode==='direct'){
-    console.info('[V210 recommendation pool]',{
-      mode,total:adminRows.length,names:adminRows.map(b=>b.name_ko||b.name||b.name_en)
-    });
-    return adminRows.slice(0,MAX);
-  }
 
   const groups={
     featured:featuredRows,
@@ -3689,29 +3614,16 @@ function v45SelectedBusinesses(config={}){
     promotion:promoRows,
     random:randomRows
   };
-
-  // 이벤트 루틴에서 여러 옵션을 지정한 경우에도 각 그룹의 canonical 결과만 합칩니다.
   const options=typeof v73RoutineRecommendationOptions==='function'
     ? v73RoutineRecommendationOptions()
     : [];
-  if(options.length){
-    const seen=new Set(), result=[];
-    for(const option of options){
-      const key=String(option||'').toLowerCase();
-      const rows=groups[key]||[];
-      for(const b of rows){
-        const id=String(b?.id||'');
-        if(!id||seen.has(id)) continue;
-        seen.add(id);
-        result.push(b);
-        if(result.length>=MAX) return result;
-      }
-    }
-    if(result.length) return result;
-  }
-
-  const primary=groups[mode]||featuredRows;
-  return primary.slice(0,MAX);
+  const engine=globalThis.DtmHomeSelection.create({now:Date.now(),origin:v293DistanceOrigin(),clickCounts:v295WeeklyClickCounts});
+  const selected=engine.recommend(config,all,MAX,{dateValue:todayKey(),canonical,options,groups});
+  console.info('[V210 recommendation pool]',{
+    mode:String(config.business_mode||'featured'),total:selected.length,
+    names:selected.map(b=>b.name_ko||b.name||b.name_en)
+  });
+  return selected;
 }
 
 function v66BoardHomePins(){
@@ -3776,16 +3688,33 @@ function v45SetupCommunity(config){
     v45CommunityTimer=setInterval(()=>{v45CommunityIndex=(v45CommunityIndex+1)%v45CommunityItems.length;v45PaintCommunity();},5000);
   }
 }
-function v77RefreshRoutineDrivenHome(){
-  const activeRoutines=readActiveEventRoutines();
-  document.documentElement.dataset.eventRoutineCount=String(activeRoutines.length);
-  const biz=v45SelectedBusinesses(v45HomeConfig||{});
+function v45RenderAuthoritativeRecommendation(config={},delayOverride=null){
+  const biz=v45SelectedBusinesses(config);
   v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));
   v37RecommendationIndex=0;
   paintV37Recommendation();
+  const label=document.getElementById('v45BusinessModeLabel');
+  if(label){const text=v83RecommendationLabel(config);label.textContent=text;label.hidden=!text;}
   if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);
-  const delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():5000;
-  if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation();},delay);
+  const effective=v61EffectiveHomeConfig(config||{});
+  const play=effective.autoplay?.today!==false;
+  const delay=delayOverride||(
+    v73RoutineRecommendationOptions().length
+      ? v73RoutineRecommendationInterval()
+      : Math.max(2,Number(effective.intervals?.today||10))*1000
+  );
+  if(play&&v37RecommendationItems.length>1){
+    v37RecommendationTimer=setInterval(()=>{
+      v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;
+      paintV37Recommendation();
+    },delay);
+  }
+  return biz;
+}
+function v77RefreshRoutineDrivenHome(){
+  const activeRoutines=readActiveEventRoutines();
+  document.documentElement.dataset.eventRoutineCount=String(activeRoutines.length);
+  v45RenderAuthoritativeRecommendation(v45HomeConfig||{},5000);
   renderDalpicks();
   v45SetupCommunity(v45HomeConfig||{});
 }
@@ -3845,7 +3774,7 @@ function v38FallbackPayload(ctx,candidates){
 }
 async function v38GeneratePayload(ctx,candidates){
   const fallback=v38FallbackPayload(ctx,candidates);
-  const dayKey=new Date().toISOString().slice(0,10);
+  const dayKey=todayKey();
   const contentSignature=candidates.slice(0,8).map(x=>[
     x.kind,x.id,Math.round(x.score),
     String(x.title||'').slice(0,80),
@@ -3881,7 +3810,6 @@ function paintV38HomePayload(payload,candidates){
   if(checkNode)checkNode.innerHTML=(payload.checklist||[]).slice(0,3).map(v=>`<span>✓ ${esc(v)}</span>`).join('');
   if(chipsNode)chipsNode.innerHTML='';
   const life=payload.life||[];const countIds=['v37CouponCount','v37EventCount','v37BusinessCount','v37LifeCount'];life.slice(0,4).forEach((x,i)=>{const ic=document.getElementById(`v38LifeIcon${i}`),tt=document.getElementById(`v38LifeTitle${i}`),sm=document.getElementById(countIds[i]);if(ic)ic.textContent=x.icon;if(tt)tt.textContent=x.title;if(sm)sm.textContent=x.subtitle});
-  v37RecommendationItems=payload.recommendations||candidates;v37RecommendationIndex=0;paintV37Recommendation();if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);if(v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},5200);
   if(window.lucide)window.lucide.createIcons();
 }
 async function v471FetchPublicHomeSettings(){
@@ -4130,9 +4058,15 @@ async function v517LoadNetlifyEditorItems(){
 // V120: 오늘의 날씨·교통은 newsroom_items의 daily-core 행도 직접 읽습니다.
 // Edge/Netlify home_feed가 한 카테고리를 누락해도 한 줄 광고에서 날씨와 교통이 모두 유지됩니다.
 let v120CoreWeatherTrafficItems = [];
+let v120CoreLoading=null;
+let v120CoreLoadedAt=0;
 async function v120LoadCoreWeatherTrafficDirect(){
+  if(Date.now()-v120CoreLoadedAt<15000)return v120CoreWeatherTrafficItems;
+  if(v120CoreLoading)return v120CoreLoading;
+  const requestedRegion=String(currentRegion||'dallas').toLowerCase();
+  v120CoreLoading=(async()=>{
   try{
-    const region=String(currentRegion||'dallas').toLowerCase();
+    const region=requestedRegion;
     const today=new Intl.DateTimeFormat('en-CA',{
       timeZone:'America/Chicago',
       year:'numeric',month:'2-digit',day:'2-digit'
@@ -4234,9 +4168,12 @@ async function v120LoadCoreWeatherTrafficDirect(){
       }
     }
 
-    v120CoreWeatherTrafficItems=['weather','traffic']
+    const nextItems=['weather','traffic']
       .map(key=>byCategory.get(key))
       .filter(Boolean);
+    if(requestedRegion!==String(currentRegion||'dallas').toLowerCase())return v120CoreWeatherTrafficItems;
+    v120CoreWeatherTrafficItems=nextItems;
+    v120CoreLoadedAt=Date.now();
 
     console.info('[V121 daily core direct]',{
       date:today,
@@ -4255,6 +4192,8 @@ async function v120LoadCoreWeatherTrafficDirect(){
     console.warn('[V120 daily core direct] failed',error?.message||error);
     return v120CoreWeatherTrafficItems;
   }
+  })().finally(()=>{v120CoreLoading=null;});
+  return v120CoreLoading;
 }
 
 function v51MergeTodaySources(feedItems=[],directItems=[]){
@@ -4812,9 +4751,7 @@ async function renderV37AIHome(){
   if(window.P122OneLineTicker?.refresh) window.P122OneLineTicker.refresh(false);
   console.info('[V51 Today Daltown] render',{feedMeta,count:v51TodayItems.length,items:v51TodayItems.map(x=>({category:x.category,title:x.title,admin:v51IsAdminSelected(x)}))});
   const alertCard=document.getElementById('v43AlertCard');if(alertCard)alertCard.classList.add('hidden');
-  const biz=v45SelectedBusinesses(v45HomeConfig);console.info('[V83 recommendation] authoritative',{options:v73RoutineRecommendationOptions(),addressTerms:v74RoutineRecommendationAddressTerms(),count:biz.length,names:biz.slice(0,8).map(b=>b.name||b.name_ko)});v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));v37RecommendationIndex=0;paintV37Recommendation();
-  const label=document.getElementById('v45BusinessModeLabel');if(label){const m=v83RecommendationLabel(v45HomeConfig);label.textContent=m;label.hidden=!m;}
-  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);const hc=v61EffectiveHomeConfig(v45HomeConfig||{}),play=hc.autoplay?.today!==false,delay=v73RoutineRecommendationOptions().length?v73RoutineRecommendationInterval():Math.max(2,Number(hc.intervals?.today||10))*1000;if(play&&v37RecommendationItems.length>1)v37RecommendationTimer=setInterval(()=>{v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;paintV37Recommendation()},delay);
+  const biz=v45RenderAuthoritativeRecommendation(v45HomeConfig);console.info('[V83 recommendation] authoritative',{options:v73RoutineRecommendationOptions(),addressTerms:v74RoutineRecommendationAddressTerms(),count:biz.length,names:biz.slice(0,8).map(b=>b.name||b.name_ko)});
   v45SetupCommunity(v45HomeConfig);
   renderDalpicks();
   v119RenderOneLineAds();
@@ -4946,8 +4883,7 @@ function getBusinessPageThemes(){
     if (status && !['published','active'].includes(status)) return false;
     const start = row.start_at || row.start_date;
     const end = row.end_at || row.end_date;
-    if (start && new Date(start).getTime() > now) return false;
-    if (end && new Date(end).getTime() < now) return false;
+    if(!mapPeriodActive(start,end,now)) return false;
     const targets = parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
     if (!selectedTarget) return targets.includes('all') || targets.length > 0;
     return targets.includes('all') || targets.includes(selectedTarget);
@@ -5182,8 +5118,7 @@ function renderMainBanners(){
     const placement = String(b.placement || (linkedBusinessIds(b).length ? 'both' : 'home')).toLowerCase();
     if (!['home','both'].includes(placement)) return false;
     if (!bannerMatchesCurrentHomeCategory(b)) return false;
-    if (b.start_at && new Date(b.start_at).getTime() > now) return false;
-    if (b.end_at && new Date(b.end_at).getTime() < now) return false;
+    if(!mapPeriodActive(b.start_at,b.end_at,now)) return false;
     return b.is_active !== false && !!(b.image_url || b.video_url);
   }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
   if(!rows.length){
@@ -5273,8 +5208,7 @@ function v229YouTubeId(value){
   }catch(_){return '';}
 }
 function v229DallasDate(){
-  try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
-  catch(_){return new Date().toISOString().slice(0,10);}
+  return globalThis.DtmDallasTime.dateKey();
 }
 function v229ListingIsPublic(row){
   const status=String(row?.status||'active').toLowerCase();
@@ -5493,7 +5427,7 @@ function renderDetail(id){
   const safePhoneHref = phoneDigits ? `tel:${phoneDigits}` : '';
   const safeSmsHref = phoneDigits ? `sms:${phoneDigits}` : '';
   const safeDirections = getDirectionsUrl(b);
-  const bizCoupons = activeCoupons(coupons).filter(c=>String(c.businessId)===String(b.id));
+  const bizCoupons = activeCoupons(coupons).filter(c=>mapLinkedBusinessIds(c).includes(String(b.id)));
   // V230: renderDetail() 자체 호출만으로는 상세 조회를 올리지 않습니다.
   // 실제 사용자 클릭이 직전에 있었을 때만, 30분 중복 제거 후 상세 조회를 기록합니다.
   v230LogDetailViewIfExpected(b.id);
@@ -5627,7 +5561,7 @@ function getBusinessTheme(business){
     if(!isThemeDalpick(row)||row.is_active===false) return false;
     const status=String(row.status||'').toLowerCase(); if(status&& !['published','active'].includes(status)) return false;
     const start=row.start_at||row.start_date, end=row.end_at||row.end_date;
-    if(start&&new Date(start).getTime()>now) return false; if(end&&new Date(end).getTime()<now) return false;
+    if(!mapPeriodActive(start,end,now)) return false;
     const targets=parseThemeTargets(row.target_categories).map(normalizeThemeTarget);
     return targets.includes('all')||targets.some(t=>businessTargets.has(t));
   }).sort((a,b)=>Number(b.is_featured)-Number(a.is_featured)||Number(b.priority||0)-Number(a.priority||0)||new Date(b.created_at||0)-new Date(a.created_at||0))[0]||null;
@@ -5658,9 +5592,7 @@ function getBusinessAiPick(businessId) {
     if (status && !['published', 'active'].includes(status)) return false;
     const start = row?.start_at || row?.start_date;
     const end = row?.end_at || row?.end_date;
-    if (start && new Date(start).getTime() > now) return false;
-    if (end && new Date(end).getTime() < now) return false;
-    return true;
+    return mapPeriodActive(start,end,now);
   };
 
   const boardPick = (boardPosts || [])
@@ -5760,9 +5692,7 @@ function getBusinessPromotions(businessId){
     const placement = String(row.placement || 'both').toLowerCase();
     if (!['detail','both'].includes(placement)) return false;
     if (!bannerMatchesBusinessDetailCategory(row,businessId)) return false;
-    if (row.start_at && new Date(row.start_at).getTime() > now) return false;
-    if (row.end_at && new Date(row.end_at).getTime() < now) return false;
-    return true;
+    return mapPeriodActive(row.start_at,row.end_at,now);
   }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0) || new Date(b.created_at||0)-new Date(a.created_at||0));
 }
 
@@ -8582,7 +8512,7 @@ function closeVideoModal(){
 }
 
 function sortPaidRotation(list, section){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayKey();
 
   return list
     .filter(b => b.paid_active)
@@ -8604,17 +8534,11 @@ function seededRandom(seed){
 
 function isPaidActive(b){
   if(!b.paid_active) return false;
-
-  const today = new Date().toISOString().slice(0,10);
-
-  if(b.paid_start_at && b.paid_start_at > today) return false;
-  if(b.paid_end_at && b.paid_end_at < today) return false;
-
-  return true;
+  return globalThis.DtmDallasTime.periodActive(b.paid_start_at,b.paid_end_at);
 }
 
 function paidRotationScore(b, section){
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayKey();
   const weight = Number(b.paid_weight || 1);
   const seed = `${today}-${section}-${b.id}`;
   return seededRandom(seed) / weight;
@@ -9307,9 +9231,8 @@ const DtmMarketImages={
     loadingPromise=(async()=>{
       try{
         const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-        const res=await fetch(`/.netlify/functions/smart-flyer-public?region=${encodeURIComponent(region)}`,{cache:'no-store'});
-        const result=await res.json().catch(()=>({}));
-        if(!res.ok||result.ok===false)throw new Error(result.error||`HTTP ${res.status}`);
+        const result=await dtmFetchJson('smart-flyers',{region},`/.netlify/functions/smart-flyer-public?region=${encodeURIComponent(region)}`,{cache:'no-store'},30000);
+        if(region!==(typeof getAppRegion==='function'?getAppRegion():'dallas'))return activeFlyers;
         activeFlyers=(result.flyers||[]).filter(validFlyer);
         loadedAt=Date.now();
         return activeFlyers;
@@ -9640,9 +9563,8 @@ console.info('[DalTownMap] P011 Smart Flyer backend compatibility loaded');
     if(S.loading)return S.loading;
     S.loading=(async()=>{
       const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-      const res=await fetch(`/.netlify/functions/smart-flyer-public?region=${encodeURIComponent(region)}`,{cache:'no-store'});
-      const result=await res.json().catch(()=>({}));
-      if(!res.ok||result.ok===false)throw new Error(result.error||`HTTP ${res.status}`);
+      const result=await dtmFetchJson('smart-flyers',{region},`/.netlify/functions/smart-flyer-public?region=${encodeURIComponent(region)}`,{cache:'no-store'},30000);
+      if(region!==(typeof getAppRegion==='function'?getAppRegion():'dallas'))return S.rows;
       const raw=Array.isArray(result.flyers)?result.flyers:[];
       S.rows=raw.filter(valid);
       // V248: 세일 페이지가 DOM이 아니라 실제 전단 데이터와 업소 연결 ID를 사용하도록 공개합니다.
@@ -9828,25 +9750,25 @@ function p131OpenManualTickerItem(item){
 // 브라우저 RLS로 newsroom_items가 보이지 않는 경우 Netlify 서버 함수가 service role로 읽습니다.
 let p123ServerCoreItems=[];
 async function p123LoadServerCoreItems(){
-  try{
-    const region=encodeURIComponent(String(currentRegion||'dallas').toLowerCase());
-    const res=await fetch(`/.netlify/functions/daltown-daily-core?region=${region}`,{
-      cache:'no-store',
-      headers:{'Cache-Control':'no-cache'}
-    });
-    const json=await res.json().catch(()=>({}));
-    if(!res.ok||json.ok===false) throw new Error(json.error||`HTTP ${res.status}`);
+  const region=String(currentRegion||'dallas').toLowerCase();
+  const result=await dtmRequests.run({
+    scope:'daily-core:ticker',resource:'daily-core',conditions:{region},ttl:15000,
+    loader:async({signal})=>{
+      const res=await fetch(`/.netlify/functions/daltown-daily-core?region=${encodeURIComponent(region)}`,{cache:'no-store',headers:{'Cache-Control':'no-cache'},signal});
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok||json.ok===false)throw new Error(json.error||`HTTP ${res.status}`);
+      return json;
+    },
+    commit:json=>{
     p123ServerCoreItems=Array.isArray(json.items)?json.items:[];
     console.info('[P123 server core]',{
       count:p123ServerCoreItems.length,
       categories:p123ServerCoreItems.map(x=>x.category),
       titles:p123ServerCoreItems.map(x=>x.title)
     });
-    return p123ServerCoreItems;
-  }catch(error){
-    console.warn('[P123 server core] unavailable',error?.message||error);
-    return p123ServerCoreItems;
-  }
+    },fallback:error=>console.warn('[P123 server core] unavailable',error?.message||error)
+  });
+  return result.committed?p123ServerCoreItems:p123ServerCoreItems;
 }
 
 // === V221: 한 줄 광고 날씨 독립 복구 로더 ===
@@ -10389,229 +10311,15 @@ console.info('[DalTownMap] P132A guide board-detail links loaded');
 
 
 
-// === V200: authoritative Daltown recommendation controller ===
+// === V200 compatibility facade: selection authority lives in DtmHomeSelection ===
 (() => {
-  const MAX=6;
-  let applying=false;
-  let refreshToken=0;
-  let ownTimer=null;
-
-  const escName=b=>b?.name_ko||b?.name||b?.name_en||String(b?.id||'');
-
-  function activePaid(b,dateKey){
-    if(!b?.paid_active)return false;
-    if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey)return false;
-    if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey)return false;
-    return true;
+  function refresh(reason='manual'){
+    console.info('[V200 recommendation facade]',{reason,authority:'DtmHomeSelection'});
+    return typeof v45RenderAuthoritativeRecommendation==='function'
+      ? v45RenderAuthoritativeRecommendation(v45HomeConfig||{})
+      : [];
   }
-
-  async function loadRows(){
-    const cfg=typeof getConfig==='function'?getConfig():(window.KFOCUS_CONFIG||window.APP_CONFIG||{});
-    const base=String(cfg.SUPABASE_URL||'').replace(/\/$/,'');
-    const key=String(cfg.SUPABASE_ANON_KEY||'').trim();
-    const region=typeof getAppRegion==='function'?getAppRegion():'dallas';
-    if(!base||!key)return [];
-    const select=[
-      'id','name_ko','name_en','name','area','category_ko','is_active',
-      'is_featured','featured_rank','is_new','new_rank','is_popular','popular_rank',
-      'paid_active','paid_weight','paid_start_at','paid_end_at','rotation_enabled'
-    ].join(',');
-    const q=new URLSearchParams({
-      select,
-      region:`eq.${region}`,
-      is_active:'eq.true',
-      limit:'1000'
-    });
-    const res=await fetch(`${base}/rest/v1/businesses?${q}`,{
-      cache:'no-store',
-      headers:{apikey:key,Authorization:`Bearer ${key}`,Accept:'application/json'}
-    });
-    const rows=await res.json().catch(()=>[]);
-    if(!res.ok)throw new Error(rows?.message||`HTTP ${res.status}`);
-    return Array.isArray(rows)?rows:[];
-  }
-
-  function effectiveConfig(){
-    try{
-      const raw=typeof v45HomeConfig!=='undefined' && v45HomeConfig ? v45HomeConfig : {};
-      return typeof v61EffectiveHomeConfig==='function' ? v61EffectiveHomeConfig(raw) : raw;
-    }catch(_){return {}}
-  }
-
-  function uniquePush(out,seen,rows){
-    for(const r of rows||[]){
-      const id=String(r?.id||'');
-      if(!id||seen.has(id))continue;
-      seen.add(id); out.push(r);
-      if(out.length>=MAX)return true;
-    }
-    return false;
-  }
-
-  function buildPool(rows,config){
-    const mode=String(config?.business_mode||'featured');
-    const ids=(config?.business_ids||[]).map(String);
-    const byId=new Map(rows.map(r=>[String(r.id),r]));
-    const direct=ids.map(id=>byId.get(id)).filter(Boolean);
-
-    const featured=rows.filter(r=>r.is_featured===true)
-      .sort((a,b)=>Number(a.featured_rank??1000)-Number(b.featured_rank??1000));
-    const fresh=rows.filter(r=>r.is_new===true)
-      .sort((a,b)=>Number(a.new_rank??1000)-Number(b.new_rank??1000));
-    const popular=rows.filter(r=>r.is_popular===true)
-      .sort((a,b)=>Number(a.popular_rank??1000)-Number(b.popular_rank??1000));
-
-    if(mode==='direct') return direct.slice(0,MAX);
-
-    const primary = mode==='popular' ? popular : mode==='new' ? fresh : featured;
-    const fallbacks = mode==='popular'
-      ? [featured,fresh]
-      : mode==='new'
-      ? [featured,popular]
-      : [fresh,popular];
-
-    const out=[], seen=new Set();
-    uniquePush(out,seen,primary);
-    for(const group of fallbacks){
-      if(out.length>=MAX)break;
-      uniquePush(out,seen,group);
-    }
-
-    // Final filler only from active businesses; stable by name/id.
-    if(out.length<MAX){
-      const rest=rows.slice().sort((a,b)=>String(escName(a)).localeCompare(String(escName(b)),'ko'));
-      uniquePush(out,seen,rest);
-    }
-
-    return out.slice(0,MAX);
-  }
-
-  function mapToLocalRows(dbRows){
-    const current=Array.isArray(window.businesses)?window.businesses:
-      (typeof businesses!=='undefined'&&Array.isArray(businesses)?businesses:[]);
-    const map=new Map(current.map(b=>[String(b.id),b]));
-    return dbRows.map(r=>{
-      const local=map.get(String(r.id));
-      if(local){
-        local.is_featured=!!r.is_featured; local.featured=!!r.is_featured;
-        local.is_new=!!r.is_new; local.is_popular=!!r.is_popular;
-        local.featured_rank=r.featured_rank==null?1000:Number(r.featured_rank);
-        local.new_rank=r.new_rank==null?1000:Number(r.new_rank);
-        local.popular_rank=r.popular_rank==null?1000:Number(r.popular_rank);
-        local.paid_active=!!r.paid_active;
-        local.paid_weight=Math.max(1,Number(r.paid_weight||1));
-        local.paid_start_at=r.paid_start_at||'';
-        local.paid_end_at=r.paid_end_at||'';
-        local.rotation_enabled=r.rotation_enabled!==false;
-        return local;
-      }
-      return {
-        id:r.id,
-        name:r.name_ko||r.name_en||r.name||'업소',
-        name_ko:r.name_ko||'',
-        name_en:r.name_en||'',
-        area:r.area||'',
-        category:r.category_ko||'',
-        category_ko:r.category_ko||'',
-        is_featured:!!r.is_featured,featured:!!r.is_featured,
-        is_new:!!r.is_new,is_popular:!!r.is_popular,
-        featured_rank:r.featured_rank==null?1000:Number(r.featured_rank),
-        new_rank:r.new_rank==null?1000:Number(r.new_rank),
-        popular_rank:r.popular_rank==null?1000:Number(r.popular_rank),
-        paid_active:!!r.paid_active,
-        paid_weight:Math.max(1,Number(r.paid_weight||1)),
-        paid_start_at:r.paid_start_at||'',
-        paid_end_at:r.paid_end_at||'',
-        rotation_enabled:r.rotation_enabled!==false
-      };
-    });
-  }
-
-  function installPool(pool,config){
-    try{
-      v37RecommendationItems=pool.map(b=>({kind:'business',data:b}));
-      v37RecommendationIndex=0;
-      if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);
-      if(ownTimer)clearInterval(ownTimer);
-
-      if(typeof paintV37Recommendation==='function')paintV37Recommendation();
-
-      const label=document.getElementById('v45BusinessModeLabel');
-      if(label){
-        const m=typeof v83RecommendationLabel==='function'?v83RecommendationLabel(config):
-          ({direct:'직접 지정',featured:'추천',new:'신규',popular:'인기'}[String(config?.business_mode||'featured')]||'추천');
-        label.textContent=m; label.hidden=!m;
-      }
-
-      if(pool.length>1){
-        ownTimer=setInterval(()=>{
-          if(document.hidden)return;
-          v37RecommendationIndex=(v37RecommendationIndex+1)%v37RecommendationItems.length;
-          if(typeof paintV37Recommendation==='function')paintV37Recommendation();
-        },5000);
-        v37RecommendationTimer=ownTimer;
-      }
-    }catch(e){
-      console.error('[V200 install pool failed]',e);
-    }
-  }
-
-  async function apply(reason='manual'){
-    const token=++refreshToken;
-    if(applying)return;
-    applying=true;
-    try{
-      const rows=await loadRows();
-      if(token!==refreshToken)return;
-      const config=effectiveConfig();
-      const pool=buildPool(rows,config);
-      const localPool=mapToLocalRows(pool);
-
-      console.info('[V200 authoritative recommendation]',{
-        reason,
-        mode:String(config?.business_mode||'featured'),
-        selectedIds:(config?.business_ids||[]).map(String),
-        db:{
-          featured:rows.filter(r=>r.is_featured===true).map(escName),
-          new:rows.filter(r=>r.is_new===true).map(escName),
-          popular:rows.filter(r=>r.is_popular===true).map(escName)
-        },
-        pool:localPool.map(escName)
-      });
-
-      installPool(localPool,config);
-    }catch(e){
-      console.error('[V200 recommendation refresh failed]',e);
-    }finally{
-      applying=false;
-    }
-  }
-
-  // Old modules may repaint after data/settings load. Reassert authority after each likely phase.
-  function boot(){
-    [900,1800,3200,5200,8000].forEach((ms,i)=>setTimeout(()=>apply(`boot-${i+1}`),ms));
-
-    window.addEventListener('focus',()=>setTimeout(()=>apply('focus'),180),{passive:true});
-    document.addEventListener('visibilitychange',()=>{
-      if(!document.hidden)setTimeout(()=>apply('visible'),180);
-    });
-
-    // Watch only the recommendation card container for wholesale replacement, debounce, no self-loop.
-    setTimeout(()=>{
-      const host=document.getElementById('v37RecommendCard');
-      if(!host)return;
-      let t=null;
-      new MutationObserver(()=>{
-        clearTimeout(t);
-        t=setTimeout(()=>apply('card-mutated'),250);
-      }).observe(host,{childList:true});
-    },2500);
-  }
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
-  else boot();
-
-  window.V200Recommendation={refresh:apply};
+  window.V200Recommendation={refresh};
 })();
 
 
@@ -10703,20 +10411,7 @@ setTimeout(()=>v241HardenExternalLinks(),1200);
 
 // ===== V245 오늘의 달타운맵: 4개 바로가기 =====
 function v245ActiveCoupons(){
-  const now=Date.now();
-  return (coupons||[]).filter(c=>{
-    if(c.is_active===false || c.active===false || c.hidden===true) return false;
-    const start=v249CouponEffectiveStart(c);
-    const end=v249CouponEffectiveEnd(c);
-    const st=start?new Date(start).getTime():null;
-    const et=end?new Date(end).getTime():null;
-
-    // V256: 시작 전/종료 후 항목은 메인 알림 배지 수에서 즉시 제외
-    if(st && Number.isFinite(st) && st>now) return false;
-    if(et && Number.isFinite(et) && et<=now) return false;
-
-    return true;
-  });
+  return globalThis.DtmActiveState.activeRecords(coupons||[],'coupon',Date.now(),{region:currentRegion});
 }
 function v245EventCoupons(){
   return v245ActiveCoupons().filter(c=>String(c.delivery_mode||'display')==='raffle');
@@ -10735,9 +10430,9 @@ function v245SaleCount(){
 function v245EventPostCount(){
   const rows=Array.isArray(boardPosts)?boardPosts:[];
   return rows.filter(p=>{
-    if(p.hidden===true || p.is_active===false) return false;
     const t=String(p.type||p.board||p.category||'').toLowerCase();
-    return t==='notice' || t.includes('event') || t.includes('행사');
+    const eventType=t==='event'||t.includes('행사')||(t==='notice'&&String(p.subtype||'').toLowerCase()==='event');
+    return eventType&&globalThis.DtmActiveState.isActive(p,'event',Date.now(),{region:currentRegion});
   }).length;
 }
 function v245Badge(n){
@@ -10850,15 +10545,7 @@ function v246ActivePromoRows(){
   }catch(_){}
   if(!rows.length && Array.isArray(window.businessPromotions)) rows=window.businessPromotions;
 
-  const now=Date.now();
-  return (rows||[]).filter(r=>{
-    if(!r || r.active===false || r.is_active===false || r.hidden===true) return false;
-    const start=r.start_at||r.startAt||'';
-    const end=r.end_at||r.endAt||'';
-    if(start && new Date(start).getTime()>now) return false;
-    if(end && new Date(end).getTime()+86400000<=now) return false;
-    return true;
-  });
+  return globalThis.DtmActiveState.activeRecords(rows,'benefit',Date.now(),{region:currentRegion});
 }
 
 

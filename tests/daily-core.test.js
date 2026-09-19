@@ -6,6 +6,7 @@ const root=path.resolve(__dirname,'..');
 const libPath=path.join(root,'netlify/functions/lib/daily-core.js');
 const readPath=path.join(root,'netlify/functions/daltown-daily-core.js');
 const refreshPath=path.join(root,'netlify/functions/daily-core-refresh.js');
+const scheduledPath=path.join(root,'netlify/functions/daily-core-scheduled.mjs');
 const today=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 function clear(){for(const p of [libPath,readPath,refreshPath])delete require.cache[require.resolve(p)];}
 function mockLib(exports){clear();require.cache[require.resolve(libPath)]={id:libPath,filename:libPath,loaded:true,exports};}
@@ -31,7 +32,7 @@ function scenario(t,{existing=[],lock=true,completeUnderLock=false,response,coll
       return json({status:'completed',output:[{type:'web_search_call',status:'completed'},{type:'message',role:'assistant',content:[{type:'output_text',text:JSON.stringify(Object.fromEntries(requested.map(category=>[category,content(category)])))}]}]});
     }
     assert.equal(target.hostname,'supabase.test','No live network calls');
-    if(target.pathname.endsWith('/rpc/claim_daily_core_generation_lock')){assert.equal(options.method,'POST');state.locks++;return json(lock);}
+    if(target.pathname.endsWith('/rpc/claim_daily_core_generation_lock')){assert.equal(options.method,'POST');state.locks++;return json(typeof lock==='function'?await lock(state):lock);}
     if(target.pathname.endsWith('/rpc/release_daily_core_generation_lock')){assert.equal(options.method,'POST');state.releases++;return json(true);}
     assert.equal(target.pathname,'/rest/v1/newsroom_items');
     if(options.method&&options.method!=='GET'){
@@ -67,12 +68,31 @@ test('unauthenticated refresh is rejected without generation',async t=>{
   const response=await require(refreshPath).handler({httpMethod:'POST',headers:{},queryStringParameters:{force:'1'}});
   assert.equal(response.statusCode,403);assert.equal(calls,0);
 });
-for(const scheduled of [true,false])test(`${scheduled?'scheduled':'authenticated manual'} recovery ignores force and preserves one daily schedule`,async t=>{
+test('forged next_run payload is rejected before generation',async t=>{
+  let calls=0;mockLib({ensureDailyCore:async()=>{calls++;}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
+  const response=await require(refreshPath).handler({httpMethod:'POST',body:JSON.stringify({next_run:'tomorrow'}),headers:{},queryStringParameters:{force:'1'}});
+  assert.equal(response.statusCode,403);assert.equal(calls,0);
+});
+test('wrong recovery secret is rejected before generation',async t=>{
+  let calls=0;mockLib({ensureDailyCore:async()=>{calls++;}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
+  const response=await require(refreshPath).handler({httpMethod:'POST',body:'{}',headers:{authorization:'Bearer wrong-secret'},queryStringParameters:{}});
+  assert.equal(response.statusCode,403);assert.equal(calls,0);
+});
+test('authenticated manual recovery ignores force',async t=>{
   const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);setEnv(t,{DAILY_CORE_REFRESH_SECRET:'test-secret'});
   const {handler,config}=require(refreshPath);
-  const response=await handler({httpMethod:'POST',body:scheduled?JSON.stringify({next_run:'tomorrow'}):'{}',headers:scheduled?{}:{authorization:'Bearer test-secret'},queryStringParameters:{force:'1'}});
-  assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'dallas',options:{force:false}}]);assert.equal(config.schedule,'15 11 * * *');
-  assert.match(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-refresh"\]\s+schedule = "15 11 \* \* \*"/);
+  const response=await handler({httpMethod:'POST',body:'{}',headers:{authorization:'Bearer test-secret'},queryStringParameters:{force:'1'}});
+  assert.equal(response.statusCode,200);assert.deepEqual(args,[{region:'dallas',options:{force:false}}]);assert.equal(config,undefined);
+  assert.doesNotMatch(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-refresh"\]\s+schedule\s*=/);
+});
+test('Netlify scheduled wrapper is the only scheduled generation entry point',async t=>{
+  const args=[];mockLib({ensureDailyCore:async(region,options)=>{args.push({region,options});return {ok:true};}});t.after(clear);
+  setEnv(t,{APP_REGION:'staging-scheduled'});
+  const {default:handler,config}=await import(`${require('node:url').pathToFileURL(scheduledPath).href}?test=${Date.now()}`);
+  const response=await handler(new Request('https://scheduler.internal/'));
+  assert.equal(response.status,200);assert.deepEqual(args,[{region:'staging-scheduled',options:{force:false}}]);
+  assert.deepEqual(config,{schedule:'15 11 * * *'});
+  assert.doesNotMatch(fs.readFileSync(path.join(root,'netlify.toml'),'utf8'),/\[functions\."daily-core-scheduled"\]\s+schedule\s*=/);
 });
 test('complete categories cause zero OpenAI calls, locks or writes, even with legacy force',async t=>{
   const {ensureDailyCore,state}=scenario(t,{existing:['weather','traffic']});const result=await ensureDailyCore('dallas',{force:true});
@@ -115,4 +135,29 @@ test('parsing supports plain JSON, code fences and mixed web search output',()=>
   assert.deepEqual(_test.parseJsonText(raw),value);assert.deepEqual(_test.parseJsonText('```json\n'+raw+'\n```'),value);
   assert.equal(_test.textFromResponse({output:[{type:'web_search_call'},{type:'message',role:'assistant',content:[{type:'output_text',text:raw}]}]}),raw);
   assert.throws(()=>_test.parseJsonText('{"traffic":'),/JSON/);clear();
+});
+test('20 concurrent generation requests permit exactly one OpenAI call',async t=>{
+  let claimed=false,releaseOpenAI;const gate=new Promise(resolve=>releaseOpenAI=resolve);
+  const {ensureDailyCore,state}=scenario(t,{lock:()=>{if(claimed)return false;claimed=true;return true;}});
+  const originalFetch=global.fetch;global.fetch=async(url,options={})=>{
+    if(String(url).includes('api.openai.com'))await gate;
+    return originalFetch(url,options);
+  };
+  const requests=Array.from({length:20},()=>ensureDailyCore('dallas'));
+  await new Promise(resolve=>setImmediate(resolve));releaseOpenAI();await Promise.all(requests);
+  assert.equal(state.requests.length,1);assert.equal(state.writes.length,2);assert.equal(state.releases,1);
+});
+test('Dallas date scope separates midnight and DST correctly',()=>{
+  clear();const {centralDate}=require(libPath);
+  assert.equal(centralDate('2026-09-19T04:59:59Z'),'2026-09-18');
+  assert.equal(centralDate('2026-09-19T05:00:00Z'),'2026-09-19');
+  assert.equal(centralDate('2026-03-08T07:59:59Z'),'2026-03-08');
+  assert.equal(centralDate('2026-11-01T06:30:00Z'),'2026-11-01');clear();
+});
+test('public ai-daily-home performs zero OpenAI calls',async t=>{
+  const aiPath=path.join(root,'netlify/functions/ai-daily-home.js');delete require.cache[require.resolve(aiPath)];
+  const originalFetch=global.fetch;let calls=0;global.fetch=async()=>{calls++;throw Error('must not call network')};
+  t.after(()=>{global.fetch=originalFetch;delete require.cache[require.resolve(aiPath)]});
+  const response=await require(aiPath).handler({httpMethod:'POST',body:JSON.stringify({date:today,items:[{title:'A'}]})});
+  assert.equal(response.statusCode,200);assert.equal(calls,0);assert.equal(JSON.parse(response.body).source,'생활 패턴 자동 분석');
 });

@@ -4,6 +4,8 @@ const fixture=require('./fixtures/weekly-public-production.json');
 const {currentFlyers}=require('../netlify/functions/smart-flyer-public')._test;
 const rows=currentFlyers(fixture.flyers,fixture.today);
 const app=fs.readFileSync(path.join(root,'app-v99.js'),'utf8');
+const coordinator=fs.readFileSync(path.join(root,'assets/request-coordinator.js'),'utf8');
+const requestPrelude=app.slice(app.indexOf('const dtmRequests='),app.indexOf("const heroViewport"));
 const shared=app.slice(app.indexOf('// Shared administrator main-image'),app.indexOf('// === P010-2:'));
 const render=app.slice(app.indexOf('// === P130/V187'),app.indexOf('// === P030C'));
 (async()=>{
@@ -19,6 +21,7 @@ try{for(const width of [360,390,1280]){
   window.fetch=async()=>({ok:true,json:async()=>({flyers:rows})});
   window.timers=new Map();let id=0;window.setInterval=(fn,ms)=>{timers.set(++id,{fn,ms});return id};window.clearInterval=id=>timers.delete(id);window.setTimeout=()=>0;
  },{rows,today:fixture.today});
+ await page.addScriptTag({content:coordinator+requestPrelude});
  await page.addScriptTag({content:shared+render});
  await page.waitForSelector('#p130MarketHost .p130-flyer-image');
  assert.equal(await page.evaluate(()=>P032MarketFeaturedCrop.getState().markets),2);

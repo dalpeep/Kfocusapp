@@ -1,6 +1,8 @@
 const fs=require('fs'),assert=require('node:assert/strict'),path=require('path'),{chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'app-v99.js'),'utf8');
+const coordinator=fs.readFileSync(path.join(root,'assets/request-coordinator.js'),'utf8');
+const requestPrelude=source.slice(source.indexOf('const dtmRequests='),source.indexOf("const heroViewport"));
 const code=source.slice(source.indexOf('// Shared administrator main-image'),source.indexOf('// === P010-3:'));
 (async()=>{
 const browser=await chromium.launch({headless:true,channel:'msedge'});
@@ -15,6 +17,7 @@ try{for(const width of [360,390,1280]){
   window.rows=[{id:1,business_id:'h',title:'H마트 Weekly Sale',status:'active',image_url:'https://flyer.test/original-h'}, {id:2,business_id:'z',title:'시온마켓 Weekly Sale',status:'active',image_url:'https://flyer.test/original-z'}, {id:3,status:'active'}].map(f=>({...f,weekly_flyer_items:items,market_main_image_url:'https://flyer.test/main1',market_main_image_url_2:'https://flyer.test/main2'}));
   window.fetch=async()=>({ok:true,json:async()=>({flyers:rows})});window.setTimeout=()=>0;
  });
+ await page.addScriptTag({content:coordinator+requestPrelude});
  await page.addScriptTag({content:code});await page.evaluate(()=>P010SmartFlyerPublic.refresh());
  let previousProducts;
  for(const id of [1,2,3]){

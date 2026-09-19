@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
+const DtmDallasTime=require('../assets/dallas-time.js');
 const root=path.join(__dirname,'..');
 const admin=fs.readFileSync(path.join(root,'admin/assets/admin.js'),'utf8');
 const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
@@ -44,7 +45,7 @@ test('validation uses unsaved editor URL and dates before any save',async()=>{
 });
 function publicRuntime(){
   const storage=new Map();
-  const ctx=vm.createContext({POPUP_KEY:'test-popup',window:{currentRegion:'dallas'},previewMode:()=>false,previewId:()=>'',today:()=> '2026-09-10',
+  const ctx=vm.createContext({POPUP_KEY:'test-popup',window:{currentRegion:'dallas',DtmDallasTime},previewMode:()=>false,previewId:()=>'',today:()=> '2026-09-10',
     localStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)}});
   vm.runInContext(section(html,'  function normalize(home){','  function openItem(item,cfg){'),ctx);
   const cfg=ctx.normalize({promo_popup_settings:{enabled:true,mode:'visit_sequential',frequency:'always'},promo_popups:[

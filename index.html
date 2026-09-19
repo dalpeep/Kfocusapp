@@ -667,6 +667,10 @@ onclick="showPage('contact');closeMenu();">
   })();
 </script>
   
+<script src="/assets/dallas-time.js?v=1"></script>
+<script src="/assets/active-state.js?v=1"></script>
+<script src="/assets/request-coordinator.js?v=1"></script>
+<script src="/assets/pagination.js?v=1"></script>
 <script src="/assets/home-selection.js?v=313"></script>
 <script src="/app-v99.js?v=269.1-flyer-main"></script>
 <script src="/main-banners.js?v=263"></script>
@@ -871,7 +875,7 @@ function requestPush() {
   const params=()=>new URLSearchParams(location.search);
   const previewMode=()=>params().get('promo_preview')==='1';
   const previewId=()=>params().get('promo_id')||'';
-  const today=()=>new Date().toLocaleDateString('en-CA');
+  const today=()=>window.DtmDallasTime.dateKey();
 
   async function loadHomeConfig(){
     for(let i=0;i<20;i++){
@@ -951,13 +955,10 @@ function requestPush() {
   }
 
   function eligible(cfg){
-    const d=today();
     return cfg.items.filter(x=>{
       if(!x.enabled) return false;
       if(x.mediaType==='image'?!x.imageUrl:!x.videoUrl) return false;
-      if(x.startDate && d<x.startDate) return false;
-      if(x.endDate && d>x.endDate) return false;
-      return true;
+      return window.DtmDallasTime.periodActive(x.startDate,x.endDate);
     });
   }
 
@@ -1002,7 +1003,7 @@ function requestPush() {
       return source[Math.floor(Math.random()*source.length)];
     }
 
-    const epoch=Math.floor(new Date(`${today()}T12:00:00`).getTime()/86400000);
+    const epoch=window.DtmDallasTime.dateOrdinal(today());
     return rows[Math.abs(epoch)%rows.length];
   }
 

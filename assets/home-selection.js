@@ -5,6 +5,8 @@
  */
 (function(root){
 'use strict';
+const time=root.DtmDallasTime||(typeof module!=='undefined'&&module.exports?require('./dallas-time.js'):null);
+if(!time)throw new Error('DtmDallasTime must load before DtmHomeSelection');
 function create(options={}){
  const NativeDate=globalThis.Date;
  const instant=options.now ?? NativeDate.now();
@@ -12,15 +14,7 @@ function create(options={}){
  const currentLocationPosition=options.origin || null;
  const v295WeeklyClickCounts=options.clickCounts || new Map();
 function todayKey(){
-  // V232: 관리자 로테이션 미리보기와 실제 앱이 같은 Dallas 날짜를 사용합니다.
-  try{
-    return new Intl.DateTimeFormat('en-CA',{
-      timeZone:'America/Chicago',
-      year:'numeric',month:'2-digit',day:'2-digit'
-    }).format(new Date());
-  }catch(_){
-    return new Date().toISOString().slice(0,10);
-  }
+  return time.dateKey(Date.now());
 }
 function businessGroupRank(b, section){
   if(section === 'featured') return Number(b.featured_rank ?? 1000);
@@ -29,7 +23,7 @@ function businessGroupRank(b, section){
   return 1000;
 }
 function rotationDateKey(dateValue){
-  return String(dateValue || new Date().toISOString().slice(0,10)).slice(0,10);
+  return time.validDateOnly(String(dateValue||'').slice(0,10))||todayKey();
 }
 function rotationHash(seed){
   let h = 2166136261;
@@ -42,9 +36,7 @@ function rotationHash(seed){
 function paidAdActiveOnDate(b, dateValue){
   const dateKey=rotationDateKey(dateValue);
   if(b.is_active===false || b.list_visible===false || b.paid_active!==true) return false;
-  if(b.paid_start_at && String(b.paid_start_at).slice(0,10)>dateKey) return false;
-  if(b.paid_end_at && String(b.paid_end_at).slice(0,10)<dateKey) return false;
-  return true;
+  return time.periodActiveOnDate(b.paid_start_at,b.paid_end_at,dateKey);
 }
 function sectionAssigned(b, section){
   if(section==='featured') return b.is_featured===true;
@@ -148,10 +140,7 @@ function v295CreatedAtMs(b){
   return Number.isFinite(t)?t:0;
 }
 function v295IsNewWithin7Days(b){
-  const t=v295CreatedAtMs(b);
-  if(!t) return false;
-  const age=Date.now()-t;
-  return age>=0 && age < 7*24*60*60*1000;
+  return time.withinElapsedHours(b?.created_at,168,Date.now());
 }
 function v295WeekStartDateKey(dateValue=todayKey()){
   const [y,m,d]=rotationDateKey(dateValue).split('-').map(Number);
@@ -162,20 +151,7 @@ function v295WeekStartDateKey(dateValue=todayKey()){
   return dt.toISOString().slice(0,10);
 }
 function v295ChicagoMidnightUtcIso(dateKey){
-  try{
-    const [y,m,d]=String(dateKey).split('-').map(Number);
-    const desired=Date.UTC(y,m-1,d,0,0,0);
-    const probe=new Date(desired);
-    const parts=new Intl.DateTimeFormat('en-US',{
-      timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',
-      hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
-    }).formatToParts(probe).reduce((o,p)=>(o[p.type]=p.value,o),{});
-    const seenAsUtc=Date.UTC(Number(parts.year),Number(parts.month)-1,Number(parts.day),Number(parts.hour),Number(parts.minute),Number(parts.second));
-    const offset=seenAsUtc-desired;
-    return new Date(desired-offset).toISOString();
-  }catch(_){
-    return `${dateKey}T00:00:00.000Z`;
-  }
+  return time.midnightIso(dateKey);
 }
 function v295PopularFreeOrder(rows,dateValue){
   const dateKey=rotationDateKey(dateValue);
@@ -258,7 +234,38 @@ function canonicalHomeGroups(dateValue=todayKey(),allRows=businesses,limit=6){
     }
   };
 }
- return {select:canonicalHomeGroups,day:todayKey,weekStart:v295WeekStartDateKey,midnight:v295ChicagoMidnightUtcIso,paid:paidAdActiveOnDate};
+function authoritativeRecommendation(config={},allRows=[],limit=6,adapter={}){
+  const max=Math.max(0,Number(limit)||6);
+  const dateValue=adapter.dateValue||todayKey();
+  const cleanRows=v296DedupeBusinesses((allRows||[]).filter(v295PublicActiveBusiness));
+  const canonical=adapter.canonical||canonicalHomeGroups(dateValue,cleanRows,max);
+  const ids=(Array.isArray(config.business_ids)?config.business_ids:[]).map(String);
+  const byId=new Map(cleanRows.map(row=>[String(row.id),row]));
+  const direct=v296DedupeBusinesses(ids.map(id=>byId.get(id)).filter(Boolean)).slice(0,max);
+  const groups={
+    featured:canonical.featured,
+    recommended:canonical.featured,
+    recommendation:canonical.featured,
+    new:canonical.new,
+    popular:canonical.popular,
+    ...(adapter.groups||{})
+  };
+  const mode=String(config.business_mode||'featured').toLowerCase();
+  if(mode==='direct') return direct;
+  const options=Array.isArray(adapter.options)?adapter.options:[];
+  if(options.length){
+    const out=[];
+    for(const option of options){
+      for(const row of groups[String(option||'').toLowerCase()]||[]){
+        if(!out.some(existing=>v296BusinessDedupeKey(existing)===v296BusinessDedupeKey(row))) out.push(row);
+        if(out.length>=max) return out;
+      }
+    }
+    if(out.length) return out;
+  }
+  return v296DedupeBusinesses(groups[mode]||canonical.featured).slice(0,max);
+}
+ return {select:canonicalHomeGroups,recommend:authoritativeRecommendation,day:todayKey,weekStart:v295WeekStartDateKey,midnight:v295ChicagoMidnightUtcIso,paid:paidAdActiveOnDate};
 }
 // Matches the fields and initial dedupe used by public loadRealData(). Input order is created_at DESC NULLS LAST.
 function prepareRows(rows,region){
@@ -270,6 +277,6 @@ function prepareRows(rows,region){
  featured_rank:r.featured_rank==null?1000:Number(r.featured_rank),new_rank:r.new_rank==null?1000:Number(r.new_rank),popular_rank:r.popular_rank==null?1000:Number(r.popular_rank)
  })).filter(b=>{const key=[b.name.trim().toLowerCase(),b.address.trim().toLowerCase(),b.lat==null?'':b.lat.toFixed(4),b.lng==null?'':b.lng.toFixed(4)].join('|');if(seen.has(key))return false;seen.add(key);return true;});
 }
-root.DtmHomeSelection={create,prepareRows};
+root.DtmHomeSelection={create,prepareRows,time};
 if(typeof module!=='undefined' && module.exports) module.exports=root.DtmHomeSelection;
 })(globalThis);

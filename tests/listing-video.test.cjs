@@ -5,6 +5,7 @@ const vm=require('node:vm');
 const assert=require('node:assert/strict');
 const source=fs.readFileSync(path.join(__dirname,'../app-v99.js'),'utf8');
 const admin=fs.readFileSync(path.join(__dirname,'../admin/assets/admin.js'),'utf8');
+const dallasTime=fs.readFileSync(path.join(__dirname,'../assets/dallas-time.js'),'utf8');
 const parser=s=>s.slice(s.indexOf('function v229YouTubeId('),s.indexOf('\nfunction ',s.indexOf('function v229YouTubeId(')+1));
 const id='dQw4w9WgXcQ';
 for(const code of [source,admin]){
@@ -36,6 +37,7 @@ async function adminSaveTests(){
   await page.route('https://www.youtube.com/**',r=>{youtubeRequests++;return r.fulfill({contentType:'text/html',body:'<button>Mock player</button>'});});
   await page.route('https://images.test/**',r=>r.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450"/>'}));
   await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><button id="origin">Open</button>');
+  await page.addScriptTag({content:dallasTime});
   const block=source.slice(source.indexOf('function v229YouTubeId('),source.indexOf('\nfunction renderDetail(id)'));
   await page.addScriptTag({content:`let businessListings=[],businesses=[],listingBusinessIds=new Set();const esc=s=>String(s??'').replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');const normalizeUrl=s=>s;const logBusinessActivity=()=>{};const getAppRegion=()=> 'dallas';const getConfig=()=>({SUPABASE_URL:'https://db.test',SUPABASE_ANON_KEY:'test'});${block}`});
   await page.route('https://db.test/**',r=>{assert(new URL(r.request().url()).searchParams.get('select').split(',').includes('video_url'));return r.fulfill({json:[{id:'test',business_id:'biz',title:'Video listing',status:'active',images:[0,1,2,3].map(i=>'https://images.test/'+i),external_url:'https://example.com/mls',video_url:`https://youtu.be/${id}`}]});});

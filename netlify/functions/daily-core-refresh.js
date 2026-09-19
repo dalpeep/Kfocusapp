@@ -1,10 +1,9 @@
 const {ensureDailyCore}=require('./lib/daily-core');
 const crypto=require('crypto');
+const dallasTime=require('../../assets/dallas-time.js');
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store, no-cache, must-revalidate','Access-Control-Allow-Origin':'*'};
 function dallasDate(){
-  return new Intl.DateTimeFormat('en-CA',{
-    timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-  }).format(new Date());
+  return dallasTime.dateKey();
 }
 function audit(event,details={}){
   console.info('[daily-core-refresh]',JSON.stringify({event,dallas_date:dallasDate(),...details}));
@@ -13,9 +12,6 @@ function safeEqual(left,right){
   const a=Buffer.from(String(left||''));
   const b=Buffer.from(String(right||''));
   return a.length===b.length&&crypto.timingSafeEqual(a,b);
-}
-function scheduledInvocation(event){
-  try{return Boolean(JSON.parse(event.body||'{}')?.next_run);}catch{return false;}
 }
 function manualAuthorized(event){
   const secret=String(process.env.DAILY_CORE_REFRESH_SECRET||'').trim();
@@ -28,24 +24,22 @@ function manualAuthorized(event){
 exports.handler=async function(event){
   if(event.httpMethod==='OPTIONS')return {statusCode:200,headers,body:JSON.stringify({ok:true})};
   try{
-    const scheduled=scheduledInvocation(event);
     const authorized=manualAuthorized(event);
     audit('invocation_received',{
-      scheduled,
-      source:scheduled?'scheduled':authorized?'authorized_manual':'unauthorized',
+      source:authorized?'authorized_manual':'unauthorized',
       method:String(event.httpMethod||'')
     });
-    if(!scheduled&&!authorized){
-      audit('invocation_denied',{scheduled,reason:'not_scheduled_or_authorized'});
+    if(!authorized){
+      audit('invocation_denied',{reason:'not_authorized'});
       return {statusCode:403,headers,body:JSON.stringify({ok:false,error:'Daily Core refresh is restricted.'})};
     }
     const region=String(event.queryStringParameters?.region||'dallas').toLowerCase();
-    // 스케줄과 인증된 recovery 모두 누락분만 생성합니다. 기존 데이터는 재생성하지 않습니다.
+    // 인증된 recovery는 누락분만 생성합니다. 기존 데이터는 재생성하지 않습니다.
     const force=false;
-    audit('generation_check_started',{scheduled,region,force});
+    audit('generation_check_started',{source:'authorized_manual',region,force});
     const result=await ensureDailyCore(region,{force});
     audit('generation_check_completed',{
-      scheduled,region,force,
+      source:'authorized_manual',region,force,
       generated:Boolean(result?.generated),
       locked:Boolean(result?.locked),
       missing:Array.isArray(result?.missing)?result.missing:[],
@@ -62,4 +56,3 @@ exports.handler=async function(event){
     return {statusCode:500,headers,body:JSON.stringify({ok:false,error:error?.message||String(error)})};
   }
 };
-exports.config={schedule:'15 11 * * *'}; // 06:15 Dallas during CDT

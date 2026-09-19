@@ -1,4 +1,5 @@
 const {rest}=require('./coupon-campaign-lib');
+const dallasTime=require('../../assets/dallas-time.js');
 
 const HEADERS={
   'Content-Type':'application/json; charset=utf-8',
@@ -9,21 +10,14 @@ const HEADERS={
 const json=(statusCode,body)=>({statusCode,headers:HEADERS,body:JSON.stringify(body)});
 
 function dallasDateKey(now=new Date()){
-  const parts=new Intl.DateTimeFormat('en-US',{
-    timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'
-  }).formatToParts(now);
-  const values={};
-  for(const part of parts) values[part.type]=part.value;
-  return `${values.year}-${values.month}-${values.day}`;
+  return dallasTime.dateKey(now);
 }
 
 function isPublicFlyer(row,today){
   const status=String(row?.status||'').toLowerCase();
   const explicitlyPublished=row?.show_on_home===true||row?.show_on_home==='true';
   if(!explicitlyPublished||!['active','draft'].includes(status)) return false;
-  const start=String(row?.start_date||'').slice(0,10);
-  const end=String(row?.end_date||'').slice(0,10);
-  return (!start||start<=today)&&(!end||end>=today);
+  return dallasTime.periodActiveOnDate(row?.start_date,row?.end_date,today);
 }
 
 // V269: one current published flyer per business; never let edits to an old

@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-18",
+  "timezone": "America/Chicago",
+  "productionOrigin": "https://daltownmap.com",
+  "repositoryRoot": "_git-main-clean",
+  "baseCommit": {
+    "full": "6171add2cee7d159233fb3b915ea759b74e2a6f7",
+    "short": "6171add",
+    "committedAt": "2026-09-15T13:39:38-05:00",
+    "subject": "V269.1 fix current flyer selection and price block validation"
+  },
+  "rollback": {
+    "type": "composite",
+    "instruction": "Restore baseCommit, then restore every file marked production-overlay using the recorded working-tree identity. Base commit alone is not the deployed admin baseline.",
+    "productionOverlay": [
+      "admin/index.html",
+      "admin/assets/admin.css",
+      "admin/assets/admin.js",
+      "netlify/functions/traffic-source-track.js"
+    ]
+  },
+  "entryPoints": {
+    "public": "/index.html",
+    "admin": "/admin/index.html",
+    "manifest": "/manifest.json?v=263",
+    "pushWorker": "/OneSignalSDKWorker.js",
+    "runtimeConfig": "/.netlify/functions/config"
+  },
+  "assets": [
+    {
+      "path": "index.html",
+      "url": "/index.html",
+      "productionSha256": "d707f1959a508f1692f628e86585c97aa4a4ebf9f0c5503e83efe1aa14557801",
+      "workingTreeSha256": "d707f1959a508f1692f628e86585c97aa4a4ebf9f0c5503e83efe1aa14557801",
+      "gitBlob": "0af8a10ebc526951501f3f669537c77edf4c02d8",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "styles.css",
+      "url": "/styles.css?v=269.1-flyer-main",
+      "productionSha256": "a4f2296158fec20664edafce712a47aad6ac50685a12116b0db325d6bebfe2b5",
+      "workingTreeSha256": "86bb571db82435d814bed2b0d4917e697cb36db75aa5d3d1e7a3995631c3c274",
+      "gitBlob": "c9fe9f47670568f72bf515272b44561e19709106",
+      "rollbackLayer": "base-commit",
+      "comparison": "content-equal-line-endings-differ"
+    },
+    {
+      "path": "assets/home-selection.js",
+      "url": "/assets/home-selection.js?v=313",
+      "productionSha256": "4469db3e557ed3e636555d9526851e8a31df0cd38565adb9bcff4f3c2db5f1f8",
+      "workingTreeSha256": "4ed0043ce15f777bc75e1242b23c8bc8b1e7ed09b327046c4da226a689ad87ed",
+      "gitBlob": "6f41380bf17145b0872b032f6576e959778fa24b",
+      "rollbackLayer": "base-commit",
+      "comparison": "content-equal-line-endings-differ"
+    },
+    {
+      "path": "app-v99.js",
+      "url": "/app-v99.js?v=269.1-flyer-main",
+      "productionSha256": "1b210c8766fec6ea5554f00a200ef52bc58b07010d03e6a9bd3924aa4cb322a2",
+      "workingTreeSha256": "093d10202ab39cb0d3e14fed8be1b287575340da1a5d8597b96277ed68fc446e",
+      "gitBlob": "de6317be32e714412d5f178e8596f6310df6be1e",
+      "rollbackLayer": "base-commit",
+      "comparison": "content-equal-line-endings-differ"
+    },
+    {
+      "path": "main-banners.js",
+      "url": "/main-banners.js?v=263",
+      "productionSha256": "93ed980079ce78901ae8e440e5bcf75b66e4aab2cb00a568260c4b982abc91bc",
+      "workingTreeSha256": "93ed980079ce78901ae8e440e5bcf75b66e4aab2cb00a568260c4b982abc91bc",
+      "gitBlob": "f6eb7467b124204f62139cca9d2c5215159c2398",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "manifest.json",
+      "url": "/manifest.json?v=263",
+      "productionSha256": "3b172d539614c560c583e11a8d7a13937c3e687c78a6f9aa17d027e528c02118",
+      "workingTreeSha256": "3b172d539614c560c583e11a8d7a13937c3e687c78a6f9aa17d027e528c02118",
+      "gitBlob": "4317818ec4c2f7c0cb46a272f7a3cf14422baa6f",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "OneSignalSDKWorker.js",
+      "url": "/OneSignalSDKWorker.js",
+      "productionSha256": "1dce382f0eb1d49cb8d2036e516bce26d7477e0c053bbd5477f1f6ec8b163847",
+      "workingTreeSha256": "1dce382f0eb1d49cb8d2036e516bce26d7477e0c053bbd5477f1f6ec8b163847",
+      "gitBlob": "067cf4dac4b5029f643086e0e30071f214a1ce33",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/index.html",
+      "url": "/admin/",
+      "productionSha256": "dc76f19b4be43595b355113ce77a366018ad4a4c2beaad63676da84a7c922990",
+      "workingTreeSha256": "dc76f19b4be43595b355113ce77a366018ad4a4c2beaad63676da84a7c922990",
+      "workingTreeBlob": "5e5ccf02a317e4f3d27e24d96ce0a68ca42cf382",
+      "headBlob": "2b45fc58470fe90fab01135e8604703914d7842a",
+      "rollbackLayer": "production-overlay",
+      "comparison": "production-equals-working-tree"
+    },
+    {
+      "path": "admin/assets/admin.css",
+      "url": "/admin/assets/admin.css?v=45.8.1",
+      "productionSha256": "2a6b9ed330f64ba940d8a314e033f4a183655117df5acc3e1ce09d4b76bbf39b",
+      "workingTreeSha256": "2a6b9ed330f64ba940d8a314e033f4a183655117df5acc3e1ce09d4b76bbf39b",
+      "workingTreeBlob": "97d4bad79e916d4a486a2d6662615131b6908da7",
+      "headBlob": "8762c75dbd71bbda4a1fe1695082fa8ede162a84",
+      "rollbackLayer": "production-overlay",
+      "comparison": "production-equals-working-tree"
+    },
+    {
+      "path": "admin/assets/admin.js",
+      "url": "/admin/assets/admin.js?v=269-price-block-traffic293",
+      "productionSha256": "47882424243466db7f9d5a5ce785db0b377151dcbefc8982ea963e3f6a3e9887",
+      "workingTreeSha256": "47882424243466db7f9d5a5ce785db0b377151dcbefc8982ea963e3f6a3e9887",
+      "workingTreeBlob": "6eae768b4580522b094eeb6f4ffec1c8b8691aef",
+      "headBlob": "9f687e64322a647086b1fb25487c66513756a4d7",
+      "rollbackLayer": "production-overlay",
+      "comparison": "production-equals-working-tree"
+    },
+    {
+      "path": "admin/assets/event-routines.js",
+      "url": "/admin/assets/event-routines.js?v=86.0-alert-business-fallback",
+      "productionSha256": "194a3e3228c77e63b75b8aa9b034bf1dd32699cdb9e54fab90ac1bfc61c142b5",
+      "gitBlob": "fd702b73ca939c71f708b10122bb15b73dcef4ba",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/assets/newsroom-test.js",
+      "url": "/admin/assets/newsroom-test.js?v=59.0",
+      "productionSha256": "2bc8d3a8f1efbf1b867d91840e83033b0e740ede89fd231b79d5c9448e393ac4",
+      "gitBlob": "dca08a8fd9f7bdbc577b9c23cd2b536e7d4ada18",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/assets/ai-studio.js",
+      "url": "/admin/assets/ai-studio.js?v=24.1.0",
+      "productionSha256": "fbb20fa89df0ddea3109f4d1e89ac8ac00abac7d8c95991befd7d21253297353",
+      "gitBlob": "1c72030f6dede117df1e1d3153b994dbae1636e0",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/assets/ai-manager.js",
+      "url": "/admin/assets/ai-manager.js?v=24.0.1",
+      "productionSha256": "55cbc34f84f652c39edf2c6349ec20a6217a03e0f0065bd7be994b12ace79ab3",
+      "gitBlob": "7d17f894b2593b020b6f3397f7654199a984af6f",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/assets/admin-integration.js",
+      "url": "/admin/assets/admin-integration.js?v=27.0.0",
+      "productionSha256": "1454c3446a1e777a3b4c2410e8f44371fcd5ff92316498dbd402c0c10e379521",
+      "gitBlob": "d0599d77647e53c0790d1c858be95990607e25a1",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/assets/business-crm.js",
+      "url": "/admin/assets/business-crm.js?v=24.1.0",
+      "productionSha256": "9945cd09ebb2f163de85ee19a18041e9169c5e064e3ef15939f4fb249079e583",
+      "gitBlob": "171a50322f8b8d64069e765d1cdd7b86be51843a",
+      "rollbackLayer": "base-commit",
+      "comparison": "exact"
+    },
+    {
+      "path": "admin/assets/exposure-preview.js",
+      "url": "/admin/assets/exposure-preview.js?v=300",
+      "productionSha256": "fa60c715cd9dccdbe2e77f79f67d62201117aca4ae94ccd2591bfe6c7500e3c2",
+      "workingTreeSha256": "1c2c62fa7f46afae6cbdd230e91c5c432850eeefb3ffb3e6389bd12d1f70db3c",
+      "gitBlob": "034a853099f76b14706e31b53ea1dad3920f231e",
+      "rollbackLayer": "base-commit",
+      "comparison": "content-equal-line-endings-differ"
+    },
+    {
+      "path": "netlify/functions/traffic-source-track.js",
+      "url": "/.netlify/functions/traffic-source-track",
+      "workingTreeSha256": "9da4e038b575c923ee5873e49064effa5733cb5f8ff587a6bfa23950a7c51012",
+      "workingTreeBlob": "482dff10a96574915c648410f63d4e625c4baecd",
+      "headBlob": "1420c01d19c12e183e206f3cd9722c9d6aa8085e",
+      "rollbackLayer": "production-overlay",
+      "comparison": "source-overlay-recorded-runtime-source-not-downloadable"
+    }
+  ],
+  "constraints": {
+    "productionDeploymentPerformed": false,
+    "applicationCodeChanged": false,
+    "supabaseChanged": false,
+    "versionedAssetsDeleted": false
+  }
+}
