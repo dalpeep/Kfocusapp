@@ -31,3 +31,8 @@ test('badges render each active special kind instead of combined 할인 2',()=>{
   assert.match(source,/kinds\.map\(kind=>`<span class="business-special-badge"/);
   assert.doesNotMatch(source,/kinds\.length>1\?'할인 2'/);
 });
+test('canonical count ignores the pre-loader mainBanners DOM global',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
+  assert.match(source,/const bannerRows=Array\.isArray\(mainBanners\)\?mainBanners:\[\];/);
+  assert.doesNotMatch(source,/\(mainBanners\|\|\[\]\)\.filter\(row=>mapContentActive\(row,now\)\)/);
+});

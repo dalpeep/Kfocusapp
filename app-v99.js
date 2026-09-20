@@ -1713,6 +1713,7 @@ function mapPromotionBenefitKind(row={}){
 }
 function mapActiveBenefitRecords(now=Date.now()){
   const records=new Map();
+  const bannerRows=Array.isArray(mainBanners)?mainBanners:[];
   const add=(source,kind,row)=>{
     const ids=mapLinkedBusinessIds(row);
     if(!row.id || !ids.length || row.is_published===false)return;
@@ -1725,7 +1726,7 @@ function mapActiveBenefitRecords(now=Date.now()){
     benefit:[row.price_text,row.description].filter(Boolean).join(' · '),
     title:`${globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]} · ${row.title}`
   }));
-  (mainBanners||[]).filter(row=>mapContentActive(row,now)).forEach(row=>add('banners',mapPromotionBenefitKind(row),row));
+  bannerRows.filter(row=>mapContentActive(row,now)).forEach(row=>add('banners',mapPromotionBenefitKind(row),row));
   (slideRows||[]).filter(row=>row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now)).forEach(row=>add('slides',mapPromotionBenefitKind(row),row));
   (boardPosts||[]).filter(row=>(row.type==='event'||(row.type==='notice'&&row.subtype==='event')) && mapEventActive(row,now)).forEach(row=>add('posts','event',row));
   (dalpicks||[]).filter(row=>row.category==='event'?mapEventActive(row,now):row.category==='promotion'&&mapContentActive(row,now)).forEach(row=>add('dalpick',row.category==='promotion'?mapPromotionBenefitKind(row):'event',row));
