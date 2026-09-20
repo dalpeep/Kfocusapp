@@ -404,6 +404,7 @@ onclick="showPage('contact');closeMenu();">
 
       <section class="page" id="page-coupon">
         <section class="card section-card coupon-page-card">
+          <div id="discountModeContent" data-coupon-shell-mode="discount" hidden>
           <div class="restaurant-specials-head">
             <div><h2>할인</h2><p>달라스 식당의 점심특선과 Happy Hour 등 할인 정보를 확인하세요.</p></div>
             <div class="restaurant-special-filters" id="restaurantSpecialFilters" aria-label="특선 유형">
@@ -415,12 +416,15 @@ onclick="showPage('contact');closeMenu();">
           <div id="restaurantSpecialList" class="restaurant-special-list"></div>
           <div id="restaurantSpecialResultCount" class="restaurant-special-results" aria-live="polite"></div>
           <button id="restaurantSpecialMore" class="restaurant-special-more" type="button" hidden>더 보기</button>
+          </div>
+          <div id="couponModeContent" data-coupon-shell-mode="coupon">
           <div class="coupon-tabs" id="couponTabs">
             <button class="coupon-tab active" data-coupon-tab="today">오늘의 쿠폰</button>
             <button class="coupon-tab" data-coupon-tab="all">전체 쿠폰</button>
           </div>
           <div id="couponTodayList" class="coupon-stack coupon-tab-panel"></div>
           <div id="couponAllList" class="coupon-stack coupon-tab-panel hidden"></div>
+          </div>
         </section>
       </section>
 
@@ -681,7 +685,7 @@ onclick="showPage('contact');closeMenu();">
 <script src="/assets/dallas-time.js?v=1"></script>
   <script src="/assets/active-state.js?v=1"></script>
   <script src="/assets/admin-authorization.js?v=1"></script>
-  <script src="/assets/restaurant-specials.js?v=1"></script>
+  <script src="/assets/restaurant-specials.js?v=1.1-ui-hotfix"></script>
   <script src="/assets/restaurant-special-items.js?v=1"></script>
   <script src="/assets/discount-business-authority.js?v=1"></script>
 <script src="/assets/request-coordinator.js?v=1"></script>

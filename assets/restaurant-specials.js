@@ -9,7 +9,8 @@
   'use strict';
   if(!time||!active)throw new Error('DtmDallasTime and DtmActiveState must load first');
   const TYPES=new Set(['lunch_special','happy_hour']);
-  const TYPE_LABELS={lunch_special:'점심특선',happy_hour:'Happy Hour'};
+  const TYPE_LABELS={lunch_special:'점심특선',happy_hour:'해피아워'};
+  const TYPE_ORDER=['lunch_special','happy_hour'];
   const VISIBLE_BATCH_SIZE=20;
   const TIME_RE=/^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/;
   const formatter=new Intl.DateTimeFormat('en-US',{timeZone:time.TIME_ZONE,weekday:'short',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'});
@@ -94,7 +95,12 @@
   function uniqueBusinessIds(rows,now=Date.now()){return [...new Set(discoverable(rows,now).map(row=>String(row.business_id||'')).filter(Boolean))];}
   function uniqueBusinessCount(rows,now=Date.now()){return uniqueBusinessIds(rows,now).length;}
   function activeKindsForBusiness(rows,businessId,now=Date.now()){
-    return [...new Set(activeRecords(forBusiness(rows,businessId,now),now).map(row=>row.type))];
+    const found=new Set(activeRecords(forBusiness(rows,businessId,now),now).map(row=>row.type));
+    return TYPE_ORDER.filter(type=>found.has(type));
+  }
+  function discoverableKindsForBusiness(rows,businessId,now=Date.now()){
+    const found=new Set(forBusiness(rows,businessId,now).map(row=>row.type));
+    return TYPE_ORDER.filter(type=>found.has(type));
   }
   function statusLabel(row,now=Date.now()){
     const state=scheduleState(row,now).key;
@@ -107,5 +113,5 @@
     const hour=Math.floor(total/60)%24,minute=Math.floor(total%60),period=hour<12?'AM':'PM',shown=hour%12||12;
     return `${shown}:${String(minute).padStart(2,'0')} ${period}`;
   }
-  return {TYPES,TYPE_LABELS,VISIBLE_BATCH_SIZE,parts,days,minutes,validation,calendarState,scheduleState,isActive,isDiscoverable,discoverable,activeRecords,forBusiness,filter,sort,visibleBatch,recordCount,uniqueBusinessIds,uniqueBusinessCount,activeKindsForBusiness,statusLabel,formatTime};
+  return {TYPES,TYPE_LABELS,VISIBLE_BATCH_SIZE,parts,days,minutes,validation,calendarState,scheduleState,isActive,isDiscoverable,discoverable,activeRecords,forBusiness,filter,sort,visibleBatch,recordCount,uniqueBusinessIds,uniqueBusinessCount,activeKindsForBusiness,discoverableKindsForBusiness,statusLabel,formatTime};
 });

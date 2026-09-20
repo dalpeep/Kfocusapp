@@ -36,3 +36,22 @@ test('canonical count ignores the pre-loader mainBanners DOM global',()=>{
   assert.match(source,/const bannerRows=Array\.isArray\(mainBanners\)\?mainBanners:\[\];/);
   assert.doesNotMatch(source,/\(mainBanners\|\|\[\]\)\.filter\(row=>mapContentActive\(row,now\)\)/);
 });
+test('Restaurant Specials enter the canonical discount authority while discoverable',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
+  assert.match(source,/DtmRestaurantSpecials\?\.discoverable\?\.\([^)]*businessSpecials/);
+  assert.doesNotMatch(source,/DtmRestaurantSpecials\?\.activeRecords\?\.\([^)]*businessSpecials/);
+});
+test('coupon and discount shortcuts use separate shell modes and routes',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
+  const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.match(source,/function v245OpenDiscounts\(\)/);
+  assert.match(source,/v245Shortcut\('🏷️','할인',discountCount,'v245OpenDiscounts\(\)'\)/);
+  assert.match(source,/const renderedPage=page==='discount'\?'coupon':page/);
+  assert.match(html,/id="discountModeContent"[^>]*hidden/);
+  assert.match(html,/id="couponModeContent"/);
+});
+test('business cards and detail header consume the same discoverable kind decoration',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
+  assert.match(source,/discoverableKindsForBusiness\(businessSpecials,b\.id,now\)/);
+  assert.match(source,/biz-detail-special-badges">\$\{businessSpecialBadgesHTML\(b\)\}/);
+});
