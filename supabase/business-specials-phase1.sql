@@ -77,6 +77,7 @@ create policy business_specials_admin_delete on public.business_specials
 for delete to authenticated using (public.business_specials_admin_access(business_id::text));
 
 grant select on public.business_specials to anon;
+revoke insert,update,delete on public.business_specials from anon;
 grant select,insert,update,delete on public.business_specials to authenticated;
 grant usage,select on sequence public.business_specials_id_seq to authenticated;
 notify pgrst, 'reload schema';
