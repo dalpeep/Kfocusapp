@@ -5619,13 +5619,16 @@ async function loadAdminSession() {
     return null;
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profileRow, error: profileError } = await supabase
     .from('profiles')
     .select('role, area')
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (profileError) {
+  const profilesMissing=profileError&&(profileError.code==='42P01'||/profiles.*(does not exist|schema cache)/i.test(profileError.message||''));
+  const metadataProfile=profilesMissing?{role:user.app_metadata?.role||user.user_metadata?.role||'',area:user.app_metadata?.area||user.user_metadata?.area||''}:null;
+  const profile=profileRow||metadataProfile;
+  if (profileError&&!profilesMissing) {
     alert('관리자 정보 조회 실패: ' + profileError.message);
     console.error(profileError);
     sessionStorage.setItem('adminLogin', '1');

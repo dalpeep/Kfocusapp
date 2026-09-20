@@ -39,31 +39,42 @@ create trigger business_specials_set_updated_at before update on public.business
 for each row execute function public.set_business_specials_updated_at();
 
 alter table public.business_specials enable row level security;
+create or replace function public.business_specials_admin_access(target_business_id text)
+returns boolean language plpgsql security definer set search_path=public,auth as $$
+declare admin_role text; admin_area text;
+begin
+  if auth.uid() is null then return false; end if;
+  if to_regclass('public.profiles') is not null then
+    execute 'select role, area from public.profiles where user_id=$1 limit 1'
+      into admin_role,admin_area using auth.uid();
+  else
+    admin_role=coalesce(auth.jwt()->'app_metadata'->>'role',auth.jwt()->'user_metadata'->>'role','');
+    admin_area=coalesce(auth.jwt()->'app_metadata'->>'area',auth.jwt()->'user_metadata'->>'area','');
+  end if;
+  if admin_role='super_admin' then return true; end if;
+  if admin_role<>'regional_editor' then return false; end if;
+  if admin_area='denver' then admin_area='colorado'; end if;
+  return exists(select 1 from public.businesses b where b.id::text=target_business_id and b.region=admin_area);
+end;
+$$;
+revoke all on function public.business_specials_admin_access(text) from public,anon;
+grant execute on function public.business_specials_admin_access(text) to authenticated;
 drop policy if exists business_specials_public_read on public.business_specials;
 create policy business_specials_public_read on public.business_specials
 for select to anon using (is_active=true);
 drop policy if exists business_specials_admin_read on public.business_specials;
 create policy business_specials_admin_read on public.business_specials
-for select to authenticated using (exists (
-  select 1 from public.profiles p where p.user_id=auth.uid() and (p.role='super_admin' or (p.role='regional_editor' and exists (select 1 from public.businesses b where b.id=business_specials.business_id and b.region=case when p.area='denver' then 'colorado' else p.area end)))
-));
+for select to authenticated using (public.business_specials_admin_access(business_id::text));
 drop policy if exists business_specials_admin_insert on public.business_specials;
 create policy business_specials_admin_insert on public.business_specials
-for insert to authenticated with check (exists (
-  select 1 from public.profiles p where p.user_id=auth.uid() and (p.role='super_admin' or (p.role='regional_editor' and exists (select 1 from public.businesses b where b.id=business_specials.business_id and b.region=case when p.area='denver' then 'colorado' else p.area end)))
-));
+for insert to authenticated with check (public.business_specials_admin_access(business_id::text));
 drop policy if exists business_specials_admin_update on public.business_specials;
 create policy business_specials_admin_update on public.business_specials
-for update to authenticated using (exists (
-  select 1 from public.profiles p where p.user_id=auth.uid() and (p.role='super_admin' or (p.role='regional_editor' and exists (select 1 from public.businesses b where b.id=business_specials.business_id and b.region=case when p.area='denver' then 'colorado' else p.area end)))
-)) with check (exists (
-  select 1 from public.profiles p where p.user_id=auth.uid() and (p.role='super_admin' or (p.role='regional_editor' and exists (select 1 from public.businesses b where b.id=business_specials.business_id and b.region=case when p.area='denver' then 'colorado' else p.area end)))
-));
+for update to authenticated using (public.business_specials_admin_access(business_id::text))
+with check (public.business_specials_admin_access(business_id::text));
 drop policy if exists business_specials_admin_delete on public.business_specials;
 create policy business_specials_admin_delete on public.business_specials
-for delete to authenticated using (exists (
-  select 1 from public.profiles p where p.user_id=auth.uid() and (p.role='super_admin' or (p.role='regional_editor' and exists (select 1 from public.businesses b where b.id=business_specials.business_id and b.region=case when p.area='denver' then 'colorado' else p.area end)))
-));
+for delete to authenticated using (public.business_specials_admin_access(business_id::text));
 
 grant select on public.business_specials to anon;
 grant select,insert,update,delete on public.business_specials to authenticated;

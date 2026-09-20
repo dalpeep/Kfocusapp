@@ -1,15 +1,42 @@
 -- Isolated staging/test fixture only. Never apply to Production.
--- Replace :business_a ... :business_h with synthetic staging business bigint IDs.
+-- Uses only the synthetic businesses already present in the isolated staging project.
+with synthetic_businesses as (
+  select id,row_number() over(order by id) as fixture_no
+  from public.businesses
+  where name like 'Staging Business%'
+  order by id
+  limit 1508
+)
 insert into public.business_specials
-  (business_id,type,title,description,price_text,days_of_week,start_time,end_time,start_date,end_date,is_active,sort_order)
-values
-  (:business_a,'lunch_special','A 점심특선','Synthetic fixture','$14.99','{1,2,3,4,5}','11:00','14:30',current_date,current_date+90,true,10),
-  (:business_b,'happy_hour','B Happy Hour','Synthetic fixture','Selected items','{1,2,3,4}','16:00','19:00',current_date,current_date+90,true,10),
-  (:business_c,'lunch_special','C 점심특선','Synthetic fixture','$12.99','{1,2,3,4,5}','11:00','14:30',current_date,current_date+90,true,10),
-  (:business_c,'happy_hour','C Happy Hour','Synthetic fixture','Drinks & appetizers','{1,2,3,4}','16:00','19:00',current_date,current_date+90,true,20),
-  (:business_d,'lunch_special','D 비활성','Synthetic fixture','$10','{1,2,3,4,5}','11:00','14:00',current_date,current_date+90,false,10),
-  (:business_e,'lunch_special','E 종료','Synthetic fixture','$10','{1,2,3,4,5}','11:00','14:00',current_date-30,current_date-1,true,10),
-  (:business_f,'happy_hour','F 예정','Synthetic fixture','Coming soon','{1,2,3,4}','16:00','19:00',current_date+30,current_date+90,true,10),
-  (:business_g,'happy_hour','G Overnight','Synthetic fixture','Late night','{1,2,3,4,5}','22:00','01:00',current_date,current_date+90,true,10),
-  (:business_h,'lunch_special','H 첫 특선','Synthetic fixture','$11','{1,2,3,4,5}','11:00','14:00',current_date,current_date+90,true,10),
-  (:business_h,'lunch_special','H 둘째 특선','Synthetic fixture','$13','{1,2,3,4,5}','11:30','14:30',current_date,current_date+90,true,20);
+  (business_id,type,title,description,price_text,days_of_week,start_time,end_time,
+   start_date,end_date,image_url,is_active,sort_order)
+select id,
+  case when fixture_no % 2=0 then 'happy_hour' else 'lunch_special' end,
+  'Synthetic Special '||fixture_no,
+  'Restaurant Specials isolated staging fixture',
+  case when fixture_no % 2=0 then 'Selected items' else '$14.99' end,
+  case when fixture_no % 7=0 then '{0,1,2,3,4,5,6}'::smallint[] else '{1,2,3,4,5}'::smallint[] end,
+  case when fixture_no % 2=0 then '16:00'::time else '11:00'::time end,
+  case when fixture_no % 29=0 then '01:00'::time
+       when fixture_no % 2=0 then '19:00'::time else '14:30'::time end,
+  current_date-1,current_date+90,
+  case when fixture_no=1 then 'https://placehold.co/640x360/png?text=Staging+Special' end,
+  true,fixture_no::integer
+from synthetic_businesses;
+
+-- Explicit edge cases and multiple records for the first synthetic business.
+with first_business as (
+  select id from public.businesses where name like 'Staging Business%' order by id limit 1
+)
+insert into public.business_specials
+  (business_id,type,title,description,price_text,days_of_week,start_time,end_time,
+   start_date,end_date,is_active,sort_order)
+select id,v.type,v.title,'Restaurant Specials isolated staging fixture',v.price_text,
+       v.days_of_week,v.start_time,v.end_time,v.start_date,v.end_date,v.is_active,v.sort_order
+from first_business
+cross join lateral (values
+  ('happy_hour','Synthetic Overnight Happy Hour','Late night','{0,1,2,3,4,5,6}'::smallint[],'22:00'::time,'01:00'::time,current_date-1,current_date+90,true,2001),
+  ('lunch_special','Synthetic Disabled Lunch','$10','{1,2,3,4,5}'::smallint[],'11:00'::time,'14:00'::time,current_date-1,current_date+90,false,2002),
+  ('lunch_special','Synthetic Expired Lunch','$10','{1,2,3,4,5}'::smallint[],'11:00'::time,'14:00'::time,current_date-30,current_date-1,true,2003),
+  ('happy_hour','Synthetic Future Happy Hour','Coming soon','{1,2,3,4,5}'::smallint[],'16:00'::time,'19:00'::time,current_date+30,current_date+90,true,2004)
+) as v(type,title,price_text,days_of_week,start_time,end_time,start_date,end_date,is_active,sort_order);
