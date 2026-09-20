@@ -9,6 +9,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/assets/dallas-time.js?v=1"></script>
   <script src="/assets/active-state.js?v=1"></script>
+  <script src="/assets/admin-authorization.js?v=1"></script>
+  <script src="/assets/restaurant-specials.js?v=1"></script>
   <script src="/assets/request-coordinator.js?v=1"></script>
   <script src="/assets/pagination.js?v=1"></script>
   <script src="/assets/home-selection.js?v=313"></script>
@@ -784,6 +786,27 @@
                   <span>자동 로테이션</span>
                   <input id="rotation_enabled" type="checkbox" checked>
                 </label>
+              </div>
+
+              <div class="field full form-section" id="businessSpecialsAdmin">
+                <div class="panel-head"><div><h3>할인 · 특선</h3><small class="muted">업소를 먼저 저장한 뒤 점심특선과 해피아워를 여러 개 등록할 수 있습니다.</small></div><button id="specialNewBtn" class="btn ghost" type="button">새 특선</button></div>
+                <div id="specialAdminList" class="business-special-admin-list"></div>
+                <div id="specialEditor" class="form-grid hidden">
+                  <input id="special_id" type="hidden">
+                  <label class="field"><span>유형</span><select id="special_type"><option value="lunch_special">점심특선</option><option value="happy_hour">해피아워</option></select></label>
+                  <label class="field"><span>제목</span><input id="special_title" maxlength="160"></label>
+                  <label class="field full"><span>설명</span><textarea id="special_description" rows="3"></textarea></label>
+                  <label class="field"><span>가격/혜택 문구</span><input id="special_price_text" placeholder="$14.99 또는 Selected drinks"></label>
+                  <label class="field"><span>이미지 URL (선택)</span><input id="special_image_url" type="url"></label>
+                  <fieldset class="field full"><legend>요일</legend><label><input id="special_days_all" type="checkbox"> 전체 선택</label><div class="special-day-checks"><label><input type="checkbox" data-special-day="0"> 일</label><label><input type="checkbox" data-special-day="1"> 월</label><label><input type="checkbox" data-special-day="2"> 화</label><label><input type="checkbox" data-special-day="3"> 수</label><label><input type="checkbox" data-special-day="4"> 목</label><label><input type="checkbox" data-special-day="5"> 금</label><label><input type="checkbox" data-special-day="6"> 토</label></div></fieldset>
+                  <label class="field"><span>시작 시간</span><input id="special_start_time" type="time"></label>
+                  <label class="field"><span>종료 시간</span><input id="special_end_time" type="time"></label>
+                  <label class="field"><span>시작일 (선택)</span><input id="special_start_date" type="date"></label>
+                  <label class="field"><span>종료일 (선택)</span><input id="special_end_date" type="date"></label>
+                  <label class="field checkbox-line"><input id="special_is_active" type="checkbox" checked><span>활성화</span></label>
+                  <label class="field"><span>정렬순서</span><input id="special_sort_order" type="number" value="0"></label>
+                  <div class="field full head-actions"><button id="specialSaveBtn" class="btn primary" type="button">특선 저장</button><button id="specialCancelBtn" class="btn ghost" type="button">취소</button></div>
+                </div>
               </div>
 
             </form>

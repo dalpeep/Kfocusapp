@@ -404,6 +404,17 @@ onclick="showPage('contact');closeMenu();">
 
       <section class="page" id="page-coupon">
         <section class="card section-card coupon-page-card">
+          <div class="restaurant-specials-head">
+            <div><h2>할인 · 특선</h2><p>달라스 식당의 점심특선과 Happy Hour를 확인하세요.</p></div>
+            <div class="restaurant-special-filters" id="restaurantSpecialFilters" aria-label="특선 유형">
+              <button type="button" class="active" data-special-filter="all">전체</button>
+              <button type="button" data-special-filter="lunch_special">점심특선</button>
+              <button type="button" data-special-filter="happy_hour">해피아워</button>
+            </div>
+          </div>
+          <div id="restaurantSpecialList" class="restaurant-special-list"></div>
+          <div id="restaurantSpecialResultCount" class="restaurant-special-results" aria-live="polite"></div>
+          <button id="restaurantSpecialMore" class="restaurant-special-more" type="button" hidden>더 보기</button>
           <div class="coupon-tabs" id="couponTabs">
             <button class="coupon-tab active" data-coupon-tab="today">오늘의 쿠폰</button>
             <button class="coupon-tab" data-coupon-tab="all">전체 쿠폰</button>
@@ -669,6 +680,8 @@ onclick="showPage('contact');closeMenu();">
   
 <script src="/assets/dallas-time.js?v=1"></script>
 <script src="/assets/active-state.js?v=1"></script>
+<script src="/assets/admin-authorization.js?v=1"></script>
+<script src="/assets/restaurant-specials.js?v=1"></script>
 <script src="/assets/request-coordinator.js?v=1"></script>
 <script src="/assets/pagination.js?v=1"></script>
 <script src="/assets/home-selection.js?v=313"></script>

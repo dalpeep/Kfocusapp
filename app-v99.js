@@ -462,6 +462,9 @@ let businessListings = [];
 let listingBusinessIds = new Set();
 let homeBusinessTab = 'featured';
 let coupons = [];
+let businessSpecials = [];
+let restaurantSpecialFilter = 'all';
+let restaurantSpecialVisibleCount;
 let dalpicks = [];
 let couponViewTab = 'today';
 let selectedCouponId = null;
@@ -642,6 +645,7 @@ function homeBusinessItemHTML(b){
   const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
   const promoBadges = [
+    businessSpecialBadgeHTML(b),
     (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '',
     (typeof businessHasActiveBanner === 'function' && businessHasActiveBanner(b)) ? '<span class="home-business-banner-badge">배너</span>' : '',
     (typeof businessHasActiveListing === 'function' && businessHasActiveListing(b)) ? '<span class="home-business-listing-badge">LISTING</span>' : ''
@@ -1676,7 +1680,8 @@ function mapBusinessBadgeKinds(b,now=Date.now()){
   const id=String(b.id), linked=row=>mapLinkedBusinessIds(row).includes(id);
   const liveCoupon=activeMapCoupons(now).filter(linked);
   const promo=b.map_promotion||{};
-  const promotion=(b.paid_active===true && mapPeriodActive(b.paid_start_at,b.paid_end_at,now))
+  const promotion=(globalThis.DtmRestaurantSpecials?.activeKindsForBusiness?.(typeof businessSpecials==='undefined'?[]:businessSpecials,id,now).length||0)>0
+    || (b.paid_active===true && mapPeriodActive(b.paid_start_at,b.paid_end_at,now))
     || (promo.enabled===true && mapPeriodActive(promo.start_at,promo.end_at,now))
     || (mainBanners||[]).some(row=>linked(row) && mapContentActive(row,now))
     || (slideRows||[]).some(row=>linked(row) && row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now))
@@ -1714,6 +1719,11 @@ function mapActiveBenefitRecords(now=Date.now()){
     records.set(key,{key,kind,title:row.title||row.headline||row.promo_text||MAP_BENEFIT_LABELS[kind],businessIds:ids,benefit:row.discount_label||row.benefit||row.description||row.promo_text||''});
   };
   activeMapCoupons(now).forEach(row=>add('coupons','coupon',row));
+  (globalThis.DtmRestaurantSpecials?.activeRecords?.(typeof businessSpecials==='undefined'?[]:businessSpecials,now)||[]).forEach(row=>add('specials','promotion',{
+    ...row,
+    benefit:[row.price_text,row.description].filter(Boolean).join(' · '),
+    title:`${globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]} · ${row.title}`
+  }));
   (mainBanners||[]).filter(row=>mapContentActive(row,now)).forEach(row=>add('banners',mapPromotionBenefitKind(row),row));
   (slideRows||[]).filter(row=>row.promo_enabled===true && mapContentActive(row,now) && mapPeriodActive(row.promo_start_at,row.promo_end_at,now)).forEach(row=>add('slides',mapPromotionBenefitKind(row),row));
   (boardPosts||[]).filter(row=>(row.type==='event'||(row.type==='notice'&&row.subtype==='event')) && mapEventActive(row,now)).forEach(row=>add('posts','event',row));
@@ -1868,6 +1878,28 @@ function setMapBottomStatus(message=''){
   mapBottomStatus.classList.toggle('hidden', !message);
 }
 
+async function loadBusinessSpecialsFromSupabase(){
+  const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
+  if(!SUPABASE_URL||!SUPABASE_ANON_KEY||!globalThis.DtmRestaurantSpecials)return;
+  const requestedRegion=String(currentRegion||getAppRegion()).toLowerCase();
+  const ids=new Set(businesses.map(row=>String(row.id)));
+  const select='id,business_id,type,title,description,price_text,days_of_week,start_time,end_time,start_date,end_date,image_url,is_active,sort_order,created_at,updated_at';
+  const url=`${SUPABASE_URL}/rest/v1/business_specials?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc,id.asc`;
+  const identity=dtmRequestIdentity('business_specials',{region:requestedRegion,projection:'public-v1'});
+  const token=dtmRequests.begin('public-business-specials',identity);
+  try{
+    const result=await dtmRequests.fetchShared(identity,()=>globalThis.DtmPagination.fetchPostgrest({url,signal:token.controller?.signal,pageSize:1000,maxPages:100,keyOf:r=>r?.id,validRow:r=>!!r&&r.id!=null&&r.business_id!=null,headers:{apikey:SUPABASE_ANON_KEY,Authorization:`Bearer ${SUPABASE_ANON_KEY}`}}),{ttl:5000});
+    if(!result.complete)throw result.error||new Error('Special pagination incomplete');
+    if(!dtmRequests.current(token)||requestedRegion!==String(currentRegion||getAppRegion()).toLowerCase())return;
+    businessSpecials=result.rows.filter(row=>ids.has(String(row.business_id)));
+    dtmDataLoadState.businessSpecials={...result,status:'live',committed:businessSpecials.length,region:requestedRegion};
+  }catch(error){
+    if(error?.name==='AbortError'||!dtmRequests.current(token))return;
+    dtmDataLoadState.businessSpecials={status:'failed',complete:false,error:error?.message||String(error),rows:businessSpecials.length,region:requestedRegion};
+    console.warn('[Restaurant Specials] read unavailable',error?.message||error);
+  }
+}
+
 async function loadRealData(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) { finalizeData(); return; }
@@ -2011,6 +2043,7 @@ async function loadRealData(){
     dtmDataLoadState.businesses={...existing,status:existing.status==='partial'?'partial':businesses.length?'fallback':'failed',complete:false,error:e?.message||String(e)};
   }
 
+  await loadBusinessSpecialsFromSupabase();
   await v295LoadWeeklyPopularClicks(true);
   await loadCouponsFromSupabase();
   await loadDalpicksFromSupabase();
@@ -2851,6 +2884,8 @@ const video =
 
 function badgeStackHTML(b, compact=true){
   const arr=[];
+  const special=businessSpecialBadgeHTML(b);
+  if(special)arr.push(special);
   if(b.video) arr.push(`<span class="badge purple${compact?' compact':''}">VIDEO</span>`);
   if(b.coupon) arr.push(`<span class="badge orange${compact?' compact':''}">COUPON</span>`);
   if(b.is_new) arr.push(`<span class="badge green${compact?' compact':''}">NEW</span>`);
@@ -3288,6 +3323,7 @@ function nearbyBusinessItemHTML(b){
   const meta = [getBusinessDisplayCategory(b)];
   const promoBadges = [
     isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '',
+    businessSpecialBadgeHTML(b),
     businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '',
     businessHasActiveBanner(b) ? '<span class="business-banner-badge">배너</span>' : ''
   ].filter(Boolean).join('');
@@ -5183,6 +5219,7 @@ function renderMainBanners(){
 
 function renderCoupons(){
   if(!couponTodayList || !couponAllList) return;
+  renderRestaurantSpecials();
   const today = todayCoupons();
   const all = activeCoupons(coupons);
   couponTodayList.innerHTML = today.length ? today.map(c=>couponCardHTML(c,'today')).join('') : '<p class="empty">오늘 쿠폰이 없습니다.</p>';
@@ -5210,6 +5247,61 @@ function v229YouTubeId(value){
 function v229DallasDate(){
   return globalThis.DtmDallasTime.dateKey();
 }
+function restaurantSpecialDaysLabel(row){
+  const names=['일','월','화','수','목','금','토'],days=globalThis.DtmRestaurantSpecials.days(row);
+  if(!days.length||days.length===7)return '매일';
+  if(JSON.stringify(days)===JSON.stringify([1,2,3,4,5]))return '월–금';
+  return days.map(day=>names[day]).join('·');
+}
+function restaurantSpecialTimeLabel(row){
+  if(!row.start_time&&!row.end_time)return '종일';
+  return `${globalThis.DtmRestaurantSpecials.formatTime(row.start_time)}–${globalThis.DtmRestaurantSpecials.formatTime(row.end_time)}`;
+}
+function restaurantSpecialCardHTML(row){
+  const b=getBiz(row.business_id)||{};
+  const state=globalThis.DtmRestaurantSpecials.scheduleState(row).key;
+  const origin=typeof v293DistanceOrigin==='function'?v293DistanceOrigin():null;
+  const distance=origin&&v292ValidBusinessCoords(b.lat,b.lng)?`${haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng)).toFixed(1)} mi`:'';
+  const image=row.image_url||b.image||b.image_url||BUSINESS_IMAGE_FALLBACK;
+  return `<button type="button" class="restaurant-special-card biz-open" data-biz="${esc(row.business_id)}">
+    <img src="${esc(image)}" alt="${esc(row.title||'Restaurant Special')}">
+    <span class="restaurant-special-copy"><span class="restaurant-special-type">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]||'할인')}</span><strong>${esc(row.title)}</strong><small>${esc(b.name||b.name_ko||b.name_en||'업소')} ${distance?`· ${esc(distance)}`:''}</small><span>${esc(row.price_text||row.description||'혜택 내용을 확인하세요.')}</span><small>${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small><em class="${state==='now'?'is-now':''}">${esc(globalThis.DtmRestaurantSpecials.statusLabel(row))}</em></span>
+  </button>`;
+}
+function renderRestaurantSpecials(){
+  const host=document.getElementById('restaurantSpecialList');if(!host||!globalThis.DtmRestaurantSpecials)return;
+  const rows=globalThis.DtmRestaurantSpecials.sort(globalThis.DtmRestaurantSpecials.filter(businessSpecials,restaurantSpecialFilter));
+  const batch=globalThis.DtmRestaurantSpecials.visibleBatch(rows,restaurantSpecialVisibleCount);
+  host.innerHTML=batch.total?batch.rows.map(restaurantSpecialCardHTML).join(''):'<p class="empty">현재 표시할 점심특선 또는 해피아워가 없습니다.</p>';
+  const result=document.getElementById('restaurantSpecialResultCount');
+  if(result)result.textContent=`총 ${batch.total.toLocaleString()}개 · ${batch.visibleCount.toLocaleString()}개 표시`;
+  const more=document.getElementById('restaurantSpecialMore');
+  if(more){more.hidden=!batch.hasMore;more.disabled=!batch.hasMore;more.dataset.nextCount=String(batch.nextCount);}
+  document.querySelectorAll('[data-special-filter]').forEach(button=>button.classList.toggle('active',button.dataset.specialFilter===restaurantSpecialFilter));
+  bindBizOpenButtons();
+}
+function businessSpecialBadgeHTML(b,now=Date.now()){
+  if(!b||!globalThis.DtmRestaurantSpecials)return '';
+  const kinds=globalThis.DtmRestaurantSpecials.activeKindsForBusiness(businessSpecials,b.id,now);
+  if(!kinds.length)return '';
+  const label=kinds.length>1?'할인 2':globalThis.DtmRestaurantSpecials.TYPE_LABELS[kinds[0]];
+  return `<span class="business-special-badge">${esc(label)}</span>`;
+}
+function ensureRestaurantSpecialStyles(){
+  if(document.getElementById('restaurantSpecialStyles'))return;
+  const style=document.createElement('style');style.id='restaurantSpecialStyles';style.textContent=`
+    .restaurant-specials-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px}.restaurant-specials-head h2{margin:0}.restaurant-specials-head p{margin:4px 0 0;color:#64748b}.restaurant-special-filters{display:flex;gap:6px;flex-wrap:wrap}.restaurant-special-filters button{border:1px solid #dbe3ef;background:#fff;border-radius:999px;padding:7px 11px;font-weight:800}.restaurant-special-filters button.active{background:#172554;color:#fff;border-color:#172554}.restaurant-special-list{display:grid;gap:10px;margin-bottom:12px}.restaurant-special-results{text-align:center;color:#64748b;font-size:12px}.restaurant-special-more{display:block;margin:10px auto 22px;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 22px;font-weight:900}.restaurant-special-card{width:100%;display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;text-align:left;border:1px solid #e2e8f0;border-radius:16px;padding:10px;background:#fff}.restaurant-special-card>img{width:88px;height:88px;object-fit:cover;border-radius:12px}.restaurant-special-copy{display:grid;gap:3px}.restaurant-special-copy small{color:#64748b}.restaurant-special-copy em,.restaurant-special-detail em{font-style:normal;color:#64748b;font-weight:800}.restaurant-special-copy em.is-now,.restaurant-special-detail em.is-now{color:#15803d}.restaurant-special-type,.business-special-badge{display:inline-flex;width:max-content;border-radius:999px;background:#fff7ed;color:#c2410c;padding:3px 7px;font-size:10px;font-weight:900}.restaurant-special-detail article{border-top:1px solid #eef2f7;padding:12px 0;display:grid;gap:6px}.restaurant-special-detail article>div{display:flex;gap:8px;align-items:center}.restaurant-special-detail article>div span{color:#c2410c;font-size:12px;font-weight:900}.restaurant-special-detail p{margin:0}.restaurant-special-detail small{color:#64748b}@media(max-width:640px){.restaurant-specials-head{align-items:flex-start;flex-direction:column}.restaurant-special-card{grid-template-columns:72px minmax(0,1fr)}.restaurant-special-card>img{width:72px;height:72px}}
+  `;document.head.appendChild(style);
+}
+ensureRestaurantSpecialStyles();
+document.addEventListener('click',event=>{
+  const button=event.target.closest?.('[data-special-filter]');if(!button)return;
+  restaurantSpecialFilter=button.dataset.specialFilter||'all';restaurantSpecialVisibleCount=globalThis.DtmRestaurantSpecials.VISIBLE_BATCH_SIZE;renderRestaurantSpecials();
+});
+document.addEventListener('click',event=>{
+  const button=event.target.closest?.('#restaurantSpecialMore');if(!button)return;
+  restaurantSpecialVisibleCount=Number(button.dataset.nextCount)||restaurantSpecialVisibleCount+globalThis.DtmRestaurantSpecials.VISIBLE_BATCH_SIZE;renderRestaurantSpecials();
+});
 function v229ListingIsPublic(row){
   const status=String(row?.status||'active').toLowerCase();
   if(!['active','pending'].includes(status)) return false;
@@ -5455,6 +5547,9 @@ const galleryHtml = Array.isArray(b.gallery_urls) && b.gallery_urls.length
 const couponHtml = bizCoupons.length
   ? `<div class="detail-coupon-block"><h3 class="subsection-title">사용 가능한 쿠폰</h3><div class="detail-coupon-list">${bizCoupons.map(c=>`<button class="detail-coupon-item coupon-open" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(formatDateLabel(c.endAt))}</span></button>`).join('')}</div></div>`
   : '';
+
+const bizSpecials=globalThis.DtmRestaurantSpecials.forBusiness(businessSpecials,b.id);
+const specialHtml=bizSpecials.length?`<section class="biz-detail-card restaurant-special-detail"><h3>할인 · 특선</h3>${bizSpecials.map(row=>`<article><div><span>${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type])}</span><strong>${esc(row.title)}</strong></div><em class="${globalThis.DtmRestaurantSpecials.isActive(row)?'is-now':''}">${esc(globalThis.DtmRestaurantSpecials.statusLabel(row))}</em><p>${esc([row.price_text,row.description].filter(Boolean).join(' · '))}</p><small>${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small></article>`).join('')}</section>`:'';
 
 const orderUrl = normalizeUrl(b.order_url || '');
 const deliveryUrl = normalizeUrl(b.delivery_url || '');
@@ -5832,7 +5927,7 @@ ${b.rating ? `
     </section>
 
 
-    ${activeCoupon ? `
+${activeCoupon ? `
     <section class="biz-promo-card">
     <div class="promo-icon">🎁</div>
     <div>
@@ -5844,6 +5939,8 @@ ${b.rating ? `
     </div>
     </section>
 ` : ''}
+
+${specialHtml}
 
 ${renderBusinessListings(b.id)}
 
@@ -7521,13 +7618,14 @@ async function handleAdminLogin(){
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (profileError) {
+  const access=globalThis.DtmAdminAuthorization?.resolve({user,profile,error:profileError});
+  if (profileError && access?.reason==='profile_lookup_failed') {
     alert('관리자 정보 조회 실패: ' + profileError.message);
     console.error(profileError);
     return;
   }
 
-  if(!profile || !['super_admin','regional_editor'].includes(profile.role)){
+  if(!access?.ok){
     alert('관리자 권한이 없습니다.');
     await supabase.auth.signOut();
     return;

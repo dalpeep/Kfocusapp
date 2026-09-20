@@ -117,6 +117,7 @@ let supabase = null;
 
 let businesses = [];
 let coupons = [];
+let businessSpecials = [];
 let boards = [];
 let dalpicks = [];
 let slides = [];
@@ -1650,6 +1651,7 @@ function clearBusinessForm() {
   updatePreview();
   renderGalleryList(null);
   fillBusinessHours({});
+  renderBusinessSpecialAdmin();
 }
 function fillBusinessForm(row) {
   BUSINESS_FIELDS.forEach((id) => setVal(id, row?.[id] ?? ''));
@@ -1679,6 +1681,8 @@ function fillBusinessForm(row) {
   updatePreview();
   renderGalleryList(row);
   fillBusinessHours(row?.business_hours);
+  clearSpecialEditor();
+  renderBusinessSpecialAdmin();
 }
 const ADMIN_MAP_CATEGORIES = ['식당','쇼핑','병원','금융','법률','종교','서비스','부동산'];
 const ADMIN_SUBCATEGORY_OPTIONS = {
@@ -1763,6 +1767,9 @@ function filterBusinesses() {
 function bizCouponCount(businessId) {
   return (coupons || []).filter((c) => String(c.business_id || '') === String(businessId)).length;
 }
+function bizSpecialCount(businessId){
+  return globalThis.DtmRestaurantSpecials.forBusiness(businessSpecials,businessId,Date.now(),{discoverableOnly:false}).length;
+}
 function bizEventCount(businessId) {
   return (boards || []).filter((b) => String(b.business_id || b.linked_business_id || '') === String(businessId)).length;
 }
@@ -1777,6 +1784,8 @@ function businessBadges(row) {
   if (row.list_visible === false) badges.push('<span class="biz-badge hidden-badge">목록 숨김</span>');
   const couponCount = bizCouponCount(row.id);
   if (couponCount) badges.push(`<span class="biz-badge muted-badge">🎟 쿠폰 ${couponCount}</span>`);
+  const specialCount=bizSpecialCount(row.id);
+  if(specialCount)badges.push(`<span class="biz-badge warn-badge">🍱 특선 ${specialCount}</span>`);
   const slideCount = bizSlideCount(row.id);
   if (slideCount) badges.push(`<span class="biz-badge warn-badge">🎬 슬라이드 ${slideCount}</span>`);
   const eventCount = bizEventCount(row.id);
@@ -1991,6 +2000,55 @@ try {
     p.description_images = [];
 }
   return p;
+}
+
+async function loadBusinessSpecials(){
+  if(!supabase)return;
+  const result=await DtmPagination.collectPages({pageSize:1000,maxPages:100,keyOf:r=>r?.id,validRow:r=>!!r&&r.id!=null&&r.business_id!=null,fetchPage:async({from,to,pageSize})=>{
+    const {data,error,count}=await supabase.from('business_specials').select('*',{count:'exact'}).order('sort_order',{ascending:true}).order('id',{ascending:true}).range(from,to);
+    if(error)throw error;const rows=data||[];return {rows,nextFrom:from+rows.length,done:count!=null?from+rows.length>=count:rows.length<pageSize};
+  }});
+  window.__DTM_DATA_LOAD_STATE__=window.__DTM_DATA_LOAD_STATE__||{};
+  window.__DTM_DATA_LOAD_STATE__.adminBusinessSpecials={...result,error:result.error?.message||'',rows:result.rows.length};
+  if(!result.complete){console.warn('[Restaurant Specials admin]',result.error?.message||'incomplete');return;}
+  businessSpecials=result.rows;
+  renderBusinessSpecialAdmin();
+  if(businesses.length)renderBusinessList(filterBusinesses());
+}
+function clearSpecialEditor(){
+  ['special_id','special_title','special_description','special_price_text','special_image_url','special_start_time','special_end_time','special_start_date','special_end_date'].forEach(id=>setVal(id,''));
+  setVal('special_type','lunch_special');setVal('special_sort_order','0');setChecked('special_is_active',true);setChecked('special_days_all',false);
+  document.querySelectorAll('[data-special-day]').forEach(input=>{input.checked=false;});
+  qs('specialEditor')?.classList.add('hidden');
+}
+function editBusinessSpecial(row={}){
+  if(!selectedId)return alert('먼저 업소를 저장하거나 선택해 주세요.');
+  setVal('special_id',row.id||'');setVal('special_type',row.type||'lunch_special');setVal('special_title',row.title||'');setVal('special_description',row.description||'');setVal('special_price_text',row.price_text||'');setVal('special_image_url',row.image_url||'');setVal('special_start_time',String(row.start_time||'').slice(0,5));setVal('special_end_time',String(row.end_time||'').slice(0,5));setVal('special_start_date',row.start_date||'');setVal('special_end_date',row.end_date||'');setVal('special_sort_order',String(row.sort_order||0));setChecked('special_is_active',row.is_active!==false);
+  const days=new Set(globalThis.DtmRestaurantSpecials.days(row));document.querySelectorAll('[data-special-day]').forEach(input=>{input.checked=days.has(Number(input.dataset.specialDay));});setChecked('special_days_all',days.size===7);
+  qs('specialEditor')?.classList.remove('hidden');
+}
+function renderBusinessSpecialAdmin(){
+  const host=qs('specialAdminList');if(!host)return;
+  if(!selectedId){host.innerHTML='<p class="muted">업소를 선택하거나 먼저 저장해 주세요.</p>';clearSpecialEditor();return;}
+  const rows=globalThis.DtmRestaurantSpecials.forBusiness(businessSpecials,selectedId,Date.now(),{discoverableOnly:false});
+  host.innerHTML=rows.length?rows.map(row=>`<div class="business-special-admin-row"><div><strong>${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]||row.type)} · ${esc(row.title)}</strong><small>${esc(row.price_text||row.description||'')} · ${row.is_active===false?'비활성':'활성'}</small></div><div class="business-special-admin-actions"><button type="button" class="btn ghost" data-special-edit="${esc(row.id)}">수정</button><button type="button" class="btn danger" data-special-delete="${esc(row.id)}">삭제</button></div></div>`).join(''):'<p class="muted">등록된 할인·특선이 없습니다.</p>';
+}
+function collectSpecialPayload(){
+  return {business_id:selectedId,type:val('special_type'),title:val('special_title').trim(),description:val('special_description').trim()||null,price_text:val('special_price_text').trim()||null,days_of_week:Array.from(document.querySelectorAll('[data-special-day]:checked')).map(input=>Number(input.dataset.specialDay)),start_time:val('special_start_time')||null,end_time:val('special_end_time')||null,start_date:val('special_start_date')||null,end_date:val('special_end_date')||null,image_url:val('special_image_url').trim()||null,is_active:checked('special_is_active'),sort_order:Number(val('special_sort_order')||0)};
+}
+async function saveBusinessSpecial(){
+  if(!selectedId)return alert('먼저 업소를 저장하거나 선택해 주세요.');
+  const payload=collectSpecialPayload(),check=globalThis.DtmRestaurantSpecials.validation(payload);
+  if(!payload.title)return alert('특선 제목을 입력해 주세요.');
+  if(!check.valid)return alert(`특선 날짜/시간을 확인해 주세요. (${check.reason})`);
+  const id=val('special_id');const query=id?supabase.from('business_specials').update(payload).eq('id',id):supabase.from('business_specials').insert(payload);
+  const {error}=await query;if(error)return alert(`특선 저장 실패: ${error.message}`);
+  await loadBusinessSpecials();clearSpecialEditor();renderBusinessList(filterBusinesses());
+}
+async function deleteBusinessSpecial(id){
+  if(!id||!confirm('이 특선을 삭제할까요?'))return;
+  const {error}=await supabase.from('business_specials').delete().eq('id',id);if(error)return alert(`특선 삭제 실패: ${error.message}`);
+  await loadBusinessSpecials();clearSpecialEditor();renderBusinessList(filterBusinesses());
 }
 
 async function loadBusinesses() {
@@ -4550,6 +4608,14 @@ function bindEvents() {
 });
   on('categoryFilter', 'change', () => renderBusinessList(filterBusinesses()));
   on('activeOnly', 'change', () => renderBusinessList(filterBusinesses()));
+  on('specialNewBtn','click',()=>editBusinessSpecial({business_id:selectedId,is_active:true,sort_order:0}));
+  on('specialSaveBtn','click',saveBusinessSpecial);
+  on('specialCancelBtn','click',clearSpecialEditor);
+  on('special_days_all','change',()=>{const value=checked('special_days_all');document.querySelectorAll('[data-special-day]').forEach(input=>{input.checked=value;});});
+  qs('specialAdminList')?.addEventListener('click',event=>{
+    const edit=event.target.closest('[data-special-edit]');if(edit){const row=businessSpecials.find(item=>String(item.id)===String(edit.dataset.specialEdit));if(row)editBusinessSpecial(row);return;}
+    const remove=event.target.closest('[data-special-delete]');if(remove)deleteBusinessSpecial(remove.dataset.specialDelete);
+  });
   on('businessQuickFilter', 'change', () => renderBusinessList(filterBusinesses()));
   // 관리자 홈 이동 버튼
   on('openDallasHome', 'click', () => {
@@ -5025,7 +5091,7 @@ async function init() {
   clearSlideForm();
   switchSection('business');
 
-  await Promise.all([loadBusinesses(), loadCoupons(), loadBanners(), loadBoards(), loadSlides(), loadBusinessStats()]);
+  await Promise.all([loadBusinesses(), loadBusinessSpecials(), loadCoupons(), loadBanners(), loadBoards(), loadSlides(), loadBusinessStats()]);
   await loadDalpicks();
   renderSlideBusinessOptions();
   renderSlideList(filterSlides());
@@ -5553,13 +5619,14 @@ async function loadAdminSession() {
     return null;
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profileRow, error: profileError } = await supabase
     .from('profiles')
     .select('role, area')
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (profileError) {
+  const access=globalThis.DtmAdminAuthorization?.resolve({user,profile:profileRow,error:profileError});
+  if (profileError&&access?.reason==='profile_lookup_failed') {
     alert('관리자 정보 조회 실패: ' + profileError.message);
     console.error(profileError);
     sessionStorage.setItem('adminLogin', '1');
@@ -5567,15 +5634,16 @@ async function loadAdminSession() {
     return null;
   }
 
-  if (!profile) {
+  if (!access?.ok) {
     alert('관리자 권한이 없습니다.');
     sessionStorage.setItem('adminLogin', '1');
     window.location.href = '/';
     return null;
   }
 
-  window.ADMIN_ROLE = profile.role || '';
-  window.ADMIN_AREA = profile.area || '';
+  const profile={role:access.role,area:access.area};
+  window.ADMIN_ROLE = profile.role;
+  window.ADMIN_AREA = profile.area;
   console.log('ADMIN_ROLE:', window.ADMIN_ROLE);
   console.log('ADMIN_AREA:', window.ADMIN_AREA);
   applyAdminRegionUI();
