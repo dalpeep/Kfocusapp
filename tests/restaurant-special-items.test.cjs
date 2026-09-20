@@ -34,3 +34,20 @@ test('public loader batches items and legacy price text remains the fallback',()
   assert.match(source,/DtmPagination\.fetchPostgrest\(\{url,signal:token\.controller\?\.signal,pageSize:1000/);
   assert.match(source,/row\.price_text\|\|row\.description\|\|'혜택 내용을 확인하세요\.'/);
 });
+test('administrator editor visibly exposes file upload, preview and repeatable structured menus',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','admin','index.html'),'utf8');
+  const source=fs.readFileSync(path.join(__dirname,'..','admin','assets','admin.js'),'utf8');
+  const css=fs.readFileSync(path.join(__dirname,'..','admin','assets','admin.css'),'utf8');
+  assert.match(html,/id="special_image_file"[^>]*type="file"/);
+  assert.match(html,/id="specialImageUploadBtn"[^>]*>업로드 \/ 교체</);
+  assert.match(html,/id="specialImagePreview"/);
+  assert.match(html,/id="specialImageRemoveBtn"/);
+  assert.match(html,/id="specialItemsEditor"/);
+  assert.match(html,/id="specialItemAddBtn"[^>]*>\+ 메뉴 추가</);
+  assert.match(html,/id="special_image_url" type="hidden"/);
+  assert.match(source,/function editBusinessSpecial\(row=\{\}\)/);
+  assert.match(source,/renderSpecialItemsEditor\(globalThis\.DtmRestaurantSpecialItems\.forSpecial/);
+  assert.match(source,/on\('specialNewBtn','click',\(\)=>editBusinessSpecial/);
+  assert.match(css,/\.special-image-tools,\.special-menu-tools\{display:grid/);
+  assert.doesNotMatch(css,/\.special-(?:image|menu)-tools\{[^}]*display:none/);
+});

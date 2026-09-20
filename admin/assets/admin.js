@@ -2028,20 +2028,22 @@ async function loadBusinessSpecialItems(){
   businessSpecialItems=result.rows;
 }
 function specialItemRowHTML(row={},index=0){return `<div class="special-item-row" data-special-item-row data-item-id="${esc(row.id||'')}"><label>메뉴명<input data-item-name maxlength="160" value="${esc(row.item_name||'')}"></label><label>가격/혜택<input data-item-price value="${esc(row.price_text||'')}"></label><label>설명(선택)<input data-item-description value="${esc(row.description||'')}"></label><label>순서<input data-item-order type="number" value="${Number(row.sort_order??index)}"></label><button class="btn danger" type="button" data-item-remove>삭제</button></div>`;}
-function renderSpecialItemsEditor(rows=[]){const host=qs('specialItemsEditor');if(host)host.innerHTML=(Array.isArray(rows)?rows:[]).map(specialItemRowHTML).join('');}
+function syncSpecialItemsEmptyState(){const empty=qs('specialItemsEmpty'),count=document.querySelectorAll('[data-special-item-row]').length;if(empty)empty.classList.toggle('hidden',count>0);}
+function renderSpecialItemsEditor(rows=[]){const host=qs('specialItemsEditor');if(host)host.innerHTML=(Array.isArray(rows)?rows:[]).map(specialItemRowHTML).join('');syncSpecialItemsEmptyState();}
+function renderSpecialImageState(url=''){const value=String(url||'').trim(),preview=qs('specialImagePreview'),status=qs('specialImageStatus');if(preview){if(value)preview.src=value;else preview.removeAttribute('src');preview.hidden=!value;}if(status)status.textContent=value?'현재 이미지가 등록되어 있습니다. 새 파일 업로드 시 교체됩니다.':'현재 이미지 없음';}
 function collectSpecialItems(){return [...document.querySelectorAll('[data-special-item-row]')].map((row,index)=>({id:row.dataset.itemId||'',item_name:row.querySelector('[data-item-name]')?.value.trim()||'',price_text:row.querySelector('[data-item-price]')?.value.trim()||null,description:row.querySelector('[data-item-description]')?.value.trim()||null,sort_order:Number(row.querySelector('[data-item-order]')?.value||index)})).filter(row=>row.item_name);}
 function clearSpecialEditor(){
   ['special_id','special_title','special_description','special_price_text','special_image_url','special_start_time','special_end_time','special_start_date','special_end_date'].forEach(id=>setVal(id,''));
   setVal('special_type','lunch_special');setVal('special_sort_order','0');setChecked('special_is_active',true);setChecked('special_days_all',false);
   document.querySelectorAll('[data-special-day]').forEach(input=>{input.checked=false;});
-  renderSpecialItemsEditor([]);const preview=qs('specialImagePreview');if(preview){preview.hidden=true;preview.removeAttribute('src');}
+  renderSpecialItemsEditor([]);renderSpecialImageState('');
   qs('specialEditor')?.classList.add('hidden');
 }
 function editBusinessSpecial(row={}){
   if(!selectedId)return alert('먼저 업소를 저장하거나 선택해 주세요.');
   setVal('special_id',row.id||'');setVal('special_type',row.type||'lunch_special');setVal('special_title',row.title||'');setVal('special_description',row.description||'');setVal('special_price_text',row.price_text||'');setVal('special_image_url',row.image_url||'');setVal('special_start_time',String(row.start_time||'').slice(0,5));setVal('special_end_time',String(row.end_time||'').slice(0,5));setVal('special_start_date',row.start_date||'');setVal('special_end_date',row.end_date||'');setVal('special_sort_order',String(row.sort_order||0));setChecked('special_is_active',row.is_active!==false);
   const days=new Set(globalThis.DtmRestaurantSpecials.days(row));document.querySelectorAll('[data-special-day]').forEach(input=>{input.checked=days.has(Number(input.dataset.specialDay));});setChecked('special_days_all',days.size===7);
-  renderSpecialItemsEditor(globalThis.DtmRestaurantSpecialItems.forSpecial(businessSpecialItems,row.id));const preview=qs('specialImagePreview');if(preview){preview.src=row.image_url||'';preview.hidden=!row.image_url;}
+  renderSpecialItemsEditor(globalThis.DtmRestaurantSpecialItems.forSpecial(businessSpecialItems,row.id));renderSpecialImageState(row.image_url||'');
   qs('specialEditor')?.classList.remove('hidden');
 }
 function renderBusinessSpecialAdmin(){
@@ -2078,7 +2080,7 @@ async function uploadBusinessSpecialImage(){
   const file=qs('special_image_file')?.files?.[0];if(!file)return alert('이미지를 선택하세요.');
   if(!String(file.type||'').startsWith('image/'))return alert('이미지 파일만 업로드할 수 있습니다.');
   if(file.size>10*1024*1024)return alert('이미지는 10MB 이하만 업로드할 수 있습니다.');
-  try{const url=await uploadFileToStorage(file,'business-specials');setVal('special_image_url',url||'');const preview=qs('specialImagePreview');if(preview){preview.src=url;preview.hidden=!url;}}catch(error){alert(`이미지 업로드 실패: ${error.message}`);}
+  try{const url=await uploadFileToStorage(file,'business-specials');setVal('special_image_url',url||'');renderSpecialImageState(url||'');}catch(error){alert(`이미지 업로드 실패: ${error.message}`);}
 }
 async function deleteBusinessSpecial(id){
   if(!id||!confirm('이 특선을 삭제할까요?'))return;
@@ -4647,9 +4649,9 @@ function bindEvents() {
   on('specialSaveBtn','click',saveBusinessSpecial);
   on('specialCancelBtn','click',clearSpecialEditor);
   on('specialImageUploadBtn','click',uploadBusinessSpecialImage);
-  on('specialImageRemoveBtn','click',()=>{setVal('special_image_url','');const preview=qs('specialImagePreview');if(preview){preview.hidden=true;preview.removeAttribute('src');}});
-  on('specialItemAddBtn','click',()=>{const host=qs('specialItemsEditor');if(host)host.insertAdjacentHTML('beforeend',specialItemRowHTML({},host.children.length));});
-  qs('specialItemsEditor')?.addEventListener('click',event=>event.target.closest('[data-item-remove]')?.closest('[data-special-item-row]')?.remove());
+  on('specialImageRemoveBtn','click',()=>{setVal('special_image_url','');renderSpecialImageState('');});
+  on('specialItemAddBtn','click',()=>{const host=qs('specialItemsEditor');if(host)host.insertAdjacentHTML('beforeend',specialItemRowHTML({},host.children.length));syncSpecialItemsEmptyState();});
+  qs('specialItemsEditor')?.addEventListener('click',event=>{const remove=event.target.closest('[data-item-remove]');if(remove){remove.closest('[data-special-item-row]')?.remove();syncSpecialItemsEmptyState();}});
   on('special_days_all','change',()=>{const value=checked('special_days_all');document.querySelectorAll('[data-special-day]').forEach(input=>{input.checked=value;});});
   qs('specialAdminList')?.addEventListener('click',event=>{
     const edit=event.target.closest('[data-special-edit]');if(edit){const row=businessSpecials.find(item=>String(item.id)===String(edit.dataset.specialEdit));if(row)editBusinessSpecial(row);return;}

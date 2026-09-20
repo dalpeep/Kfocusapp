@@ -4,18 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daltownmap Admin+</title>
-  <link rel="stylesheet" href="assets/admin.css?v=45.8.1" />
+  <link rel="stylesheet" href="assets/admin.css?v=45.8.2-phase11-special-editor" />
   <script src="/.netlify/functions/config"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="/assets/dallas-time.js?v=1"></script>
   <script src="/assets/active-state.js?v=1"></script>
   <script src="/assets/admin-authorization.js?v=1"></script>
   <script src="/assets/restaurant-specials.js?v=1"></script>
-  <script src="/assets/restaurant-special-items.js?v=1"></script>
+  <script src="/assets/restaurant-special-items.js?v=2-phase11-special-editor"></script>
   <script src="/assets/request-coordinator.js?v=1"></script>
   <script src="/assets/pagination.js?v=1"></script>
   <script src="/assets/home-selection.js?v=313"></script>
-  <script type="module" src="assets/admin.js?v=269-price-block-traffic293"></script>
+  <script type="module" src="assets/admin.js?v=270-phase11-special-editor"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -790,17 +790,17 @@
               </div>
 
               <div class="field full form-section" id="businessSpecialsAdmin">
-                <div class="panel-head"><div><h3>할인</h3><small class="muted">업소를 먼저 저장한 뒤 점심특선과 해피아워를 여러 개 등록할 수 있습니다.</small></div><button id="specialNewBtn" class="btn ghost" type="button">새 특선</button></div>
+                <div class="panel-head"><div><h3>할인 <span class="special-editor-version">Phase 1.1</span></h3><small class="muted">업소를 먼저 저장한 뒤 점심특선과 해피아워를 여러 개 등록할 수 있습니다.</small></div><button id="specialNewBtn" class="btn ghost" type="button">새 특선</button></div>
                 <div id="specialAdminList" class="business-special-admin-list"></div>
                 <div id="specialEditor" class="form-grid hidden">
                   <input id="special_id" type="hidden">
                   <label class="field"><span>유형</span><select id="special_type"><option value="lunch_special">점심특선</option><option value="happy_hour">해피아워</option></select></label>
                   <label class="field"><span>제목</span><input id="special_title" maxlength="160"></label>
                   <label class="field full"><span>설명</span><textarea id="special_description" rows="3"></textarea></label>
-                  <label class="field"><span>가격/혜택 문구</span><input id="special_price_text" placeholder="$14.99 또는 Selected drinks"></label>
-                  <label class="field"><span>이미지 URL (선택)</span><input id="special_image_url" type="url"></label>
-                  <div class="field full special-image-tools"><span>메뉴/특선 이미지 업로드</span><input id="special_image_file" type="file" accept="image/*"><div class="head-actions"><button id="specialImageUploadBtn" class="btn ghost" type="button">업로드</button><button id="specialImageRemoveBtn" class="btn ghost" type="button">이미지 제거</button></div><img id="specialImagePreview" alt="특선 이미지 미리보기" hidden></div>
-                  <fieldset class="field full"><legend>특선 메뉴</legend><div id="specialItemsEditor" class="special-items-editor"></div><button id="specialItemAddBtn" class="btn ghost" type="button">+ 메뉴 추가</button></fieldset>
+                  <label class="field full"><span>가격/혜택 문구 <small class="muted">(기존 데이터 fallback)</small></span><input id="special_price_text" placeholder="$14.99 또는 Selected drinks"></label>
+                  <input id="special_image_url" type="hidden">
+                  <fieldset class="field full special-image-tools"><legend>특선 이미지</legend><p class="muted">파일을 선택한 뒤 업로드하세요. 새 파일을 업로드하면 현재 이미지를 교체합니다.</p><label class="special-file-picker" for="special_image_file">이미지 파일 선택<input id="special_image_file" type="file" accept="image/*"></label><div class="head-actions"><button id="specialImageUploadBtn" class="btn primary" type="button">업로드 / 교체</button><button id="specialImageRemoveBtn" class="btn ghost" type="button">이미지 제거</button></div><div id="specialImageStatus" class="muted" role="status">현재 이미지 없음</div><img id="specialImagePreview" alt="현재 특선 이미지 미리보기" hidden></fieldset>
+                  <fieldset class="field full special-menu-tools"><legend>특선 메뉴</legend><p class="muted">메뉴별 이름·가격·설명을 입력할 수 있습니다. 기존 가격/혜택 문구는 메뉴가 없을 때만 사용됩니다.</p><div id="specialItemsEditor" class="special-items-editor"></div><div id="specialItemsEmpty" class="special-items-empty">등록된 메뉴가 없습니다. 아래 버튼으로 메뉴를 추가하세요.</div><button id="specialItemAddBtn" class="btn primary" type="button">+ 메뉴 추가</button></fieldset>
                   <fieldset class="field full"><legend>요일</legend><label><input id="special_days_all" type="checkbox"> 전체 선택</label><div class="special-day-checks"><label><input type="checkbox" data-special-day="0"> 일</label><label><input type="checkbox" data-special-day="1"> 월</label><label><input type="checkbox" data-special-day="2"> 화</label><label><input type="checkbox" data-special-day="3"> 수</label><label><input type="checkbox" data-special-day="4"> 목</label><label><input type="checkbox" data-special-day="5"> 금</label><label><input type="checkbox" data-special-day="6"> 토</label></div></fieldset>
                   <label class="field"><span>시작 시간</span><input id="special_start_time" type="time"></label>
                   <label class="field"><span>종료 시간</span><input id="special_end_time" type="time"></label>
