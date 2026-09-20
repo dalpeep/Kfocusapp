@@ -1,4 +1,7 @@
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
+const DTM_ADMIN_BUILD='phase1.1-special-editor-20260920.2';
+document.documentElement.dataset.dtmAdminBuild=DTM_ADMIN_BUILD;
+console.info(`[DalTownMap Admin] ${DTM_ADMIN_BUILD} loaded`);
 console.info('[DalTownMap Admin] V289 traffic source analytics loaded');
 console.info('[DalTownMap Admin] V284 request management visibility + autoload fix loaded');
 console.info('[DalTownMap Admin] V271 recommended theme links retained');

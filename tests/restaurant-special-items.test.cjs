@@ -51,3 +51,12 @@ test('administrator editor visibly exposes file upload, preview and repeatable s
   assert.match(css,/\.special-image-tools,\.special-menu-tools\{display:grid/);
   assert.doesNotMatch(css,/\.special-(?:image|menu)-tools\{[^}]*display:none/);
 });
+test('administrator runtime has an explicit build marker and disables admin asset caching',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'..','admin','index.html'),'utf8');
+  const source=fs.readFileSync(path.join(__dirname,'..','admin','assets','admin.js'),'utf8');
+  const headers=fs.readFileSync(path.join(__dirname,'..','_headers'),'utf8');
+  assert.match(html,/name="dtm-admin-build" content="phase1\.1-special-editor-20260920\.2"/);
+  assert.match(html,/id="adminBuildMarker"[^>]*data-admin-build="phase1\.1-special-editor-20260920\.2"/);
+  assert.match(source,/DTM_ADMIN_BUILD='phase1\.1-special-editor-20260920\.2'/);
+  assert.match(headers,/\/admin\/\*[\s\S]*Cache-Control: no-cache, no-store, must-revalidate/);
+});
