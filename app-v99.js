@@ -7618,13 +7618,14 @@ async function handleAdminLogin(){
     .eq('user_id', user.id)
     .maybeSingle();
 
-  if (profileError) {
+  const access=globalThis.DtmAdminAuthorization?.resolve({user,profile,error:profileError});
+  if (profileError && access?.reason==='profile_lookup_failed') {
     alert('관리자 정보 조회 실패: ' + profileError.message);
     console.error(profileError);
     return;
   }
 
-  if(!profile || !['super_admin','regional_editor'].includes(profile.role)){
+  if(!access?.ok){
     alert('관리자 권한이 없습니다.');
     await supabase.auth.signOut();
     return;

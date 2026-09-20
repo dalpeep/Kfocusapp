@@ -47,7 +47,8 @@ begin
   if to_regclass('public.profiles') is not null then
     execute 'select role, area from public.profiles where user_id=$1 limit 1'
       into admin_role,admin_area using auth.uid();
-  else
+  end if;
+  if coalesce(admin_role,'')='' then
     admin_role=coalesce(auth.jwt()->'app_metadata'->>'role',auth.jwt()->'user_metadata'->>'role','');
     admin_area=coalesce(auth.jwt()->'app_metadata'->>'area',auth.jwt()->'user_metadata'->>'area','');
   end if;

@@ -5625,10 +5625,8 @@ async function loadAdminSession() {
     .eq('user_id', user.id)
     .maybeSingle();
 
-  const profilesMissing=profileError&&(profileError.code==='42P01'||/profiles.*(does not exist|schema cache)/i.test(profileError.message||''));
-  const metadataProfile=profilesMissing?{role:user.app_metadata?.role||user.user_metadata?.role||'',area:user.app_metadata?.area||user.user_metadata?.area||''}:null;
-  const profile=profileRow||metadataProfile;
-  if (profileError&&!profilesMissing) {
+  const access=globalThis.DtmAdminAuthorization?.resolve({user,profile:profileRow,error:profileError});
+  if (profileError&&access?.reason==='profile_lookup_failed') {
     alert('관리자 정보 조회 실패: ' + profileError.message);
     console.error(profileError);
     sessionStorage.setItem('adminLogin', '1');
@@ -5636,15 +5634,16 @@ async function loadAdminSession() {
     return null;
   }
 
-  if (!profile) {
+  if (!access?.ok) {
     alert('관리자 권한이 없습니다.');
     sessionStorage.setItem('adminLogin', '1');
     window.location.href = '/';
     return null;
   }
 
-  window.ADMIN_ROLE = profile.role || '';
-  window.ADMIN_AREA = profile.area || '';
+  const profile={role:access.role,area:access.area};
+  window.ADMIN_ROLE = profile.role;
+  window.ADMIN_AREA = profile.area;
   console.log('ADMIN_ROLE:', window.ADMIN_ROLE);
   console.log('ADMIN_AREA:', window.ADMIN_AREA);
   applyAdminRegionUI();
