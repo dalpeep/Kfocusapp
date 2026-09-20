@@ -3,7 +3,7 @@
 with synthetic_businesses as (
   select id,row_number() over(order by id) as fixture_no
   from public.businesses
-  where name like 'Staging Business%'
+  where coalesce(name_ko,name_en,name,'') like 'Staging Business%'
   order by id
   limit 1508
 )
@@ -26,7 +26,9 @@ from synthetic_businesses;
 
 -- Explicit edge cases and multiple records for the first synthetic business.
 with first_business as (
-  select id from public.businesses where name like 'Staging Business%' order by id limit 1
+  select id from public.businesses
+  where coalesce(name_ko,name_en,name,'') like 'Staging Business%'
+  order by id limit 1
 )
 insert into public.business_specials
   (business_id,type,title,description,price_text,days_of_week,start_time,end_time,
