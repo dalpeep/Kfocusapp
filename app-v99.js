@@ -464,7 +464,7 @@ let homeBusinessTab = 'featured';
 let coupons = [];
 let businessSpecials = [];
 let restaurantSpecialFilter = 'all';
-let restaurantSpecialVisibleCount = 20;
+let restaurantSpecialVisibleCount;
 let dalpicks = [];
 let couponViewTab = 'today';
 let selectedCouponId = null;
