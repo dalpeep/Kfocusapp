@@ -466,6 +466,7 @@ let businessSpecials = [];
 let businessSpecialItems = [];
 let restaurantSpecialFilter = 'all';
 let restaurantSpecialVisibleCount;
+let couponShellMode = 'coupon';
 let dalpicks = [];
 let couponViewTab = 'today';
 let selectedCouponId = null;
@@ -1721,7 +1722,7 @@ function mapActiveBenefitRecords(now=Date.now()){
     records.set(key,{key,kind,title:row.title||row.headline||row.promo_text||MAP_BENEFIT_LABELS[kind],businessIds:ids,benefit:row.discount_label||row.benefit||row.description||row.promo_text||''});
   };
   activeMapCoupons(now).forEach(row=>add('coupons','coupon',row));
-  (globalThis.DtmRestaurantSpecials?.activeRecords?.(typeof businessSpecials==='undefined'?[]:businessSpecials,now)||[]).forEach(row=>add('specials','promotion',{
+  (globalThis.DtmRestaurantSpecials?.discoverable?.(typeof businessSpecials==='undefined'?[]:businessSpecials,now)||[]).forEach(row=>add('specials','promotion',{
     ...row,
     benefit:[row.price_text,row.description].filter(Boolean).join(' · '),
     title:`${globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]} · ${row.title}`
@@ -5303,6 +5304,15 @@ function restaurantSpecialCardHTML(row){
     <span class="restaurant-special-copy"><span class="restaurant-special-type">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]||'할인')}</span><strong>${esc(row.title)}</strong><small>${esc(b.name||b.name_ko||b.name_en||'업소')} ${distance?`· ${esc(distance)}`:''}</small>${itemHtml}<small>${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small><em class="${state==='now'?'is-now':''}">${esc(globalThis.DtmRestaurantSpecials.statusLabel(row))}</em></span>
   </button>`;
 }
+function setCouponShellMode(mode='coupon'){
+  couponShellMode=mode==='discount'?'discount':'coupon';
+  const coupon=document.getElementById('couponModeContent');
+  const discount=document.getElementById('discountModeContent');
+  if(coupon)coupon.hidden=couponShellMode!=='coupon';
+  if(discount)discount.hidden=couponShellMode!=='discount';
+  if(couponShellMode==='discount')renderRestaurantSpecials();
+  else updateCouponTabUI();
+}
 function renderRestaurantSpecials(){
   const host=document.getElementById('restaurantSpecialList');if(!host||!globalThis.DtmRestaurantSpecials)return;
   const rows=globalThis.DtmRestaurantSpecials.sort(globalThis.DtmRestaurantSpecials.filter(businessSpecials,restaurantSpecialFilter));
@@ -5317,7 +5327,7 @@ function renderRestaurantSpecials(){
 }
 function businessSpecialBadgesHTML(b,now=Date.now()){
   if(!b||!globalThis.DtmRestaurantSpecials)return '';
-  const kinds=globalThis.DtmRestaurantSpecials.activeKindsForBusiness(businessSpecials,b.id,now);
+  const kinds=globalThis.DtmRestaurantSpecials.discoverableKindsForBusiness(businessSpecials,b.id,now);
   if(!kinds.length)return '';
   return kinds.map(kind=>`<span class="business-special-badge" data-special-kind="${esc(kind)}">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[kind])}</span>`).join('');
 }
@@ -5915,6 +5925,7 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
     <section class="biz-detail-card">
       <h2>${esc(bizName)}</h2>
       <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
+      <div class="biz-detail-special-badges">${businessSpecialBadgesHTML(b)}</div>
 
 <div class="biz-detail-rating">
 ${b.rating ? `
@@ -7451,28 +7462,31 @@ function boardBottomList(){
 }
 
 function showPage(page, opts={}){
+  const requestedPage=page;
+  const renderedPage=page==='discount'?'coupon':page;
+  if(renderedPage==='coupon')setCouponShellMode(page==='discount'?'discount':'coupon');
   const prevPage = currentPage;
-  currentPage = page;
+  currentPage = requestedPage;
   if (typeof setMapPageMode === 'function') {
-  setMapPageMode(page === 'map');
+  setMapPageMode(renderedPage === 'map');
 }
   const order = getPageOrder();
   const prevIdx = order.indexOf(prevPage);
-  const nextIdx = order.indexOf(page);
+  const nextIdx = order.indexOf(renderedPage);
   const direction = nextIdx >= 0 && prevIdx >= 0 && nextIdx > prevIdx ? 'left' : 'right';
-  if (prevPage !== page) animatePageTransition(prevPage, page, direction);
-  else $$('.page').forEach(p=>p.classList.toggle('active', p.id===`page-${page}`));
-  $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===page));
-  updateBottomNavMode(page);
-  if (nextIdx >= 0) lastBasePage = page;
-  setRoute(page);
-  if(page==='guide') renderGuidePosts();
-  if(page==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
-  if(page !== 'business'){
+  if (prevPage !== requestedPage) animatePageTransition(prevPage==='discount'?'coupon':prevPage, renderedPage, direction);
+  else $$('.page').forEach(p=>p.classList.toggle('active', p.id===`page-${renderedPage}`));
+  $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===renderedPage));
+  updateBottomNavMode(renderedPage);
+  if (nextIdx >= 0) lastBasePage = requestedPage;
+  if(!opts.skipRoute)setRoute(requestedPage);
+  if(renderedPage==='guide') renderGuidePosts();
+  if(renderedPage==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
+  if(renderedPage !== 'business'){
   businessQuickFilter = '';
 }
   if(prevPage==='coupon-use' && page!=='coupon-use'){ clearInterval(couponUseTimer); }
-  if(page==='map'){
+  if(renderedPage==='map'){
     if(!mapReady) initGoogleMap();
     if(map && window.google?.maps){
       setTimeout(()=>{
@@ -10631,7 +10645,12 @@ function v245OpenEvents(){
   showPage('event');
 }
 function v245OpenCoupons(){
-  showPage('coupon');
+  history.pushState(null,'',routeFor('coupon'));
+  showPage('coupon',{skipRoute:true});
+}
+function v245OpenDiscounts(){
+  history.pushState(null,'',routeFor('discount'));
+  showPage('discount',{skipRoute:true});
 }
 function v245OpenSale(){
   showPage('home');
@@ -10650,6 +10669,7 @@ function v245OpenCommunityEvents(){
 }
 window.v245OpenEvents=v245OpenEvents;
 window.v245OpenCoupons=v245OpenCoupons;
+window.v245OpenDiscounts=v245OpenDiscounts;
 window.v245OpenSale=v245OpenSale;
 window.v245OpenCommunityEvents=v245OpenCommunityEvents;
 
@@ -10866,7 +10886,7 @@ function renderV245TodayShortcuts(){
     <div class="v245-shortcuts-grid">
       ${v245Shortcut('🎁','프로모션',eventCount,'v245OpenEvents()')}
       ${v245Shortcut('🎟','쿠폰',couponCount,'v245OpenCoupons()')}
-      ${v245Shortcut('🏷️','할인',discountCount,'v245OpenCoupons()')}
+      ${v245Shortcut('🏷️','할인',discountCount,'v245OpenDiscounts()')}
       ${v245Shortcut('🎉','행사',postCount,'event.stopPropagation();event.preventDefault();v260OpenEventBoard();return false;')}
     </div>`;
 }

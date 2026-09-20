@@ -30,6 +30,12 @@ test('happy hour filter',()=>assert.ok(specials.filter(fixture,'happy_hour',at('
 test('all filter includes both types',()=>assert.deepEqual(new Set(specials.filter(fixture,'all',at('2026-09-21T17:00:00Z')).map(x=>x.type)),new Set(['lunch_special','happy_hour'])));
 test('business detail lookup uses business id',()=>assert.deepEqual(specials.forBusiness(fixture,'B',at('2026-09-21T17:00:00Z')).map(x=>x.id),['b-happy']));
 test('badge kinds derive from active records',()=>assert.deepEqual(specials.activeKindsForBusiness(fixture,'C',at('2026-09-21T17:00:00Z')),['lunch_special']));
+test('public badge kinds include every discoverable kind outside its current service window',()=>{
+  const now=at('2026-09-22T01:00:00Z');
+  assert.equal(specials.activeKindsForBusiness(fixture,'C',now).length,0);
+  assert.deepEqual(specials.discoverableKindsForBusiness(fixture,'C',now),['lunch_special','happy_hour']);
+});
+test('Korean labels are used for both public special badge kinds',()=>assert.deepEqual(specials.TYPE_LABELS,{lunch_special:'점심특선',happy_hour:'해피아워'}));
 test('coupon active-state contract remains unchanged',()=>assert.equal(active.isActive({id:'c',is_active:true,start_date:'2026-09-21',end_date:'2026-09-21'},'coupon',at('2026-09-22T04:59:59Z')),true));
 test('event active-state contract remains unchanged',()=>assert.equal(active.isActive({id:'e',is_active:true,is_published:true,start_date:'2026-09-21',end_date:'2026-09-21'},'event',at('2026-09-22T04:59:59Z')),true));
 test('benefit active-state contract remains unchanged',()=>assert.equal(active.isActive({id:'b',enabled:true,start_date:'2026-09-21',end_date:'2026-09-21'},'benefit',at('2026-09-22T04:59:59Z')),true));
