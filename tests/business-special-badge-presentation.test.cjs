@@ -4,6 +4,12 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
+const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+
+test('badge-position build has an explicit runtime marker and asset version',()=>{
+  assert.match(source,/__DTM_BADGE_POSITION_BUILD__='badge-position-v2-20260920'/);
+  assert.match(html,/app-v99\.js\?v=269\.2-badge-position/);
+});
 
 test('special badges keep the canonical active-kind authority',()=>{
   assert.match(source,/discoverableKindsForBusiness\(businessSpecials,b\.id,now\)/);

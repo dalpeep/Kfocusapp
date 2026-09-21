@@ -1,4 +1,6 @@
 console.info('[DalTownMap App] V298 map zoom auto-refresh + recenter-only current location loaded');
+globalThis.__DTM_BADGE_POSITION_BUILD__='badge-position-v2-20260920';
+console.info('[DalTownMap App] badge position UI build',globalThis.__DTM_BADGE_POSITION_BUILD__);
 console.info('[DalTownMap App] V291 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
