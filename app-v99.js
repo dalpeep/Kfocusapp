@@ -1327,9 +1327,28 @@ function isPremiumBusiness(b){
   if(!b || !b.paid_active || b.paid_product !== 'premium') return false;
   return globalThis.DtmDallasTime.periodActive(b.paid_start_at,b.paid_end_at);
 }
+// Public event-board authority. The home event badge and the event-board list
+// must consume this same record set; map events intentionally keep their
+// business-linked unique-count contract.
+function activePublicEventPosts(now=Date.now()){
+  const seen=new Set();
+  return (Array.isArray(boardPosts)?boardPosts:[]).filter((row,index)=>{
+    if(normalizeBoardType(row?.type)!=='notice')return false;
+    if(!globalThis.DtmActiveState.explicitlyEnabled(row,'event'))return false;
+    if(row?.region&&normalizeRegionKey(row.region)!==currentRegion)return false;
+    const {start,end}=globalThis.DtmActiveState.bounds(row,'event');
+    if((start||end)&&!globalThis.DtmDallasTime.periodActive(start,end,now))return false;
+    const key=String(row?.id||`${row?.title||''}|${row?.created_at||''}|${index}`);
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
+}
+window.activePublicEventPosts=activePublicEventPosts;
 function boardPostsByType(type){
   const hiddenThemeTitles=new Set((dalpicks||[]).filter(isThemeDalpick).map(d=>String(d.title||'').trim()).filter(Boolean));
-  return boardPosts
+  const source=normalizeBoardType(type)==='notice'?activePublicEventPosts():boardPosts;
+  return source
     .filter(p=>
       normalizeBoardType(p.type)===type &&
       p.is_active!==false &&
@@ -10603,12 +10622,7 @@ function v245SaleCount(){
   return reels.length;
 }
 function v245EventPostCount(){
-  const rows=Array.isArray(boardPosts)?boardPosts:[];
-  return rows.filter(p=>{
-    const t=String(p.type||p.board||p.category||'').toLowerCase();
-    const eventType=t==='event'||t.includes('행사')||(t==='notice'&&String(p.subtype||'').toLowerCase()==='event');
-    return eventType&&globalThis.DtmActiveState.isActive(p,'event',Date.now(),{region:currentRegion});
-  }).length;
+  return activePublicEventPosts().length;
 }
 function v245Badge(n){
   const num=Number(n||0);
@@ -10907,7 +10921,7 @@ function renderV245TodayShortcuts(){
   // 따라서 같은 추첨형 쿠폰은 '프로모션'에도 집계되고 '쿠폰'에도 집계됩니다.
   const couponCount=v245ActiveCoupons().length;
   const discountCount=activeDiscountBusinessIds().size;
-  const postCount=activeEventBusinessIds().size;
+  const postCount=v245EventPostCount();
 
   host.innerHTML=`
     <div class="v245-shortcuts-title">오늘의 달타운맵</div>

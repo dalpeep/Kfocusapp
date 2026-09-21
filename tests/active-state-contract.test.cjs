@@ -95,9 +95,10 @@ test('the same fixture yields identical active kinds across every business surfa
 
 test('public helper adapters reference the authoritative contract',()=>{
   const source=fs.readFileSync(path.join(__dirname,'../app-v99.js'),'utf8');
-  for(const name of ['mapContentActive','activeMapCoupons','mapEventActive','activeCoupons','businessHasActiveCoupon','businessHasActiveBanner','v245ActiveCoupons','v245EventPostCount','v246ActivePromoRows']){
+  for(const name of ['mapContentActive','activeMapCoupons','mapEventActive','activeCoupons','businessHasActiveCoupon','businessHasActiveBanner','v245ActiveCoupons','v246ActivePromoRows']){
     const start=source.indexOf(`function ${name}`),end=source.indexOf('\n}',start);
     assert.notEqual(start,-1,name);
     assert.match(source.slice(start,end+2),/DtmActiveState/,name);
   }
+  assert.match(source,/function v245EventPostCount\(\)\{\s*return activePublicEventPosts\(\)\.length;/);
 });
