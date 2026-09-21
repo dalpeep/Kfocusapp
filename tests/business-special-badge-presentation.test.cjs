@@ -7,8 +7,8 @@ const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 
 test('badge-position build has an explicit runtime marker and asset version',()=>{
-  assert.match(source,/__DTM_BADGE_POSITION_BUILD__='badge-position-v2-20260920'/);
-  assert.match(html,/app-v99\.js\?v=269\.2-badge-position/);
+  assert.match(source,/__DTM_BADGE_POSITION_BUILD__='badge-position-v3-20260920'/);
+  assert.match(html,/app-v99\.js\?v=269\.3-badge-position/);
 });
 
 test('special badges keep the canonical active-kind authority',()=>{
@@ -52,9 +52,10 @@ test('category and non-special promotional badges remain intact',()=>{
 test('special badge and mobile overflow styles follow the title-row contract',()=>{
   assert.match(source,/\.business-special-badge\{[^}]*padding:5px 8px[^}]*font-size:11px[^}]*min-height:22px/);
   assert.match(source,/\.business-title-row\{[^}]*display:flex[^}]*align-items:center[^}]*min-width:0[^}]*max-width:100%/);
-  assert.match(source,/\.business-title-name\{[^}]*overflow:hidden[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/);
+  assert.match(source,/\.business-title-name\{[^}]*flex:1 1 auto[^}]*overflow:hidden[^}]*text-overflow:ellipsis[^}]*white-space:nowrap/);
   assert.match(source,/\.business-title-specials \.business-special-badge\{flex:0 0 auto\}/);
-  assert.match(source,/@media\(max-width:640px\)[\s\S]*\.business-title-specials\{[^}]*flex-wrap:wrap/);
+  assert.match(source,/\.business-title-specials\{[^}]*flex:0 0 auto[^}]*white-space:nowrap/);
+  assert.match(source,/@media\(max-width:640px\)[\s\S]*\.business-title-specials\{[^}]*flex-wrap:nowrap/);
 });
 
 test('special badges are no longer emitted in image overlays or side stacks',()=>{
