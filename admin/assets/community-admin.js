@@ -12,19 +12,3 @@ export function initCommunityAdmin(injected){
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(ensure,800),{once:true});
   else setTimeout(ensure,0);
 }
-
-// Temporary isolated-staging probe. Remove after the runtime authorization check.
-if(location.hostname.startsWith('deploy-preview-')&&new URLSearchParams(location.search).has('community-region-probe')){
-  setTimeout(()=>{
-    const section=document.getElementById('section-communityAdmin');if(!section)return;
-    document.querySelectorAll('.admin-section.active-section').forEach(x=>x.classList.remove('active-section'));
-    section.classList.add('active-section');
-    const button=document.createElement('button');button.type='button';button.textContent='Staging region probe';section.prepend(button);
-    button.onclick=async()=>{
-      const session=await dependencies?.getSession?.(),token=session?.data?.session?.access_token;
-      if(!token){button.textContent='Staging region probe: no session';return}
-      const check=async region=>(await fetch('/.netlify/functions/community-admin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({action:'list',region,from:0,to:0})})).status;
-      button.textContent=`Staging region probe: Dallas ${await check('dallas')} / other ${await check('houston')}`;
-    };
-  },1200);
-}
