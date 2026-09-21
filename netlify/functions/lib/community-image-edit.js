@@ -3,15 +3,14 @@ const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validPath=path=>typeof path==='string'&&/^community-posts\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/i.test(path);
 
 async function flushOldObjects(db,postId){
-  const queued=await db.from('community_image_cleanup_queue').select('storage_path,attempts').eq('post_id',postId).limit(50);
+  let queued;try{queued=await db.from('community_image_cleanup_queue').select('storage_path,attempts').eq('post_id',postId).limit(50)}catch{return 1}
   if(queued.error)return 1;
   let pending=0;
   for(const row of queued.data||[]){
     if(!validPath(row.storage_path)){pending++;continue}
     let removed;try{removed=await db.storage.from(S.env().bucket).remove([row.storage_path])}catch{removed={error:true}}
-    if(removed.error){pending++;await db.from('community_image_cleanup_queue').update({attempts:(row.attempts||0)+1,updated_at:new Date().toISOString()}).eq('storage_path',row.storage_path);continue}
-    const gone=await db.from('community_image_cleanup_queue').delete().eq('storage_path',row.storage_path);
-    if(gone.error)pending++;
+    if(removed.error){pending++;try{await db.from('community_image_cleanup_queue').update({attempts:(row.attempts||0)+1,updated_at:new Date().toISOString()}).eq('storage_path',row.storage_path)}catch{}continue}
+    try{const gone=await db.from('community_image_cleanup_queue').delete().eq('storage_path',row.storage_path);if(gone.error)pending++}catch{pending++}
   }
   return pending;
 }
@@ -19,9 +18,9 @@ async function flushOldObjects(db,postId){
 async function discardNewDrafts(db,uploads){
   for(const row of uploads){
     if(!validPath(row.storage_path))continue;
-    const removed=await db.storage.from(S.env().bucket).remove([row.storage_path]);
-    if(removed.error){await db.from('community_upload_drafts').update({status:'cleanup_failed'}).eq('id',row.id).eq('status','reserved');continue}
-    await db.from('community_upload_drafts').delete().eq('id',row.id).eq('status','reserved');
+    let removed;try{removed=await db.storage.from(S.env().bucket).remove([row.storage_path])}catch{removed={error:true}}
+    if(removed.error){try{await db.from('community_upload_drafts').update({status:'cleanup_failed'}).eq('id',row.id).eq('status','reserved')}catch{}continue}
+    try{await db.from('community_upload_drafts').delete().eq('id',row.id).eq('status','reserved')}catch{}
   }
 }
 

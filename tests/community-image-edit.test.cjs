@@ -34,6 +34,7 @@ test('image edit UI preserves existing previews and sends bounded ordered image 
   assert.match(js,/IMAGE_LIMITS\[f\.category\.value\]/);
   assert.match(js,/community-post-update/);
   assert.match(js,/image_plan:entries\.map/);
+  assert.match(js,/owner\.dataset\.ownerAction==='update'\)return openWrite\(\{\.\.\.current\}\)/);
   assert.match(css,/community-edit-image/);
 });
 
