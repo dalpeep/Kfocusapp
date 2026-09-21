@@ -8590,12 +8590,10 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
   selectedBoardType = board;
   showBoard(board);
-  showPage('board-detail');
 });
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
   showBoard(board);
-  showPage('board-detail');
 });
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();
