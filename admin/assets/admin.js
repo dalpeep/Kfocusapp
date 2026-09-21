@@ -1,4 +1,5 @@
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
+import {initCommunityAdmin} from './community-admin.js?v=2-auth-bridge';
 const DTM_ADMIN_BUILD='phase1.1-special-editor-20260920.2';
 document.documentElement.dataset.dtmAdminBuild=DTM_ADMIN_BUILD;
 console.info(`[DalTownMap Admin] ${DTM_ADMIN_BUILD} loaded`);
@@ -5123,7 +5124,13 @@ async function init() {
 
   supabase = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
-  await loadAdminSession();
+  const adminProfile=await loadAdminSession();
+  if(!adminProfile)return;
+  initCommunityAdmin({
+    getSupabaseClient:()=>supabase,
+    getSession:()=>supabase.auth.getSession(),
+    getAdminScope:()=>({role:adminProfile.role,area:adminProfile.area})
+  });
 
   bindEvents();
   initAdminUserManager();
@@ -5767,8 +5774,8 @@ function initAdminUserManager() {
 }
 window.adminLogout = async function () {
   try {
-    if (window.supabaseClient) {
-      await window.supabaseClient.auth.signOut();
+    if (supabase) {
+      await supabase.auth.signOut();
     }
   } catch (e) {
     console.error(e);
