@@ -1,4 +1,6 @@
 console.info('[DalTownMap App] V298 map zoom auto-refresh + recenter-only current location loaded');
+globalThis.__DTM_BADGE_POSITION_BUILD__='badge-position-v4-20260920';
+console.info('[DalTownMap App] badge position UI build',globalThis.__DTM_BADGE_POSITION_BUILD__);
 console.info('[DalTownMap App] V291 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
@@ -647,7 +649,6 @@ function homeBusinessItemHTML(b){
   const premiumBadge = isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '';
   const videoBadge = (b.video_url || b.youtube_url) ? '<span class="home-video-badge">▶ 영상</span>' : '';
   const promoBadges = [
-    businessSpecialBadgeHTML(b),
     (typeof businessHasActiveCoupon === 'function' && businessHasActiveCoupon(b)) ? '<span class="home-business-coupon-badge">쿠폰</span>' : '',
     (typeof businessHasActiveBanner === 'function' && businessHasActiveBanner(b)) ? '<span class="home-business-banner-badge">배너</span>' : '',
     (typeof businessHasActiveListing === 'function' && businessHasActiveListing(b)) ? '<span class="home-business-listing-badge">LISTING</span>' : ''
@@ -657,14 +658,15 @@ function homeBusinessItemHTML(b){
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
       <span class="home-biz-map-img-wrap">${businessImageHTML(b,'home-biz-map-img',b.name||'')}<span class="home-business-promo-badges">${promoBadges}</span></span>
 
-      <div class="home-biz-map-main">
-        <div class="home-biz-map-name">${esc(b.name || '이름 없음')} ${premiumBadge} ${videoBadge}</div>
-        <div class="home-biz-map-location">📍 ${esc(b.area || 'Dallas, TX')}</div>
-      </div>
-
-      <div class="home-biz-map-side">
-        <span class="home-biz-map-cat">${esc(b.subcategory || b.category_sub || b.subcategory_ko || b.category_ko || b.category || '업소')}</span>
-        ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)} <span class="gmp-attribution" translate="no">Google Maps</span></span>` : ''}
+      <div class="home-biz-map-content">
+        <div class="home-biz-map-title-line">
+          ${businessTitleRowHTML(b,b.name || '이름 없음',{className:'home-biz-map-title',nameClass:'home-biz-map-name',suffix:`${premiumBadge}${videoBadge}`})}
+          <span class="home-biz-map-cat">${esc(b.subcategory || b.category_sub || b.subcategory_ko || b.category_ko || b.category || '업소')}</span>
+        </div>
+        <div class="home-biz-map-meta-line">
+          <span class="home-biz-map-location">📍 ${esc(b.area || 'Dallas, TX')}</span>
+          ${rating ? `<span class="home-biz-map-rating">★ ${esc(rating)} <span class="gmp-attribution" translate="no">Google Maps</span></span>` : ''}
+        </div>
       </div>
     </button>
   `;
@@ -1535,7 +1537,7 @@ function renderSearchResults(query){
   const biz = businessSearchResults(q);
   const cpn = couponSearchResults(q);
   const brd = boardSearchResults(q);
-  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}"><strong>${esc(b.name)}</strong><span>${esc(getBusinessDisplayCategory(b))} · ${esc(b.address || b.region || '')}</span>${businessSpecialBadgesHTML(b)}</button>`).join('');
+  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}">${businessTitleRowHTML(b,b.name,{className:'search-business-title',nameClass:'search-business-name'})}<span>${esc(getBusinessDisplayCategory(b))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
   if(searchCouponList) searchCouponList.innerHTML = cpn.map(c=>{ const biz=getBiz(c.businessId) || {}; return `<button class="search-result-item" data-search-type="coupon" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(biz.name || '')}${biz.name?' · ':''}${esc(countdownLabel(c.endAt,true))}</span></button>`; }).join('');
   if(searchBoardList) searchBoardList.innerHTML = brd.map(p=>`<button class="search-result-item" data-search-type="board" data-board-result="${esc(p.type)}" data-board-title="${esc(p.title)}"><strong>${esc(p.title)}</strong><span>${esc(p.content || p.type || '')}</span></button>`).join('');
   searchBusinessSection?.classList.toggle('hidden', !biz.length);
@@ -1808,11 +1810,10 @@ function mapBusinessStatusSignature(){
 }
 function mapBusinessBadgesHTML(b){
   const kinds=mapBusinessBadgeKinds(b);
-  const special=businessSpecialBadgesHTML(b);
   const id=String(b?.id||'');
   const hasGeneralDiscount=mapActiveBenefitRecords().some(record=>record.kind==='promotion'&&!String(record.key).startsWith('specials:')&&record.businessIds.includes(id));
   const generic=kinds.filter(kind=>kind!=='promotion'||hasGeneralDiscount);
-  return (generic.length||special)?`<span class="map-status-badges">${generic.map(kind=>`<span class="badge compact ${MAP_STATUS_BADGES[kind].className}" data-map-badge="${kind}">${MAP_STATUS_BADGES[kind].label}</span>`).join('')}${special}</span>`:'';
+  return generic.length?`<span class="map-status-badges">${generic.map(kind=>`<span class="badge compact ${MAP_STATUS_BADGES[kind].className}" data-map-badge="${kind}">${MAP_STATUS_BADGES[kind].label}</span>`).join('')}</span>`:'';
 }
 function getMainCategoryLabel(cat=''){
   const raw = String(cat || '').trim();
@@ -2918,8 +2919,6 @@ const video =
 
 function badgeStackHTML(b, compact=true){
   const arr=[];
-  const special=businessSpecialBadgeHTML(b);
-  if(special)arr.push(special);
   if(b.video) arr.push(`<span class="badge purple${compact?' compact':''}">VIDEO</span>`);
   if(b.coupon) arr.push(`<span class="badge orange${compact?' compact':''}">COUPON</span>`);
   if(b.is_new) arr.push(`<span class="badge green${compact?' compact':''}">NEW</span>`);
@@ -2928,10 +2927,10 @@ function badgeStackHTML(b, compact=true){
   return arr.join('');
 }
 function miniCardHTML(b){
-  return `<button class="mini-card biz-open" data-biz="${esc(b.id)}"><div class="mini-image-wrap">${businessImageHTML(b,'mini-image',b.name)}<div class="mini-badge-stack">${badgeStackHTML(b,true)}</div></div><div class="mini-name">${esc(b.name)}</div></button>`;
+  return `<button class="mini-card biz-open" data-biz="${esc(b.id)}"><div class="mini-image-wrap">${businessImageHTML(b,'mini-image',b.name)}<div class="mini-badge-stack">${badgeStackHTML(b,true)}</div></div>${businessTitleRowHTML(b,b.name,{className:'mini-title-row',nameClass:'mini-name'})}</button>`;
 }
 function listCardHTML(b){
-  return `<button class="list-card biz-open" data-biz="${esc(b.id)}">${businessImageHTML(b,'list-thumb',b.name)}<div class="list-main"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
+  return `<button class="list-card biz-open" data-biz="${esc(b.id)}">${businessImageHTML(b,'list-thumb',b.name)}<div class="list-main">${businessTitleRowHTML(b,b.name,{className:'list-business-title',nameClass:'list-business-name',nameTag:'h4'})}<p>${esc(b.subcategory || b.category_sub || b.category)} · ${esc(getRegionLabel(b.region || currentRegion))}</p><p class="list-address">${esc(b.address)}</p></div><div class="list-side stack-badges">${badgeStackHTML(b,false)}</div></button>`;
 }
 function formatDateLabel(v){
   if(!v) return '';
@@ -3166,7 +3165,7 @@ function mapBottomItemHTML(b){
     <button class="map-bottom-item" data-map-biz="${esc(b.id)}">
       ${businessImageHTML(b,'map-bottom-thumb',b.name)}
       <span class="map-bottom-copy">
-        <strong>${esc(b.name)}</strong>
+        ${businessTitleRowHTML(b,b.name,{className:'map-bottom-title',nameClass:'map-bottom-name'})}
         <span>${esc(meta.join(' · '))}</span><span>${esc(b.address || '')}</span>
         ${mapBusinessBadgesHTML(b)}
       </span>
@@ -3319,7 +3318,7 @@ function mapBusinessPreviewHTML(b){
   return `<div class="map-preview-card">
     <div class="map-preview-main">
       ${businessImageHTML(b,'',b.name)}
-      <div><strong>${esc(b.name)}</strong><span>${esc(meta.join(' · '))}</span><p>${esc(b.address || '')}</p>${mapBusinessBadgesHTML(b)}</div>
+      <div>${businessTitleRowHTML(b,b.name,{className:'map-preview-title',nameClass:'map-preview-name'})}<span>${esc(meta.join(' · '))}</span><p>${esc(b.address || '')}</p>${mapBusinessBadgesHTML(b)}</div>
     </div>
     <div class="map-preview-actions">
       ${b.phone?`<a href="tel:${esc(b.phone)}" data-map-action="phone" data-map-id="${esc(b.id)}">전화</a>`:''}
@@ -3357,7 +3356,6 @@ function nearbyBusinessItemHTML(b){
   const meta = [getBusinessDisplayCategory(b)];
   const promoBadges = [
     isPremiumBusiness(b) ? '<span class="home-premium-badge">PREMIUM</span>' : '',
-    businessSpecialBadgeHTML(b),
     businessHasActiveCoupon(b) ? '<span class="business-coupon-badge">쿠폰</span>' : '',
     businessHasActiveBanner(b) ? '<span class="business-banner-badge">배너</span>' : ''
   ].filter(Boolean).join('');
@@ -3366,7 +3364,7 @@ function nearbyBusinessItemHTML(b){
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
       <span class="nearby-thumb-wrap">${businessImageHTML(b,'nearby-thumb',bizName)}<span class="business-promo-badges">${promoBadges}</span></span>
       <div class="nearby-copy">
-        <strong>${esc(bizName)}</strong>
+        ${businessTitleRowHTML(b,bizName,{className:'nearby-business-title',nameClass:'nearby-business-name'})}
         <span>${esc(meta.join(' · '))}</span>
       </div>
     </button>
@@ -5332,10 +5330,19 @@ function businessSpecialBadgesHTML(b,now=Date.now()){
   return kinds.map(kind=>`<span class="business-special-badge" data-special-kind="${esc(kind)}">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[kind])}</span>`).join('');
 }
 const businessSpecialBadgeHTML=businessSpecialBadgesHTML;
+function businessTitleRowHTML(b,name='',options={}){
+  const tag=/^(?:h[1-6]|strong|span|div)$/i.test(String(options.nameTag||''))?String(options.nameTag):'span';
+  const rowTag=/^h[1-6]$/i.test(tag)?'div':'span';
+  const className=['business-title-row',String(options.className||'').trim()].filter(Boolean).join(' ');
+  const nameClass=['business-title-name',String(options.nameClass||'').trim()].filter(Boolean).join(' ');
+  const specials=businessSpecialBadgesHTML(b);
+  return `<${rowTag} class="${esc(className)}"><${tag} class="${esc(nameClass)}">${esc(name)}</${tag}>${specials?`<span class="business-title-specials">${specials}</span>`:''}${String(options.suffix||'')}</${rowTag}>`;
+}
+globalThis.businessTitleRowHTML=businessTitleRowHTML;
 function ensureRestaurantSpecialStyles(){
   if(document.getElementById('restaurantSpecialStyles'))return;
   const style=document.createElement('style');style.id='restaurantSpecialStyles';style.textContent=`
-    .restaurant-specials-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px}.restaurant-specials-head h2{margin:0}.restaurant-specials-head p{margin:4px 0 0;color:#64748b}.restaurant-special-filters{display:flex;gap:6px;flex-wrap:wrap}.restaurant-special-filters button{border:1px solid #dbe3ef;background:#fff;border-radius:999px;padding:7px 11px;font-weight:800}.restaurant-special-filters button.active{background:#172554;color:#fff;border-color:#172554}.restaurant-special-list{display:grid;gap:10px;margin-bottom:12px}.restaurant-special-results{text-align:center;color:#64748b;font-size:12px}.restaurant-special-more{display:block;margin:10px auto 22px;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 22px;font-weight:900}.restaurant-special-card{width:100%;display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;text-align:left;border:1px solid #e2e8f0;border-radius:16px;padding:10px;background:#fff}.restaurant-special-card>img{width:88px;height:88px;object-fit:cover;border-radius:12px}.restaurant-special-copy{display:grid;gap:3px}.restaurant-special-copy small{color:#64748b}.restaurant-special-copy em,.restaurant-special-detail em{font-style:normal;color:#64748b;font-weight:800}.restaurant-special-copy em.is-now,.restaurant-special-detail em.is-now{color:#15803d}.restaurant-special-type,.business-special-badge{display:inline-flex;width:max-content;border-radius:999px;background:#fff7ed;color:#c2410c;padding:3px 7px;font-size:10px;font-weight:900;margin-right:4px}.restaurant-special-menu{display:grid;gap:3px}.restaurant-special-menu>span{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}.restaurant-special-menu>span small{grid-column:1/-1}.restaurant-special-menu>em{font-size:12px}.restaurant-special-detail article{border-top:1px solid #eef2f7;padding:12px 0;display:grid;gap:6px}.restaurant-special-detail article>div{display:flex;gap:8px;align-items:center}.restaurant-special-detail article>div span{color:#c2410c;font-size:12px;font-weight:900}.restaurant-special-detail p{margin:0}.restaurant-special-detail small{color:#64748b}.restaurant-special-detail-image{width:100%;max-height:260px;object-fit:cover;border-radius:12px}.restaurant-special-detail-items{display:grid;gap:5px}.restaurant-special-detail-items>span{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}@media(max-width:640px){.restaurant-specials-head{align-items:flex-start;flex-direction:column}.restaurant-special-card{grid-template-columns:72px minmax(0,1fr)}.restaurant-special-card>img{width:72px;height:72px}}
+    .restaurant-specials-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px}.restaurant-specials-head h2{margin:0}.restaurant-specials-head p{margin:4px 0 0;color:#64748b}.restaurant-special-filters{display:flex;gap:6px;flex-wrap:wrap}.restaurant-special-filters button{border:1px solid #dbe3ef;background:#fff;border-radius:999px;padding:7px 11px;font-weight:800}.restaurant-special-filters button.active{background:#172554;color:#fff;border-color:#172554}.restaurant-special-list{display:grid;gap:10px;margin-bottom:12px}.restaurant-special-results{text-align:center;color:#64748b;font-size:12px}.restaurant-special-more{display:block;margin:10px auto 22px;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 22px;font-weight:900}.restaurant-special-card{width:100%;display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;text-align:left;border:1px solid #e2e8f0;border-radius:16px;padding:10px;background:#fff}.restaurant-special-card>img{width:88px;height:88px;object-fit:cover;border-radius:12px}.restaurant-special-copy{display:grid;gap:3px}.restaurant-special-copy small{color:#64748b}.restaurant-special-copy em,.restaurant-special-detail em{font-style:normal;color:#64748b;font-weight:800}.restaurant-special-copy em.is-now,.restaurant-special-detail em.is-now{color:#15803d}.restaurant-special-type,.business-special-badge{display:inline-flex;width:max-content;border-radius:999px;background:#fff7ed;color:#c2410c;padding:5px 8px;font-size:11px;font-weight:900;line-height:1;min-height:22px;box-sizing:border-box;align-items:center;white-space:nowrap}.business-title-row{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}.business-title-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.business-title-specials{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;white-space:nowrap}.business-title-specials .business-special-badge{flex:0 0 auto}.business-title-row>.home-premium-badge,.business-title-row>.home-video-badge{flex:0 0 auto}.home-biz-map-card{grid-template-columns:82px minmax(0,1fr)}.home-biz-map-content{min-width:0;display:grid;gap:5px}.home-biz-map-title-line,.home-biz-map-meta-line{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.home-biz-map-title{flex:1 1 auto;min-width:0}.home-biz-map-cat,.home-biz-map-rating{flex:0 0 auto}.home-biz-map-location{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:0}.restaurant-special-menu{display:grid;gap:3px}.restaurant-special-menu>span{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}.restaurant-special-menu>span small{grid-column:1/-1}.restaurant-special-menu>em{font-size:12px}.restaurant-special-detail article{border-top:1px solid #eef2f7;padding:12px 0;display:grid;gap:6px}.restaurant-special-detail article>div{display:flex;gap:8px;align-items:center}.restaurant-special-detail article>div span{color:#c2410c;font-size:12px;font-weight:900}.restaurant-special-detail p{margin:0}.restaurant-special-detail small{color:#64748b}.restaurant-special-detail-image{width:100%;max-height:260px;object-fit:cover;border-radius:12px}.restaurant-special-detail-items{display:grid;gap:5px}.restaurant-special-detail-items>span{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.list-business-title h4{margin:0;font-size:19px;color:#18335f;line-height:1.2}.search-business-title{justify-content:flex-start}.search-business-title .search-business-name{font-size:15px;font-weight:500}.mini-title-row{padding:0 2px}.mini-title-row .mini-name{flex:1}.map-preview-title{width:100%}.map-preview-title .map-preview-name{font-size:17px;color:#18335f;font-weight:700}.map-bottom-title,.nearby-business-title{width:100%}.map-bottom-title .map-bottom-name,.nearby-business-title .nearby-business-name{font-size:15px;font-weight:700;color:inherit}@media(max-width:640px){.restaurant-specials-head{align-items:flex-start;flex-direction:column}.restaurant-special-card{grid-template-columns:72px minmax(0,1fr)}.restaurant-special-card>img{width:72px;height:72px}.business-title-row{gap:5px}.business-title-specials{gap:3px;flex-wrap:nowrap}.business-title-specials .business-special-badge{font-size:11px;padding:5px 7px;min-height:22px}.home-biz-map-title-line,.home-biz-map-meta-line{gap:5px}}
   `;document.head.appendChild(style);
 }
 ensureRestaurantSpecialStyles();
