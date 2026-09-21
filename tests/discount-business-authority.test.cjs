@@ -15,10 +15,11 @@ test('event authority uses the same unique-business contract',()=>{
   const records=[{kind:'event',businessIds:['a','a']},{kind:'event',businessIds:['b']},{kind:'promotion',businessIds:['c']}];
   assert.deepEqual([...authority.activeEventBusinessIds(records)],['a','b']);
 });
-test('main and map consume the canonical authorities without DOM counting',()=>{
+test('discount and map-event counts retain canonical business authorities while main events use public records',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
   assert.match(source,/const discountCount=activeDiscountBusinessIds\(\)\.size/);
-  assert.match(source,/const postCount=activeEventBusinessIds\(\)\.size/);
+  assert.match(source,/const postCount=v245EventPostCount\(\)/);
+  assert.match(source,/kind==='event'\?activeEventBusinessIds\(\)/);
   assert.doesNotMatch(source,/querySelectorAll\([^\n]*restaurant-special-card[^\n]*length/);
 });
 test('market grouping remains separate and unchanged as a callable authority',()=>{
