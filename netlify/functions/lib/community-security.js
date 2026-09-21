@@ -40,7 +40,18 @@ function validatePost(body,{partial=false}={}){
   if(!partial&&(title.length<2||content.length<2||!author))throw Object.assign(new Error('제목, 내용, 작성자를 확인해 주세요.'),{status:400});
   const contactType=text(body.contact_type,20)||null,contactValue=text(body.contact_value,200)||null;
   if(contactType&&!CONTACT_TYPES.has(contactType))throw Object.assign(new Error('Invalid contact type.'),{status:400});
+  if(Boolean(contactType)!==Boolean(contactValue))throw Object.assign(new Error('연락방법과 연락처를 함께 입력해 주세요.'),{status:400});
+  if(contactType==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactValue))throw Object.assign(new Error('올바른 이메일 주소를 입력해 주세요.'),{status:400});
+  if(['phone','text'].includes(contactType)&&!/^[+()\d\s.-]{7,30}$/.test(contactValue))throw Object.assign(new Error('올바른 전화번호를 입력해 주세요.'),{status:400});
   return{category,region,area,title,body:content,author_name:author,contact_type:contactType,contact_value:contactValue};
+}
+async function verifyUploadedObjects(db,uploads){
+  for(const upload of uploads){
+    const downloaded=await db.storage.from(env().bucket).download(upload.storage_path);
+    if(downloaded.error||!downloaded.data)throw Object.assign(new Error('업로드된 이미지 파일을 확인할 수 없습니다.'),{status:400});
+    const size=Number(downloaded.data.size||0),type=String(downloaded.data.type||'').toLowerCase();
+    if(size!==Number(upload.byte_size)||size<1||size>1024*1024||type!=='image/webp')throw Object.assign(new Error('업로드된 이미지 파일 정보가 일치하지 않습니다.'),{status:400});
+  }
 }
 async function verifyAdmin(event,region){
   const token=text((event.headers||{}).authorization,5000).replace(/^Bearer\s+/i,'');if(!token)throw Object.assign(new Error('Unauthorized.'),{status:401});
@@ -55,4 +66,4 @@ async function verifyAdmin(event,region){
   return{db,user,role,area};
 }
 function handler(fn){return async event=>{if(event.httpMethod==='OPTIONS')return response(204,{});try{return await fn(event)}catch(error){const status=Number(error.status)||500;if(status>=500)console.error('[community]',error.message);return response(status,{ok:false,error:status>=500?'Community request failed.':error.message})}}}
-module.exports={CATEGORIES,IMAGE_LIMITS,AREAS,text,env,client,response,parse,ip,fingerprint,rateLimit,verifyTurnstile,hashPassword,verifyPassword,validatePost,verifyAdmin,handler};
+module.exports={CATEGORIES,IMAGE_LIMITS,AREAS,text,env,client,response,parse,ip,fingerprint,rateLimit,verifyTurnstile,hashPassword,verifyPassword,validatePost,verifyUploadedObjects,verifyAdmin,handler};
