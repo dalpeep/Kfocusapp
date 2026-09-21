@@ -17,6 +17,8 @@ export function initCommunityAdmin(injected){
 if(location.hostname.startsWith('deploy-preview-')&&new URLSearchParams(location.search).has('community-region-probe')){
   setTimeout(()=>{
     const section=document.getElementById('section-communityAdmin');if(!section)return;
+    document.querySelectorAll('.admin-section.active-section').forEach(x=>x.classList.remove('active-section'));
+    section.classList.add('active-section');
     const button=document.createElement('button');button.type='button';button.textContent='Staging region probe';section.prepend(button);
     button.onclick=async()=>{
       const session=await dependencies?.getSession?.(),token=session?.data?.session?.access_token;
