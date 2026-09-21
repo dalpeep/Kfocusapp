@@ -5043,6 +5043,9 @@ function renderBusinessThemeSpot(){
 function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
+  // Keep the full business pool in memory, but do not build thousands of
+  // hidden cards while another page (notably Community) is in use.
+  if (currentPage !== 'business') return;
   renderBusinessThemeSpot();
 
   const keyword = String(businessSearch?.value || '').trim().toLowerCase();
@@ -7540,6 +7543,10 @@ function showPage(page, opts={}){
   if(renderedPage !== 'business'){
   businessQuickFilter = '';
 }
+  if (prevPage === 'business' && renderedPage !== 'business') {
+    document.getElementById('businessList')?.replaceChildren();
+  }
+  if (renderedPage === 'business') renderBusinessList();
   if(prevPage==='coupon-use' && page!=='coupon-use'){ clearInterval(couponUseTimer); }
   if(renderedPage==='map'){
     if(!mapReady) initGoogleMap();
@@ -8872,7 +8879,7 @@ await refreshCurrentUser();
 
 updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
+  renderHome(); renderCategories(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   if(!v87OpenPublicRoute()) showPage(getRoute());
   initRegionPicker();
