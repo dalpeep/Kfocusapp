@@ -7555,6 +7555,7 @@ function showPage(page, opts={}){
   closeSideMenu();
   window.scrollTo({top:0, behavior:'instant'});
 }
+globalThis.DtmNavigatePage=showPage;
 
 
 // 추천 테마 기사 열기: 이 함수는 반드시 전역 범위에 있어야 업소 메인에서도 사용할 수 있습니다.
