@@ -7,8 +7,8 @@ const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
 const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 
 test('badge-position build has an explicit runtime marker and asset version',()=>{
-  assert.match(source,/__DTM_BADGE_POSITION_BUILD__='badge-position-v3-20260920'/);
-  assert.match(html,/app-v99\.js\?v=269\.3-badge-position/);
+  assert.match(source,/__DTM_BADGE_POSITION_BUILD__='badge-position-v4-20260920'/);
+  assert.match(html,/app-v99\.js\?v=269\.4-badge-position/);
 });
 
 test('special badges keep the canonical active-kind authority',()=>{
@@ -25,6 +25,8 @@ test('common business title row renders name and every special kind together',()
 
 test('home recommendation, new and popular cards use the title-row presentation',()=>{
   assert.match(source,/function homeBusinessItemHTML\(b\)[\s\S]*businessTitleRowHTML\(b,b\.name \|\| '이름 없음'/);
+  assert.match(source,/home-biz-map-title-line[\s\S]*businessTitleRowHTML[\s\S]*home-biz-map-cat/);
+  assert.match(source,/home-biz-map-meta-line[\s\S]*home-biz-map-location[\s\S]*home-biz-map-rating/);
   assert.match(source,/featured\.map\(homeBusinessItemHTML\)/);
   assert.match(source,/newList\.map\(homeBusinessItemHTML\)/);
   assert.match(source,/popularList\.map\(homeBusinessItemHTML\)/);
