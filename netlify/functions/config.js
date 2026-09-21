@@ -90,6 +90,10 @@ dallas: {
   ONESIGNAL_APP_ID:
     process.env.ONESIGNAL_APP_ID || '',
 
+  // Public Turnstile site key only. Community server secrets are never serialized.
+  TURNSTILE_SITE_KEY:
+    process.env.TURNSTILE_SITE_KEY || '',
+
   APP_CITY:
     cityConfig.city,
 

@@ -3417,6 +3417,12 @@ function renderHomeBoardSection(type='notice'){
     $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.board===type));
   }
   let rows = boardPostsByType(type);
+  if(type==='life'&&globalThis.DtmCommunity){
+    renderLifeCategoryFilters();
+    globalThis.DtmCommunity.renderHome(homeBoardList,rows);
+    if(homeBoardMoreBtn)homeBoardMoreBtn.dataset.board=type;
+    return;
+  }
   if(type==='life' && selectedLifeCategory!=='전체') rows=rows.filter(post=>inferLifeCategory(post)===selectedLifeCategory);
   rows=rows.slice(0,4);
   renderLifeCategoryFilters();
@@ -7447,8 +7453,10 @@ function initBoardGallery(root=document){
     gallery.addEventListener('touchend',e=>{const dx=(e.changedTouches[0]?.clientX||0)-startX;if(Math.abs(dx)>45)go(dx<0?index+1:index-1)},{passive:true});
   });
 }
-function showBoard(board){ renderBoardPage(board); lastBasePage = currentPage;
-  showPage('board-detail'); }
+function showBoard(board){
+  if(normalizeBoardType(board)==='life'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPage(boardPostsByType('life'));return;}
+  renderBoardPage(board); lastBasePage = currentPage; showPage('board-detail');
+}
 function openBoardPost(postId){
   const post = boardPosts.find(p=>String(p.id)===String(postId));
   const type = normalizeBoardType(post?.type || selectedBoardType || 'notice');
