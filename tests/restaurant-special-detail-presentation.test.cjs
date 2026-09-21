@@ -35,5 +35,10 @@ test('mobile styles protect long names, prices and images',()=>{
   assert.match(source,/\.special-menu-row\{display:flex!important;[\s\S]*min-width:0\}/);
   assert.match(source,/\.special-menu-name\{[\s\S]*overflow-wrap:anywhere\}/);
   assert.match(source,/\.special-menu-price\{[\s\S]*white-space:nowrap\}/);
-  assert.match(source,/\.restaurant-special-detail-image\{display:block;width:100%;height:auto/);
+  assert.match(source,/#detailCard \.restaurant-special-detail \.restaurant-special-detail-image\{display:block;width:100%;max-width:100%;height:auto;max-height:none;aspect-ratio:auto;object-fit:contain;object-position:center/);
+});
+test('detail image fit is isolated from the cropped list thumbnail contract',()=>{
+  assert.match(source,/\.restaurant-special-card>img\{width:88px;height:88px;object-fit:cover/);
+  assert.match(source,/#detailCard \.restaurant-special-detail \.restaurant-special-detail-image\{[^}]*height:auto;[^}]*object-fit:contain/);
+  assert.doesNotMatch(source,/#detailCard \.restaurant-special-detail \.restaurant-special-detail-image\{[^}]*(?:height:\d+px|object-fit:cover|aspect-ratio:16)/);
 });
