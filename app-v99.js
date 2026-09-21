@@ -1,6 +1,8 @@
 console.info('[DalTownMap App] V298 map zoom auto-refresh + recenter-only current location loaded');
 globalThis.__DTM_BADGE_POSITION_BUILD__='badge-position-v4-20260920';
 console.info('[DalTownMap App] badge position UI build',globalThis.__DTM_BADGE_POSITION_BUILD__);
+globalThis.__DTM_SPECIAL_DETAIL_BUILD__='special-detail-v1-20260920';
+console.info('[DalTownMap App] Restaurant Special detail presentation',globalThis.__DTM_SPECIAL_DETAIL_BUILD__);
 console.info('[DalTownMap App] V291 QR/source traffic tracking loaded');
 console.info('[DalTownMap App] V288 mobile popup scroll/viewport fix loaded');
 console.info('[DalTownMap App] V287 coupon custom terms only loaded');
@@ -5282,12 +5284,30 @@ function v229DallasDate(){
 function restaurantSpecialDaysLabel(row){
   const names=['일','월','화','수','목','금','토'],days=globalThis.DtmRestaurantSpecials.days(row);
   if(!days.length||days.length===7)return '매일';
-  if(JSON.stringify(days)===JSON.stringify([1,2,3,4,5]))return '월–금';
-  return days.map(day=>names[day]).join('·');
+  if(JSON.stringify(days)===JSON.stringify([0,6]))return '토 - 일';
+  const contiguous=days.every((day,index)=>index===0||day===days[index-1]+1);
+  if(contiguous&&days.length>1)return `${names[days[0]]} - ${names[days.at(-1)]}`;
+  return days.map(day=>names[day]).join(' · ');
 }
 function restaurantSpecialTimeLabel(row){
   if(!row.start_time&&!row.end_time)return '종일';
-  return `${globalThis.DtmRestaurantSpecials.formatTime(row.start_time)}–${globalThis.DtmRestaurantSpecials.formatTime(row.end_time)}`;
+  return `${globalThis.DtmRestaurantSpecials.formatTime(row.start_time)} - ${globalThis.DtmRestaurantSpecials.formatTime(row.end_time)}`;
+}
+function restaurantSpecialDescriptionLabel(row){
+  const raw=String(row?.description||'').trim();if(!raw)return '';
+  return raw.replace(/\s*(?:(?:매일|[일월화수목금토](?:\s*[·,]\s*[일월화수목금토])*|[일월화수목금토]\s*[-–~]\s*[일월화수목금토])\s*)?(?:\d{1,2}(?::\d{2})?\s*(?:AM|PM)?\s*[-–~]\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM)?)\s*$/i,'').trim();
+}
+function restaurantSpecialMenuRowsHTML(row,{detail=false,limit=3}={}){
+  const all=globalThis.DtmRestaurantSpecialItems.forSpecial(businessSpecialItems,row.id);
+  if(!all.length)return row.price_text?`<p class="restaurant-special-legacy-price">${esc(row.price_text)}</p>`:'';
+  const shown=detail?all:all.slice(0,limit);
+  const rows=shown.map(item=>`<span class="special-menu-row"><span class="special-menu-main"><b class="special-menu-name">${esc(item.item_name)}</b>${item.description?`<small class="special-menu-description">${esc(item.description)}</small>`:''}</span>${item.price_text?`<strong class="special-menu-price">${esc(item.price_text)}</strong>`:''}</span>`).join('');
+  const more=!detail&&all.length>shown.length?`<em class="special-menu-more">+ ${all.length-shown.length}개 더보기</em>`:'';
+  return `<span class="restaurant-special-menu${detail?' restaurant-special-detail-items':''}">${rows}${more}</span>`;
+}
+function restaurantSpecialDetailArticleHTML(row){
+  const kind=String(row.type||''),description=restaurantSpecialDescriptionLabel(row);
+  return `<article data-special-id="${esc(row.id)}"><div class="restaurant-special-detail-heading"><span class="restaurant-special-type" data-special-kind="${esc(kind)}">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[kind]||'할인')}</span><strong>${esc(row.title)}</strong></div>${row.image_url?`<img class="restaurant-special-detail-image" src="${esc(row.image_url)}" alt="${esc(row.title)}">`:''}${restaurantSpecialMenuRowsHTML(row,{detail:true})}${description?`<p class="restaurant-special-description">${esc(description)}</p>`:''}<small class="restaurant-special-schedule">${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small></article>`;
 }
 function restaurantSpecialCardHTML(row){
   const b=getBiz(row.business_id)||{};
@@ -5295,11 +5315,10 @@ function restaurantSpecialCardHTML(row){
   const origin=typeof v293DistanceOrigin==='function'?v293DistanceOrigin():null;
   const distance=origin&&v292ValidBusinessCoords(b.lat,b.lng)?`${haversineMiles(origin.lat,origin.lng,Number(b.lat),Number(b.lng)).toFixed(1)} mi`:'';
   const image=row.image_url||b.image||b.image_url||BUSINESS_IMAGE_FALLBACK;
-  const itemBatch=globalThis.DtmRestaurantSpecialItems.cardItems(businessSpecialItems,row.id);
-  const itemHtml=itemBatch.total?`<span class="restaurant-special-menu">${itemBatch.rows.map(item=>`<span><b>${esc(item.item_name)}</b><strong>${esc(item.price_text)}</strong>${item.description?`<small>${esc(item.description)}</small>`:''}</span>`).join('')}${itemBatch.remaining?`<em>+ ${itemBatch.remaining}개 더보기</em>`:''}</span>`:`<span>${esc(row.price_text||row.description||'혜택 내용을 확인하세요.')}</span>`;
+  const itemHtml=restaurantSpecialMenuRowsHTML(row,{limit:3})||`<span>${esc(row.description||'혜택 내용을 확인하세요.')}</span>`;
   return `<button type="button" class="restaurant-special-card biz-open" data-biz="${esc(row.business_id)}">
     <img src="${esc(image)}" alt="${esc(row.title||'Restaurant Special')}">
-    <span class="restaurant-special-copy"><span class="restaurant-special-type">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]||'할인')}</span><strong>${esc(row.title)}</strong><small>${esc(b.name||b.name_ko||b.name_en||'업소')} ${distance?`· ${esc(distance)}`:''}</small>${itemHtml}<small>${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small><em class="${state==='now'?'is-now':''}">${esc(globalThis.DtmRestaurantSpecials.statusLabel(row))}</em></span>
+    <span class="restaurant-special-copy"><span class="restaurant-special-type" data-special-kind="${esc(row.type)}">${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type]||'할인')}</span><strong>${esc(row.title)}</strong><small>${esc(b.name||b.name_ko||b.name_en||'업소')} ${distance?`· ${esc(distance)}`:''}</small>${itemHtml}<small>${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small><em class="${state==='now'?'is-now':''}">${esc(globalThis.DtmRestaurantSpecials.statusLabel(row))}</em></span>
   </button>`;
 }
 function setCouponShellMode(mode='coupon'){
@@ -5343,6 +5362,8 @@ function ensureRestaurantSpecialStyles(){
   if(document.getElementById('restaurantSpecialStyles'))return;
   const style=document.createElement('style');style.id='restaurantSpecialStyles';style.textContent=`
     .restaurant-specials-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px}.restaurant-specials-head h2{margin:0}.restaurant-specials-head p{margin:4px 0 0;color:#64748b}.restaurant-special-filters{display:flex;gap:6px;flex-wrap:wrap}.restaurant-special-filters button{border:1px solid #dbe3ef;background:#fff;border-radius:999px;padding:7px 11px;font-weight:800}.restaurant-special-filters button.active{background:#172554;color:#fff;border-color:#172554}.restaurant-special-list{display:grid;gap:10px;margin-bottom:12px}.restaurant-special-results{text-align:center;color:#64748b;font-size:12px}.restaurant-special-more{display:block;margin:10px auto 22px;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:9px 22px;font-weight:900}.restaurant-special-card{width:100%;display:grid;grid-template-columns:88px minmax(0,1fr);gap:12px;text-align:left;border:1px solid #e2e8f0;border-radius:16px;padding:10px;background:#fff}.restaurant-special-card>img{width:88px;height:88px;object-fit:cover;border-radius:12px}.restaurant-special-copy{display:grid;gap:3px}.restaurant-special-copy small{color:#64748b}.restaurant-special-copy em,.restaurant-special-detail em{font-style:normal;color:#64748b;font-weight:800}.restaurant-special-copy em.is-now,.restaurant-special-detail em.is-now{color:#15803d}.restaurant-special-type,.business-special-badge{display:inline-flex;width:max-content;border-radius:999px;background:#fff7ed;color:#c2410c;padding:5px 8px;font-size:11px;font-weight:900;line-height:1;min-height:22px;box-sizing:border-box;align-items:center;white-space:nowrap}.business-title-row{display:flex;align-items:center;gap:6px;min-width:0;max-width:100%}.business-title-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.business-title-specials{display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;white-space:nowrap}.business-title-specials .business-special-badge{flex:0 0 auto}.business-title-row>.home-premium-badge,.business-title-row>.home-video-badge{flex:0 0 auto}.home-biz-map-card{grid-template-columns:82px minmax(0,1fr)}.home-biz-map-content{min-width:0;display:grid;gap:5px}.home-biz-map-title-line,.home-biz-map-meta-line{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}.home-biz-map-title{flex:1 1 auto;min-width:0}.home-biz-map-cat,.home-biz-map-rating{flex:0 0 auto}.home-biz-map-location{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:0}.restaurant-special-menu{display:grid;gap:3px}.restaurant-special-menu>span{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}.restaurant-special-menu>span small{grid-column:1/-1}.restaurant-special-menu>em{font-size:12px}.restaurant-special-detail article{border-top:1px solid #eef2f7;padding:12px 0;display:grid;gap:6px}.restaurant-special-detail article>div{display:flex;gap:8px;align-items:center}.restaurant-special-detail article>div span{color:#c2410c;font-size:12px;font-weight:900}.restaurant-special-detail p{margin:0}.restaurant-special-detail small{color:#64748b}.restaurant-special-detail-image{width:100%;max-height:260px;object-fit:cover;border-radius:12px}.restaurant-special-detail-items{display:grid;gap:5px}.restaurant-special-detail-items>span{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.list-business-title h4{margin:0;font-size:19px;color:#18335f;line-height:1.2}.search-business-title{justify-content:flex-start}.search-business-title .search-business-name{font-size:15px;font-weight:500}.mini-title-row{padding:0 2px}.mini-title-row .mini-name{flex:1}.map-preview-title{width:100%}.map-preview-title .map-preview-name{font-size:17px;color:#18335f;font-weight:700}.map-bottom-title,.nearby-business-title{width:100%}.map-bottom-title .map-bottom-name,.nearby-business-title .nearby-business-name{font-size:15px;font-weight:700;color:inherit}@media(max-width:640px){.restaurant-specials-head{align-items:flex-start;flex-direction:column}.restaurant-special-card{grid-template-columns:72px minmax(0,1fr)}.restaurant-special-card>img{width:72px;height:72px}.business-title-row{gap:5px}.business-title-specials{gap:3px;flex-wrap:nowrap}.business-title-specials .business-special-badge{font-size:11px;padding:5px 7px;min-height:22px}.home-biz-map-title-line,.home-biz-map-meta-line{gap:5px}}
+    .restaurant-special-type[data-special-kind="lunch_special"]{background:#ef2b2d;color:#fff;font-size:12px;padding:5px 9px}
+    .restaurant-special-menu{gap:0}.special-menu-row{display:flex!important;align-items:baseline;justify-content:space-between;grid-template-columns:none!important;gap:12px!important;padding:6px 0;border-bottom:1px solid #f1f5f9;min-width:0}.special-menu-row:last-of-type{border-bottom:0}.special-menu-main{display:grid;gap:2px;min-width:0}.special-menu-name{font-weight:600;color:#1e293b;overflow-wrap:anywhere}.special-menu-price{font-weight:800;color:#ef2b2d;white-space:nowrap}.special-menu-description{color:#64748b;font-weight:400;grid-column:auto!important}.special-menu-more{font-size:12px;padding-top:4px}.restaurant-special-detail article{padding:14px 0;gap:10px}.restaurant-special-detail-heading{display:flex;gap:8px;align-items:center;min-width:0}.restaurant-special-detail-heading strong{min-width:0}.restaurant-special-detail-image{display:block;width:100%;height:auto;max-height:none;object-fit:cover;border-radius:12px;overflow:hidden}.restaurant-special-detail-items{display:grid;gap:0}.restaurant-special-description{font-weight:600;color:#334155}.restaurant-special-schedule{font-size:13px;font-weight:700;color:#64748b}.restaurant-special-legacy-price{font-weight:700;color:#334155}@media(max-width:640px){.special-menu-row{gap:10px!important}.restaurant-special-detail-image{max-width:100%}}
   `;document.head.appendChild(style);
 }
 ensureRestaurantSpecialStyles();
@@ -5601,7 +5622,7 @@ const couponHtml = bizCoupons.length
   : '';
 
 const bizSpecials=globalThis.DtmRestaurantSpecials.forBusiness(businessSpecials,b.id);
-const specialHtml=bizSpecials.length?`<section class="biz-detail-card restaurant-special-detail"><h3>할인</h3>${bizSpecials.map(row=>{const items=globalThis.DtmRestaurantSpecialItems.forSpecial(businessSpecialItems,row.id);return `<article><div><span>${esc(globalThis.DtmRestaurantSpecials.TYPE_LABELS[row.type])}</span><strong>${esc(row.title)}</strong></div><em class="${globalThis.DtmRestaurantSpecials.isActive(row)?'is-now':''}">${esc(globalThis.DtmRestaurantSpecials.statusLabel(row))}</em>${row.image_url?`<img class="restaurant-special-detail-image" src="${esc(row.image_url)}" alt="${esc(row.title)}">`:''}${items.length?`<div class="restaurant-special-detail-items">${items.map(item=>`<span><b>${esc(item.item_name)}</b><strong>${esc(item.price_text)}</strong>${item.description?`<small>${esc(item.description)}</small>`:''}</span>`).join('')}</div>`:`<p>${esc([row.price_text,row.description].filter(Boolean).join(' · '))}</p>`}<small>${esc(restaurantSpecialDaysLabel(row))} · ${esc(restaurantSpecialTimeLabel(row))}</small></article>`}).join('')}</section>`:'';
+const specialHtml=bizSpecials.length?`<section class="biz-detail-card restaurant-special-detail"><h3>할인</h3>${bizSpecials.map(restaurantSpecialDetailArticleHTML).join('')}</section>`:'';
 
 const orderUrl = normalizeUrl(b.order_url || '');
 const deliveryUrl = normalizeUrl(b.delivery_url || '');

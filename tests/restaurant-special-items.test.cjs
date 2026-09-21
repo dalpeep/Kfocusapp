@@ -32,7 +32,7 @@ test('migration is additive, cascades parent delete and protects anon writes',()
 test('public loader batches items and legacy price text remains the fallback',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
   assert.match(source,/DtmPagination\.fetchPostgrest\(\{url,signal:token\.controller\?\.signal,pageSize:1000/);
-  assert.match(source,/row\.price_text\|\|row\.description\|\|'혜택 내용을 확인하세요\.'/);
+  assert.match(source,/if\(!all\.length\)return row\.price_text\?/);
 });
 test('administrator editor visibly exposes file upload, preview and repeatable structured menus',()=>{
   const html=fs.readFileSync(path.join(__dirname,'..','admin','index.html'),'utf8');
