@@ -5131,6 +5131,7 @@ async function init() {
     getSession:()=>supabase.auth.getSession(),
     getAdminScope:()=>({role:adminProfile.role,area:adminProfile.area})
   });
+  if(location.hostname.startsWith('deploy-preview-')&&new URLSearchParams(location.search).has('community-region-probe'))return;
 
   bindEvents();
   initAdminUserManager();
