@@ -53,6 +53,20 @@ async function verifyUploadedObjects(db,uploads){
     if(size!==Number(upload.byte_size)||size<1||size>1024*1024||type!=='image/webp')throw Object.assign(new Error('업로드된 이미지 파일 정보가 일치하지 않습니다.'),{status:400});
   }
 }
+async function verifiedUploadDrafts(db,event,ids,draftId,postId=null){
+  const unique=[...new Set((Array.isArray(ids)?ids:[]).map(String))];
+  if(!unique.length)return [];
+  if(unique.length!==ids.length||!draftId)throw Object.assign(new Error('Invalid upload identity.'),{status:400});
+  const found=await db.from('community_upload_drafts').select('*').in('id',unique)
+    .eq('ip_fingerprint',fingerprint(event)).eq('draft_id',draftId).eq('status','reserved');
+  if(found.error||found.data?.length!==unique.length)throw Object.assign(new Error('업로드 확인에 실패했습니다.'),{status:400});
+  const now=Date.now();
+  if(found.data.some(row=>row.post_id!==postId||!row.storage_path?.startsWith('community-posts/')||
+      Date.parse(row.expires_at)<=now||now-Date.parse(row.created_at)>10*60000))
+    throw Object.assign(new Error('업로드 권한이 만료되었거나 게시글과 일치하지 않습니다.'),{status:400});
+  await verifyUploadedObjects(db,found.data);
+  return found.data;
+}
 async function verifyAdmin(event,region){
   const token=text((event.headers||{}).authorization,5000).replace(/^Bearer\s+/i,'');if(!token)throw Object.assign(new Error('Unauthorized.'),{status:401});
   const db=client(),{data,error}=await db.auth.getUser(token);if(error||!data?.user)throw Object.assign(new Error('Unauthorized.'),{status:401});
@@ -66,4 +80,4 @@ async function verifyAdmin(event,region){
   return{db,user,role,area};
 }
 function handler(fn){return async event=>{if(event.httpMethod==='OPTIONS')return response(204,{});try{return await fn(event)}catch(error){const status=Number(error.status)||500;if(status>=500)console.error('[community]',error.message);return response(status,{ok:false,error:status>=500?'Community request failed.':error.message})}}}
-module.exports={CATEGORIES,IMAGE_LIMITS,AREAS,text,env,client,response,parse,ip,fingerprint,rateLimit,verifyTurnstile,hashPassword,verifyPassword,validatePost,verifyUploadedObjects,verifyAdmin,handler};
+module.exports={CATEGORIES,IMAGE_LIMITS,AREAS,text,env,client,response,parse,ip,fingerprint,rateLimit,verifyTurnstile,hashPassword,verifyPassword,validatePost,verifyUploadedObjects,verifiedUploadDrafts,verifyAdmin,handler};
