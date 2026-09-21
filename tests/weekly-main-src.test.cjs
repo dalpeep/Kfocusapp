@@ -39,7 +39,7 @@ try{for(const width of [360,390,1280]){
  }
  await page.close();
 }
-const html=fs.readFileSync(path.join(root,'index.html'),'utf8');assert.ok(html.includes('/app-v99.js?v=269.1-flyer-main'));assert.ok(app.includes("DTM_BUILD_VERSION='269.1'"));
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');assert.ok(html.includes('/app-v99.js?v=269.4-badge-position'));assert.ok(app.includes("DTM_BUILD_VERSION='269.1'"));
 console.log('PASS production fixtures -> public selection -> P130 rendered src; both markets, both slides, all viewports; cache token');
 }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exit(1)});
