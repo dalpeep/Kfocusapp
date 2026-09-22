@@ -9,7 +9,9 @@ function env(){
   const url=process.env.SUPABASE_URL||'';
   const service=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'';
   if(!url||!service)throw Object.assign(new Error('Community service is not configured.'),{status:503});
-  return{url,service,pepper:process.env.COMMUNITY_PASSWORD_PEPPER||'',rateSecret:process.env.COMMUNITY_RATE_LIMIT_HMAC_SECRET||'',turnstile:process.env.COMMUNITY_TURNSTILE_SECRET_KEY||'',bucket:process.env.STORAGE_BUCKET||'public-images'};
+  const bucket=process.env.COMMUNITY_STORAGE_BUCKET||'';
+  if(bucket!=='community-images')throw Object.assign(new Error('Community storage is not configured.'),{status:503});
+  return{url,service,pepper:process.env.COMMUNITY_PASSWORD_PEPPER||'',rateSecret:process.env.COMMUNITY_RATE_LIMIT_HMAC_SECRET||'',turnstile:process.env.COMMUNITY_TURNSTILE_SECRET_KEY||'',bucket};
 }
 const client=()=>{const {createClient}=require('@supabase/supabase-js');const e=env();return createClient(e.url,e.service,{auth:{persistSession:false,autoRefreshToken:false}})};
 function response(status,body){return{statusCode:status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'},body:JSON.stringify(body)}}

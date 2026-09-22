@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('fs'),path=require('path');
 const root=path.join(__dirname,'..'),contract=require('../assets/community-contract.js');
-process.env.SUPABASE_URL='https://example.invalid';process.env.SUPABASE_SERVICE_ROLE_KEY='test-only';process.env.COMMUNITY_PASSWORD_PEPPER='test-pepper';process.env.COMMUNITY_RATE_LIMIT_HMAC_SECRET='test-rate';
+process.env.SUPABASE_URL='https://example.invalid';process.env.SUPABASE_SERVICE_ROLE_KEY='test-only';process.env.COMMUNITY_STORAGE_BUCKET='community-images';process.env.COMMUNITY_PASSWORD_PEPPER='test-pepper';process.env.COMMUNITY_RATE_LIMIT_HMAC_SECRET='test-rate';
 const security=require('../netlify/functions/lib/community-security.js');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 test('categories and image limits are stable',()=>{assert.equal(Object.keys(contract.CATEGORIES).length,6);assert.equal(contract.IMAGE_LIMITS.marketplace,3);assert.equal(contract.IMAGE_LIMITS.job_hiring,1)});

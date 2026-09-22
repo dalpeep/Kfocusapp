@@ -94,6 +94,10 @@ dallas: {
   COMMUNITY_TURNSTILE_SITE_KEY:
     process.env.COMMUNITY_TURNSTILE_SITE_KEY || '',
 
+  // Public bucket name only. Community Storage credentials stay server-side.
+  COMMUNITY_STORAGE_BUCKET:
+    process.env.COMMUNITY_STORAGE_BUCKET === 'community-images' ? 'community-images' : '',
+
   APP_CITY:
     cityConfig.city,
 

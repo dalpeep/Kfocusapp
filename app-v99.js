@@ -7538,6 +7538,7 @@ function showPage(page, opts={}){
   updateBottomNavMode(renderedPage);
   if (nextIdx >= 0) lastBasePage = requestedPage;
   if(!opts.skipRoute)setRoute(requestedPage);
+  globalThis.DtmCommunity?.syncRobots?.();
   if(renderedPage==='guide') renderGuidePosts();
   if(renderedPage==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
   if(renderedPage !== 'business'){
