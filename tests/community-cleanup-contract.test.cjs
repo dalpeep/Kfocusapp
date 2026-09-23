@@ -48,6 +48,7 @@ function mockDb(state,objects,{storageError=false}={}){
     lte(key,value){this.filters.push(row=>row[key]<=value);return this}
     lt(key,value){this.filters.push(row=>row[key]<value);return this}
     limit(value){this.max=value;return this}
+    single(){this.singleResult=true;return this}
     then(resolve,reject){
       const rows=state[this.table].filter(row=>this.filters.every(fn=>fn(row))).slice(0,this.max);
       if(this.action==='update')for(const row of rows)Object.assign(row,this.patch);
@@ -56,7 +57,7 @@ function mockDb(state,objects,{storageError=false}={}){
         state[this.table]=state[this.table].filter(row=>!removed.has(row));
         if(this.table==='community_posts')for(const table of ['community_comments','community_post_images'])state[table]=state[table].filter(row=>!rows.some(post=>post.id===row.post_id));
       }
-      return Promise.resolve({data:rows,error:null}).then(resolve,reject);
+      return Promise.resolve({data:this.singleResult?rows[0]||null:rows,error:null}).then(resolve,reject);
     }
   }
   return{
@@ -71,6 +72,33 @@ function mockDb(state,objects,{storageError=false}={}){
     }}
   };
 }
+
+test('real author/admin handlers transition isolated synthetic posts and exclude them from public selectors',async()=>{
+  const ids=['00000000-0000-4000-8000-000000000101','00000000-0000-4000-8000-000000000102','00000000-0000-4000-8000-000000000103'];
+  const state={community_posts:ids.map(id=>({id,region:'dallas',category:'qna',status:'approved',created_at:'2026-09-23T00:00:00.000Z',cleanup_after:null,password_hash:'synthetic'}))};
+  const db=mockDb(state,new Set());
+  const S=require('../netlify/functions/lib/community-security');
+  const original={client:S.client,verifyTurnstile:S.verifyTurnstile,verifyPassword:S.verifyPassword,verifyAdmin:S.verifyAdmin};
+  S.client=()=>db;S.verifyTurnstile=async()=>{};S.verifyPassword=()=>true;
+  S.verifyAdmin=async()=>({db,role:'regional_editor',area:'dallas'});
+  const started=Date.now();
+  try{
+    const author=require('../netlify/functions/community-post-delete').handler;
+    const admin=require('../netlify/functions/community-admin').handler;
+    const request=body=>({httpMethod:'POST',body:JSON.stringify(body),headers:{}});
+    assert.equal((await author(request({id:ids[0],password:'synthetic',turnstile_token:'harness'}))).statusCode,200);
+    assert.equal((await admin(request({id:ids[1],region:'dallas',action:'status',status:'deleted'}))).statusCode,200);
+    assert.equal((await admin(request({id:ids[2],region:'dallas',action:'status',status:'rejected'}))).statusCode,200);
+    for(const [index,status] of ['deleted','deleted','rejected'].entries()){
+      const post=state.community_posts[index];
+      assert.equal(post.status,status);
+      const due=Date.parse(post.cleanup_after);
+      assert.ok(due>=started+7*86400000&&due<=Date.now()+7*86400000);
+    }
+    assert.match(read('supabase/community-phase1.sql'),/where p\.status='approved'/);
+    assert.equal(state.community_posts.filter(post=>post.status==='approved').length,0);
+  }finally{Object.assign(S,original)}
+});
 
 test('scheduled cleanup handles deleted/rejected/expired/sold, cascades comments and preserves unrelated rows',async()=>{
   const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
