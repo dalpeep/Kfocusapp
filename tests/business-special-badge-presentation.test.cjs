@@ -8,7 +8,7 @@ const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
 
 test('badge-position build has an explicit runtime marker and asset version',()=>{
   assert.match(source,/__DTM_BADGE_POSITION_BUILD__='badge-position-v4-20260920'/);
-  assert.match(html,/app-v99\.js\?v=269\.6-event-count/);
+  assert.match(html,/app-v99\.js\?v=269\.9-community-robots/);
 });
 
 test('special badges keep the canonical active-kind authority',()=>{

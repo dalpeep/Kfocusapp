@@ -3417,6 +3417,12 @@ function renderHomeBoardSection(type='notice'){
     $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.board===type));
   }
   let rows = boardPostsByType(type);
+  if(type==='life'&&globalThis.DtmCommunity){
+    renderLifeCategoryFilters();
+    globalThis.DtmCommunity.renderHome(homeBoardList,rows);
+    if(homeBoardMoreBtn)homeBoardMoreBtn.dataset.board=type;
+    return;
+  }
   if(type==='life' && selectedLifeCategory!=='전체') rows=rows.filter(post=>inferLifeCategory(post)===selectedLifeCategory);
   rows=rows.slice(0,4);
   renderLifeCategoryFilters();
@@ -5037,6 +5043,9 @@ function renderBusinessThemeSpot(){
 function renderBusinessList() {
   const listEl = document.getElementById('businessList');
   if (!listEl) return;
+  // Keep the full business pool in memory, but do not build thousands of
+  // hidden cards while another page (notably Community) is in use.
+  if (currentPage !== 'business') return;
   renderBusinessThemeSpot();
 
   const keyword = String(businessSearch?.value || '').trim().toLowerCase();
@@ -7447,8 +7456,10 @@ function initBoardGallery(root=document){
     gallery.addEventListener('touchend',e=>{const dx=(e.changedTouches[0]?.clientX||0)-startX;if(Math.abs(dx)>45)go(dx<0?index+1:index-1)},{passive:true});
   });
 }
-function showBoard(board){ renderBoardPage(board); lastBasePage = currentPage;
-  showPage('board-detail'); }
+function showBoard(board){
+  if(normalizeBoardType(board)==='life'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPage(boardPostsByType('life'));return;}
+  renderBoardPage(board); lastBasePage = currentPage; showPage('board-detail');
+}
 function openBoardPost(postId){
   const post = boardPosts.find(p=>String(p.id)===String(postId));
   const type = normalizeBoardType(post?.type || selectedBoardType || 'notice');
@@ -7527,11 +7538,16 @@ function showPage(page, opts={}){
   updateBottomNavMode(renderedPage);
   if (nextIdx >= 0) lastBasePage = requestedPage;
   if(!opts.skipRoute)setRoute(requestedPage);
+  globalThis.DtmCommunity?.syncRobots?.();
   if(renderedPage==='guide') renderGuidePosts();
   if(renderedPage==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);
   if(renderedPage !== 'business'){
   businessQuickFilter = '';
 }
+  if (prevPage === 'business' && renderedPage !== 'business') {
+    document.getElementById('businessList')?.replaceChildren();
+  }
+  if (renderedPage === 'business') renderBusinessList();
   if(prevPage==='coupon-use' && page!=='coupon-use'){ clearInterval(couponUseTimer); }
   if(renderedPage==='map'){
     if(!mapReady) initGoogleMap();
@@ -7547,6 +7563,7 @@ function showPage(page, opts={}){
   closeSideMenu();
   window.scrollTo({top:0, behavior:'instant'});
 }
+globalThis.DtmNavigatePage=showPage;
 
 
 // 추천 테마 기사 열기: 이 함수는 반드시 전역 범위에 있어야 업소 메인에서도 사용할 수 있습니다.
@@ -8582,12 +8599,10 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
   selectedBoardType = board;
   showBoard(board);
-  showPage('board-detail');
 });
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
   const board = selectedBoardType || 'notice';
   showBoard(board);
-  showPage('board-detail');
 });
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();
@@ -8865,7 +8880,7 @@ await refreshCurrentUser();
 
 updateTopRegionLabel();
   renderHero(); bindHeroSwipe(); setSlide(0); restartAuto();
-  renderHome(); renderCategories(); renderBusinessList(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
+  renderHome(); renderCategories(); renderCoupons(); renderDetail(selectedBizId); renderMapFilters(); renderRecentSearches(); bindEvents(); initIosInstallBanner(); initAndroidInstallBanner(); hideRegionUi(); initPageSwipe();
   openAdminLoginModalFromQuery();
   if(!v87OpenPublicRoute()) showPage(getRoute());
   initRegionPicker();
