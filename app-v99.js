@@ -8876,6 +8876,9 @@ async function init(){
   }
 
 await loadRealData();
+if(/^#community(?:$|\/post\/[^/?#]+)/.test(location.hash)){
+  globalThis.DtmCommunity?.setLegacyRows?.(boardPostsByType('life'));
+}
 await refreshCurrentUser();
 
 updateTopRegionLabel();
