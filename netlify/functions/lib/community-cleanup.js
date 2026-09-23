@@ -2,8 +2,24 @@ const S=require('./community-security');
 async function cleanup(now=new Date()){
   const db=S.client(),iso=now.toISOString(),summary={expired:0,deleted:0,objects:0,failures:0};
   const exp=await db.from('community_posts').update({status:'expired'}).eq('category','marketplace').eq('status','approved').lte('expires_at',iso).select('id');if(exp.error)throw exp.error;summary.expired=exp.data?.length||0;
-  const doomed=await db.from('community_posts').select('id').in('status',['expired','sold','deleted']).lte('cleanup_after',iso).limit(500);if(doomed.error)throw doomed.error;
-  for(const post of doomed.data||[]){const imgs=await db.from('community_post_images').select('storage_path').eq('post_id',post.id);const paths=(imgs.data||[]).map(x=>x.storage_path).filter(Boolean);if(paths.length){const removed=await db.storage.from(S.env().bucket).remove(paths);if(removed.error){summary.failures++;continue}summary.objects+=paths.length}const del=await db.from('community_posts').delete().eq('id',post.id);if(del.error){summary.failures++;continue}summary.deleted++}
+  const doomed=await db.from('community_posts').select('id').in('status',['expired','sold','deleted','rejected']).lte('cleanup_after',iso).limit(500);if(doomed.error)throw doomed.error;
+  postCleanup: for(const post of doomed.data||[]){
+    const paths=new Set();
+    for(const table of ['community_post_images','community_upload_drafts','community_image_cleanup_queue']){
+      const rows=await db.from(table).select('storage_path').eq('post_id',post.id);
+      if(rows.error){summary.failures++;continue postCleanup}
+      for(const row of rows.data||[])if(row.storage_path)paths.add(row.storage_path);
+    }
+    if([...paths].some(path=>!require('./community-image-edit').validPath(path))){summary.failures++;continue}
+    if(paths.size){const removed=await db.storage.from(S.env().bucket).remove([...paths]);if(removed.error){summary.failures++;continue}summary.objects+=paths.size}
+    for(const table of ['community_upload_drafts','community_image_edit_requests','community_image_cleanup_queue']){
+      const child=await db.from(table).delete().eq('post_id',post.id);
+      if(child.error){summary.failures++;continue postCleanup}
+    }
+    const del=await db.from('community_posts').delete().eq('id',post.id);
+    if(del.error){summary.failures++;continue}
+    summary.deleted++;
+  }
   const orphan=await db.from('community_upload_drafts').select('id,storage_path').in('status',['reserved','uploaded','cleanup_failed']).lte('expires_at',iso).limit(500);if(orphan.error)throw orphan.error;
   for(const item of orphan.data||[]){const removed=await db.storage.from(S.env().bucket).remove([item.storage_path]);if(removed.error){summary.failures++;await db.from('community_upload_drafts').update({status:'cleanup_failed'}).eq('id',item.id);continue}await db.from('community_upload_drafts').delete().eq('id',item.id);summary.objects++}
   const queued=await db.from('community_image_cleanup_queue').select('storage_path,attempts').limit(500);if(queued.error)throw queued.error;
