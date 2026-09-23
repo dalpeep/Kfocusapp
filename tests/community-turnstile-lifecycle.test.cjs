@@ -25,5 +25,5 @@ test('token is scoped to the current widget and failures reset it',()=>{
   assert.match(source,/callback:value=>\{if\(generation===turnstileGeneration\)turnstileToken=value\}/);
   assert.match(source,/'expired-callback':\(\)=>\{if\(generation===turnstileGeneration\)turnstileToken=''\}/);
   assert.match(source,/'error-callback':\(\)=>\{if\(generation===turnstileGeneration\)turnstileToken=''\}/);
-  assert.match(source,/if\(!res\.ok\)throw new Error\([^\n]+catch\(error\)\{resetTurnstile\(\);throw error\}/);
+  assert.match(source,/if\(!res\.ok\)throw new Error\([^\n]+catch\(error\)\{if\(generation===turnstileGeneration\)resetTurnstile\(\);throw error\}/);
 });
