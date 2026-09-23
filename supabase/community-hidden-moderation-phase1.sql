@@ -17,7 +17,8 @@ alter table public.community_posts
 alter table public.community_posts
   add constraint community_marketplace_expiry_check check (
     (category = 'marketplace' and expires_at is not null
-      and (cleanup_after is not null or status = 'hidden'))
+      and ((status = 'hidden' and cleanup_after is null)
+        or (status <> 'hidden' and cleanup_after is not null)))
     or (category <> 'marketplace' and expires_at is null
       and (cleanup_after is null or status in ('deleted','rejected','expired')))
   );

@@ -58,6 +58,31 @@ test('owner endpoint never returns hidden contents for a wrong password',async()
     assert.doesNotMatch(allowed.body,/password_hash|internal memo/);
   }finally{Object.assign(security,original)}
 });
+test('admin endpoint hides with reason, unhides, and refuses expired marketplace restore',async()=>{
+  const security=require('../netlify/functions/lib/community-security');
+  const original=security.verifyAdmin;
+  const id='00000000-0000-4000-8000-000000000002';
+  const post={id,region:'dallas',category:'qna',status:'approved',created_at:now.toISOString(),expires_at:null,cleanup_after:null};
+  const updates=[];
+  const db={from:()=>({
+    select:()=>({eq:()=>({single:async()=>({data:{...post},error:null})})}),
+    update:changes=>{updates.push(changes);return{eq(){return this},select:async()=>({data:[{id}],error:null})}}
+  })};
+  security.verifyAdmin=async()=>({db,role:'regional_editor',area:'dallas'});
+  try{
+    const handler=require('../netlify/functions/community-admin').handler;
+    const request=(status,extra={})=>({httpMethod:'POST',headers:{},body:JSON.stringify({action:'status',id,region:'dallas',status,...extra})});
+    assert.equal((await handler(request('hidden',{reason:'off_topic',note:'internal only'}))).statusCode,200);
+    assert.deepEqual({status:updates.at(-1).status,reason:updates.at(-1).moderation_reason,note:updates.at(-1).moderation_note,cleanup:updates.at(-1).cleanup_after},
+      {status:'hidden',reason:'off_topic',note:'internal only',cleanup:null});
+    post.status='hidden';
+    assert.equal((await handler(request('approved'))).statusCode,200);
+    assert.equal(updates.at(-1).moderation_reason,null);
+    assert.equal(updates.at(-1).moderation_note,null);
+    post.category='marketplace';post.expires_at='2000-01-01T00:00:00.000Z';
+    assert.equal((await handler(request('approved'))).statusCode,400);
+  }finally{security.verifyAdmin=original}
+});
 test('image edit uses an atomic hidden-to-pending wrapper and existing Storage contract',()=>{
   const js=read('netlify/functions/lib/community-image-edit.js');
   const sql=read('supabase/community-hidden-moderation-phase1.sql');
