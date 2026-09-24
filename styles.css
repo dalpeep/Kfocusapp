@@ -5333,6 +5333,10 @@ body.nearby-businesses-open{overflow:hidden!important}
 @media(max-width:640px){.community-page-head{align-items:flex-start}.community-category-filters{margin-inline:-2px;padding-inline:2px}.community-post-card{grid-template-columns:72px minmax(0,1fr)}.community-post-card>img{width:72px;height:72px}.community-modal{padding:0;align-items:end}.community-modal-panel{width:100%;max-height:96vh;border-radius:20px 20px 0 0;padding:20px;box-sizing:border-box}.community-contact-row{grid-template-columns:1fr}.community-image-preview{grid-template-columns:repeat(2,1fr)}}
 /* Keep Community dialogs above the fixed mobile navigation while they are open. */
 .community-modal:not(.hidden){z-index:2147483001}
+@media(max-width:640px){
+  .community-modal:not(.hidden){padding-bottom:74px}
+  .community-modal-panel{max-height:calc(100dvh - 74px)}
+}
 .community-edit-image-area{display:grid;gap:10px;min-width:0}.community-edit-image-area h3,.community-edit-image-area p{margin:0}.community-edit-image-area input[type=file]{min-width:0}.community-edit-image-area #communityEditImages{display:grid;gap:10px;min-width:0}.community-edit-image{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;min-width:0;border:1px solid #dbe3ef;border-radius:12px;padding:8px}.community-edit-image>img{width:92px;height:92px;object-fit:contain;border-radius:8px}.community-edit-image>div{display:grid;gap:6px;min-width:0}.community-edit-image button{justify-self:start;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:7px 10px}.community-edit-image.is-removed{opacity:.55}.community-edit-image-area label{min-width:0;overflow-wrap:anywhere}
 @media(max-width:390px){.community-edit-image{grid-template-columns:72px minmax(0,1fr)}.community-edit-image>img{width:72px;height:72px}}
 .community-policy-note{margin:-.35rem 0 .65rem;color:#59677d;font-size:.78rem;line-height:1.45}
