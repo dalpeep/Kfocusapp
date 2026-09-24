@@ -5339,6 +5339,59 @@ body.nearby-businesses-open{overflow:hidden!important}
 }
 .community-edit-image-area{display:grid;gap:10px;min-width:0}.community-edit-image-area h3,.community-edit-image-area p{margin:0}.community-edit-image-area input[type=file]{min-width:0}.community-edit-image-area #communityEditImages{display:grid;gap:10px;min-width:0}.community-edit-image{display:grid;grid-template-columns:92px minmax(0,1fr);gap:10px;min-width:0;border:1px solid #dbe3ef;border-radius:12px;padding:8px}.community-edit-image>img{width:92px;height:92px;object-fit:contain;border-radius:8px}.community-edit-image>div{display:grid;gap:6px;min-width:0}.community-edit-image button{justify-self:start;border:1px solid #cbd5e1;border-radius:8px;background:#fff;padding:7px 10px}.community-edit-image.is-removed{opacity:.55}.community-edit-image-area label{min-width:0;overflow-wrap:anywhere}
 @media(max-width:390px){.community-edit-image{grid-template-columns:72px minmax(0,1fr)}.community-edit-image>img{width:72px;height:72px}}
+/* Community list refresh: presentation only; existing list and search handlers stay intact. */
+.community-page{gap:11px;padding:15px;background:#fff;border-radius:22px}
+.community-page-head{gap:9px;align-items:flex-start}
+.community-page-head>div{min-width:0}
+.community-page-head h2{font-size:23px;line-height:1.22;letter-spacing:-.03em}
+.community-page-head p{font-size:12.5px;line-height:1.4;margin-top:3px;color:#667792}
+.community-write{flex:0 0 auto;min-height:38px;padding:0 13px;font-size:13px;line-height:1;white-space:nowrap;box-shadow:0 3px 8px rgba(23,37,84,.12)}
+.community-tools{gap:9px;align-items:center}
+.community-category-filters{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;overflow:visible;overscroll-behavior:auto;scrollbar-width:none;padding:0;margin:0}
+.community-category-filters button{grid-column:span 3;min-width:0;height:37px;padding:0 3px;white-space:nowrap;border:1px solid #dbe3ef;border-radius:10px;background:#f8faff;color:#203b67;font-size:12.5px;font-weight:800;line-height:1}
+.community-category-filters button:nth-child(n+5){grid-column:span 4}
+.community-category-filters button.active{border-color:#172554;background:#172554;color:#fff;box-shadow:0 2px 5px rgba(23,37,84,.14)}
+.community-search-field{display:flex;align-items:center;gap:8px;min-width:0;height:42px;padding:0 11px;border:1px solid #c9d7e9;border-radius:11px;background:#fff;box-shadow:0 1px 2px rgba(25,52,94,.04)}
+.community-search-field:focus-within{border-color:#3979d5;box-shadow:0 0 0 2px rgba(47,128,237,.12)}
+.community-search-field svg{width:18px;height:18px;flex:0 0 auto;fill:none;stroke:#8293ad;stroke-width:2;stroke-linecap:round}
+.community-search-field input{width:100%;min-width:0;height:100%;padding:0;border:0;outline:0;background:transparent;color:#18335f;font:inherit;font-size:13px}
+.community-search-field input::placeholder{color:#8b9ab0}
+.community-tools>#communitySearchBtn{height:42px;min-height:42px;max-height:42px;padding:0 15px;border:0;border-radius:11px;background:#2f70d7;color:#fff;font-size:13px;font-weight:800}
+.community-results{gap:11px}
+.community-post-card{display:block;padding:14px 15px;border:1px solid #e0e8f3;border-radius:15px;background:#fff;box-shadow:0 3px 11px rgba(24,51,95,.045)}
+.community-post-card.has-image{display:grid;grid-template-columns:76px minmax(0,1fr);gap:11px}
+.community-post-card>img{width:76px;height:76px;border-radius:11px}
+.community-post-copy{gap:5px;min-width:0}
+.community-post-copy strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#19365f;font-size:15.5px;line-height:1.35;font-weight:700;overflow-wrap:anywhere}
+.community-post-copy em{padding:4px 8px;border-radius:7px;font-size:11px;line-height:1.2;background:#eff3fb;color:#31537e}
+.community-post-copy em[data-kind="job_hiring"],.community-post-copy em[data-kind="job_seeking"]{background:#ecf3ff;color:#315e9f}
+.community-post-copy em[data-kind="marketplace"]{background:#eaf7f5;color:#26746e}
+.community-post-copy em[data-kind="housing"]{background:#fcf5e9;color:#8b6534}
+.community-post-copy em[data-kind="qna"]{background:#f1effc;color:#64549b}
+.community-post-copy em[data-kind="neighborhood"]{background:#edf7ef;color:#477b57}
+.community-post-preview{font-size:13px;line-height:1.42;color:#5b6c85;overflow-wrap:anywhere}
+.community-post-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#74849b;font-size:11.5px;line-height:1.25;font-weight:600;white-space:nowrap}
+.community-post-place-time{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.community-post-stats{display:inline-flex;align-items:center;gap:10px;flex:0 0 auto}
+.community-post-stat{display:inline-flex;align-items:center;gap:4px}
+.community-post-stat svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.community-result-count{font-size:11px;color:#8190a6}
+.community-result-count[hidden]{display:none}
+.community-more{padding:8px 13px;font-size:12px}
+.community-legacy{margin-top:4px;padding:15px 10px 8px;border-top:1px solid #dce5f2;border-radius:0 0 10px 10px;background:#f9fbfe}
+.community-legacy h3{margin:0;color:#203b66;font-size:17px;line-height:1.3}
+.community-legacy>p{margin:3px 0 10px;color:#7b8aa2;font-size:12px;line-height:1.35}
+@media(max-width:640px){
+  .community-page-head{align-items:flex-start}
+  .community-category-filters{margin:0;padding:0}
+  .community-post-card.has-image{grid-template-columns:72px minmax(0,1fr)}
+  .community-post-card>img{width:72px;height:72px}
+}
+@media(max-width:350px){
+  .community-category-filters button{font-size:11.5px;padding:0 2px}
+  .community-page-head h2{font-size:21px}
+  .community-write{padding:0 10px}
+}
 .community-policy-note{margin:-.35rem 0 .65rem;color:#59677d;font-size:.78rem;line-height:1.45}
 .community-policy-box{margin:.6rem 0;padding:.7rem .8rem;border:1px solid #dce7f5;border-radius:10px;background:#f7faff;color:#34445c;font-size:.8rem;line-height:1.45}
 .community-policy-box strong{display:block;margin-bottom:.25rem}
