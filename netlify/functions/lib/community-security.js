@@ -1,4 +1,5 @@
 const crypto=require('crypto');
+const {validateVideoLink}=require('./community-video-url');
 
 const CATEGORIES=new Set(['job_hiring','job_seeking','marketplace','housing','qna','neighborhood']);
 const IMAGE_LIMITS={job_hiring:1,job_seeking:1,marketplace:3,housing:3,qna:2,neighborhood:3};
@@ -45,7 +46,7 @@ function validatePost(body,{partial=false}={}){
   if(Boolean(contactType)!==Boolean(contactValue))throw Object.assign(new Error('연락방법과 연락처를 함께 입력해 주세요.'),{status:400});
   if(contactType==='email'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactValue))throw Object.assign(new Error('올바른 이메일 주소를 입력해 주세요.'),{status:400});
   if(['phone','text'].includes(contactType)&&!/^[+()\d\s.-]{7,30}$/.test(contactValue))throw Object.assign(new Error('올바른 전화번호를 입력해 주세요.'),{status:400});
-  return{category,region,area,title,body:content,author_name:author,contact_type:contactType,contact_value:contactValue};
+  return{category,region,area,title,body:content,author_name:author,contact_type:contactType,contact_value:contactValue,...validateVideoLink(body.video_url,category)};
 }
 async function verifyUploadedObjects(db,uploads){
   for(const upload of uploads){

@@ -50,7 +50,7 @@ async function edit(event,body,db,post){
     return{kind:'upload',id:item.id,image_url:`${S.env().url}/storage/v1/object/public/${S.env().bucket}/${upload.storage_path}`};
   })());
   const args={p_request_id:requestId,p_post_id:post.id,p_post:next,p_plan:safePlan,p_draft_id:draftId,p_fingerprint:S.fingerprint(event)};
-  const applied=await db.rpc(post.status==='hidden'?'community_apply_hidden_post_image_edit':'community_apply_post_image_edit',args);
+  const applied=await db.rpc('community_apply_post_video_image_edit',args);
   if(applied.error){
     // A lost RPC response may have committed. Never delete new objects unless
     // a second read proves this request did not commit.
