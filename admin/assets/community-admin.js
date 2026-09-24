@@ -25,6 +25,21 @@ load=async function(){
     }else if(row.status!=='pending'){approve?.remove();reject?.remove()}
   }
 };
+const videoBaseLoad=load;
+load=async function(){
+  await videoBaseLoad();
+  for(const row of rows){
+    if(!['marketplace','housing'].includes(row.category)||!row.video_url)continue;
+    let url;try{url=new URL(row.video_url)}catch{continue}
+    const host={youtube:'www.youtube.com',instagram:'www.instagram.com',facebook:'www.facebook.com'}[row.video_provider];
+    if(url.protocol!=='https:'||url.hostname!==host||url.username||url.password||url.port)continue;
+    const card=[...document.querySelectorAll('[data-community-admin-id]')].find(el=>el.dataset.communityAdminId===row.id);
+    const anchor=card?.querySelector('[data-admin-category]')?.parentElement;if(!anchor)continue;
+    const link=document.createElement('a');link.className='btn ghost';link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';
+    link.textContent=`${{youtube:'YouTube',instagram:'Instagram',facebook:'Facebook'}[row.video_provider]} 영상 확인`;
+    anchor.before(link);
+  }
+};
 async function change(e){const category=e.target.closest('[data-admin-category]'),card=category?.closest('[data-community-admin-id]');if(!category||!card)return;try{await call({action:'category',id:card.dataset.communityAdminId,category:category.value});await load()}catch(err){alert(err.message)}}
 async function click(e){const tab=e.target.closest('[data-community-status]');if(tab){status=tab.dataset.communityStatus;drawTabs();return load()}const card=e.target.closest('[data-community-admin-id]');if(!card)return;const id=card.dataset.communityAdminId,action=e.target.closest('[data-admin-action]');try{if(action){const hidden=action.dataset.adminAction==='hidden';await call({action:'status',id,status:action.dataset.adminAction,...(hidden?{reason:card.querySelector('[data-admin-hide-reason]')?.value,note:card.querySelector('[data-admin-hide-note]')?.value}:{})});return load()}if(e.target.closest('[data-admin-comments]')){const data=await call({action:'comments',post_id:id}),box=card.querySelector('[data-admin-comment-list]');box.innerHTML=(data.rows||[]).map(c=>`<div style="padding:8px;border-top:1px solid #eee"><b>${esc(c.author_name)}</b> ${esc(c.body)} <button class="btn ghost" data-admin-comment="${esc(c.id)}" data-comment-status="hidden">숨김</button> <button class="btn danger" data-admin-comment="${esc(c.id)}" data-comment-status="deleted">삭제</button></div>`).join('')||'<small>댓글 없음</small>';return}const c=e.target.closest('[data-admin-comment]');if(c){await call({action:'comment_status',id,comment_id:c.dataset.adminComment,status:c.dataset.commentStatus});c.closest('div').remove()}}catch(err){alert(err.message)}}
 export function initCommunityAdmin(injected){

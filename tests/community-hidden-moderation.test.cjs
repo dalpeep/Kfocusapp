@@ -86,7 +86,8 @@ test('admin endpoint hides with reason, unhides, and refuses expired marketplace
 test('image edit uses an atomic hidden-to-pending wrapper and existing Storage contract',()=>{
   const js=read('netlify/functions/lib/community-image-edit.js');
   const sql=read('supabase/community-hidden-moderation-phase1.sql');
-  assert.match(js,/post\.status==='hidden'\?'community_apply_hidden_post_image_edit'/);
+  assert.match(js,/db\.rpc\('community_apply_post_video_image_edit'/);
+  assert.match(read('supabase/community-video-link-phase1.sql'),/public\.community_apply_hidden_post_image_edit\(/);
   assert.match(sql,/community_apply_post_image_edit\(/);
   assert.match(sql,/where id=p_post_id and status='pending'/);
   assert.doesNotMatch(sql,/storage\.objects|storage\.buckets/);
