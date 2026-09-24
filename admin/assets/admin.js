@@ -1,5 +1,5 @@
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
-import {initCommunityAdmin} from './community-admin.js?v=2-auth-bridge';
+import {initCommunityAdmin} from './community-admin.js?v=community-hidden-moderation-1';
 const DTM_ADMIN_BUILD='phase1.1-special-editor-20260920.2';
 document.documentElement.dataset.dtmAdminBuild=DTM_ADMIN_BUILD;
 console.info(`[DalTownMap Admin] ${DTM_ADMIN_BUILD} loaded`);
