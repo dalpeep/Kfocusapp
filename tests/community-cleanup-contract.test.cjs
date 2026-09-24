@@ -40,7 +40,7 @@ test('author and admin endpoints use the same cleanup authority',()=>{
 function mockDb(state,objects,{storageError=false}={}){
   class Query{
     constructor(table){this.table=table;this.filters=[];this.action='select';this.max=Infinity}
-    select(){this.action='select';return this}
+    select(){if(this.action!=='update'&&this.action!=='delete')this.action='select';return this}
     delete(){this.action='delete';return this}
     update(patch){this.action='update';this.patch=patch;return this}
     eq(key,value){this.filters.push(row=>row[key]===value);return this}

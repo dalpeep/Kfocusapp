@@ -23,5 +23,5 @@ test('post delete button is separate from comment password and update/share path
   assert.match(activeHandler,/owner\.dataset\.ownerAction==='update'\)return openWrite/);
   assert.match(activeHandler,/data-comment-delete/);
   assert.match(activeHandler,/data-community-share/);
-  assert.match(html,/community\.js\?v=community-turnstile-lifecycle-1/);
+  assert.match(html,/community\.js\?v=community-hidden-ui-refresh-1/);
 });
