@@ -95,7 +95,8 @@ async function storageGet(objectKey,altMedia=false){
   const url=`https://storage.googleapis.com/storage/v1/b/${BUCKET}/o/${encodeURIComponent(objectKey)}`+
     (altMedia?'?alt=media':'');
   const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});
-  if(!response.ok)throw new Error(`Staging object read failed: ${response.status}`);
+  if(!response.ok){const error=new Error(`Staging object read failed: ${response.status}`);
+    error.status=response.status;throw error}
   return response;
 }
 async function storageDelete(objectKey){
@@ -138,7 +139,14 @@ async function processEvent(req,res){
     return json(res,200,{ok:true,ignored:true});
   const jobId=item.name.split('/')[1];
   if(!uuid(jobId))return json(res,200,{ok:true,ignored:true});
-  const meta=await (await storageGet(item.name)).json();
+  let meta;
+  try{meta=await (await storageGet(item.name)).json()}
+  catch(error){
+    // A duplicate finalized event can arrive after the successful worker has
+    // already removed its temporary object. Ack it instead of retrying forever.
+    if(error.status===404)return json(res,200,{ok:true,duplicate_or_stale:true});
+    throw error;
+  }
   const workerToken=meta.metadata?.worker_token;
   const actualSize=Number(meta.size);
   if(meta.metadata?.job_id!==jobId||typeof workerToken!=='string'||
