@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://deploy-preview-19--comforting-shortbread-ee588e.netlify.app"],
+    "method": ["POST", "PUT", "GET"],
+    "responseHeader": ["Content-Type", "Content-Range", "Range", "x-goog-resumable", "x-goog-upload-content-length", "x-goog-upload-content-type"],
+    "maxAgeSeconds": 3600
+  }
+]

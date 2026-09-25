@@ -123,6 +123,103 @@ const videoBaseOpenPost=openPost;
 openPost=async function(id){await videoBaseOpenPost(id);if(current?.id===id)appendVideo(current)};
 const videoBaseHiddenPost=renderHiddenPost;
 renderHiddenPost=function(post){videoBaseHiddenPost(post);appendVideo(post)};
+// Phase 2 isolated Preview: direct-file upload remains entirely unavailable on Production.
+if(location.host==='deploy-preview-19--comforting-shortbread-ee588e.netlify.app'){
+  const phase2OpenWrite=openWrite,phase2SubmitPost=submitPost;
+  const MAX_VIDEO_BYTES=150*1024*1024;
+  openWrite=function(existing=null){
+    phase2OpenWrite(existing);
+    if(existing)return;
+    const form=el('communityWriteForm'),link=form.elements.video_url;
+    const area=document.createElement('div');area.className='community-video-file-input';
+    area.innerHTML='<label>영상 파일 (선택, MP4 · 최대 90초 · 150 MiB)<input name="video_file" type="file" accept="video/mp4,.mp4"></label><small>영상 링크와 파일 중 하나만 선택할 수 있습니다. 파일은 게시글 접수 후 비공개 임시 공간에 업로드됩니다.</small>';
+    form.querySelector('.community-video-input').after(area);
+    const file=form.elements.video_file;
+    const previousChange=form.category.onchange;
+    form.category.onchange=()=>{previousChange?.();const allowed=['marketplace','housing'].includes(form.category.value);area.hidden=!allowed;file.disabled=!allowed;if(!allowed)file.value='';link.disabled=!allowed||Boolean(file.files.length)};
+    file.onchange=()=>{if(file.files.length){link.value='';link.disabled=true}else link.disabled=false};
+    link.oninput=()=>{if(link.value.trim())file.value=''};
+    form.category.onchange();
+    form.onsubmit=e=>submitPost(e,form);
+  };
+  async function inspectVideoFile(file){
+    if(!/\.mp4$/i.test(file.name)||file.type!=='video/mp4'||file.size<1||file.size>MAX_VIDEO_BYTES)
+      throw new Error('MP4 영상은 150 MiB 이하여야 합니다.');
+    const url=URL.createObjectURL(file),video=document.createElement('video');
+    try{
+      video.preload='metadata';video.src=url;
+      await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(new Error('MP4 정보를 읽을 수 없습니다.'))});
+      if(!Number.isFinite(video.duration)||video.duration<=0||video.duration>90)
+        throw new Error('영상 길이는 최대 90초입니다.');
+    }finally{video.removeAttribute('src');video.load();URL.revokeObjectURL(url)}
+  }
+  function uploadObject(url,file,onProgress){
+    return new Promise((resolve,reject)=>{
+      const xhr=new XMLHttpRequest();xhr.open('PUT',url);xhr.setRequestHeader('Content-Type','video/mp4');
+      xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.min(100,Math.round(e.loaded/e.total*100)))};
+      xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(new Error('임시 영상 업로드에 실패했습니다.'));
+      xhr.onerror=()=>reject(new Error('임시 영상 업로드 연결이 끊겼습니다.'));
+      xhr.send(file);
+    });
+  }
+  async function waitForVideoJob(jobId,ticket,status){
+    for(let i=0;i<20;i++){
+      await new Promise(resolve=>setTimeout(resolve,1500));
+      const state=await api('community-video-upload-status',{job_id:jobId,ticket});
+      if(state.status==='needs_review'){
+        status.textContent='영상 파일 검증 완료. 관리자 확인을 기다리고 있습니다.';return}
+      if(state.status==='failed')throw new Error('영상 검증에 실패했습니다. 게시글과 사진은 유지됩니다.');
+      status.textContent='영상 파일을 검증하고 있습니다…';
+    }
+    status.textContent='영상 처리가 계속 진행 중입니다. 게시글과 사진은 유지됩니다.';
+  }
+  submitPost=async function(e,f){
+    const file=f.elements.video_file?.files?.[0];
+    if(!file||f.dataset.editId)return phase2SubmitPost(e,f);
+    e.preventDefault();
+    const submit=f.querySelector('[type="submit"]'),status=el('communityFormStatus');
+    submit.disabled=true;
+    try{
+      await inspectVideoFile(file);
+      const data=Object.fromEntries(new FormData(f));delete data.video_file;delete data.video_url;
+      const images=f.images?[...f.images.files]:[],draft=crypto.randomUUID(),ids=[],compressed=[];
+      status.textContent='게시글과 사진을 접수하고 있습니다…';
+      for(const image of images)compressed.push(await compress(image));
+      const turnstile_token=token();
+      if(compressed.length){
+        const auth=await api('community-upload-authorize',{draft_id:draft,category:data.category,
+          region:cfg().APP_REGION||'dallas',files:compressed.map(c=>({mime_type:'image/webp',
+            byte_size:c.blob.size,width:c.width,height:c.height})),turnstile_token});
+        for(let i=0;i<compressed.length;i++){
+          const spec=auth.uploads[i],uploaded=await root.supabaseClient.storage.from(communityBucket())
+            .uploadToSignedUrl(spec.path,spec.token,compressed[i].blob,{contentType:'image/webp'});
+          if(uploaded.error)throw uploaded.error;ids.push(spec.id)
+        }
+      }
+      const post=await api('community-post-create',{...data,draft_id:draft,upload_ids:ids,
+        region:cfg().APP_REGION||'dallas',turnstile_token});
+      removeTurnstile();
+      el('communityModalBody').innerHTML='<section class="community-video-upload-step"><h2>영상 파일 업로드</h2><p>게시글은 접수되었습니다. 아래 보안 확인 후 영상 파일을 업로드하세요.</p>'+turnstileBox()+'<div class="community-form-actions"><button type="button" data-community-close>나중에 하기</button><button id="communityVideoUploadStart" type="button">영상 업로드 시작</button></div><p id="communityVideoUploadStatus" role="status"></p></section>';
+      await renderTurnstile(el('communityModalBody'));
+      const uploadStatus=el('communityVideoUploadStatus');
+      el('communityVideoUploadStart').onclick=async event=>{
+        event.currentTarget.disabled=true;
+        try{
+          uploadStatus.textContent='업로드 권한을 확인하고 있습니다…';
+          const admit=await api('community-video-upload-admit',{post_id:post.id,password:data.password,
+            byte_size:file.size,mime_type:'video/mp4',turnstile_token:token()});
+          const claimed=await fetch(`${admit.admission_url}admit`,{method:'POST',
+            headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:admit.job_id,ticket:admit.ticket})});
+          if(!claimed.ok)throw new Error('영상 업로드 세션을 만들지 못했습니다.');
+          const session=await claimed.json();
+          await uploadObject(session.upload_url,file,p=>{uploadStatus.textContent=`임시 영상 업로드 ${p}%`});
+          uploadStatus.textContent='영상 파일을 검증하고 있습니다…';
+          await waitForVideoJob(admit.job_id,admit.ticket,uploadStatus);
+        }catch(error){uploadStatus.textContent=`${error.message} 게시글과 사진은 유지됩니다.`}
+      };
+    }catch(error){status.textContent=error.message;submit.disabled=false}
+  };
+}
 root.DtmCommunity={LABELS,BATCH,ensureUI,openPage,setLegacyRows,renderHome,load,openPost,compress,closeModal,syncRobots,_state:()=>({all:[...all],total,visible,filter})};
 document.addEventListener('DOMContentLoaded',()=>{ensureUI();setTimeout(()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'){root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}},0)});window.addEventListener('popstate',()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'){closeModal();root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}else closeModal()});
 })(globalThis);
