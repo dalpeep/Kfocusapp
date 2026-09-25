@@ -1,0 +1,8 @@
+{
+  "name": "community-video-staging",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {"node": ">=20"},
+  "scripts": {"start": "node server.js"}
+}
