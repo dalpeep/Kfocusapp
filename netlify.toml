@@ -4,6 +4,11 @@
 [functions."newsroom-daily"]
   schedule = "0 11 * * *"
 
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
 # V263: HTML/manifest는 항상 최신 여부를 확인하고, 버전된 정적자산만 장기 캐시합니다.
 [[headers]]
   for = "/"
