@@ -9,7 +9,10 @@ const BUCKET='daltownmap-youtube-video-staging';
 const MAX_BYTES=150*1024*1024;
 const mode=process.env.VIDEO_SERVICE_MODE;
 if(!['admission','worker'].includes(mode))throw new Error('VIDEO_SERVICE_MODE is required');
-if(process.env.YOUTUBE_UPLOAD_ENABLED==='true')throw new Error('YouTube upload remains disabled for staging dry-run');
+const uploadEnabled=process.env.YOUTUBE_UPLOAD_ENABLED==='true';
+if(uploadEnabled&&(!/^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(
+  process.env.COMMUNITY_YOUTUBE_OAUTH_CLIENT_ID||'')||mode!=='worker'))
+  throw new Error('YouTube upload configuration invalid');
 
 const json=(res,status,data,origin='')=>{
   const headers={'Content-Type':'application/json','Cache-Control':'no-store'};
@@ -105,6 +108,62 @@ async function storageDelete(objectKey){
     {method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
   if(!response.ok&&response.status!==404)throw new Error(`Staging object cleanup failed: ${response.status}`);
 }
+async function readSecret(name){
+  if(!['daltownmap-youtube-client-secret','daltownmap-youtube-refresh-token'].includes(name))
+    throw new Error('Secret name denied');
+  const token=await googleAccessToken();
+  const response=await fetch(`https://secretmanager.googleapis.com/v1/projects/daltownmap-youtube/secrets/${name}/versions/latest:access`,
+    {headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(10000)});
+  if(!response.ok)throw new Error('Secret access unavailable');
+  const body=await response.json();
+  if(!body.payload?.data)throw new Error('Secret payload unavailable');
+  return Buffer.from(body.payload.data,'base64').toString('utf8').trim();
+}
+async function youtubeAccessToken(){
+  const [clientSecret,refreshToken]=await Promise.all([
+    readSecret('daltownmap-youtube-client-secret'),
+    readSecret('daltownmap-youtube-refresh-token')]);
+  const response=await fetch('https://oauth2.googleapis.com/token',{
+    method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:new URLSearchParams({client_id:process.env.COMMUNITY_YOUTUBE_OAUTH_CLIENT_ID,
+      client_secret:clientSecret,refresh_token:refreshToken,grant_type:'refresh_token'}),
+    signal:AbortSignal.timeout(15000)});
+  if(!response.ok)throw new Error('YouTube token refresh unavailable');
+  const body=await response.json();
+  if(!body.access_token||
+     (body.scope&&!body.scope.split(/\s+/).includes('https://www.googleapis.com/auth/youtube.upload')))
+    throw new Error('YouTube upload scope unavailable');
+  return body.access_token;
+}
+async function uploadYouTube(data,jobId){
+  const token=await youtubeAccessToken();
+  const metadata={snippet:{title:`CMT-STAGING-PHASE2-${jobId} - DELETE`,
+    description:'Temporary isolated staging API upload test. Safe to delete.'},
+    status:{privacyStatus:'unlisted'}};
+  const start=await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',{
+    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8',
+      'X-Upload-Content-Length':String(data.length),'X-Upload-Content-Type':'video/mp4'},
+    body:JSON.stringify(metadata),signal:AbortSignal.timeout(15000)});
+  const session=start.headers.get('location');
+  if(!start.ok||!session||!session.startsWith('https://www.googleapis.com/'))
+    throw new Error('YouTube session unavailable');
+  // Exactly one media PUT. Never retry an ambiguous response or Eventarc delivery.
+  const uploaded=await fetch(session,{method:'PUT',headers:{Authorization:`Bearer ${token}`,
+    'Content-Type':'video/mp4','Content-Length':String(data.length)},body:data,
+    signal:AbortSignal.timeout(240000)});
+  if(!uploaded.ok)throw new Error('YouTube insert response uncertain');
+  const result=await uploaded.json();
+  if(!/^[A-Za-z0-9_-]{11}$/.test(result.id||''))
+    throw new Error('YouTube insert identity uncertain');
+  let actual='unknown';
+  try{
+    const check=await fetch(`https://www.googleapis.com/youtube/v3/videos?part=status&id=${encodeURIComponent(result.id)}`,
+      {headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(10000)});
+    if(check.ok){const body=await check.json();
+      actual=body.items?.[0]?.status?.privacyStatus||'unknown'}
+  }catch{}
+  return{id:result.id,privacy:actual};
+}
 function ffprobe(path){
   return new Promise((resolve,reject)=>{
     const child=spawn('ffprobe',['-v','error','-show_entries',
@@ -159,21 +218,32 @@ async function processEvent(req,res){
     return json(res,200,{ok:true,duplicate_or_stale:true});
   const lock=claimed[0].processing_lock;
   const temp=`/tmp/${jobId}.mp4`;
-  let result='validation_failed';
+  let result='validation_failed',video=null;
   try{
     const media=await storageGet(item.name,true);
     const data=Buffer.from(await media.arrayBuffer());
     if(data.length!==actualSize)throw new Error('Object size mismatch');
     await writeFile(temp,data,{flag:'wx'});
     const probe=await ffprobe(temp);
-    result=validVideo(probe)?'dry_run_ready':'invalid_format';
+    if(validVideo(probe)){
+      if(uploadEnabled){
+        result='upload_uncertain';
+        try{video=await uploadYouTube(data,jobId);
+          result=video.privacy==='unlisted'?'uploaded':'needs_review'}catch{}
+      }else result='dry_run_ready';
+    }else result='invalid_format';
   }catch{result='validation_failed'}
   finally{await unlink(temp).catch(()=>{})}
-  const finished=await rpc('community_video_finish_dry_run',{
-    p_job_id:jobId,p_worker_token:workerToken,p_processing_lock:lock,p_result:result});
+  const finished=uploadEnabled&&['uploaded','needs_review','upload_uncertain'].includes(result)
+    ?await rpc('community_video_finish_upload',{
+      p_job_id:jobId,p_worker_token:workerToken,p_processing_lock:lock,
+      p_video_id:video?.id||null,p_privacy_status:video?.privacy||null,
+      p_result:result==='uploaded'?'uploaded':'needs_review'})
+    :await rpc('community_video_finish_dry_run',{
+      p_job_id:jobId,p_worker_token:workerToken,p_processing_lock:lock,p_result});
   if(finished!==true)throw new Error('Staging job finish failed');
   await storageDelete(item.name);
-  return json(res,200,{ok:true,dry_run:true,result});
+  return json(res,200,{ok:true,dry_run:!uploadEnabled,result});
 }
 http.createServer(async(req,res)=>{
   try{if(mode==='admission')await admit(req,res);else await processEvent(req,res)}

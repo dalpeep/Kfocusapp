@@ -1,5 +1,5 @@
 -- Isolated staging only. Do not apply to Production.
--- Rollback: drop the four community_video_* capability functions, then
+-- Rollback: drop the five community_video_* capability functions, then
 -- drop public.community_video_upload_jobs. No existing Community rows change.
 
 create table if not exists public.community_video_upload_jobs (
@@ -117,6 +117,50 @@ begin
   return changed = 1;
 end $$;
 
+create or replace function public.community_video_finish_upload(
+  p_job_id uuid, p_worker_token text, p_processing_lock uuid,
+  p_video_id text, p_privacy_status text, p_result text
+) returns boolean
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
+declare target_post uuid; changed integer;
+begin
+  if length(coalesce(p_worker_token,'')) < 40 or
+     p_result not in ('uploaded','needs_review') or
+     (p_video_id is not null and p_video_id !~ '^[A-Za-z0-9_-]{11}$')
+    then return false; end if;
+  select post_id into target_post from public.community_video_upload_jobs
+   where id=p_job_id and status='processing'
+     and processing_lock=p_processing_lock
+     and worker_token_hash=encode(digest(p_worker_token,'sha256'),'hex')
+   for update;
+  if target_post is null then return false; end if;
+  if p_result='uploaded' and p_privacy_status='unlisted' and p_video_id is not null then
+    update public.community_posts
+       set video_url='https://www.youtube.com/watch?v='||p_video_id,
+           video_provider='youtube',updated_at=now()
+     where id=target_post and status in ('pending','approved')
+       and category in ('marketplace','housing')
+       and video_url is null and video_provider is null;
+    get diagnostics changed=row_count;
+    if changed=1 then
+      update public.community_video_upload_jobs
+         set status='uploaded',youtube_video_id=p_video_id,
+             error_category=null,updated_at=now()
+       where id=p_job_id and status='processing';
+      get diagnostics changed=row_count;
+      if changed<>1 then raise exception 'Upload job transition failed'; end if;
+      return true;
+    end if;
+  end if;
+  update public.community_video_upload_jobs
+     set status='needs_review',youtube_video_id=p_video_id,
+         error_category=case when p_privacy_status='private' then 'private_restriction'
+                             else 'upload_uncertain' end,updated_at=now()
+   where id=p_job_id and status='processing';
+  get diagnostics changed=row_count;
+  return changed=1;
+end $$;
+
 revoke all on function public.community_video_claim_admission(uuid,text,text)
   from public, authenticated;
 revoke all on function public.community_video_claim_processing(uuid,text,text,bigint)
@@ -125,7 +169,10 @@ revoke all on function public.community_video_fail_admission(uuid,text)
   from public, authenticated;
 revoke all on function public.community_video_finish_dry_run(uuid,text,uuid,text)
   from public, authenticated;
+revoke all on function public.community_video_finish_upload(uuid,text,uuid,text,text,text)
+  from public, authenticated;
 grant execute on function public.community_video_claim_admission(uuid,text,text) to anon;
 grant execute on function public.community_video_claim_processing(uuid,text,text,bigint) to anon;
 grant execute on function public.community_video_fail_admission(uuid,text) to anon;
 grant execute on function public.community_video_finish_dry_run(uuid,text,uuid,text) to anon;
+grant execute on function public.community_video_finish_upload(uuid,text,uuid,text,text,text) to anon;
