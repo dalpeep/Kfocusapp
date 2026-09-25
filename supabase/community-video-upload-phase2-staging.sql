@@ -41,7 +41,7 @@ grant select, insert, update on public.community_video_upload_jobs to service_ro
 create or replace function public.community_video_claim_admission(
   p_job_id uuid, p_ticket text, p_worker_token_hash text
 ) returns table(object_key text, expected_byte_size bigint)
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
 begin
   if length(coalesce(p_ticket,'')) < 40 or
      p_worker_token_hash !~ '^[0-9a-f]{64}$' then return; end if;
@@ -62,7 +62,7 @@ end $$;
 create or replace function public.community_video_claim_processing(
   p_job_id uuid, p_worker_token text, p_object_key text, p_actual_byte_size bigint
 ) returns table(post_id uuid, processing_lock uuid)
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
 begin
   if length(coalesce(p_worker_token,'')) < 40 or
      p_actual_byte_size not between 1 and 157286400 then return; end if;
@@ -85,7 +85,7 @@ end $$;
 create or replace function public.community_video_fail_admission(
   p_job_id uuid, p_worker_token text
 ) returns boolean
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
 declare changed integer;
 begin
   if length(coalesce(p_worker_token,'')) < 40 then return false; end if;
@@ -101,7 +101,7 @@ create or replace function public.community_video_finish_dry_run(
   p_job_id uuid, p_worker_token text, p_processing_lock uuid,
   p_result text
 ) returns boolean
-language plpgsql security definer set search_path = public, pg_temp as $$
+language plpgsql security definer set search_path = public, extensions, pg_temp as $$
 declare changed integer;
 begin
   if length(coalesce(p_worker_token,'')) < 40 or
