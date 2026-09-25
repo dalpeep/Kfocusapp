@@ -341,6 +341,7 @@ async function main() {
 
   const urls = [
     { loc: `${SITE_URL}/`, priority: '1.0', changefreq: 'daily' },
+    { loc: `${SITE_URL}/privacy`, priority: '0.3', changefreq: 'monthly' },
     { loc: `${SITE_URL}/seo.html`, priority: '0.8', changefreq: 'weekly' },
     { loc: `${SITE_URL}/llms.txt`, priority: '0.4', changefreq: 'monthly' }
   ];
