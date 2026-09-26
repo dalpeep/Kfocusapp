@@ -166,6 +166,8 @@ if(location.host==='deploy-preview-19--comforting-shortbread-ee588e.netlify.app'
     for(let i=0;i<20;i++){
       await new Promise(resolve=>setTimeout(resolve,1500));
       const state=await api('community-video-upload-status',{job_id:jobId,ticket});
+      if(state.status==='uploaded'){
+        status.textContent='영상 업로드가 완료되었습니다. 게시글 승인 후 상세에서 볼 수 있습니다.';return}
       if(state.status==='needs_review'){
         status.textContent='영상 파일 검증 완료. 관리자 확인을 기다리고 있습니다.';return}
       if(state.status==='failed')throw new Error('영상 검증에 실패했습니다. 게시글과 사진은 유지됩니다.');
