@@ -137,7 +137,7 @@ async function youtubeAccessToken(){
 }
 async function uploadYouTube(data,jobId){
   const token=await youtubeAccessToken();
-  const metadata={snippet:{title:`CMT-STAGING-PHASE2-${jobId} - DELETE`,
+  const metadata={snippet:{title:`DaltownMap Community Video E2E STAGING - DELETE (${jobId})`,
     description:'Temporary isolated staging API upload test. Safe to delete.'},
     status:{privacyStatus:'unlisted'}};
   const start=await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',{
