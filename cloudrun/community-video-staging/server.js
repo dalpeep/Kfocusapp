@@ -305,7 +305,7 @@ async function processEvent(req,res){
       p_video_id:video?.id||null,p_privacy_status:video?.privacy||null,
       p_result:result==='uploaded'?'uploaded':'needs_review'})
     :await rpc('community_video_finish_dry_run',{
-      p_job_id:jobId,p_worker_token:workerToken,p_processing_lock:lock,p_result});
+      p_job_id:jobId,p_worker_token:workerToken,p_processing_lock:lock,p_result:result});
   if(finished!==true)throw new Error('Video job finish failed');
   await storageTombstone(item.name,meta.generation);
   return json(res,200,{ok:true,dry_run:!uploadEnabled,result});
