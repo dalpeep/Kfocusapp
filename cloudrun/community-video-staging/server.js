@@ -264,9 +264,11 @@ async function processEvent(req,res){
     if(error.status===404)return json(res,200,{ok:true,duplicate_or_stale:true});
     throw error;
   }
-  const workerToken=meta.metadata?.worker_token;
+  // XML signed PUT normalizes custom metadata keys with hyphens; the older
+  // JSON resumable path used underscores. Accept both during staging cutover.
+  const workerToken=meta.metadata?.['worker-token']||meta.metadata?.worker_token;
   const actualSize=Number(meta.size);
-  if(meta.metadata?.job_id!==jobId||typeof workerToken!=='string'||
+  if((meta.metadata?.['job-id']||meta.metadata?.job_id)!==jobId||typeof workerToken!=='string'||
      !Number.isSafeInteger(actualSize)||actualSize<1)
     return json(res,200,{ok:true,ignored:true});
   if(actualSize>MAX_BYTES){
