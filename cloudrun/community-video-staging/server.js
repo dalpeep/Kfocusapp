@@ -3,10 +3,25 @@ import {createHash,randomBytes} from 'node:crypto';
 import {writeFile,unlink} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 
-const PREVIEW='https://deploy-preview-19--comforting-shortbread-ee588e.netlify.app';
-const SUPABASE_REF='rhfypnxzlwdyosbszjcv';
-const BUCKET='daltownmap-youtube-video-staging';
+const SITE_ORIGIN=process.env.COMMUNITY_VIDEO_SITE_ORIGIN||'';
+const SUPABASE_URL=process.env.COMMUNITY_VIDEO_SUPABASE_URL||'';
+const BUCKET=process.env.COMMUNITY_VIDEO_BUCKET||'';
+const OBJECT_PREFIX=process.env.COMMUNITY_VIDEO_OBJECT_PREFIX||'';
+const GOOGLE_PROJECT=process.env.GOOGLE_CLOUD_PROJECT||'';
+for(const [name,value] of Object.entries({COMMUNITY_VIDEO_SITE_ORIGIN:SITE_ORIGIN,
+  COMMUNITY_VIDEO_SUPABASE_URL:SUPABASE_URL,COMMUNITY_VIDEO_BUCKET:BUCKET,
+  COMMUNITY_VIDEO_OBJECT_PREFIX:OBJECT_PREFIX,GOOGLE_CLOUD_PROJECT:GOOGLE_PROJECT}))
+  if(!value)throw new Error(`${name} is required`);
+const site=new URL(SITE_ORIGIN),database=new URL(SUPABASE_URL);
+if(site.protocol!=='https:'||site.origin!==SITE_ORIGIN||site.username||site.password||site.port||
+   database.protocol!=='https:'||database.origin!==SUPABASE_URL||
+   !/^[a-z0-9]+\.supabase\.co$/.test(database.hostname)||
+   !/^(staging|production)$/.test(OBJECT_PREFIX)||
+   !/^daltownmap-youtube-video-(staging|production)$/.test(BUCKET)||
+   BUCKET!==`daltownmap-youtube-video-${OBJECT_PREFIX}`)
+  throw new Error('Video deployment configuration invalid');
 const MAX_BYTES=150*1024*1024;
+const SIGNED_UPLOAD_TTL_SECONDS=900;
 const mode=process.env.VIDEO_SERVICE_MODE;
 if(!['admission','worker'].includes(mode))throw new Error('VIDEO_SERVICE_MODE is required');
 const uploadEnabled=process.env.YOUTUBE_UPLOAD_ENABLED==='true';
@@ -16,7 +31,7 @@ if(uploadEnabled&&(!/^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test
 
 const json=(res,status,data,origin='')=>{
   const headers={'Content-Type':'application/json','Cache-Control':'no-store'};
-  if(origin===PREVIEW){headers['Access-Control-Allow-Origin']=PREVIEW;headers.Vary='Origin'}
+  if(origin===SITE_ORIGIN){headers['Access-Control-Allow-Origin']=SITE_ORIGIN;headers.Vary='Origin'}
   res.writeHead(status,headers);res.end(JSON.stringify(data));
 };
 const sha256=v=>createHash('sha256').update(v).digest('hex');
@@ -27,14 +42,14 @@ async function input(req,max=4096){
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 async function publicConfig(){
-  const response=await fetch(`${PREVIEW}/.netlify/functions/config`,{headers:{Accept:'application/javascript'}});
-  if(!response.ok)throw new Error('Preview config unavailable');
+  const response=await fetch(`${SITE_ORIGIN}/.netlify/functions/config`,{headers:{Accept:'application/javascript'}});
+  if(!response.ok)throw new Error('Site config unavailable');
   const text=await response.text();
   const match=text.match(/window\.APP_CONFIG\s*=\s*(\{[^\n]+\});/);
-  if(!match)throw new Error('Preview config invalid');
+  if(!match)throw new Error('Site config invalid');
   const cfg=JSON.parse(match[1]);
-  if(cfg.SUPABASE_URL!==`https://${SUPABASE_REF}.supabase.co`||!cfg.SUPABASE_ANON_KEY)
-    throw new Error('Preview staging project mismatch');
+  if(cfg.SUPABASE_URL!==SUPABASE_URL||!cfg.SUPABASE_ANON_KEY)
+    throw new Error('Site database project mismatch');
   return cfg;
 }
 async function rpc(name,body){
@@ -43,7 +58,7 @@ async function rpc(name,body){
     method:'POST',headers:{apikey:cfg.SUPABASE_ANON_KEY,
       Authorization:`Bearer ${cfg.SUPABASE_ANON_KEY}`,
       'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!response.ok)throw new Error(`Staging job RPC failed: ${response.status}`);
+  if(!response.ok)throw new Error(`Video job RPC failed: ${response.status}`);
   return response.json();
 }
 async function googleAccessToken(){
@@ -54,27 +69,57 @@ async function googleAccessToken(){
   if(!body.access_token)throw new Error('Service identity invalid');
   return body.access_token;
 }
-async function startResumable(objectKey,byteSize,jobId,workerToken){
+async function signedPut(objectKey,jobId,workerToken){
   const token=await googleAccessToken();
-  const url=`https://storage.googleapis.com/upload/storage/v1/b/${BUCKET}/o?uploadType=resumable&name=${encodeURIComponent(objectKey)}`;
-  const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,
-    'Content-Type':'application/json','X-Upload-Content-Type':'video/mp4',
-    'X-Upload-Content-Length':String(byteSize),Origin:PREVIEW},
-    body:JSON.stringify({name:objectKey,contentType:'video/mp4',metadata:{job_id:jobId,worker_token:workerToken}})});
-  const location=response.headers.get('location');
-  if(!response.ok||!location)throw new Error(`Upload session failed: ${response.status}`);
-  return location;
+  const identity=await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email',
+    {headers:{'Metadata-Flavor':'Google'}});
+  if(!identity.ok)throw new Error('Signing identity unavailable');
+  const email=(await identity.text()).trim();
+  if(email!==`community-video-admission-${OBJECT_PREFIX==='staging'?'stg':'prod'}@${GOOGLE_PROJECT}.iam.gserviceaccount.com`)
+    throw new Error('Signing identity invalid');
+  const date=new Date().toISOString().replace(/[-:]|\.\d{3}/g,'');
+  const day=date.slice(0,8),credential=`${email}/${day}/auto/storage/goog4_request`;
+  const headers={
+    'content-type':'video/mp4',
+    'x-goog-content-length-range':`1,${MAX_BYTES}`,
+    'x-goog-if-generation-match':'0',
+    'x-goog-meta-job-id':jobId,
+    'x-goog-meta-worker-token':workerToken
+  };
+  const signedHeaders=['host',...Object.keys(headers)].sort();
+  const query=new URLSearchParams({
+    'X-Goog-Algorithm':'GOOG4-RSA-SHA256',
+    'X-Goog-Credential':credential,
+    'X-Goog-Date':date,
+    'X-Goog-Expires':String(SIGNED_UPLOAD_TTL_SECONDS),
+    'X-Goog-SignedHeaders':signedHeaders.join(';')
+  });
+  const canonicalQuery=[...query].sort(([a],[b])=>a.localeCompare(b))
+    .map(([key,value])=>`${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
+  const path=`/${BUCKET}/${objectKey.split('/').map(encodeURIComponent).join('/')}`;
+  const canonicalHeaders=signedHeaders.map(name=>`${name}:${name==='host'?'storage.googleapis.com':headers[name]}\n`).join('');
+  const canonicalRequest=`PUT\n${path}\n${canonicalQuery}\n${canonicalHeaders}\n${signedHeaders.join(';')}\nUNSIGNED-PAYLOAD`;
+  const scope=`${day}/auto/storage/goog4_request`;
+  const stringToSign=`GOOG4-RSA-SHA256\n${date}\n${scope}\n${sha256(canonicalRequest)}`;
+  const signed=await fetch(`https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${email}:signBlob`,{
+    method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+    body:JSON.stringify({payload:Buffer.from(stringToSign).toString('base64')})});
+  if(!signed.ok)throw new Error(`Upload signing failed: ${signed.status}`);
+  const signature=Buffer.from((await signed.json()).signedBlob||'','base64').toString('hex');
+  if(!signature)throw new Error('Upload signing unavailable');
+  return{url:`https://storage.googleapis.com${path}?${canonicalQuery}&X-Goog-Signature=${signature}`,
+    headers:Object.fromEntries(Object.entries(headers).filter(([name])=>name!=='content-type'))};
 }
 async function admit(req,res){
   const origin=req.headers.origin||'';
   if(req.method==='OPTIONS'){
-    if(origin!==PREVIEW)return json(res,403,{ok:false});
-    res.writeHead(204,{'Access-Control-Allow-Origin':PREVIEW,
+    if(origin!==SITE_ORIGIN)return json(res,403,{ok:false});
+    res.writeHead(204,{'Access-Control-Allow-Origin':SITE_ORIGIN,
       'Access-Control-Allow-Methods':'POST, OPTIONS',
       'Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'600',Vary:'Origin'});
     return res.end();
   }
-  if(req.method!=='POST'||req.url!=='/admit'||origin!==PREVIEW)return json(res,403,{ok:false});
+  if(req.method!=='POST'||req.url!=='/admit'||origin!==SITE_ORIGIN)return json(res,403,{ok:false});
   const body=await input(req);
   if(!uuid(body.job_id)||typeof body.ticket!=='string'||body.ticket.length<40)
     return json(res,400,{ok:false},origin);
@@ -83,14 +128,14 @@ async function admit(req,res){
     p_job_id:body.job_id,p_ticket:body.ticket,p_worker_token_hash:sha256(workerToken)});
   if(!Array.isArray(claims)||claims.length!==1)return json(res,409,{ok:false,error:'Invalid or consumed ticket.'},origin);
   const claim=claims[0];
-  if(!/^staging\/[0-9a-f-]+\/[0-9a-f-]+\.mp4$/.test(claim.object_key)||
+  if(!new RegExp(`^${OBJECT_PREFIX}/[0-9a-f-]+/[0-9a-f-]+\\.mp4$`).test(claim.object_key)||
      claim.expected_byte_size<1||claim.expected_byte_size>MAX_BYTES)
-    throw new Error('Invalid staging reservation');
-  let uploadUrl;
-  try{uploadUrl=await startResumable(claim.object_key,claim.expected_byte_size,body.job_id,workerToken)}
+    throw new Error('Invalid video reservation');
+  let upload;
+  try{upload=await signedPut(claim.object_key,body.job_id,workerToken)}
   catch(error){await rpc('community_video_fail_admission',{
       p_job_id:body.job_id,p_worker_token:workerToken}).catch(()=>{});throw error}
-  return json(res,200,{ok:true,upload_url:uploadUrl,job_id:body.job_id,
+  return json(res,200,{ok:true,upload_url:upload.url,upload_headers:upload.headers,job_id:body.job_id,
     byte_size:claim.expected_byte_size},origin);
 }
 async function storageGet(objectKey,altMedia=false){
@@ -98,7 +143,7 @@ async function storageGet(objectKey,altMedia=false){
   const url=`https://storage.googleapis.com/storage/v1/b/${BUCKET}/o/${encodeURIComponent(objectKey)}`+
     (altMedia?'?alt=media':'');
   const response=await fetch(url,{headers:{Authorization:`Bearer ${token}`}});
-  if(!response.ok){const error=new Error(`Staging object read failed: ${response.status}`);
+  if(!response.ok){const error=new Error(`Video object read failed: ${response.status}`);
     error.status=response.status;throw error}
   return response;
 }
@@ -106,13 +151,23 @@ async function storageDelete(objectKey){
   const token=await googleAccessToken();
   const response=await fetch(`https://storage.googleapis.com/storage/v1/b/${BUCKET}/o/${encodeURIComponent(objectKey)}`,
     {method:'DELETE',headers:{Authorization:`Bearer ${token}`}});
-  if(!response.ok&&response.status!==404)throw new Error(`Staging object cleanup failed: ${response.status}`);
+  if(!response.ok&&response.status!==404)throw new Error(`Video object cleanup failed: ${response.status}`);
+}
+async function storageTombstone(objectKey,generation){
+  if(!/^\d+$/.test(String(generation||'')))throw new Error('Object generation unavailable');
+  const token=await googleAccessToken();
+  // Atomic replacement removes the video bytes while retaining a live object
+  // until lifecycle cleanup. A signed PUT with generation-match:0 cannot replay.
+  const url=`https://storage.googleapis.com/upload/storage/v1/b/${BUCKET}/o?uploadType=media&name=${encodeURIComponent(objectKey)}&ifGenerationMatch=${generation}`;
+  const response=await fetch(url,{method:'POST',headers:{Authorization:`Bearer ${token}`,
+    'Content-Type':'application/octet-stream','Content-Length':'0'},body:''});
+  if(!response.ok)throw new Error(`Video tombstone failed: ${response.status}`);
 }
 async function readSecret(name){
   if(!['daltownmap-youtube-client-secret','daltownmap-youtube-refresh-token'].includes(name))
     throw new Error('Secret name denied');
   const token=await googleAccessToken();
-  const response=await fetch(`https://secretmanager.googleapis.com/v1/projects/daltownmap-youtube/secrets/${name}/versions/latest:access`,
+  const response=await fetch(`https://secretmanager.googleapis.com/v1/projects/${GOOGLE_PROJECT}/secrets/${name}/versions/latest:access`,
     {headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(10000)});
   if(!response.ok)throw new Error('Secret access unavailable');
   const body=await response.json();
@@ -131,14 +186,17 @@ async function youtubeAccessToken(){
   if(!response.ok)throw new Error('YouTube token refresh unavailable');
   const body=await response.json();
   if(!body.access_token||
-     (body.scope&&!body.scope.split(/\s+/).includes('https://www.googleapis.com/auth/youtube.upload')))
-    throw new Error('YouTube upload scope unavailable');
+     (body.scope&&!['https://www.googleapis.com/auth/youtube.upload',
+       'https://www.googleapis.com/auth/youtube.readonly'].every(scope=>body.scope.split(/\s+/).includes(scope))))
+    throw new Error('YouTube dual scope unavailable');
   return body.access_token;
 }
 async function uploadYouTube(data,jobId){
   const token=await youtubeAccessToken();
-  const metadata={snippet:{title:`DaltownMap Community Video E2E STAGING - DELETE (${jobId})`,
-    description:'Temporary isolated staging API upload test. Safe to delete.'},
+  const metadata={snippet:{title:OBJECT_PREFIX==='staging'
+    ?`DaltownMap Community Video E2E STAGING - DELETE (${jobId})`
+    :`DaltownMap Community Video (${jobId})`,
+    description:OBJECT_PREFIX==='staging'?'Temporary isolated staging API upload test. Safe to delete.':'DaltownMap Community video.'},
     status:{privacyStatus:'unlisted'}};
   const start=await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status',{
     method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json; charset=UTF-8',
@@ -194,7 +252,7 @@ async function processEvent(req,res){
   // Keep structured mode support for local contract tests.
   const event=await input(req,16384);
   const item=req.headers['ce-type'] ? event : (event.data||{});
-  if(item.bucket!==BUCKET||!/^staging\/[0-9a-f-]+\/[0-9a-f-]+\.mp4$/.test(item.name||''))
+  if(item.bucket!==BUCKET||!new RegExp(`^${OBJECT_PREFIX}/[0-9a-f-]+/[0-9a-f-]+\\.mp4$`).test(item.name||''))
     return json(res,200,{ok:true,ignored:true});
   const jobId=item.name.split('/')[1];
   if(!uuid(jobId))return json(res,200,{ok:true,ignored:true});
@@ -209,8 +267,13 @@ async function processEvent(req,res){
   const workerToken=meta.metadata?.worker_token;
   const actualSize=Number(meta.size);
   if(meta.metadata?.job_id!==jobId||typeof workerToken!=='string'||
-     !Number.isSafeInteger(actualSize)||actualSize<1||actualSize>MAX_BYTES)
+     !Number.isSafeInteger(actualSize)||actualSize<1)
     return json(res,200,{ok:true,ignored:true});
+  if(actualSize>MAX_BYTES){
+    await rpc('community_video_fail_admission',{p_job_id:jobId,p_worker_token:workerToken});
+    await storageTombstone(item.name,meta.generation);
+    return json(res,200,{ok:true,result:'oversize_rejected'});
+  }
   const claimed=await rpc('community_video_claim_processing',{
     p_job_id:jobId,p_worker_token:workerToken,p_object_key:item.name,
     p_actual_byte_size:actualSize});
@@ -241,12 +304,12 @@ async function processEvent(req,res){
       p_result:result==='uploaded'?'uploaded':'needs_review'})
     :await rpc('community_video_finish_dry_run',{
       p_job_id:jobId,p_worker_token:workerToken,p_processing_lock:lock,p_result});
-  if(finished!==true)throw new Error('Staging job finish failed');
-  await storageDelete(item.name);
+  if(finished!==true)throw new Error('Video job finish failed');
+  await storageTombstone(item.name,meta.generation);
   return json(res,200,{ok:true,dry_run:!uploadEnabled,result});
 }
 http.createServer(async(req,res)=>{
   try{if(mode==='admission')await admit(req,res);else await processEvent(req,res)}
-  catch(error){console.error('[community-video-staging]',error.message);
-    json(res,500,{ok:false,error:'Staging video request failed.'},req.headers.origin||'')}
+  catch(error){console.error('[community-video]',error.message);
+    json(res,500,{ok:false,error:'Video request failed.'},req.headers.origin||'')}
 }).listen(Number(process.env.PORT||8080),'0.0.0.0');

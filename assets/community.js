@@ -153,9 +153,10 @@ if(location.host==='deploy-preview-19--comforting-shortbread-ee588e.netlify.app'
         throw new Error('영상 길이는 최대 90초입니다.');
     }finally{video.removeAttribute('src');video.load();URL.revokeObjectURL(url)}
   }
-  function uploadObject(url,file,onProgress){
+  function uploadObject(url,file,headers,onProgress){
     return new Promise((resolve,reject)=>{
       const xhr=new XMLHttpRequest();xhr.open('PUT',url);xhr.setRequestHeader('Content-Type','video/mp4');
+      for(const [name,value] of Object.entries(headers||{}))xhr.setRequestHeader(name,value);
       xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.min(100,Math.round(e.loaded/e.total*100)))};
       xhr.onload=()=>xhr.status>=200&&xhr.status<300?resolve():reject(new Error('임시 영상 업로드에 실패했습니다.'));
       xhr.onerror=()=>reject(new Error('임시 영상 업로드 연결이 끊겼습니다.'));
@@ -214,7 +215,7 @@ if(location.host==='deploy-preview-19--comforting-shortbread-ee588e.netlify.app'
             headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:admit.job_id,ticket:admit.ticket})});
           if(!claimed.ok)throw new Error('영상 업로드 세션을 만들지 못했습니다.');
           const session=await claimed.json();
-          await uploadObject(session.upload_url,file,p=>{uploadStatus.textContent=`임시 영상 업로드 ${p}%`});
+          await uploadObject(session.upload_url,file,session.upload_headers,p=>{uploadStatus.textContent=`임시 영상 업로드 ${p}%`});
           uploadStatus.textContent='영상 파일을 검증하고 있습니다…';
           await waitForVideoJob(admit.job_id,admit.ticket,uploadStatus);
         }catch(error){uploadStatus.textContent=`${error.message} 게시글과 사진은 유지됩니다.`}
