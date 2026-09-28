@@ -3,8 +3,10 @@ const S=require('./lib/community-security');
 
 exports.handler=S.handler(async event=>{
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});
-  if(String(event.headers?.host||'').toLowerCase()!==
-     'deploy-preview-19--comforting-shortbread-ee588e.netlify.app')
+  let configuredHost='';
+  try{const origin=new URL(process.env.COMMUNITY_VIDEO_UPLOAD_ORIGIN||'');if(origin.protocol==='https:'&&!origin.username&&!origin.password&&!origin.port&&origin.pathname==='/'&&!origin.search&&!origin.hash)configuredHost=origin.host}catch{}
+  if(process.env.COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED!=='true'||
+     String(event.headers?.host||'').toLowerCase()!==configuredHost)
     return S.response(404,{ok:false,error:'Unavailable.'});
   const body=S.parse(event);
   const ticket=String(body.ticket||'');

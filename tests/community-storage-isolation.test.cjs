@@ -28,7 +28,7 @@ test('Community Storage fails closed without its dedicated bucket',()=>{
 
 test('every Community upload and cleanup path uses the dedicated authority',()=>{
   const browser=read('assets/community.js');
-  assert.equal((browser.match(/\.storage\.from\(communityBucket\(\)\)/g)||[]).length,3);
+  assert.equal((browser.match(/\.storage\.from\(communityBucket\(\)\)/g)||[]).length,4);
   assert.doesNotMatch(browser,/cfg\(\)\.STORAGE_BUCKET|storage\.from\(['"]public-images['"]\)/);
   for(const file of ['community-post-create.js','community-upload-authorize.js','lib/community-image-edit.js','lib/community-cleanup.js']){
     const source=read('netlify/functions/'+file);

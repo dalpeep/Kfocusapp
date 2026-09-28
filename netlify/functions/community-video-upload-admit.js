@@ -2,12 +2,15 @@ const crypto=require('crypto');
 const S=require('./lib/community-security');
 
 const MAX_BYTES=150*1024*1024;
-const STAGING_ORIGIN='https://deploy-preview-19--comforting-shortbread-ee588e.netlify.app';
+const uploadOrigin=()=>String(process.env.COMMUNITY_VIDEO_UPLOAD_ORIGIN||'');
+const uploadPrefix=()=>String(process.env.COMMUNITY_VIDEO_OBJECT_PREFIX||'');
 
 exports.handler=S.handler(async event=>{
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});
-  // This endpoint cannot be used on Production or on another Preview.
-  if(String(event.headers?.host||'').toLowerCase()!==new URL(STAGING_ORIGIN).host)
+  let configuredHost='';
+  try{const origin=new URL(uploadOrigin());if(origin.protocol==='https:'&&!origin.username&&!origin.password&&!origin.port&&origin.pathname==='/'&&!origin.search&&!origin.hash)configuredHost=origin.host}catch{}
+  if(process.env.COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED!=='true'||
+     String(event.headers?.host||'').toLowerCase()!==configuredHost)
     return S.response(404,{ok:false,error:'Unavailable.'});
   const body=S.parse(event);
   const postId=String(body.post_id||'');
@@ -16,15 +19,15 @@ exports.handler=S.handler(async event=>{
      !Number.isSafeInteger(byteSize)||byteSize<1||byteSize>MAX_BYTES||
      body.mime_type!=='video/mp4')
     return S.response(400,{ok:false,error:'MP4 파일은 최대 150 MiB까지 업로드할 수 있습니다.'});
-  const admissionUrl=String(process.env.COMMUNITY_VIDEO_ADMISSION_STAGING_URL||'');
+  const admissionUrl=String(process.env.COMMUNITY_VIDEO_ADMISSION_URL||'');
   let admissionHost='',normalizedAdmissionUrl='';
   try{const parsed=new URL(admissionUrl);if(parsed.protocol==='https:'&&
       !parsed.username&&!parsed.password&&!parsed.port&&parsed.pathname==='/'&&
       !parsed.search&&!parsed.hash){admissionHost=parsed.hostname;
         normalizedAdmissionUrl=parsed.origin+'/'}}catch{}
-  if(!admissionHost.startsWith('community-video-admission-staging-')||
-     !admissionHost.endsWith('.run.app'))
-    return S.response(503,{ok:false,error:'Staging video service unavailable.'});
+  if(!/^community-video-admission-(staging|production)-[a-z0-9-]+\.run\.app$/.test(admissionHost)||
+     !/^(staging|production)$/.test(uploadPrefix()))
+    return S.response(503,{ok:false,error:'Video service unavailable.'});
 
   const db=S.client();
   await S.verifyTurnstile(event,body.turnstile_token);
@@ -44,7 +47,7 @@ exports.handler=S.handler(async event=>{
   const now=Date.now();
   const inserted=await db.from('community_video_upload_jobs').insert({
     id:jobId,post_id:postId,object_id:objectId,
-    object_key:`staging/${jobId}/${objectId}.mp4`,
+    object_key:`${uploadPrefix()}/${jobId}/${objectId}.mp4`,
     expected_byte_size:byteSize,
     ticket_hash:crypto.createHash('sha256').update(ticket).digest('hex'),
     expires_at:new Date(now+10*60*1000).toISOString(),

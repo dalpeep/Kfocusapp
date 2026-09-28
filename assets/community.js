@@ -123,8 +123,8 @@ const videoBaseOpenPost=openPost;
 openPost=async function(id){await videoBaseOpenPost(id);if(current?.id===id)appendVideo(current)};
 const videoBaseHiddenPost=renderHiddenPost;
 renderHiddenPost=function(post){videoBaseHiddenPost(post);appendVideo(post)};
-// Phase 2 isolated Preview: direct-file upload remains entirely unavailable on Production.
-if(location.host==='deploy-preview-19--comforting-shortbread-ee588e.netlify.app'){
+// Direct-file upload is opt-in per deployment; external video links remain available.
+if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
   const phase2OpenWrite=openWrite,phase2SubmitPost=submitPost;
   const MAX_VIDEO_BYTES=150*1024*1024;
   openWrite=function(existing=null){
