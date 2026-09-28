@@ -7,6 +7,11 @@ exports.handler = async function handler(event) {
     });
   }
 
+  // Disabled until this endpoint enforces server-side administrator authorization.
+  return json(403, {
+    error: '관리자 권한 변경 기능이 비활성화되었습니다.'
+  });
+
   const supabaseUrl = process.env.SUPABASE_URL;
   const serviceRoleKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY;
