@@ -212,7 +212,7 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
           const admit=await api('community-video-upload-admit',{post_id:post.id,password:data.password,
             byte_size:file.size,mime_type:'video/mp4',turnstile_token:token()});
           const claimed=await fetch(`${admit.admission_url}admit`,{method:'POST',
-            headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:admit.job_id,ticket:admit.ticket})});
+            headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:admit.job_id,post_id:post.id,ticket:admit.ticket})});
           if(!claimed.ok)throw new Error('영상 업로드 세션을 만들지 못했습니다.');
           const session=await claimed.json();
           await uploadObject(session.upload_url,file,session.upload_headers,p=>{uploadStatus.textContent=`임시 영상 업로드 ${p}%`});

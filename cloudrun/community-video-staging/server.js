@@ -37,9 +37,13 @@ const json=(res,status,data,origin='')=>{
 const sha256=v=>createHash('sha256').update(v).digest('hex');
 const uuid=v=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||''));
 async function input(req,max=4096){
+  const length=req.headers['content-length'];
+  if(length!==undefined&&(!/^\d+$/.test(length)||Number(length)>max))
+    throw Object.assign(new Error('Request too large'),{status:413});
   const chunks=[];let bytes=0;
-  for await(const chunk of req){bytes+=chunk.length;if(bytes>max)throw new Error('Request too large');chunks.push(chunk)}
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  for await(const chunk of req){bytes+=chunk.length;if(bytes>max)throw Object.assign(new Error('Request too large'),{status:413});chunks.push(chunk)}
+  try{return JSON.parse(Buffer.concat(chunks).toString('utf8'))}
+  catch{throw Object.assign(new Error('Invalid JSON'),{status:400})}
 }
 async function publicConfig(){
   const response=await fetch(`${SITE_ORIGIN}/.netlify/functions/config`,{headers:{Accept:'application/javascript'}});
@@ -112,6 +116,7 @@ async function signedPut(objectKey,jobId,workerToken){
 }
 async function admit(req,res){
   const origin=req.headers.origin||'';
+  if(req.url!=='/admit')return json(res,404,{ok:false});
   if(req.method==='OPTIONS'){
     if(origin!==SITE_ORIGIN)return json(res,403,{ok:false});
     res.writeHead(204,{'Access-Control-Allow-Origin':SITE_ORIGIN,
@@ -119,13 +124,19 @@ async function admit(req,res){
       'Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'600',Vary:'Origin'});
     return res.end();
   }
-  if(req.method!=='POST'||req.url!=='/admit'||origin!==SITE_ORIGIN)return json(res,403,{ok:false});
+  if(req.method!=='POST')return json(res,405,{ok:false});
+  if(origin!==SITE_ORIGIN)return json(res,403,{ok:false});
+  if(req.headers['content-type']!=='application/json')return json(res,415,{ok:false},origin);
   const body=await input(req);
-  if(!uuid(body.job_id)||typeof body.ticket!=='string'||body.ticket.length<40)
+  if(!body||Array.isArray(body)||typeof body!=='object'||
+     Object.keys(body).sort().join(',')!=='job_id,post_id,ticket'||
+     !uuid(body.job_id)||!uuid(body.post_id)||
+     typeof body.ticket!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(body.ticket))
     return json(res,400,{ok:false},origin);
   const workerToken=randomBytes(32).toString('base64url');
-  const claims=await rpc('community_video_claim_admission',{
-    p_job_id:body.job_id,p_ticket:body.ticket,p_worker_token_hash:sha256(workerToken)});
+  const claims=await rpc('community_video_claim_admission_bound',{
+    p_job_id:body.job_id,p_post_id:body.post_id,p_ticket:body.ticket,
+    p_worker_token_hash:sha256(workerToken)});
   if(!Array.isArray(claims)||claims.length!==1)return json(res,409,{ok:false,error:'Invalid or consumed ticket.'},origin);
   const claim=claims[0];
   if(!new RegExp(`^${OBJECT_PREFIX}/[0-9a-f-]+/[0-9a-f-]+\\.mp4$`).test(claim.object_key)||
@@ -312,6 +323,7 @@ async function processEvent(req,res){
 }
 http.createServer(async(req,res)=>{
   try{if(mode==='admission')await admit(req,res);else await processEvent(req,res)}
-  catch(error){console.error('[community-video]',error.message);
-    json(res,500,{ok:false,error:'Video request failed.'},req.headers.origin||'')}
+  catch(error){const status=Number(error.status)||500;
+    if(status>=500)console.error('[community-video]',error.message);
+    json(res,status,{ok:false,error:status>=500?'Video request failed.':'Invalid request.'},req.headers.origin||'')}
 }).listen(Number(process.env.PORT||8080),'0.0.0.0');

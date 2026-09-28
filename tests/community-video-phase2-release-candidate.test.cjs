@@ -7,8 +7,10 @@ const source=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 test('file upload is disabled by default in public UI and both server endpoints',()=>{
   assert.match(source('netlify/functions/config.js'),/COMMUNITY_VIDEO_UPLOAD_UI_ENABLED\s*:\s*process\.env\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true'/);
   assert.match(source('assets/community.js'),/if\(cfg\(\)\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true\)/);
-  for(const file of ['netlify/functions/community-video-upload-admit.js','netlify/functions/community-video-upload-status.js'])
-    assert.match(source(file),/COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED!=='true'/);
+  assert.match(source('netlify/functions/community-video-upload-admit.js'),
+    /smokeAdmission&&postId!==SMOKE_POST_ID/);
+  assert.match(source('netlify/functions/community-video-upload-status.js'),
+    /COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED!=='true'/);
   assert.match(source('cloudrun/community-video-staging/server.js'),/process\.env\.YOUTUBE_UPLOAD_ENABLED==='true'/);
 });
 
