@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://daltownmap.com"],
+    "method": ["PUT"],
+    "responseHeader": ["Content-Type", "x-goog-content-length-range", "x-goog-if-generation-match", "x-goog-meta-job-id", "x-goog-meta-worker-token"],
+    "maxAgeSeconds": 3600
+  }
+]

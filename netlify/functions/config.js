@@ -98,6 +98,10 @@ dallas: {
   COMMUNITY_STORAGE_BUCKET:
     process.env.COMMUNITY_STORAGE_BUCKET === 'community-images' ? 'community-images' : '',
 
+  // Public release switch only; service URLs and credentials remain server-side.
+  COMMUNITY_VIDEO_UPLOAD_UI_ENABLED:
+    process.env.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true',
+
   APP_CITY:
     cityConfig.city,
 

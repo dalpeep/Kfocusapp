@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://deploy-preview-19--comforting-shortbread-ee588e.netlify.app"],
+    "method": ["PUT"],
+    "responseHeader": ["Content-Type", "x-goog-content-length-range", "x-goog-if-generation-match", "x-goog-meta-job-id", "x-goog-meta-worker-token"],
+    "maxAgeSeconds": 3600
+  }
+]
