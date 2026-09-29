@@ -3,10 +3,10 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../netlify/functions/community-video-upload-admit.js'),'utf8');
-const post='6614c2d2-f806-4c4a-91c1-e1cdc715f99d';
+const post='a04221f7-06b6-448b-a21e-5c89a9dda24f';
 
 test('temporary smoke gate is one Production post only and adds no Netlify env',()=>{
-  assert.match(source,/SMOKE_POST_ID='6614c2d2-f806-4c4a-91c1-e1cdc715f99d'/);
+  assert.match(source,/SMOKE_POST_ID='a04221f7-06b6-448b-a21e-5c89a9dda24f'/);
   assert.match(source,/smokeAdmission=requestHost==='daltownmap\.com'/);
   assert.match(source,/if\(smokeAdmission&&postId!==SMOKE_POST_ID\)\s*return S\.response\(404/);
   assert.match(source,/const objectPrefix=smokeAdmission\?'production':uploadPrefix\(\)/);
