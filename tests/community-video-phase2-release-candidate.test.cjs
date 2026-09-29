@@ -8,10 +8,21 @@ test('file upload is disabled by default in public UI and both server endpoints'
   assert.match(source('netlify/functions/config.js'),/COMMUNITY_VIDEO_UPLOAD_UI_ENABLED\s*:\s*process\.env\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true'/);
   assert.match(source('assets/community.js'),/if\(cfg\(\)\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true\)/);
   assert.match(source('netlify/functions/community-video-upload-admit.js'),
-    /smokeAdmission&&postId!==SMOKE_POST_ID/);
+    /if\(!normalAdmission\)\s*return S\.response\(404/);
   assert.match(source('netlify/functions/community-video-upload-status.js'),
     /COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED!=='true'/);
   assert.match(source('cloudrun/community-video-staging/server.js'),/process\.env\.YOUTUBE_UPLOAD_ENABLED==='true'/);
+});
+
+test('temporary smoke and author diagnostic paths are removed without changing external video links',()=>{
+  const ui=source('assets/community.js');
+  const admission=source('netlify/functions/community-video-upload-admit.js');
+  assert.doesNotMatch(ui,/Production Video Smoke Test|SMOKE_UI_POST_ID|communityProductionSmokeForm/);
+  assert.doesNotMatch(admission,/SMOKE_POST_ID|SMOKE_ADMISSION_URL|smokeAdmission/);
+  assert.equal(fs.existsSync(path.join(__dirname,'../netlify/functions/community-video-author-diagnostic.js')),false);
+  assert.match(ui,/youtube\.com\/embed/);
+  assert.match(ui,/Instagram에서 영상 보기/);
+  assert.match(ui,/Facebook에서 영상 보기/);
 });
 
 test('runtime sources contain no Preview 19 origin, staging Supabase ref or staging bucket',()=>{
