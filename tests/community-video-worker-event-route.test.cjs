@@ -8,6 +8,11 @@ const vm=require('node:vm');
 
 const root=path.join(__dirname,'..');
 const server=fs.readFileSync(path.join(root,'cloudrun/community-video-staging/server.js'),'utf8');
+const dockerfile=fs.readFileSync(path.join(root,'cloudrun/community-video-staging/Dockerfile'),'utf8');
+
+test('worker image includes the route helper imported by server.js',()=>{
+  assert.match(dockerfile,/COPY package\.json server\.js worker-event-route\.js \.\//);
+});
 
 test('worker accepts only POST on the existing route or exact Eventarc GCS root route',async()=>{
   const {isWorkerEventRoute}=await import('../cloudrun/community-video-staging/worker-event-route.js');
