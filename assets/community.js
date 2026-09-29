@@ -224,7 +224,7 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
   };
 }
 // Temporary, one-post read-only author check. Video submission stays disabled.
-const SMOKE_UI_POST_ID='6614c2d2-f806-4c4a-91c1-e1cdc715f99d';
+const SMOKE_UI_POST_ID='a04221f7-06b6-448b-a21e-5c89a9dda24f';
 const smokeBaseOpenPost=openPost;
 openPost=async function(id){
   if(location.hostname!=='daltownmap.com'||cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true||
