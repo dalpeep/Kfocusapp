@@ -26,6 +26,19 @@ test('worker accepts only POST on the existing route or exact Eventarc GCS root 
   ])assert.equal(isWorkerEventRoute(method,url),false,`${method} ${url}`);
 });
 
+test('route diagnostic reveals only sanitized routing metadata',async()=>{
+  const {safeRouteDiagnostic}=await import('../cloudrun/community-video-staging/worker-event-route.js');
+  const result=safeRouteDiagnostic('POST',
+    '/?__GCP_CloudEventsMode=GCS_NOTIFICATION&private_token=never-log-this','worker',true);
+  assert.deepEqual(result,{
+    method:'POST',pathname:'/',query_keys:['__GCP_CloudEventsMode','other'],
+    eventarc_mode_matches:true,cloud_event_header_present:true,
+    service_mode:'worker',raw_route_matches:false
+  });
+  assert.doesNotMatch(JSON.stringify(result),/private_token|never-log-this/);
+  assert.equal(safeRouteDiagnostic('POST','/secret/path?token=value','worker',false).pathname,'other');
+});
+
 test('both routes use the same CloudEvent parser and duplicate-event guard',()=>{
   assert.match(server,/if\(!isWorkerEventRoute\(req\.method,req\.url\)\)return json\(res,404/);
   assert.match(server,/const item=req\.headers\['ce-type'\] \? event : \(event\.data\|\|\{\}\)/);
