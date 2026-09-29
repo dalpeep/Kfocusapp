@@ -2,6 +2,7 @@ import http from 'node:http';
 import {createHash,randomBytes} from 'node:crypto';
 import {writeFile,unlink} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
+import {isWorkerEventRoute} from './worker-event-route.js';
 
 const SITE_ORIGIN=process.env.COMMUNITY_VIDEO_SITE_ORIGIN||'';
 const SUPABASE_URL=process.env.COMMUNITY_VIDEO_SUPABASE_URL||'';
@@ -258,7 +259,7 @@ function validVideo(probe){
     Number.isFinite(duration)&&duration>0&&duration<=90;
 }
 async function processEvent(req,res){
-  if(req.method!=='POST'||req.url!=='/event')return json(res,404,{ok:false});
+  if(!isWorkerEventRoute(req.method,req.url))return json(res,404,{ok:false});
   // Eventarc sends CloudEvents in binary HTTP mode: the body is StorageObjectData.
   // Keep structured mode support for local contract tests.
   const event=await input(req,16384);
@@ -267,6 +268,9 @@ async function processEvent(req,res){
     return json(res,200,{ok:true,ignored:true});
   const jobId=item.name.split('/')[1];
   if(!uuid(jobId))return json(res,200,{ok:true,ignored:true});
+  // Keep a finalized object and its uploading job untouched while uploads are
+  // locked. Eventarc retries a non-2xx response; never ACK a valid event here.
+  if(!uploadEnabled)return json(res,503,{ok:false,retryable:true});
   let meta;
   try{meta=await (await storageGet(item.name)).json()}
   catch(error){
