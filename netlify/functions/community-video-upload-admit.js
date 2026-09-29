@@ -3,7 +3,7 @@ const S=require('./lib/community-security');
 
 const MAX_BYTES=150*1024*1024;
 // Temporary Production smoke gate. Remove immediately after the one-post test.
-const SMOKE_POST_ID='6614c2d2-f806-4c4a-91c1-e1cdc715f99d';
+const SMOKE_POST_ID='a04221f7-06b6-448b-a21e-5c89a9dda24f';
 const SMOKE_ADMISSION_URL='https://community-video-admission-production-729709801821.us-central1.run.app/';
 const uploadOrigin=()=>String(process.env.COMMUNITY_VIDEO_UPLOAD_ORIGIN||'');
 const uploadPrefix=()=>String(process.env.COMMUNITY_VIDEO_OBJECT_PREFIX||'');

@@ -223,7 +223,7 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
     }catch(error){status.textContent=error.message;submit.disabled=false}
   };
 }
-// Temporary, one-post read-only author check. Video submission stays disabled.
+// Temporary, one-post Production smoke control. The server gate remains authoritative.
 const SMOKE_UI_POST_ID='a04221f7-06b6-448b-a21e-5c89a9dda24f';
 const smokeBaseOpenPost=openPost;
 openPost=async function(id){
@@ -232,19 +232,47 @@ openPost=async function(id){
     return smokeBaseOpenPost(id);
   ensureUI();removeTurnstile();
   const body=el('communityModalBody');
-  body.innerHTML='<form id="communityAuthorDiagnosticForm" autocomplete="off"><h2>Production Author Password Check</h2><p>영상은 업로드하지 않습니다.</p><label>작성자 비밀번호<input name="password" type="password" minlength="6" maxlength="72" autocomplete="off" required></label>'+turnstileBox()+'<div class="community-form-actions"><button type="button" data-community-close>취소</button><button type="submit">비밀번호 확인</button></div><p id="communityAuthorDiagnosticStatus" role="status"></p></form>';
+  body.innerHTML='<form id="communityProductionSmokeForm" autocomplete="off"><h2>Production Video Smoke Test</h2><label>테스트 MP4 선택<input name="video_file" type="file" accept="video/mp4,.mp4" required></label><label>작성자 비밀번호<input name="password" type="password" minlength="6" maxlength="72" autocomplete="off" required></label>'+turnstileBox()+'<div class="community-form-actions"><button type="button" data-community-close>취소</button><button type="submit">테스트 업로드</button></div><p id="communityProductionSmokeStatus" role="status"></p></form>';
   showModal();await renderTurnstile(body);
-  const form=el('communityAuthorDiagnosticForm'),status=el('communityAuthorDiagnosticStatus');
+  const form=el('communityProductionSmokeForm'),status=el('communityProductionSmokeStatus');
   form.onsubmit=async event=>{
     event.preventDefault();
     const button=form.querySelector('[type="submit"]');button.disabled=true;
+    const file=form.elements.video_file.files?.[0];
     try{
+      if(!file||!/\.mp4$/i.test(file.name)||file.type!=='video/mp4'||file.size<1||file.size>150*1024*1024)
+        throw new Error('MP4 영상은 150 MiB 이하여야 합니다.');
+      const objectUrl=URL.createObjectURL(file),video=document.createElement('video');
+      try{
+        video.preload='metadata';video.src=objectUrl;
+        await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=()=>reject(new Error('MP4 정보를 읽을 수 없습니다.'))});
+        if(!Number.isFinite(video.duration)||video.duration<=0||video.duration>90)
+          throw new Error('영상 길이는 최대 90초입니다.');
+      }finally{video.removeAttribute('src');video.load();URL.revokeObjectURL(objectUrl)}
       if(!token())throw new Error('보안 확인을 완료해 주세요.');
-      status.textContent='작성자 비밀번호를 확인하고 있습니다…';
-      const result=await api('community-video-author-diagnostic',{
-        post_id:id,password:form.elements.password.value,turnstile_token:token()});
-      status.textContent=result.status;
-    }catch{status.textContent='확인을 완료하지 못했습니다. 영상은 업로드하지 않았습니다.'}
+      status.textContent='업로드 권한을 확인하고 있습니다…';
+      let admit;
+      try{admit=await api('community-video-upload-admit',{post_id:id,password:form.elements.password.value,
+        byte_size:file.size,mime_type:'video/mp4',turnstile_token:token()})}
+      finally{form.elements.password.value=''}
+      const claimed=await fetch(`${admit.admission_url}admit`,{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:admit.job_id,post_id:id,ticket:admit.ticket})});
+      if(!claimed.ok)throw new Error('영상 업로드 세션을 만들지 못했습니다. 다시 제출하지 마세요.');
+      const session=await claimed.json();
+      status.textContent='테스트 MP4를 업로드하고 있습니다…';
+      const put=await fetch(session.upload_url,{method:'PUT',
+        headers:{'Content-Type':'video/mp4',...session.upload_headers},body:file});
+      if(!put.ok)throw new Error('영상 PUT 결과를 확인해 주세요. 다시 제출하지 마세요.');
+      status.textContent='영상 파일을 검증하고 있습니다…';
+      for(let i=0;i<20;i++){
+        await new Promise(resolve=>setTimeout(resolve,1500));
+        const state=await api('community-video-upload-status',{job_id:admit.job_id,ticket:admit.ticket});
+        if(state.status==='uploaded'){status.textContent='테스트 영상 처리가 완료되었습니다.';return}
+        if(state.status==='needs_review'){status.textContent='관리자 확인이 필요합니다. 다시 제출하지 마세요.';return}
+        if(state.status==='failed'){status.textContent='영상 처리가 실패했습니다. 다시 제출하지 마세요.';return}
+      }
+      status.textContent='영상 처리가 계속 진행 중입니다. 다시 제출하지 마세요.';
+    }catch(error){status.textContent=`${error.message} 다시 제출하지 마세요.`}
     finally{form.elements.password.value=''}
   };
 };
