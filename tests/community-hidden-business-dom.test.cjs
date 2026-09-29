@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'app-v99.js'), 'utf8');
 const businessRenderer = source.match(/function renderBusinessList\(\) \{[\s\S]*?\r?\n\}\r?\nfunction formatBusinessHours/);
-const navigation = source.match(/function showPage\(page, opts=\{\}\)\{[\s\S]*?\n\}\nglobalThis\.DtmNavigatePage=showPage/);
+const navigation = source.match(/function showPage\(page, opts=\{\}\)\{[\s\S]*?\r?\n\}\r?\nglobalThis\.DtmNavigatePage=showPage/);
 assert.ok(businessRenderer && navigation, 'business rendering and navigation functions exist');
 
 function harness() {
