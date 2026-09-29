@@ -2,7 +2,7 @@ import http from 'node:http';
 import {createHash,randomBytes} from 'node:crypto';
 import {writeFile,unlink} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
-import {isWorkerEventRoute,safeRouteDiagnostic} from './worker-event-route.js';
+import {isWorkerEventRoute} from './worker-event-route.js';
 
 const SITE_ORIGIN=process.env.COMMUNITY_VIDEO_SITE_ORIGIN||'';
 const SUPABASE_URL=process.env.COMMUNITY_VIDEO_SUPABASE_URL||'';
@@ -259,11 +259,11 @@ function validVideo(probe){
     Number.isFinite(duration)&&duration>0&&duration<=90;
 }
 async function processEvent(req,res){
-  if(!isWorkerEventRoute(req.method,req.url))return json(res,404,{ok:false});
+  if(!isWorkerEventRoute(req.method,req.url,req.headers))return json(res,404,{ok:false});
   // Eventarc sends CloudEvents in binary HTTP mode: the body is StorageObjectData.
-  // Keep structured mode support for local contract tests.
   const event=await input(req,16384);
-  const item=req.headers['ce-type'] ? event : (event.data||{});
+  if(!event||typeof event!=='object'||Array.isArray(event))return json(res,400,{ok:false});
+  const item=event;
   if(item.bucket!==BUCKET||!new RegExp(`^${OBJECT_PREFIX}/[0-9a-f-]+/[0-9a-f-]+\\.mp4$`).test(item.name||''))
     return json(res,200,{ok:true,ignored:true});
   const jobId=item.name.split('/')[1];
@@ -326,8 +326,6 @@ async function processEvent(req,res){
   return json(res,200,{ok:true,dry_run:!uploadEnabled,result});
 }
 http.createServer(async(req,res)=>{
-  if(!uploadEnabled)console.info('[community-video-route]',JSON.stringify(
-    safeRouteDiagnostic(req.method,req.url,mode,typeof req.headers['ce-type']==='string')));
   try{if(mode==='admission')await admit(req,res);else await processEvent(req,res)}
   catch(error){const status=Number(error.status)||500;
     if(status>=500)console.error('[community-video]',error.message);
