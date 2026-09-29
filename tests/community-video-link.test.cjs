@@ -71,7 +71,8 @@ test('video is linked through authenticated mutations and never uploaded to Stor
   const ui=read('assets/community.js');
   assert.match(security,/validateVideoLink\(body\.video_url,category\)/);
   assert.match(create,/S\.validatePost\(body\)/);
-  assert.match(edit,/community_apply_post_video_image_edit/);
+  assert.match(edit,/community_apply_post_details_image_edit/);
+  assert.match(read('supabase/community-board-phase3.sql'),/community_apply_post_video_image_edit/);
   assert.match(owner,/\.eq\('status','hidden'\)/);
   assert.match(owner,/S\.verifyPassword/);
   assert.match(owner,/video_url,video_provider/);

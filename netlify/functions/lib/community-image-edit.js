@@ -1,4 +1,5 @@
 const S=require('./community-security');
+const {validateDetails}=require('./community-details');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validPath=path=>typeof path==='string'&&/^community-posts\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/i.test(path);
 
@@ -35,6 +36,7 @@ async function edit(event,body,db,post){
     return {...previous.data.result,cleanup_pending:await flushOldObjects(db,post.id)};
   }
   const next=S.validatePost({...post,...body},{partial:false});
+  next.details=validateDetails(next.category,body.details??post.details,{legacy:!post.details&&next.category===post.category});
   const max=S.IMAGE_LIMITS[next.category]||0,plan=body.image_plan;
   if(plan.length>max||new Set(plan.map(x=>`${x?.kind}:${x?.id}`)).size!==plan.length)
     throw Object.assign(new Error('이미지 개수 제한 또는 중복을 확인해 주세요.'),{status:400});
@@ -50,7 +52,7 @@ async function edit(event,body,db,post){
     return{kind:'upload',id:item.id,image_url:`${S.env().url}/storage/v1/object/public/${S.env().bucket}/${upload.storage_path}`};
   })());
   const args={p_request_id:requestId,p_post_id:post.id,p_post:next,p_plan:safePlan,p_draft_id:draftId,p_fingerprint:S.fingerprint(event)};
-  const applied=await db.rpc('community_apply_post_video_image_edit',args);
+  const applied=await db.rpc('community_apply_post_details_image_edit',args);
   if(applied.error){
     // A lost RPC response may have committed. Never delete new objects unless
     // a second read proves this request did not commit.
