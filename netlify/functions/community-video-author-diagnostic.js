@@ -1,7 +1,7 @@
 const S=require('./lib/community-security');
 
 // Temporary read-only check for the one Production smoke post.
-const SMOKE_POST_ID='6614c2d2-f806-4c4a-91c1-e1cdc715f99d';
+const SMOKE_POST_ID='a04221f7-06b6-448b-a21e-5c89a9dda24f';
 const REASON='[community-video-author-diagnostic]';
 
 exports.handler=S.handler(async event=>{

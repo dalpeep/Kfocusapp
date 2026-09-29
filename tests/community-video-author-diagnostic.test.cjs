@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const S=require('../netlify/functions/lib/community-security');
 const {handler}=require('../netlify/functions/community-video-author-diagnostic');
 
-const postId='6614c2d2-f806-4c4a-91c1-e1cdc715f99d';
+const postId='a04221f7-06b6-448b-a21e-5c89a9dda24f';
 const event=(overrides={})=>({httpMethod:'POST',headers:{host:'daltownmap.com',
   origin:'https://daltownmap.com','content-type':'application/json'},
   body:JSON.stringify({post_id:postId,password:'test-only',turnstile_token:'test-token'}),

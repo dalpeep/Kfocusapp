@@ -7,10 +7,10 @@ const ui=fs.readFileSync(path.join(__dirname,'../assets/community.js'),'utf8');
 const gate=fs.readFileSync(path.join(__dirname,'../netlify/functions/community-video-upload-admit.js'),'utf8');
 const diagnostic=fs.readFileSync(path.join(__dirname,'../netlify/functions/community-video-author-diagnostic.js'),'utf8');
 
-test('temporary author check is limited to the same Production post as the smoke gate',()=>{
-  const id='6614c2d2-f806-4c4a-91c1-e1cdc715f99d';
+test('temporary author check is limited to the new Production post without changing the smoke gate',()=>{
+  const id='a04221f7-06b6-448b-a21e-5c89a9dda24f';
   assert.match(ui,new RegExp(`SMOKE_UI_POST_ID='${id}'`));
-  assert.match(gate,new RegExp(`SMOKE_POST_ID='${id}'`));
+  assert.match(gate,/SMOKE_POST_ID='6614c2d2-f806-4c4a-91c1-e1cdc715f99d'/);
   assert.match(diagnostic,new RegExp(`SMOKE_POST_ID='${id}'`));
   assert.match(ui,/location\.hostname!=='daltownmap\.com'/);
   assert.match(ui,/cfg\(\)\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true/);
