@@ -4,13 +4,15 @@ const fs=require('node:fs');
 const path=require('node:path');
 const source=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 
-test('file upload is disabled by default in public UI and both server endpoints',()=>{
+test('file upload remains disabled in public UI and both server endpoints require production identity',()=>{
   assert.match(source('netlify/functions/config.js'),/COMMUNITY_VIDEO_UPLOAD_UI_ENABLED\s*:\s*process\.env\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true'/);
   assert.match(source('assets/community.js'),/if\(cfg\(\)\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true\)/);
   assert.match(source('netlify/functions/community-video-upload-admit.js'),
-    /if\(!normalAdmission\)\s*return S\.response\(404/);
+    /if\(!config\)return S\.response\(404/);
   assert.match(source('netlify/functions/community-video-upload-status.js'),
-    /COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED!=='true'/);
+    /if\(!productionConfig\.forRequest\(event\)\)return S\.response\(404/);
+  assert.match(source('netlify/functions/lib/community-video-production-config.js'),
+    /env\.SITE_ID!==PRODUCTION_SITE_ID/);
   assert.match(source('cloudrun/community-video-staging/server.js'),/process\.env\.YOUTUBE_UPLOAD_ENABLED==='true'/);
 });
 
