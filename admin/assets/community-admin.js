@@ -8,9 +8,14 @@ async function load(){const box=document.getElementById('communityAdminList');bo
 const baseLoad=load;
 load=async function(){
   await baseLoad();
+  if(status==='pending')document.getElementById('communityAdminCount').prepend('검토 필요 · ');
   for(const row of rows){
     const card=[...document.querySelectorAll('[data-community-admin-id]')].find(el=>el.dataset.communityAdminId===row.id);
     if(!card)continue;
+    if(row.status==='pending'){
+      const badge=card.querySelector('.dashboard-status-chip:last-child');
+      if(badge){badge.textContent='검토 필요';badge.classList.add('community-review-badge')}
+    }
     const approve=card.querySelector('[data-admin-action="approved"]'),reject=card.querySelector('[data-admin-action="rejected"]');
     if(row.status==='approved'){
       approve?.remove();reject?.remove();

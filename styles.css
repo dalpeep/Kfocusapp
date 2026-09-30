@@ -5416,3 +5416,4 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-detail-fields dt{font-size:.75rem;color:#627078}
 .community-detail-fields dd{margin:4px 0 0;overflow-wrap:anywhere}
 @media(max-width:600px){.community-category-details,.community-detail-fields dl{grid-template-columns:1fr}}
+.community-review-badge{background:#fff1d6;color:#7a4800;border:1px solid #e9b95a;font-weight:700}
