@@ -8,7 +8,7 @@ async function load(){const box=document.getElementById('communityAdminList');bo
 const baseLoad=load;
 load=async function(){
   await baseLoad();
-  if(status==='pending')document.getElementById('communityAdminCount').textContent=`검토 필요 ${rows.length}건`;
+  if(status==='pending')document.getElementById('communityAdminCount').prepend('검토 필요 · ');
   for(const row of rows){
     const card=[...document.querySelectorAll('[data-community-admin-id]')].find(el=>el.dataset.communityAdminId===row.id);
     if(!card)continue;
