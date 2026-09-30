@@ -40,6 +40,12 @@ exports.handler=S.handler(async event=>{
      !S.verifyPassword(body.password,post.password_hash))
     return S.response(403,{ok:false,error:'게시글 또는 비밀번호를 확인해 주세요.'});
 
+  const prior=await db.from('community_video_upload_jobs')
+    .select('status,youtube_video_id').eq('post_id',postId);
+  if(prior.error)throw prior.error;
+  if((prior.data||[]).some(job=>job.youtube_video_id||job.status!=='failed'))
+    return S.response(409,{ok:false,error:'이 게시글에는 이미 진행 중이거나 확인이 필요한 영상이 있습니다.'});
+
   const jobId=crypto.randomUUID(),objectId=crypto.randomUUID();
   const ticket=crypto.randomBytes(32).toString('base64url');
   const now=Date.now();
