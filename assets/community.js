@@ -285,15 +285,18 @@ const DETAIL_FIELDS={
   job_hiring:[['business_name','회사/업소명','text',true],['occupation','모집 직종','text',true],['employment_type','고용 형태','select',true,{full_time:'Full-time',part_time:'Part-time',contract:'Contract',other:'기타'}],['pay','급여 (금액 또는 협의)','text',true],['work_area','근무지역','text',true],['work_hours','근무시간','text'],['deadline','마감일','date']],
   job_seeking:[['occupation','희망 직종','text',true],['experience','경력','text',true],['preferred_area','희망 근무지역','text',true],['employment_type','희망 근무형태','select',true,{full_time:'Full-time',part_time:'Part-time',contract:'Contract',other:'기타'}],['available_from','가능 시작일','date']],
   marketplace:[['listing_type','구분','select',true,{sell:'판매',buy:'구매'}],['item_name','상품명','text',true],['price','가격 ($ 또는 협의)','text',true],['negotiable','가격협의 가능','checkbox'],['item_condition','상품 상태','select',true,{new:'새상품',like_new:'거의 새것',used:'중고',other:'기타'}],['trade_area','거래지역','text',true]],
+  housing:[['price','가격 ($)','number'],['price_on_request','가격 문의','checkbox']],
   neighborhood:[['news_type','소식 유형','select',true,{event:'행사',local:'지역소식',notice:'안내',other:'기타'}],['event_date','행사·일정 날짜','date'],['venue','장소','text'],['external_url','외부 링크','url']],
   qna:[['post_type','구분','select',true,{question:'질문',information:'정보공유'}],['topic','주제','text',true],['resolved','해결됨','checkbox']]
 };
-function detailControls(category,values={},legacy=false){return (DETAIL_FIELDS[category]||[]).map(([key,label,type,required,options])=>`<label>${esc(label)} ${required&&!legacy?'<b aria-label="필수">*</b>':'<small>(선택)</small>'}${type==='select'?`<select data-detail-key="${key}" ${required&&!legacy?'required':''}><option value="">선택</option>${Object.entries(options).map(([value,name])=>`<option value="${value}" ${values[key]===value?'selected':''}>${esc(name)}</option>`).join('')}</select>`:`<input data-detail-key="${key}" type="${type}" maxlength="${key==='external_url'?2048:160}" ${type==='checkbox'?(values[key]?'checked':''):`value="${esc(values[key]||'')}"`} ${required&&!legacy?'required':''}>`}</label>`).join('')}
+function detailControls(category,values={},legacy=false){return (DETAIL_FIELDS[category]||[]).map(([key,label,type,required,options])=>`<label>${esc(label)} ${required&&!legacy?'<b aria-label="필수">*</b>':'<small>(선택)</small>'}${type==='select'?`<select data-detail-key="${key}" ${required&&!legacy?'required':''}><option value="">선택</option>${Object.entries(options).map(([value,name])=>`<option value="${value}" ${values[key]===value?'selected':''}>${esc(name)}</option>`).join('')}</select>`:`<input data-detail-key="${key}" type="${type}" ${type==='number'?'min="1" max="9999999999" step="1"':`maxlength="${key==='external_url'?2048:160}"`} ${type==='checkbox'?(values[key]?'checked':''):`value="${esc(values[key]||'')}"`} ${required&&!legacy?'required':''}>`}</label>`).join('')}
 const boardBaseOpenWrite=openWrite;
 openWrite=function(existing=null){boardBaseOpenWrite(existing);const f=el('communityWriteForm'),field=f.elements.category,box=document.createElement('section');box.className='community-category-details';box.setAttribute('aria-label','카테고리별 추가 정보');field.closest('label').after(box);const hidden=document.createElement('input');hidden.type='hidden';hidden.name='details';box.after(hidden);const prior=field.onchange;const refresh=()=>{prior?.();const legacy=Boolean(existing&&!existing.details&&field.value===existing.category);box.innerHTML=detailControls(field.value,field.value===existing?.category?existing?.details||{}:{},legacy);box.hidden=!DETAIL_FIELDS[field.value]?.length};field.onchange=refresh;refresh();f.addEventListener('submit',()=>{const details={};for(const input of box.querySelectorAll('[data-detail-key]'))details[input.dataset.detailKey]=input.type==='checkbox'?input.checked:input.value.trim();hidden.value=JSON.stringify(details)},true)};
 const boardBaseCard=card;
-card=function(row){const d=row.details||{},bits=row.category==='job_hiring'?[d.occupation,d.work_area,d.employment_type]:row.category==='job_seeking'?[d.occupation,d.preferred_area,d.employment_type]:row.category==='marketplace'?[d.item_name,d.price,d.trade_area]:row.category==='neighborhood'?[d.news_type,d.event_date]:row.category==='qna'?[d.topic]:[];let html=boardBaseCard(row);const summary=bits.filter(Boolean).map(esc).join(' · ');if(summary)html=html.replace('<span class="community-post-preview">',`<span class="community-card-summary">${summary}</span><span class="community-post-preview">`);if(row.status==='sold')html=html.replace('</em>', '</em><span class="community-state-badge">판매완료</span>');if(d.resolved===true)html=html.replace('</em>', '</em><span class="community-state-badge">해결됨</span>');return html};
-function appendCategoryDetails(post){const article=el('communityModalBody')?.querySelector('.community-detail');if(!article)return;const d=post.details||{},fields=DETAIL_FIELDS[post.category]||[],rows=fields.filter(([key])=>d[key]!==undefined&&d[key]!==null&&d[key]!==''&&key!=='negotiable'&&key!=='resolved').map(([key,label,, ,options])=>`<div><dt>${esc(label)}</dt><dd>${esc(options?.[d[key]]||d[key])}</dd></div>`);if(post.category==='marketplace'&&d.negotiable)rows.push('<div><dt>가격협의</dt><dd>가능</dd></div>');if(rows.length){const section=document.createElement('section');section.className='community-detail-fields';section.innerHTML=`<h3>상세 정보</h3><dl>${rows.join('')}</dl>`;article.querySelector('.community-owner-actions')?.before(section)}if(post.status==='sold'){article.querySelector('h2')?.insertAdjacentHTML('beforebegin','<span class="community-state-badge">판매완료</span>');article.querySelector('.community-contact')?.remove();article.querySelector('#communityCommentForm')?.remove()}if(d.resolved===true)article.querySelector('h2')?.insertAdjacentHTML('beforebegin','<span class="community-state-badge">해결됨</span>')}
+const housingPrice=d=>d?.price&&/^[1-9]\d{0,9}$/.test(String(d.price))?`$${Number(d.price).toLocaleString('en-US')}`:d?.price_on_request===true?'가격 문의':'';
+const detailOption=(key,value)=>({employment_type:{full_time:'Full-time',part_time:'Part-time',contract:'Contract',other:'기타'},item_condition:{new:'새상품',like_new:'거의 새것',used:'중고',other:'기타'},news_type:{event:'행사',local:'지역소식',notice:'안내',other:'기타'},post_type:{question:'질문',information:'정보공유'},listing_type:{sell:'판매',buy:'구매'}}[key]?.[value]||value);
+card=function(row){const d=row.details||{},bits=row.category==='job_hiring'?[d.occupation,d.business_name,d.work_area,detailOption('employment_type',d.employment_type),d.pay]:row.category==='job_seeking'?[d.occupation,d.experience,d.preferred_area,detailOption('employment_type',d.employment_type)]:row.category==='marketplace'?[d.price,d.item_condition&&detailOption('item_condition',d.item_condition),d.trade_area]:row.category==='housing'?[housingPrice(d)]:row.category==='neighborhood'?[detailOption('news_type',d.news_type),d.event_date,d.venue]:row.category==='qna'?[detailOption('post_type',d.post_type),d.topic]:[];let html=boardBaseCard(row);const summary=bits.filter(Boolean).map(esc).join(' · ');if(summary){const summaryHtml=`<span class="community-card-summary">${summary}</span>`,titleHtml=`<strong>${esc(row.title)}</strong>`;html=['housing','job_hiring','job_seeking','neighborhood','qna'].includes(row.category)?html.replace(titleHtml,`${summaryHtml}${titleHtml}`):html.replace('<span class="community-post-preview">',`${summaryHtml}<span class="community-post-preview">`)}html=html.replace('class="community-post-card',`class="community-post-card community-card-${esc(row.category)}`).replace('▶ 영상</span>','▶ 동영상</span>');if(row.status==='sold')html=html.replace('</em>', '</em><span class="community-state-badge">판매완료</span>');if(d.resolved===true)html=html.replace('</em>', '</em><span class="community-state-badge">✓ 해결됨</span>');return html};
+function appendCategoryDetails(post){const article=el('communityModalBody')?.querySelector('.community-detail');if(!article)return;const d=post.details||{},fields=DETAIL_FIELDS[post.category]||[],rows=fields.filter(([key])=>d[key]!==undefined&&d[key]!==null&&d[key]!==''&&key!=='negotiable'&&key!=='resolved'&&key!=='price_on_request').map(([key,label,, ,options])=>`<div><dt>${esc(label)}</dt><dd>${esc(post.category==='housing'&&key==='price'?housingPrice(d):options?.[d[key]]||d[key])}</dd></div>`);if(post.category==='housing'&&d.price_on_request===true)rows.unshift('<div><dt>가격</dt><dd>가격 문의</dd></div>');if(post.category==='marketplace'&&d.negotiable)rows.push('<div><dt>가격협의</dt><dd>가능</dd></div>');if(rows.length){const section=document.createElement('section');section.className='community-detail-fields';section.innerHTML=`<h3>상세 정보</h3><dl>${rows.join('')}</dl>`;article.querySelector('.community-owner-actions')?.before(section)}if(post.status==='sold'){article.querySelector('h2')?.insertAdjacentHTML('beforebegin','<span class="community-state-badge">판매완료</span>');article.querySelector('.community-contact')?.remove();article.querySelector('#communityCommentForm')?.remove()}if(d.resolved===true)article.querySelector('h2')?.insertAdjacentHTML('beforebegin','<span class="community-state-badge">✓ 해결됨</span>')}
 const boardBaseOpenPost=openPost;
 const boardBaseAppendDetails=appendCategoryDetails;
 appendCategoryDetails=function(post){boardBaseAppendDetails(post);if(post.category!=='neighborhood'||!post.details?.external_url)return;try{const url=new URL(post.details.external_url);if(url.protocol!=='https:'||url.username||url.password)return;const article=el('communityModalBody')?.querySelector('.community-detail');if(!article)return;const link=document.createElement('a');link.className='community-detail-external-link';link.href=url.href;link.target='_blank';link.rel='noopener noreferrer';link.textContent='외부 링크 열기';article.querySelector('.community-owner-actions')?.before(link)}catch{}};
@@ -323,6 +326,21 @@ openWrite=function(existing=null){
   },true);
 };
 const phase31OpenPost=openPost;
+const housingPriceOpenWrite=openWrite;
+openWrite=function(existing=null){
+  housingPriceOpenWrite(existing);
+  const form=el('communityWriteForm');
+  const bind=()=>{
+    const price=form.querySelector('[data-detail-key="price"]'),onRequest=form.querySelector('[data-detail-key="price_on_request"]');
+    if(!price||!onRequest)return;
+    if(onRequest.checked)price.value='';
+    price.disabled=onRequest.checked;
+    onRequest.onchange=()=>{if(onRequest.checked)price.value='';price.disabled=onRequest.checked};
+    price.oninput=()=>{if(price.value)onRequest.checked=false};
+  };
+  form.elements.category.addEventListener('change',bind);
+  bind();
+};
 openPost=async function(id){
   await phase31OpenPost(id);
   if(current?.id===id&&current.details?.external_video_url&&current.details.external_video_url!==current.video_url){
@@ -330,6 +348,16 @@ openPost=async function(id){
     let provider='';try{const host=new URL(external).hostname;provider=host.includes('youtube')?'youtube':host.includes('instagram')?'instagram':host.includes('facebook')?'facebook':''}catch{}
     if(provider)appendVideo({...current,video_url:external,video_provider:provider});
   }
+};
+const categoryLayoutOpenPost=openPost;
+openPost=async function(id){
+  await categoryLayoutOpenPost(id);
+  if(current?.id!==id||!['housing','marketplace'].includes(current.category))return;
+  const article=el('communityModalBody')?.querySelector('.community-detail'),body=article?.querySelector(':scope > p');
+  if(!body)return;
+  const facts=article.querySelector('.community-detail-fields'),video=article.querySelector('.community-video-detail');
+  if(facts)body.before(facts);
+  if(video)body.before(video);
 };
 const boardBaseRpc=rpc;
 rpc=(name,args)=>boardBaseRpc(name==='community_get_public'||name==='community_get_public_v2'?'community_get_public_v3':name==='community_list_public_v2'?'community_list_public_v3':name==='community_comments_public'?'community_comments_public_v3':name,args);
