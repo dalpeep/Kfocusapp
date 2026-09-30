@@ -8,6 +8,7 @@ exports.handler=S.handler(async event=>{
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});
   const config=productionConfig.forRequest(event);
   if(!config)return S.response(404,{ok:false,error:'Unavailable.'});
+  if(String(event.headers?.origin||'')!==new URL(config.origin).origin)return S.response(404,{ok:false,error:'Unavailable.'});
   const body=S.parse(event);
   const postId=String(body.post_id||'');
   const byteSize=Number(body.byte_size);
@@ -21,7 +22,7 @@ exports.handler=S.handler(async event=>{
       !parsed.username&&!parsed.password&&!parsed.port&&parsed.pathname==='/'&&
       !parsed.search&&!parsed.hash){admissionHost=parsed.hostname;
         normalizedAdmissionUrl=parsed.origin+'/'}}catch{}
-  if(!/^community-video-admission-production-[a-z0-9-]+\.run\.app$/.test(admissionHost)||
+  if(admissionHost!=='community-video-admission-production-729709801821.us-central1.run.app'||
      config.objectPrefix!=='production')
     return S.response(503,{ok:false,error:'Video service unavailable.'});
   const objectPrefix=config.objectPrefix;
