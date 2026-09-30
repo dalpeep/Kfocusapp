@@ -1,19 +1,13 @@
 const crypto=require('crypto');
 const S=require('./lib/community-security');
+const productionConfig=require('./lib/community-video-production-config');
 
 const MAX_BYTES=150*1024*1024;
-const uploadOrigin=()=>String(process.env.COMMUNITY_VIDEO_UPLOAD_ORIGIN||'');
-const uploadPrefix=()=>String(process.env.COMMUNITY_VIDEO_OBJECT_PREFIX||'');
 
 exports.handler=S.handler(async event=>{
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});
-  let configuredHost='';
-  try{const origin=new URL(uploadOrigin());if(origin.protocol==='https:'&&!origin.username&&!origin.password&&!origin.port&&origin.pathname==='/'&&!origin.search&&!origin.hash)configuredHost=origin.host}catch{}
-  const requestHost=String(event.headers?.host||'').toLowerCase();
-  const normalAdmission=process.env.COMMUNITY_VIDEO_UPLOAD_ADMISSION_ENABLED==='true'&&
-    requestHost===configuredHost;
-  if(!normalAdmission)
-    return S.response(404,{ok:false,error:'Unavailable.'});
+  const config=productionConfig.forRequest(event);
+  if(!config)return S.response(404,{ok:false,error:'Unavailable.'});
   const body=S.parse(event);
   const postId=String(body.post_id||'');
   const byteSize=Number(body.byte_size);
@@ -21,16 +15,16 @@ exports.handler=S.handler(async event=>{
      !Number.isSafeInteger(byteSize)||byteSize<1||byteSize>MAX_BYTES||
      body.mime_type!=='video/mp4')
     return S.response(400,{ok:false,error:'MP4 파일은 최대 150 MiB까지 업로드할 수 있습니다.'});
-  const admissionUrl=String(process.env.COMMUNITY_VIDEO_ADMISSION_URL||'');
+  const admissionUrl=config.admissionUrl;
   let admissionHost='',normalizedAdmissionUrl='';
   try{const parsed=new URL(admissionUrl);if(parsed.protocol==='https:'&&
       !parsed.username&&!parsed.password&&!parsed.port&&parsed.pathname==='/'&&
       !parsed.search&&!parsed.hash){admissionHost=parsed.hostname;
         normalizedAdmissionUrl=parsed.origin+'/'}}catch{}
-  if(!/^community-video-admission-(staging|production)-[a-z0-9-]+\.run\.app$/.test(admissionHost)||
-     !/^(staging|production)$/.test(uploadPrefix()))
+  if(!/^community-video-admission-production-[a-z0-9-]+\.run\.app$/.test(admissionHost)||
+     config.objectPrefix!=='production')
     return S.response(503,{ok:false,error:'Video service unavailable.'});
-  const objectPrefix=uploadPrefix();
+  const objectPrefix=config.objectPrefix;
 
   const db=S.client();
   await S.verifyTurnstile(event,body.turnstile_token);
