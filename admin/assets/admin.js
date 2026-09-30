@@ -1,5 +1,6 @@
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
 import {initCommunityAdmin} from './community-admin.js?v=community-video-link-phase1';
+import {mountEventWinnerManager} from './event-winner-manager.js?v=event-winner-phase1';
 const DTM_ADMIN_BUILD='phase1.1-special-editor-20260920.2';
 document.documentElement.dataset.dtmAdminBuild=DTM_ADMIN_BUILD;
 console.info(`[DalTownMap Admin] ${DTM_ADMIN_BUILD} loaded`);
@@ -2588,7 +2589,7 @@ $$('.ccm-redeem').forEach(b=>b.addEventListener('click',async()=>{
     await refreshCouponCampaignManager();
     if(typeof loadCouponRedemptions==='function') loadCouponRedemptions();
   }catch(e){alert(e.message)}
-}))}catch(e){body.innerHTML=`<div class="muted">불러오기 실패: ${esc(e.message)}</div>`}}
+}));if(String(d.coupon?.delivery_mode||'')==='raffle'&&String(d.coupon?.raffle_draw_mode||'manual')==='manual')await mountEventWinnerManager({root:body,eventId:selectedCouponId,request:async payload=>{const{data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw new Error('관리자 로그인이 필요합니다.');const r=await fetch('/.netlify/functions/event-winner-admin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(payload)});const result=await r.json().catch(()=>({}));if(!r.ok||result.ok===false)throw new Error(result.error||`HTTP ${r.status}`);return result}})}catch(e){body.innerHTML=`<div class="muted">불러오기 실패: ${esc(e.message)}</div>`}}
 
 function clearCouponForm() {
   ['coupon_id', 'coupon_title', 'coupon_code',  'coupon_use_link_url', 'coupon_notify_emails', 'coupon_notify_phones', 'coupon_discount_label', 'coupon_description', 'coupon_image_url', 'coupon_start_at', 'coupon_end_at', 'coupon_sort_order','coupon_raffle_end_at','coupon_winner_count','coupon_raffle_draw_mode','coupon_email_image_url','coupon_winner_email_image_url'].forEach((id) => setVal(id, ''));
