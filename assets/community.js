@@ -239,6 +239,46 @@ renderHiddenPost=function(post){videoBaseHiddenPost(post);appendVideo(post)};
       };
      }catch(error){status.textContent=postCreateAttempted?'게시글 등록 결과를 확인할 수 없습니다. 다시 제출하지 마세요.':error.message;if(!postCreateAttempted){submit.disabled=false;f._videoSubmitStarted=false}}
   };
+  // A video-only recovery never calls community-post-create. The author must
+  // present a fresh challenge and password before a new bound ticket is issued.
+  const videoUploadOpenPost=openPost;
+  openPost=async function(id){
+    await videoUploadOpenPost(id);
+    const post=current,actions=el('communityModalBody')?.querySelector('.community-owner-actions');
+    if(!post||post.id!==id||!actions||post.video_url||post.video_provider||
+       !['marketplace','housing'].includes(post.category)||!(await refreshVideoFlag()))return;
+    if(current?.id!==id||!actions.isConnected)return;
+    const button=document.createElement('button');
+    button.type='button';button.textContent='동영상 다시 업로드';actions.appendChild(button);
+    button.onclick=()=>{
+      removeTurnstile();
+      const body=el('communityModalBody');
+      body.innerHTML=`<form id="communityVideoRetryForm"><h2>동영상 다시 업로드</h2><p>게시글은 유지됩니다. 영상 업로드에 실패한 작성자만 수정/삭제 비밀번호로 다시 시도할 수 있습니다.</p><label>MP4 동영상 1개<input name="video_file" type="file" accept="video/mp4,.mp4" required></label><label>수정/삭제 비밀번호<input name="password" type="password" minlength="6" maxlength="72" required></label>${turnstileBox()}<div class="community-form-actions"><button type="button" data-community-close>취소</button><button type="submit">동영상 업로드 시작</button></div><p id="communityVideoRetryStatus" role="status"></p></form>`;
+      renderTurnstile(body);
+      const form=el('communityVideoRetryForm'),status=el('communityVideoRetryStatus');
+      form.onsubmit=async event=>{
+        event.preventDefault();
+        if(form.dataset.attempted)return;
+        form.dataset.attempted='true';form.querySelector('[type="submit"]').disabled=true;
+        try{
+          const file=form.elements.video_file.files[0];
+          await inspectVideoFile(file);
+          status.textContent='동영상을 업로드하고 있습니다. 잠시 기다려 주세요.';
+          const admitted=await api('community-video-upload-admit',{
+            post_id:id,password:form.elements.password.value,
+            byte_size:file.size,mime_type:'video/mp4',turnstile_token:token()});
+          const claimed=await fetch(`${admitted.admission_url}admit`,{method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({job_id:admitted.job_id,post_id:id,ticket:admitted.ticket})});
+          if(!claimed.ok)throw new Error('영상 업로드 세션을 만들지 못했습니다.');
+          const session=await claimed.json();
+          await uploadObject(session.upload_url,file,session.upload_headers,p=>{status.textContent=`임시 영상 업로드 ${p}%`});
+          status.textContent='영상 파일을 검증하고 있습니다…';
+          await waitForVideoJob(admitted.job_id,admitted.ticket,status);
+        }catch(error){status.textContent=`게시글은 등록되었습니다. 동영상 업로드에 실패했습니다. ${error.message} 같은 영상을 다시 제출하지 마세요.`}
+      };
+    };
+  };
 }
 // Phase 3 extends the single Community form without changing legacy posts.
 const DETAIL_FIELDS={
