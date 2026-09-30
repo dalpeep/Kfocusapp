@@ -8,7 +8,9 @@ const AUTO_PUBLISH_CATEGORIES=new Set(['job_hiring','job_seeking','marketplace',
 
 function reviewPost(post,details){
   if(!AUTO_PUBLISH_CATEGORIES.has(post.category))return{status:'pending',reason:'category_not_enabled'};
-  const content=[post.title,post.body,post.author_name,...Object.values(details||{}).filter(v=>typeof v==='string')].join(' ');
+  // The optional structured video link has already passed the existing
+  // YouTube/Instagram/Facebook validator. Review only unstructured links.
+  const content=[post.title,post.body,post.author_name,...Object.entries(details||{}).filter(([key,v])=>key!=='external_video_url'&&typeof v==='string').map(([,v])=>v)].join(' ');
   // Structured video URLs are canonicalized by validateVideoLink. All other
   // outbound links require a human review, including validated HTTPS event links.
   if((content.match(URL)||[]).length)return{status:'pending',reason:'external_link'};

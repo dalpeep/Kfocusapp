@@ -10,6 +10,8 @@ exports.handler=S.handler(async event=>{
   if(!uploads.length)await S.verifyTurnstile(event,body.turnstile_token);
   await S.rateLimit(db,event,'post_create',3,3600);
   const post=S.validatePost(body),details=validateDetails(post.category,body.details),password_hash=S.hashPassword(body.password);
+  if(details?.external_video_url&&post.video_url)
+    throw Object.assign(new Error('영상 입력을 확인해 주세요.'),{status:400});
   if(uploads.length>(S.IMAGE_LIMITS[post.category]||0))throw Object.assign(new Error('이미지 개수 제한을 초과했습니다.'),{status:400});
   const now=new Date(),expiry=post.category==='marketplace'?new Date(now.getTime()+30*86400000):null,cleanup=expiry?new Date(expiry.getTime()+7*86400000):null;
   const decision=reviewPost(post,details),initialStatus=uploads.length?'pending':decision.status;
