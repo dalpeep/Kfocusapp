@@ -4,7 +4,7 @@ const FIELDS={
   marketplace:{required:['listing_type','item_name','price','item_condition','trade_area'],optional:['negotiable','external_video_url']},
   neighborhood:{required:['news_type'],optional:['event_date','venue','external_url']},
   qna:{required:['post_type','topic'],optional:['resolved']},
-  housing:{required:[],optional:['external_video_url']}
+  housing:{required:[],optional:['price','price_on_request','external_video_url']}
 };
 const ENUMS={employment_type:['full_time','part_time','contract','other'],listing_type:['sell','buy'],item_condition:['new','like_new','used','other'],news_type:['event','local','notice','other'],post_type:['question','information']};
 const fail=()=>{throw Object.assign(new Error('카테고리 추가 정보를 확인해 주세요.'),{status:400})};
@@ -16,7 +16,7 @@ function validateDetails(category,input,{legacy=false}={}){
   const keys=[...spec.required,...spec.optional],out={};
   if(Object.keys(input).some(k=>!keys.includes(k)))fail();
   for(const key of keys){
-    if(key==='negotiable'||key==='resolved'){
+    if(key==='negotiable'||key==='resolved'||key==='price_on_request'){
       if(input[key]!==undefined&&typeof input[key]!=='boolean')fail();
       out[key]=input[key]===true;continue;
     }
@@ -36,6 +36,10 @@ function validateDetails(category,input,{legacy=false}={}){
     if(value)out[key]=value;
   }
   if(category==='marketplace'&&out.price&&!/^(?:\$?\d[\d,.]*|협의)$/.test(out.price))fail();
+  if(category==='housing'){
+    if(out.price&&!/^[1-9]\d{0,9}$/.test(out.price))fail();
+    if(out.price&&out.price_on_request)fail();
+  }
   return out;
 }
 module.exports={FIELDS,validateDetails};

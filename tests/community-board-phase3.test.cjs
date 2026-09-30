@@ -20,3 +20,8 @@ test('legacy posts with no details remain editable',()=>assert.equal(validateDet
 test('unknown detail keys are rejected',()=>assert.throws(()=>validateDetails('qna',{...cases.qna,password_hash:'not allowed'}),{status:400}));
 test('non-HTTPS external links are rejected',()=>assert.throws(()=>validateDetails('neighborhood',{news_type:'event',external_url:'http://example.com'}),{status:400}));
 test('invalid calendar dates are rejected',()=>assert.throws(()=>validateDetails('neighborhood',{news_type:'event',event_date:'2026-02-30'}),{status:400}));
+test('housing stores an optional numeric dollar price in details',()=>assert.deepEqual(validateDetails('housing',{price:'250000'}),{price:'250000',price_on_request:false}));
+test('housing supports price on request without a number',()=>assert.deepEqual(validateDetails('housing',{price_on_request:true}),{price_on_request:true}));
+test('existing housing posts without price stay valid',()=>assert.deepEqual(validateDetails('housing',{}),{price_on_request:false}));
+for(const price of ['0','-1','1.5','$250000','undefined'])test(`housing rejects invalid price ${price}`,()=>assert.throws(()=>validateDetails('housing',{price}),{status:400}));
+test('housing rejects price and price on request together',()=>assert.throws(()=>validateDetails('housing',{price:'100',price_on_request:true}),{status:400}));
