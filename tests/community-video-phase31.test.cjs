@@ -28,7 +28,7 @@ test('direct MP4 UI stays opt-in and the existing bound admission restricts both
   const ui=source('assets/community.js'),config=source('netlify/functions/config.js');
   const admit=source('netlify/functions/community-video-upload-admit.js');
   assert.match(config,/COMMUNITY_VIDEO_UPLOAD_UI_ENABLED\s*:\s*process\.env\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true'/);
-  assert.match(ui,/if\(cfg\(\)\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true\)/);
+  assert.match(ui,/refreshVideoFlag\(\)\.then\(enabled=>\{if\(enabled\)attachVideoField\(form\)\}\)/);
   assert.match(ui,/\['marketplace','housing'\]\.includes\(form\.category\.value\)/);
   assert.match(ui,/accept="video\/mp4,\.mp4"/);
   assert.match(ui,/if\(f\._videoSubmitStarted\)return/);

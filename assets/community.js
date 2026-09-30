@@ -125,13 +125,21 @@ openPost=async function(id){await videoBaseOpenPost(id);if(current?.id===id)appe
 const videoBaseHiddenPost=renderHiddenPost;
 renderHiddenPost=function(post){videoBaseHiddenPost(post);appendVideo(post)};
 // Direct-file upload is opt-in per deployment; external video links remain available.
-if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
+{
   const phase2OpenWrite=openWrite,phase2SubmitPost=submitPost;
   const MAX_VIDEO_BYTES=150*1024*1024;
-  openWrite=function(existing=null){
-    phase2OpenWrite(existing);
-    if(existing)return;
-    const form=el('communityWriteForm'),link=form.elements.video_url;
+  function refreshVideoFlag(){
+    return new Promise(resolve=>{
+      const script=document.createElement('script');
+      script.src=`/.netlify/functions/config?community_video_ui=${Date.now()}`;
+      script.onload=()=>{script.remove();resolve(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true)};
+      script.onerror=()=>{script.remove();resolve(false)};
+      document.head.appendChild(script);
+    });
+  }
+  function attachVideoField(form){
+    if(el('communityWriteForm')!==form||form.elements.video_file)return;
+    const link=form.elements.video_url;
     const area=document.createElement('div');area.className='community-video-file-input';
     area.innerHTML='<label><span class="community-video-file-label">동영상 (선택)</span><input name="video_file" type="file" accept="video/mp4,.mp4"></label><small class="community-video-file-hint"></small>';
     area.querySelector('small').textContent='상품 상태를 보여주는 MP4 동영상 1개를 추가할 수 있습니다. 최대 150 MiB · 90초.';
@@ -140,6 +148,12 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
     const previousChange=form.category.onchange;
     form.category.onchange=()=>{previousChange?.();const allowed=['marketplace','housing'].includes(form.category.value);area.hidden=!allowed;file.disabled=!allowed;if(!allowed)file.value='';area.querySelector('.community-video-file-label').textContent=form.category.value==='housing'?'매물 동영상 (선택)':'동영상 (선택)';area.querySelector('small').textContent=(form.category.value==='housing'?'매물 내부 또는 외부를 보여주는 MP4 동영상 1개를 추가할 수 있습니다.':'상품 상태를 보여주는 MP4 동영상 1개를 추가할 수 있습니다.')+' 최대 150 MiB · 90초.'};
     form.category.onchange();
+  }
+  openWrite=function(existing=null){
+    phase2OpenWrite(existing);
+    if(existing)return;
+    const form=el('communityWriteForm');
+    refreshVideoFlag().then(enabled=>{if(enabled)attachVideoField(form)});
     form.onsubmit=e=>submitPost(e,form);
   };
   async function inspectVideoFile(file){
