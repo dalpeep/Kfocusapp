@@ -6,7 +6,7 @@ const source=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 
 test('file upload remains disabled in public UI and both server endpoints require production identity',()=>{
   assert.match(source('netlify/functions/config.js'),/COMMUNITY_VIDEO_UPLOAD_UI_ENABLED\s*:\s*process\.env\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true'/);
-  assert.match(source('assets/community.js'),/if\(cfg\(\)\.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true\)/);
+  assert.match(source('assets/community.js'),/refreshVideoFlag\(\)\.then\(enabled=>\{if\(enabled\)attachVideoField\(form\)\}\)/);
   assert.match(source('netlify/functions/community-video-upload-admit.js'),
     /if\(!config\)return S\.response\(404/);
   assert.match(source('netlify/functions/community-video-upload-status.js'),
