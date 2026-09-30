@@ -29,6 +29,15 @@ async function verifyTurnstile(event,token){
   const form=new URLSearchParams({secret,response:text(token,4000),remoteip:ip(event)});
   const res=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:form});
   const json=await res.json().catch(()=>({}));
+  const errorCodes=Array.isArray(json['error-codes'])?json['error-codes'].filter(code=>typeof code==='string'&&/^[a-z0-9-]{1,80}$/.test(code)):[];
+  console.info('[community-turnstile]',JSON.stringify({
+    token_present:Boolean(text(token,4000)),
+    siteverify_http_status:res.status,
+    siteverify_success:json.success===true,
+    siteverify_error_codes:errorCodes,
+    hostname_matches:json.hostname==='daltownmap.com',
+    action_empty:!json.action
+  }));
   if(!res.ok||json.success!==true)throw Object.assign(new Error('보안 확인에 실패했습니다.'),{status:403});
 }
 function validatePassword(value){const p=String(value||'');if(p.length<6||p.length>72)throw Object.assign(new Error('수정/삭제 비밀번호는 6~72자로 입력해 주세요.'),{status:400});return p}
