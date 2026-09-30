@@ -7,7 +7,8 @@ const MAX_BYTES=150*1024*1024;
 exports.handler=S.handler(async event=>{
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});
   const config=productionConfig.forRequest(event);
-  if(!config||String(event.headers?.origin||'')!==new URL(config.origin).origin)return S.response(404,{ok:false,error:'Unavailable.'});
+  if(!config)return S.response(404,{ok:false,error:'Unavailable.'});
+  if(String(event.headers?.origin||'')!==new URL(config.origin).origin)return S.response(404,{ok:false,error:'Unavailable.'});
   const body=S.parse(event);
   const postId=String(body.post_id||'');
   const byteSize=Number(body.byte_size);
