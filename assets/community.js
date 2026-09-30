@@ -133,13 +133,12 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
     if(existing)return;
     const form=el('communityWriteForm'),link=form.elements.video_url;
     const area=document.createElement('div');area.className='community-video-file-input';
-    area.innerHTML='<label>영상 파일 (선택, MP4 · 최대 90초 · 150 MiB)<input name="video_file" type="file" accept="video/mp4,.mp4"></label><small>영상 링크와 파일 중 하나만 선택할 수 있습니다. 파일은 게시글 접수 후 비공개 임시 공간에 업로드됩니다.</small>';
+    area.innerHTML='<label><span class="community-video-file-label">동영상 (선택)</span><input name="video_file" type="file" accept="video/mp4,.mp4"></label><small class="community-video-file-hint"></small>';
+    area.querySelector('small').textContent='상품 상태를 보여주는 MP4 동영상 1개를 추가할 수 있습니다. 최대 150 MiB · 90초.';
     form.querySelector('.community-video-input').after(area);
     const file=form.elements.video_file;
     const previousChange=form.category.onchange;
-    form.category.onchange=()=>{previousChange?.();const allowed=['marketplace','housing'].includes(form.category.value);area.hidden=!allowed;file.disabled=!allowed;if(!allowed)file.value='';link.disabled=!allowed||Boolean(file.files.length)};
-    file.onchange=()=>{if(file.files.length){link.value='';link.disabled=true}else link.disabled=false};
-    link.oninput=()=>{if(link.value.trim())file.value=''};
+    form.category.onchange=()=>{previousChange?.();const allowed=['marketplace','housing'].includes(form.category.value);area.hidden=!allowed;file.disabled=!allowed;if(!allowed)file.value='';area.querySelector('.community-video-file-label').textContent=form.category.value==='housing'?'매물 동영상 (선택)':'동영상 (선택)';area.querySelector('small').textContent=(form.category.value==='housing'?'매물 내부 또는 외부를 보여주는 MP4 동영상 1개를 추가할 수 있습니다.':'상품 상태를 보여주는 MP4 동영상 1개를 추가할 수 있습니다.')+' 최대 150 MiB · 90초.'};
     form.category.onchange();
     form.onsubmit=e=>submitPost(e,form);
   };
@@ -169,23 +168,25 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
       await new Promise(resolve=>setTimeout(resolve,1500));
       const state=await api('community-video-upload-status',{job_id:jobId,ticket});
       if(state.status==='uploaded'){
-        status.textContent='영상 업로드가 완료되었습니다. 게시글 승인 후 상세에서 볼 수 있습니다.';return}
+        status.textContent='게시글이 등록되었습니다. 동영상 처리가 완료되었습니다.';return}
       if(state.status==='needs_review'){
-        status.textContent='영상 파일 검증 완료. 관리자 확인을 기다리고 있습니다.';return}
-      if(state.status==='failed')throw new Error('영상 검증에 실패했습니다. 게시글과 사진은 유지됩니다.');
-      status.textContent='영상 파일을 검증하고 있습니다…';
+       status.textContent='게시글은 등록되었지만 동영상은 확인이 필요합니다. 다시 제출하지 마세요.';return}
+       if(state.status==='failed')throw new Error('게시글은 등록되었지만 동영상 처리에 실패했습니다. 다시 제출하지 마세요.');
+       status.textContent='동영상을 업로드하고 있습니다. 잠시 기다려 주세요.';
     }
-    status.textContent='영상 처리가 계속 진행 중입니다. 게시글과 사진은 유지됩니다.';
+     status.textContent='게시글이 등록되었습니다. 동영상은 처리 후 자동으로 표시됩니다.';
   }
   submitPost=async function(e,f){
     const file=f.elements.video_file?.files?.[0];
     if(!file||f.dataset.editId)return phase2SubmitPost(e,f);
     e.preventDefault();
     const submit=f.querySelector('[type="submit"]'),status=el('communityFormStatus');
-    submit.disabled=true;
+     if(f._videoSubmitStarted)return;
+     f._videoSubmitStarted=true;submit.disabled=true;
+     let postCreateAttempted=false;
     try{
       await inspectVideoFile(file);
-      const data=Object.fromEntries(new FormData(f));delete data.video_file;delete data.video_url;
+       const data=Object.fromEntries(new FormData(f));delete data.video_file;delete data.video_url;
       const images=f.images?[...f.images.files]:[],draft=crypto.randomUUID(),ids=[],compressed=[];
       status.textContent='게시글과 사진을 접수하고 있습니다…';
       for(const image of images)compressed.push(await compress(image));
@@ -200,16 +201,17 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
           if(uploaded.error)throw uploaded.error;ids.push(spec.id)
         }
       }
-      const post=await api('community-post-create',{...data,draft_id:draft,upload_ids:ids,
+       postCreateAttempted=true;
+       const post=await api('community-post-create',{...data,draft_id:draft,upload_ids:ids,
         region:cfg().APP_REGION||'dallas',turnstile_token});
       removeTurnstile();
-      el('communityModalBody').innerHTML='<section class="community-video-upload-step"><h2>영상 파일 업로드</h2><p>게시글은 접수되었습니다. 아래 보안 확인 후 영상 파일을 업로드하세요.</p>'+turnstileBox()+'<div class="community-form-actions"><button type="button" data-community-close>나중에 하기</button><button id="communityVideoUploadStart" type="button">영상 업로드 시작</button></div><p id="communityVideoUploadStatus" role="status"></p></section>';
+       el('communityModalBody').innerHTML='<section class="community-video-upload-step"><h2>동영상 업로드</h2><p>게시글이 등록되었습니다. 동영상은 처리 후 자동으로 표시됩니다. 아래 보안 확인을 완료해 주세요.</p>'+turnstileBox()+'<div class="community-form-actions"><button type="button" data-community-close>나중에 하기</button><button id="communityVideoUploadStart" type="button">동영상 업로드 시작</button></div><p id="communityVideoUploadStatus" role="status"></p></section>';
       await renderTurnstile(el('communityModalBody'));
       const uploadStatus=el('communityVideoUploadStatus');
       el('communityVideoUploadStart').onclick=async event=>{
         event.currentTarget.disabled=true;
         try{
-          uploadStatus.textContent='업로드 권한을 확인하고 있습니다…';
+           uploadStatus.textContent='동영상을 업로드하고 있습니다. 잠시 기다려 주세요.';
           const admit=await api('community-video-upload-admit',{post_id:post.id,password:data.password,
             byte_size:file.size,mime_type:'video/mp4',turnstile_token:token()});
           const claimed=await fetch(`${admit.admission_url}admit`,{method:'POST',
@@ -219,9 +221,9 @@ if(cfg().COMMUNITY_VIDEO_UPLOAD_UI_ENABLED===true){
           await uploadObject(session.upload_url,file,session.upload_headers,p=>{uploadStatus.textContent=`임시 영상 업로드 ${p}%`});
           uploadStatus.textContent='영상 파일을 검증하고 있습니다…';
           await waitForVideoJob(admit.job_id,admit.ticket,uploadStatus);
-        }catch(error){uploadStatus.textContent=`${error.message} 게시글과 사진은 유지됩니다.`}
+         }catch(error){uploadStatus.textContent=`${error.message} 게시글과 사진은 유지됩니다. 같은 영상을 다시 제출하지 마세요.`}
       };
-    }catch(error){status.textContent=error.message;submit.disabled=false}
+     }catch(error){status.textContent=postCreateAttempted?'게시글 등록 결과를 확인할 수 없습니다. 다시 제출하지 마세요.':error.message;if(!postCreateAttempted){submit.disabled=false;f._videoSubmitStarted=false}}
   };
 }
 // Phase 3 extends the single Community form without changing legacy posts.
@@ -244,6 +246,37 @@ appendCategoryDetails=function(post){boardBaseAppendDetails(post);if(post.catego
 openPost=async function(id){await boardBaseOpenPost(id);if(current?.id===id)appendCategoryDetails(current)};
 const boardBaseHiddenPost=renderHiddenPost;
 renderHiddenPost=function(post){boardBaseHiddenPost(post);appendCategoryDetails(post)};
+// Keep a user-supplied external link separate from the Worker-owned canonical
+// video_url when a direct MP4 upload is selected. Both categories use the same
+// community_posts.details JSONB column; no legacy row is rewritten.
+const phase31OpenWrite=openWrite;
+openWrite=function(existing=null){
+  phase31OpenWrite(existing);
+  const form=el('communityWriteForm'),link=form.elements.video_url;
+  if(existing?.details?.external_video_url){
+    link.value=existing.details.external_video_url;
+    link.name='external_video_display';
+    const canonical=document.createElement('input');canonical.type='hidden';canonical.name='video_url';
+    canonical.value=existing.video_url||'';link.after(canonical);
+  }
+  form.addEventListener('submit',()=>{
+    const file=form.elements.video_file?.files?.[0],external=link.value.trim();
+    const detailsInput=form.elements.details;
+    if(!detailsInput)return;
+    const details=JSON.parse(detailsInput.value||'{}');
+    if(['marketplace','housing'].includes(form.category.value)&&(file||existing?.details?.external_video_url)&&external)details.external_video_url=external;
+    detailsInput.value=JSON.stringify(details);
+  },true);
+};
+const phase31OpenPost=openPost;
+openPost=async function(id){
+  await phase31OpenPost(id);
+  if(current?.id===id&&current.details?.external_video_url&&current.details.external_video_url!==current.video_url){
+    const external=current.details.external_video_url;
+    let provider='';try{const host=new URL(external).hostname;provider=host.includes('youtube')?'youtube':host.includes('instagram')?'instagram':host.includes('facebook')?'facebook':''}catch{}
+    if(provider)appendVideo({...current,video_url:external,video_provider:provider});
+  }
+};
 const boardBaseRpc=rpc;
 rpc=(name,args)=>boardBaseRpc(name==='community_get_public'||name==='community_get_public_v2'?'community_get_public_v3':name==='community_list_public_v2'?'community_list_public_v3':name==='community_comments_public'?'community_comments_public_v3':name,args);
 root.DtmCommunity={LABELS,BATCH,ensureUI,openPage,setLegacyRows,renderHome,load,openPost,compress,closeModal,syncRobots,_state:()=>({all:[...all],total,visible,filter})};
