@@ -20,8 +20,8 @@ declare
   i integer;
 begin
   for i in 1..5 loop
-    insert into public.community_posts(region,area,category,title,body,author_name,password_hash,status,details,expires_at,cleanup_after)
-    values('dallas','dallas',categories[i],'Phase 3 local '||i,'Local isolated test body','Local test author','test-hash','pending',payloads[i],
+    insert into public.community_posts(region,area,category,title,body,author_name,contact_type,contact_value,password_hash,status,details,expires_at,cleanup_after)
+    values('dallas','dallas',categories[i],'Phase 3 local '||i,'Local isolated test body','Local test author','email','local@example.invalid','test-hash','pending',payloads[i],
       case when categories[i]='marketplace' then now()+interval '30 days' else null end,
       case when categories[i]='marketplace' then now()+interval '37 days' else null end)
     returning id into current_id;
@@ -54,6 +54,9 @@ begin
   select count(*) into n from public.community_list_public_v3('dallas','marketplace',null,0,100)
     where id=ids[3] and status='sold';
   if n<>1 then raise exception 'Sold card status missing'; end if;
+  select count(*) into n from public.community_get_public_v3(ids[3])
+    where status='sold' and contact_type is null and contact_value is null;
+  if n<>1 then raise exception 'Sold detail exposed contact information'; end if;
 
   for i in 1..5 loop
     update public.community_posts set status='deleted',cleanup_after=now()+interval '7 days' where id=ids[i];

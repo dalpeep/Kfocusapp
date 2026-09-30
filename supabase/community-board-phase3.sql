@@ -48,7 +48,9 @@ returns table(
 )
 language sql stable security definer set search_path=public,pg_temp as $$
   select p.id,p.region,p.area,p.category,p.title,p.body,p.author_name,
-    p.contact_type,p.contact_value,p.view_count,p.comment_count,p.created_at,
+    case when p.status='sold' then null else p.contact_type end,
+    case when p.status='sold' then null else p.contact_value end,
+    p.view_count,p.comment_count,p.created_at,
     coalesce((select jsonb_agg(jsonb_build_object('id',i.id,'image_url',i.image_url,'width',i.width,'height',i.height,'sort_order',i.sort_order) order by i.sort_order,i.id)
       from public.community_post_images i where i.post_id=p.id),'[]'::jsonb),
     p.video_url,p.video_provider,p.details,p.status
