@@ -516,6 +516,7 @@ let slideRows = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
 let selectedBoardType = 'notice';
+let selectedHomeCommunityCategory = 'all';
 let boardDetailReturn = { mode: 'page', page: 'home', type: 'notice' };
 let selectedBoardPost = null;
 let adminSession = false;
@@ -3413,21 +3414,7 @@ function bindBizOpenButtons() {
 
 function renderHomeBoardSection(type='notice'){
   selectedBoardType = type;
-  if(communityTabs){
-    $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active', btn.dataset.board===type));
-  }
-  let rows = boardPostsByType(type);
-  if(type==='life'&&globalThis.DtmCommunity){
-    renderLifeCategoryFilters();
-    globalThis.DtmCommunity.renderHome(homeBoardList,rows);
-    if(homeBoardMoreBtn)homeBoardMoreBtn.dataset.board=type;
-    return;
-  }
-  if(type==='life' && selectedLifeCategory!=='전체') rows=rows.filter(post=>inferLifeCategory(post)===selectedLifeCategory);
-  rows=rows.slice(0,4);
-  renderLifeCategoryFilters();
-  if(homeBoardList) homeBoardList.innerHTML = rows.length ? rows.map(boardListItemHTML).join('') : `<div class="board-empty">등록된 ${type==='life'&&selectedLifeCategory!=='전체'?selectedLifeCategory+' ':''}${boardLabel(type)} 글이 없습니다.</div>`;
-  if(homeBoardMoreBtn) homeBoardMoreBtn.dataset.board = type;
+  globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
 }
 const GUIDE_SUBTYPE_KEY = 'daltownmap_guide_subtype';
 const GUIDE_DEFAULT_SUBTYPE = '운전·차량';
@@ -8567,7 +8554,7 @@ function bindEvents(){
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSideMenu(); });
   $$('.side-link[data-nav], .text-link[data-nav]').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
-  communityTabs?.addEventListener('click', async e=>{ const btn=e.target.closest('.community-tab'); if(!btn) return; const type=btn.dataset.board || 'notice'; renderHomeBoardSection(type); await refreshBoardPostsSilently({force:true}); renderHomeBoardSection(type); });
+  $('#communityHomeFilters')?.addEventListener('click', e=>{const chip=e.target.closest('[data-community-home-category]');if(!chip)return;selectedHomeCommunityCategory=chip.dataset.communityHomeCategory||'all';renderHomeBoardSection(selectedBoardType)});
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });
@@ -8601,8 +8588,8 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   showBoard(board);
 });
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
-  const board = selectedBoardType || 'notice';
-  showBoard(board);
+  lastBasePage=currentPage;
+  globalThis.DtmCommunity?.openPage(boardPostsByType('life'),selectedHomeCommunityCategory);
 });
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();
