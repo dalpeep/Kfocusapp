@@ -361,6 +361,72 @@ openPost=async function(id){
 };
 const boardBaseRpc=rpc;
 rpc=(name,args)=>boardBaseRpc(name==='community_get_public'||name==='community_get_public_v2'?'community_get_public_v3':name==='community_list_public_v2'?'community_list_public_v3':name==='community_comments_public'?'community_comments_public_v3':name,args);
+// UI 4.0 keeps the Phase 3 data and mutation paths, but gives each category a
+// distinct reading order in both the category feed and the mixed feed.
+const ui4Labels={...LABELS,housing:'부동산',qna:'질문정보'};
+const ui4Categories=['all','job_hiring','job_seeking','marketplace','housing','neighborhood','qna'];
+renderFilters=function(){const box=el('communityCategoryFilters');if(box)box.innerHTML=ui4Categories.map(key=>`<button type="button" class="${filter===key?'active':''}" data-community-category="${key}">${key==='all'?'전체':ui4Labels[key]}</button>`).join('')};
+const ui4EnsureUI=ensureUI;
+ensureUI=function(){ui4EnsureUI();const head=el('page-community')?.querySelector('.community-page-head');if(head){head.querySelector('h2').textContent='우리동네 커뮤니티';head.querySelector('p').textContent='구인·구직부터 중고거래, 부동산, 동네소식까지 한곳에서 확인하세요.'}};
+const ui4Text=value=>value===undefined||value===null?'':String(value).trim();
+const ui4Parts=(...parts)=>parts.map(ui4Text).filter(Boolean).map(esc).join(' · ');
+const ui4Price=value=>{const raw=ui4Text(value);return /^\d+(?:\.\d{1,2})?$/.test(raw)&&Number(raw)>0?`$${Number(raw).toLocaleString('en-US')}`:raw};
+const ui4Badge=(label,kind='')=>`<span class="community-ui4-badge ${kind}">${esc(label)}</span>`;
+const ui4Media=row=>row.image_url?`<img class="community-ui4-image" src="${esc(row.image_url)}" alt="" loading="lazy">`:'';
+card=function(row){
+  const d=row.details||{},category=row.category,area=AREAS.find(([key])=>key===String(row.area||'').toLowerCase())?.[1]||row.area;
+  const recent=Date.now()-Date.parse(row.created_at)<86400000;
+  const badges=[ui4Badge(ui4Labels[category]||category,'category')];
+  if(recent)badges.push(ui4Badge('NEW'));
+  if(['marketplace','housing'].includes(category)&&(row.video_url||row.video_provider||d.external_video_url))badges.push(ui4Badge('▶ 동영상'));
+  if(category==='marketplace'&&row.status==='sold')badges.push(ui4Badge('판매완료'));
+  if(category==='qna'&&d.resolved===true)badges.push(ui4Badge('✓ 해결됨'));
+  const title=`<strong class="community-ui4-title">${esc(row.title||'')}</strong>`;
+  const preview=row.body_preview?`<span class="community-ui4-preview">${esc(row.body_preview)}</span>`:'';
+  let content='';
+  if(category==='marketplace')content=`${ui4Media(row)}<span class="community-ui4-copy">${title}${d.price?`<b class="community-ui4-price">${esc(ui4Price(d.price))}</b>`:''}<span class="community-ui4-facts">${ui4Parts(detailOption('item_condition',d.item_condition),d.trade_area||area)}</span></span>`;
+  else if(category==='housing')content=`${ui4Media(row)}<span class="community-ui4-copy">${housingPrice(d)?`<b class="community-ui4-price">${esc(housingPrice(d))}</b>`:''}${title}<span class="community-ui4-facts">${ui4Parts(d.listing_type&&detailOption('listing_type',d.listing_type),area,d.property_type,d.bedrooms&&`${d.bedrooms} bed`)}</span></span>`;
+  else if(category==='job_hiring')content=`<span class="community-ui4-copy"><b class="community-ui4-lead">${esc(d.occupation||row.title||'')}</b>${d.occupation?title:''}<span class="community-ui4-facts">${ui4Parts(d.business_name,d.work_area||area,detailOption('employment_type',d.employment_type))}</span>${d.pay?`<span class="community-ui4-pay">${esc(d.pay)}</span>`:''}</span>`;
+  else if(category==='job_seeking')content=`<span class="community-ui4-copy"><b class="community-ui4-lead">${esc(d.occupation||row.title||'')}</b>${d.occupation?title:''}<span class="community-ui4-facts">${ui4Parts(d.experience,d.preferred_area||area,detailOption('employment_type',d.employment_type))}</span></span>`;
+  else if(category==='neighborhood')content=`<span class="community-ui4-copy">${d.news_type?ui4Badge(detailOption('news_type',d.news_type),'subtype'):''}${title}<span class="community-ui4-facts">${ui4Parts(d.event_date,d.venue)}</span>${preview}</span>${ui4Media(row)}`;
+  else if(category==='qna')content=`<span class="community-ui4-copy">${d.post_type?ui4Badge(detailOption('post_type',d.post_type),'subtype'):''}${title}${preview}<span class="community-ui4-facts">댓글 ${Number(row.comment_count)||0} · ${esc(area||'')} · ${timeLabel(row.created_at)}</span></span>`;
+  else content=`<span class="community-ui4-copy">${title}${preview}</span>`;
+  return `<button type="button" class="community-post-card community-ui4-card community-ui4-${esc(category)}${row.image_url?' has-image':''}" data-community-post="${esc(row.id)}"><span class="community-ui4-badges">${badges.join('')}</span><span class="community-ui4-layout">${content}</span><small class="community-ui4-meta">${esc(area||'')} · ${timeLabel(row.created_at)}</small></button>`;
+};
+const ui4RenderList=renderList;
+renderList=function(){ui4RenderList();if(all.length||query)return;const box=el('communityResults');if(box)box.innerHTML=`<div class="community-empty"><p>아직 등록된 ${esc(filter==='all'?'커뮤니티':ui4Labels[filter]||'커뮤니티')} 글이 없습니다.</p><p>첫 번째 글을 등록해 보세요.</p><button class="community-write" type="button" data-community-write>＋ 글쓰기</button></div>`};
+const ui4OpenWrite=openWrite;
+openWrite=function(existing=null){
+  ui4OpenWrite(existing);
+  const form=el('communityWriteForm');if(!form)return;
+  const categorySelect=form.elements.category;
+  for(const option of categorySelect.options)if(ui4Labels[option.value])option.textContent=ui4Labels[option.value];
+  categorySelect.append(categorySelect.querySelector('option[value="qna"]'));
+  const section=(name,anchor)=>{const fieldset=document.createElement('fieldset');fieldset.className='community-ui4-form-section';fieldset.innerHTML=`<legend>${name}</legend>`;anchor.before(fieldset);return fieldset};
+  const basic=section('기본 정보',form.elements.category.closest('label'));
+  for(const name of ['category','title','body','area'])basic.append(form.elements[name].closest('label'));
+  const details=form.querySelector('.community-category-details');if(details){const box=section('상세 정보',details);box.append(details)}
+  const mediaAnchor=form.querySelector('.community-video-input,.community-edit-image-area,#communityImagePreview,label:has([name="images"])');
+  let media;
+  if(mediaAnchor){media=section('사진·영상',mediaAnchor);for(const node of [...form.children])if(node.matches?.('.community-video-input,.community-video-file-input,.community-edit-image-area,#communityImagePreview')||node.matches?.('label:has([name="images"])'))media.append(node)}
+  const contact=section('연락 및 관리',form.elements.author_name.closest('label'));
+  contact.append(form.elements.author_name.closest('label'));
+  const contactRow=form.querySelector('.community-contact-row');if(contactRow)contact.append(contactRow);
+  contact.append(form.elements.password.closest('label'));
+  const passwordNote=form.querySelector('.community-policy-note');if(passwordNote)contact.append(passwordNote);
+  if(media)media.after(contact);
+};
+const ui4OpenPost=openPost;
+openPost=async function(id){
+  await ui4OpenPost(id);if(current?.id!==id)return;
+  const article=el('communityModalBody')?.querySelector('.community-detail');if(!article)return;
+  article.classList.add('community-ui4-detail');
+  const fields=article.querySelector('.community-detail-fields'),images=[...article.querySelectorAll(':scope > img')],body=article.querySelector(':scope > p'),owner=article.querySelector('.community-owner-actions'),contact=article.querySelector('.community-contact');
+  if(fields&&images[0])images[0].before(fields);
+  const media=article.querySelector('.community-video-detail');if(media&&body)body.before(media);
+  if(contact&&owner)owner.before(contact);
+  if(owner)article.append(owner);
+};
 root.DtmCommunity={LABELS,BATCH,ensureUI,openPage,setLegacyRows,renderHome,load,openPost,compress,closeModal,syncRobots,_state:()=>({all:[...all],total,visible,filter})};
 document.addEventListener('DOMContentLoaded',()=>{ensureUI();setTimeout(()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'){root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}},0)});window.addEventListener('popstate',()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'){closeModal();root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}else closeModal()});
 })(globalThis);
