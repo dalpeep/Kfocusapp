@@ -26,7 +26,7 @@
       const url=String(input instanceof Request?input.url:input);
       if(!url.startsWith('https://preview-fixture.invalid/rest/v1/rpc/'))throw new Error('Fixture preview blocks external requests.');
       const rpc=url.split('/').pop();
-      const value=rpc==='community_get_public_v4'?(window.__fixtureRow?[window.__fixtureRow]:[]):rpc==='community_comments_public_v4'||rpc==='community_list_public_v4'?[]:null;
+      const value=['community_get_public','community_get_public_v4'].includes(rpc)?(window.__fixtureRow?[window.__fixtureRow]:[]):['community_comments_public','community_comments_public_v4','community_list_public','community_list_public_v4'].includes(rpc)?[]:null;
       if(value===null)throw new Error('Unexpected fixture RPC.');
       return new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}});
     };
