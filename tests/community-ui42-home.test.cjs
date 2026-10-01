@@ -8,7 +8,7 @@ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const app=fs.readFileSync(path.join(root,'app-v99.js'),'utf8');
 const source=fs.readFileSync(path.join(root,'assets/community.js'),'utf8');
 const now=new Date().toISOString();
-const rows=['marketplace','housing','job_hiring','job_seeking','neighborhood','qna','marketplace'].map((category,index)=>({id:String(index+1),category,title:`${category} ${index}`,area:'dallas',created_at:now,details:{},total_count:7}));
+const rows=['marketplace','housing','job_hiring','job_seeking','neighborhood','qna','marketplace'].map((category,index)=>({id:String(index+1),category,title:`${category} ${index}`,area:'dallas',created_at:now,details:{},total_count:7,...(index<2?{image_url:'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='}:{})}));
 
 test('main Community restores three tabs and nests seven board categories in Dallas Life',()=>{
   const home=html.slice(html.indexOf('community-home-card'),html.indexOf('id="page-business"'));
@@ -38,7 +38,7 @@ test('390px home and full board share chips, cards, filtering and empty state',a
     const page=await browser.newPage({viewport:{width:390,height:844}});
     await page.route('https://ui42.test/',route=>route.fulfill({status:200,body:'<html><body></body></html>'}));
     await page.goto('https://ui42.test/');
-    await page.setContent('<html><head><meta name="robots" content="index,follow"></head><body><div class="app-shell"><main><section class="card section-card community-home-card"><div class="section-head compact-head"><h3 class="section-title">커뮤니티</h3><div class="community-home-actions"><button class="community-home-write" data-community-write>＋ 글쓰기</button><button class="text-link community-full-btn">전체보기</button></div></div><div id="communityHomeFilters" class="community-category-filters life-category-filters"></div><div id="homeBoardList" class="home-board-list"></div></section></main></div></body></html>');
+    await page.setContent('<html><head><meta name="robots" content="index,follow"></head><body><div class="app-shell"><main><section class="card section-card community-home-card"><div class="section-head compact-head"><h3 class="section-title">커뮤니티</h3><div class="community-home-actions"><button class="community-home-write" data-community-write>＋ 글쓰기</button><button class="text-link community-full-btn">전체보기</button></div></div><div id="communityTabs" class="community-tabs"><button class="community-tab">행사안내</button><button class="community-tab active">달라스 라이프</button><button class="community-tab">업소탐방</button></div><div id="communityHomeFilters" class="community-category-filters life-category-filters"></div><div id="homeBoardList" class="home-board-list"></div></section></main></div></body></html>');
     await page.addStyleTag({path:path.join(root,'styles.css')});
     await page.evaluate(data=>{
       window.APP_CONFIG={APP_REGION:'dallas',SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'test'};
@@ -65,6 +65,41 @@ test('390px home and full board share chips, cards, filtering and empty state',a
     assert.ok(lastChip.right<=lastChip.containerRight,JSON.stringify(lastChip));
     const header=await page.locator('.community-home-card .section-head').evaluate(el=>{const title=el.querySelector('.section-title').getBoundingClientRect(),write=el.querySelector('.community-home-write').getBoundingClientRect(),more=el.querySelector('.community-full-btn').getBoundingClientRect();return {oneLine:Math.abs(title.top-write.top)<10&&Math.abs(write.top-more.top)<10,separated:more.left-write.right>=5,within:more.right<=el.getBoundingClientRect().right}});
     assert.deepEqual(header,{oneLine:true,separated:true,within:true});
+    const geometry=await page.evaluate(()=>{
+      const box=el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height}};
+      const card=document.querySelector('.community-home-card');
+      const head=box(card.querySelector('.section-head'));
+      const tabs=box(card.querySelector('#communityTabs'));
+      const chips=box(card.querySelector('#communityHomeFilters'));
+      const cards=[...card.querySelectorAll('#homeBoardList>.community-ui4-card')].map(box);
+      const buttons=[...card.querySelectorAll('#communityTabs button')].map(box);
+      const firstChip=box(card.querySelector('#communityHomeFilters button:first-child'));
+      const lastChip=box(card.querySelector('#communityHomeFilters button:last-child'));
+      return {card:box(card),head,tabs,chips,cards,buttons,firstChip,lastChip,space:getComputedStyle(card).getPropertyValue('--community-space').trim(),scrollWidth:document.documentElement.scrollWidth};
+    });
+    const same=(a,b)=>Math.abs(a-b)<=1;
+    assert.ok([geometry.tabs,geometry.chips,...geometry.cards].every(box=>same(box.left,geometry.head.left)&&same(box.right,geometry.head.right)),JSON.stringify(geometry));
+    assert.ok(geometry.buttons.every(box=>same(box.height,geometry.buttons[0].height)),JSON.stringify(geometry));
+    assert.ok(same(geometry.firstChip.left,geometry.chips.left)&&same(geometry.lastChip.right,geometry.chips.right),JSON.stringify(geometry));
+    assert.ok(same(geometry.tabs.top-geometry.head.bottom,10)&&same(geometry.chips.top-geometry.tabs.bottom,10)&&same(geometry.cards[0].top-geometry.chips.bottom,10),JSON.stringify(geometry));
+    assert.ok(same(geometry.cards[1].top-geometry.cards[0].bottom,10),JSON.stringify(geometry));
+    assert.ok(geometry.card.right-geometry.head.right>=12&&geometry.head.left-geometry.card.left>=12,JSON.stringify(geometry));
+    assert.ok(geometry.scrollWidth<=390,JSON.stringify(geometry));
+    const imageCardAlignment=await page.locator('#homeBoardList .community-ui4-card.has-image').evaluateAll(cards=>cards.map(card=>({badge:card.querySelector('.community-ui4-badges').getBoundingClientRect().left,title:card.querySelector('.community-ui4-title').getBoundingClientRect().left})));
+    assert.ok(imageCardAlignment.length===2&&imageCardAlignment.every(pair=>same(pair.badge,pair.title)),JSON.stringify(imageCardAlignment));
+    for(const width of [425,360]){
+      await page.setViewportSize({width,height:844});
+      const layout=await page.evaluate(()=>{
+        const rect=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {left:r.left,right:r.right}};
+        const chips=document.getElementById('communityHomeFilters');
+        chips.scrollLeft=chips.scrollWidth;
+        return {head:rect('.community-home-card .section-head'),tabs:rect('#communityTabs'),chips:rect('#communityHomeFilters'),list:rect('#homeBoardList'),last:rect('#communityHomeFilters button:last-child'),pageWidth:document.documentElement.scrollWidth,chipScrollWidth:chips.scrollWidth};
+      });
+      assert.ok([layout.tabs,layout.chips,layout.list].every(box=>same(box.left,layout.head.left)&&same(box.right,layout.head.right)),JSON.stringify(layout));
+      assert.ok(layout.last.right<=layout.chips.right+1,JSON.stringify(layout));
+      assert.ok(layout.pageWidth<=width,JSON.stringify(layout));
+    }
+    await page.setViewportSize({width:390,height:844});
     await page.evaluate(async()=>DtmCommunity.renderHome(document.getElementById('homeBoardList'),'job_hiring'));
     assert.equal(await page.locator('#homeBoardList .community-ui4-card').count(),1);
     assert.equal(await page.locator('#communityHomeFilters button.active').innerText(),'구인');
