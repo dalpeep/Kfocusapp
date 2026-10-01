@@ -13,7 +13,7 @@ syncRobots();root.addEventListener('hashchange',syncRobots);root.addEventListene
 function timeLabel(v){const ms=Date.now()-Date.parse(v);if(ms<3600000)return `${Math.max(1,Math.floor(ms/60000))}분 전`;if(ms<86400000)return `${Math.floor(ms/3600000)}시간 전`;return new Intl.DateTimeFormat('ko-KR',{timeZone:'America/Chicago',month:'short',day:'numeric'}).format(new Date(v))}
 function ensureUI(){if(el('page-community'))return;const page=document.createElement('section');page.className='page';page.id='page-community';page.innerHTML=`<section class="card section-card community-page"><header class="community-page-head"><div><h2>달라스 라이프</h2><p>로그인 없이 함께 나누는 달라스 한인 생활 커뮤니티</p></div><button class="community-write" type="button" data-community-write>＋ 글쓰기</button></header><div class="community-tools"><div id="communityCategoryFilters" class="community-category-filters"></div><label class="community-search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.6"></circle><path d="m16 16 5 5"></path></svg><input id="communitySearch" type="search" placeholder="제목, 내용, 지역 검색" aria-label="제목, 내용, 지역 검색"></label><button id="communitySearchBtn" type="button">검색</button></div><div id="communityResults" class="community-results"></div><div id="communityResultCount" class="community-result-count" hidden></div><button id="communityMore" class="community-more" type="button" hidden>더 보기</button><section class="community-legacy"><h3>기존 달라스 라이프</h3><p>운영자가 제공한 기존 생활정보입니다.</p><div id="communityLegacy"></div></section></section>`;document.querySelector('.app-main,.main-content,main')?.appendChild(page);
 const modal=document.createElement('div');modal.id='communityModal';modal.className='community-modal hidden';modal.innerHTML=`<div class="community-modal-backdrop" data-community-close></div><div class="community-modal-panel" role="dialog" aria-modal="true"><button class="community-modal-x" type="button" data-community-close>×</button><div id="communityModalBody"></div></div>`;document.body.appendChild(modal);
-  el('communitySearchBtn').onclick=()=>{query=el('communitySearch').value.trim();load()};el('communitySearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();query=e.target.value.trim();load()}};el('communityMore').onclick=()=>showMore();document.addEventListener('click',e=>{if(e.target.closest('[data-community-write]'))openWrite();if(e.target.closest('[data-community-close]'))closeModal();const card=e.target.closest('[data-community-post]');if(card)openPost(card.dataset.communityPost);const chip=e.target.closest('[data-community-category]');if(chip){filter=chip.dataset.communityCategory;visible=BATCH;renderFilters();load()}});renderFilters()}
+  el('communitySearchBtn').onclick=()=>{query=el('communitySearch').value.trim();load()};el('communitySearch').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();query=e.target.value.trim();load()}};el('communityMore').onclick=()=>showMore();document.addEventListener('click',e=>{if(e.target.closest('[data-community-write]')){const category=e.target.closest('#page-home')?el('communityHomeFilters')?.querySelector('[data-community-home-category].active')?.dataset.communityHomeCategory:filter;openWrite(null,Object.hasOwn(LABELS,category)?category:null)}if(e.target.closest('[data-community-close]'))closeModal();const card=e.target.closest('[data-community-post]');if(card)openPost(card.dataset.communityPost);const chip=e.target.closest('[data-community-category]');if(chip){filter=chip.dataset.communityCategory;visible=BATCH;renderFilters();load()}});renderFilters()}
 function renderFilters(){const box=el('communityCategoryFilters');if(!box)return;box.innerHTML=[['all','전체'],...Object.entries(LABELS)].map(([k,v])=>`<button type="button" class="${filter===k?'active':''}" data-community-category="${k}">${v}</button>`).join('')}
 function card(row){const area=AREAS.find(([key])=>key===String(row.area).toLowerCase())?.[1]||row.area;return `<button type="button" class="community-post-card${row.image_url?' has-image':''}" data-community-post="${esc(row.id)}">${row.image_url?`<img src="${esc(row.image_url)}" alt="" loading="lazy">`:''}<span class="community-post-copy"><span><em data-kind="${esc(row.category)}">${esc(LABELS[row.category]||row.category)}</em>${row.video_provider?'<span class="community-video-badge">▶ 영상</span>':''}</span><strong>${esc(row.title)}</strong><span class="community-post-preview">${esc(row.body_preview||'')}</span><small class="community-post-meta"><span class="community-post-place-time">${esc(area)} · ${timeLabel(row.created_at)}</span><span class="community-post-stats"><span class="community-post-stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H5l-2 2v-9.5A7.5 7.5 0 0 1 10.5 4h2A7.5 7.5 0 0 1 20 11.5Z"/></svg>${Number(row.comment_count)||0}</span><span class="community-post-stat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg>${Number(row.view_count)||0}</span></span></small></span></button>`}
 function renderList(){filtered=all;const shown=filtered.slice(0,visible),box=el('communityResults');if(box)box.innerHTML=shown.length?shown.map(card).join(''):'<div class="community-empty">조건에 맞는 게시글이 없습니다.</div>';const count=el('communityResultCount');if(count){count.textContent=`${shown.length} / ${total}개`;count.hidden=total<=BATCH}if(el('communityMore'))el('communityMore').hidden=shown.length>=total}
@@ -360,7 +360,10 @@ openPost=async function(id){
   if(video)body.before(video);
 };
 const boardBaseRpc=rpc;
-rpc=(name,args)=>boardBaseRpc(name==='community_get_public'||name==='community_get_public_v2'?'community_get_public_v3':name==='community_list_public_v2'?'community_list_public_v3':name==='community_comments_public'?'community_comments_public_v3':name,args);
+rpc=(name,args)=>{
+  const v4=cfg().COMMUNITY_RETENTION_RPC_V4_ENABLED===true;
+  return boardBaseRpc(name==='community_get_public'||name==='community_get_public_v2'?(v4?'community_get_public_v4':'community_get_public_v3'):name==='community_list_public_v2'?(v4?'community_list_public_v4':'community_list_public_v3'):name==='community_comments_public'?(v4?'community_comments_public_v4':'community_comments_public_v3'):name,args);
+};
 // UI 4.0 keeps the Phase 3 data and mutation paths, but gives each category a
 // distinct reading order in both the category feed and the mixed feed.
 const ui4Labels={...LABELS,housing:'부동산',qna:'질문정보'};
@@ -435,59 +438,28 @@ openWrite=function(existing=null){
   const passwordNote=form.querySelector('.community-policy-note');if(passwordNote)contact.append(passwordNote);
   if(media)media.after(contact);
 };
-// A short, optional guide precedes new posts only. Editing keeps its existing flow.
+// Category guidance is part of the existing composer, not a second modal.
 const WRITE_GUIDES={
-  job_hiring:{title:'구인 글쓰기 안내',description:'좋은 인재를 찾을 수 있도록 근무 조건과 모집 내용을 구체적으로 작성해 주세요.',items:['업소·회사명, 모집 직종, 근무지역을 정확하게 작성해 주세요.','급여, 근무시간, Full-time/Part-time 등 근무 조건을 구체적으로 작성하면 지원자가 판단하는 데 도움이 됩니다.','지원자가 연락할 수 있는 방법을 정확하게 입력해 주세요.','주민등록번호, 신분증, 은행정보 등 불필요한 개인정보를 요구하지 마세요.','허위 채용, 불법적인 구인 또는 게시판 성격에 맞지 않는 글은 관리자에 의해 비공개 또는 삭제될 수 있습니다.'],notice:'채용이 완료되면 게시글을 수정하거나 삭제해 주세요.',cta:'구인 글쓰기'},
-  job_seeking:{title:'구직 글쓰기 안내',description:'원하는 일자리를 찾는 데 도움이 되도록 희망 조건과 경력을 간단하고 정확하게 작성해 주세요.',items:['희망 직종, 경력, 희망 근무지역과 근무형태를 작성해 주세요.','가능한 근무시간이나 Full-time/Part-time 여부를 적으면 고용주가 판단하는 데 도움이 됩니다.','주민등록번호, 신분증, 은행계좌 등 민감한 개인정보는 게시글에 작성하지 마세요.','전화번호나 이메일 등 연락처는 필요한 경우 지정된 연락방법 항목을 이용해 주세요.','허위 내용이나 게시판 성격에 맞지 않는 글은 관리자에 의해 비공개 또는 삭제될 수 있습니다.'],notice:'취업이 완료되면 게시글을 수정하거나 삭제해 주세요.',cta:'구직 글쓰기'},
-  marketplace:{title:'사고팔기 글쓰기 안내',description:'안전하고 편리한 거래를 위해 상품 정보와 거래 조건을 정확하게 작성해 주세요.',items:['상품명, 판매가격, 상품 상태와 거래 가능한 지역을 정확하게 작성해 주세요.','실제 상품 사진을 등록하면 구매자가 상품 상태를 확인하는 데 도움이 됩니다.','필요한 경우 상품 상태를 보여주는 짧은 MP4 동영상도 추가할 수 있습니다.','거래 전 상품 상태, 거래 장소와 결제방법을 서로 충분히 확인해 주세요.','사기성 거래, 허위 상품, 불법 판매품 또는 타인의 권리를 침해하는 게시물은 비공개 또는 삭제될 수 있습니다.'],notice:'판매가 완료되면 게시글을 판매완료로 변경해 주세요.',cta:'사고팔기 글쓰기'},
-  housing:{title:'부동산 글쓰기 안내',description:'매물을 정확하게 확인할 수 있도록 가격과 지역, 매물 정보를 구체적으로 작성해 주세요.',items:['매매 또는 렌트 여부, 가격, 지역 등 실제 매물 정보를 정확하게 작성해 주세요.','가격이 정해지지 않은 경우 가격 문의를 선택할 수 있습니다.','실제 매물 사진과 동영상을 등록하면 매물 상태를 확인하는 데 도움이 됩니다.','개인 출입정보, 비밀번호 등 공개할 필요가 없는 민감한 정보는 게시하지 마세요.','허위 매물, 부정확한 정보 또는 게시판 성격에 맞지 않는 글은 비공개 또는 삭제될 수 있습니다.'],notice:'부동산 게시글은 관리자 확인 후 공개됩니다.',cta:'부동산 글쓰기'},
-  neighborhood:{title:'동네소식 글쓰기 안내',description:'지역 주민들과 함께 나누고 싶은 행사, 안내, 생활정보와 주변 소식을 공유해 주세요.',items:['지역 주민에게 도움이 되는 행사, 안내, 생활정보와 주변 소식을 작성해 주세요.','행사나 모임이라면 날짜, 시간, 장소를 가능한 정확하게 적어 주세요.','출처가 필요한 정보는 확인할 수 있는 내용을 함께 작성해 주세요.','확인되지 않은 소문이나 타인의 개인정보를 게시하지 마세요.','반복적인 광고·홍보 또는 게시판 성격에 맞지 않는 글은 관리자에 의해 제한될 수 있습니다.'],notice:'많은 이웃에게 도움이 될 수 있도록 지역과 내용을 구체적으로 작성해 주세요.',cta:'동네소식 글쓰기'},
-  qna:{title:'질문·정보 글쓰기 안내',description:'궁금한 점을 질문하거나 다른 이웃에게 도움이 되는 정보를 공유해 주세요.',items:['질문인지 정보공유인지 구분하고 내용을 알기 쉬운 제목으로 작성해 주세요.','질문할 때 지역이나 상황을 함께 작성하면 보다 정확한 답변을 받는 데 도움이 됩니다.','정보공유 글은 다른 사용자가 이해할 수 있도록 내용을 구체적으로 작성해 주세요.','타인의 개인정보를 게시하거나 확인되지 않은 내용을 사실처럼 단정하지 마세요.','욕설, 비방, 사기성 정보 또는 게시판 성격에 맞지 않는 글은 비공개 또는 삭제될 수 있습니다.'],notice:'답을 찾은 질문은 해결됨으로 표시해 주세요.',cta:'질문·정보 글쓰기'}
+  job_hiring:{title:'구인 글쓰기 안내',description:'좋은 인재를 찾을 수 있도록 근무 조건과 모집 내용을 구체적으로 작성해 주세요.',items:['업소·회사명, 모집 직종, 근무지역을 정확하게 작성해 주세요.','급여, 근무시간, Full-time/Part-time 등 근무 조건을 구체적으로 작성해 주세요.','지원자가 연락할 수 있는 방법을 정확하게 입력해 주세요.','주민등록번호, 신분증, 은행정보 등 불필요한 개인정보를 요구하지 마세요.','허위 채용, 불법적인 구인 또는 게시판 성격에 맞지 않는 글은 비공개 또는 삭제될 수 있습니다.'],notices:['채용이 완료되면 게시글을 수정하거나 삭제해 주세요.']},
+  job_seeking:{title:'구직 글쓰기 안내',description:'원하는 일자리를 찾는 데 도움이 되도록 희망 조건과 경력을 정확하게 작성해 주세요.',items:['희망 직종, 경력, 희망 근무지역과 근무형태를 작성해 주세요.','가능한 근무시간이나 Full-time/Part-time 여부를 작성해 주세요.','주민등록번호, 신분증, 은행계좌 등 민감한 개인정보는 게시하지 마세요.','전화번호나 이메일은 지정된 연락방법 항목을 이용해 주세요.','허위 내용이나 게시판 성격에 맞지 않는 글은 비공개 또는 삭제될 수 있습니다.'],notices:['취업이 완료되면 게시글을 수정하거나 삭제해 주세요.']},
+  marketplace:{title:'사고팔기 글쓰기 안내',description:'안전하고 편리한 거래를 위해 상품 정보와 거래 조건을 정확하게 작성해 주세요.',items:['상품명, 판매가격, 상품 상태와 거래 가능한 지역을 정확하게 작성해 주세요.','실제 상품 사진을 등록하면 상품 상태를 확인하는 데 도움이 됩니다.','필요한 경우 상품 상태를 보여주는 짧은 MP4 동영상도 추가할 수 있습니다.','거래 전 상품 상태, 거래 장소와 결제방법을 서로 충분히 확인해 주세요.','사기성 거래, 허위 상품, 불법 판매품은 비공개 또는 삭제될 수 있습니다.'],notices:['사고팔기 게시글은 등록일로부터 30일 동안 게시됩니다. 기간이 더 필요한 경우 만료 전에 작성자가 1회에 한해 30일 연장할 수 있습니다.','판매가 완료되면 `판매완료`로 변경해 주세요.']},
+  housing:{title:'부동산 글쓰기 안내',description:'매물을 정확하게 확인할 수 있도록 가격과 지역, 매물 정보를 구체적으로 작성해 주세요.',items:['매매 또는 렌트 여부, 가격, 지역 등 실제 매물 정보를 정확하게 작성해 주세요.','가격이 정해지지 않은 경우 가격 문의를 선택할 수 있습니다.','실제 매물 사진과 동영상을 등록하면 매물 상태를 확인하는 데 도움이 됩니다.','출입 비밀번호 등 공개할 필요가 없는 민감한 정보는 게시하지 마세요.','허위 매물이나 부정확한 정보는 비공개 또는 삭제될 수 있습니다.'],notices:['부동산 게시글은 등록일로부터 90일 동안 게시됩니다. 기간이 더 필요한 경우 만료 전에 작성자가 1회에 한해 90일 연장할 수 있습니다.']},
+  neighborhood:{title:'동네소식 글쓰기 안내',description:'지역 주민들과 함께 나누고 싶은 행사, 안내, 생활정보와 주변 소식을 공유해 주세요.',items:['지역 주민에게 도움이 되는 행사, 안내, 생활정보를 작성해 주세요.','행사나 모임이라면 날짜, 시간, 장소를 정확하게 적어 주세요.','필요한 경우 확인 가능한 출처를 함께 작성해 주세요.','확인되지 않은 소문이나 타인의 개인정보를 게시하지 마세요.','반복적인 광고·홍보 또는 게시판 성격에 맞지 않는 글은 제한될 수 있습니다.'],notices:['많은 이웃에게 도움이 될 수 있도록 지역과 내용을 구체적으로 작성해 주세요.']},
+  qna:{title:'질문·정보 글쓰기 안내',description:'궁금한 점을 질문하거나 다른 이웃에게 도움이 되는 정보를 공유해 주세요.',items:['질문인지 정보공유인지 구분하고 알기 쉬운 제목으로 작성해 주세요.','질문에는 지역이나 상황을 함께 적으면 정확한 답변을 받는 데 도움이 됩니다.','정보공유 글은 다른 사용자가 이해할 수 있도록 구체적으로 작성해 주세요.','타인의 개인정보나 확인되지 않은 내용을 사실처럼 게시하지 마세요.','욕설, 비방, 사기성 정보는 비공개 또는 삭제될 수 있습니다.'],notices:['답을 찾은 질문은 해결됨으로 표시해 주세요.']}
 };
-const WRITE_GUIDE_ORDER=['job_hiring','job_seeking','marketplace','housing','neighborhood','qna'];
 const writeFormWithoutGuide=openWrite;
-function guideContent(category){const guide=WRITE_GUIDES[category];return `<span class="community-guide-badge">${esc(ui4Labels[category])}</span><h3>${esc(guide.title)}</h3><p>${esc(guide.description)}</p><ul>${guide.items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul><div class="community-guide-notice">${esc(guide.notice)}</div>`}
-function openWriteGuide(){
-  ensureUI();removeTurnstile();
-  const body=el('communityModalBody');
-  body.innerHTML=`<section class="community-write-guide" aria-labelledby="communityWriteGuideTitle"><span class="community-guide-eyebrow">글쓰기</span><h2 id="communityWriteGuideTitle">어떤 글을 작성하시나요?</h2><div class="community-guide-categories" role="group" aria-label="글쓰기 카테고리">${WRITE_GUIDE_ORDER.map(category=>`<button type="button" data-guide-category="${category}" aria-pressed="false">${esc(ui4Labels[category])}</button>`).join('')}</div><section class="community-guide-advice" id="communityGuideAdvice" hidden aria-live="polite"></section><div class="community-guide-actions"><button type="button" data-community-close>취소</button><button type="button" data-guide-start disabled>글쓰기</button></div></section>`;
-  showModal();
-  let selected=null;
-  body.querySelectorAll('[data-guide-category]').forEach(button=>button.addEventListener('click',()=>{
-    selected=button.dataset.guideCategory;
-    body.querySelectorAll('[data-guide-category]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
-    const advice=el('communityGuideAdvice');advice.hidden=false;advice.innerHTML=guideContent(selected);
-    const start=body.querySelector('[data-guide-start]');start.disabled=false;start.textContent=WRITE_GUIDES[selected].cta;
-  }));
-  body.querySelector('[data-guide-start]').addEventListener('click',()=>{
-    if(!selected)return;
-    openWrite(null,selected);
-  });
-}
-// Reopen the guide without replacing the connected form or its file inputs.
+function guideContent(category){const guide=WRITE_GUIDES[category];return `<span class="community-guide-badge">${esc(ui4Labels[category])}</span><h3>${esc(guide.title)}</h3><p>${esc(guide.description)}</p><ul>${guide.items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul><div class="community-guide-notice">${guide.notices.map(item=>`<p>${esc(item)}</p>`).join('')}</div>`}
 openWrite=function(existing=null,selectedCategory=null){
-  if(!existing&&!selectedCategory)return openWriteGuide();
   writeFormWithoutGuide(existing);
   const form=el('communityWriteForm');if(!form)return;
   if(selectedCategory){form.elements.category.value=selectedCategory;form.elements.category.dispatchEvent(new Event('change',{bubbles:true}))}
+  if(existing)return;
   const heading=form.querySelector('h2');
-  if(!heading||form.querySelector('.community-write-help'))return;
-  const help=document.createElement('button');help.type='button';help.className='community-write-help';help.textContent='ⓘ 작성 안내';help.setAttribute('aria-expanded','false');
-  heading.after(help);
-  help.addEventListener('click',()=>{
-    const category=form.elements.category.value;if(!WRITE_GUIDES[category])return;
-    const modalPanel=el('communityModal')?.querySelector('.community-modal-panel');
-    const previousScroll=modalPanel?.scrollTop||0;
-    const guide=document.createElement('section');guide.className='community-write-resume-guide';
-    guide.innerHTML=`<span class="community-guide-eyebrow">글쓰기</span><section class="community-guide-advice">${guideContent(category)}</section><div class="community-guide-actions"><button type="button" data-guide-return>작성 화면으로 돌아가기</button></div>`;
-    form.after(guide);form.hidden=true;help.setAttribute('aria-expanded','true');
-    if(modalPanel)modalPanel.scrollTop=0;
-    guide.querySelector('[data-guide-return]').addEventListener('click',()=>{
-      guide.remove();form.hidden=false;help.setAttribute('aria-expanded','false');
-      if(modalPanel)modalPanel.scrollTop=previousScroll;
-      help.focus();
-    });
-  });
+  if(!heading)return;
+  const guide=document.createElement('section');guide.className='community-write-inline-guide';guide.setAttribute('aria-label','작성 안내');
+  heading.after(guide);
+  const update=()=>{const category=form.elements.category.value;guide.innerHTML=WRITE_GUIDES[category]?guideContent(category):''};
+  form.elements.category.addEventListener('change',update);update();
 };
 const ui4OpenPost=openPost;
 openPost=async function(id){
@@ -500,6 +472,36 @@ openPost=async function(id){
   const media=article.querySelector('.community-video-detail');if(media&&body)body.before(media);
   if(contact&&owner)owner.before(contact);
   if(owner)article.append(owner);
+};
+const retentionOpenPost=openPost;
+const retentionDate=value=>new Intl.DateTimeFormat('ko-KR',{year:'numeric',month:'long',day:'numeric',timeZone:'America/Chicago'}).format(new Date(value));
+openPost=async function(id){
+  await retentionOpenPost(id);if(current?.id!==id)return;
+  if(cfg().COMMUNITY_RETENTION_RPC_V4_ENABLED!==true)return;
+  // The versioned reader is introduced by the isolated retention migration.
+  // Before that migration, leave existing public detail behavior intact.
+  let rows;try{rows=await rpc('community_get_public_v4',{p_post_id:id})}catch{return}
+  const row=rows?.[0];if(!row)return;
+  current={...current,expires_at:row.expires_at,extension_count:row.extension_count};
+  if(!['marketplace','housing'].includes(row.category)||!row.expires_at)return;
+  const owner=el('communityModalBody')?.querySelector('.community-owner-actions');if(!owner)return;
+  const days=row.category==='housing'?90:30,ended=retentionDate(row.expires_at);
+  const remaining=Math.max(0,Math.ceil((Date.parse(row.expires_at)-Date.now())/86400000));
+  const period=document.createElement('div');period.className='community-retention-owner';
+  period.innerHTML=`<span>게시 종료: ${esc(ended)}</span><span>${remaining}일 남음</span>${remaining<=7?'<strong class="community-retention-warning">게시기간이 7일 이내에 종료됩니다.</strong>':''}${row.status==='sold'?'':row.extension_count?'<span>게시기간 연장 완료</span>':`<button type="button" data-retention-extend>게시기간 ${days}일 연장</button>`}`;
+  owner.before(period);
+  period.querySelector('[data-retention-extend]')?.addEventListener('click',()=>{
+    removeTurnstile();
+    const next=new Date(Date.parse(row.expires_at)+days*86400000);
+    const body=el('communityModalBody');
+    body.innerHTML=`<form id="communityExtendForm"><h2>게시기간을 ${days}일 연장하시겠습니까?</h2><p>현재 종료일: ${esc(ended)}<br>연장 후 종료일: ${esc(retentionDate(next))}</p><label>수정/삭제 비밀번호<input name="password" type="password" minlength="6" maxlength="72" required></label>${turnstileBox()}<div class="community-form-actions"><button type="button" data-community-close>취소</button><button type="submit">${days}일 연장</button></div><p id="communityExtendStatus" role="status"></p></form>`;
+    renderTurnstile(body);
+    const form=el('communityExtendForm');form.onsubmit=async e=>{
+      e.preventDefault();const button=form.querySelector('[type="submit"]'),status=el('communityExtendStatus');button.disabled=true;
+      try{await api('community-post-extend',{id,password:form.elements.password.value,turnstile_token:token()});status.textContent=`게시기간이 ${days}일 연장되었습니다.`;setTimeout(()=>openPost(id).catch(showError),900)}
+      catch(error){status.textContent=error.message;button.disabled=false}
+    };
+  });
 };
 root.DtmCommunity={LABELS,BATCH,ensureUI,openPage,setLegacyRows,renderHome,load,openPost,compress,closeModal,syncRobots,_state:()=>({all:[...all],total,visible,filter})};
 document.addEventListener('DOMContentLoaded',()=>{ensureUI();setTimeout(()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'){root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}},0)});window.addEventListener('popstate',()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'){closeModal();root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}else closeModal()});

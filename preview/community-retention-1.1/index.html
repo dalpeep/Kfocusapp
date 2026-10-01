@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Community retention fixture preview</title>
+  <link rel="stylesheet" href="../../styles.css">
+  <style>
+    body{margin:0;background:#edf2f9;color:#18335f;font-family:system-ui,sans-serif}
+    .fixture-bar{max-width:390px;margin:auto;padding:12px}
+    .fixture-bar h1{font-size:15px;margin:0 0 6px}
+    .fixture-bar p{font-size:12px;margin:0 0 10px}
+    .fixture-buttons{display:flex;flex-wrap:wrap;gap:6px}
+    .fixture-buttons button{font:inherit;font-size:12px;padding:7px 9px;border:1px solid #bcd0ed;border-radius:8px;background:#fff;color:#17477e}
+    .fixture-buttons button:focus-visible{outline:2px solid #1769e0}
+  </style>
+  <script>
+    // This standalone path has no Supabase credentials and rejects every
+    // network request except its in-memory, synthetic RPC fixture.
+    window.KFOCUS_CONFIG={SUPABASE_URL:'https://preview-fixture.invalid',SUPABASE_ANON_KEY:'fixture-only',COMMUNITY_TURNSTILE_SITE_KEY:'fixture-only',COMMUNITY_VIDEO_UPLOAD_UI_ENABLED:false,COMMUNITY_RETENTION_RPC_V4_ENABLED:true};
+    window.turnstile={render:()=>1,remove:()=>{},reset:()=>{}};
+    window.DtmNavigatePage=()=>{};
+    window.__fixtureRow=null;
+    window.fetch=async input=>{
+      const url=String(input instanceof Request?input.url:input);
+      if(!url.startsWith('https://preview-fixture.invalid/rest/v1/rpc/'))throw new Error('Fixture preview blocks external requests.');
+      const rpc=url.split('/').pop();
+      const value=['community_get_public','community_get_public_v4'].includes(rpc)?(window.__fixtureRow?[window.__fixtureRow]:[]):['community_comments_public','community_comments_public_v4','community_list_public','community_list_public_v4'].includes(rpc)?[]:null;
+      if(value===null)throw new Error('Unexpected fixture RPC.');
+      return new Response(JSON.stringify(value),{status:200,headers:{'Content-Type':'application/json'}});
+    };
+  </script>
+</head>
+<body>
+  <div class="fixture-bar">
+    <h1>Community 1.1 · isolated UI fixture</h1>
+    <p>가상 데이터만 사용합니다. 실제 게시글·Production DB에는 연결하지 않습니다.</p>
+    <div class="fixture-buttons" id="fixtureButtons"></div>
+  </div>
+  <main class="app-main"></main>
+  <script src="../../assets/community-contract.js"></script>
+  <script src="../../assets/community.js"></script>
+  <script>
+    const labels={job_hiring:'구인',job_seeking:'구직',marketplace:'사고팔기',housing:'부동산',neighborhood:'동네소식',qna:'질문정보'};
+    const fixedNow=Date.parse('2026-10-01T12:00:00.000Z');
+    Date.now=()=>fixedNow;
+    const fixture=(category,expiry,extra={})=>({
+      id:'00000000-0000-4000-8000-000000000001',region:'dallas',area:'dallas',category,
+      title:'[Fixture] 게시글',body:'Preview 전용 가상 게시글입니다.',author_name:'Preview',
+      contact_type:null,contact_value:null,view_count:0,comment_count:0,
+      created_at:'2026-10-01T12:00:00.000Z',images:[],video_url:null,video_provider:'youtube',
+      details:{},status:'approved',expires_at:expiry,extension_count:0,...extra
+    });
+    const states={
+      market30:fixture('marketplace','2026-10-31T12:00:00.000Z'),
+      market60:fixture('marketplace','2026-11-30T12:00:00.000Z',{extension_count:1}),
+      housing90:fixture('housing','2026-12-30T12:00:00.000Z'),
+      housing180:fixture('housing','2027-03-30T12:00:00.000Z',{extension_count:1}),
+      sevenDays:fixture('marketplace','2026-10-08T12:00:00.000Z'),
+      sold:fixture('marketplace','2026-10-31T12:00:00.000Z',{status:'sold'})
+    };
+    const buttons=document.getElementById('fixtureButtons');
+    buttons.innerHTML=Object.entries(labels).map(([key,label])=>`<button type="button" data-guide="${key}">${label} 안내</button>`).join('')+
+      [['market30','사고팔기 30일'],['market60','사고팔기 연장 후'],['housing90','부동산 90일'],['housing180','부동산 연장 후'],['sevenDays','만료 7일 전'],['sold','판매완료']]
+        .map(([key,label])=>`<button type="button" data-detail="${key}">${label}</button>`).join('');
+    DtmCommunity.ensureUI();
+    buttons.onclick=async event=>{
+      const guide=event.target.closest('[data-guide]'),detail=event.target.closest('[data-detail]');
+      if(guide){
+        document.querySelector('#page-community [data-community-write]').dispatchEvent(new Event('click',{bubbles:true}));
+        const select=document.querySelector('#communityWriteForm [name="category"]');
+        select.value=guide.dataset.guide;select.dispatchEvent(new Event('change',{bubbles:true}));
+      }else if(detail){
+        window.__fixtureRow=states[detail.dataset.detail];
+        await DtmCommunity.openPost(window.__fixtureRow.id);
+        document.querySelector('.community-retention-owner')?.scrollIntoView({block:'center'});
+      }
+    };
+  </script>
+</body>
+</html>

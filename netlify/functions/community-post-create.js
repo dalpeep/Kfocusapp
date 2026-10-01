@@ -1,6 +1,7 @@
 const S=require('./lib/community-security');
 const {validateDetails}=require('./lib/community-details');
 const {reviewPost}=require('./lib/community-review');
+const {initialRetention}=require('./lib/community-retention');
 exports.handler=S.handler(async event=>{
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});const body=S.parse(event),db=S.client();
   const uploads=Array.isArray(body.upload_ids)?[...new Set(body.upload_ids.map(String))]:[];
@@ -13,9 +14,9 @@ exports.handler=S.handler(async event=>{
   if(details?.external_video_url&&post.video_url)
     throw Object.assign(new Error('영상 입력을 확인해 주세요.'),{status:400});
   if(uploads.length>(S.IMAGE_LIMITS[post.category]||0))throw Object.assign(new Error('이미지 개수 제한을 초과했습니다.'),{status:400});
-  const now=new Date(),expiry=post.category==='marketplace'?new Date(now.getTime()+30*86400000):null,cleanup=expiry?new Date(expiry.getTime()+7*86400000):null;
+  const now=new Date(),retention=initialRetention(post.category,now);
   const decision=reviewPost(post,details),initialStatus=uploads.length?'pending':decision.status;
-  const inserted=await db.from('community_posts').insert({...post,details,password_hash,status:initialStatus,approved_at:initialStatus==='approved'?now.toISOString():null,expires_at:expiry?.toISOString()||null,cleanup_after:cleanup?.toISOString()||null}).select('id').single();if(inserted.error)throw inserted.error;
+  const inserted=await db.from('community_posts').insert({...post,details,password_hash,created_at:now.toISOString(),status:initialStatus,approved_at:initialStatus==='approved'?now.toISOString():null,...retention}).select('id').single();if(inserted.error)throw inserted.error;
   try{
     if(uploads.length){
       const byId=new Map(verified.map(u=>[String(u.id),u]));
