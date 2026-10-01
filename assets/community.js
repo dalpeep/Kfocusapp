@@ -391,7 +391,8 @@ card=function(row){
   else if(category==='neighborhood')content=`<span class="community-ui4-copy">${d.news_type?ui4Badge(detailOption('news_type',d.news_type),'subtype'):''}${title}<span class="community-ui4-facts">${ui4Parts(d.event_date,d.venue)}</span>${preview}</span>${ui4Media(row)}`;
   else if(category==='qna')content=`<span class="community-ui4-copy">${d.post_type?ui4Badge(detailOption('post_type',d.post_type),'subtype'):''}${title}${preview}<span class="community-ui4-facts">댓글 ${Number(row.comment_count)||0} · ${esc(area||'')} · ${timeLabel(row.created_at)}</span></span>`;
   else content=`<span class="community-ui4-copy">${title}${preview}</span>`;
-  return `<button type="button" class="community-post-card community-ui4-card community-ui4-${esc(category)}${row.image_url?' has-image':''}" data-community-post="${esc(row.id)}"><span class="community-ui4-badges">${badges.join('')}</span><span class="community-ui4-layout">${content}</span><small class="community-ui4-meta">${esc(area||'')} · ${timeLabel(row.created_at)}</small></button>`;
+  const meta=category==='qna'?'':`<small class="community-ui4-meta">${['housing','job_hiring','job_seeking'].includes(category)?'':area?`${esc(area)} · `:''}${timeLabel(row.created_at)}</small>`;
+  return `<button type="button" class="community-post-card community-ui4-card community-ui4-${esc(category)}${row.image_url?' has-image':''}" data-community-post="${esc(row.id)}"><span class="community-ui4-badges">${badges.join('')}</span><span class="community-ui4-layout">${content}</span>${meta}</button>`;
 };
 const ui4RenderList=renderList;
 renderList=function(){ui4RenderList();if(all.length||query)return;const box=el('communityResults');if(box)box.innerHTML=`<div class="community-empty"><p>아직 등록된 ${esc(filter==='all'?'커뮤니티':ui4Labels[filter]||'커뮤니티')} 글이 없습니다.</p><p>첫 번째 글을 등록해 보세요.</p><button class="community-write" type="button" data-community-write>＋ 글쓰기</button></div>`};
@@ -421,6 +422,7 @@ openPost=async function(id){
   await ui4OpenPost(id);if(current?.id!==id)return;
   const article=el('communityModalBody')?.querySelector('.community-detail');if(!article)return;
   article.classList.add('community-ui4-detail');
+  const categoryBadge=article.querySelector(':scope > em');if(categoryBadge)categoryBadge.textContent=ui4Labels[current.category]||current.category;
   const fields=article.querySelector('.community-detail-fields'),images=[...article.querySelectorAll(':scope > img')],body=article.querySelector(':scope > p'),owner=article.querySelector('.community-owner-actions'),contact=article.querySelector('.community-contact');
   if(fields&&images[0])images[0].before(fields);
   const media=article.querySelector('.community-video-detail');if(media&&body)body.before(media);
