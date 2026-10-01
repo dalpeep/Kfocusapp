@@ -247,6 +247,10 @@ renderHiddenPost=function(post){videoBaseHiddenPost(post);appendVideo(post)};
     const post=current,actions=el('communityModalBody')?.querySelector('.community-owner-actions');
     if(!post||post.id!==id||!actions||post.video_url||post.video_provider||
        !['marketplace','housing'].includes(post.category)||!(await refreshVideoFlag()))return;
+    // Missing video_url is not evidence of an attempted upload. The server
+    // inspects the actual video jobs and exposes only a failed-job boolean.
+    let availability;try{availability=await api('community-video-retry-availability',{post_id:id})}catch{return}
+    if(availability.retryable!==true)return;
     if(current?.id!==id||!actions.isConnected)return;
     const button=document.createElement('button');
     button.type='button';button.textContent='동영상 다시 업로드';actions.appendChild(button);
