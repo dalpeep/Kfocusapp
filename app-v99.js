@@ -8562,8 +8562,8 @@ function bindEvents(){
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSideMenu(); });
   $$('.side-link[data-nav], .text-link[data-nav]').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
-  communityTabs?.addEventListener('click',async e=>{const btn=e.target.closest('.community-tab');if(!btn)return;const type=btn.dataset.board||'life';renderHomeBoardSection(type);if(type!=='life'){await refreshBoardPostsSilently({force:true});if(selectedBoardType===type)renderHomeBoardSection(type);}});
-  $('#communityHomeFilters')?.addEventListener('click', e=>{const chip=e.target.closest('[data-community-home-category]');if(!chip)return;selectedHomeCommunityCategory=chip.dataset.communityHomeCategory||'all';renderHomeBoardSection(selectedBoardType)});
+  communityTabs?.addEventListener('click',async e=>{const btn=e.target.closest('.community-tab');if(!btn)return;const type=btn.dataset.board||'life';if(type==='life'&&selectedBoardType==='life')selectedHomeCommunityCategory='all';renderHomeBoardSection(type);if(type!=='life'){await refreshBoardPostsSilently({force:true});if(selectedBoardType===type)renderHomeBoardSection(type);}});
+  $('#communityHomeFilters')?.addEventListener('click', e=>{const chip=e.target.closest('[data-community-home-category]');if(!chip)return;const category=chip.dataset.communityHomeCategory||'all';selectedHomeCommunityCategory=selectedHomeCommunityCategory===category?'all':category;renderHomeBoardSection('life')});
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
   showPage('business-detail'); });

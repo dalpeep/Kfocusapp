@@ -5482,3 +5482,13 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-home-empty{display:grid;justify-items:center;gap:6px;padding:17px 8px;color:#64748b;font-size:12px;text-align:center}
 .community-home-empty button{border:0;background:transparent;color:#1769e0;font:inherit;font-weight:800;cursor:pointer}
 @media(max-width:640px){#page-community .community-page{padding:14px;gap:8px}#page-community .community-ui41-head{align-items:center}#page-community .community-ui41-head .section-title{font-size:17px}:is(#page-community,.community-home-card) .community-ui4-card,:is(#page-community,.community-home-card) .community-ui4-card.has-image{padding:10px 11px}}
+
+/* UI 4.4: compact Dallas Life preview navigation; the full board keeps "전체". */
+.community-home-card .section-head{gap:8px;min-width:0}
+.community-home-card .section-head .section-title{min-width:0;white-space:nowrap}
+.community-home-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;flex:0 0 auto;white-space:nowrap}
+.community-home-actions .community-home-write{border:0;border-radius:999px;background:#1769e0;color:#fff;font-size:12px;font-weight:800;line-height:1;min-height:30px;padding:0 9px;cursor:pointer}
+.community-home-actions .community-full-btn{font-size:12px;white-space:nowrap;padding:4px 0}
+.community-home-card #communityHomeFilters{gap:4px;padding:2px 10px 3px 0;scroll-padding-inline-end:10px}
+.community-home-card #communityHomeFilters button,.community-home-card #communityHomeFilters button:nth-child(n+5){height:32px;min-height:32px;padding:0 6px;font-size:11px}
+@media(max-width:390px){.community-home-actions{gap:7px}.community-home-actions .community-home-write{padding:0 7px;font-size:11px}.community-home-actions .community-full-btn{font-size:11px}.community-home-card .section-head .section-title{font-size:17px}}
