@@ -9,6 +9,7 @@ const details={
   job_hiring:{business_name:'Test Shop',occupation:'Server',employment_type:'part_time',pay:'협의',work_area:'Dallas'},
   job_seeking:{occupation:'Designer',experience:'2 years',preferred_area:'Plano',employment_type:'contract'},
   marketplace:{listing_type:'sell',item_name:'Desk',price:'$50',item_condition:'used',trade_area:'Carrollton'},
+  housing:{price:'1200'},
   neighborhood:{news_type:'local'},
   qna:{post_type:'question',topic:'School'}
 };
@@ -17,8 +18,15 @@ const body=(category,extra={})=>({category,region:'dallas',area:'dallas',title:'
 for(const category of Object.keys(details))test(`${category}: clean content is approved`,()=>{
   assert.deepEqual(reviewPost(body(category),details[category]),{status:'approved',reason:null});
 });
-test('housing remains on its existing review policy',()=>{
-  assert.equal(reviewPost({category:'housing',title:'Rental',body:'Local apartment',author_name:'Test'},{}).status,'pending');
+test('housing uses the same existing review signals as other categories',()=>{
+  assert.deepEqual(reviewPost(body('housing'),details.housing),{status:'approved',reason:null});
+  for(const sample of [
+    {body:'Visit https://unknown.example for details.'},
+    {body:'수익 보장 사업 홍보'},
+    {body:'씨발 욕설'},
+    {body:'AAAAAAAAAAAAAAAA'},
+    {body:'Social security number 123-45-6789'}
+  ])assert.equal(reviewPost({...body('housing'),...sample},details.housing).status,'pending');
 });
 for(const sample of [
   {body:'Visit https://unknown.example for details.'},
@@ -58,7 +66,7 @@ function dbFor(rows){
   }};
 }
 
-test('create handler publishes all five categories and returns the matching message',async()=>{
+test('create handler publishes all six clean categories and returns the matching message',async()=>{
   const rows=[],db=dbFor(rows),original={client:S.client,verifyTurnstile:S.verifyTurnstile,rateLimit:S.rateLimit,hashPassword:S.hashPassword};
   S.client=()=>db;S.verifyTurnstile=async()=>{};S.rateLimit=async()=>{};S.hashPassword=()=> 'test-hash';
   try{
@@ -69,8 +77,9 @@ test('create handler publishes all five categories and returns the matching mess
       const result=JSON.parse(response.body);
       assert.equal(result.status,'approved');assert.equal(result.message,'게시글이 등록되었습니다.');
     }
-    assert.equal(rows.length,5);assert.ok(rows.every(row=>row.status==='approved'&&row.approved_at));
+    assert.equal(rows.length,6);assert.ok(rows.every(row=>row.status==='approved'&&row.approved_at));
     assert.ok(rows.every(row=>row.password_hash==='test-hash'));
+    assert.ok(rows.find(row=>row.category==='housing')?.expires_at);
   }finally{Object.assign(S,original)}
 });
 
@@ -90,7 +99,37 @@ test('review stays pending and failed Turnstile/rate limit cannot create rows',a
   }finally{Object.assign(S,original)}
 });
 
-test('image-backed post becomes public only after verified image linking',async()=>{
+test('housing review remains pending; invalid fields and Turnstile failure cannot create a post',async()=>{
+  const rows=[],db=dbFor(rows),original={client:S.client,verifyTurnstile:S.verifyTurnstile,rateLimit:S.rateLimit,hashPassword:S.hashPassword};
+  S.client=()=>db;S.verifyTurnstile=async()=>{};S.rateLimit=async()=>{};S.hashPassword=()=> 'test-hash';
+  try{
+    const {handler}=require('../netlify/functions/community-post-create');
+    const request=extra=>({httpMethod:'POST',body:JSON.stringify(body('housing',extra)),headers:{}});
+    const review=await handler(request({body:'Visit https://example.com for details.'}));
+    assert.equal(review.statusCode,201,review.body);
+    assert.equal(JSON.parse(review.body).status,'pending');
+    assert.match(JSON.parse(review.body).message,/내용 확인 후 공개될 수 있습니다/);
+    assert.equal(rows[0].status,'pending');
+    const invalid=await handler(request({details:{price:'invalid'}}));
+    assert.equal(invalid.statusCode,400);assert.equal(rows.length,1);
+    S.verifyTurnstile=async()=>{throw Object.assign(new Error('Turnstile failed'),{status:403})};
+    assert.equal((await handler(request())).statusCode,403);assert.equal(rows.length,1);
+  }finally{Object.assign(S,original)}
+});
+
+test('new housing moderation never mutates an existing pending housing post',async()=>{
+  const old={id:'00000000-0000-4000-8000-000000000099',category:'housing',status:'pending'};
+  const rows=[old],db=dbFor(rows),original={client:S.client,verifyTurnstile:S.verifyTurnstile,rateLimit:S.rateLimit,hashPassword:S.hashPassword};
+  S.client=()=>db;S.verifyTurnstile=async()=>{};S.rateLimit=async()=>{};S.hashPassword=()=> 'test-hash';
+  try{
+    const response=await require('../netlify/functions/community-post-create').handler({httpMethod:'POST',body:JSON.stringify(body('housing')),headers:{}});
+    assert.equal(response.statusCode,201,response.body);
+    assert.equal(old.status,'pending');
+    assert.equal(rows[1].status,'approved');
+  }finally{Object.assign(S,original)}
+});
+
+test('image-backed job and housing posts become public only after verified image linking',async()=>{
   const rows=[],db=dbFor(rows);
   const original={client:S.client,verifyTurnstile:S.verifyTurnstile,rateLimit:S.rateLimit,hashPassword:S.hashPassword,verifiedUploadDrafts:S.verifiedUploadDrafts,env:S.env};
   S.client=()=>db;S.verifyTurnstile=async()=>{throw new Error('Token must not be verified twice')};
@@ -99,11 +138,13 @@ test('image-backed post becomes public only after verified image linking',async(
   S.verifiedUploadDrafts=async()=>[{id:'draft-1',storage_path:'community-posts/draft-1/image.webp',width:100,height:100,byte_size:500}];
   try{
     const {handler}=require('../netlify/functions/community-post-create');
-    const response=await handler({httpMethod:'POST',body:JSON.stringify(body('job_hiring',{upload_ids:['draft-1'],draft_id:'draft-1'})),headers:{}});
-    assert.equal(response.statusCode,201,response.body);
-    assert.equal(JSON.parse(response.body).status,'approved');
-    assert.equal(rows.length,1);assert.equal(rows[0].status,'approved');
-    assert.ok(rows[0].approved_at);
+    for(const category of ['job_hiring','housing']){
+      const response=await handler({httpMethod:'POST',body:JSON.stringify(body(category,{upload_ids:['draft-1'],draft_id:'draft-1'})),headers:{}});
+      assert.equal(response.statusCode,201,response.body);
+      assert.equal(JSON.parse(response.body).status,'approved');
+    }
+    assert.equal(rows.length,2);
+    assert.ok(rows.every(row=>row.status==='approved'&&row.approved_at));
   }finally{Object.assign(S,original)}
 });
 

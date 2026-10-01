@@ -14,7 +14,7 @@ test('marketplace and housing can retain a separately validated external link',(
   for(const [category,details] of [['marketplace',marketplace],['housing',{}]]){
     const validated=validateDetails(category,{...details,external_video_url:external});
     assert.equal(validated.external_video_url,'https://www.youtube.com/watch?v=dQw4w9WgXcQ');
-    assert.equal(reviewPost(cleanPost(category),validated).status,category==='marketplace'?'approved':'pending');
+    assert.equal(reviewPost(cleanPost(category),validated).status,'approved');
   }
 });
 
@@ -33,6 +33,7 @@ test('direct MP4 UI stays opt-in and the existing bound admission restricts both
   assert.match(ui,/accept="video\/mp4,\.mp4"/);
   assert.match(ui,/if\(f\._videoSubmitStarted\)return/);
   assert.match(admit,/!\['marketplace','housing'\]\.includes\(post\.category\)/);
+  assert.match(admit,/!\['pending','approved'\]\.includes\(post\.status\)/);
   assert.match(admit,/S\.verifyPassword\(body\.password,post\.password_hash\)/);
   assert.match(admit,/await S\.verifyTurnstile/);
 });

@@ -29,7 +29,7 @@ test('writing opens the existing form directly with a compact inline category gu
     assert.match(await page.locator('.community-guide-notice').innerText(),/30일 동안 게시됩니다.*30일 연장/);
     await page.locator('#communityWriteForm [name=category]').selectOption('housing');
     assert.match(await page.locator('.community-guide-notice').innerText(),/90일 동안 게시됩니다.*90일 연장/);
-    assert.match(await page.locator('.community-guide-notice').innerText(),/관리자 확인 후 공개/);
+    assert.doesNotMatch(await page.locator('.community-guide-notice').innerText(),/관리자 확인 후 공개/);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   }finally{await browser.close()}
 });

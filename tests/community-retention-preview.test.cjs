@@ -109,7 +109,7 @@ test('390×844 fixture preview never reaches Production and renders all guide an
     await page.locator('#communityWriteForm [name=category]').selectOption('marketplace');
     assert.match(await page.locator('.community-guide-notice').innerText(),/만료 전에 작성자가 1회에 한해 30일 연장/);
     await page.locator('#communityWriteForm [name=category]').selectOption('housing');
-    assert.match(await page.locator('.community-guide-notice').innerText(),/관리자 확인 후 공개/);
+    assert.doesNotMatch(await page.locator('.community-guide-notice').innerText(),/관리자 확인 후 공개/);
     assert.match(await page.locator('.community-guide-notice').innerText(),/만료 전에 작성자가 1회에 한해 90일 연장/);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.locator('[data-community-close]').last().click();
