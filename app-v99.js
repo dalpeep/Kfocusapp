@@ -515,7 +515,7 @@ let alertNoticePosts = [];
 let slideRows = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
-let selectedBoardType = 'notice';
+let selectedBoardType = 'life';
 let selectedHomeCommunityCategory = 'all';
 let boardDetailReturn = { mode: 'page', page: 'home', type: 'notice' };
 let selectedBoardPost = null;
@@ -3414,7 +3414,15 @@ function bindBizOpenButtons() {
 
 function renderHomeBoardSection(type='notice'){
   selectedBoardType = type;
-  globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
+  $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.board===type));
+  const life = type==='life';
+  $('#communityHomeFilters')?.classList.toggle('hidden',!life);
+  if(life){
+    globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
+    return;
+  }
+  const rows=boardPostsByType(type).slice(0,4);
+  if(homeBoardList)homeBoardList.innerHTML=rows.length?rows.map(boardListItemHTML).join(''):`<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
 }
 const GUIDE_SUBTYPE_KEY = 'daltownmap_guide_subtype';
 const GUIDE_DEFAULT_SUBTYPE = '운전·차량';
@@ -8554,6 +8562,7 @@ function bindEvents(){
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeSideMenu(); });
   $$('.side-link[data-nav], .text-link[data-nav]').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
   $$('.board-link').forEach(btn=>btn.addEventListener('click', ()=>showBoard(btn.dataset.board)));
+  communityTabs?.addEventListener('click',async e=>{const btn=e.target.closest('.community-tab');if(!btn)return;const type=btn.dataset.board||'life';renderHomeBoardSection(type);if(type!=='life'){await refreshBoardPostsSilently({force:true});if(selectedBoardType===type)renderHomeBoardSection(type);}});
   $('#communityHomeFilters')?.addEventListener('click', e=>{const chip=e.target.closest('[data-community-home-category]');if(!chip)return;selectedHomeCommunityCategory=chip.dataset.communityHomeCategory||'all';renderHomeBoardSection(selectedBoardType)});
   homeBoardMoreBtn?.addEventListener('click', ()=>showBoard(homeBoardMoreBtn.dataset.board || selectedBoardType || 'notice'));
   document.addEventListener('click', e=>{ const card = e.target.closest('.biz-open'); if(!card) return; if(Date.now() < suppressCardClickUntil) { e.preventDefault(); return; } currentDetailVideoOverride = ''; renderDetail(card.dataset.biz); lastBasePage = currentPage;
@@ -8588,6 +8597,7 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
   showBoard(board);
 });
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
+  if(selectedBoardType!=='life'){showBoard(selectedBoardType);return;}
   lastBasePage=currentPage;
   globalThis.DtmCommunity?.openPage(boardPostsByType('life'),selectedHomeCommunityCategory);
 });
