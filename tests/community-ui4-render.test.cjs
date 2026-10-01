@@ -51,6 +51,8 @@ test('six mixed cards and sectional form render at 390px and desktop without hor
       assert.equal(await page.locator('.community-ui4-marketplace').innerText().then(x=>x.includes('판매완료')),true);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
       await page.locator('[data-community-write]').first().click();
+      await page.locator('[data-guide-category="marketplace"]').click();
+      await page.locator('[data-guide-start]').click();
       for(const label of ['기본 정보','상세 정보','사진·영상','연락 및 관리'])
         assert.equal(await page.locator('.community-ui4-form-section legend').allTextContents().then(x=>x.includes(label)),true);
       assert.deepEqual(await page.locator('.community-ui4-form-section legend').allTextContents(),['기본 정보','상세 정보','사진·영상','연락 및 관리']);
