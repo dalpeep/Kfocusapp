@@ -5421,5 +5421,35 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-card-housing .community-card-summary,.community-card-marketplace .community-card-summary{font-size:1rem;font-weight:900;color:#172554}
 .community-card-job_hiring .community-card-summary,.community-card-job_seeking .community-card-summary{white-space:normal;line-height:1.45}
 .community-detail-fields{order:0}
+/* Community UI 4.0: category identity stays visible in the mixed feed. */
+.community-page,.community-tools,.community-results{min-width:0;max-width:100%}
+.community-category-filters{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;gap:7px;scrollbar-width:thin;overscroll-behavior-inline:contain;min-width:0;max-width:100%;padding:2px 0 7px}
+.community-category-filters button,.community-category-filters button:nth-child(n+5){grid-column:auto;flex:0 0 auto;min-width:0;padding:0 13px;border-radius:999px}
+.community-category-filters button.active{background:#1d4b91;border-color:#1d4b91;color:#fff}
+.community-ui4-card,.community-ui4-card.has-image{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;padding:13px 14px;min-width:0}
+.community-ui4-card .community-ui4-badges{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.community-ui4-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 8px;background:#edf3fb;color:#215083;font-size:11px;font-weight:800;font-style:normal;white-space:nowrap}
+.community-ui4-badge.category{background:#e7eefb;color:#173f79}
+.community-ui4-badge.subtype{width:max-content;background:#f0f5fb}
+.community-ui4-layout{display:grid;gap:10px;min-width:0}
+.community-ui4-card.has-image .community-ui4-layout{grid-template-columns:104px minmax(0,1fr)}
+.community-ui4-card .community-ui4-image,.community-ui4-card.has-image .community-ui4-image{width:104px;height:104px;aspect-ratio:1;object-fit:cover;border-radius:11px}
+.community-ui4-copy{display:grid;align-content:start;gap:5px;min-width:0}
+.community-ui4-title,.community-ui4-lead{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-width:0;color:#17365f;font-size:16px;line-height:1.36}
+.community-ui4-lead{font-size:18px}
+.community-ui4-price{font-size:18px;color:#153d75;line-height:1.2}
+.community-ui4-facts,.community-ui4-pay,.community-ui4-meta{color:#60738b;font-size:12px;overflow-wrap:anywhere}
+.community-ui4-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#516277;font-size:13px;line-height:1.45}
+.community-ui4-neighborhood.has-image .community-ui4-layout{grid-template-columns:minmax(0,1fr) 84px}
+.community-ui4-neighborhood .community-ui4-image{width:84px!important;height:84px!important}
+.community-ui4-housing.has-image .community-ui4-layout{grid-template-columns:150px minmax(0,1fr)}
+.community-ui4-housing .community-ui4-image{width:150px!important;height:112px!important;aspect-ratio:4/3!important}
+.community-ui4-card:not(.community-ui4-marketplace):not(.community-ui4-housing):not(.community-ui4-neighborhood) .community-ui4-image{display:none}
+.community-ui4-form-section{display:grid;gap:12px;min-width:0;margin:0;border:1px solid #dce6f3;border-radius:14px;padding:15px;background:#fff}
+.community-ui4-form-section legend{padding:0 6px;color:#17477e;font-weight:900}
+.community-ui4-form-section .community-category-details{margin:0}
+.community-ui4-detail .community-owner-actions{border-top:1px solid #e1e8f2;padding-top:12px}
+.community-empty .community-write{margin-top:8px}
+@media(max-width:640px){.community-page-head{align-items:flex-start}.community-page-head p{max-width:26ch}.community-category-filters{margin:0;padding-bottom:7px}.community-category-filters button,.community-category-filters button:nth-child(n+5){min-height:40px;font-size:12px;padding:0 11px}.community-ui4-card,.community-ui4-card.has-image{padding:11px}.community-ui4-card.has-image .community-ui4-layout{grid-template-columns:82px minmax(0,1fr)}.community-ui4-card .community-ui4-image,.community-ui4-card.has-image .community-ui4-image{width:82px;height:82px}.community-ui4-housing.has-image .community-ui4-layout{grid-template-columns:110px minmax(0,1fr)}.community-ui4-housing .community-ui4-image{width:110px!important;height:95px!important}.community-ui4-neighborhood.has-image .community-ui4-layout{grid-template-columns:minmax(0,1fr) 72px}.community-ui4-neighborhood .community-ui4-image{width:72px!important;height:72px!important}.community-ui4-form-section{padding:12px}.community-ui4-title{font-size:15px}.community-ui4-lead,.community-ui4-price{font-size:16px}}
 @media(max-width:600px){.community-card-marketplace.has-image,.community-card-housing.has-image{grid-template-columns:92px minmax(0,1fr)}.community-card-marketplace.has-image>img,.community-card-housing.has-image>img{width:92px;height:92px}}
 .community-review-badge{background:#fff1d6;color:#7a4800;border:1px solid #e9b95a;font-weight:700}
