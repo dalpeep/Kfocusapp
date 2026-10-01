@@ -98,6 +98,10 @@ dallas: {
   COMMUNITY_STORAGE_BUCKET:
     process.env.COMMUNITY_STORAGE_BUCKET === 'community-images' ? 'community-images' : '',
 
+  // Enable only after the retention v4 migration is verified in the target DB.
+  COMMUNITY_RETENTION_RPC_V4_ENABLED:
+    process.env.COMMUNITY_RETENTION_RPC_V4_ENABLED === 'true',
+
   // Public release switch only; service URLs and credentials remain server-side.
   COMMUNITY_VIDEO_UPLOAD_UI_ENABLED:
     process.env.COMMUNITY_VIDEO_UPLOAD_UI_ENABLED === 'true',

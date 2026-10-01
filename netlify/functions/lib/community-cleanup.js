@@ -1,9 +1,17 @@
 const S=require('./community-security');
 async function cleanup(now=new Date()){
-  const db=S.client(),iso=now.toISOString(),summary={expired:0,deleted:0,objects:0,failures:0};
-  const exp=await db.from('community_posts').update({status:'expired'}).eq('category','marketplace').eq('status','approved').lte('expires_at',iso).select('id');if(exp.error)throw exp.error;summary.expired=exp.data?.length||0;
-  const doomed=await db.from('community_posts').select('id').in('status',['expired','sold','deleted','rejected']).lte('cleanup_after',iso).limit(500);if(doomed.error)throw doomed.error;
+  const db=S.client(),iso=now.toISOString(),summary={expired:0,deleted:0,objects:0,failures:0,heldVideo:0};
+  const exp=await db.from('community_posts').update({status:'expired'}).in('category',['marketplace','housing']).in('status',['approved','pending']).lte('expires_at',iso).select('id');if(exp.error)throw exp.error;summary.expired=exp.data?.length||0;
+  // Expiry only removes public visibility. A separate, future retention phase
+  // must decide when to delete posts and their linked media.
+  const doomed=await db.from('community_posts').select('id,video_provider,video_url').in('status',['sold','deleted','rejected']).lte('cleanup_after',iso).limit(500);if(doomed.error)throw doomed.error;
   postCleanup: for(const post of doomed.data||[]){
+    // Do not cascade-delete video job audit rows or strand a YouTube/GCS asset.
+    const jobs=await db.from('community_video_upload_jobs').select('id').eq('post_id',post.id).limit(1);
+    if(jobs.error){summary.failures++;continue}
+    if(jobs.data?.length||post.video_provider==='youtube'){
+      summary.heldVideo++;continue;
+    }
     const paths=new Set();
     for(const table of ['community_post_images','community_upload_drafts','community_image_cleanup_queue']){
       const rows=await db.from(table).select('storage_path').eq('post_id',post.id);

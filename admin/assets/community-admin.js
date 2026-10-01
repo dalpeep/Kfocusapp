@@ -45,6 +45,18 @@ load=async function(){
     anchor.before(link);
   }
 };
+const retentionBaseLoad=load;
+load=async function(){
+  await retentionBaseLoad();
+  for(const row of rows){
+    if(!['marketplace','housing'].includes(row.category))continue;
+    const card=[...document.querySelectorAll('[data-community-admin-id]')].find(el=>el.dataset.communityAdminId===row.id);
+    const title=card?.querySelector('h3');if(!title)continue;
+    const info=document.createElement('small');info.className='community-admin-retention';
+    info.textContent=`게시 종료: ${row.expires_at?new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeZone:'America/Chicago'}).format(new Date(row.expires_at)):'기존 글 · 만료일 미설정'} · 연장 ${Number(row.extension_count)||0}회`;
+    title.after(info);
+  }
+};
 async function change(e){const category=e.target.closest('[data-admin-category]'),card=category?.closest('[data-community-admin-id]');if(!category||!card)return;try{await call({action:'category',id:card.dataset.communityAdminId,category:category.value});await load()}catch(err){alert(err.message)}}
 async function click(e){const tab=e.target.closest('[data-community-status]');if(tab){status=tab.dataset.communityStatus;drawTabs();return load()}const card=e.target.closest('[data-community-admin-id]');if(!card)return;const id=card.dataset.communityAdminId,action=e.target.closest('[data-admin-action]');try{if(action){const hidden=action.dataset.adminAction==='hidden';await call({action:'status',id,status:action.dataset.adminAction,...(hidden?{reason:card.querySelector('[data-admin-hide-reason]')?.value,note:card.querySelector('[data-admin-hide-note]')?.value}:{})});return load()}if(e.target.closest('[data-admin-comments]')){const data=await call({action:'comments',post_id:id}),box=card.querySelector('[data-admin-comment-list]');box.innerHTML=(data.rows||[]).map(c=>`<div style="padding:8px;border-top:1px solid #eee"><b>${esc(c.author_name)}</b> ${esc(c.body)} <button class="btn ghost" data-admin-comment="${esc(c.id)}" data-comment-status="hidden">숨김</button> <button class="btn danger" data-admin-comment="${esc(c.id)}" data-comment-status="deleted">삭제</button></div>`).join('')||'<small>댓글 없음</small>';return}const c=e.target.closest('[data-admin-comment]');if(c){await call({action:'comment_status',id,comment_id:c.dataset.adminComment,status:c.dataset.commentStatus});c.closest('div').remove()}}catch(err){alert(err.message)}}
 export function initCommunityAdmin(injected){

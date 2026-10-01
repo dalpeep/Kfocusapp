@@ -61,7 +61,7 @@ function mockDb(state,objects,{storageError=false}={}){
     }
   }
   return{
-    from:table=>new Query(table),
+    from:table=>{if(table==='community_video_upload_jobs'&&!state[table])state[table]=[];return new Query(table)},
     storage:{from:bucket=>{
       assert.equal(bucket,'community-images');
       return{remove:async paths=>{
@@ -100,7 +100,7 @@ test('real author/admin handlers transition isolated synthetic posts and exclude
   }finally{Object.assign(S,original)}
 });
 
-test('scheduled cleanup handles deleted/rejected/expired/sold, cascades comments and preserves unrelated rows',async()=>{
+test('scheduled cleanup preserves expired rows and media while handling prior terminal states',async()=>{
   const uuid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
   const image=n=>`community-posts/${uuid(n)}/${uuid(n+10)}.webp`;
   const past='2026-09-22T00:00:00.000Z',future='2026-10-01T00:00:00.000Z';
@@ -124,16 +124,46 @@ test('scheduled cleanup handles deleted/rejected/expired/sold, cascades comments
   try{
     const {cleanup}=require('../netlify/functions/lib/community-cleanup');
     const result=await cleanup(new Date('2026-09-23T00:00:00.000Z'));
-    assert.equal(result.deleted,4);
+    assert.equal(result.deleted,3);
     assert.equal(result.failures,0);
     assert.equal(result.objects,3);
-    assert.deepEqual(state.community_posts.map(x=>x.id),[uuid(5),uuid(6)]);
+    assert.deepEqual(state.community_posts.map(x=>x.id),[uuid(3),uuid(5),uuid(6)]);
     assert.deepEqual(state.community_comments.map(x=>x.post_id),[uuid(5)]);
     assert.deepEqual(state.community_post_images.map(x=>x.post_id),[uuid(5)]);
     assert.equal(state.community_upload_drafts.length,0);
     assert.equal(state.community_image_edit_requests.length,0);
     assert.equal(state.community_image_cleanup_queue.length,0);
     assert.deepEqual([...objects],[image(5)]);
+  }finally{S.client=originalClient;S.env=originalEnv}
+});
+
+test('extended housing stays public; expired posts retain rows and media regardless of video',async()=>{
+  const future='2027-03-30T00:00:00.000Z',past='2026-09-30T00:00:00.000Z';
+  const imagePath='community-posts/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-000000000002.webp';
+  const state={
+    community_posts:[
+      {id:'future',category:'housing',status:'approved',expires_at:future,cleanup_after:'2027-04-06T00:00:00.000Z'},
+      {id:'video',category:'housing',status:'approved',expires_at:past,cleanup_after:past,video_provider:'youtube'},
+      {id:'photo',category:'marketplace',status:'approved',expires_at:past,cleanup_after:past}
+    ],
+    community_video_upload_jobs:[{id:'job',post_id:'video',status:'uploaded'}],
+    community_comments:[],community_post_images:[{post_id:'photo',storage_path:imagePath}],community_upload_drafts:[],community_image_edit_requests:[],community_image_cleanup_queue:[],community_rate_limits:[]
+  };
+  const S=require('../netlify/functions/lib/community-security');
+  const originalClient=S.client,originalEnv=S.env;
+  const objects=new Set([imagePath]);
+  S.client=()=>mockDb(state,objects);S.env=()=>({bucket:'community-images'});
+  try{
+    const result=await require('../netlify/functions/lib/community-cleanup').cleanup(new Date('2026-10-01T00:00:00.000Z'));
+    assert.equal(result.expired,2);
+    assert.equal(result.heldVideo,0);
+    assert.equal(result.deleted,0);
+    assert.equal(state.community_posts.find(x=>x.id==='future').status,'approved');
+    assert.equal(state.community_posts.find(x=>x.id==='video').status,'expired');
+    assert.equal(state.community_posts.find(x=>x.id==='photo').status,'expired');
+    assert.equal(state.community_video_upload_jobs.length,1);
+    assert.equal(state.community_post_images.length,1);
+    assert.equal(objects.has(imagePath),true);
   }finally{S.client=originalClient;S.env=originalEnv}
 });
 
