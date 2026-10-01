@@ -33,5 +33,5 @@ test('UI 4.0 uses scrollable chips, sectional form, and versioned assets',()=>{
   for(const label of ['기본 정보','상세 정보','사진·영상','연락 및 관리'])assert.ok(js.includes(label));
   assert.match(css,/\.community-category-filters\{display:flex;flex-wrap:nowrap;overflow-x:auto/);
   assert.match(css,/-webkit-line-clamp:2/);
-  assert.match(html,/community-write-guide-preview/g);
+  assert.match(html,/community-write-guide-1-0/g);
 });

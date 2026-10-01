@@ -5483,6 +5483,10 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-guide-actions [data-guide-start]{background:#172554;border-color:#172554;color:#fff}
 .community-guide-actions [data-guide-start]:disabled{opacity:.5;cursor:not-allowed}
 .community-write-help{justify-self:start;padding:4px 0;border:0;background:none;color:#1769e0;font-size:13px;font-weight:800}
+.community-modal form[hidden]{display:none}
+.community-write-resume-guide{display:grid;gap:14px;color:#18335f}
+.community-write-resume-guide h3{margin:0;color:#18335f}
+.community-write-resume-guide .community-guide-actions [data-guide-return]{background:#172554;border-color:#172554;color:#fff}
 @media(max-width:640px){.community-write-guide{gap:12px}.community-write-guide h2{font-size:20px}.community-guide-advice,.community-write-help-panel{padding:11px 13px}.community-guide-categories{gap:6px}.community-guide-categories button{font-size:12px}}
 #page-community .community-search-field{height:36px;border-color:#dbe3ee;border-radius:11px;box-shadow:none}
 #page-community .community-search-field svg{width:15px;height:15px}

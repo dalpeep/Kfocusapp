@@ -464,7 +464,7 @@ function openWriteGuide(){
     openWrite(null,selected);
   });
 }
-// The guide inside the form never replaces the form or resets entered data.
+// Reopen the guide without replacing the connected form or its file inputs.
 openWrite=function(existing=null,selectedCategory=null){
   if(!existing&&!selectedCategory)return openWriteGuide();
   writeFormWithoutGuide(existing);
@@ -473,11 +473,21 @@ openWrite=function(existing=null,selectedCategory=null){
   const heading=form.querySelector('h2');
   if(!heading||form.querySelector('.community-write-help'))return;
   const help=document.createElement('button');help.type='button';help.className='community-write-help';help.textContent='ⓘ 작성 안내';help.setAttribute('aria-expanded','false');
-  const panel=document.createElement('section');panel.className='community-write-help-panel';panel.hidden=true;
-  const update=()=>{const category=form.elements.category.value;panel.innerHTML=WRITE_GUIDES[category]?guideContent(category):''};
-  heading.after(help,panel);update();
-  form.elements.category.addEventListener('change',update);
-  help.addEventListener('click',()=>{panel.hidden=!panel.hidden;help.setAttribute('aria-expanded',String(!panel.hidden))});
+  heading.after(help);
+  help.addEventListener('click',()=>{
+    const category=form.elements.category.value;if(!WRITE_GUIDES[category])return;
+    const modalPanel=el('communityModal')?.querySelector('.community-modal-panel');
+    const previousScroll=modalPanel?.scrollTop||0;
+    const guide=document.createElement('section');guide.className='community-write-resume-guide';
+    guide.innerHTML=`<span class="community-guide-eyebrow">글쓰기</span><section class="community-guide-advice">${guideContent(category)}</section><div class="community-guide-actions"><button type="button" data-guide-return>작성 화면으로 돌아가기</button></div>`;
+    form.after(guide);form.hidden=true;help.setAttribute('aria-expanded','true');
+    if(modalPanel)modalPanel.scrollTop=0;
+    guide.querySelector('[data-guide-return]').addEventListener('click',()=>{
+      guide.remove();form.hidden=false;help.setAttribute('aria-expanded','false');
+      if(modalPanel)modalPanel.scrollTop=previousScroll;
+      help.focus();
+    });
+  });
 };
 const ui4OpenPost=openPost;
 openPost=async function(id){
