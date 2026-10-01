@@ -435,6 +435,50 @@ openWrite=function(existing=null){
   const passwordNote=form.querySelector('.community-policy-note');if(passwordNote)contact.append(passwordNote);
   if(media)media.after(contact);
 };
+// A short, optional guide precedes new posts only. Editing keeps its existing flow.
+const WRITE_GUIDES={
+  job_hiring:{title:'구인 글쓰기 안내',description:'좋은 인재를 찾을 수 있도록 근무 조건과 모집 내용을 구체적으로 작성해 주세요.',items:['업소·회사명, 모집 직종, 근무지역을 정확하게 작성해 주세요.','급여, 근무시간, Full-time/Part-time 등 근무 조건을 구체적으로 작성하면 지원자가 판단하는 데 도움이 됩니다.','지원자가 연락할 수 있는 방법을 정확하게 입력해 주세요.','주민등록번호, 신분증, 은행정보 등 불필요한 개인정보를 요구하지 마세요.','허위 채용, 불법적인 구인 또는 게시판 성격에 맞지 않는 글은 관리자에 의해 비공개 또는 삭제될 수 있습니다.'],notice:'채용이 완료되면 게시글을 수정하거나 삭제해 주세요.',cta:'구인 글쓰기'},
+  job_seeking:{title:'구직 글쓰기 안내',description:'원하는 일자리를 찾는 데 도움이 되도록 희망 조건과 경력을 간단하고 정확하게 작성해 주세요.',items:['희망 직종, 경력, 희망 근무지역과 근무형태를 작성해 주세요.','가능한 근무시간이나 Full-time/Part-time 여부를 적으면 고용주가 판단하는 데 도움이 됩니다.','주민등록번호, 신분증, 은행계좌 등 민감한 개인정보는 게시글에 작성하지 마세요.','전화번호나 이메일 등 연락처는 필요한 경우 지정된 연락방법 항목을 이용해 주세요.','허위 내용이나 게시판 성격에 맞지 않는 글은 관리자에 의해 비공개 또는 삭제될 수 있습니다.'],notice:'취업이 완료되면 게시글을 수정하거나 삭제해 주세요.',cta:'구직 글쓰기'},
+  marketplace:{title:'사고팔기 글쓰기 안내',description:'안전하고 편리한 거래를 위해 상품 정보와 거래 조건을 정확하게 작성해 주세요.',items:['상품명, 판매가격, 상품 상태와 거래 가능한 지역을 정확하게 작성해 주세요.','실제 상품 사진을 등록하면 구매자가 상품 상태를 확인하는 데 도움이 됩니다.','필요한 경우 상품 상태를 보여주는 짧은 MP4 동영상도 추가할 수 있습니다.','거래 전 상품 상태, 거래 장소와 결제방법을 서로 충분히 확인해 주세요.','사기성 거래, 허위 상품, 불법 판매품 또는 타인의 권리를 침해하는 게시물은 비공개 또는 삭제될 수 있습니다.'],notice:'판매가 완료되면 게시글을 판매완료로 변경해 주세요.',cta:'사고팔기 글쓰기'},
+  housing:{title:'부동산 글쓰기 안내',description:'매물을 정확하게 확인할 수 있도록 가격과 지역, 매물 정보를 구체적으로 작성해 주세요.',items:['매매 또는 렌트 여부, 가격, 지역 등 실제 매물 정보를 정확하게 작성해 주세요.','가격이 정해지지 않은 경우 가격 문의를 선택할 수 있습니다.','실제 매물 사진과 동영상을 등록하면 매물 상태를 확인하는 데 도움이 됩니다.','개인 출입정보, 비밀번호 등 공개할 필요가 없는 민감한 정보는 게시하지 마세요.','허위 매물, 부정확한 정보 또는 게시판 성격에 맞지 않는 글은 비공개 또는 삭제될 수 있습니다.'],notice:'부동산 게시글은 관리자 확인 후 공개됩니다.',cta:'부동산 글쓰기'},
+  neighborhood:{title:'동네소식 글쓰기 안내',description:'지역 주민들과 함께 나누고 싶은 행사, 안내, 생활정보와 주변 소식을 공유해 주세요.',items:['지역 주민에게 도움이 되는 행사, 안내, 생활정보와 주변 소식을 작성해 주세요.','행사나 모임이라면 날짜, 시간, 장소를 가능한 정확하게 적어 주세요.','출처가 필요한 정보는 확인할 수 있는 내용을 함께 작성해 주세요.','확인되지 않은 소문이나 타인의 개인정보를 게시하지 마세요.','반복적인 광고·홍보 또는 게시판 성격에 맞지 않는 글은 관리자에 의해 제한될 수 있습니다.'],notice:'많은 이웃에게 도움이 될 수 있도록 지역과 내용을 구체적으로 작성해 주세요.',cta:'동네소식 글쓰기'},
+  qna:{title:'질문·정보 글쓰기 안내',description:'궁금한 점을 질문하거나 다른 이웃에게 도움이 되는 정보를 공유해 주세요.',items:['질문인지 정보공유인지 구분하고 내용을 알기 쉬운 제목으로 작성해 주세요.','질문할 때 지역이나 상황을 함께 작성하면 보다 정확한 답변을 받는 데 도움이 됩니다.','정보공유 글은 다른 사용자가 이해할 수 있도록 내용을 구체적으로 작성해 주세요.','타인의 개인정보를 게시하거나 확인되지 않은 내용을 사실처럼 단정하지 마세요.','욕설, 비방, 사기성 정보 또는 게시판 성격에 맞지 않는 글은 비공개 또는 삭제될 수 있습니다.'],notice:'답을 찾은 질문은 해결됨으로 표시해 주세요.',cta:'질문·정보 글쓰기'}
+};
+const WRITE_GUIDE_ORDER=['job_hiring','job_seeking','marketplace','housing','neighborhood','qna'];
+const writeFormWithoutGuide=openWrite;
+function guideContent(category){const guide=WRITE_GUIDES[category];return `<span class="community-guide-badge">${esc(ui4Labels[category])}</span><h3>${esc(guide.title)}</h3><p>${esc(guide.description)}</p><ul>${guide.items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul><div class="community-guide-notice">${esc(guide.notice)}</div>`}
+function openWriteGuide(){
+  ensureUI();removeTurnstile();
+  const body=el('communityModalBody');
+  body.innerHTML=`<section class="community-write-guide" aria-labelledby="communityWriteGuideTitle"><span class="community-guide-eyebrow">글쓰기</span><h2 id="communityWriteGuideTitle">어떤 글을 작성하시나요?</h2><div class="community-guide-categories" role="group" aria-label="글쓰기 카테고리">${WRITE_GUIDE_ORDER.map(category=>`<button type="button" data-guide-category="${category}" aria-pressed="false">${esc(ui4Labels[category])}</button>`).join('')}</div><section class="community-guide-advice" id="communityGuideAdvice" hidden aria-live="polite"></section><div class="community-guide-actions"><button type="button" data-community-close>취소</button><button type="button" data-guide-start disabled>글쓰기</button></div></section>`;
+  showModal();
+  let selected=null;
+  body.querySelectorAll('[data-guide-category]').forEach(button=>button.addEventListener('click',()=>{
+    selected=button.dataset.guideCategory;
+    body.querySelectorAll('[data-guide-category]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));
+    const advice=el('communityGuideAdvice');advice.hidden=false;advice.innerHTML=guideContent(selected);
+    const start=body.querySelector('[data-guide-start]');start.disabled=false;start.textContent=WRITE_GUIDES[selected].cta;
+  }));
+  body.querySelector('[data-guide-start]').addEventListener('click',()=>{
+    if(!selected)return;
+    openWrite(null,selected);
+  });
+}
+// The guide inside the form never replaces the form or resets entered data.
+openWrite=function(existing=null,selectedCategory=null){
+  if(!existing&&!selectedCategory)return openWriteGuide();
+  writeFormWithoutGuide(existing);
+  const form=el('communityWriteForm');if(!form)return;
+  if(selectedCategory){form.elements.category.value=selectedCategory;form.elements.category.dispatchEvent(new Event('change',{bubbles:true}))}
+  const heading=form.querySelector('h2');
+  if(!heading||form.querySelector('.community-write-help'))return;
+  const help=document.createElement('button');help.type='button';help.className='community-write-help';help.textContent='ⓘ 작성 안내';help.setAttribute('aria-expanded','false');
+  const panel=document.createElement('section');panel.className='community-write-help-panel';panel.hidden=true;
+  const update=()=>{const category=form.elements.category.value;panel.innerHTML=WRITE_GUIDES[category]?guideContent(category):''};
+  heading.after(help,panel);update();
+  form.elements.category.addEventListener('change',update);
+  help.addEventListener('click',()=>{panel.hidden=!panel.hidden;help.setAttribute('aria-expanded',String(!panel.hidden))});
+};
 const ui4OpenPost=openPost;
 openPost=async function(id){
   await ui4OpenPost(id);if(current?.id!==id)return;
