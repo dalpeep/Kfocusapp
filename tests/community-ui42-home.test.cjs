@@ -10,10 +10,19 @@ const source=fs.readFileSync(path.join(root,'assets/community.js'),'utf8');
 const now=new Date().toISOString();
 const rows=['marketplace','housing','job_hiring','job_seeking','neighborhood','qna','marketplace'].map((category,index)=>({id:String(index+1),category,title:`${category} ${index}`,area:'dallas',created_at:now,details:{},total_count:7}));
 
-test('main Community navigation uses only the seven full-board categories',()=>{
+test('main Community restores three tabs and nests seven board categories in Dallas Life',()=>{
   const home=html.slice(html.indexOf('community-home-card'),html.indexOf('id="page-business"'));
+  assert.match(home,/id="communityTabs"/);
+  assert.match(home,/data-board="notice">행사안내/);
+  assert.match(home,/class="community-tab active" data-board="life">달라스 라이프/);
+  assert.match(home,/data-board="business_story">업소탐방/);
   assert.match(home,/id="communityHomeFilters" class="community-category-filters life-category-filters"/);
-  assert.doesNotMatch(home,/id="communityTabs"|id="lifeCategoryFilters"|행사안내|달라스 라이프|업소탐방/);
+  assert.match(app,/let selectedBoardType = 'life'/);
+  assert.match(app,/classList\.toggle\('hidden',!life\)/);
+  assert.match(app,/if\(life\)\{\s*globalThis\.DtmCommunity\?\.renderHome\(homeBoardList,selectedHomeCommunityCategory\)/);
+  assert.match(app,/boardPostsByType\(type\)\.slice\(0,4\)/);
+  assert.match(app,/rows\.map\(boardListItemHTML\)/);
+  assert.match(app,/if\(selectedBoardType!=='life'\)\{showBoard\(selectedBoardType\);return;\}/);
   assert.match(app,/DtmCommunity\?\.renderHome\(homeBoardList,selectedHomeCommunityCategory\)/);
   assert.match(app,/data-community-home-category/);
   assert.match(app,/DtmCommunity\?\.openPage\(boardPostsByType\('life'\),selectedHomeCommunityCategory\)/);
