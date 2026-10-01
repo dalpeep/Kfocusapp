@@ -5453,3 +5453,28 @@ body.nearby-businesses-open{overflow:hidden!important}
 @media(max-width:640px){.community-page-head{align-items:flex-start}.community-page-head p{max-width:26ch}.community-category-filters{margin:0;padding-bottom:7px}.community-category-filters button,.community-category-filters button:nth-child(n+5){min-height:40px;font-size:12px;padding:0 11px}.community-ui4-card,.community-ui4-card.has-image{padding:11px}.community-ui4-card.has-image .community-ui4-layout{grid-template-columns:82px minmax(0,1fr)}.community-ui4-card .community-ui4-image,.community-ui4-card.has-image .community-ui4-image{width:82px;height:82px}.community-ui4-housing.has-image .community-ui4-layout{grid-template-columns:110px minmax(0,1fr)}.community-ui4-housing .community-ui4-image{width:110px!important;height:95px!important}.community-ui4-neighborhood.has-image .community-ui4-layout{grid-template-columns:minmax(0,1fr) 72px}.community-ui4-neighborhood .community-ui4-image{width:72px!important;height:72px!important}.community-ui4-form-section{padding:12px}.community-ui4-title{font-size:15px}.community-ui4-lead,.community-ui4-price{font-size:16px}}
 @media(max-width:600px){.community-card-marketplace.has-image,.community-card-housing.has-image{grid-template-columns:92px minmax(0,1fr)}.community-card-marketplace.has-image>img,.community-card-housing.has-image>img{width:92px;height:92px}}
 .community-review-badge{background:#fff1d6;color:#7a4800;border:1px solid #e9b95a;font-weight:700}
+/* Community UI 4.1: inherit the existing DaltownMap Community visual language. */
+#page-community .community-page{gap:9px;padding:18px;border-radius:28px;background:var(--card)}
+#page-community .community-ui41-head{align-items:center;gap:10px;margin:0 0 2px}
+#page-community .community-ui41-head .section-title{display:flex;align-items:center;gap:7px;margin:0;color:#172748;font-size:19px;line-height:1.3;letter-spacing:-.025em}
+#page-community .community-ui41-head .section-title-icon{color:#2f80ed}
+#page-community .community-write{min-height:34px;padding:0 2px;border:0;border-radius:0;background:transparent;box-shadow:none;color:#2f80ed;font-size:14px;font-weight:800}
+#page-community .community-tools{gap:8px;grid-template-columns:minmax(0,1fr) auto}
+#page-community .community-category-filters{display:flex;grid-column:1/-1;flex-wrap:nowrap;gap:7px;min-width:0;max-width:100%;margin:0;padding:2px 0 3px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-inline:contain;scrollbar-width:none;-ms-overflow-style:none}
+#page-community .community-category-filters::-webkit-scrollbar{display:none}
+#page-community .community-category-filters button,#page-community .community-category-filters button:nth-child(n+5){flex:0 0 auto;grid-column:auto;width:auto;min-width:0;height:32px;min-height:32px;padding:0 11px;border:1px solid #dbe3ee;border-radius:999px;background:#fff;box-shadow:none;color:#526176;font-size:12px;font-weight:800;line-height:1}
+#page-community .community-category-filters button.active{background:#1769e0;border-color:#1769e0;color:#fff}
+#page-community .community-search-field{height:36px;border-color:#dbe3ee;border-radius:11px;box-shadow:none}
+#page-community .community-search-field svg{width:15px;height:15px}
+#page-community .community-search-field input{font-size:12px}
+#page-community .community-tools>#communitySearchBtn{height:36px;min-height:36px;max-height:36px;padding:0 11px;border-radius:10px;background:#1769e0;font-size:12px}
+#page-community .community-results{gap:9px}
+#page-community .community-ui4-card,#page-community .community-ui4-card.has-image{padding:11px 12px;border:0;border-radius:18px;background:linear-gradient(135deg,#fff7ed,#fff);box-shadow:0 8px 20px rgba(15,23,42,.05)}
+#page-community .community-ui4-card .community-ui4-badges{gap:4px}
+#page-community .community-ui4-badge{padding:3px 7px;border-radius:999px;font-size:10px;line-height:1.2}
+#page-community .community-ui4-title,#page-community .community-ui4-lead{font-size:15px;line-height:1.34;color:#18335f}
+#page-community .community-ui4-price{font-size:16px}
+#page-community .community-ui4-facts,#page-community .community-ui4-pay,#page-community .community-ui4-meta{font-size:11.5px}
+#page-community .community-ui4-preview{font-size:12px}
+#page-community .community-ui4-card .community-ui4-image{border-radius:14px}
+@media(max-width:640px){#page-community .community-page{padding:14px;gap:8px}#page-community .community-ui41-head{align-items:center}#page-community .community-ui41-head .section-title{font-size:17px}#page-community .community-ui4-card,#page-community .community-ui4-card.has-image{padding:10px 11px}}

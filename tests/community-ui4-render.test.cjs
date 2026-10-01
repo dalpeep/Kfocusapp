@@ -20,7 +20,7 @@ test('six mixed cards and sectional form render at 390px and desktop without hor
   try{
     for(const width of [390,1280]){
       const page=await browser.newPage({viewport:{width,height:844}});
-      await page.setContent('<html><head><meta name="robots" content="index,follow"></head><body><main></main></body></html>');
+      await page.setContent('<html><head><meta name="robots" content="index,follow"></head><body><button class="life-category-chip">생활</button><main></main></body></html>');
       await page.addStyleTag({path:path.join(root,'styles.css')});
       await page.evaluate(data=>{
         window.APP_CONFIG={APP_REGION:'dallas',SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'test'};
@@ -31,6 +31,16 @@ test('six mixed cards and sectional form render at 390px and desktop without hor
       await page.evaluate(async()=>{await DtmCommunity.load();document.getElementById('page-community').classList.add('active')});
       assert.equal(await page.locator('.community-ui4-card').count(),7);
       assert.deepEqual(await page.locator('#communityCategoryFilters button').allTextContents(),['전체','구인','구직','사고팔기','부동산','동네소식','질문정보']);
+      assert.equal(await page.locator('.community-ui41-head .section-title').innerText(),'커뮤니티');
+      assert.equal(await page.locator('.community-page-head p').count(),0);
+      const chipDesign=await page.evaluate(()=>{
+        const existing=getComputedStyle(document.querySelector('.life-category-chip'));
+        const board=getComputedStyle(document.querySelector('#communityCategoryFilters button:nth-child(2)'));
+        const strip=getComputedStyle(document.querySelector('#communityCategoryFilters'));
+        return {match:['borderRadius','fontSize','paddingLeft','paddingRight','borderTopColor'].every(key=>existing[key]===board[key]),hiddenScrollbar:strip.scrollbarWidth==='none',swipeable:strip.overflowX==='auto'};
+      });
+      assert.deepEqual(chipDesign,{match:true,hiddenScrollbar:true,swipeable:true});
+      if(width===390)assert.ok(await page.locator('.community-ui4-card').first().evaluate(el=>el.getBoundingClientRect().top)<260);
       for(const category of ['marketplace','housing','job_hiring','job_seeking','neighborhood','qna'])
         assert.ok(await page.locator('.community-ui4-'+category).count()>=1);
       assert.equal(await page.locator('.community-ui4-card iframe,.community-ui4-card video').count(),0);
