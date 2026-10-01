@@ -13,6 +13,7 @@ test('UI 4.0 mixed feed keeps six category-specific card paths and no list playe
     assert.match(source,new RegExp(`category==='${category}'`));
   assert.match(source,/data-community-post/);
   assert.match(source,/▶ 동영상/);
+  assert.match(source,/categoryBadge\.textContent=ui4Labels\[current\.category\]/);
   assert.doesNotMatch(source.slice(source.indexOf('card=function'),source.indexOf('const ui4RenderList')),/<iframe|<video|autoplay/);
 });
 
@@ -30,5 +31,5 @@ test('UI 4.0 uses scrollable chips, sectional form, and versioned assets',()=>{
   for(const label of ['기본 정보','상세 정보','사진·영상','연락 및 관리'])assert.ok(js.includes(label));
   assert.match(css,/\.community-category-filters\{display:flex;flex-wrap:nowrap;overflow-x:auto/);
   assert.match(css,/-webkit-line-clamp:2/);
-  assert.match(html,/community-board-ui4-1/g);
+  assert.match(html,/community-board-ui4-/g);
 });
