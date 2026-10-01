@@ -17,6 +17,7 @@ test('main Community restores three tabs and nests seven board categories in Dal
   assert.match(home,/class="community-tab active" data-board="life">달라스 라이프/);
   assert.match(home,/data-board="business_story">업소탐방/);
   assert.match(home,/id="communityHomeFilters" class="community-category-filters life-category-filters"/);
+  assert.match(home,/class="community-home-write" type="button" data-community-write/);
   assert.match(app,/let selectedBoardType = 'life'/);
   assert.match(app,/classList\.toggle\('hidden',!life\)/);
   assert.match(app,/if\(life\)\{\s*globalThis\.DtmCommunity\?\.renderHome\(homeBoardList,selectedHomeCommunityCategory\)/);
@@ -25,6 +26,7 @@ test('main Community restores three tabs and nests seven board categories in Dal
   assert.match(app,/if\(selectedBoardType!=='life'\)\{showBoard\(selectedBoardType\);return;\}/);
   assert.match(app,/DtmCommunity\?\.renderHome\(homeBoardList,selectedHomeCommunityCategory\)/);
   assert.match(app,/data-community-home-category/);
+  assert.match(app,/selectedHomeCommunityCategory=selectedHomeCommunityCategory===category\?'all':category/);
   assert.match(app,/DtmCommunity\?\.openPage\(boardPostsByType\('life'\),selectedHomeCommunityCategory\)/);
   assert.match(source,/p_limit:3/);
   assert.doesNotMatch(source,/legacyRows\.slice\(0,Math\.max\(0,4-rows\.length\)\)/);
@@ -36,7 +38,7 @@ test('390px home and full board share chips, cards, filtering and empty state',a
     const page=await browser.newPage({viewport:{width:390,height:844}});
     await page.route('https://ui42.test/',route=>route.fulfill({status:200,body:'<html><body></body></html>'}));
     await page.goto('https://ui42.test/');
-    await page.setContent('<html><head><meta name="robots" content="index,follow"></head><body><div class="app-shell"><main><section class="card section-card community-home-card"><div id="communityHomeFilters" class="community-category-filters life-category-filters"></div><div id="homeBoardList" class="home-board-list"></div></section></main></div></body></html>');
+    await page.setContent('<html><head><meta name="robots" content="index,follow"></head><body><div class="app-shell"><main><section class="card section-card community-home-card"><div class="section-head compact-head"><h3 class="section-title">커뮤니티</h3><div class="community-home-actions"><button class="community-home-write" data-community-write>＋ 글쓰기</button><button class="text-link community-full-btn">전체보기</button></div></div><div id="communityHomeFilters" class="community-category-filters life-category-filters"></div><div id="homeBoardList" class="home-board-list"></div></section></main></div></body></html>');
     await page.addStyleTag({path:path.join(root,'styles.css')});
     await page.evaluate(data=>{
       window.APP_CONFIG={APP_REGION:'dallas',SUPABASE_URL:'https://example.invalid',SUPABASE_ANON_KEY:'test'};
@@ -48,21 +50,28 @@ test('390px home and full board share chips, cards, filtering and empty state',a
     await page.addScriptTag({path:path.join(root,'assets/community.js')});
     await page.evaluate(async()=>{await DtmCommunity.renderHome(document.getElementById('homeBoardList'),'all');await DtmCommunity.load()});
     const labels=['전체','구인','구직','사고팔기','부동산','동네소식','질문정보'];
-    assert.deepEqual(await page.locator('#communityHomeFilters button').allTextContents(),labels);
+    assert.deepEqual(await page.locator('#communityHomeFilters button').allTextContents(),labels.slice(1));
+    assert.equal(await page.locator('#communityHomeFilters button.active').count(),0);
     assert.deepEqual(await page.locator('#communityCategoryFilters button').allTextContents(),labels);
     assert.equal(await page.locator('#homeBoardList .community-ui4-card').count(),3);
     assert.equal(await page.locator('#homeBoardList .community-ui4-card').first().evaluate(el=>el.outerHTML),await page.locator('#communityResults .community-ui4-card').first().evaluate(el=>el.outerHTML));
     const style=await page.evaluate(()=>{
       const home=getComputedStyle(document.querySelector('#communityHomeFilters button'));
-      const full=getComputedStyle(document.querySelector('#communityCategoryFilters button'));
-      return {same:['height','borderRadius','fontSize','backgroundColor','paddingLeft','borderTopColor'].every(key=>home[key]===full[key]),scrollbar:getComputedStyle(document.getElementById('communityHomeFilters')).scrollbarWidth,overflow:getComputedStyle(document.getElementById('communityHomeFilters')).overflowX};
+      return {height:home.height,scrollbar:getComputedStyle(document.getElementById('communityHomeFilters')).scrollbarWidth,overflow:getComputedStyle(document.getElementById('communityHomeFilters')).overflowX};
     });
-    assert.deepEqual(style,{same:true,scrollbar:'none',overflow:'auto'});
+    assert.deepEqual(style,{height:'32px',scrollbar:'none',overflow:'auto'});
+    const lastChip=await page.locator('#communityHomeFilters button').last().evaluate(el=>({text:el.textContent,right:el.getBoundingClientRect().right,containerRight:el.parentElement.getBoundingClientRect().right}));
+    assert.equal(lastChip.text,'질문정보');
+    assert.ok(lastChip.right<=lastChip.containerRight,JSON.stringify(lastChip));
+    const header=await page.locator('.community-home-card .section-head').evaluate(el=>{const title=el.querySelector('.section-title').getBoundingClientRect(),write=el.querySelector('.community-home-write').getBoundingClientRect(),more=el.querySelector('.community-full-btn').getBoundingClientRect();return {oneLine:Math.abs(title.top-write.top)<10&&Math.abs(write.top-more.top)<10,separated:more.left-write.right>=5,within:more.right<=el.getBoundingClientRect().right}});
+    assert.deepEqual(header,{oneLine:true,separated:true,within:true});
     await page.evaluate(async()=>DtmCommunity.renderHome(document.getElementById('homeBoardList'),'job_hiring'));
     assert.equal(await page.locator('#homeBoardList .community-ui4-card').count(),1);
     assert.equal(await page.locator('#communityHomeFilters button.active').innerText(),'구인');
     await page.evaluate(async()=>DtmCommunity.renderHome(document.getElementById('homeBoardList'),'housing'));
     assert.equal(await page.locator('#homeBoardList .community-ui4-card').count(),1);
+    await page.evaluate(async()=>DtmCommunity.renderHome(document.getElementById('homeBoardList'),'marketplace'));
+    assert.equal(await page.locator('#homeBoardList .community-ui4-marketplace').count(),2);
     await page.evaluate(async()=>DtmCommunity.renderHome(document.getElementById('homeBoardList'),'neighborhood'));
     assert.equal(await page.locator('#homeBoardList .community-ui4-card').count(),1);
     await page.evaluate(async()=>DtmCommunity.renderHome(document.getElementById('homeBoardList'),'job_hiring'));

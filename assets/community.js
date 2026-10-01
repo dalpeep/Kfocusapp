@@ -365,7 +365,7 @@ rpc=(name,args)=>boardBaseRpc(name==='community_get_public'||name==='community_g
 // distinct reading order in both the category feed and the mixed feed.
 const ui4Labels={...LABELS,housing:'부동산',qna:'질문정보'};
 const ui4Categories=['all','job_hiring','job_seeking','marketplace','housing','neighborhood','qna'];
-const ui4RenderCategoryChips=(box,selected,attribute)=>{if(box)box.innerHTML=ui4Categories.map(key=>`<button type="button" class="${selected===key?'active':''}" ${attribute}="${key}">${key==='all'?'전체':ui4Labels[key]}</button>`).join('')};
+const ui4RenderCategoryChips=(box,selected,attribute,includeAll=true)=>{if(box)box.innerHTML=(includeAll?ui4Categories:ui4Categories.slice(1)).map(key=>`<button type="button" class="${selected===key?'active':''}" ${attribute}="${key}">${key==='all'?'전체':ui4Labels[key]}</button>`).join('')};
 renderFilters=function(){ui4RenderCategoryChips(el('communityCategoryFilters'),filter,'data-community-category')};
 const ui4EnsureUI=ensureUI;
 ensureUI=function(){ui4EnsureUI();const head=el('page-community')?.querySelector('.community-page-head');if(head&&!head.classList.contains('community-ui41-head')){head.classList.add('section-head','compact-head','community-ui41-head');head.innerHTML='<h2 class="section-title"><span class="section-title-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M7 8h4v4H7zM14 8h3M14 12h3M7 16h10"></path></svg></span><span>커뮤니티</span></h2><button class="text-link community-write" type="button" data-community-write>＋ 글쓰기</button>'}const chips=el('communityCategoryFilters');if(chips)chips.classList.add('life-category-filters')};
@@ -400,7 +400,7 @@ renderHome=async function(container,selectedCategory='all'){
   if(!container)return;
   ensureUI();
   const category=ui4Categories.includes(selectedCategory)?selectedCategory:'all';
-  ui4RenderCategoryChips(el('communityHomeFilters'),category,'data-community-home-category');
+  ui4RenderCategoryChips(el('communityHomeFilters'),category,'data-community-home-category',false);
   const request=++ui42HomeRequest;
   container.innerHTML='<div class="community-home-empty">커뮤니티 글을 불러오는 중입니다.</div>';
   try{
