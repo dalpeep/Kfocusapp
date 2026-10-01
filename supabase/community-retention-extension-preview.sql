@@ -1,4 +1,4 @@
--- Preview/isolated PostgreSQL only. Do not apply to Production without approval.
+-- Final reviewed retention migration candidate. Do not apply to Production without explicit user approval.
 -- Legacy housing rows retain NULL expires_at; no existing post is backfilled.
 begin;
 
@@ -27,6 +27,12 @@ alter table public.community_posts
       extension_count=0 and
       (cleanup_after is null or status in ('deleted','rejected','expired')))
   );
+
+create index if not exists community_posts_retention_due_idx
+  on public.community_posts (expires_at)
+  where expires_at is not null
+    and category in ('marketplace','housing')
+    and status in ('approved','pending');
 
 -- Existing image-edit RPCs retain the old housing expiry as NULL. Preserve
 -- the stored deadline on same-category edits; assign a fresh policy deadline
