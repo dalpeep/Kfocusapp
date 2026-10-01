@@ -556,6 +556,8 @@ const homeNewList = $('#homeNewList');
 const homePopularList = $('#homePopularList');
 const homeBoardMoreBtn = $('#homeBoardMoreBtn');
 const communityTabs = $('#communityTabs');
+const homeCommunityWrite = $('.community-home-card .community-home-write');
+const homeCommunityActions = $('.community-home-card .community-home-actions');
 const businessList = $('#businessList');
 const couponTodayList = $('#couponTodayList');
 const couponAllList = $('#couponAllList');
@@ -3416,6 +3418,9 @@ function renderHomeBoardSection(type='notice'){
   selectedBoardType = type;
   $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.board===type));
   const life = type==='life';
+  if(life){
+    if(homeCommunityWrite&&!homeCommunityWrite.isConnected)homeCommunityActions?.prepend(homeCommunityWrite);
+  }else homeCommunityWrite?.remove();
   $('#communityHomeFilters')?.classList.toggle('hidden',!life);
   if(life){
     globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
