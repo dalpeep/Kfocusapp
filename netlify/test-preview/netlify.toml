@@ -1,0 +1,6 @@
+# Test site only: base directory is repository root; package directory is netlify/test-preview.
+[build]
+  command = "npm run build:test-preview"
+  publish = "test-dist"
+[functions]
+  directory = "netlify/test-functions"

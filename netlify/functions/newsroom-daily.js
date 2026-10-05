@@ -197,6 +197,10 @@ async function classifiedForDraft(region, limit) {
 }
 
 exports.handler = async function(event) {
+  if(process.env.TEST_PREVIEW_MODE==='true'){
+    require('./lib/test-preview-guard').assertTestPreview();
+    return {statusCode:200,body:JSON.stringify({ok:true,skipped:true,reason:'scheduled functions disabled in Test Preview'})};
+  }
   const startedAt = new Date().toISOString();
   const region = String(
     event?.queryStringParameters?.region ||

@@ -68,7 +68,7 @@ exports.handler=async(event)=>{
     if(!open.ok) return json(409,{ok:false,error:open.reason});
 
     // 이메일 발송 환경이 없으면 DB 기록을 만들기 전에 즉시 실패시킵니다.
-    if(!String(process.env.RESEND_API_KEY||'').trim()){
+    if(process.env.TEST_PREVIEW_MODE!=='true' && !String(process.env.RESEND_API_KEY||'').trim()){
       return json(503,{
         ok:false,
         code:'EMAIL_CONFIG_MISSING',

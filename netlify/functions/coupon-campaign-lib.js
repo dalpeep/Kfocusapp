@@ -2,7 +2,7 @@ const crypto=require('crypto');
 const dallasTime=require('../../assets/dallas-time.js');
 const H={'Content-Type':'application/json; charset=utf-8','Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'Content-Type, Authorization','Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store'};
 function json(statusCode,body){return{statusCode,headers:H,body:JSON.stringify(body)}}
-function env(){const base=String(process.env.SUPABASE_URL||'').replace(/\/$/,'');const service=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'').trim();if(!base||!service)throw new Error('Supabase server environment variables are missing.');return{base,service}}
+function env(){require('./lib/test-preview-guard').assertTestPreview();const base=String(process.env.SUPABASE_URL||'').replace(/\/$/,'');const service=String(process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'').trim();if(!base||!service)throw new Error('Supabase server environment variables are missing.');return{base,service}}
 async function rest(path,opt={}){const{base,service}=env();const r=await fetch(`${base}/rest/v1/${path}`,{...opt,headers:{apikey:service,Authorization:`Bearer ${service}`,'Content-Type':'application/json',...(opt.headers||{})}});const raw=await r.text();let d=null;try{d=raw?JSON.parse(raw):null}catch{d=raw}if(!r.ok)throw new Error(d?.message||d?.error||`Supabase HTTP ${r.status}`);return d}
 function emailOk(v){return/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v||'').trim())}
 function normalizedEmail(v){return String(v||'').trim().toLowerCase()}
@@ -13,4 +13,13 @@ async function getCoupon(id){const rows=await rest(`coupons?select=*&id=eq.${enc
 async function getBusiness(id){if(!id)return null;const rows=await rest(`businesses?select=id,name,name_ko,name_en&id=eq.${encodeURIComponent(String(id))}&limit=1`);return Array.isArray(rows)?rows[0]||null:null}
 function couponOpen(c){if(!c||c.is_active===false)return{ok:false,reason:'현재 비활성 쿠폰입니다.'};const now=Date.now();const state=dallasTime.periodState(c.start_at,c.end_at,now);if(state==='scheduled')return{ok:false,reason:'아직 응모/발급 기간이 시작되지 않았습니다.'};if(state!=='active')return{ok:false,reason:'응모/발급 기간이 종료되었습니다.'};if(c.delivery_mode==='raffle'&&c.raffle_end_at&&dallasTime.periodState('',c.raffle_end_at,now)!=='active')return{ok:false,reason:'응모가 마감되었습니다.'};return{ok:true}}
 async function verifyAdmin(event){const auth=String(event.headers?.authorization||event.headers?.Authorization||'');const token=auth.replace(/^Bearer\s+/i,'').trim();if(!token)throw new Error('관리자 로그인 토큰이 없습니다.');const{base,service}=env();const ures=await fetch(`${base}/auth/v1/user`,{headers:{apikey:service,Authorization:`Bearer ${token}`}});const user=await ures.json().catch(()=>null);if(!ures.ok||!user?.id)throw new Error('관리자 로그인을 확인할 수 없습니다.');const rows=await rest(`profiles?select=role,area&user_id=eq.${encodeURIComponent(user.id)}&limit=1`);const p=Array.isArray(rows)?rows[0]:null;if(!p||!['super_admin','regional_editor','regional_admin','admin'].includes(String(p.role||'')))throw new Error('관리자 권한이 없습니다.');return{user,profile:p}}
-module.exports={json,rest,emailOk,normalizedEmail,code,sendEmail,getCoupon,getBusiness,couponOpen,verifyAdmin};
+async function guardedSendEmail(message){
+  if(process.env.TEST_PREVIEW_MODE==='true'){
+    require('./lib/test-preview-guard').assertTestPreview();
+    if(!/^\S+@(test\.invalid|example\.(com|org|net))$/i.test(String(message.to||'')))
+      throw new Error('Test Preview email recipient must be synthetic.');
+    return {id:`dry-run-${crypto.randomUUID()}`,dry_run:true};
+  }
+  return sendEmail(message);
+}
+module.exports={json,rest,emailOk,normalizedEmail,code,sendEmail:guardedSendEmail,getCoupon,getBusiness,couponOpen,verifyAdmin};

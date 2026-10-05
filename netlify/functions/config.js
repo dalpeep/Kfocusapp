@@ -1,4 +1,5 @@
 exports.handler = async () => {
+  const testPreview = require('./lib/test-preview-guard').assertTestPreview();
   const appCity = String(
     process.env.APP_CITY || 'dallas'
   )
@@ -131,7 +132,7 @@ dallas: {
     `${cityConfig.brandNameKo} (${cityConfig.brandNameEn})`,
 
   APP_SITE_URL:
-    cityConfig.siteUrl,
+    testPreview ? process.env.APP_PUBLIC_URL : cityConfig.siteUrl,
 
   SEO_TITLE:
     cityConfig.seoTitle,
@@ -143,7 +144,7 @@ dallas: {
     cityConfig.seoKeywords,
 
   SEO_IMAGE:
-    cityConfig.seoImage,
+    testPreview ? `${process.env.APP_PUBLIC_URL}/icons/icon-512.png` : cityConfig.seoImage,
 
   SEO_LOCALE:
     cityConfig.locale,

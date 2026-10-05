@@ -74,7 +74,7 @@ exports.handler=async event=>{
           subject:'축하합니다! 달타운맵 이벤트에 당첨되셨습니다 🎉',
           title:'달타운맵 이벤트 당첨 안내',
           bodyLines:[campaign.title||'달타운맵 이벤트',EVENT_MESSAGE],
-          buttonUrl:'https://daltownmap.com',
+          buttonUrl:process.env.APP_PUBLIC_URL||'https://daltownmap.com',
           idempotencyKey:`daltown-event-winner-${attemptId}`});
         await rpc('event_winner_email_finish',{p_attempt_id:attemptId,
           p_status:'accepted',p_provider_id:String(result?.id||''),p_failure_code:null});

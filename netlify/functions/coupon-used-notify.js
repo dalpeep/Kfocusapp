@@ -32,6 +32,7 @@ function esc(value){
 }
 
 exports.handler = async (event) => {
+  require('./lib/test-preview-guard').assertTestPreview();
   if(event.httpMethod === 'OPTIONS') return json(200, { ok:true });
   if(event.httpMethod !== 'POST') return json(405, { ok:false, error:'Method not allowed' });
 
@@ -42,6 +43,12 @@ exports.handler = async (event) => {
     return json(400, { ok:false, error:'Invalid JSON body' });
   }
 
+  if(process.env.TEST_PREVIEW_MODE==='true'){
+    const to=splitEmails(payload.notify_emails);
+    if(to.some(email=>!/^\S+@(test\.invalid|example\.(com|org|net))$/i.test(email)))
+      return json(400,{ok:false,error:'Test Preview recipients must be synthetic.'});
+    return json(200,{ok:true,dry_run:true,recipient_count:to.length});
+  }
   const apiKey = process.env.RESEND_API_KEY;
   if(!apiKey){
     return json(500, { ok:false, error:'RESEND_API_KEY is not set in Netlify environment variables' });

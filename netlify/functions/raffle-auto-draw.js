@@ -66,6 +66,10 @@ async function claimWinner(row,coupon,bizName){
 }
 
 exports.handler=async()=>{
+  if(process.env.TEST_PREVIEW_MODE==='true'){
+    require('./lib/test-preview-guard').assertTestPreview();
+    return {statusCode:200,body:JSON.stringify({ok:true,skipped:true,reason:'scheduled functions disabled in Test Preview'})};
+  }
   try{
     const now=new Date();
     const nowIso=now.toISOString();

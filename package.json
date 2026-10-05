@@ -5,6 +5,7 @@
   "scripts": {
     "generate-seo": "node scripts/generate-seo.js",
     "build": "node scripts/generate-seo.js",
+    "build:test-preview": "node scripts/build-test-preview.cjs",
     "deploy:newsroom": "npx supabase functions deploy newsroom --project-ref ydrxuqmjzayejlnjzzew --no-verify-jwt",
     "deploy:v38.2": "npm run deploy:newsroom",
     "delete:test-functions": "npx supabase functions delete bright-action --project-ref ydrxuqmjzayejlnjzzew && npx supabase functions delete dynamic-endpoint --project-ref ydrxuqmjzayejlnjzzew"

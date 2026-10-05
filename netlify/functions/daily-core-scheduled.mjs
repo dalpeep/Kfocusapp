@@ -1,4 +1,5 @@
 import dailyCore from './lib/daily-core.js';
+import previewGuard from './lib/test-preview-guard.js';
 import dallasTime from '../../assets/dallas-time.js';
 
 const {ensureDailyCore}=dailyCore;
@@ -16,6 +17,7 @@ function audit(event,details={}){
 }
 
 export default async function(){
+  if(process.env.TEST_PREVIEW_MODE==='true'){previewGuard.assertTestPreview();return new Response(JSON.stringify({ok:true,skipped:true}),{status:200,headers})}
   const region=String(process.env.APP_REGION||'dallas').toLowerCase();
   try{
     audit('scheduled_invocation_received',{region});

@@ -9,7 +9,8 @@ const path = require('path');
 
 const SITE_URL = (process.env.SITE_URL || process.env.URL || 'https://www.daltownmap.com').replace(/\/$/, '');
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+if (process.env.TEST_PREVIEW_MODE === 'true') require('../netlify/functions/lib/test-preview-guard').assertTestPreview(process.env,{requireService:false});
 
 const ROOT = path.resolve(__dirname, '..');
 const BUSINESS_DIR = path.join(ROOT, 'business');

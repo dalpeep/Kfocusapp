@@ -7,6 +7,7 @@ const CONTACT_TYPES=new Set(['phone','text','email','kakao','other']);
 const AREAS=new Set(['dallas','carrollton','plano','frisco','lewisville','richardson','irving','coppell','fort_worth','other']);
 const text=(v,max=5000)=>String(v??'').trim().slice(0,max);
 function env(){
+  require('./test-preview-guard').assertTestPreview();
   const url=process.env.SUPABASE_URL||'';
   const service=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'';
   if(!url||!service)throw Object.assign(new Error('Community service is not configured.'),{status:503});
