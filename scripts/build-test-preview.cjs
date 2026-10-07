@@ -1,7 +1,7 @@
 const fs=require('node:fs');
 const path=require('node:path');
 const {assertTestPreview}=require('../netlify/functions/lib/test-preview-guard');
-if(!assertTestPreview(process.env,{requireService:false}))throw new Error('TEST_PREVIEW_MODE=true is required.');
+if(!assertTestPreview(require('./preview-build-env.cjs')(process.env),{requireService:false}))throw new Error('TEST_PREVIEW_MODE=true is required.');
 
 const root=path.resolve(__dirname,'..');
 const out=path.join(root,'test-dist');
@@ -31,8 +31,11 @@ function rewrite(folder){
     }
     if(/ydrxuqmjzayejlnjzzew|https:\/\/[^\s"']+\.supabase\.co/i.test(changed))
       throw new Error(`Unexpected Supabase reference in Test static bundle: ${path.relative(out,file)}`);
-    if(process.env.SUPABASE_SERVICE_ROLE_KEY && changed.includes(process.env.SUPABASE_SERVICE_ROLE_KEY))
-      throw new Error(`Service key appeared in Test static bundle: ${path.relative(out,file)}`);
+    for(const match of changed.matchAll(/[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+/g)) {
+      let claims;
+      try { claims=JSON.parse(Buffer.from(match[1],'base64url').toString()); } catch { continue; }
+      if(claims.role==='service_role')throw new Error('Server JWT appeared in Test static bundle.');
+    }
     if(changed!==source)fs.writeFileSync(file,changed);
   }
 }
