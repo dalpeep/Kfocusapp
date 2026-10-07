@@ -1,8 +1,6 @@
-# Temporary setup lock for the Test site.
-# Restore the build command after Test settings are verified.
+# Test site only: repository root base; package directory netlify/test-preview.
 [build]
-  ignore = "exit 0"
-  command = "echo 'BLOCKED: Test site setup is incomplete'; exit 1"
+  command = "npm run build:test-preview"
   publish = "test-dist"
 
 [functions]
