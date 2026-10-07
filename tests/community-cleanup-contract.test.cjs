@@ -78,8 +78,8 @@ test('real author/admin handlers transition isolated synthetic posts and exclude
   const state={community_posts:ids.map(id=>({id,region:'dallas',category:'qna',status:'approved',created_at:'2026-09-23T00:00:00.000Z',cleanup_after:null,password_hash:'synthetic'}))};
   const db=mockDb(state,new Set());
   const S=require('../netlify/functions/lib/community-security');
-  const original={client:S.client,verifyTurnstile:S.verifyTurnstile,verifyPassword:S.verifyPassword,verifyAdmin:S.verifyAdmin};
-  S.client=()=>db;S.verifyTurnstile=async()=>{};S.verifyPassword=()=>true;
+  const original={client:S.client,verifyTurnstile:S.verifyTurnstile,verifyPassword:S.verifyPassword,verifyAdmin:S.verifyAdmin,rateLimit:S.rateLimit};
+  S.client=()=>db;S.verifyTurnstile=async()=>{};S.verifyPassword=()=>true;S.rateLimit=async()=>{};
   S.verifyAdmin=async()=>({db,role:'regional_editor',area:'dallas'});
   const started=Date.now();
   try{

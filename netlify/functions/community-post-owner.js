@@ -5,9 +5,12 @@ exports.handler=S.handler(async event=>{
   const body=S.parse(event),id=S.text(body.id,80),db=S.client();
   await S.verifyTurnstile(event,body.turnstile_token);
   await S.rateLimit(db,event,'hidden_owner_view',5,900,`post:${id}`);
-  const result=await db.from('community_posts')
+  let query=db.from('community_posts')
     .select('id,region,area,category,title,body,author_name,contact_type,contact_value,video_url,video_provider,details,password_hash,status,moderation_reason,created_at,expires_at,community_post_images(id,image_url,sort_order)')
-    .eq('id',id).eq('status','hidden').maybeSingle();
+    .eq('id',id);
+  // Default stays hidden-only. Edit access requires the same password below.
+  query=body.action==='edit'?query.in('status',['approved','pending','hidden']):query.eq('status','hidden');
+  const result=await query.maybeSingle();
   if(result.error)throw result.error;
   if(!result.data||!S.verifyPassword(body.password,result.data.password_hash)){
     // A hidden post's existence and contents are not disclosed to anonymous callers.

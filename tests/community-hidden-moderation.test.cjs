@@ -44,11 +44,11 @@ test('owner endpoint never returns hidden contents for a wrong password',async()
   const security=require('../netlify/functions/lib/community-security');
   const original={client:security.client,verifyTurnstile:security.verifyTurnstile,rateLimit:security.rateLimit,verifyPassword:security.verifyPassword};
   const post={id:'00000000-0000-4000-8000-000000000001',status:'hidden',title:'private title',body:'private body',password_hash:'hash',moderation_reason:'off_topic',moderation_note:'internal memo',community_post_images:[]};
-  security.client=()=>({from:()=>({select:()=>({eq(){return this},maybeSingle:async()=>({data:post,error:null})})})});
+  security.client=()=>({from:()=>({select:()=>({eq(){return this},in(key,values){assert.equal(key,'status');assert.deepEqual(values,['approved','pending','hidden']);return this},maybeSingle:async()=>({data:post,error:null})})})});
   security.verifyTurnstile=async()=>{};security.rateLimit=async()=>{};security.verifyPassword=value=>value==='correct';
   try{
     const handler=require('../netlify/functions/community-post-owner').handler;
-    const request=password=>({httpMethod:'POST',body:JSON.stringify({id:post.id,password,turnstile_token:'test'}),headers:{}});
+    const request=(password,action)=>({httpMethod:'POST',body:JSON.stringify({id:post.id,password,action,turnstile_token:'test'}),headers:{}});
     const denied=await handler(request('wrong'));
     assert.equal(denied.statusCode,403);
     assert.doesNotMatch(denied.body,/private title|private body|internal memo/);
@@ -56,6 +56,11 @@ test('owner endpoint never returns hidden contents for a wrong password',async()
     assert.equal(allowed.statusCode,200);
     assert.equal(JSON.parse(allowed.body).post.body,'private body');
     assert.doesNotMatch(allowed.body,/password_hash|internal memo/);
+    post.status='approved';
+    assert.equal((await handler(request('wrong','edit'))).statusCode,403);
+    const edit=await handler(request('correct','edit'));
+    assert.equal(edit.statusCode,200);assert.equal(JSON.parse(edit.body).post.id,post.id);
+    assert.doesNotMatch(edit.body,/password_hash|internal memo/);
   }finally{Object.assign(security,original)}
 });
 test('admin endpoint hides with reason, unhides, and refuses expired marketplace restore',async()=>{
