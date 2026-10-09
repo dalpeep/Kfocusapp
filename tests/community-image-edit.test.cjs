@@ -15,7 +15,7 @@ test('image keep, replacement and removal plans retain the same post ID',async()
   S.env=()=>({url:'https://test.invalid',bucket:'community-images'});
   S.verifiedUploadDrafts=async()=>[{id:id(3),storage_path:`community-posts/${id(1)}/${id(3)}.webp`}];
   const db={from:()=>({select:()=>({eq(){return this},maybeSingle:async()=>({data:null}),limit:async()=>({data:[]})})}),rpc:async(name,args)=>{calls.push({name,args});return{data:{ok:true,status:'pending'}}}};
-  const post={id:id(1),category:'qna',details:{post_type:'question',topic:'test'}};
+  const post={id:id(1),status:'approved',updated_at:'2026-10-09T00:00:00Z',category:'qna',details:{post_type:'question',topic:'test'},title:'Synthetic title',body:'Synthetic body'};
   try{
     for(const plan of [[{kind:'existing',id:id(2)}],[{kind:'upload',id:id(3)}],[]]){
       const result=await edit.edit({}, {request_id:id(4),draft_id:id(5),image_plan:plan},db,post);
