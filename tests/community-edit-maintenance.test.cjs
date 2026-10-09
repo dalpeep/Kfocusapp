@@ -29,3 +29,11 @@ test('read/create/comments/admin endpoints have no maintenance imports; UI notic
  for(const name of ['community-post-create','community-comment-create','community-comment-update','community-comment-delete'])assert.doesNotMatch(fs.readFileSync(__dirname+'/../netlify/functions/'+name+'.js','utf8'),/community-edit-maintenance/);
  const ui=fs.readFileSync(__dirname+'/../assets/community-edit-maintenance.js','utf8');assert.match(ui,/data-owner-action="update"/);assert.match(ui,/임시 중단/);assert.match(ui,/stopImmediatePropagation/);
 });
+
+test('Test Functions directory exposes maintenance status and existing edit gates',()=>configured(async()=>{
+ const config=fs.readFileSync(__dirname+'/../netlify/test-preview/netlify.toml','utf8');assert.match(config,/directory = "netlify\/test-functions"/);
+ const out=await require('../netlify/test-functions/community-edit-status').handler({httpMethod:'GET'});
+ assert.equal(out.statusCode,200);assert.equal(JSON.parse(out.body).edit_paused,true);
+ const paused=await require('../netlify/test-functions/community-post-update').handler({httpMethod:'POST',body:'{}'});
+ assert.equal(paused.statusCode,503);assert.equal(paused.headers['Retry-After'],'60');
+}));
