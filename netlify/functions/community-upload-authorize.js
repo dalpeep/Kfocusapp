@@ -28,3 +28,5 @@ exports.handler=S.handler(async event=>{
   }
   return S.response(200,{ok:true,draft_id:draftId,uploads});
 });
+
+exports.handler=require('./lib/community-edit-maintenance').wrap(exports.handler,{upload:true});

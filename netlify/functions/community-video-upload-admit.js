@@ -64,3 +64,5 @@ exports.handler=S.handler(async event=>{
   return S.response(201,{ok:true,job_id:jobId,post_id:postId,ticket,admission_url:normalizedAdmissionUrl,
     expires_in_seconds:600});
 });
+
+exports.handler=require('./lib/community-edit-maintenance').wrap(exports.handler);
