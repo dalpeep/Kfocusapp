@@ -3419,8 +3419,8 @@ function renderHomeBoardSection(type='notice'){
   selectedBoardType = type;
   $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.board===type));
   const life = type==='life',promotion=type==='business_promotion';
-  if(homeCommunityWrite)homeCommunityWrite.dataset.communityCategoryHint=promotion?'business_promotion':'';
-  if(life||promotion){
+  if(homeCommunityWrite)homeCommunityWrite.dataset.communityCategoryHint=promotion?'business_promotion':type==='notice'?'event':'';
+  if(life||promotion||type==='notice'){
     if(homeCommunityWrite&&!homeCommunityWrite.isConnected)homeCommunityActions?.prepend(homeCommunityWrite);
   }else homeCommunityWrite?.remove();
   $('#communityHomeFilters')?.classList.toggle('hidden',!life);
@@ -3429,6 +3429,7 @@ function renderHomeBoardSection(type='notice'){
     globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
     return;
   }
+  if(type==='notice'){globalThis.DtmCommunity?.renderEventsHome(homeBoardList,boardPostsByType('notice'));return;}
   const rows=boardPostsByType(type).slice(0,4);
   if(homeBoardList)homeBoardList.innerHTML=rows.length?rows.map(boardListItemHTML).join(''):`<div class="board-empty">등록된 ${boardLabel(type)} 글이 없습니다.</div>`;
 }
@@ -7460,6 +7461,7 @@ function initBoardGallery(root=document){
   });
 }
 function showBoard(board){
+  if(normalizeBoardType(board)==='notice'&&globalThis.DtmCommunity){renderHomeBoardSection('notice');document.getElementById('homeBoardList')?.scrollIntoView({block:'start'});return;}
   if(normalizeBoardType(board)==='business_promotion'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPromotionPage(boardPostsByType('business_story'));return;}
   if(normalizeBoardType(board)==='life'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPage(boardPostsByType('life'));return;}
   renderBoardPage(board); lastBasePage = currentPage; showPage('board-detail');
