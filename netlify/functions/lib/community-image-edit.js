@@ -1,5 +1,5 @@
 const S=require('./community-security');
-const {validateDetails}=require('./community-details');
+const {prepareEdit,editError}=require('./community-edit-policy');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const validPath=path=>typeof path==='string'&&/^community-posts\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/i.test(path);
 
@@ -35,8 +35,7 @@ async function edit(event,body,db,post){
     if(previous.data.post_id!==post.id)throw Object.assign(new Error('Request identity conflict.'),{status:400});
     return {...previous.data.result,cleanup_pending:await flushOldObjects(db,post.id)};
   }
-  const next=S.validatePost({...post,...body},{partial:false});
-  next.details=validateDetails(next.category,body.details??post.details,{legacy:!post.details&&next.category===post.category});
+  const next=prepareEdit(post,body);
   const max=S.IMAGE_LIMITS[next.category]||0,plan=body.image_plan;
   if(plan.length>max||new Set(plan.map(x=>`${x?.kind}:${x?.id}`)).size!==plan.length)
     throw Object.assign(new Error('이미지 개수 제한 또는 중복을 확인해 주세요.'),{status:400});
@@ -59,7 +58,7 @@ async function edit(event,body,db,post){
     const check=await db.from('community_image_edit_requests').select('post_id,result').eq('request_id',requestId).maybeSingle();
     if(!check.error&&check.data?.post_id===post.id)return {...check.data.result,cleanup_pending:await flushOldObjects(db,post.id)};
     if(!check.error&&!check.data)await discardNewDrafts(db,verified);
-    throw Object.assign(new Error('이미지 수정 요청을 저장하지 못했습니다.'),{status:['22023','P0002'].includes(applied.error.code)?400:500});
+    throw editError(applied.error);
   }
   return {...applied.data,cleanup_pending:await flushOldObjects(db,post.id)};
 }

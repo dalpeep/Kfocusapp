@@ -1,5 +1,5 @@
 const S=require('./community-security'),L=require('./community-lifecycle');
-const {validateDetails}=require('./community-details');
+const {prepareEdit,editError}=require('./community-edit-policy');
 const R=require('./community-retention');
 async function post(event,action){
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});const b=S.parse(event),db=S.client(),id=S.text(b.id,80);if(action!=='update'||!Array.isArray(b.image_plan))await S.verifyTurnstile(event,b.turnstile_token);
@@ -15,7 +15,13 @@ async function post(event,action){
     if(out.data?.length!==1)throw Object.assign(new Error('게시기간이 이미 변경되었습니다. 다시 확인해 주세요.'),{status:409});
     return S.response(200,{ok:true,expires_at:out.data[0].expires_at,extension_count:out.data[0].extension_count,status:out.data[0].status});
   }
-  if(action==='update'){if(Array.isArray(b.image_plan))return S.response(200,await require('./community-image-edit').edit(event,b,db,row.data));const next=S.validatePost({...row.data,...b},{partial:false});const details=validateDetails(next.category,b.details??row.data.details,{legacy:!row.data.details&&next.category===row.data.category});const hidden=row.data.status==='hidden',now=Date.now();const lifecycle=hidden?{...R.initialRetention(next.category,new Date(now)),moderation_reason:null,moderation_note:null}:{};const out=await db.from('community_posts').update({...next,details,...lifecycle,status:'pending',approved_at:null}).eq('id',id).eq('status',row.data.status).select('id');if(out.error)throw out.error;if(out.data?.length!==1)throw Object.assign(new Error('게시글 상태가 변경되었습니다. 다시 확인해 주세요.'),{status:409});return S.response(200,{ok:true,status:'pending'})}
+  if(action==='update'){
+    if(Array.isArray(b.image_plan))return S.response(200,await require('./community-image-edit').edit(event,b,db,row.data));
+    const next=prepareEdit(row.data,b);
+    const out=await db.rpc('community_apply_post_text_edit',{p_post_id:id,p_post:next});
+    if(out.error)throw editError(out.error);
+    return S.response(200,out.data);
+  }
   if(action==='sold'){if(row.data.category!=='marketplace')throw Object.assign(new Error('사고팔기 게시물만 판매완료할 수 있습니다.'),{status:400});const out=await db.from('community_posts').update({status:'sold',sold_at:new Date().toISOString(),cleanup_after:new Date(Date.now()+7*86400000).toISOString()}).eq('id',id);if(out.error)throw out.error;return S.response(200,{ok:true,status:'sold'})}
   const out=await db.from('community_posts').update({status:'deleted',cleanup_after:L.cleanupAfter()}).eq('id',id);if(out.error)throw out.error;return S.response(200,{ok:true,status:'deleted'});
 }
