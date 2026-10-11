@@ -1,4 +1,4 @@
-const VIDEO_CATEGORIES=new Set(['marketplace','housing']);
+const VIDEO_CATEGORIES=new Set(['marketplace','housing','business_promotion']);
 const VIDEO_PROVIDERS=new Set(['youtube','instagram','facebook']);
 const YOUTUBE_ID=/^[A-Za-z0-9_-]{11}$/;
 const INSTAGRAM_CODE=/^[A-Za-z0-9_-]{5,100}$/;

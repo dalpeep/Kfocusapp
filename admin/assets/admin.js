@@ -1,5 +1,5 @@
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
-import {initCommunityAdmin} from './community-admin.js?v=community-video-link-phase1';
+import {initCommunityAdmin} from './community-admin.js?v=community-v11';
 import {mountEventWinnerManager} from './event-winner-manager.js?v=event-winner-phase1';
 const DTM_ADMIN_BUILD='phase1.1-special-editor-20260920.2';
 document.documentElement.dataset.dtmAdminBuild=DTM_ADMIN_BUILD;

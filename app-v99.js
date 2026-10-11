@@ -1298,6 +1298,7 @@ function normalizeBoardType(v = '') {
   const s = normalizeSearchText(v);
   if (['notice','event','events','local','community','지역소식','행사','공지','공지/행사','행사안내'].includes(s)) return 'notice';
   if (['life','lifestyle','news','column','news-column','라이프','뉴스','칼럼','뉴스·칼럼','뉴스/칼럼','달라스 라이프'].includes(s)) return 'life';
+  if (['business_promotion'].includes(s)) return 'business_promotion';
   if (['business_story','business-story','업소탐방','탐방'].includes(s)) return 'business_story';
   if (['guide','dallas-guide','dallas_guide','가이드','달라스 가이드'].includes(s)) return 'guide';
   if (['business','biz','job','jobs','realestate','property','rent','rental','sale','비즈니스','구인','구직','구인구직','구인/구직','렌트','임대','매매','부동산','하우징','업체홍보','창업'].includes(s)) return 'business';
@@ -1305,7 +1306,7 @@ function normalizeBoardType(v = '') {
 }
 
 function boardLabel(type) {
-  return { notice: '행사안내', life: '달라스 라이프', guide: '달라스 가이드', business_story: '업소탐방' }[normalizeBoardType(type)] || '행사안내';
+  return { notice: '행사안내', life: '달라스 라이프', guide: '달라스 가이드', business_story: '업소탐방', business_promotion:'업체홍보' }[normalizeBoardType(type)] || '행사안내';
 }
 
 function boardThumbEmoji(type) {
@@ -3417,11 +3418,13 @@ function bindBizOpenButtons() {
 function renderHomeBoardSection(type='notice'){
   selectedBoardType = type;
   $$('#communityTabs .community-tab').forEach(btn=>btn.classList.toggle('active',btn.dataset.board===type));
-  const life = type==='life';
-  if(life){
+  const life = type==='life',promotion=type==='business_promotion';
+  if(homeCommunityWrite)homeCommunityWrite.dataset.communityCategoryHint=promotion?'business_promotion':'';
+  if(life||promotion){
     if(homeCommunityWrite&&!homeCommunityWrite.isConnected)homeCommunityActions?.prepend(homeCommunityWrite);
   }else homeCommunityWrite?.remove();
   $('#communityHomeFilters')?.classList.toggle('hidden',!life);
+  if(promotion){globalThis.DtmCommunity?.renderPromotionHome(homeBoardList,boardPostsByType('business_story'));return;}
   if(life){
     globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
     return;
@@ -7457,6 +7460,7 @@ function initBoardGallery(root=document){
   });
 }
 function showBoard(board){
+  if(normalizeBoardType(board)==='business_promotion'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPromotionPage(boardPostsByType('business_story'));return;}
   if(normalizeBoardType(board)==='life'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPage(boardPostsByType('life'));return;}
   renderBoardPage(board); lastBasePage = currentPage; showPage('board-detail');
 }
@@ -8878,8 +8882,8 @@ async function init(){
   }
 
 await loadRealData();
-if(/^#community(?:$|\/post\/[^/?#]+)/.test(location.hash)){
-  globalThis.DtmCommunity?.setLegacyRows?.(boardPostsByType('life'));
+if(/^#community(?:$|\/promotion$|\/post\/[^/?#]+)/.test(location.hash)){
+  globalThis.DtmCommunity?.setLegacyRows?.(boardPostsByType(location.hash==='#community/promotion'?'business_story':'life'));
 }
 await refreshCurrentUser();
 

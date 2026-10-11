@@ -1,8 +1,8 @@
 const crypto=require('crypto');
 const {validateVideoLink}=require('./community-video-url');
 
-const CATEGORIES=new Set(['job_hiring','job_seeking','marketplace','housing','qna','neighborhood']);
-const IMAGE_LIMITS={job_hiring:1,job_seeking:1,marketplace:3,housing:3,qna:2,neighborhood:3};
+const CATEGORIES=new Set(['job_hiring','job_seeking','marketplace','housing','qna','neighborhood','business_promotion']);
+const IMAGE_LIMITS={job_hiring:1,job_seeking:1,marketplace:3,housing:3,qna:2,neighborhood:3,business_promotion:3};
 const CONTACT_TYPES=new Set(['phone','text','email','kakao','other']);
 const AREAS=new Set(['dallas','carrollton','plano','frisco','lewisville','richardson','irving','coppell','fort_worth','other']);
 const text=(v,max=5000)=>String(v??'').trim().slice(0,max);

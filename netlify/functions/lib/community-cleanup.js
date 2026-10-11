@@ -1,7 +1,7 @@
 const S=require('./community-security');
 async function cleanup(now=new Date()){
   const db=S.client(),iso=now.toISOString(),summary={expired:0,deleted:0,objects:0,failures:0,heldVideo:0};
-  const exp=await db.from('community_posts').update({status:'expired'}).in('category',['marketplace','housing']).in('status',['approved','pending']).lte('expires_at',iso).select('id');if(exp.error)throw exp.error;summary.expired=exp.data?.length||0;
+  const exp=await db.from('community_posts').update({status:'expired'}).in('category',['marketplace','housing','business_promotion']).in('status',['approved','pending']).lte('expires_at',iso).select('id');if(exp.error)throw exp.error;summary.expired=exp.data?.length||0;
   // Expiry only removes public visibility. A separate, future retention phase
   // must decide when to delete posts and their linked media.
   const doomed=await db.from('community_posts').select('id,video_provider,video_url').in('status',['sold','deleted','rejected']).lte('cleanup_after',iso).limit(500);if(doomed.error)throw doomed.error;
