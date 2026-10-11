@@ -1,4 +1,5 @@
 const FIELDS={
+  business_promotion:{required:[],optional:['business_name','external_video_url']},
   job_hiring:{required:['business_name','occupation','employment_type','pay','work_area'],optional:['work_hours','deadline']},
   job_seeking:{required:['occupation','experience','preferred_area','employment_type'],optional:['available_from']},
   marketplace:{required:['listing_type','item_name','price','item_condition','trade_area'],optional:['negotiable','external_video_url']},

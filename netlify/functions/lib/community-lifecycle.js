@@ -13,7 +13,7 @@ function adminStatusChanges(post,status,now=new Date()){
     throw Object.assign(new Error('만료된 숨김 글은 수정 후 재검토가 필요합니다.'),{status:400});
   const changes={status,approved_at:status==='approved'?now.toISOString():null};
   if(status==='approved'){
-    changes.cleanup_after=POLICY[post.category]&&post.expires_at
+    changes.cleanup_after=post.category==='business_promotion'?null:POLICY[post.category]&&post.expires_at
       ?new Date(Date.parse(post.expires_at)+7*86400000).toISOString()
       :post.category==='marketplace'
         ?new Date(Date.parse(post.created_at)+37*86400000).toISOString()
