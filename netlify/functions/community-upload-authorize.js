@@ -1,6 +1,8 @@
 const crypto=require('crypto');
 const S=require('./lib/community-security');
+const G=require('./lib/community-maintenance');
 exports.handler=S.handler(async event=>{
+  const blocked=G.editGate(event,{upload:true});if(blocked)return blocked;
   if(event.httpMethod!=='POST')return S.response(405,{ok:false,error:'Method not allowed.'});
   const body=S.parse(event),db=S.client(),postId=S.text(body.post_id,80)||null;
   if(postId){
