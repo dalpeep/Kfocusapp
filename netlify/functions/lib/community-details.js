@@ -3,7 +3,7 @@ const FIELDS={
   job_hiring:{required:['business_name','occupation','employment_type','pay','work_area'],optional:['work_hours','deadline']},
   job_seeking:{required:['occupation','experience','preferred_area','employment_type'],optional:['available_from']},
   marketplace:{required:['listing_type','item_name','price','item_condition','trade_area'],optional:['negotiable','external_video_url']},
-  neighborhood:{required:['news_type'],optional:['event_date','venue','external_url']},
+  neighborhood:{required:['news_type'],optional:['event_date','venue','external_url','external_video_url']},
   qna:{required:['post_type','topic'],optional:['resolved']},
   housing:{required:[],optional:['price','price_on_request','external_video_url']}
 };
@@ -31,7 +31,7 @@ function validateDetails(category,input,{legacy=false}={}){
     if(key==='external_url'&&value){try{const url=new URL(value);if(url.protocol!=='https:'||url.username||url.password)fail()}catch{fail()}}
     if(key==='external_video_url'&&value){
       const {validateVideoLink}=require('./community-video-url');
-      out[key]=validateVideoLink(value,category).video_url;
+      out[key]=validateVideoLink(value,category==='neighborhood'&&out.news_type==='event'?'business_promotion':category).video_url;
       continue;
     }
     if(value)out[key]=value;
