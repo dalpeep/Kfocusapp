@@ -5574,4 +5574,3 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-home-card #communityHomeFilters.life-category-filters button[data-community-home-category="life_questions"]{background:#faf5ff;color:#7e22ce}
 .community-home-card #communityHomeFilters.life-category-filters button.active{background:color-mix(in srgb,currentColor 14%,white);border-color:currentColor;box-shadow:0 2px 6px #0002;font-weight:800}
 .life-category-icon{width:24px;height:24px;flex-shrink:0}
-@media(min-width:768px){.community-home-card #communityHomeFilters.life-category-filters button{flex-direction:row;gap:8px;font-size:14px}}
