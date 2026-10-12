@@ -25,7 +25,9 @@ function validate(body){
   if(body.action==='submit'){
     if(!['new','claim','core'].includes(body.kind))fail(400,'신청 유형을 확인해 주세요.');
     if(body.kind==='new'){
-      if(body.business_id!==undefined||!['dallas','colorado'].includes(body.region))fail(400,'신규 업소 지역을 확인해 주세요.');
+      if(body.business_id!==undefined||body.region!=='texas')fail(400,'달타운맵 신규 업소는 텍사스(Texas)만 등록할 수 있습니다.');
+      // 달타운맵 Owner 신규 신청만 Texas -> 기존 DB 지역 코드로 변환한다.
+      body.region='dallas';
       body.changes=fields(body.changes,CORE,CORE);
     }else if(!body.business_id)fail(400,'기존 업소 식별자가 필요합니다.');
     if(body.kind==='core'){

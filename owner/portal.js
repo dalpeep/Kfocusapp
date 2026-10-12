@@ -37,7 +37,7 @@ $('logout').onclick=()=>run(async()=>{const {error}=await db.auth.signOut();if(e
 $('refresh').onclick=()=>run(refresh);
 for(const id of ['requestStatus','requestKind'])$(id).onchange=()=>{offset=0;run(refresh);};
 for(const [id,step,isAudit] of [['requestPrev',-20,false],['requestNext',20,false],['auditPrev',-20,true],['auditNext',20,true]])$(id).onclick=()=>run(async()=>{if(isAudit)auditOffset=Math.max(0,auditOffset+step);else offset=Math.max(0,offset+step);await refresh();});
-$('newBusiness').onsubmit=e=>{e.preventDefault();run(async()=>{const {region,...changes}=values(e.target);await command({action:'submit',kind:'new',region,changes});e.target.reset();},e.submitter);};
+$('newBusiness').onsubmit=e=>{e.preventDefault();run(async()=>{const changes=values(e.target);await command({action:'submit',kind:'new',region:'texas',changes});e.target.reset();},e.submitter);};
 $('search').onsubmit=e=>{e.preventDefault();run(async()=>{const q=values(e.target).query.trim();if(!q)throw Error('검색어를 입력해 주세요.');const {data,error}=await db.from('businesses').select('id,name_ko,address').ilike('name_ko',`%${q.replace(/[%_]/g,'')}%`).limit(20);if(error)throw Error('업소 검색에 실패했습니다.');$('searchResults').replaceChildren();for(const b of data){const a=text('article',`${b.name_ko} · ${b.address||''}`,$('searchResults'));button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(b.id)}));}},e.submitter);};
 db.auth.getSession().then(({data})=>{if(data.session)run(refresh);});
 })();
