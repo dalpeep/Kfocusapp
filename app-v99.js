@@ -1998,6 +1998,8 @@ async function loadRealData(){
         return {
           id: row.id,
           name: row.name_ko || row.name_en || row.name || '이름 없음',
+          name_ko: row.name_ko || '',
+          name_en: row.name_en || '',
           category: row.map_category || getMainCategoryLabel(row.category_ko || row.category || '서비스'),
           map_category: row.map_category || getMainCategoryLabel(row.category_ko || row.category || '서비스'),
           category_main: row.map_category || getMainCategoryLabel(row.category_ko || row.category || '서비스'),
@@ -5984,6 +5986,7 @@ ${(b.gallery_urls || b.galleryImages || []).map(url => `
 
     <section class="biz-detail-card">
       <h2>${esc(bizName)}</h2>
+      ${b.name_ko && b.name_en ? `<p class="biz-detail-english-name">${esc(b.name_en)}</p>` : ''}
       <p class="biz-detail-meta">${esc(category)} · DalTownMap</p>
       <div class="biz-detail-special-badges">${businessSpecialBadgesHTML(b)}</div>
 

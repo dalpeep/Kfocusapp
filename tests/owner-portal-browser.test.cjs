@@ -16,6 +16,8 @@ test('업주 화면 모바일·PC 신청·일반 수정·관리자 승인 및 �
   assert.equal(await page.locator('#businesses img').count(),0);
   assert.equal(await page.locator('#newBusiness select[name=region]').count(),0);
   assert.match(await page.locator('#newBusiness').textContent(),/텍사스\(Texas\)/);
+  assert.equal(await page.locator('#newBusiness [name=name_en]').count(),1);
+  assert.equal(await page.locator('.core-request [name=name_en]').count(),1);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   assert.match(await page.locator('#pendingCounts').textContent(),/승인 대기 21건/);
   await Promise.all([page.waitForResponse(r=>r.url().includes('kind=claim')),page.locator('#requestKind').selectOption('claim')]);
@@ -24,6 +26,12 @@ test('업주 화면 모바일·PC 신청·일반 수정·관리자 승인 및 �
   for(const [name,value] of [['name_ko','신규 업소'],['address','달라스 주소'],['phone','전화'],['category_ko','식당']])await page.locator(`#newBusiness [name=${name}]`).fill(value);
   await page.getByRole('button',{name:'등록 신청',exact:true}).click();await page.getByRole('status').filter({hasText:'처리했습니다.'}).waitFor();
   assert.equal(commands[0].kind,'new');assert.equal(commands[0].region,'texas');assert.equal(commands[0].changes.name_ko,'신규 업소');assert.ok(!('actor' in commands[0]));
+  for(const [name,value] of [['name_en','English Only'],['address','테스트 주소'],['phone','1'],['category_ko','식당']])await page.locator(`#newBusiness [name=${name}]`).fill(value);
+  await Promise.all([page.waitForResponse(r=>r.request().method()==='POST'),page.getByRole('button',{name:'등록 신청',exact:true}).click()]);
+  assert.ok(commands.some(c=>c.kind==='new'&&c.changes.name_ko===''&&c.changes.name_en==='English Only'));
+  await page.locator('.core-request [name=name_en]').fill('Changed English');
+  await Promise.all([page.waitForResponse(r=>r.request().method()==='GET'&&r.url().includes('/owner-portal?')),page.getByRole('button',{name:'핵심 정보 변경 신청',exact:true}).click()]);
+  assert.ok(commands.some(c=>c.kind==='core'&&c.changes.name_en==='Changed English'&&c.reason===''));
   await page.locator('#businesses [name=description]').fill('새 소개');await Promise.all([page.waitForResponse(r=>r.request().method()==='GET'&&r.url().includes('/owner-portal?')),page.getByRole('button',{name:'일반 정보 저장',exact:true}).click()]);
   assert.ok(commands.some(c=>c.action==='update'&&c.business_id==='1'&&c.changes.description==='새 소개'));
   page.once('dialog',d=>d.accept('확인 완료'));await page.getByRole('button',{name:'승인',exact:true}).click();

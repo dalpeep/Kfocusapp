@@ -4,7 +4,7 @@ if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY){status.textContent='연결 설정�
 const db=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
 let state=null,offset=0,auditOffset=0;
 const kinds={new:'신규 업소',claim:'소유권',core:'핵심 정보'},statuses={pending:'대기',approved:'승인',rejected:'거절'},actions={submit:'신청',approve:'승인',reject:'거절',revoke:'권한 회수',update:'일반 정보 수정'};
-const labels={name_ko:'업소명',address:'주소',phone:'전화',category_ko:'업종',description:'소개',hours:'영업시간',user_id:'대상 회원',active:'활성 권한'};
+const labels={name_ko:'업소명(한글)',name_en:'업소명(영문)',address:'주소',phone:'전화',category_ko:'업종',description:'소개',hours:'영업시간',user_id:'대상 회원',active:'활성 권한'};
 const fields=(value,parent)=>{for(const [k,v] of Object.entries(value||{}))text('p',`${labels[k]||k}: ${v??'없음'}`,parent);};
 const date=value=>value?new Date(value).toLocaleString('ko-KR'):'없음';
 const text=(tag,value,parent)=>{const e=document.createElement(tag);e.textContent=value;parent.append(e);return e;};
@@ -16,7 +16,7 @@ async function api(command){const {data:{session}}=await db.auth.getSession();if
  const json=await res.json();if(!res.ok)throw Error(json.error||'요청에 실패했습니다.');return json.result;}
 async function command(value){await api({...value,key:crypto.randomUUID()});offset=0;auditOffset=0;status.textContent='처리했습니다.';await refresh();}
 const values=form=>Object.fromEntries(new FormData(form));
-function reason(){const v=prompt('처리 사유를 입력해 주세요.');if(!v?.trim())throw Error('처리 사유가 필요합니다.');return v.trim();}
+function reason(required=true){const v=prompt(required?'처리 사유를 입력해 주세요.':'승인 사유(선택). 비우면 관리자 승인으로 기록합니다.');if(v===null)throw Error('처리를 취소했습니다.');if(required&&!v.trim())throw Error('처리 사유가 필요합니다.');return v.trim();}
 async function refresh(){state=await api();$('auth').hidden=true;$('portal').hidden=false;$('admin').hidden=!state.is_admin;
  const c=state.counts||{};$('counts').textContent=`대기 ${c.pending||0} · 승인 ${c.approved||0} · 거절 ${c.rejected||0}`;
  $('pendingCounts').textContent=`승인 대기 ${c.pending||0}건 · 신규 ${c.new||0} · 소유권 ${c.claim||0} · 핵심 정보 ${c.core||0}`;
@@ -24,11 +24,14 @@ async function refresh(){state=await api();$('auth').hidden=true;$('portal').hid
   $(prefix+'Page').textContent=total?`${start+1}–${Math.min(start+20,total)} / ${total}건`:'0건';$(prefix+'Prev').disabled=start===0;$(prefix+'Next').disabled=start+20>=total;
  }
  for(const id of ['businesses','requests','queue','memberships','audit'])$(id).replaceChildren();
- for(const b of state.businesses){const a=text('article','',$('businesses'));text('h3',b.name_ko,a);text('p',`${b.address||''} · ${b.phone||''}`,a);
+ for(const b of state.businesses){const a=text('article','',$('businesses'));text('h3',b.name_ko||b.name_en||'이름 없음',a);if(b.name_ko&&b.name_en)text('p',b.name_en,a);text('p',`${b.address||''} · ${b.phone||''}`,a);
  const f=document.createElement('form');a.append(f);for(const [key,label] of [['description','소개'],['hours','영업시간']]){const l=text('label',label,f),i=document.createElement('textarea');i.name=key;i.value=b[key]||'';l.append(i);}button('일반 정보 저장',f,()=>command({action:'update',business_id:b.id,changes:values(f)}));
- button('핵심 정보 변경 신청',a,async()=>{const changes={},baseline={};for(const k of ['name_ko','address','phone','category_ko']){const v=prompt(`${({name_ko:'업소명',address:'주소',phone:'전화',category_ko:'업종'})[k]} 변경값`,b[k]||'');if(v===null)return;if(v!==b[k]){changes[k]=v;baseline[k]=b[k];}}if(!Object.keys(changes).length)throw Error('변경한 정보가 없습니다.');await command({action:'submit',kind:'core',business_id:b.id,changes,baseline});});}
+ const core=document.createElement('form');core.className='core-request';a.append(core);text('h3','핵심 정보 변경 신청',core);
+ for(const k of ['name_ko','name_en','address','phone','category_ko']){const l=text('label',labels[k],core),i=document.createElement('input');i.name=k;i.value=b[k]||'';i.maxLength=500;i.required=!['name_ko','name_en'].includes(k);l.append(i);}
+ const rl=text('label','변경 사유(선택)',core),ri=document.createElement('textarea');ri.name='reason';ri.maxLength=1000;rl.append(ri);
+ const submit=text('button','핵심 정보 변경 신청',core);submit.type='submit';core.onsubmit=e=>{e.preventDefault();run(async()=>{const {reason:why,...v}=values(core),changes={},baseline={};if(!v.name_ko.trim()&&!v.name_en.trim())throw Error('한글명 또는 영문명을 입력해 주세요.');for(const [k,value] of Object.entries(v))if(value.trim()!==(b[k]||'')){changes[k]=value.trim();baseline[k]=b[k]??null;}if(!Object.keys(changes).length)throw Error('변경한 정보가 없습니다.');await command({action:'submit',kind:'core',business_id:b.id,changes,baseline,reason:why.trim()});},submit);};}
  for(const r of state.requests){const a=text('article',`${kinds[r.kind]} · ${statuses[r.status]}`,$('requests'));text('p',`신청 ${r.id} · 업소 ${r.business_id||'승인 시 생성'} · ${r.region}`,a);text('p',`신청일 ${date(r.created_at)} · 처리일 ${date(r.reviewed_at)}`,a);fields(r.changes,a);if(r.reason)text('p',`처리 사유: ${r.reason}`,a);
- if(state.is_admin&&r.status==='pending'){const q=text('article',`${kinds[r.kind]} · ${r.region}`,$('queue'));text('p',`신청 ${r.id} · 회원 ${r.user_id} · 업소 ${r.business_id||'신규'}`,q);if(Object.keys(r.baseline||{}).length){text('h3','변경 전',q);fields(r.baseline,q);}text('h3','신청 내용',q);fields(r.changes,q);button('승인',q,()=>command({action:'approve',request_id:r.id,reason:reason()}));button('거절',q,()=>command({action:'reject',request_id:r.id,reason:reason()}));}}
+ if(state.is_admin&&r.status==='pending'){const q=text('article',`${kinds[r.kind]} · ${r.region}`,$('queue'));text('p',`신청 ${r.id} · 회원 ${r.user_id} · 업소 ${r.business_id||'신규'}`,q);if(r.submission_reason)text('p',`신청 사유: ${r.submission_reason}`,q);for(const k of ['name_ko','name_en']){const before=Object.hasOwn(r.baseline||{},k)?r.baseline[k]:r.current_names?.[k];const after=Object.hasOwn(r.changes||{},k)?r.changes[k]:before;text('p',`${labels[k]}: ${before||'없음'} → ${after||'없음'}`,q);}if(Object.keys(r.baseline||{}).length){text('h3','변경 전',q);fields(r.baseline,q);}text('h3','신청 내용',q);fields(r.changes,q);button('승인',q,()=>command({action:'approve',request_id:r.id,reason:reason(false)}));button('거절',q,()=>command({action:'reject',request_id:r.id,reason:reason()}));}}
  for(const m of state.memberships){const a=text('article',`${m.business_id} · ${m.user_id} · ${m.active?'활성':'회수'}`,$('memberships'));if(m.active)button('권한 회수',a,()=>command({action:'revoke',business_id:m.business_id,user_id:m.user_id,reason:reason()}));}
  for(const a of state.audit){const card=text('article',`${actions[a.action]||a.action} · ${date(a.created_at)}`,$('audit'));text('p',`처리자 ${a.actor} · 업소 ${a.business_id||'미생성'} · 신청 ${a.request_id||'없음'}`,card);if(a.before_value){text('h3','변경 전',card);fields(a.before_value,card);}if(a.after_value){text('h3','처리 내용',card);fields(a.after_value,card);}if(a.reason)text('p',`사유: ${a.reason}`,card);}
 }
@@ -37,7 +40,7 @@ $('logout').onclick=()=>run(async()=>{const {error}=await db.auth.signOut();if(e
 $('refresh').onclick=()=>run(refresh);
 for(const id of ['requestStatus','requestKind'])$(id).onchange=()=>{offset=0;run(refresh);};
 for(const [id,step,isAudit] of [['requestPrev',-20,false],['requestNext',20,false],['auditPrev',-20,true],['auditNext',20,true]])$(id).onclick=()=>run(async()=>{if(isAudit)auditOffset=Math.max(0,auditOffset+step);else offset=Math.max(0,offset+step);await refresh();});
-$('newBusiness').onsubmit=e=>{e.preventDefault();run(async()=>{const changes=values(e.target);await command({action:'submit',kind:'new',region:'texas',changes});e.target.reset();},e.submitter);};
-$('search').onsubmit=e=>{e.preventDefault();run(async()=>{const q=values(e.target).query.trim();if(!q)throw Error('검색어를 입력해 주세요.');const {data,error}=await db.from('businesses').select('id,name_ko,address').ilike('name_ko',`%${q.replace(/[%_]/g,'')}%`).limit(20);if(error)throw Error('업소 검색에 실패했습니다.');$('searchResults').replaceChildren();for(const b of data){const a=text('article',`${b.name_ko} · ${b.address||''}`,$('searchResults'));button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(b.id)}));}},e.submitter);};
+$('newBusiness').onsubmit=e=>{e.preventDefault();run(async()=>{const changes=values(e.target);if(!changes.name_ko.trim()&&!changes.name_en.trim())throw Error('한글명 또는 영문명을 입력해 주세요.');await command({action:'submit',kind:'new',region:'texas',changes});e.target.reset();},e.submitter);};
+$('search').onsubmit=e=>{e.preventDefault();run(async()=>{const q=values(e.target).query.trim();if(!q)throw Error('검색어를 입력해 주세요.');const query=db.from('businesses').select('id,name_ko,name_en,address'),safe=q.replace(/[\\%_,()."']/g,'');if(!safe)throw Error('검색어를 확인해 주세요.');const {data,error}=await query.or(`name_ko.ilike.%${safe}%,name_en.ilike.%${safe}%`).limit(20);if(error)throw Error('업소 검색에 실패했습니다.');$('searchResults').replaceChildren();for(const b of data){const a=text('article',`${b.name_ko||b.name_en||'이름 없음'} · ${b.name_ko&&b.name_en?b.name_en+' · ':''}${b.address||''}`,$('searchResults'));button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(b.id)}));}},e.submitter);};
 db.auth.getSession().then(({data})=>{if(data.session)run(refresh);});
 })();

@@ -1,7 +1,7 @@
 
 const {requireTestPreview}=require('./test-preview-guard');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const CORE=['name_ko','address','phone','category_ko'];
+const CORE=['name_ko','name_en','address','phone','category_ko'];
 const GENERAL=['description','hours'];
 function fail(status,message){throw Object.assign(new Error(message),{status});}
 function fields(value,allowed,required=[],allowEmpty=false){
@@ -20,7 +20,9 @@ function validate(body){
   if(['approve','reject'].includes(body.action)&&!body.request_id)fail(400,'신청 식별자가 필요합니다.');
   if(['update','revoke'].includes(body.action)&&!body.business_id)fail(400,'업소 식별자가 필요합니다.');
   if(body.action==='revoke'&&!body.user_id)fail(400,'대상 회원을 확인해 주세요.');
-  if(['approve','reject','revoke'].includes(body.action)&&(typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>1000))fail(400,'처리 사유를 입력해 주세요.');
+  if(body.reason!==undefined&&(typeof body.reason!=='string'||body.reason.length>1000))fail(400,'사유는 1000자 이내로 입력해 주세요.');
+  if(['reject','revoke'].includes(body.action)&&!body.reason?.trim())fail(400,'처리 사유를 입력해 주세요.');
+  if(body.action==='approve')body.reason=body.reason?.trim()||'관리자 승인';
   if(body.action==='update')body.changes=fields(body.changes,GENERAL,[],true);
   if(body.action==='submit'){
     if(!['new','claim','core'].includes(body.kind))fail(400,'신청 유형을 확인해 주세요.');
@@ -28,10 +30,12 @@ function validate(body){
       if(body.business_id!==undefined||body.region!=='texas')fail(400,'달타운맵 신규 업소는 텍사스(Texas)만 등록할 수 있습니다.');
       // 달타운맵 Owner 신규 신청만 Texas -> 기존 DB 지역 코드로 변환한다.
       body.region='dallas';
-      body.changes=fields(body.changes,CORE,CORE);
+      body.changes=fields(body.changes,CORE,['address','phone','category_ko'],true);
+      if(!body.changes.name_ko&&!body.changes.name_en)fail(400,'한글명 또는 영문명을 입력해 주세요.');
     }else if(!body.business_id)fail(400,'기존 업소 식별자가 필요합니다.');
     if(body.kind==='core'){
-      body.changes=fields(body.changes,CORE);
+      body.changes=fields(body.changes,CORE,[],true);
+      if(Object.entries(body.changes).some(([k,v])=>!['name_ko','name_en'].includes(k)&&!v))fail(400,'핵심 정보를 비울 수 없습니다.');
       if(!body.baseline||typeof body.baseline!=='object'||Array.isArray(body.baseline)||Object.entries(body.baseline).some(([k,v])=>!CORE.includes(k)||(v!==null&&(typeof v!=='string'||v.length>500))))fail(400,'변경 전 정보를 확인해 주세요.');
       if(Object.keys(body.changes).sort().join()!==Object.keys(body.baseline).sort().join())fail(400,'변경 전 정보가 필요합니다.');
     }
