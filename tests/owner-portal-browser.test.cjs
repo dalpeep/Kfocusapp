@@ -10,7 +10,7 @@ test('업주 화면 모바일·PC 신청·일반 수정·관리자 승인 및 �
   await page.goto('https://owner.invalid/');
   await page.setContent(fs.readFileSync(path.join(root,'owner/index.html'),'utf8').replace(/<script[\s\S]*?<\/script>/g,''));
   await page.addStyleTag({path:path.join(root,'owner/portal.css')});
-  await page.evaluate(()=>{window.APP_CONFIG={SUPABASE_URL:'https://synthetic.invalid',SUPABASE_ANON_KEY:'synthetic'};window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{access_token:'synthetic'}}}),signOut:async()=>({error:null})}})};});
+  await page.evaluate(()=>{window.APP_CONFIG={SUPABASE_URL:'https://synthetic.invalid',SUPABASE_ANON_KEY:'synthetic'};window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{access_token:'synthetic',user:{id:'admin-test'}}}}),signOut:async()=>({error:null})}})};});
   await page.addScriptTag({path:path.join(root,'owner/portal.js')});
   await page.getByRole('heading',{name:'내 업소',exact:true}).waitFor({state:'visible'});
   assert.equal(await page.locator('#businesses img').count(),0);
@@ -37,6 +37,18 @@ test('업주 화면 모바일·PC 신청·일반 수정·관리자 승인 및 �
   page.once('dialog',d=>d.accept('확인 완료'));await page.getByRole('button',{name:'승인',exact:true}).click();
   await page.getByRole('status').filter({hasText:'처리했습니다.'}).waitFor();
   assert.ok(commands.some(c=>c.action==='approve'&&c.reason==='확인 완료'));
+  state.requests=[{id:'self',user_id:'admin-test',kind:'claim',business_id:'1',region:'dallas',status:'pending',changes:{}}];
+  state.memberships=[{business_id:'1',user_id:'other-owner',active:true}];
+  await page.locator('#refresh').click();
+  await page.getByText('다른 관리자가 처리해야 합니다.',{exact:true}).waitFor();
+  assert.equal(await page.locator('#queue').getByRole('button',{name:'승인',exact:true}).isDisabled(),true);
+  assert.equal(await page.locator('#queue').getByRole('button',{name:'거절',exact:true}).isDisabled(),true);
+  state.requests[0].user_id='other-applicant';
+  await page.locator('#refresh').click();
+  await page.getByText('이미 활성 소유자가 있는 업소입니다. 중복 소유권 승인은 처리할 수 없습니다.',{exact:true}).waitFor();
+  await page.waitForFunction(()=>!document.querySelector('#queue button:last-child').disabled);
+  assert.equal(await page.locator('#queue').getByRole('button',{name:'승인',exact:true}).isDisabled(),true);
+  assert.equal(await page.locator('#queue').getByRole('button',{name:'거절',exact:true}).isEnabled(),true);
   await page.close();
  }}finally{await browser.close();}
 });

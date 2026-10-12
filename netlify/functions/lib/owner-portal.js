@@ -77,6 +77,14 @@ function makeHandler({getClient}={}){return async event=>{
     }
     const result=await db.rpc(rpc,params);
     if(result.error){
+      // DB가 확정한 오류만 공개용 코드로 변환한다. 권한 판단은 RPC에 유지한다.
+      const known={
+        'OP403:본인 신청 승인 금지':['OWNER_SELF_REVIEW_BLOCKED','본인 신청은 처리할 수 없습니다. 다른 관리자가 처리해야 합니다.'],
+        'OP403:관리자 권한 필요':['OWNER_ADMIN_REQUIRED','해당 지역의 관리자 권한이 필요합니다. 로그인 계정을 확인해 주세요.'],
+        'OP403:활성 소유권 필요':['OWNER_MEMBERSHIP_REQUIRED','이 업소의 활성 소유권이 없습니다.'],
+        'OP409:이미 승인된 소유자 존재':['OWNER_OWNERSHIP_CONFLICT','이미 활성 소유자가 있는 업소입니다. 중복 소유권 승인은 처리할 수 없습니다.']
+      }[`${result.error.code}:${result.error.message}`];
+      if(known)return reply(result.error.code==='OP403'?403:409,{ok:false,code:known[0],error:known[1]});
       const status={OP403:403,OP409:409,OP400:400,'23505':409}[result.error.code]||503;
       fail(status,status===409?'이미 처리됐거나 정보가 변경됐습니다. 새로고침해 주세요.':status===403?'이 작업에 대한 권한이 없습니다.':'요청을 처리하지 못했습니다.');
     }
