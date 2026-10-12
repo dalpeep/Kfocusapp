@@ -8,7 +8,7 @@ const out=path.join(root,'test-dist');
 const appUrl=process.env.APP_PUBLIC_URL.replace(/\/$/,'');
 const rootFiles=['index.html','privacy.html','manifest.json','robots.txt','_headers','_redirects'];
 const rootPattern=/^(?:app(?:-v\d+)?|admin|config|main-banners|styles|v\d+-home-section-controls)\.(?:js|css)$/;
-const dirs=['admin','assets','icons'];
+const dirs=['admin','assets','icons','owner'];
 if(fs.existsSync(out))throw new Error('test-dist already exists; refusing to overwrite it.');
 fs.mkdirSync(out,{recursive:true});
 for(const entry of fs.readdirSync(root,{withFileTypes:true})){

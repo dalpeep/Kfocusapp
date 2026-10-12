@@ -1,0 +1,54 @@
+Owner Portal Phase 1 추가 검증 / 2026-10-11 / 로컬 전용
+
+실제 owner-test 읽기 전용 CSV:
+- owner-portal-phase1-compat.csv: 마커 aaikttogoejfvxbosktg, Migration A 존재,
+  Migration B 미적용, 필수 필드/RLS/기존 관리자 정책/Community 함수 확인.
+- Supabase Snippet Untitled query.csv: businesses.id bigint identity BY DEFAULT,
+  public.businesses_id_seq, 증가량 1, 최대 bigint, 현재 max(id)=1002.
+  column_default NULL은 identity에서 정상. nextval/INSERT 실행하지 않음.
+- 실제 ID 발급과 sequence 현재값 정합성은 읽기 전용 설정 검사만으로 증명하지 않음.
+  임시 DB의 신규 승인 ID 자동 생성은 PASS. 실제 owner-test 신규 승인은 적용 후 확인.
+
+추가 구현:
+- 관리자/회원 범위별 대기·승인·거절 건수, 종류별 대기 건수.
+- 신청 상태/종류 필터, 20건 페이지, 신청 ID/회원/업소/일자/내용/사유.
+- 변경 전/후 이력과 20건 페이지. 신규 업소 승인 전 이력도 관리자 지역 범위로 조회.
+- 정규화한 지역·업소명·주소 기준 중복 신규 신청 unique index 및 승인 시 재검사.
+- GET 조회 조건 서버 allowlist. RPC read 인터페이스는
+  owner_portal_read(uuid,text,text,integer,integer). read/command service_role 전용.
+
+로컬 결과:
+- DB·서버 26 PASS: 추가 A/B 관리 범위, 회수 후 조회/핵심 신청 차단,
+  중복 신규 신청, 거절/회수 이력 실패 원자 복구, 관리자 필터/페이지/지역 범위 포함.
+- 모바일 390px·PC 1280px 모의 Auth/API 브라우저 1 PASS:
+  대기 건수·필터·페이지·신청·일반 수정·승인·안전한 텍스트 렌더링.
+- 실제 다중 연결 경쟁, 실제 이메일 인증/owner-test API는 NOT TESTED.
+
+기존 콘텐츠 연결 범위 검토:
+- coupons: admin/assets/admin.js의 기존 CRUD가 business_id/business_ids를 사용.
+  업주 연결 시 두 필드 전체가 승인 소유권 범위인지 서버 검증해야 한다.
+- 행사 posts: 기존 type/subtype/business_id/region/기간/이미지/영상 필드를 재사용.
+  업주 전용 명령에서는 business_id 필수, 기존 행의 소유권도 재검사해야 한다.
+- 점심특선/해피아워: business_specials의 lunch_special/happy_hour와
+  business_special_items를 재사용. item.special_id -> special.business_id를 검증해야 한다.
+- 현재 CRUD는 관리자 RLS/관리자 검증 API 경로. 업주에게 관리자 권한을 부여하거나
+  브라우저에서 기존 관리자 쓰기 경로를 호출하지 않는다.
+- 쿠폰 추첨/발급/재발송 API는 verifyAdmin 및 참가자 정보를 다루므로 그대로 업주에게
+  개방하지 않는다. 현재 Phase 1 명령에는 콘텐츠 CRUD가 없으며 다음 연결 범위이다.
+  콘텐츠 등록·수정·삭제 완료 또는 PASS로 보고하지 않는다. 기존 파일은 변경하지 않았다.
+
+적용/복구:
+- apply.test.draft.sql: owner_preview.migration_b_approved=false 기본 유지.
+  별도 승인 후 owner-test에서 true로 바꾸고 BEGIN~COMMIT 전체 실행.
+- rollback.test.draft.sql: owner_preview.migration_b_rollback_approved=false 기본 유지.
+  별도 승인 후 내부 활동 데이터가 전혀 없는 경우에만 전체 실행.
+- apply 오류 시 원자 트랜잭션 실패를 확인하고 같은 세션이면 ROLLBACK.
+  적용 성공 후 신청/승인/이력이 생겼으면 자동 삭제 rollback 금지.
+  서버 차단/이전 코드 복원 후 이력과 신규 업소를 보존하는 별도 복구 필요.
+- 기존 public 테이블/Community/Migration A 정책·권한을 변경하는 DDL 없음.
+
+판정:
+- Phase 1 핵심 로컬 구현 및 실제 구조 호환성: READY.
+- owner-test 적용: 사용자 별도 승인 대기. 실제 적용/배포 결과 NOT TESTED.
+- 전체 Owner Portal 콘텐츠 CRUD: 미구현 범위로 완료 판정 제외.
+- 운영 DB/원격 push/Netlify 배포 변경 없음.

@@ -1,0 +1,32 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {chromium}=require('playwright');const root=path.join(__dirname,'..');
+test('업주 화면 모바일·PC 신청·일반 수정·관리자 승인 및 안전한 렌더링',{timeout:45000},async()=>{
+ const browser=await chromium.launch({channel:'msedge',headless:true});
+ try{for(const width of [390,1280]){
+  const page=await browser.newPage({viewport:{width,height:900}}),commands=[];
+  await page.route('https://owner.invalid/',r=>r.fulfill({contentType:'text/html',body:'<html></html>'}));
+  const state={is_admin:true,counts:{pending:21,new:0,claim:21,core:0},request_total:21,audit_total:0,businesses:[{id:'1',name_ko:'<img src=x onerror=alert(1)>',address:'주소',phone:'전화',category_ko:'식당',description:'소개',hours:'10시'}],requests:[{id:'00000000-0000-4000-8000-000000000001',kind:'claim',region:'dallas',status:'pending',changes:{}}],memberships:[],audit:[]};
+  await page.route('https://owner.invalid/.netlify/functions/owner-portal**',r=>{if(r.request().method()==='POST')commands.push(r.request().postDataJSON());return r.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,result:state})});});
+  await page.goto('https://owner.invalid/');
+  await page.setContent(fs.readFileSync(path.join(root,'owner/index.html'),'utf8').replace(/<script[\s\S]*?<\/script>/g,''));
+  await page.addStyleTag({path:path.join(root,'owner/portal.css')});
+  await page.evaluate(()=>{window.APP_CONFIG={SUPABASE_URL:'https://synthetic.invalid',SUPABASE_ANON_KEY:'synthetic'};window.supabase={createClient:()=>({auth:{getSession:async()=>({data:{session:{access_token:'synthetic'}}}),signOut:async()=>({error:null})}})};});
+  await page.addScriptTag({path:path.join(root,'owner/portal.js')});
+  await page.getByRole('heading',{name:'내 업소',exact:true}).waitFor({state:'visible'});
+  assert.equal(await page.locator('#businesses img').count(),0);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  assert.match(await page.locator('#pendingCounts').textContent(),/승인 대기 21건/);
+  await Promise.all([page.waitForResponse(r=>r.url().includes('kind=claim')),page.locator('#requestKind').selectOption('claim')]);
+  await Promise.all([page.waitForResponse(r=>r.url().includes('offset=20')),page.locator('#requestNext').click()]);
+  assert.match(await page.locator('#requestPage').textContent(),/21.*21/);
+  for(const [name,value] of [['name_ko','신규 업소'],['address','달라스 주소'],['phone','전화'],['category_ko','식당']])await page.locator(`#newBusiness [name=${name}]`).fill(value);
+  await page.getByRole('button',{name:'등록 신청',exact:true}).click();await page.getByRole('status').filter({hasText:'처리했습니다.'}).waitFor();
+  assert.equal(commands[0].kind,'new');assert.equal(commands[0].changes.name_ko,'신규 업소');assert.ok(!('actor' in commands[0]));
+  await page.locator('#businesses [name=description]').fill('새 소개');await Promise.all([page.waitForResponse(r=>r.request().method()==='GET'&&r.url().includes('/owner-portal?')),page.getByRole('button',{name:'일반 정보 저장',exact:true}).click()]);
+  assert.ok(commands.some(c=>c.action==='update'&&c.business_id==='1'&&c.changes.description==='새 소개'));
+  page.once('dialog',d=>d.accept('확인 완료'));await page.getByRole('button',{name:'승인',exact:true}).click();
+  await page.getByRole('status').filter({hasText:'처리했습니다.'}).waitFor();
+  assert.ok(commands.some(c=>c.action==='approve'&&c.reason==='확인 완료'));
+  await page.close();
+ }}finally{await browser.close();}
+});
