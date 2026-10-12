@@ -14,10 +14,11 @@ function fields(value,allowed,required=[],allowEmpty=false){
 function validate(body){
   if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['action','key','business_id','request_id','user_id','kind','changes','reason','region','baseline'].includes(k)))fail(400,'허용되지 않은 요청입니다.');
   if(!UUID.test(body.key||''))fail(400,'요청 식별자가 필요합니다.');
-  if(!['submit','approve','reject','revoke','update'].includes(body.action))fail(400,'지원하지 않는 작업입니다.');
+  if(!['submit','approve','reject','revoke','update','cancel'].includes(body.action))fail(400,'지원하지 않는 작업입니다.');
+  if(body.action==='cancel'&&Object.keys(body).some(k=>!['action','key','request_id'].includes(k)))fail(400,'취소 요청에는 신청 식별자만 지정해 주세요.');
   if(body.business_id!==undefined&&!/^[1-9]\d{0,18}$/.test(String(body.business_id)))fail(400,'업소 식별자를 확인해 주세요.');
   for(const k of ['request_id','user_id'])if(body[k]!==undefined&&!UUID.test(body[k]))fail(400,'식별자를 확인해 주세요.');
-  if(['approve','reject'].includes(body.action)&&!body.request_id)fail(400,'신청 식별자가 필요합니다.');
+  if(['approve','reject','cancel'].includes(body.action)&&!body.request_id)fail(400,'신청 식별자가 필요합니다.');
   if(['update','revoke'].includes(body.action)&&!body.business_id)fail(400,'업소 식별자가 필요합니다.');
   if(body.action==='revoke'&&!body.user_id)fail(400,'대상 회원을 확인해 주세요.');
   if(body.reason!==undefined&&(typeof body.reason!=='string'||body.reason.length>1000))fail(400,'사유는 1000자 이내로 입력해 주세요.');
@@ -61,7 +62,7 @@ function makeHandler({getClient}={}){return async event=>{
     if(event.httpMethod==='GET'){
       const q=event.queryStringParameters||{};
       if(Object.keys(q).some(k=>!['status','kind','offset','audit_offset'].includes(k)))fail(400,'조회 조건을 확인해 주세요.');
-      for(const [name,allowed] of [['status',['pending','approved','rejected']],['kind',['new','claim','core']]]){
+      for(const [name,allowed] of [['status',['pending','approved','rejected','cancelled']],['kind',['new','claim','core']]]){
         if(q[name]&&!allowed.includes(q[name]))fail(400,'조회 조건을 확인해 주세요.');
         params[`p_${name}`]=q[name]||null;
       }
@@ -82,6 +83,8 @@ function makeHandler({getClient}={}){return async event=>{
         'OP403:본인 신청 승인 금지':['OWNER_SELF_REVIEW_BLOCKED','본인 신청은 처리할 수 없습니다. 다른 관리자가 처리해야 합니다.'],
         'OP403:관리자 권한 필요':['OWNER_ADMIN_REQUIRED','해당 지역의 관리자 권한이 필요합니다. 로그인 계정을 확인해 주세요.'],
         'OP403:활성 소유권 필요':['OWNER_MEMBERSHIP_REQUIRED','이 업소의 활성 소유권이 없습니다.'],
+        'OP403:신청자 본인만 취소 가능':['OWNER_CANCEL_FORBIDDEN','신청자 본인만 신청을 취소할 수 있습니다.'],
+        'OP409:대기 신청만 취소 가능':['OWNER_CANCEL_STATE_CONFLICT','이미 처리된 신청입니다. 대기 중인 신청만 취소할 수 있습니다.'],
         'OP409:이미 승인된 소유자 존재':['OWNER_OWNERSHIP_CONFLICT','이미 활성 소유자가 있는 업소입니다. 중복 소유권 승인은 처리할 수 없습니다.']
       }[`${result.error.code}:${result.error.message}`];
       if(known)return reply(result.error.code==='OP403'?403:409,{ok:false,code:known[0],error:known[1]});
