@@ -1,0 +1,17 @@
+import test from'node:test';import assert from'node:assert/strict';import fs from'node:fs';import{createRequire}from'node:module';import{execFileSync}from'node:child_process';import{classify}from'../../scripts/release/classify-changes.mjs';
+const require=createRequire(import.meta.url);const baseline=JSON.parse(fs.readFileSync('release-baseline/production.json'));
+if(fs.existsSync('.release-artifacts/functions-build.json'))execFileSync(process.platform==='win32'?'python':'python3',['scripts/release/inspect-zips.py'],{stdio:['ignore','pipe','pipe']});
+test('UI candidates never bypass final approval configuration',()=>assert.equal(classify(['styles.css']).automaticDeploymentEligible,false));
+test('function, SQL, dependency and workflow changes require approval',()=>{for(const p of['netlify/functions/config.js','supabase/policy.sql','package-lock.json','.github/workflows/release-qa.yml'])assert.equal(classify([p]).classification,'approval-required');});
+test('UI existing path distinguished',()=>assert.equal(classify(['styles.css']).classification,'ui-review-candidate'));
+test('production and staging Git builds default to stopped',()=>{const p=JSON.parse(fs.readFileSync('release-baseline/activation.json'));assert.equal(p.gitProductionEnabled,false);assert.equal(p.stagingGitBuildEnabled,false);});
+test('production gate stops before SEO or credentials are used',()=>{assert.throws(()=>execFileSync(process.execPath,['scripts/release/netlify-build.mjs'],{stdio:'pipe',env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,CONTEXT:'production'}}),e=>String(e.stderr).includes('GIT_BUILD_TRANSITION_NOT_APPROVED'));});
+test('package lock agrees with exact direct dependency pins',()=>{const p=JSON.parse(fs.readFileSync('package.json')),l=JSON.parse(fs.readFileSync('package-lock.json'));for(const[k,v]of Object.entries({...p.dependencies,...p.devDependencies}))assert.equal(l.packages['node_modules/'+k].version,v);});
+test('44 entries and four UTC cron expressions retained',()=>{assert.equal(baseline.functions.length,44);assert.equal(baseline.schedules.length,4);assert.equal(new Set(baseline.functions.map(f=>f.name)).size,44);});
+// These handlers reject before external I/O. Never run scheduled jobs or valid writes.
+for(const [name,method,status]of[['coupon-campaign-enter','GET',405],['coupon-campaign-enter','OPTIONS',200],['coupon-campaign-enter','POST',400],['coupon-campaign-admin','GET',405],['coupon-used-notify','GET',405],['event-winner-admin','GET',405],['event-winner-admin','POST',403],['community-post-create','GET',405],['community-comment-create','GET',405],['collect-newsroom','OPTIONS',200],['generate-content-suite','GET',405],['ai-daily-home','POST',200]])test('built '+name+' '+method+' boundary '+status,async t=>{
+ const file='.release-artifacts/unpacked/'+name+'/'+name+'.js';assert.ok(fs.existsSync(file),'Run qa:functions first; missing artifacts cannot count as PASS');
+ const before=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('EXTERNAL_NETWORK_FORBIDDEN');};try{const mod=require('../../'+file);const r=await mod.handler({httpMethod:method,headers:{},body:'{}',queryStringParameters:{}});assert.equal(r.statusCode,status);if(method!=='OPTIONS')assert.equal(typeof JSON.parse(r.body),'object');assert.equal(calls,0);}finally{globalThis.fetch=before;}
+});
+
+test('Netlify builds remain ignored during GitHub-only QA',()=>assert.match(fs.readFileSync('netlify.toml','utf8'),/ignore = "exit 0"/));

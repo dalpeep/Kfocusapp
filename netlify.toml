@@ -1,3 +1,11 @@
+[build]
+  base = "."
+  publish = "."
+  functions = "netlify/functions"
+  command = "node scripts/release/netlify-build.mjs"
+  # Preparation branch: skip every Netlify build until separately approved.
+  ignore = "exit 0"
+
 [functions."raffle-auto-draw"]
   schedule = "*/10 * * * *"
 

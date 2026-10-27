@@ -1,0 +1,51 @@
+Git 기반 배포 표준화 개발 브랜치 준비 — 2026-10-27
+
+브랜치: dev/git-build-standardization-20261027
+기준: 524c984389ec44a83bd612682aadb91ecac6c5fc
+상태: 로컬 작업트리만 생성·수정. commit/push/PR 생성/원격 CI/배포 없음.
+
+1. Node·의존성
+운영 Functions의 실제 runtime은 nodejs22.x. 과거 빌드 로그 GET은404로 과거 정확한 Node패치를 확보하지 못했다. Build Node와 Functions runtime을 동일 사실로 취급하지 않는다.
+개발 후보는 공식 Node22 LTS 최신패치22.23.4(공식배포일2026-10-20)를.node-version 및package.json engines로고정했다. 공식node.exe의SHA256을공식SHASUMS와대조했고시스템Node는변경하지않았다. 과거빌드패치복원이라고주장하지않음.
+npm11.6.2, @netlify/zip-it-and-ship-it16.3.0, @supabase/supabase-js2.118.0을고정하고package-lock.json 생성. Supabase2.118.0은기존QA준비환경에설치됐던버전이며과거운영resolved버전임을입증한것은아님. 의존성고정전환은별도승인항목이다.
+npm ci --ignore-scripts로326패키지설치성공. 설치lifecycle실행없음. 정확한lock은새후보를재현하는기준이지10월11일원ZIP을복원하는자료가아니다.
+
+2. Netlify 설정
+netlify.toml의동일속성은대시보드보다우선하고context/branch별더구체적설정은일반설정보다우선한다.
+개발후보는base='.', publish='.', functions='netlify/functions'를명시. 기존대시보드의publish빈값에해당하는루트게시를유지했고dist로이동하지않음. 헤더/redirect/기존cron설정은보존.
+새build command는 scripts/release/netlify-build.mjs. 원래명령 scripts/generate-seo.js는변경하지않고승인gate뒤에서만실행하도록했다. release-baseline/activation.json의gitProductionEnabled와stagingGitBuildEnabled는모두false. 따라서실제Netlify빌드도승인없이SEO나외부연결단계로진행하지못함. 이기본중단은의도된보호이며배포성공판정이아님.
+현재publish루트를유지하므로향후병합전신규QA파일/빌드산출물의공개제외정책과기존289URL보존을게시인벤토리로확인해야한다. 이번에는실제publish나정적파일삭제없음.
+
+3. Functions 빌드·보존
+공식@netlify/zip-it-and-ship-it16.3.0로기존Functions44개를로컬Windows/Node22.23.4에서빌드. 업무원본/헬퍼/데이터및dallas-time총60개파일SHA256보존,함수명44개보존. API142개/API22개/runtime nodejs22.x 유지. Native전환이나Owner함수추가없음.
+4cron: community-cleanup-scheduled 30 9 * * *; daily-core-scheduled 15 11 * * *; newsroom-daily 0 11 * * *; raffle-auto-draw */10 * * * * (UTC).
+rawZISI는toml의cron을직접머지하지않으므로inline또는보존toml에서4개값을검증했다. 전체Netlify cloud build config와실제스케줄실행은미검증이다.
+ZIP44개CRC/경로/환경파일부재/비밀패턴검사PASS. 새ZIP44개모두게시digest와다르다. 원소스불변은확인됐지만과거의존성·bootstrap·bundler·ZIP구성및서버digest식별조건이독립입증되지않아단일차이원인으로단정하지않음. 같은업무코드도새toolchain/포장방식으로hash가달라질수있다.
+전체Netlify Linux build는아님. Dockerdaemon이현재기동돼있지않으며기존QA호스트를자동기동하지않았다. 이번결과는공식번들러로만든로컬산출물이다. Linux/실서버검증및4KB해소는별도QA/Support확인필요.
+
+4. 검증 결과
+자동19PASS/0FAIL/skip0: UI/승인필요변경분류,기본중단gate,정확dependency/lock,44/4보존,실ZIP에서추출한쿠폰·이벤트·Community·뉴스경계/응답계약검사. fetch는테스트중외부호출을거부하며실제호출0.
+운영비인증GET비교6PASS: coupon-campaign-enter, coupon-campaign-admin, coupon-used-notify, event-winner-admin, community-post-create, community-comment-create가모두405 JSON으로로컬경계계약과일치. 유효입력/인증/POST/발송없음. 405를접근보호PASS로판정한것이아니라지원메서드거절계약비교다.
+실제권한있는쿠폰발급/사용,이벤트추첨,뉴스수집·삭제·draft pipeline,cron실행,승인업주E2E는미실행. 이것까지회귀PASS라고주장하지않음.
+소스및ZIP비밀검사PASS. 패턴기반검사이며모든형식의비밀을완전히보장하는검사라고표현하지않음.
+
+5. SEO4개 차이
+기존generate-seo원본을임시디렉터리에복사하고fetch를빈가상데이터로대체해출력비교. 운영DB조회/소스수정/원래정적파일덮어쓰기없음.
+동일가상데이터·동일clock·동일SITE_URL에서해시동일. SITE_URL만바꾸면robots.txt/sitemap.xml/seo-index.json/seo.html4개해시변경. 빌드시각만바꾸면sitemap.xml/seo-index.json해시변경. 실제데이터와수정시각도입력요소다.
+따라서4개차이는동적생성입력으로발생가능함을재현. 당시운영입력/clock을확보하지못해과거차이를각원인별로정확분해한것은아님. 서비스키를BuildScope에추가하거나실운영데이터로다시생성하지않음.
+
+6. PR QA 구성
+.github/workflows/release-qa.yml: pull_request만,contents:read,persist-credentials:false,npm ci,변경분류,원본보존,비밀검사,공식번들,계약테스트. secrets참조/NetlifyPAT/SQL/deploy단계없음.
+UI allowlist는리뷰후보로만표시하며자동배포자격은아직false. 함수·SQL·의존성·워크플로등allowlist외변경은approval-required. 신규Owner/예약/권한/env는자동경로없음.
+UI검사를통과한코드의향후자동배포는Actions가직접upload하는대신main필수QA/리뷰후Netlify공식Gitbuild만배포실행자로사용하는설계다. 브랜치보호/필수승인ruleset/코드오너설정은아직미적용. PR라벨하나로승인을인정하거나기본잠금을해제하지않음.
+원격워크플로는아직실행하지않음. GitHubActionsLinux결과를로컬PASS와혼동하지않음.
+
+7. 최종 승인 사항
+1) 개발브랜치의변경파일·고정의존성·Node22.23.4/4cron보존검토와commit/push/PR생성승인. 현재로컬수정만존재.
+2) QA Git연결/실행승인:기존QA인증/데이터/변수보존,외부mock,cron안전대상,실제Linux빌드·업무E2E확인. 신규유료인프라신청없음.
+3) SupportTier2의4KB/cache답변에따른배포방식확정. Git전환만으로Lambda4KB가해결됐다고판정하지않음.
+4) 운영전환승인:루트Publish출력보존/비밀제외,현재runtime/env Scope의영향,현재기준게시/원격main/289/44/4및백업확인. 승인gate 변경과게시잠금해제는명시적별도승인.
+5) 이후UI자동경로정책/requiredchecks/필수리뷰설정승인. 신규기능·DB·권한·env는계속별도승인.
+문제시자동게시정지/잠금→기준Published복귀→44/4/HTTP보존확인→문제commit revert PR. 원래DB/env변경이없으므로artifact복귀로DB를되돌리지않음.
+
+이번에는운영DB·env·게시잠금·Firewall·main·운영게시본을변경하지않았다. 새Functions 업로드0,Owner/예약활성화0,외부알림0.

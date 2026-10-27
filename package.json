@@ -7,12 +7,20 @@
     "build": "node scripts/generate-seo.js",
     "deploy:newsroom": "npx supabase functions deploy newsroom --project-ref ydrxuqmjzayejlnjzzew --no-verify-jwt",
     "deploy:v38.2": "npm run deploy:newsroom",
-    "delete:test-functions": "npx supabase functions delete bright-action --project-ref ydrxuqmjzayejlnjzzew && npx supabase functions delete dynamic-endpoint --project-ref ydrxuqmjzayejlnjzzew"
+    "delete:test-functions": "npx supabase functions delete bright-action --project-ref ydrxuqmjzayejlnjzzew && npx supabase functions delete dynamic-endpoint --project-ref ydrxuqmjzayejlnjzzew",
+    "qa:preservation": "node scripts/release/verify-preservation.mjs",
+    "qa:functions": "node scripts/release/build-functions.mjs",
+    "qa:test": "node --test tests/release/*.test.mjs",
+    "qa:secrets": "node scripts/release/scan-secrets.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.23.4"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.0.0"
-  }
+    "@supabase/supabase-js": "2.118.0"
+  },
+  "devDependencies": {
+    "@netlify/zip-it-and-ship-it": "16.3.0"
+  },
+  "packageManager": "npm@11.6.2"
 }

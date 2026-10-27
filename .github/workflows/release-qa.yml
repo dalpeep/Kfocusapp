@@ -1,0 +1,28 @@
+name: Release QA (no deployment)
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  preservation-and-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Classify changed paths
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/release/classify-changes.mjs "$BASE_SHA"
+      - run: npm run qa:preservation
+      - run: npm run qa:secrets
+      - run: npm run qa:functions
+      - run: npm run qa:test
+      # No deploy token, production secrets, migration or Netlify deploy action.
