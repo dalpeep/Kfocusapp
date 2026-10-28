@@ -71,6 +71,9 @@ test('Modern event draw and initial/resend mail replay do not duplicate delivery
  const winner=(await query('SELECT id FROM public.event_draw_winners')).rows[0].id;
  for(const action of ['send_winner_email','resend_winner_email']){const request={action,winner_id:winner,request_id:'event-ui-'+action};assert.equal((await call(request)).status,200);assert.equal((await call(request)).status,200);}
  assert.equal(accepted.size,2);assert.equal(providerAttempts,2);assert.equal(await count(),1);
+ providerMode='rejected';const rejection={action:'resend_winner_email',winner_id:winner,request_id:'event-reject-001'};const failed=await call(rejection);assert.equal(failed.status,502);assert.equal(failed.body.request_complete,true);assert.equal((await call(rejection)).status,409);assert.equal(providerAttempts,3);
+ providerMode='accepted';assert.equal((await call({...rejection,request_id:'event-recover-002'})).status,200);assert.equal(accepted.size,3);assert.equal(providerAttempts,4);
+
 });
 
 test('STOP rollback revokes execution but retains capacity and data',async()=>{await draw('before-stop-001');await query(fs.readFileSync('supabase/migrations/20261028_coupon_raffle_atomic_stop.sql','utf8'));await assert.rejects(draw('after-stop-001'),{code:'42501'});assert.equal(await count(),1);assert.equal((await query('SELECT count(*) n FROM coupon_raffle_internal.requests')).rows[0].n,'1');await assert.rejects(query("UPDATE public.coupon_entries SET status='winner',coupon_code='WIN-EXCESS',won_at=now() WHERE id=$1",[ids[0]]),e=>['23505','23514'].includes(e.code));});

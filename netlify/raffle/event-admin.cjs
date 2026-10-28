@@ -71,6 +71,7 @@ exports.handler=async event=>{
       const attempt=await rpc('coupon_raffle_event_mail_begin_v1',{p_winner_id:winnerId,p_admin_id:admin.user.id,p_kind:kind,p_request_key:requestKey(b.request_id,'event-mail-'+kind)});
       const attemptId=attempt.attempt_id;
       if(attempt.status==='accepted')return json(200,{ok:true,status:'sent'});
+      if(attempt.status==='failed')return json(409,{ok:false,request_complete:true,error:'이전 발송이 거절되었습니다. 다시 요청해 주세요.'});
       if(attempt.status!=='new')return json(409,{ok:false,error:'이미 접수된 발송 요청입니다. 공급자 상태를 확인해 주세요.'});
       try{
         const result=await sendEmail({to:entry.email,
@@ -89,7 +90,7 @@ exports.handler=async event=>{
         await rpc('event_winner_email_finish',{p_attempt_id:attemptId,
           p_status:knownRejected?'failed':'unknown',p_provider_id:null,
           p_failure_code:knownRejected?`resend_http_${e.status}`:null});
-        return json(knownRejected?502:409,{ok:false,
+        return json(knownRejected?502:409,{ok:false,request_complete:knownRejected,
           error:knownRejected?'당첨 안내메일이 거절되었습니다. 관리자 상태를 확인해 주세요.':
             '이메일 접수 결과가 불확실합니다. 공급자 기록을 확인하기 전 재발송하지 마세요.'});
       }
