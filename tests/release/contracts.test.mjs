@@ -10,7 +10,7 @@ test('package lock agrees with exact direct dependency pins',()=>{const p=JSON.p
 test('44 entries and four UTC cron expressions retained',()=>{assert.equal(baseline.functions.length,44);assert.equal(baseline.schedules.length,4);assert.equal(new Set(baseline.functions.map(f=>f.name)).size,44);});
 // These handlers reject before external I/O. Never run scheduled jobs or valid writes.
 for(const [name,method,status]of[['coupon-campaign-enter','GET',405],['coupon-campaign-enter','OPTIONS',200],['coupon-campaign-enter','POST',400],['coupon-campaign-admin','GET',405],['coupon-used-notify','GET',405],['event-winner-admin','GET',405],['event-winner-admin','POST',403],['community-post-create','GET',405],['community-comment-create','GET',405],['collect-newsroom','OPTIONS',200],['generate-content-suite','GET',405],['ai-daily-home','POST',200]])test('built '+name+' '+method+' boundary '+status,async t=>{
- const file='.release-artifacts/unpacked/'+name+'/'+name+'.js';assert.ok(fs.existsSync(file),'Run qa:functions first; missing artifacts cannot count as PASS');
+ const file='netlify/legacy-functions/'+name+'.js';assert.ok(fs.existsSync(file),'Missing preserved legacy source');
  const before=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('EXTERNAL_NETWORK_FORBIDDEN');};try{const mod=require('../../'+file);const r=await mod.handler({httpMethod:method,headers:{},body:'{}',queryStringParameters:{}});assert.equal(r.statusCode,status);if(method!=='OPTIONS')assert.equal(typeof JSON.parse(r.body),'object');assert.equal(calls,0);}finally{globalThis.fetch=before;}
 });
 

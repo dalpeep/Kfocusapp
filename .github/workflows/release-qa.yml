@@ -1,6 +1,8 @@
 name: Release QA (no deployment)
 on:
   pull_request:
+  push:
+    branches: [dev/modern-functions-20261028]
 permissions:
   contents: read
 jobs:
@@ -19,10 +21,11 @@ jobs:
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Classify changed paths
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '524c984389ec44a83bd612682aadb91ecac6c5fc' }}
         run: node scripts/release/classify-changes.mjs "$BASE_SHA"
       - run: npm run qa:preservation
       - run: npm run qa:secrets
       - run: npm run qa:functions
       - run: npm run qa:test
+      - run: npm run qa:migration
       # No deploy token, production secrets, migration or Netlify deploy action.
