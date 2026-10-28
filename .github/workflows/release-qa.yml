@@ -2,7 +2,7 @@ name: Release QA (no deployment)
 on:
   pull_request:
   push:
-    branches: [dev/modern-functions-20261028]
+    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028]
 permissions:
   contents: read
 jobs:
@@ -28,4 +28,6 @@ jobs:
       - run: npm run qa:functions
       - run: npm run qa:test
       - run: npm run qa:migration
+      - name: Community cards, logo fallback and telephone contract
+        run: node --test tests/community/*.test.mjs
       # No deploy token, production secrets, migration or Netlify deploy action.
