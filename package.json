@@ -22,7 +22,8 @@
     "@supabase/supabase-js": "2.118.0"
   },
   "devDependencies": {
-    "@netlify/zip-it-and-ship-it": "16.3.0"
+    "@netlify/zip-it-and-ship-it": "16.3.0",
+    "pg": "8.16.3"
   },
   "packageManager": "npm@11.6.2"
 }

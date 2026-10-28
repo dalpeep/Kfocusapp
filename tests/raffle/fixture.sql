@@ -1,0 +1,11 @@
+CREATE ROLE anon NOLOGIN;
+CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE service_role NOLOGIN;
+CREATE SCHEMA qa_fixture;
+CREATE TABLE qa_fixture.marker(id boolean PRIMARY KEY DEFAULT true CHECK(id));
+INSERT INTO qa_fixture.marker VALUES(true);
+CREATE TABLE public.coupons(id uuid PRIMARY KEY,business_id text,title text,delivery_mode text,raffle_draw_mode text,winner_count integer,is_active boolean,raffle_end_at timestamptz,end_at timestamptz,discount_label text,description text,winner_email_image_url text,email_image_url text,image_url text,used_count integer DEFAULT 0);
+CREATE TABLE public.coupon_entries(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),coupon_id text NOT NULL,email text,email_normalized text,status text,entry_code text,coupon_code text,won_at timestamptz,issued_at timestamptz,emailed_at timestamptz,redeemed_at timestamptz,updated_at timestamptz DEFAULT now(),created_at timestamptz DEFAULT now());
+ALTER TABLE public.coupons ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coupon_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY fixture_existing_policy ON public.coupons FOR SELECT TO anon USING(false);

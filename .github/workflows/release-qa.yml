@@ -2,13 +2,24 @@ name: Release QA (no deployment)
 on:
   pull_request:
   push:
-    branches: [dev/modern-functions-20261028]
+    branches: [dev/raffle-atomic-20261028]
 permissions:
   contents: read
 jobs:
   preservation-and-qa:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: raffle_atomic_test
+        ports:
+          - 55439:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d raffle_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,4 +39,8 @@ jobs:
       - run: npm run qa:functions
       - run: npm run qa:test
       - run: npm run qa:migration
+      - name: Isolated PostgreSQL atomic raffle QA
+        env:
+          RAFFLE_PG_QA: '1'
+        run: node --test tests/raffle/postgres.test.mjs
       # No deploy token, production secrets, migration or Netlify deploy action.

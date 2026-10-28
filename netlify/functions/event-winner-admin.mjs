@@ -1,3 +1,3 @@
-import legacy from '../legacy-functions/event-winner-admin.js';
+import legacy from '../raffle/event-admin.cjs';
 import { adapt } from '../migration/adapter.mjs';
 export default adapt(legacy.handler);
