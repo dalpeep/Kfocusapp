@@ -2,7 +2,7 @@ name: Release QA (no deployment)
 on:
   pull_request:
   push:
-    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028]
+    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028, dev/community-authorization-hardening-20261028]
 permissions:
   contents: read
 jobs:

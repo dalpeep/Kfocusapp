@@ -12,7 +12,7 @@
     "qa:functions": "node scripts/release/build-functions.mjs",
     "qa:test": "node --test tests/release/*.test.mjs",
     "qa:secrets": "node scripts/release/scan-secrets.mjs",
-    "qa:migration": "node --test tests/migration/*.test.mjs"
+    "qa:migration": "node --test tests/migration/*.test.mjs tests/migration/*.test.cjs"
   },
   "engines": {
     "node": "22.23.4"
