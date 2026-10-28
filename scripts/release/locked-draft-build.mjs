@@ -3,6 +3,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {verify} from './verify-preservation.mjs';
+import publicAuthModule from './seo-public-auth.cjs';
 
 // Build-only harness. Never invoke deployed Functions or run migrations.
 const baseline=JSON.parse(fs.readFileSync('release-baseline/draft-build.json'));
@@ -15,12 +16,14 @@ try {
   const preservation=verify();
   console.log(JSON.stringify({stage:'preservation',...preservation}));
   if(process.argv.includes('--verify-only'))process.exit(0);
-  stage='seo-readonly';
+  stage='seo-public-auth';
   const env={...process.env};
   // SEO may use only the already configured public anonymous credential.
   delete env.SUPABASE_SERVICE_ROLE_KEY;
-  const key=env.SUPABASE_ANON_KEY||env.VITE_SUPABASE_ANON_KEY||env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if(!(env.SUPABASE_URL||env.VITE_SUPABASE_URL||env.NEXT_PUBLIC_SUPABASE_URL)||!key)throw Error();
+  const auth=await publicAuthModule.resolvePublicAuth(env);
+  env.SUPABASE_URL=auth.url;
+  env.SUPABASE_ANON_KEY=auth.key;
+  stage='seo-readonly';
   // Raw SEO errors/responses must never be written into hosted build logs.
   const seo=spawnSync(process.execPath,['scripts/generate-seo.js'],{env,encoding:'utf8',stdio:['ignore','pipe','pipe'],maxBuffer:8*1024*1024});
   if(seo.error||seo.status!==0||seo.stderr?.trim())throw Error();
@@ -57,7 +60,8 @@ try {
   fs.mkdirSync('.release-artifacts',{recursive:true});
   fs.writeFileSync('.release-artifacts/hosted-public-audit.json',JSON.stringify({existingPaths:baseline.files.length,files:files.length,changed,secretScan:'PASS',newPrivatePaths:false},null,2));
   console.log(JSON.stringify({stage:'public-output',existingPaths:baseline.files.length,files:files.length,secretScan:'PASS'}));
-}catch{
-  console.error(JSON.stringify({error:'LOCKED_DRAFT_BUILD_STOPPED',stage,detailsSuppressed:true}));
+}catch(error){
+  const code=/^SEO_[A-Z0-9_]+$/.test(error?.code||'')?error.code:undefined;
+  console.error(JSON.stringify({error:'LOCKED_DRAFT_BUILD_STOPPED',stage,code,detailsSuppressed:true}));
   process.exitCode=1;
 }

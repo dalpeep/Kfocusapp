@@ -8,8 +8,8 @@ const fs = require('fs');
 const path = require('path');
 
 const SITE_URL = (process.env.SITE_URL || process.env.URL || 'https://www.daltownmap.com').replace(/\/$/, '');
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const { resolvePublicAuth, stop } = require('./release/seo-public-auth.cjs');
+let publicAuth;
 
 const ROOT = path.resolve(__dirname, '..');
 const BUSINESS_DIR = path.join(ROOT, 'business');
@@ -119,24 +119,31 @@ function hoursText(b) {
 }
 
 async function supabaseFetch(table, select, query = '') {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.warn('Missing Supabase env variables. SEO pages will be generated with static defaults only.');
-    return [];
-  }
-  const url = `${SUPABASE_URL.replace(/\/$/, '')}/rest/v1/${table}?select=${encodeURIComponent(select)}${query}`;
-  const res = await fetch(url, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json'
+  const rows = [], ids = new Set();
+  let expected;
+  for (let offset = 0; ; ) {
+    let res;
+    try { res = await fetch(publicAuth.url + '/rest/v1/' + table + '?select=' + encodeURIComponent(select) + query + '&order=id.asc&offset=' + offset + '&limit=500', {
+      method: 'GET', redirect: 'error', signal: AbortSignal.timeout(30000),
+      headers: { apikey: publicAuth.key, ...(publicAuth.key.startsWith('sb_publishable_') ? {} : { Authorization: 'Bearer ' + publicAuth.key }), Prefer: 'count=exact' }
+    }); } catch { stop('SEO_SOURCE_UNAVAILABLE'); }
+    if (!res.ok) stop('SEO_SOURCE_HTTP_' + res.status);
+    const count = res.headers.get('content-range')?.match(/\/(\d+)$/)?.[1];
+    if (count === undefined) stop('SEO_SOURCE_COUNT_MISSING');
+    const total = Number(count);
+    if (expected !== undefined && expected !== total) stop('SEO_SOURCE_CHANGED');
+    expected = total;
+    if (total > (table === 'businesses' ? MAX_BUSINESSES : 5000)) stop('SEO_SOURCE_LIMIT_EXCEEDED');
+    let page; try { page = await res.json(); } catch { stop('SEO_SOURCE_JSON_INVALID'); }
+    if (!Array.isArray(page)) stop('SEO_SOURCE_FORMAT_INVALID');
+    for (const row of page) {
+      if (!row?.id || ids.has(String(row.id))) stop('SEO_SOURCE_ID_INVALID');
+      ids.add(String(row.id)); rows.push(row);
     }
-  });
-  if (!res.ok) {
-    console.warn(`[SEO] ${table} fetch failed ${res.status}: ${await res.text()}`);
-    return [];
+    if (rows.length === expected) return rows;
+    if (!page.length || rows.length > expected) stop('SEO_SOURCE_INCOMPLETE');
+    offset += page.length;
   }
-  const data = await res.json();
-  return Array.isArray(data) ? data : [];
 }
 
 function layout({ title, description, canonical, image, body, jsonLd = [], lang = 'ko' }) {
@@ -324,20 +331,34 @@ function sitemapXml(urls) {
 }
 
 async function main() {
-  ensureDir(BUSINESS_DIR);
-  ensureDir(CATEGORY_DIR);
-
   const businessSelect = [
-    'id','name_ko','name_en','name','category_ko','category','area','region','phone','address','description','image_url','image','website','google_maps_url','google_review_url','business_hours','hours','parking','reservation','languages','is_active','updated_at','created_at'
+    'id','name_ko','name_en','name','category_ko','category','area','region','phone','address','description','image_url','website','google_maps_url','google_review_url','business_hours','hours','parking','reservation','languages','is_active','list_visible','updated_at','created_at'
   ].join(',');
 
-  const couponSelect = ['id','business_id','title','description','coupon_code','image_url','discount_label','is_active','start_at','end_at','updated_at','created_at'].join(',');
-  const postSelect = ['id','title','content','type','category','created_at','updated_at'].join(',');
+  const couponSelect = ['id','business_id','is_active','updated_at','created_at'].join(',');
+  const postSelect = ['id','is_active','created_at','updated_at'].join(',');
 
-  const businessesRaw = await supabaseFetch('businesses', businessSelect, `&limit=${MAX_BUSINESSES}`);
-  const businesses = businessesRaw.filter(b => b && b.is_active !== false);
-  const coupons = await supabaseFetch('coupons', couponSelect, '&is_active=eq.true&limit=5000');
-  const posts = await supabaseFetch('posts', postSelect, '&limit=1000');
+  if (!Number.isSafeInteger(MAX_BUSINESSES) || MAX_BUSINESSES <= 0) stop('SEO_LIMIT_INVALID');
+  publicAuth = await resolvePublicAuth();
+  const businesses = await supabaseFetch('businesses', businessSelect, '&is_active=eq.true&or=(list_visible.is.null,list_visible.eq.true)');
+  if (!businesses.length) stop('SEO_PUBLIC_BUSINESSES_EMPTY');
+  if (businesses.some(b => b.is_active !== true || b.list_visible === false)) stop('SEO_PRIVATE_BUSINESS_REJECTED');
+  const coupons = await supabaseFetch('coupons', couponSelect, '&is_active=eq.true');
+  const posts = await supabaseFetch('posts', postSelect, '&is_active=eq.true');
+  if (coupons.some(c => c.is_active !== true) || posts.some(p => p.is_active !== true)) stop('SEO_PRIVATE_CONTENT_REJECTED');
+  const categoryPaths = new Map(), businessPaths = new Set();
+  for (const business of businesses) {
+    const file = businessSlug(business);
+    if (businessPaths.has(file)) stop('SEO_BUSINESS_URL_COLLISION');
+    businessPaths.add(file);
+    const category = categoryOf(business), region = regionOf(business);
+    const key = `${region}|||${category}`, categoryFile = categorySlug(category, region);
+    if (categoryPaths.has(categoryFile) && categoryPaths.get(categoryFile) !== key) stop('SEO_CATEGORY_URL_COLLISION');
+    categoryPaths.set(categoryFile, key);
+  }
+  // Fetch and validate everything before modifying any generated output.
+  ensureDir(BUSINESS_DIR); ensureDir(CATEGORY_DIR);
+  for (const directory of [BUSINESS_DIR, CATEGORY_DIR]) for (const file of fs.readdirSync(directory)) if (file.endsWith('.html')) fs.unlinkSync(path.join(directory, file));
 
   const urls = [
     { loc: `${SITE_URL}/`, priority: '1.0', changefreq: 'daily' },
@@ -416,7 +437,9 @@ async function main() {
   console.log(`[SEO] Generated ${businesses.length} business pages, ${groups.size} category pages, ${coupons.length} coupon sitemap entries, ${posts.length} post sitemap entries.`);
 }
 
-main().catch(err => {
-  console.error('[SEO] Build failed:', err);
-  process.exit(1);
+if (require.main === module) main().catch(err => {
+  const code = /^SEO_[A-Z0-9_]+$/.test(err.code || '') ? err.code : 'SEO_BUILD_FAILED';
+  console.error(JSON.stringify({ error: code, detailsSuppressed: true }));
+  process.exitCode = 1;
 });
+module.exports = { main, businessSlug, categorySlug, businessPage, categoryPage, homeSeoPage };

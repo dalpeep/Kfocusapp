@@ -1,0 +1,28 @@
+name: SEO public read-only QA (no deployment)
+on:
+  push:
+    branches: [dev/seo-anon-hardening-20261028]
+permissions:
+  contents: read
+jobs:
+  seo-and-functions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: SEO auth, completeness, privacy and URL contracts
+        run: node --test tests/seo/*.test.mjs
+      - run: npm run qa:preservation
+      - run: npm run qa:secrets
+      - run: npm run qa:functions
+      - name: Check preserved function ZIPs
+        run: python3 scripts/release/inspect-zips.py
+      # No Netlify token, production secrets, migration or external delivery.
