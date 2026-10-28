@@ -68,8 +68,10 @@ exports.handler=async event=>{
       const entry=one(await rest(`coupon_entries?select=id,email,coupon_id&id=eq.${winner.entry_id}&limit=1`));
       if(!entry||entry.coupon_id!==eventId)return json(409,{ok:false,error:'응모 정보를 확인할 수 없습니다.'});
       const kind=action==='resend_winner_email'?'resend':'initial';
-      const attemptId=await rpc('event_winner_email_begin',{p_winner_id:winnerId,
-        p_admin_id:admin.user.id,p_kind:kind});
+      const attempt=await rpc('coupon_raffle_event_mail_begin_v1',{p_winner_id:winnerId,p_admin_id:admin.user.id,p_kind:kind,p_request_key:requestKey(b.request_id,'event-mail-'+kind)});
+      const attemptId=attempt.attempt_id;
+      if(attempt.status==='accepted')return json(200,{ok:true,status:'sent'});
+      if(attempt.status!=='new')return json(409,{ok:false,error:'이미 접수된 발송 요청입니다. 공급자 상태를 확인해 주세요.'});
       try{
         const result=await sendEmail({to:entry.email,
           subject:'축하합니다! 달타운맵 이벤트에 당첨되셨습니다 🎉',

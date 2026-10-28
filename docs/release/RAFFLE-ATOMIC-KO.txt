@@ -37,3 +37,13 @@ NoProductioncredentials/envpassed. RolesNOLOGIN,testdataexample.invalid;onlymock
 PostgresQAchecks2..10concurrentrequests,sharedmanual/auto/designate/eventquota,idempotentreplay,rollback/retry,roles/RLS,
 notificationlease/claim/providerfailure/unknownreconciliation/retryhorizon,STOPpreservation.
 NoProductionDB/SQL/env/main/Netlifybuild/publish/lockchange. Commitsinclude[skip netlify],ignore/gatesremainstopped.
+
+Additional verified safeguards
+READ COMMITTED is required for award mutations; stronger stale-snapshot transactions fail closed instead of allowing snapshot-based quota overrun.
+Even identical old winner PATCH retries are rejected; redemption and notification acknowledgements remain separate.
+Event winner email initial/resend request keys reuse existing attempt IDs; accepted-request replay does not send again.
+Historical winners without emailed_at or a new outbox audit trail require provider reconciliation before resend; no blind migration backfill/resend.
+Provider idempotency24h documentation verified on2026-10-28: https://resend.com/docs/dashboard/emails/idempotency-keys
+Retained notification events preserve status/claim/uncertain/reconciliation history; no recipient/token/provider payload logging.
+Production rollout requires a reviewed read-only preflight and a maintenance window for raffle management while SQL guards precede new Function publication.
+No automatically repeating or publishing CI step exists. No production SQL approval is implied by development QA.

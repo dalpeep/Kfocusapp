@@ -153,6 +153,8 @@ BEGIN
  IF c.id IS NULL OR c.delivery_mode<>'raffle' OR e.status NOT IN ('winner','redeemed') THEN RAISE EXCEPTION 'Award required' USING ERRCODE='22023'; END IF;
  SELECT id INTO oid FROM coupon_raffle_internal.outbox WHERE entry_id=e.id AND kind='resend' AND request_key=p_request_key;
  IF FOUND THEN RETURN jsonb_build_object('ok',true,'notification_id',oid); END IF;
+ IF e.emailed_at IS NULL AND NOT EXISTS(SELECT 1 FROM coupon_raffle_internal.outbox WHERE entry_id=e.id AND kind='winner') THEN
+  RAISE EXCEPTION 'Legacy delivery requires provider reconciliation' USING ERRCODE='55000'; END IF;
  IF EXISTS(SELECT 1 FROM coupon_raffle_internal.outbox WHERE entry_id=e.id AND status IN ('queued','sending','failed','unknown')) THEN
   RAISE EXCEPTION 'Reconcile pending delivery before resend' USING ERRCODE='55000'; END IF;
  INSERT INTO coupon_raffle_internal.outbox(coupon_id,entry_id,request_key,kind,payload)
@@ -224,6 +226,30 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.coupon_raffle_mail_reconcile_v1(uuid,text,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.coupon_raffle_mail_reconcile_v1(uuid,text,text,text) TO service_role;
+
+
+CREATE FUNCTION public.coupon_raffle_event_mail_begin_v1(p_winner_id uuid,p_admin_id uuid,p_kind text,p_request_key text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
+DECLARE w public.event_draw_winners%rowtype; prior coupon_raffle_internal.requests%rowtype; fp jsonb; aid uuid; state text; v_result jsonb;
+BEGIN
+ IF length(coalesce(p_request_key,'')) NOT BETWEEN 8 AND 160 THEN RAISE EXCEPTION 'Request key required' USING ERRCODE='22023'; END IF;
+ SELECT * INTO w FROM public.event_draw_winners WHERE id=p_winner_id FOR UPDATE;
+ IF NOT FOUND THEN RAISE EXCEPTION 'Winner not found' USING ERRCODE='22023'; END IF;
+ fp:=jsonb_build_object('winner',p_winner_id,'kind','event-mail-'||p_kind,'admin',p_admin_id);
+ SELECT * INTO prior FROM coupon_raffle_internal.requests WHERE coupon_id=w.event_id AND request_key=p_request_key;
+ IF FOUND THEN
+  IF prior.fingerprint<>fp THEN RAISE EXCEPTION 'Request key conflict' USING ERRCODE='22023'; END IF;
+  aid:=(prior.result->>'attempt_id')::uuid;
+  SELECT status INTO state FROM public.event_winner_email_attempts WHERE id=aid;
+  RETURN jsonb_build_object('attempt_id',aid,'status',state);
+ END IF;
+ aid:=public.event_winner_email_begin(p_winner_id,p_admin_id,p_kind);
+ v_result:=jsonb_build_object('attempt_id',aid,'status','new');
+ INSERT INTO coupon_raffle_internal.requests(coupon_id,request_key,fingerprint,result) VALUES(w.event_id,p_request_key,fp,v_result);
+ RETURN v_result;
+END $$;
+REVOKE ALL ON FUNCTION public.coupon_raffle_event_mail_begin_v1(uuid,uuid,text,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.coupon_raffle_event_mail_begin_v1(uuid,uuid,text,text) TO service_role;
 
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA coupon_raffle_internal FROM PUBLIC,anon,authenticated,service_role;
 REVOKE ALL ON FUNCTION public.coupon_raffle_draw_v1(uuid,text,text,integer,uuid[]),public.coupon_raffle_resend_v1(uuid,text),public.coupon_raffle_mail_claim_v1(uuid),public.coupon_raffle_mail_finish_v1(uuid,uuid,text,text,text) FROM PUBLIC,anon,authenticated;
