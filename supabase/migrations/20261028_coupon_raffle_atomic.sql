@@ -37,6 +37,14 @@ BEGIN
 END $$;
 CREATE TRIGGER raffle_mail_audit AFTER INSERT OR UPDATE OF status ON coupon_raffle_internal.outbox FOR EACH ROW EXECUTE FUNCTION coupon_raffle_internal.audit_notification();
 
+CREATE FUNCTION coupon_raffle_internal.require_read_committed() RETURNS void
+LANGUAGE plpgsql SET search_path=pg_catalog AS $$
+BEGIN
+ IF current_setting('transaction_isolation')<>'read committed' THEN
+  RAISE EXCEPTION 'Raffle mutations require READ COMMITTED isolation' USING ERRCODE='0A000';
+ END IF;
+END $$;
+
 CREATE FUNCTION coupon_raffle_internal.awarded_ids(p_coupon uuid) RETURNS SETOF uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 BEGIN
@@ -64,7 +72,7 @@ BEGIN
  IF TG_TABLE_NAME='coupon_entries' THEN
   qualifying:=NEW.status IN ('winner','redeemed'); IF NOT qualifying THEN RETURN NEW; END IF; cid:=NEW.coupon_id::uuid; eid:=NEW.id;
   IF TG_OP='UPDATE' AND OLD.status IN ('winner','redeemed') AND NEW.coupon_id=OLD.coupon_id THEN
-   IF NEW.status='winner' AND (OLD.status='redeemed' OR NEW.coupon_code IS DISTINCT FROM OLD.coupon_code OR NEW.won_at IS DISTINCT FROM OLD.won_at) THEN
+   IF NEW.status='winner' THEN
     RAISE EXCEPTION 'Existing award cannot be issued twice' USING ERRCODE='23505';
    END IF;
    RETURN NEW;
@@ -74,6 +82,7 @@ BEGIN
   IF TG_OP='UPDATE' AND OLD.status='winner' AND NEW.event_id=OLD.event_id AND NEW.entry_id=OLD.entry_id THEN RETURN NEW; END IF;
  END IF;
  IF NOT qualifying THEN RETURN NEW; END IF;
+ PERFORM coupon_raffle_internal.require_read_committed();
  SELECT * INTO c FROM public.coupons WHERE id=cid FOR UPDATE;
  IF c.id IS NULL OR c.delivery_mode<>'raffle' THEN RETURN NEW; END IF;
  cap:=greatest(1,least(500,coalesce(nullif(c.winner_count,0),1)));
@@ -99,6 +108,7 @@ DECLARE c public.coupons%rowtype; prior coupon_raffle_internal.requests%rowtype;
 BEGIN
  IF p_request_key IS NULL OR length(p_request_key) NOT BETWEEN 8 AND 160 OR p_kind NOT IN ('auto','manual','designate') OR (p_count IS NOT NULL AND p_count NOT BETWEEN 1 AND 500) THEN
   RAISE EXCEPTION 'Invalid draw request' USING ERRCODE='22023'; END IF;
+ PERFORM coupon_raffle_internal.require_read_committed();
  fp:=jsonb_build_object('kind',p_kind,'count',p_count,'ids',coalesce((SELECT jsonb_agg(x ORDER BY x) FROM (SELECT DISTINCT unnest(p_entry_ids) x) q),'[]'));
  SELECT * INTO c FROM public.coupons WHERE id=p_coupon_id FOR UPDATE;
  IF c.id IS NULL OR c.delivery_mode<>'raffle' THEN RAISE EXCEPTION 'Raffle not found' USING ERRCODE='22023'; END IF;
@@ -181,6 +191,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE prior coupon_raffle_internal.requests%rowtype; fp jsonb; v_result jsonb;
 BEGIN
  IF length(coalesce(p_request_key,'')) NOT BETWEEN 8 AND 160 THEN RAISE EXCEPTION 'Request key required' USING ERRCODE='22023'; END IF;
+ PERFORM coupon_raffle_internal.require_read_committed();
  PERFORM 1 FROM public.coupons WHERE id=p_event_id FOR UPDATE;
  fp:=jsonb_build_object('kind','event-'||p_kind,'count',p_count,'admin',p_admin_id);
  SELECT * INTO prior FROM coupon_raffle_internal.requests WHERE coupon_id=p_event_id AND request_key=p_request_key;
