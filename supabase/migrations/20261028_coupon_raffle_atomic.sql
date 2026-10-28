@@ -29,12 +29,12 @@ CREATE TABLE coupon_raffle_internal.notification_events (
 );
 ALTER TABLE coupon_raffle_internal.notification_events ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON coupon_raffle_internal.notification_events FROM PUBLIC,anon,authenticated,service_role;
-CREATE FUNCTION coupon_raffle_internal.audit_notification() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $
+CREATE FUNCTION coupon_raffle_internal.audit_notification() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 BEGIN
  INSERT INTO coupon_raffle_internal.notification_events(notification_id,from_status,to_status,code)
  VALUES(NEW.id,CASE WHEN TG_OP='UPDATE' THEN OLD.status ELSE NULL END,NEW.status,NEW.failure_code);
  RETURN NEW;
-END $;
+END $$;
 CREATE TRIGGER raffle_mail_audit AFTER INSERT OR UPDATE OF status ON coupon_raffle_internal.outbox FOR EACH ROW EXECUTE FUNCTION coupon_raffle_internal.audit_notification();
 
 CREATE FUNCTION coupon_raffle_internal.awarded_ids(p_coupon uuid) RETURNS SETOF uuid
@@ -48,14 +48,14 @@ BEGIN
 END $$;
 
 CREATE FUNCTION coupon_raffle_internal.event_entry_used(p_coupon uuid,p_entry uuid) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE used boolean:=false;
 BEGIN
  IF to_regclass('public.event_draw_winners') IS NOT NULL THEN
   EXECUTE 'SELECT EXISTS(SELECT 1 FROM public.event_draw_winners WHERE event_id=$1 AND entry_id=$2)' INTO used USING p_coupon,p_entry;
  END IF;
  RETURN used;
-END $;
+END $$;
 
 CREATE FUNCTION coupon_raffle_internal.capacity_guard() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
@@ -122,7 +122,7 @@ BEGIN
   AND NOT coupon_raffle_internal.event_entry_used(p_coupon_id,e.id)
   ORDER BY random() LIMIT wanted FOR UPDATE
  LOOP
-  cc:=coalesce(nullif(r.coupon_code,''),'WIN-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,8)));
+  cc:=coalesce(nullif(r.coupon_code,''),'WIN-'||(SELECT string_agg(substr('ABCDEFGHJKLMNPQRSTUVWXYZ23456789',get_byte(uuid_send(gen_random_uuid()),0)%32+1,1),'') FROM generate_series(1,8)));
   UPDATE public.coupon_entries SET status='winner',coupon_code=cc,won_at=now(),issued_at=now(),updated_at=now() WHERE id=r.id RETURNING * INTO r;
   INSERT INTO coupon_raffle_internal.outbox(coupon_id,entry_id,request_key,kind,payload)
   VALUES(p_coupon_id,r.id,p_request_key,'winner',jsonb_build_object('entry',to_jsonb(r),'coupon',to_jsonb(c)));
@@ -160,7 +160,7 @@ BEGIN
  ORDER BY created_at,id LIMIT 1 FOR UPDATE SKIP LOCKED;
  IF NOT FOUND THEN RETURN NULL; END IF;
  UPDATE coupon_raffle_internal.outbox SET status='sending',claim_token=token,lease_until=now()+interval '5 minutes',attempts=attempts+1 WHERE id=o.id;
- RETURN jsonb_build_object('id',o.id,'token',token,'payload',o.payload,'idempotency_key','daltown-raffle-'||o.id::text);
+ RETURN jsonb_build_object('id',o.id,'token',token,'kind',o.kind,'payload',o.payload,'idempotency_key','daltown-raffle-'||o.id::text);
 END $$;
 CREATE FUNCTION public.coupon_raffle_mail_finish_v1(p_id uuid,p_token uuid,p_status text,p_provider_id text DEFAULT NULL,p_failure_code text DEFAULT NULL) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
@@ -177,7 +177,7 @@ BEGIN
 END $$;
 
 CREATE FUNCTION public.coupon_raffle_event_draw_v1(p_event_id uuid,p_count integer,p_admin_id uuid,p_kind text,p_request_key text) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE prior coupon_raffle_internal.requests%rowtype; fp jsonb; v_result jsonb;
 BEGIN
  IF length(coalesce(p_request_key,'')) NOT BETWEEN 8 AND 160 THEN RAISE EXCEPTION 'Request key required' USING ERRCODE='22023'; END IF;
@@ -192,13 +192,13 @@ BEGIN
  SELECT to_jsonb(d) INTO v_result FROM public.event_draw_run(p_event_id,p_count,p_admin_id,p_kind) d;
  INSERT INTO coupon_raffle_internal.requests(coupon_id,request_key,fingerprint,result) VALUES(p_event_id,p_request_key,fp,v_result);
  RETURN v_result;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION public.coupon_raffle_event_draw_v1(uuid,integer,uuid,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.coupon_raffle_event_draw_v1(uuid,integer,uuid,text,text) TO service_role;
 
 
 CREATE FUNCTION public.coupon_raffle_mail_reconcile_v1(p_id uuid,p_confirmed_status text,p_provider_id text,p_reason text) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE o coupon_raffle_internal.outbox%rowtype;
 BEGIN
  SELECT * INTO o FROM coupon_raffle_internal.outbox WHERE id=p_id FOR UPDATE;
@@ -210,7 +210,7 @@ BEGIN
   UPDATE coupon_raffle_internal.outbox SET status='failed',next_attempt_at=now(),failure_code='RECONCILED_NOT_ACCEPTED' WHERE id=p_id;
  ELSE RAISE EXCEPTION 'Provider confirmation required' USING ERRCODE='22023'; END IF;
  RETURN true;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION public.coupon_raffle_mail_reconcile_v1(uuid,text,text,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.coupon_raffle_mail_reconcile_v1(uuid,text,text,text) TO service_role;
 

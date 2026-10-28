@@ -12,6 +12,7 @@ exports.handler=async()=>{
    report.push({coupon_id:c.id,title:c.title,target:r.target,already:r.already,selected:r.selected,remaining_after:r.remaining_after,emailed:0});
   }
   const notification=await drain();
+  for(const row of report)row.emailed=notification.sentByCoupon[row.coupon_id]||0;
   return{statusCode:200,headers:{'Content-Type':'application/json'},body:JSON.stringify({ok:true,checked:due.length,report,notification})};
  }catch{
   return{statusCode:503,headers:{'Content-Type':'application/json'},body:JSON.stringify({ok:false,error:'추첨 처리 상태를 확인할 수 없습니다. 관리자에게 문의해 주세요.',code:'RAFFLE_TRANSACTION_UNAVAILABLE'})};

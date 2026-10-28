@@ -39,6 +39,7 @@ jobs:
       - run: npm run qa:functions
       - run: npm run qa:test
       - run: npm run qa:migration
+      - run: node --test tests/raffle-unit/*.test.mjs
       - name: Isolated PostgreSQL atomic raffle QA
         env:
           RAFFLE_PG_QA: '1'

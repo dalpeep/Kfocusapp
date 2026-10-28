@@ -9,6 +9,7 @@ if(action==='list_all'){
 }
 
 const couponId=String(b.coupon_id||'').trim();if(!couponId)return json(400,{ok:false,error:'coupon_id가 필요합니다.'});const coupon=await getCoupon(couponId);if(!coupon)return json(404,{ok:false,error:'쿠폰을 찾을 수 없습니다.'});const biz=await getBusiness(coupon.business_id);const bizName=biz?.name_ko||biz?.name||biz?.name_en||'';if(action==='list'){const r=await rows(couponId);return json(200,{ok:true,coupon,stats:{total:r.length,entered:r.filter(x=>x.status==='entered').length,winners:r.filter(x=>['winner','coupon_issued','redeemed'].includes(x.status)).length,redeemed:r.filter(x=>x.status==='redeemed').length,marketing_opt_in:r.filter(x=>x.marketing_opt_in===true).length},entries:r})}if(action==='draw'||action==='designate'){
+ if(b.count!=null&&(!Number.isInteger(Number(b.count))||Number(b.count)<1||Number(b.count)>500))return json(400,{ok:false,error:'당첨 인원을 1~500명으로 입력해 주세요.'});
  const key=requestKey(b.request_id,action);
  const result=await draw(couponId,{kind:action==='draw'?'manual':'designate',count:b.count==null?null:Number(b.count),ids:action==='designate'?(Array.isArray(b.entry_ids)?b.entry_ids.map(String):[]):null,key});
  await drain(couponId);
