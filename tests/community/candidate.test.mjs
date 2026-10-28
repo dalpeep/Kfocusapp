@@ -16,5 +16,13 @@ test('logo resource exists',()=>assert.ok(fs.existsSync('assets/kfocus-icon.png'
 test('image error fallback is one-shot',()=>{const callbacks=[];const c={document:{addEventListener:(name,fn,capture)=>{assert.equal(name,'error');assert.equal(capture,true);callbacks.push(fn)}},HOME_CARD_LOGO:'/assets/kfocus-icon.png'};vm.createContext(c);vm.runInContext(code.match(/document.addEventListener\('error',[\s\S]*?\},true\);/)[0],c);let assignments=0;const classes=new Set();const image={matches:()=>true,classList:{contains:x=>classes.has(x),add:x=>classes.add(x)},set src(v){assert.equal(v,c.HOME_CARD_LOGO);assignments++}};callbacks[0]({target:image});callbacks[0]({target:image});assert.equal(assignments,1)});
 for(const [input,expected] of [['214-555-0100','+12145550100'],['+1 (214) 555-0100','+12145550100'],['javascript:alert(1)',''],['','']])test('safe telephone: '+JSON.stringify(input),()=>assert.equal(ctx.promotionPhone(input),expected));
 test('telephone anchor preserves native navigation',()=>assert.match(code,/href="tel:\$\{phone\}"/));
-test('all runtime files match approved Modern-only baseline',()=>assert.equal(execFileSync('git',['diff','4a8b0cddd4a742037e4f8b811a649fa61e831730','HEAD','--','netlify','package.json','package-lock.json'],{encoding:'utf8'}),''));
+test('runtime changes are limited to approved authorization patches and QA script',()=>{
+ const base='4a8b0cddd4a742037e4f8b811a649fa61e831730';
+ const patches=JSON.parse(fs.readFileSync('release-baseline/community-security-patches.json')).patches;
+ const changed=execFileSync('git',['diff','--name-only',base,'--','netlify','package.json','package-lock.json'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean).sort();
+ assert.deepEqual(changed,[...patches.map(p=>p.path),'package.json'].sort());
+ const before=JSON.parse(execFileSync('git',['show',base+':package.json'],{encoding:'utf8'})),after=JSON.parse(fs.readFileSync('package.json'));
+ assert.equal(after.scripts['qa:migration'],'node --test tests/migration/*.test.mjs tests/migration/*.test.cjs');
+ before.scripts['qa:migration']=after.scripts['qa:migration'];assert.deepEqual(after,before);
+});
 test('no SQL migration or activation flag changes',()=>assert.equal(execFileSync('git',['diff','4a8b0cddd4a742037e4f8b811a649fa61e831730','HEAD','--','*.sql','release-baseline/activation.json','netlify.toml'],{encoding:'utf8'}),''));
