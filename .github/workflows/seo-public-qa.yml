@@ -1,7 +1,7 @@
 name: SEO public read-only QA (no deployment)
 on:
   push:
-    branches: [dev/seo-anon-hardening-20261028]
+    branches: [dev/seo-anon-hardening-20261028, dev/seo-category-paths-20261028]
 permissions:
   contents: read
 jobs:

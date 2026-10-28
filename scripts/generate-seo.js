@@ -6,6 +6,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createHash } = require('crypto');
+const categoryRegistry = require('../release-baseline/seo-category-routes.json');
 
 const SITE_URL = (process.env.SITE_URL || process.env.URL || 'https://www.daltownmap.com').replace(/\/$/, '');
 const { resolvePublicAuth, stop } = require('./release/seo-public-auth.cjs');
@@ -74,7 +76,13 @@ function businessSlug(b) {
 }
 
 function categorySlug(cat, region = '') {
-  return slugify(`${region}-${cat}`);
+  const saved = categoryRegistry.routes.find(route => route.region === region && route.category === cat);
+  if (saved) return saved.slug;
+  // New pairs always get an identity suffix, so future additions cannot rename
+  // a previously published category. Business slug generation stays unchanged.
+  const base = slugify(`${region}-${cat}`).replace(/-+$/, '') || 'category';
+  const identity = createHash('sha256').update(JSON.stringify([region, cat])).digest('hex').slice(0, 16);
+  return `${base}--${identity}`;
 }
 
 function schemaType(category = '') {
@@ -293,6 +301,16 @@ function categoryPage(category, region, businesses) {
   return layout({ title, description: desc, canonical, body, jsonLd: [itemList] });
 }
 
+function categoryLegacyHub(slug, choices) {
+  const canonical = `${SITE_URL}/category/${slug}.html`;
+  const links = choices.map(({region, category}) => `<a class="biz" href="${SITE_URL}/category/${categorySlug(category, region)}.html">${esc(region)} · ${esc(category)}</a>`).join('\n');
+  // These legacy paths represented several distinct categories. A 301 to one
+  // arbitrary category would change their meaning. Preserve them as noindex hubs.
+  return layout({ title: '지역·업종 선택 | DalTownMap', description: '확인할 지역과 업종을 선택해 주세요.', canonical,
+    body: `<main><div class="card"><h1>지역·업종을 선택해 주세요</h1><div class="grid">${links}</div></div></main>`, jsonLd: [] })
+    .replace('<meta name="viewport"', '<meta name="robots" content="noindex,follow">\n  <meta name="viewport"');
+}
+
 function homeSeoPage() {
   const canonical = `${SITE_URL}/seo.html`;
   const title = 'DalTownMap | Dallas Korean Business Directory';
@@ -347,13 +365,20 @@ async function main() {
   const posts = await supabaseFetch('posts', postSelect, '&is_active=eq.true');
   if (coupons.some(c => c.is_active !== true) || posts.some(p => p.is_active !== true)) stop('SEO_PRIVATE_CONTENT_REJECTED');
   const categoryPaths = new Map(), businessPaths = new Set();
+  const reserved = new Map(), identities = new Set();
+  for (const route of categoryRegistry.routes) {
+    const key = JSON.stringify([route.region, route.category]);
+    if (identities.has(key) || reserved.has(route.slug) || !/^[a-z0-9-]+$/.test(route.slug)) stop('SEO_CATEGORY_REGISTRY_INVALID');
+    identities.add(key); reserved.set(route.slug, key);
+  }
+  if (new Set(categoryRegistry.legacyHubs).size !== categoryRegistry.legacyHubs.length || categoryRegistry.legacyHubs.some(slug => reserved.has(slug))) stop('SEO_CATEGORY_REGISTRY_INVALID');
   for (const business of businesses) {
     const file = businessSlug(business);
     if (businessPaths.has(file)) stop('SEO_BUSINESS_URL_COLLISION');
     businessPaths.add(file);
     const category = categoryOf(business), region = regionOf(business);
-    const key = `${region}|||${category}`, categoryFile = categorySlug(category, region);
-    if (categoryPaths.has(categoryFile) && categoryPaths.get(categoryFile) !== key) stop('SEO_CATEGORY_URL_COLLISION');
+    const key = JSON.stringify([region, category]), categoryFile = categorySlug(category, region);
+    if ((reserved.has(categoryFile) && reserved.get(categoryFile) !== key) || categoryRegistry.legacyHubs.includes(categoryFile) || (categoryPaths.has(categoryFile) && categoryPaths.get(categoryFile) !== key)) stop('SEO_CATEGORY_URL_COLLISION');
     categoryPaths.set(categoryFile, key);
   }
   // Fetch and validate everything before modifying any generated output.
@@ -380,16 +405,21 @@ async function main() {
     urls.push({ loc, priority: '0.8', changefreq: 'weekly', lastmod: b.updated_at || b.created_at });
     businessIndex.push({ id: b.id, name: nameOf(b), category: categoryOf(b), region: regionOf(b), url: loc, phone: b.phone || '', address: b.address || '' });
 
-    const key = `${regionOf(b)}|||${categoryOf(b)}`;
+    const key = JSON.stringify([regionOf(b), categoryOf(b)]);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(b);
   }
 
   for (const [key, list] of groups.entries()) {
-    const [region, category] = key.split('|||');
+    const [region, category] = JSON.parse(key);
     const slug = categorySlug(category, region);
     fs.writeFileSync(path.join(CATEGORY_DIR, `${slug}.html`), categoryPage(category, region, list), 'utf8');
     urls.push({ loc: `${SITE_URL}/category/${slug}.html`, priority: '0.7', changefreq: 'weekly' });
+  }
+  for (const slug of categoryRegistry.legacyHubs) {
+    const choices = [...groups.keys()].map(key => { const [region, category] = JSON.parse(key); return {region, category}; })
+      .filter(({region, category}) => slugify(`${region}-${category}`) === slug);
+    if (choices.length) fs.writeFileSync(path.join(CATEGORY_DIR, `${slug}.html`), categoryLegacyHub(slug, choices), 'utf8');
   }
 
   const couponUrls = coupons.map(c => ({
@@ -417,7 +447,7 @@ async function main() {
     coupon_count: coupons.length,
     post_count: posts.length,
     categories: [...groups.keys()].map(k => {
-      const [region, category] = k.split('|||');
+      const [region, category] = JSON.parse(k);
       return { region, category, url: `${SITE_URL}/category/${categorySlug(category, region)}.html`, count: groups.get(k).length };
     }),
     businesses: businessIndex.slice(0, 5000)
@@ -442,4 +472,4 @@ if (require.main === module) main().catch(err => {
   console.error(JSON.stringify({ error: code, detailsSuppressed: true }));
   process.exitCode = 1;
 });
-module.exports = { main, businessSlug, categorySlug, businessPage, categoryPage, homeSeoPage };
+module.exports = { main, businessSlug, categorySlug, businessPage, categoryPage, categoryLegacyHub, homeSeoPage };

@@ -1,0 +1,681 @@
+{
+  "version": 1,
+  "sourcePublishedDeploy": "6acb1b0b7df72c0008b79f49",
+  "publishedCategoryFilesAtSeed": 0,
+  "routes": [
+    {
+      "region": "Addison",
+      "category": "미용",
+      "slug": "addison--bd077ee7e8e3fbc4"
+    },
+    {
+      "region": "Addison",
+      "category": "자동차정비",
+      "slug": "addison--5f08cd3469d6cd90"
+    },
+    {
+      "region": "Allen",
+      "category": "일식",
+      "slug": "allen-"
+    },
+    {
+      "region": "Arlington",
+      "category": "한식",
+      "slug": "arlington-"
+    },
+    {
+      "region": "Bedford",
+      "category": "일식",
+      "slug": "bedford-"
+    },
+    {
+      "region": "Carrollton",
+      "category": "BBQ",
+      "slug": "carrollton-bbq"
+    },
+    {
+      "region": "Carrollton",
+      "category": "건강",
+      "slug": "carrollton--0a51296eb140bd1a"
+    },
+    {
+      "region": "Carrollton",
+      "category": "건축",
+      "slug": "carrollton--016196ab1a58b358"
+    },
+    {
+      "region": "Carrollton",
+      "category": "교육·학원",
+      "slug": "carrollton--c7e7b81f1db104de"
+    },
+    {
+      "region": "Carrollton",
+      "category": "교회",
+      "slug": "carrollton--9c28971b1d099613"
+    },
+    {
+      "region": "Carrollton",
+      "category": "기타 서비스",
+      "slug": "carrollton--382eecdb967fa923"
+    },
+    {
+      "region": "Carrollton",
+      "category": "기타 음식점",
+      "slug": "carrollton--878e550364c95c03"
+    },
+    {
+      "region": "Carrollton",
+      "category": "내과",
+      "slug": "carrollton--9e3f26a367af0ff9"
+    },
+    {
+      "region": "Carrollton",
+      "category": "디저트",
+      "slug": "carrollton--5184081015081b03"
+    },
+    {
+      "region": "Carrollton",
+      "category": "마트",
+      "slug": "carrollton--e73a719a556aef07"
+    },
+    {
+      "region": "Carrollton",
+      "category": "미용",
+      "slug": "carrollton--b804121044f1cdc1"
+    },
+    {
+      "region": "Carrollton",
+      "category": "미용실",
+      "slug": "carrollton--f7f6dd5c492ea220"
+    },
+    {
+      "region": "Carrollton",
+      "category": "보험",
+      "slug": "carrollton--7e9ce7e1ab25c2ad"
+    },
+    {
+      "region": "Carrollton",
+      "category": "부동산 중개",
+      "slug": "carrollton--fcffe0b21d65acc2"
+    },
+    {
+      "region": "Carrollton",
+      "category": "선물·잡화",
+      "slug": "carrollton--d6de442e0485a9ca"
+    },
+    {
+      "region": "Carrollton",
+      "category": "식품점",
+      "slug": "carrollton--fe3727f86a29af2b"
+    },
+    {
+      "region": "Carrollton",
+      "category": "안경",
+      "slug": "carrollton--f327226c314faa49"
+    },
+    {
+      "region": "Carrollton",
+      "category": "안마의자",
+      "slug": "carrollton--f35d051f5f4c82b5"
+    },
+    {
+      "region": "Carrollton",
+      "category": "의류",
+      "slug": "carrollton--f13e29b36362cd5e"
+    },
+    {
+      "region": "Carrollton",
+      "category": "이민법",
+      "slug": "carrollton--299e0f69d8890aa2"
+    },
+    {
+      "region": "Carrollton",
+      "category": "일식",
+      "slug": "carrollton--d280a1d8ee8302e3"
+    },
+    {
+      "region": "Carrollton",
+      "category": "자동차정비",
+      "slug": "carrollton--5bcbbb10dd6f8186"
+    },
+    {
+      "region": "Carrollton",
+      "category": "종합 법률",
+      "slug": "carrollton--b20dcf1a8889de86"
+    },
+    {
+      "region": "Carrollton",
+      "category": "주점",
+      "slug": "carrollton--e0ed5d575a0e9918"
+    },
+    {
+      "region": "Carrollton",
+      "category": "중식",
+      "slug": "carrollton--0a79d8909d3f8c31"
+    },
+    {
+      "region": "Carrollton",
+      "category": "청소",
+      "slug": "carrollton--864a90dba87a98d4"
+    },
+    {
+      "region": "Carrollton",
+      "category": "치과",
+      "slug": "carrollton--397b3691a661fdee"
+    },
+    {
+      "region": "Carrollton",
+      "category": "치킨",
+      "slug": "carrollton--2f34ac3d9b2a54b7"
+    },
+    {
+      "region": "Carrollton",
+      "category": "카페",
+      "slug": "carrollton--378f7571c21135f1"
+    },
+    {
+      "region": "Carrollton",
+      "category": "카페·베이커리",
+      "slug": "carrollton--abe4cb4e3b039aa7"
+    },
+    {
+      "region": "Carrollton",
+      "category": "한식",
+      "slug": "carrollton--b22ff44647a6802f"
+    },
+    {
+      "region": "Carrollton",
+      "category": "한의원",
+      "slug": "carrollton--9889bb357ef6311c"
+    },
+    {
+      "region": "Carrollton",
+      "category": "화장품",
+      "slug": "carrollton--638cbf07487ee182"
+    },
+    {
+      "region": "Carrollton",
+      "category": "회계사",
+      "slug": "carrollton--0fd0d3ceee76564f"
+    },
+    {
+      "region": "Coppell",
+      "category": "기타 서비스",
+      "slug": "coppell-"
+    },
+    {
+      "region": "Dallas",
+      "category": "BBQ",
+      "slug": "dallas-bbq"
+    },
+    {
+      "region": "Dallas",
+      "category": "건강",
+      "slug": "dallas--d61c1dc223106606"
+    },
+    {
+      "region": "Dallas",
+      "category": "관공서",
+      "slug": "dallas--e7d1a27b4afd5002"
+    },
+    {
+      "region": "Dallas",
+      "category": "교회",
+      "slug": "dallas--857ad5fd85d122b2"
+    },
+    {
+      "region": "Dallas",
+      "category": "기타 서비스",
+      "slug": "dallas--964936f1d50c9c56"
+    },
+    {
+      "region": "Dallas",
+      "category": "내과",
+      "slug": "dallas--3469d17ca0d0cbb5"
+    },
+    {
+      "region": "Dallas",
+      "category": "마트",
+      "slug": "dallas--490c68ca46835189"
+    },
+    {
+      "region": "Dallas",
+      "category": "모기지",
+      "slug": "dallas--b6a5a7f9f2f6b54c"
+    },
+    {
+      "region": "Dallas",
+      "category": "미용실",
+      "slug": "dallas--4863dc45269105e6"
+    },
+    {
+      "region": "Dallas",
+      "category": "보험",
+      "slug": "dallas--bc3a68705ee841ad"
+    },
+    {
+      "region": "Dallas",
+      "category": "부동산 중개",
+      "slug": "dallas--08ad90da89fdfe32"
+    },
+    {
+      "region": "Dallas",
+      "category": "선물·잡화",
+      "slug": "dallas--47d772e414bbe451"
+    },
+    {
+      "region": "Dallas",
+      "category": "안과",
+      "slug": "dallas--6ea9185ae5e95a60"
+    },
+    {
+      "region": "Dallas",
+      "category": "여행사",
+      "slug": "dallas--24375536c4af639f"
+    },
+    {
+      "region": "Dallas",
+      "category": "은행",
+      "slug": "dallas--098aee4b9a8d2996"
+    },
+    {
+      "region": "Dallas",
+      "category": "자동차정비",
+      "slug": "dallas--e7cda64c7235f9ec"
+    },
+    {
+      "region": "Dallas",
+      "category": "종합 법률",
+      "slug": "dallas--4a5730c1999118e8"
+    },
+    {
+      "region": "Dallas",
+      "category": "청소",
+      "slug": "dallas--5d7620b99e016551"
+    },
+    {
+      "region": "Dallas",
+      "category": "치과",
+      "slug": "dallas--3a802bb6e5950df1"
+    },
+    {
+      "region": "Dallas",
+      "category": "한식",
+      "slug": "dallas--e840873737432d1f"
+    },
+    {
+      "region": "Dallas",
+      "category": "한의원",
+      "slug": "dallas--a8db3c42c43b27dc"
+    },
+    {
+      "region": "Farmers Branch",
+      "category": "선교단체",
+      "slug": "farmers-branch--99f6fefa66704888"
+    },
+    {
+      "region": "Farmers Branch",
+      "category": "자동차정비",
+      "slug": "farmers-branch--9a29a908ec5bffb9"
+    },
+    {
+      "region": "Farmers Branch",
+      "category": "한의원",
+      "slug": "farmers-branch--2a506c2728e4ae0c"
+    },
+    {
+      "region": "Farmers Branch",
+      "category": "회계사",
+      "slug": "farmers-branch--0fce90c4ef1b9532"
+    },
+    {
+      "region": "Flower Mound",
+      "category": "모기지",
+      "slug": "flower-mound--20c510c4cb2059ea"
+    },
+    {
+      "region": "Flower Mound",
+      "category": "재활·물리치료",
+      "slug": "flower-mound--97d277eb01152d08"
+    },
+    {
+      "region": "Flower Mound",
+      "category": "투자·재정",
+      "slug": "flower-mound--55d76b4111d55658"
+    },
+    {
+      "region": "Fort Worth",
+      "category": "BBQ",
+      "slug": "fort-worth-bbq"
+    },
+    {
+      "region": "Fort Worth",
+      "category": "기타 음식점",
+      "slug": "fort-worth--be7230149006914d"
+    },
+    {
+      "region": "Fort Worth",
+      "category": "한식",
+      "slug": "fort-worth--adce10efcf8dfaad"
+    },
+    {
+      "region": "Frisco",
+      "category": "건강",
+      "slug": "frisco--ca2c2561166f20c2"
+    },
+    {
+      "region": "Frisco",
+      "category": "보험",
+      "slug": "frisco--6516413e3924f7dd"
+    },
+    {
+      "region": "Frisco",
+      "category": "부동산 중개",
+      "slug": "frisco--8e3d496912489dae"
+    },
+    {
+      "region": "Frisco",
+      "category": "치과",
+      "slug": "frisco--740e65de0b0ee714"
+    },
+    {
+      "region": "Frisco",
+      "category": "치킨",
+      "slug": "frisco--aa4d13055f5ad8fa"
+    },
+    {
+      "region": "Garland",
+      "category": "교회",
+      "slug": "garland--34c726811717d70d"
+    },
+    {
+      "region": "Garland",
+      "category": "미용실",
+      "slug": "garland--8e2252c28f07650b"
+    },
+    {
+      "region": "Garland",
+      "category": "부동산 중개",
+      "slug": "garland--171ef4e1423034a9"
+    },
+    {
+      "region": "Garland",
+      "category": "안과",
+      "slug": "garland--3e01d183a6851dcf"
+    },
+    {
+      "region": "Haltom City",
+      "category": "BBQ",
+      "slug": "haltom-city-bbq"
+    },
+    {
+      "region": "Haltom City",
+      "category": "주점",
+      "slug": "haltom-city-"
+    },
+    {
+      "region": "Irving",
+      "category": "교회",
+      "slug": "irving--fc78913bc7a20906"
+    },
+    {
+      "region": "Irving",
+      "category": "여행사",
+      "slug": "irving--72c7c28611942f36"
+    },
+    {
+      "region": "Irving",
+      "category": "자동차정비",
+      "slug": "irving--a50b97b6947d5ef8"
+    },
+    {
+      "region": "Irving",
+      "category": "치과",
+      "slug": "irving--0c788d0d6763b535"
+    },
+    {
+      "region": "Lewisville",
+      "category": "BBQ",
+      "slug": "lewisville-bbq"
+    },
+    {
+      "region": "Lewisville",
+      "category": "건강",
+      "slug": "lewisville--dd4b4f08c113eea2"
+    },
+    {
+      "region": "Lewisville",
+      "category": "교회",
+      "slug": "lewisville--bd39dbf165a3d136"
+    },
+    {
+      "region": "Lewisville",
+      "category": "기타 서비스",
+      "slug": "lewisville--a4b22c2f0f29e6c3"
+    },
+    {
+      "region": "Lewisville",
+      "category": "기타 음식점",
+      "slug": "lewisville--dc897a0bbf7bf1cb"
+    },
+    {
+      "region": "Lewisville",
+      "category": "마켓",
+      "slug": "lewisville--b6d11113c4c5d234"
+    },
+    {
+      "region": "Lewisville",
+      "category": "보험",
+      "slug": "lewisville--972f61ad663f5f0f"
+    },
+    {
+      "region": "Lewisville",
+      "category": "부동산 중개",
+      "slug": "lewisville--7ab4959bbb88939f"
+    },
+    {
+      "region": "Lewisville",
+      "category": "분식",
+      "slug": "lewisville--d4d32f0ac742451a"
+    },
+    {
+      "region": "Lewisville",
+      "category": "선물·잡화",
+      "slug": "lewisville--347a419c20656b47"
+    },
+    {
+      "region": "Lewisville",
+      "category": "안경",
+      "slug": "lewisville--c62e4a9e6b0e80c7"
+    },
+    {
+      "region": "Lewisville",
+      "category": "안과",
+      "slug": "lewisville--9d96546088510000"
+    },
+    {
+      "region": "Lewisville",
+      "category": "안마의자",
+      "slug": "lewisville--4f403df9ba5a3c4e"
+    },
+    {
+      "region": "Lewisville",
+      "category": "은행",
+      "slug": "lewisville--cb0589c5d4759c95"
+    },
+    {
+      "region": "Lewisville",
+      "category": "재활·물리치료",
+      "slug": "lewisville--d3d809933d828eec"
+    },
+    {
+      "region": "Lewisville",
+      "category": "종합 법률",
+      "slug": "lewisville--7efa5879cca39c50"
+    },
+    {
+      "region": "Lewisville",
+      "category": "한식",
+      "slug": "lewisville--5d38c57f008a10ce"
+    },
+    {
+      "region": "Lewisville",
+      "category": "한의원",
+      "slug": "lewisville--f455ba90b435dbf2"
+    },
+    {
+      "region": "Lewisville",
+      "category": "화장품",
+      "slug": "lewisville--c15f5a66bab2665a"
+    },
+    {
+      "region": "Mansfield",
+      "category": "BBQ",
+      "slug": "mansfield-bbq"
+    },
+    {
+      "region": "McKinney",
+      "category": "내과",
+      "slug": "mckinney-"
+    },
+    {
+      "region": "Plano",
+      "category": "BBQ",
+      "slug": "plano-bbq"
+    },
+    {
+      "region": "Plano",
+      "category": "교육·학원",
+      "slug": "plano--4fb08614e717435f"
+    },
+    {
+      "region": "Plano",
+      "category": "기타 서비스",
+      "slug": "plano--d59f57a4bd3feec0"
+    },
+    {
+      "region": "Plano",
+      "category": "기타 음식점",
+      "slug": "plano--e021f1ca8e0dea76"
+    },
+    {
+      "region": "Plano",
+      "category": "내과",
+      "slug": "plano--095920904d731392"
+    },
+    {
+      "region": "Plano",
+      "category": "마트",
+      "slug": "plano--f5510e094b73d5c6"
+    },
+    {
+      "region": "Plano",
+      "category": "부동산 중개",
+      "slug": "plano--2937afbeec93a952"
+    },
+    {
+      "region": "Plano",
+      "category": "일식",
+      "slug": "plano--5e2a53cb2b9ec284"
+    },
+    {
+      "region": "Plano",
+      "category": "자동차정비",
+      "slug": "plano--507d27865504db21"
+    },
+    {
+      "region": "Plano",
+      "category": "종합 법률",
+      "slug": "plano--b09ec4191f01812f"
+    },
+    {
+      "region": "Plano",
+      "category": "주점",
+      "slug": "plano--bc013085b8c144bf"
+    },
+    {
+      "region": "Plano",
+      "category": "카페·베이커리",
+      "slug": "plano--7751975124dd4e39"
+    },
+    {
+      "region": "Plano",
+      "category": "피부과",
+      "slug": "plano--aff812489080267c"
+    },
+    {
+      "region": "Plano",
+      "category": "한식",
+      "slug": "plano--9cace8141639c811"
+    },
+    {
+      "region": "Plano",
+      "category": "화장품",
+      "slug": "plano--fe9faa871e2a6f87"
+    },
+    {
+      "region": "Richardson",
+      "category": "기타 음식점",
+      "slug": "richardson--c4651500c645e60b"
+    },
+    {
+      "region": "Richardson",
+      "category": "여행사",
+      "slug": "richardson--fe34325c88b1d76d"
+    },
+    {
+      "region": "Richardson",
+      "category": "종합 법률",
+      "slug": "richardson--583c2c5eb9b3e3b7"
+    },
+    {
+      "region": "Richardson",
+      "category": "한식",
+      "slug": "richardson--1b9e291e4519ffb0"
+    },
+    {
+      "region": "Trophy Club",
+      "category": "대출·융자",
+      "slug": "trophy-club-"
+    },
+    {
+      "region": "dallas",
+      "category": "베이커리",
+      "slug": "dallas--24a3388da2a6778b"
+    },
+    {
+      "region": "dallas",
+      "category": "안마의자",
+      "slug": "dallas--76ee6640668310e8"
+    },
+    {
+      "region": "dallas",
+      "category": "주점",
+      "slug": "dallas--d0872ed2acb7dd9f"
+    },
+    {
+      "region": "dallas",
+      "category": "카페·베이커리",
+      "slug": "dallas--5c55a475f333329a"
+    },
+    {
+      "region": "dallas",
+      "category": "회계사",
+      "slug": "dallas--24cce584a728e835"
+    }
+  ],
+  "legacyHubs": [
+    "addison-",
+    "carrollton-",
+    "dallas-",
+    "farmers-branch-",
+    "flower-mound-",
+    "fort-worth-",
+    "frisco-",
+    "garland-",
+    "irving-",
+    "lewisville-",
+    "plano-",
+    "richardson-"
+  ]
+}
