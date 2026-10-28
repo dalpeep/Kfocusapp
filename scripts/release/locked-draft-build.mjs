@@ -78,6 +78,10 @@ try {
   }
   const changed=baseline.files.filter(f=>sha(path.join(out,f.target),'sha1')!==f.publishedSha1).map(f=>f.target);
   const approved=new Set(['app-v99.js','assets/community.js','index.html','styles.css','netlify.toml','package.json','scripts/generate-seo.js','robots.txt','seo-index.json','seo.html','sitemap.xml','business-index.json','llms.txt',...files.map(p=>p.replaceAll('\\','/').replace(out+'/','')).filter(p=>/^(?:business|category)\/[^/]+\.html$/.test(p))]);
+  // These source paths were already public in the legacy site. Preserve their
+  // paths while publishing the same reviewed authorization fixes as the runtime.
+  approved.add('netlify/functions/community-admin.js');
+  approved.add('netlify/functions/lib/community-security.js');
   if(changed.some(file=>!approved.has(file)))throw Error();
   fs.mkdirSync('.release-artifacts',{recursive:true});
   fs.writeFileSync('.release-artifacts/hosted-public-audit.json',JSON.stringify({existingPaths:baseline.files.length,files:files.length,changed,secretScan:'PASS',newPrivatePaths:false},null,2));

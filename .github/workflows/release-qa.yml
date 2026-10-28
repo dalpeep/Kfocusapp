@@ -24,6 +24,11 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || '524c984389ec44a83bd612682aadb91ecac6c5fc' }}
         run: node scripts/release/classify-changes.mjs "$BASE_SHA"
       - run: npm run qa:preservation
+      - name: Verify exact locked-build source fingerprints without SEO or deployment
+        env:
+          CONTEXT: production
+          SITE_ID: e2667e40-0999-42a3-892b-2b2edff61434
+        run: node scripts/release/locked-draft-build.mjs --verify-only
       - run: npm run qa:secrets
       - run: npm run qa:functions
       - run: npm run qa:test
