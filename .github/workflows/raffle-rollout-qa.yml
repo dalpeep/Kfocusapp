@@ -1,0 +1,35 @@
+name: Raffle rollout compatibility only
+on:
+  push:
+    branches: [dev/raffle-rollout-review-20261028]
+permissions:
+  contents: read
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: raffle_rollout_test
+        ports:
+          - 55441:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d raffle_rollout_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Mixed-version and history checks only
+        env:
+          RAFFLE_ROLLOUT_QA: '1'
+        run: node --test tests/rollout/compatibility.test.mjs
+      # No deployment, migration against existing environments, runtime secrets, or provider calls.
