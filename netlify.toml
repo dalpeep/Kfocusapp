@@ -1,10 +1,10 @@
 [build]
   base = "."
-  publish = ".public-build"
+  publish = "."
   functions = "netlify/functions"
-  command = "node scripts/release/locked-draft-build.mjs"
-  # One approved security-fixed locked Production-context Git build.
-  ignore = "exit 1"
+  command = "node scripts/release/netlify-build.mjs"
+  # Preparation branch: skip every Netlify build until separately approved.
+  ignore = "exit 0"
 
 [functions."raffle-auto-draw"]
   schedule = "*/10 * * * *"
