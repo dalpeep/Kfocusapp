@@ -23,12 +23,34 @@ try {
   const auth=await publicAuthModule.resolvePublicAuth(env);
   env.SUPABASE_URL=auth.url;
   env.SUPABASE_ANON_KEY=auth.key;
+  env.SITE_URL=baseline.seoOrigin;
   stage='seo-readonly';
   // Raw SEO errors/responses must never be written into hosted build logs.
   const seo=spawnSync(process.execPath,['scripts/generate-seo.js'],{env,encoding:'utf8',stdio:['ignore','pipe','pipe'],maxBuffer:8*1024*1024});
   if(seo.error||seo.status!==0||seo.stderr?.trim())throw Error();
   if(!/\[SEO\] Generated \d+ business pages, \d+ category pages, \d+ coupon sitemap entries, \d+ post sitemap entries\./.test(seo.stdout))throw Error();
   console.log('SEO_GENERATION_COMPLETED');
+  stage='seo-output-audit';
+  const seoIndex=JSON.parse(fs.readFileSync('seo-index.json'));
+  const businesses=JSON.parse(fs.readFileSync('business-index.json'));
+  const sitemap=fs.readFileSync('sitemap.xml','utf8');
+  const urls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].replaceAll('&amp;','&'));
+  if(new Set(urls).size!==urls.length||businesses.length!==seoIndex.business_count||!businesses.length)throw Error();
+  if(new Set(seoIndex.categories.map(row=>row.url)).size!==seoIndex.categories.length)throw Error();
+  let checkedLinks=0;
+  for(const row of [...businesses,...seoIndex.categories]){
+    const url=new URL(row.url);
+    if(url.origin!==baseline.seoOrigin||!urls.includes(row.url))throw Error();
+    const file=url.pathname.slice(1);
+    if(!/^(business|category)\/[a-z0-9-]+\.html$/.test(file))throw Error();
+    const html=fs.readFileSync(file,'utf8');
+    if(!html.includes('<link rel="canonical" href="'+row.url+'">'))throw Error();
+    for(const link of html.matchAll(/href="[^"#]*\/(business|category)\/([^"/]+\.html)"/g)){
+      if(!fs.existsSync(path.join(link[1],link[2])))throw Error();
+      checkedLinks++;
+    }
+  }
+  console.log(JSON.stringify({stage,businesses:seoIndex.business_count,categories:seoIndex.categories.length,coupons:seoIndex.coupon_count,posts:seoIndex.post_count,sitemapUrls:urls.length,duplicateUrls:0,checkedLinks,missingLinks:0}));
   stage='public-output';
   const out='.public-build';
   if(fs.existsSync(out))throw Error();
@@ -55,7 +77,7 @@ try {
     }
   }
   const changed=baseline.files.filter(f=>sha(path.join(out,f.target),'sha1')!==f.publishedSha1).map(f=>f.target);
-  const approved=new Set(['app-v99.js','assets/community.js','index.html','styles.css','netlify.toml','package.json','robots.txt','seo-index.json','seo.html','sitemap.xml','business-index.json','llms.txt',...files.map(p=>p.replaceAll('\\','/').replace(out+'/','')).filter(p=>/^(?:business|category)\/[^/]+\.html$/.test(p))]);
+  const approved=new Set(['app-v99.js','assets/community.js','index.html','styles.css','netlify.toml','package.json','scripts/generate-seo.js','robots.txt','seo-index.json','seo.html','sitemap.xml','business-index.json','llms.txt',...files.map(p=>p.replaceAll('\\','/').replace(out+'/','')).filter(p=>/^(?:business|category)\/[^/]+\.html$/.test(p))]);
   if(changed.some(file=>!approved.has(file)))throw Error();
   fs.mkdirSync('.release-artifacts',{recursive:true});
   fs.writeFileSync('.release-artifacts/hosted-public-audit.json',JSON.stringify({existingPaths:baseline.files.length,files:files.length,changed,secretScan:'PASS',newPrivatePaths:false},null,2));
