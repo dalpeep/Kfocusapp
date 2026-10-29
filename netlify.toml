@@ -1,10 +1,10 @@
 [build]
   base = "."
-  publish = "."
+  publish = ".public-build"
   functions = "netlify/functions"
-  command = "node scripts/release/netlify-build.mjs"
+  command = "node scripts/release/locked-draft-build.mjs && node scripts/release/build-functions.mjs && node scripts/release/verify-standalone-runtime.mjs"
   # Preparation branch: skip every Netlify build until separately approved.
-  ignore = "exit 0"
+  ignore = "exit 1"
 
 [functions]
   included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]
