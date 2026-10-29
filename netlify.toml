@@ -1,6 +1,6 @@
 [build]
   base = "."
-  command = "node build-stop.cjs"
+  command = "node verify.mjs"
   publish = "public"
   functions = "empty-functions"
   ignore = "exit 0"
