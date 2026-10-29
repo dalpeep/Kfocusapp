@@ -1,3 +1,14 @@
+[build]
+  base = "."
+  publish = "."
+  functions = "netlify/functions"
+  command = "node scripts/release/netlify-build.mjs"
+  # Preparation branch: skip every Netlify build until separately approved.
+  ignore = "exit 0"
+
+[functions]
+  included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]
+
 [functions."raffle-auto-draw"]
   schedule = "*/10 * * * *"
 
@@ -39,3 +50,9 @@
   for = "/styles.css"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
+
+[functions."owner-content-uuid"]
+  included_files = ["node_modules/@supabase/**","node_modules/@netlify/aws-lambda-compat/**","node_modules/@netlify/types/**","node_modules/iceberg-js/**","node_modules/tslib/**","node_modules/sharp/**","node_modules/@img/**","node_modules/detect-libc/**","node_modules/semver/**","node_modules/@emnapi/**","netlify/legacy-functions/lib/fonts/**","netlify/legacy-functions/lib/owner-coupon-template.js","netlify/legacy-functions/lib/validated-image.js"]
+
+[functions."owner-image-uuid"]
+  included_files = ["node_modules/@supabase/**","node_modules/@netlify/aws-lambda-compat/**","node_modules/@netlify/types/**","node_modules/iceberg-js/**","node_modules/tslib/**","node_modules/sharp/**","node_modules/@img/**","node_modules/detect-libc/**","node_modules/semver/**","node_modules/@emnapi/**","netlify/legacy-functions/lib/fonts/**","netlify/legacy-functions/lib/owner-coupon-template.js","netlify/legacy-functions/lib/validated-image.js"]

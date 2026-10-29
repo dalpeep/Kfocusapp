@@ -5574,3 +5574,37 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-home-card #communityHomeFilters.life-category-filters button[data-community-home-category="life_questions"]{background:#faf5ff;color:#7e22ce}
 .community-home-card #communityHomeFilters.life-category-filters button.active{background:color-mix(in srgb,currentColor 14%,white);border-color:currentColor;box-shadow:0 2px 6px #0002;font-weight:800}
 .life-category-icon{width:24px;height:24px;flex-shrink:0}
+
+/* Shared community home/list cards across events, life and promotions. */
+:is(.community-home-card,#page-community) .community-home-horizontal{
+  display:grid;grid-template-columns:96px minmax(0,1fr);align-items:center;
+  gap:12px;width:100%;min-height:146px;padding:10px 12px;box-sizing:border-box;
+  border:0;border-radius:18px;background:linear-gradient(135deg,#fff7ed,#fff);
+  box-shadow:0 8px 20px rgba(15,23,42,.05);text-align:left;
+}
+:is(.community-home-card,#page-community) .community-home-horizontal>.community-home-thumb{
+  display:block;width:96px;height:96px;aspect-ratio:1;object-fit:cover;border-radius:12px;
+}
+:is(.community-home-card,#page-community) .community-home-horizontal>.community-home-thumb.is-logo{
+  object-fit:contain;padding:8px;box-sizing:border-box;background:#fff;
+}
+.community-home-copy{display:flex;flex-direction:column;gap:4px;min-width:0;align-self:stretch}
+.community-home-copy .community-ui4-badges{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.community-home-title,.community-home-preview{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;
+}
+.community-home-title{font-size:15px;line-height:1.35;color:#18335f}
+.community-home-preview{font-size:12px;line-height:1.45;color:#516277;min-height:2.9em}
+.community-home-meta{margin-top:auto;font-size:11px;line-height:1.4;color:#60738b;overflow-wrap:anywhere}
+@media(max-width:640px){
+  :is(.community-home-card,#page-community) .community-home-horizontal{grid-template-columns:88px minmax(0,1fr);gap:10px;padding:10px;min-height:146px}
+  :is(.community-home-card,#page-community) .community-home-horizontal>.community-home-thumb{width:88px;height:88px}
+}
+
+#page-community .community-category-filters[hidden]{display:none}
+
+/* Promotion detail call action; other category contact buttons stay unchanged. */
+.community-detail .community-contact-call{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 14px;box-sizing:border-box;border-radius:12px;background:#2563eb;color:#fff;text-decoration:none;font-weight:700;max-width:100%}
+.community-contact-call svg{flex:none}
+.community-contact-call .community-contact-number{font-weight:400;overflow-wrap:anywhere}
+.community-contact-call:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}

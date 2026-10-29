@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const source=fs.readFileSync('owner-uuid/availability.js','utf8');
+async function probe(check){let sdk=0,ready=0,closed=0;const context={window:{},fetch:()=>{throw Error('unexpected network')}};vm.runInNewContext(source,context);const active=await context.window.OwnerAvailability.start({check,createClient:()=>{sdk++;return{}},ready:async()=>{ready++},disabled:()=>{closed++}});return{active,sdk,ready,closed};}
+for(const status of [503,500,200])test('Owner '+status+' creates no Auth client or signup path',async()=>assert.deepEqual(await probe(async()=>new Response('{}',{status,headers:{'content-type':'application/json'}})),{active:false,sdk:0,ready:0,closed:1}));
+test('HTML401 fails closed without Auth initialization',async()=>assert.equal((await probe(async()=>new Response('<html>denied</html>',{status:401,headers:{'content-type':'text/html'}}))).sdk,0));
+test('network failure fails closed without Auth initialization',async()=>assert.equal((await probe(async()=>{throw Error('fixture network')})).sdk,0));
+test('valid enabled unauthenticated JSON reuses existing Auth client flow',async()=>assert.deepEqual(await probe(async()=>new Response(JSON.stringify({ok:false,error:'login required'}),{status:401,headers:{'content-type':'application/json'}})),{active:true,sdk:1,ready:1,closed:0}));
+test('login form hidden until gate and availability script precedes portal',()=>{const s=fs.readFileSync('owner-uuid/index.html','utf8');assert.match(s,/<form id="auth" hidden>/);assert.ok(s.indexOf('/owner-uuid/availability.js')<s.indexOf('/owner-uuid/portal.js'));});

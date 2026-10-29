@@ -1,0 +1,2181 @@
+{
+  "approvedCommit": null,
+  "publishedDeploy": "6ae36f4905a1d0956a59feb8",
+  "siteId": "e2667e40-0999-42a3-892b-2b2edff61434",
+  "fingerprint": [
+    {
+      "path": ".node-version",
+      "sha256": "0c4bf84f9bedd485b2c4eac05f59e35addc86ce7dbf0d90435528e04384c6314"
+    },
+    {
+      "path": "app-v99.js",
+      "sha256": "621dd99bcbbde6d3cb1a9b4d2100de57e15d84a731ffbb281ead5575801a96c4"
+    },
+    {
+      "path": "assets/community.js",
+      "sha256": "89ece9107ccea6cd7a9579b33913c591910193ad82e3a36c58835d229f0045b9"
+    },
+    {
+      "path": "index.html",
+      "sha256": "188ca1e2816b32c26b62b378b541f182a833f036a140f4d851ba5227ca031cda"
+    },
+    {
+      "path": "netlify/functions/ai-daily-home.mjs",
+      "sha256": "5371b4ba55eabdf067d3702cb3f2cb2a4874ad90775de9f7084061f3b0562056"
+    },
+    {
+      "path": "netlify/functions/analyze-newsroom.mjs",
+      "sha256": "b497ea4930a55af78a081c86f5cda21d017027b52ff3c98e6885e6fcf166a8be"
+    },
+    {
+      "path": "netlify/functions/collect-newsroom.mjs",
+      "sha256": "d4246dc7e3144084b530255588f549f47772c8e1ff31235e750b18380b8cc450"
+    },
+    {
+      "path": "netlify/functions/community-admin.mjs",
+      "sha256": "a4ea608846e1c4e0206c28d1f3aa35f8987058506ff94c8cb73c3bdc7eb4ef74"
+    },
+    {
+      "path": "netlify/functions/community-cleanup-scheduled.mjs",
+      "sha256": "91243ee5bb2752962d4639dd4f91bf9ace86559c6e376fdc7768fd2307bcb456"
+    },
+    {
+      "path": "netlify/functions/community-comment-create.mjs",
+      "sha256": "9d8303c61825512d0209216b4fbdea31d079a6d912f6775c2406a4032a66cfc8"
+    },
+    {
+      "path": "netlify/functions/community-comment-delete.mjs",
+      "sha256": "2760f0e21f248c746bc6e8ccc0738dda0639498801274db6efb6bd446ff4ae99"
+    },
+    {
+      "path": "netlify/functions/community-post-create.mjs",
+      "sha256": "04c39f26686a3a8d02681f37257fe97247689d92c92cadfe462286701ae420f9"
+    },
+    {
+      "path": "netlify/functions/community-post-delete.mjs",
+      "sha256": "a02bc27e1dfd1334e91cd178319c0442a791f250d9a5985c190e76ccbeba5826"
+    },
+    {
+      "path": "netlify/functions/community-post-extend.mjs",
+      "sha256": "18aae430c36b47be4f97f9d6abe71547288f4ba942905ccd74b1c8519fd21b0e"
+    },
+    {
+      "path": "netlify/functions/community-post-owner.mjs",
+      "sha256": "e4e1d82bed7eda6a671c61c495c9f259875491e9d1c9bcbff8821bc9a8f8cd45"
+    },
+    {
+      "path": "netlify/functions/community-post-sold.mjs",
+      "sha256": "e82060bcc2ed85386044e9efa35b2db64a1e61e00192458629082510d7118ef1"
+    },
+    {
+      "path": "netlify/functions/community-post-update.mjs",
+      "sha256": "a50db600af5a5ed029160fa40e6243b1ee5a1e68d2a4fa6ece02a4e108d1d452"
+    },
+    {
+      "path": "netlify/functions/community-upload-authorize.mjs",
+      "sha256": "63b913f5ff72e76d3e99606976770abeb292507296a38a4f2207fecfd5ce6a85"
+    },
+    {
+      "path": "netlify/functions/community-video-retry-availability.mjs",
+      "sha256": "3d4161860c848b9fffd02f608c29d221120610f3c3b4e91db09867c56e06d3ff"
+    },
+    {
+      "path": "netlify/functions/community-video-upload-admit.mjs",
+      "sha256": "26a8de05b2493fac3a36a33f531ada9a61942386806ff453c232adc504f4cd80"
+    },
+    {
+      "path": "netlify/functions/community-video-upload-status.mjs",
+      "sha256": "638aebd93aa38d5f1bfd630bcd26869d579954200d2745224b1d05b1bb3a2a3d"
+    },
+    {
+      "path": "netlify/functions/config.mjs",
+      "sha256": "bf0b2c0149e0f202eec4c162288a479bee3aeab7a47538fbc2ef148750aa98ac"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-admin.mjs",
+      "sha256": "8efed83a79f2e22ca6632edbf660937c10841478e531de6d1fd8928299957392"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-enter.mjs",
+      "sha256": "1164dc34febfc3bc5b3187184ddbb090af2fe96a6242e50b87ccf85ca10310d1"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-lib.mjs",
+      "sha256": "9e71eb66215350dc48366f4b6bdb7a2d596460b2fa5cd44810ce65feffe5da61"
+    },
+    {
+      "path": "netlify/functions/coupon-redemptions-admin.mjs",
+      "sha256": "b00f0a519450e87286487647de963b086b64ab4c8335ed8d37471459db5e95d3"
+    },
+    {
+      "path": "netlify/functions/coupon-used-notify.mjs",
+      "sha256": "09d49e3335d0def3aae8af816eede359488b8c6367964c26f54a198d0d4cbba4"
+    },
+    {
+      "path": "netlify/functions/daily-core-refresh.mjs",
+      "sha256": "d04af73691da56550ceec1a3b8cf8afef86057450457d653080fd3d8d2850e83"
+    },
+    {
+      "path": "netlify/functions/daily-core-scheduled.mjs",
+      "sha256": "709d4891b75ab75cef354c7a33852e3b875293f0d92ee78581f696fdf57d3e8b"
+    },
+    {
+      "path": "netlify/functions/daltown-daily-core.mjs",
+      "sha256": "497e6125c9751bcd4dbf7f2bbce27e4ff51437249517d3c22f2dfe205ef30cc8"
+    },
+    {
+      "path": "netlify/functions/data/dalkora_business_full.csv",
+      "sha256": "d00c5c643b93dba0eeb31b58e3cd61fcf51db5c3e949337d53f432a28803d29f"
+    },
+    {
+      "path": "netlify/functions/data/ktn-businesses.json",
+      "sha256": "399be01260357417abda1bd817e7d6bbbedb937c27d93e5eab467b58a49bb242"
+    },
+    {
+      "path": "netlify/functions/draft-newsroom.mjs",
+      "sha256": "f883da27bae1788d8e01118e631a9738733bf4b87806f0b2d44e3e1639c955cb"
+    },
+    {
+      "path": "netlify/functions/event-winner-admin.mjs",
+      "sha256": "7c51373703fa7ced88492a5d287733699c2708b5ae10f8efdb71d097ae1a5aab"
+    },
+    {
+      "path": "netlify/functions/generate-campaign-image.mjs",
+      "sha256": "424e53b3f23eeefc2c42dde2b37e9b1f490fc6ec000c1297ff0b40c11b9ed3d0"
+    },
+    {
+      "path": "netlify/functions/generate-content-suite.mjs",
+      "sha256": "eb30d1212b88a457b00bc18ac932623e2836687060badcaabebf19241f0f485e"
+    },
+    {
+      "path": "netlify/functions/generate-dalpick-image.mjs",
+      "sha256": "edffdbee5f24d3d70e92fc17333daa06b504338cc8c16a8105ab8088380cb5b2"
+    },
+    {
+      "path": "netlify/functions/generate-dalpick.mjs",
+      "sha256": "c14fe35af5c38e60dc3e3afcd86216255e7f1e6fb9d29d0e0af683505d8d7381"
+    },
+    {
+      "path": "netlify/functions/generate-guide.mjs",
+      "sha256": "0a76f6d18ab4ce83e28f6fe3136391c39574f8abd8d90514286fef387f7cd47c"
+    },
+    {
+      "path": "netlify/functions/google-place-rating.mjs",
+      "sha256": "fe8c4c985f17af00f6938a84df5023d05e6cb104c0160171e29a7de2b10cc7cf"
+    },
+    {
+      "path": "netlify/functions/lib/community-cleanup.js",
+      "sha256": "31d6e214c41465479b9d5718daaa440cf58a72c818cde9e8011e606ef227066c"
+    },
+    {
+      "path": "netlify/functions/lib/community-details.js",
+      "sha256": "b412b0d4f7520fe5a56b00975dcc8717aac4d2c1ee6a41cc075e97e6d40c8bad"
+    },
+    {
+      "path": "netlify/functions/lib/community-edit-policy.js",
+      "sha256": "9966806b29ad54b80e7334baa40dec28aef8b55cd5e76ba1fa1df09379f6cefc"
+    },
+    {
+      "path": "netlify/functions/lib/community-image-edit.js",
+      "sha256": "3b5d530795ebca265d801998182b61d2495272cac63f4b6beab24e8aa47420db"
+    },
+    {
+      "path": "netlify/functions/lib/community-lifecycle.js",
+      "sha256": "25a7e3d832a9abc5ba73b4ea41cc74e3087e26f4d894155fd7cfae7f69456c1a"
+    },
+    {
+      "path": "netlify/functions/lib/community-maintenance.js",
+      "sha256": "c7085e3fad99db32c59797a3847414427f0aa77740f6063a53b34e201949452a"
+    },
+    {
+      "path": "netlify/functions/lib/community-mutate.js",
+      "sha256": "bea8b6149d78341559ac04aadd3991247b40ab809f812840a9ccd39669221a3a"
+    },
+    {
+      "path": "netlify/functions/lib/community-retention.js",
+      "sha256": "96f558b51ee9ee8af5da0e6e81634f905b5255f9ac83de3a10e09894b9a3c2ca"
+    },
+    {
+      "path": "netlify/functions/lib/community-review.js",
+      "sha256": "709f7823868f4605192c5ee43e343481ec45db689835d8d0339df93b7e5ae78e"
+    },
+    {
+      "path": "netlify/functions/lib/community-security.js",
+      "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    },
+    {
+      "path": "netlify/functions/lib/community-video-production-config.js",
+      "sha256": "3d49b28417ac386d734eabe9b6edfc2f482a55282efd1386e7fe17195b92c8bf"
+    },
+    {
+      "path": "netlify/functions/lib/community-video-url.js",
+      "sha256": "eab2b26b768af9d24897cc2ad62ed9623932c3a5ed6d9d88ef111ab195a4343a"
+    },
+    {
+      "path": "netlify/functions/lib/daily-core.js",
+      "sha256": "573046be45a20e18af4b66fee3f0f26e6024c10e1d2da31dcb48b34424366c8f"
+    },
+    {
+      "path": "netlify/functions/newsroom-daily.mjs",
+      "sha256": "0b024c8c157f0e9dbd9a1f8ec5cb51ef78609db38afefd164e4d675eec1313fe"
+    },
+    {
+      "path": "netlify/functions/raffle-auto-draw.mjs",
+      "sha256": "acfea50ec921451897cf9599b7c5fa5169a6ef9467b14cb2da346a172860a6cc"
+    },
+    {
+      "path": "netlify/functions/runtime-settings.mjs",
+      "sha256": "3edb1ef0dd6a9e79b10139bb65c31a51c7309522cb64731db436be17fced4e22"
+    },
+    {
+      "path": "netlify/functions/search-guide.mjs",
+      "sha256": "cf726c3ccff25cf6219de9d36a4633a2404ae6a322b15d1e89b1d38526613034"
+    },
+    {
+      "path": "netlify/functions/sendPush.mjs",
+      "sha256": "0b2c0dbec573945b65d05b2a4fd7f1057aa2b17b9e513fbd14f59e306c948935"
+    },
+    {
+      "path": "netlify/functions/set-admin-user.mjs",
+      "sha256": "afa9b3f299ade17cf2cd3ef47df5eb7c54b9fc3001bf484d51c0bdf01380e6bb"
+    },
+    {
+      "path": "netlify/functions/smart-flyer-admin.mjs",
+      "sha256": "f13f1c783cce5298451c8cea9d72eeb996dfeb94aa18cc71656c4b130fa2d933"
+    },
+    {
+      "path": "netlify/functions/smart-flyer-public.mjs",
+      "sha256": "e9c8028b9a2b7f678bdca67c63c046a3e3645a0830ae0c9e482de644dd2f8e38"
+    },
+    {
+      "path": "netlify/functions/today-daltown-feed.mjs",
+      "sha256": "ed4cbd8048adddd986fc751aa3fb1d7049f01dd0663d2cfab9e4ad17e106d6ab"
+    },
+    {
+      "path": "netlify/functions/traffic-source-track.mjs",
+      "sha256": "12865a3df720c9bb63da81cb9d025be4524ad633587aa801b4d844f5fc58a814"
+    },
+    {
+      "path": "netlify/legacy-functions/ai-daily-home.js",
+      "sha256": "1566b2261039f68d5f72c57d4db5f53b934bfaf79ff9aedbca46ea0ff77a7957"
+    },
+    {
+      "path": "netlify/legacy-functions/analyze-newsroom.js",
+      "sha256": "296d377eaea20b88d771b4645b36c004a3bf891827890653de41735396f3609b"
+    },
+    {
+      "path": "netlify/legacy-functions/collect-newsroom.js",
+      "sha256": "ec2d1d97c4749bbed7bf09216a287cdd86a12f58bd4074a39ac1b57da7463fde"
+    },
+    {
+      "path": "netlify/legacy-functions/community-admin.js",
+      "sha256": "be03a323a73ea1e89cbf31eaff90e5ba6248e788313c04ac33c2ece2d1001efb"
+    },
+    {
+      "path": "netlify/legacy-functions/community-cleanup-scheduled.mjs",
+      "sha256": "91243ee5bb2752962d4639dd4f91bf9ace86559c6e376fdc7768fd2307bcb456"
+    },
+    {
+      "path": "netlify/legacy-functions/community-comment-create.js",
+      "sha256": "9ed8bfc0573e7326f5437c37a535afddd8a0d17c77e5f68dfa97120b413bdb9c"
+    },
+    {
+      "path": "netlify/legacy-functions/community-comment-delete.js",
+      "sha256": "5aba5a128ff3929cff84708aa644033ea51bf5ed780aa4acb1d73ea88628028c"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-create.js",
+      "sha256": "94e9adba89f10f8b8b500bf749f9c2129944ce68284a51653a673ef04bf4079b"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-delete.js",
+      "sha256": "6c59ed17c0a4acb5d1609a112599dd620b43013d4c089f2997882822e877ffa8"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-extend.js",
+      "sha256": "c31edc99b762147a2875375272318d72f5c844c53214b3deb4740d2f08743bf8"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-owner.js",
+      "sha256": "36d46fbac55f1bb491fb302bac854158461a68a740c332719d8ad8600f2540d8"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-sold.js",
+      "sha256": "88830edd6b815f5b2df547fdd68aaf4b08fd45325cca4b2fcdbb525b90845156"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-update.js",
+      "sha256": "71a0d9da48dec892b713884a6c75f751aae85f77e34d1f2f9ceb1c2483bd5497"
+    },
+    {
+      "path": "netlify/legacy-functions/community-upload-authorize.js",
+      "sha256": "0ac76fa4dd5cd9932dab856be6fe59a042e7819094514140d442081b38b226dd"
+    },
+    {
+      "path": "netlify/legacy-functions/community-video-retry-availability.js",
+      "sha256": "f3aaea691bc492f452043392f4520722bb607c70f1463e3d2d1295987a956c4b"
+    },
+    {
+      "path": "netlify/legacy-functions/community-video-upload-admit.js",
+      "sha256": "2c2bf49fdc0a9912e2f0ca0dc7d5d6d5ea9fcc826d710df8874cf0934c965486"
+    },
+    {
+      "path": "netlify/legacy-functions/community-video-upload-status.js",
+      "sha256": "6262f3185de65887194ae40dbca928113fafe3884785be3c0048e617ee631f3e"
+    },
+    {
+      "path": "netlify/legacy-functions/config.js",
+      "sha256": "5b05aa573ae1e41f9701e4b9e0fd19081370d7288c9493f3ded0d4e3c4ef0007"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-campaign-admin.js",
+      "sha256": "f15b2f6901f1d3ef98b4280c379fbb1cdcb983700d6bb54ffa20cf2b8ff20ac3"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-campaign-enter.js",
+      "sha256": "a0a1bcea4f714f4d6b25e7e7a86861a8d778af00424ba5f9eb69d3a188786e8f"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-campaign-lib.js",
+      "sha256": "b104378b9d6f55ea0fd8c3645e00d0976f837174c9777e60d35bb82e3e8f21e9"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-redemptions-admin.js",
+      "sha256": "36754fd5cf6ed8c8b7480829d81dd27941d5dc25aa8dd8e7013ea71a011dcc86"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-used-notify.js",
+      "sha256": "a8cd9747ff25ec55ba3d42d2387198fd90656fa409f49ecd3ba14ea9abecbc7e"
+    },
+    {
+      "path": "netlify/legacy-functions/daily-core-refresh.js",
+      "sha256": "75fae240fdcbd44d83152ce943dae78d3ca2024becd7e86e910cec68341a8e7c"
+    },
+    {
+      "path": "netlify/legacy-functions/daily-core-scheduled.mjs",
+      "sha256": "709d4891b75ab75cef354c7a33852e3b875293f0d92ee78581f696fdf57d3e8b"
+    },
+    {
+      "path": "netlify/legacy-functions/daltown-daily-core.js",
+      "sha256": "63199a1f0e2b1fe775c7f3e35f57c7c17d7c0a5fd52ac028ac2da9eee55e62c3"
+    },
+    {
+      "path": "netlify/legacy-functions/data/dalkora_business_full.csv",
+      "sha256": "d00c5c643b93dba0eeb31b58e3cd61fcf51db5c3e949337d53f432a28803d29f"
+    },
+    {
+      "path": "netlify/legacy-functions/data/ktn-businesses.json",
+      "sha256": "399be01260357417abda1bd817e7d6bbbedb937c27d93e5eab467b58a49bb242"
+    },
+    {
+      "path": "netlify/legacy-functions/draft-newsroom.js",
+      "sha256": "11aa7af8bf5cd4682eb939a6ae02da7ced46f7e6fe5befa134c292054e0f2f46"
+    },
+    {
+      "path": "netlify/legacy-functions/event-winner-admin.js",
+      "sha256": "c04fc392906ab6c69aff16b13c291a87248487e6dc0d220fa58de47c4d4fe172"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-campaign-image.js",
+      "sha256": "2e8700995c82c34828203f220d3bddf136feaee7c700e7aa3fa76a298bbe5099"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-content-suite.js",
+      "sha256": "402d4ea27caa8752ec93a275a981ae6bee778effd7899945b5030136ae041c20"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-dalpick-image.js",
+      "sha256": "fb9f2f4e04195dbebb89ad8291fe7eb54c5856f1936f3b1f40a3b19ac4c07a0d"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-dalpick.js",
+      "sha256": "a5c297ddf350638b1293c2bc84c9d1fcb02327778ce19ac2743e9113c849395c"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-guide.js",
+      "sha256": "3285627b3f36b94de2a5b93d9881c4867a97cba12e582bbc1684ba547522ec7f"
+    },
+    {
+      "path": "netlify/legacy-functions/google-place-rating.js",
+      "sha256": "f06f2b30f2fece2763fd28bf12cead378d99aac02d4e2d745ec5e5f2bb115711"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-cleanup.js",
+      "sha256": "31d6e214c41465479b9d5718daaa440cf58a72c818cde9e8011e606ef227066c"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-details.js",
+      "sha256": "b412b0d4f7520fe5a56b00975dcc8717aac4d2c1ee6a41cc075e97e6d40c8bad"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-edit-policy.js",
+      "sha256": "9966806b29ad54b80e7334baa40dec28aef8b55cd5e76ba1fa1df09379f6cefc"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-image-edit.js",
+      "sha256": "3b5d530795ebca265d801998182b61d2495272cac63f4b6beab24e8aa47420db"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-lifecycle.js",
+      "sha256": "25a7e3d832a9abc5ba73b4ea41cc74e3087e26f4d894155fd7cfae7f69456c1a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-maintenance.js",
+      "sha256": "c7085e3fad99db32c59797a3847414427f0aa77740f6063a53b34e201949452a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-mutate.js",
+      "sha256": "bea8b6149d78341559ac04aadd3991247b40ab809f812840a9ccd39669221a3a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-retention.js",
+      "sha256": "96f558b51ee9ee8af5da0e6e81634f905b5255f9ac83de3a10e09894b9a3c2ca"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-review.js",
+      "sha256": "709f7823868f4605192c5ee43e343481ec45db689835d8d0339df93b7e5ae78e"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-security.js",
+      "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-video-production-config.js",
+      "sha256": "3d49b28417ac386d734eabe9b6edfc2f482a55282efd1386e7fe17195b92c8bf"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-video-url.js",
+      "sha256": "eab2b26b768af9d24897cc2ad62ed9623932c3a5ed6d9d88ef111ab195a4343a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/daily-core.js",
+      "sha256": "573046be45a20e18af4b66fee3f0f26e6024c10e1d2da31dcb48b34424366c8f"
+    },
+    {
+      "path": "netlify/legacy-functions/newsroom-daily.js",
+      "sha256": "d541c4a108826c1b74e9d1f291079e558673c53501038d6e66237bcefbe00b3d"
+    },
+    {
+      "path": "netlify/legacy-functions/raffle-auto-draw.js",
+      "sha256": "0046c2fec3d2e1cf6b83467ab785a8d3b3d5c73fead9bd9f3203a73d3c150509"
+    },
+    {
+      "path": "netlify/legacy-functions/runtime-settings.js",
+      "sha256": "1f3c66376aaef8f61378fd4734ce72d0a1b9153f877530cff4e9fc81973a3615"
+    },
+    {
+      "path": "netlify/legacy-functions/search-guide.js",
+      "sha256": "e47f2c1d8dc5a99acd2b9d40a2d7d8a28b65f531a49bbf3c59dbc407d7beb415"
+    },
+    {
+      "path": "netlify/legacy-functions/sendPush.js",
+      "sha256": "93825a54150662a8f9fb72190f1c735a6e86041ad2546878c791f2ada8d4903c"
+    },
+    {
+      "path": "netlify/legacy-functions/set-admin-user.js",
+      "sha256": "03819f1e7b74cda61b7428c397afa2adedaa1d68d56cfd140809cec7b87cb463"
+    },
+    {
+      "path": "netlify/legacy-functions/smart-flyer-admin.js",
+      "sha256": "482881ce2fac279d4fc9907e08627cf3154a2991b73111c542a9b301d4f1367b"
+    },
+    {
+      "path": "netlify/legacy-functions/smart-flyer-public.js",
+      "sha256": "975badeff4c7892a6fff21c73cadbf764b40fe01981db5369569e7bacc3ebe23"
+    },
+    {
+      "path": "netlify/legacy-functions/today-daltown-feed.js",
+      "sha256": "c6df4375db95b795742607ffb7c1451ca605ad4a504ed15e4070d492d2f3fcfe"
+    },
+    {
+      "path": "netlify/legacy-functions/traffic-source-track.js",
+      "sha256": "6945140a3127e3a30ee390ecde4cbb7d7b85398e36585ac5251981131d48ab99"
+    },
+    {
+      "path": "netlify/migration/adapter.mjs",
+      "sha256": "e54bc37de1ac34678c4e12553c9a47f75d83af6bfadb6181e9844226499a8ed1"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "cd0a8c54cbb9b3e187746fac8438da3c1390ad5d961f339d727f6b4721615dfa"
+    },
+    {
+      "path": "package.json",
+      "sha256": "8d41f1dd78826b1b7f7fc0a95de6a0fd9ae4b4bca3c3f3fa5b01df171f247a87"
+    },
+    {
+      "path": "styles.css",
+      "sha256": "98dc7029a6020f1291dec821587291270513b9758c4b7612eab8a34934dc0390"
+    },
+    {
+      "path": "owner-uuid/account.js",
+      "sha256": "23f94d2d63eb24d4c44eb7cece104c2de539a286335eaf8b8907c40823ec2dea"
+    },
+    {
+      "path": "owner-uuid/content.js",
+      "sha256": "e1860bdb18e4e1b7714d2f20723bbbe50297a5800f2f118bace207b270eac854"
+    },
+    {
+      "path": "owner-uuid/coupon-design.js",
+      "sha256": "f6f626abe5f3d93019dda01ccf70082d84d868ead9993f7b9e7f36a3d88e3db1"
+    },
+    {
+      "path": "owner-uuid/images.js",
+      "sha256": "3f5e3d815161e15192ca3ca20d1dc7eb7f155b83b558e27f9235bee380260fd0"
+    },
+    {
+      "path": "owner-uuid/index.html",
+      "sha256": "89d6a4795267586b6686790f135c148657e634c22d645237c81c723585c6db4b"
+    },
+    {
+      "path": "owner-uuid/layout.js",
+      "sha256": "47627d6c9cc87e2b5330f67e112422de12d7830e0f2f0ddcfb8884c8430bf5e6"
+    },
+    {
+      "path": "owner-uuid/portal.css",
+      "sha256": "7b7ab65a3c8926756bb8d7ea8408e606e89d7ec2288bf1d1dce33c6485c52c8c"
+    },
+    {
+      "path": "owner-uuid/portal.js",
+      "sha256": "e7cfdaaaa2c24d309b49f0178e09b292cd9e856ef4d53c30a2a37c6cd72fb798"
+    },
+    {
+      "path": "owner-uuid/ui-policy.js",
+      "sha256": "9dd06a0376505e0a36c5b27016a68979bc81ab655e8b4dd9593ad49d83909bbb"
+    },
+    {
+      "path": "assets/validated-image-upload.js",
+      "sha256": "2ada51fb2c7be7e7b639e60556038fb4b25f767263b42bd6709ed35442f69c99"
+    },
+    {
+      "path": "netlify/functions/owner-account-uuid.mjs",
+      "sha256": "730ce7eba5f9be77308e983a3cb2e48ab271af621ec94bfe45724d7d3f112526"
+    },
+    {
+      "path": "netlify/functions/owner-content-uuid.mjs",
+      "sha256": "7001faa0e8366e5937ba6a17d325bf1874281d14411d7305bd87d1ace7394452"
+    },
+    {
+      "path": "netlify/functions/owner-image-uuid.mjs",
+      "sha256": "1291d66ba91b818a177ab50b9687fcee5d9f400a70218296d232aa05a73d213a"
+    },
+    {
+      "path": "netlify/functions/owner-portal-uuid.mjs",
+      "sha256": "1516505449642646b7e65b060832bb09e5086fd5b3b7d6a2450ca02b2f983850"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/fonts/NotoSansKR.ttf",
+      "sha256": "194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/fonts/OFL.txt",
+      "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-account-uuid.js",
+      "sha256": "c7766e230f6bc15361878ee1bdaf4ec16c50fd624b7ff6f1d6a095395af54e36"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-content-uuid.js",
+      "sha256": "39c490d686acdbc6e225852ecefdd097a4bfd2b0ffdf0e360647cffda4319f3c"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-coupon-template.js",
+      "sha256": "724d6995d4b6fba52bc206528f5c794d83b4f2bb1c1e4903ba6f547d4791dfc8"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-portal-uuid.js",
+      "sha256": "2661f617c700cfae5291c72c920c5b51a47277f01cd162f9b7d88ca4894ed3ef"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-uuid-environment.js",
+      "sha256": "72225766c843cfd0e81a078eedff1687a9041ba6cad4b481ed88ad844180d96a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/validated-image.js",
+      "sha256": "9d52acff9634cc6583950148ef1c50eb6504e2ba72385876402373ac38b146b5"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/validated-video.js",
+      "sha256": "9f6406750da34ebe1e6b537f75ffbda3d59a66ff3c4b74f5645c3e91ebb6746b"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-account-uuid.js",
+      "sha256": "e888fe4ccd119882023452af1d481e2d7c81d4541278c89678fc135e8b5cb4a5"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-content-uuid.js",
+      "sha256": "073dd2de14c7c3fd904f3f3fe97b47424519b2e9dfe969d66d16ed9ede80e81e"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-image-uuid.js",
+      "sha256": "d10269fb6d176ebf7e30b52017a33804039633b0345dd6a34adba26183b393ea"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-portal-uuid.js",
+      "sha256": "d72146fc6d9b60e4caa8bc28e4d035775492d2a76195f4daccdb3431b7cc46a6"
+    },
+    {
+      "path": "supabase/owner-open/01-security.sql",
+      "sha256": "09768d57ea7f3f454a0a3772579e9142476d8f5cbc08f6194984d7c9ad454c0f"
+    },
+    {
+      "path": "supabase/owner-open/02-apply.sql",
+      "sha256": "467149fcfa8025bf625f88a8ce2522cb872ca56a579226c01b1577980298f753"
+    },
+    {
+      "path": "supabase/owner-open/03-storage.sql",
+      "sha256": "4b90f4ed655d3471f9f1cd962dd71bfb59eb95da45d159b9f5ab56f89e36f29f"
+    },
+    {
+      "path": "supabase/owner-open/03b-legacy-image-authorization.sql",
+      "sha256": "84fd1352108cfdc6911ed4b6b7e271ea46e35118e159651580ecc120b352fb6a"
+    },
+    {
+      "path": "supabase/owner-open/03c-owner-image-link.sql",
+      "sha256": "4d039e546a4293c564af782904bf6384e208b04e7d56625336aa613f0be18a10"
+    },
+    {
+      "path": "supabase/owner-open/06-owner-extensions.sql",
+      "sha256": "fab82a67ccd365baf5539978634d94e034b210a22e6aa1c7b6d83ad80963baf0"
+    },
+    {
+      "path": "supabase/owner-open/07-owner-coupon-plans.sql",
+      "sha256": "9e25be000d64d734702cbd5324d56d0bbb66b91ecf4148655576d2114300e889"
+    },
+    {
+      "path": "supabase/owner-open/08-owner-coupon-transition.sql",
+      "sha256": "6950f0e6ba3f37bb5ae63546165e93f554c126a11b400eac12cfba90c1d177fd"
+    },
+    {
+      "path": "supabase/owner-open/09-owner-open-hardening.sql",
+      "sha256": "81faed4b37f343f607d83f7227a1dd494dfa0492198d5f2c52c885df2d957d9f"
+    },
+    {
+      "path": "supabase/owner-open/manifest.json",
+      "sha256": "de0d80e7ce81cd7a041e2938e596e8ec7826c8ec6b397622bb009721e2efc042"
+    },
+    {
+      "path": "scripts/release/function-bundling-config.mjs",
+      "sha256": "069d0d293194284df4b78cbbcd585ba7fd9addd7124673095c6336116ca4df41"
+    },
+    {
+      "path": "scripts/release/verify-owner-base.mjs",
+      "sha256": "e4ff31ac4f9f2daee1d7a4a7bcb96a6a2a69661f7d3b0e913bf4c23899c191f1"
+    },
+    {
+      "path": "release-baseline/owner-base.json",
+      "sha256": "fc02dbff063b081cdefb8cad5a153d9e6f5d682c9b4a9832282eb1a6a369da0a"
+    },
+    {
+      "path": "release-baseline/owner-static.json",
+      "sha256": "f1decfdfdec0aa0ac8a9765e218810fe7e112a562f998f5c9cfd8af2675833ba"
+    },
+    {
+      "path": "release-baseline/owner-build-state.json",
+      "sha256": "d540a86fdcc9975a2d4ccbdb9b6c009f66a5dc20930f0c0f3842c1f20f6ad9c7"
+    },
+    {
+      "path": "owner-uuid/availability.js",
+      "sha256": "17ff038249e67e39015ccd6d4541fd0795208317dfbecf32c8a27cef368938ff"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-coupon-delivery.js",
+      "sha256": "f76706f3fce2184932d77d076e2036acfb12517970b067a07b02b86880cf478c"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-coupon-v2.js",
+      "sha256": "8fd930a8093a484dfbb660b3e2a079f9fe029b6f15cfac279079d17254fb68bf"
+    },
+    {
+      "path": "supabase/owner-open/10-coupon-v2-usage.sql",
+      "sha256": "ee873833f57823d12dbe2925904a5d4463a7b58d91f7d52fb9e2dd8aa38d9253"
+    },
+    {
+      "path": "release-baseline/owner-v2-patches.json",
+      "sha256": "957ce40e78b76f0bd11d602c0f523475823a33b4e5fec2e1279ea8f1cf787b57"
+    },
+    {
+      "path": "owner-uuid/descriptions.js",
+      "sha256": "71089b3e8faa9e3ce8d64389aa31bd21a8854c319884276daf6c8331f95c599e"
+    },
+    {
+      "path": "supabase/owner-open/11-owner-description-policy.sql",
+      "sha256": "a7ac02a6b2f19bd31ba4ddf766f86dd9b199900235ab26a3a7c37725a67341d5"
+    },
+    {
+      "path": "supabase/owner-open/12-owner-description-seed.sql",
+      "sha256": "434eacd986555abc6074b3df86e2da184df8944d91ddf1ecee17d18eaf7617ab"
+    },
+    {
+      "path": "supabase/owner-open/data/description-catalog.json",
+      "sha256": "5d95edc71fc75defa648b941426dd2e6b661050126d6706dd9fd0d335a299499"
+    },
+    {
+      "path": "netlify/functions/owner-notification-worker.mjs",
+      "sha256": "2515251aab50d3222e1c1841f5b57ea15000825bb2de0421a8d99984205cd41d"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-canary.js",
+      "sha256": "25815464aaa1ecbd777f87a97f376914bcc90d1a4a3e171ddb00a66fde07d97c"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-notifications.js",
+      "sha256": "d842248b69d41a0b0392411da5b3f08268d063b78e92575b032ad9287a3c60a2"
+    },
+    {
+      "path": "supabase/owner-open/13-owner-notifications.sql",
+      "sha256": "232ee15d955e6ad9a2c18d7fe70e9d2a65bd9c4032ce3f03b3308b560ced9f4a"
+    }
+  ],
+  "files": [
+    {
+      "target": "business-detail-ads-notes.txt",
+      "source": "BUSINESS-DETAIL-ADS-NOTES.txt",
+      "publishedSha1": "e5a2acf3ae5bd1521c72a9e971e621b20a985fba"
+    },
+    {
+      "target": "check-newsroom-version.js",
+      "source": "CHECK-NEWSROOM-VERSION.js",
+      "publishedSha1": "8cbed8aa71b7912af6c4511fca4ce3c2471c413b"
+    },
+    {
+      "target": "onesignalsdkworker.js",
+      "source": "OneSignalSDKWorker.js",
+      "publishedSha1": "7458c9d39c8c8e952b287cfba12a1a1b1137c286"
+    },
+    {
+      "target": "patch-p001-readme-ko.txt",
+      "source": "PATCH-P001-README-KO.txt",
+      "publishedSha1": "410b4bff37d8edf46b3d19f08a2ed09e815e5759"
+    },
+    {
+      "target": "readme.txt",
+      "source": "README.txt",
+      "publishedSha1": "8216e0f008c8c5b1869b6ea3c3de881383b84d17"
+    },
+    {
+      "target": "supabase-edge-function/newsroom/index.ts",
+      "source": "SUPABASE-EDGE-FUNCTION/newsroom/index.ts",
+      "publishedSha1": "255187584bd1848382542ed8867b74755324cab3"
+    },
+    {
+      "target": "theme-detail-fix-notes.txt",
+      "source": "THEME-DETAIL-FIX-NOTES.txt",
+      "publishedSha1": "0ec2c3dba194db18498c2c7144cda81117241a03"
+    },
+    {
+      "target": "v100_iphone_pwa_refresh.txt",
+      "source": "V100_IPHONE_PWA_REFRESH.txt",
+      "publishedSha1": "396eb20e5198419b669f5aa5e613a01ee5db1613"
+    },
+    {
+      "target": "v101_daily_ai_article_run_log.txt",
+      "source": "V101_DAILY_AI_ARTICLE_RUN_LOG.txt",
+      "publishedSha1": "b08df24c55419a67916457fffeda10b8209f602e"
+    },
+    {
+      "target": "v102_market_event_auto_rotation_ko.txt",
+      "source": "V102_MARKET_EVENT_AUTO_ROTATION_KO.txt",
+      "publishedSha1": "c68da37d286cc43008646f0725a6f606e1cc13f4"
+    },
+    {
+      "target": "v179-home-paid-priority-readme-ko.txt",
+      "source": "V179-HOME-PAID-PRIORITY-README-KO.txt",
+      "publishedSha1": "fe2afdbae0c61c0e1b2490360c44afa7f9c102d5"
+    },
+    {
+      "target": "v212-readme-ko.txt",
+      "source": "V212-README-KO.txt",
+      "publishedSha1": "6db3be03f1561141b617556f684f8fe7cfbb29f0"
+    },
+    {
+      "target": "v213-readme-ko.txt",
+      "source": "V213-README-KO.txt",
+      "publishedSha1": "a7d9480cdd26894eb7af188e98a7dad8df437684"
+    },
+    {
+      "target": "v220-readme-ko.txt",
+      "source": "V220-README-KO.txt",
+      "publishedSha1": "07ae8df1b4d8caf27b7d8e4d8d107596b17d8d2c"
+    },
+    {
+      "target": "v269-smart-flyer-audit.md",
+      "source": "V269-smart-flyer-audit.md",
+      "publishedSha1": "25d5e285b367b61a829b50e528a1741283d657d6"
+    },
+    {
+      "target": "v48.3-apply.txt",
+      "source": "V48.3-APPLY.txt",
+      "publishedSha1": "29058d426ae4d1eed7d9ca65ed07782676f2ee41"
+    },
+    {
+      "target": "v48.4-apply.txt",
+      "source": "V48.4-APPLY.txt",
+      "publishedSha1": "795c98d8d4d51c7cfc536226aa2f82ae24274be8"
+    },
+    {
+      "target": "v48.5-apply.txt",
+      "source": "V48.5-APPLY.txt",
+      "publishedSha1": "8cc4217d989f88870a4a8364499502ef9041c74b"
+    },
+    {
+      "target": "v48.6-readme-ko.txt",
+      "source": "V48.6-README-KO.txt",
+      "publishedSha1": "876b62a8ad41e08a6780f6bce7e1d19e469514b2"
+    },
+    {
+      "target": "v48.7-readme-ko.txt",
+      "source": "V48.7-README-KO.txt",
+      "publishedSha1": "059709f1cb6c2ae0a75e7f07dbc922b5faa19c45"
+    },
+    {
+      "target": "v48.8-readme-ko.txt",
+      "source": "V48.8-README-KO.txt",
+      "publishedSha1": "7c0e8ada2832352eb10d0c11f8d22a8de7c2b183"
+    },
+    {
+      "target": "v48.9-readme-ko.txt",
+      "source": "V48.9-README-KO.txt",
+      "publishedSha1": "a2d8b65c8a25cb3c6d1befa81c6b57dc30ca77e1"
+    },
+    {
+      "target": "v49-readme-ko.txt",
+      "source": "V49-README-KO.txt",
+      "publishedSha1": "67c02fd763b9ffe48998b0fd0af676e9acac1110"
+    },
+    {
+      "target": "v49.1-readme-ko.txt",
+      "source": "V49.1-README-KO.txt",
+      "publishedSha1": "5ec229ae38e4bf04701b4dfd02935156cb296374"
+    },
+    {
+      "target": "v49.2-readme-ko.txt",
+      "source": "V49.2-README-KO.txt",
+      "publishedSha1": "08005d1b898d4eaeefe685a3d026527fff8cea47"
+    },
+    {
+      "target": "v50-readme-ko.txt",
+      "source": "V50-README-KO.txt",
+      "publishedSha1": "68a09088fdac4b596b68ae51a02b272704b6fc3b"
+    },
+    {
+      "target": "v50.1-readme-ko.txt",
+      "source": "V50.1-README-KO.txt",
+      "publishedSha1": "97569237e1336386bb218c21e65e2249f3adc6c0"
+    },
+    {
+      "target": "v50.2-readme-ko.txt",
+      "source": "V50.2-README-KO.txt",
+      "publishedSha1": "bb2b0d3c4a71d433907da1be4e91b0941b5cb64c"
+    },
+    {
+      "target": "v51-readme-ko.txt",
+      "source": "V51-README-KO.txt",
+      "publishedSha1": "80e5fcaa90513f8ef10f278d3fdd57d79dfd31d3"
+    },
+    {
+      "target": "v51.1-readme-ko.txt",
+      "source": "V51.1-README-KO.txt",
+      "publishedSha1": "c0d8ae5148f1481e17eabd8f7e375d6b995155f1"
+    },
+    {
+      "target": "v51.2-readme-ko.txt",
+      "source": "V51.2-README-KO.txt",
+      "publishedSha1": "0c6a682d087fa9bd9fc9ac2def6655d849f016ae"
+    },
+    {
+      "target": "v51.3-readme-ko.txt",
+      "source": "V51.3-README-KO.txt",
+      "publishedSha1": "5baf141d60cf15c48fa86f8f843dffccb22fcd45"
+    },
+    {
+      "target": "v51.4-readme-ko.txt",
+      "source": "V51.4-README-KO.txt",
+      "publishedSha1": "4e56ec6014d1f685b77ed11e27e20e96564e34bc"
+    },
+    {
+      "target": "v51.5-readme-ko.txt",
+      "source": "V51.5-README-KO.txt",
+      "publishedSha1": "fe90ab2284b55378211a455217052babbcda4864"
+    },
+    {
+      "target": "v51.6-readme-ko.txt",
+      "source": "V51.6-README-KO.txt",
+      "publishedSha1": "c94975ac4262b027513c5c92ae6f7723e2972633"
+    },
+    {
+      "target": "v51.7-readme-ko.txt",
+      "source": "V51.7-README-KO.txt",
+      "publishedSha1": "c3808890a90996abb06f92fbc364a79de5c89c17"
+    },
+    {
+      "target": "v51.8-readme-ko.txt",
+      "source": "V51.8-README-KO.txt",
+      "publishedSha1": "e9c6e2148493ae5dfe8fc5bfd861792677fa774a"
+    },
+    {
+      "target": "v52-readme-ko.txt",
+      "source": "V52-README-KO.txt",
+      "publishedSha1": "0e67d232a6331478f38dca857ab8af089fccc347"
+    },
+    {
+      "target": "v52.1-readme-ko.txt",
+      "source": "V52.1-README-KO.txt",
+      "publishedSha1": "6074c7f7c727c833cade60fed0d4bfd069bfc76a"
+    },
+    {
+      "target": "v53-readme-ko.txt",
+      "source": "V53-README-KO.txt",
+      "publishedSha1": "732d98ff080ec8b3005d9e427cccacd83a9cfb6b"
+    },
+    {
+      "target": "v53.1-readme-ko.txt",
+      "source": "V53.1-README-KO.txt",
+      "publishedSha1": "51cb52d36c465558a51546fbc86d1b8d42677a51"
+    },
+    {
+      "target": "v53.2-readme-ko.txt",
+      "source": "V53.2-README-KO.txt",
+      "publishedSha1": "0c969cb2d64408ecb5a64527560b24e515b9d055"
+    },
+    {
+      "target": "v53.4-readme-ko.txt",
+      "source": "V53.4-README-KO.txt",
+      "publishedSha1": "eeb07ad75a4e46cc3cdf9a20120480cd69bf3e4e"
+    },
+    {
+      "target": "v53.5-readme-ko.txt",
+      "source": "V53.5-README-KO.txt",
+      "publishedSha1": "b11729907309771756178a5c814bdab0315a8733"
+    },
+    {
+      "target": "v53.6-readme-ko.txt",
+      "source": "V53.6-README-KO.txt",
+      "publishedSha1": "56a47570c61ee0d234b0e7908b1f562fabf85708"
+    },
+    {
+      "target": "v53.7-readme-ko.txt",
+      "source": "V53.7-README-KO.txt",
+      "publishedSha1": "152ac6d9192b7e91245ff38283f6d24b70b19e78"
+    },
+    {
+      "target": "v53.8-readme-ko.txt",
+      "source": "V53.8-README-KO.txt",
+      "publishedSha1": "b74d3b47ca5c02dc0f22955f773438797c2c10dd"
+    },
+    {
+      "target": "v53.9-readme-ko.txt",
+      "source": "V53.9-README-KO.txt",
+      "publishedSha1": "04c06a11bd35d7a079b907c02773c1e361578237"
+    },
+    {
+      "target": "v54-readme-ko.txt",
+      "source": "V54-README-KO.txt",
+      "publishedSha1": "e18bb41c40450a4b7e8744546b951f0d4db13b53"
+    },
+    {
+      "target": "v55-readme-ko.txt",
+      "source": "V55-README-KO.txt",
+      "publishedSha1": "9ddbd58f4f4bd7d3a5f7a41db4019a7b279a5675"
+    },
+    {
+      "target": "v55.1-readme-ko.txt",
+      "source": "V55.1-README-KO.txt",
+      "publishedSha1": "6540b8d5cb4835a8fe3a89db54234958cc34709d"
+    },
+    {
+      "target": "v55.2-readme-ko.txt",
+      "source": "V55.2-README-KO.txt",
+      "publishedSha1": "01e5e881e0f3c1e8c59f79bd2fea8d86355d19e6"
+    },
+    {
+      "target": "v58-readme-ko.txt",
+      "source": "V58-README-KO.txt",
+      "publishedSha1": "91d555b24ad6dce2268f08079ebea74a47399f5f"
+    },
+    {
+      "target": "v59-readme-ko.txt",
+      "source": "V59-README-KO.txt",
+      "publishedSha1": "7731a9bbfbfb523eda5077199e3379eca4c9bda5"
+    },
+    {
+      "target": "v59.1-readme-ko.txt",
+      "source": "V59.1-README-KO.txt",
+      "publishedSha1": "c6520b175257115cdb0a11750739ae31a32496be"
+    },
+    {
+      "target": "v60-readme-ko.txt",
+      "source": "V60-README-KO.txt",
+      "publishedSha1": "60ea0dff9fbcea7b10d8af42537488688e4b7acd"
+    },
+    {
+      "target": "v81-fix-readme-ko.txt",
+      "source": "V81-FIX-README-KO.txt",
+      "publishedSha1": "7606bc8956697960438483e317904a64de0713ac"
+    },
+    {
+      "target": "v82-fix-readme-ko.txt",
+      "source": "V82-FIX-README-KO.txt",
+      "publishedSha1": "c872b96a572edcd0fab8b30b0c4f83db074b0038"
+    },
+    {
+      "target": "v83-readme-ko.txt",
+      "source": "V83-README-KO.txt",
+      "publishedSha1": "98b1cbef4a855b47d9fac691a3ca8917063fbcab"
+    },
+    {
+      "target": "v84-fix-readme-ko.txt",
+      "source": "V84-FIX-README-KO.txt",
+      "publishedSha1": "0b09193a77140358fe24533fbffd24456d633587"
+    },
+    {
+      "target": "v86-fix-readme-ko.txt",
+      "source": "V86-FIX-README-KO.txt",
+      "publishedSha1": "3a6b68de5e9a1901e7062f242dc83993faea9ce4"
+    },
+    {
+      "target": "v87-seo-dual-url-readme-ko.txt",
+      "source": "V87-SEO-DUAL-URL-README-KO.txt",
+      "publishedSha1": "ff088157f49f3274e474d8233e0b9f7d9e88d002"
+    },
+    {
+      "target": "v88_daily_dallas_life_setup.txt",
+      "source": "V88_DAILY_DALLAS_LIFE_SETUP.txt",
+      "publishedSha1": "1bfe9723a65655f125fc8149d865a2bea4451a45"
+    },
+    {
+      "target": "v89_daily_briefing_setup.txt",
+      "source": "V89_DAILY_BRIEFING_SETUP.txt",
+      "publishedSha1": "24c0909d43ea38ee9e3e5896e0aab5e63318903b"
+    },
+    {
+      "target": "v90_briefing_admin_setup.txt",
+      "source": "V90_BRIEFING_ADMIN_SETUP.txt",
+      "publishedSha1": "9311107d0f87a18106f468907823f68ba19da9dd"
+    },
+    {
+      "target": "v91_briefing_timeout_alert_fix.txt",
+      "source": "V91_BRIEFING_TIMEOUT_ALERT_FIX.txt",
+      "publishedSha1": "c2cb30964cc05be3260563981c6c89cb848b2e3e"
+    },
+    {
+      "target": "_headers",
+      "source": "_headers",
+      "publishedSha1": "ee2b7ef1f160688414ad41a1fea7481c8867f361"
+    },
+    {
+      "target": "_redirects",
+      "source": "_redirects",
+      "publishedSha1": "fa82fe12cd5765d20e89b533b2b97d5bdafbdcbd"
+    },
+    {
+      "target": "admin.js",
+      "source": "admin.js",
+      "publishedSha1": "2f90fbec68ba57afdc57b7593c5b9e181d463c7e"
+    },
+    {
+      "target": "admin/assets/admin-integration.js",
+      "source": "admin/assets/admin-integration.js",
+      "publishedSha1": "3ccd04f840101c8ca17a5b1b3cf7cf1cf78425a2"
+    },
+    {
+      "target": "admin/assets/admin.css",
+      "source": "admin/assets/admin.css",
+      "publishedSha1": "e461ea283069307356c3c0922e6558be95bb3f70"
+    },
+    {
+      "target": "admin/assets/admin.js",
+      "source": "admin/assets/admin.js",
+      "publishedSha1": "e7257425f6ecfac64916fe946defff4515d654c6"
+    },
+    {
+      "target": "admin/assets/ai-manager.js",
+      "source": "admin/assets/ai-manager.js",
+      "publishedSha1": "d81f248bdf9340e488a370af715f4433c3f0fdb5"
+    },
+    {
+      "target": "admin/assets/ai-studio.js",
+      "source": "admin/assets/ai-studio.js",
+      "publishedSha1": "7df7b858f7b9260bd688bc1e80db6be0f3a5adfe"
+    },
+    {
+      "target": "admin/assets/business-crm.js",
+      "source": "admin/assets/business-crm.js",
+      "publishedSha1": "5682afd65aa6e0a0e35806f0014ed691c0b7fbbc"
+    },
+    {
+      "target": "admin/assets/community-admin.js",
+      "source": "admin/assets/community-admin.js",
+      "publishedSha1": "9efb1d310018111b7a60fcbd8cd22058ccc627e1"
+    },
+    {
+      "target": "admin/assets/event-routines.js",
+      "source": "admin/assets/event-routines.js",
+      "publishedSha1": "271574565d8e15f0131de3f6f607ed432cf39454"
+    },
+    {
+      "target": "admin/assets/event-winner-manager.js",
+      "source": "admin/assets/event-winner-manager.js",
+      "publishedSha1": "3007e4b72a1ee9544c7e0478104a667a450f7598"
+    },
+    {
+      "target": "admin/assets/exposure-preview.js",
+      "source": "admin/assets/exposure-preview.js",
+      "publishedSha1": "666d3cc4672d562a169a0c7be438b5f02599f597"
+    },
+    {
+      "target": "admin/assets/newsroom-test.js",
+      "source": "admin/assets/newsroom-test.js",
+      "publishedSha1": "64259e9f45427a93f5b5819882fcfd69ce506304"
+    },
+    {
+      "target": "admin/index.html",
+      "source": "admin/index.html",
+      "publishedSha1": "c5129b90f6c91cd3c35aef2b65f3353d8928760c"
+    },
+    {
+      "target": "app-v109.js",
+      "source": "app-v109.js",
+      "publishedSha1": "3bb414ef2bb172bf3cd0ed6e9f1532a6f3adc042"
+    },
+    {
+      "target": "app-v110.js",
+      "source": "app-v110.js",
+      "publishedSha1": "3bb414ef2bb172bf3cd0ed6e9f1532a6f3adc042"
+    },
+    {
+      "target": "app-v111.js",
+      "source": "app-v111.js",
+      "publishedSha1": "31a0da342194f9727007a64a5a299570c291edaf"
+    },
+    {
+      "target": "app-v96.js",
+      "source": "app-v96.js",
+      "publishedSha1": "7d0ca6b4f43ab6320e350956472ecb175eab548e"
+    },
+    {
+      "target": "app-v97.js",
+      "source": "app-v97.js",
+      "publishedSha1": "fffcc82d73a53c4a7806593044ac85efbdee73f8"
+    },
+    {
+      "target": "app-v99.js",
+      "source": "app-v99.js",
+      "publishedSha1": "3efa594eda4159d54a438144c9836b14ad44473a"
+    },
+    {
+      "target": "app.js",
+      "source": "app.js",
+      "publishedSha1": "c817bb7545bf91001354403c95f937b015389e85"
+    },
+    {
+      "target": "app.js.bak-v81",
+      "source": "app.js.bak-v81",
+      "publishedSha1": "d450bed47007cea22b399c969be59e938e0207af"
+    },
+    {
+      "target": "assets/active-state.js",
+      "source": "assets/active-state.js",
+      "publishedSha1": "1aaaedb443a87c3c3c4854e2a1333cfebbc195c4"
+    },
+    {
+      "target": "assets/admin-authorization.js",
+      "source": "assets/admin-authorization.js",
+      "publishedSha1": "3eee76f146b772da8b03698722b73cab15ba7146"
+    },
+    {
+      "target": "assets/community-contract.js",
+      "source": "assets/community-contract.js",
+      "publishedSha1": "90cd18118992e2e0e32eeb184d88033cbaee3bd1"
+    },
+    {
+      "target": "assets/community.js",
+      "source": "assets/community.js",
+      "publishedSha1": "7f8bd0139956681e8a53e8fff2d6e529caf9706f"
+    },
+    {
+      "target": "assets/dallas-time.js",
+      "source": "assets/dallas-time.js",
+      "publishedSha1": "77e7d34d718a645c42342881662908b7b555a477"
+    },
+    {
+      "target": "assets/discount-business-authority.js",
+      "source": "assets/discount-business-authority.js",
+      "publishedSha1": "345e1d3e5bd9a5be193a93f607cfd7264cc45840"
+    },
+    {
+      "target": "assets/home-selection.js",
+      "source": "assets/home-selection.js",
+      "publishedSha1": "24ed04a504b257ca03fc8f689bd7cf6db88fbedb"
+    },
+    {
+      "target": "assets/kfocus-icon.png",
+      "source": "assets/kfocus-icon.png",
+      "publishedSha1": "54df836e4c15bf1d59309eeca773d351116e0dfb"
+    },
+    {
+      "target": "assets/kfocus-icon1.png",
+      "source": "assets/kfocus-icon1.png",
+      "publishedSha1": "54df836e4c15bf1d59309eeca773d351116e0dfb"
+    },
+    {
+      "target": "assets/kfocus-logo.png",
+      "source": "assets/kfocus-logo.png",
+      "publishedSha1": "7e7c0a37efc6a622d67ca2c6a24e4dcdb6250fb9"
+    },
+    {
+      "target": "assets/pagination.js",
+      "source": "assets/pagination.js",
+      "publishedSha1": "70f5c14cc99421193af1c5435c35d9ef5e7680d5"
+    },
+    {
+      "target": "assets/request-coordinator.js",
+      "source": "assets/request-coordinator.js",
+      "publishedSha1": "37ec5013ea99a5c55f39ee1ed72bedc8802c1614"
+    },
+    {
+      "target": "assets/restaurant-special-items.js",
+      "source": "assets/restaurant-special-items.js",
+      "publishedSha1": "0004873865a88096f7f89c30cb727aa9d2152c94"
+    },
+    {
+      "target": "assets/restaurant-specials.js",
+      "source": "assets/restaurant-specials.js",
+      "publishedSha1": "0a9049a8934cb9ece1e0bcc477ed95aa957f928c"
+    },
+    {
+      "target": "business-index.json",
+      "source": "business-index.json",
+      "publishedSha1": "97d170e1550eee4afc0af065b78cda302a97674c"
+    },
+    {
+      "target": "cloudrun/community-video-staging/dockerfile",
+      "source": "cloudrun/community-video-staging/Dockerfile",
+      "publishedSha1": "88b3ca1c81ef135cb5e01317146528c4e0771827"
+    },
+    {
+      "target": "cloudrun/community-video-staging/package.json",
+      "source": "cloudrun/community-video-staging/package.json",
+      "publishedSha1": "c3551b74dc7f1afb7e624b07a73073573b9637df"
+    },
+    {
+      "target": "cloudrun/community-video-staging/server.js",
+      "source": "cloudrun/community-video-staging/server.js",
+      "publishedSha1": "1bfbce6eb221bc3de1618d7a10e4de0ab2f2f700"
+    },
+    {
+      "target": "config.js",
+      "source": "config.js",
+      "publishedSha1": "3094970d3265dc46c0d9669a3cf269f1b6924f8a"
+    },
+    {
+      "target": "docs/community-seo-privacy.md",
+      "source": "docs/community-seo-privacy.md",
+      "publishedSha1": "4b5f2423544950c3a7be9c07694f0aa761ddf051"
+    },
+    {
+      "target": "docs/community-video-phase2-staging-foundation.md",
+      "source": "docs/community-video-phase2-staging-foundation.md",
+      "publishedSha1": "b4af7d805071738d595c5a97412d85f71becbe59"
+    },
+    {
+      "target": "docs/production-baseline/readme.md",
+      "source": "docs/production-baseline/README.md",
+      "publishedSha1": "6ce3af58c4764c85d13cb70d7eaf50e3ad2d7452"
+    },
+    {
+      "target": "docs/production-baseline/active-state-badge-execution-map.md",
+      "source": "docs/production-baseline/active-state-badge-execution-map.md",
+      "publishedSha1": "505073c024635eaa7f8e8aa3b87bcda8e8826b4e"
+    },
+    {
+      "target": "docs/production-baseline/data-loading-execution-map.md",
+      "source": "docs/production-baseline/data-loading-execution-map.md",
+      "publishedSha1": "73323d0504d0e0baaae42f1505a3179c46035444"
+    },
+    {
+      "target": "docs/production-baseline/date-time-execution-map.md",
+      "source": "docs/production-baseline/date-time-execution-map.md",
+      "publishedSha1": "579e20a7da58927828499dc44438ef90044298ce"
+    },
+    {
+      "target": "docs/production-baseline/production-assets.json",
+      "source": "docs/production-baseline/production-assets.json",
+      "publishedSha1": "04e1767ee96521b9cc2a5f74880788fc803bbf67"
+    },
+    {
+      "target": "docs/production-baseline/recommendation-execution-flow.md",
+      "source": "docs/production-baseline/recommendation-execution-flow.md",
+      "publishedSha1": "e88a2785775d152a21449a9a81667837767ec021"
+    },
+    {
+      "target": "docs/production-baseline/step5-pagination.md",
+      "source": "docs/production-baseline/step5-pagination.md",
+      "publishedSha1": "93a903d570e85f4ce6c2c4096543043361fd1fe7"
+    },
+    {
+      "target": "docs/production-baseline/step6-daily-core-authority.md",
+      "source": "docs/production-baseline/step6-daily-core-authority.md",
+      "publishedSha1": "dd8ad1f26a420e04541caad07f258d571d100143"
+    },
+    {
+      "target": "docs/restaurant-specials-phase1.md",
+      "source": "docs/restaurant-specials-phase1.md",
+      "publishedSha1": "0ec4da1a50b643329ca07559ddaf7ad68dfc5d55"
+    },
+    {
+      "target": "icons/icon-192.png",
+      "source": "icons/icon-192.png",
+      "publishedSha1": "4d2331fb1563f5bcbb620c319b88157866c1d7e5"
+    },
+    {
+      "target": "icons/icon-512.png",
+      "source": "icons/icon-512.png",
+      "publishedSha1": "4d2331fb1563f5bcbb620c319b88157866c1d7e5"
+    },
+    {
+      "target": "index.html",
+      "source": "index.html",
+      "publishedSha1": "aaf7fffdf83bfd09e9d81b090b1b8731eca57eb5"
+    },
+    {
+      "target": "infra/community-video-production/storage-cors.json",
+      "source": "infra/community-video-production/storage-cors.json",
+      "publishedSha1": "bb147f928fb89e3d2ff431cd38b1238060cc4429"
+    },
+    {
+      "target": "infra/community-video-production/storage-lifecycle.json",
+      "source": "infra/community-video-production/storage-lifecycle.json",
+      "publishedSha1": "265225127a9eb8ddf87c90c5d9565b8309ca051b"
+    },
+    {
+      "target": "infra/community-video-staging/storage-cors.json",
+      "source": "infra/community-video-staging/storage-cors.json",
+      "publishedSha1": "323f8059e7125cef816cdaea9ce3fbd3d43f1faa"
+    },
+    {
+      "target": "infra/community-video-staging/storage-lifecycle.json",
+      "source": "infra/community-video-staging/storage-lifecycle.json",
+      "publishedSha1": "265225127a9eb8ddf87c90c5d9565b8309ca051b"
+    },
+    {
+      "target": "llms.txt",
+      "source": "llms.txt",
+      "publishedSha1": "2bed962cc719490d27ca195699ecfcc07b39b570"
+    },
+    {
+      "target": "main-banners.js",
+      "source": "main-banners.js",
+      "publishedSha1": "b5ab7d923c5f7b1c3d81431bfaf486280a985983"
+    },
+    {
+      "target": "manifest.json",
+      "source": "manifest.json",
+      "publishedSha1": "563256f34ce2c91774cfe0ac3c85ae22c010fd45"
+    },
+    {
+      "target": "netlify.toml",
+      "source": "netlify.toml",
+      "publishedSha1": "e72edd6287bee7e054ccfa76b6039bb46a745cf6"
+    },
+    {
+      "target": "netlify/functions/ai-daily-home.js",
+      "source": "netlify/legacy-functions/ai-daily-home.js",
+      "publishedSha1": "5e6bb152e6a400dafc7152aa20c095160f5a906a"
+    },
+    {
+      "target": "netlify/functions/analyze-newsroom.js",
+      "source": "netlify/legacy-functions/analyze-newsroom.js",
+      "publishedSha1": "c9c30d588efdaa6b3ce4d04cb0c8c54f41dbcbce"
+    },
+    {
+      "target": "netlify/functions/collect-newsroom.js",
+      "source": "netlify/legacy-functions/collect-newsroom.js",
+      "publishedSha1": "3fa7070707577e6648d11ab20d091dd9dcfd4747"
+    },
+    {
+      "target": "netlify/functions/community-admin.js",
+      "source": "netlify/legacy-functions/community-admin.js",
+      "publishedSha1": "15a0b8efb2dd884b1f29a78e3325976ffcf4366e"
+    },
+    {
+      "target": "netlify/functions/community-cleanup-scheduled.mjs",
+      "source": "netlify/functions/community-cleanup-scheduled.mjs",
+      "publishedSha1": "5d29750499d29bff3558937aca04b573acec27c5"
+    },
+    {
+      "target": "netlify/functions/community-comment-create.js",
+      "source": "netlify/legacy-functions/community-comment-create.js",
+      "publishedSha1": "2a9c4470bff7f28e0c5456842ff3b9d8aeb53121"
+    },
+    {
+      "target": "netlify/functions/community-comment-delete.js",
+      "source": "netlify/legacy-functions/community-comment-delete.js",
+      "publishedSha1": "55681d08bf02ac81cfb88e3ca24bd5c3e38f221b"
+    },
+    {
+      "target": "netlify/functions/community-post-create.js",
+      "source": "netlify/legacy-functions/community-post-create.js",
+      "publishedSha1": "060761403fe7652a3e43172aed7afa0061792d21"
+    },
+    {
+      "target": "netlify/functions/community-post-delete.js",
+      "source": "netlify/legacy-functions/community-post-delete.js",
+      "publishedSha1": "2873192c4322186a41b7b9d77c1801270abcc9e8"
+    },
+    {
+      "target": "netlify/functions/community-post-extend.js",
+      "source": "netlify/legacy-functions/community-post-extend.js",
+      "publishedSha1": "3612c557b915c8d7eb548523402f1ca1bd61c1d8"
+    },
+    {
+      "target": "netlify/functions/community-post-owner.js",
+      "source": "netlify/legacy-functions/community-post-owner.js",
+      "publishedSha1": "7dd31990824d13cf8053e8f928d298e0bd1485d4"
+    },
+    {
+      "target": "netlify/functions/community-post-sold.js",
+      "source": "netlify/legacy-functions/community-post-sold.js",
+      "publishedSha1": "10bf8c77280338d1f6ac7e83dea58877c3b21b21"
+    },
+    {
+      "target": "netlify/functions/community-post-update.js",
+      "source": "netlify/legacy-functions/community-post-update.js",
+      "publishedSha1": "400f0d79557bed5fba7a1478c23726e7f99d15ea"
+    },
+    {
+      "target": "netlify/functions/community-upload-authorize.js",
+      "source": "netlify/legacy-functions/community-upload-authorize.js",
+      "publishedSha1": "5a2aa5d0ee290343dbd6e2cc921872cbffb479a0"
+    },
+    {
+      "target": "netlify/functions/community-video-retry-availability.js",
+      "source": "netlify/legacy-functions/community-video-retry-availability.js",
+      "publishedSha1": "b4229c64d535f108c954866207320ccee6e38000"
+    },
+    {
+      "target": "netlify/functions/community-video-upload-admit.js",
+      "source": "netlify/legacy-functions/community-video-upload-admit.js",
+      "publishedSha1": "8f297f13a65a362026057b812a5c112cc2a84a1b"
+    },
+    {
+      "target": "netlify/functions/community-video-upload-status.js",
+      "source": "netlify/legacy-functions/community-video-upload-status.js",
+      "publishedSha1": "052bd540c36750d5ca8448d8921703919de37e7c"
+    },
+    {
+      "target": "netlify/functions/config.js",
+      "source": "netlify/legacy-functions/config.js",
+      "publishedSha1": "51e60cae8ab044b831c1d19d0ea794a68814aeb4"
+    },
+    {
+      "target": "netlify/functions/coupon-campaign-admin.js",
+      "source": "netlify/legacy-functions/coupon-campaign-admin.js",
+      "publishedSha1": "81e7db5ce41141006e525c3dc3361b3d00f80377"
+    },
+    {
+      "target": "netlify/functions/coupon-campaign-enter.js",
+      "source": "netlify/legacy-functions/coupon-campaign-enter.js",
+      "publishedSha1": "4b780b1ad12d9593a6db3adb3aa82ca5cca3fafa"
+    },
+    {
+      "target": "netlify/functions/coupon-campaign-lib.js",
+      "source": "netlify/legacy-functions/coupon-campaign-lib.js",
+      "publishedSha1": "848d4e2c076978ff78f0dffd092fad553a4c3ff2"
+    },
+    {
+      "target": "netlify/functions/coupon-redemptions-admin.js",
+      "source": "netlify/legacy-functions/coupon-redemptions-admin.js",
+      "publishedSha1": "61b3af025215919e8a9bf99f4380e03010b01fed"
+    },
+    {
+      "target": "netlify/functions/coupon-used-notify.js",
+      "source": "netlify/legacy-functions/coupon-used-notify.js",
+      "publishedSha1": "3809898aa913d880d9bed1909fc56cfd104c6632"
+    },
+    {
+      "target": "netlify/functions/daily-core-refresh.js",
+      "source": "netlify/legacy-functions/daily-core-refresh.js",
+      "publishedSha1": "4d45fca2c1735b61b28f6fe9b095c5b108c6cc4e"
+    },
+    {
+      "target": "netlify/functions/daily-core-scheduled.mjs",
+      "source": "netlify/functions/daily-core-scheduled.mjs",
+      "publishedSha1": "aefe5dd99009f1e412594d3cb230e13d0ff8ab09"
+    },
+    {
+      "target": "netlify/functions/daltown-daily-core.js",
+      "source": "netlify/legacy-functions/daltown-daily-core.js",
+      "publishedSha1": "e752c8b2c83ec1c24008f2333be6dc0efcde5b78"
+    },
+    {
+      "target": "netlify/functions/data/dalkora_business_full.csv",
+      "source": "netlify/functions/data/dalkora_business_full.csv",
+      "publishedSha1": "71491e39b746c4da661eb03fb3b6cb671d5cecc4"
+    },
+    {
+      "target": "netlify/functions/data/ktn-businesses.json",
+      "source": "netlify/functions/data/ktn-businesses.json",
+      "publishedSha1": "da699f8c10c94926e51a3ed572634f322d8e974d"
+    },
+    {
+      "target": "netlify/functions/draft-newsroom.js",
+      "source": "netlify/legacy-functions/draft-newsroom.js",
+      "publishedSha1": "52c3a831b22c22fbc33e6081412f8369b6a3ef00"
+    },
+    {
+      "target": "netlify/functions/event-winner-admin.js",
+      "source": "netlify/legacy-functions/event-winner-admin.js",
+      "publishedSha1": "4aad79b6a0a3b02163fda50a51aab5de706f1564"
+    },
+    {
+      "target": "netlify/functions/generate-campaign-image.js",
+      "source": "netlify/legacy-functions/generate-campaign-image.js",
+      "publishedSha1": "3555a86294cfda8947065a6595a1d3bd0c4f5f78"
+    },
+    {
+      "target": "netlify/functions/generate-content-suite.js",
+      "source": "netlify/legacy-functions/generate-content-suite.js",
+      "publishedSha1": "7ce48cfe17137fb18b8c37df25eebb5758886760"
+    },
+    {
+      "target": "netlify/functions/generate-dalpick-image.js",
+      "source": "netlify/legacy-functions/generate-dalpick-image.js",
+      "publishedSha1": "58b2ae54950ad31b7f96d502931aadf207d07a8d"
+    },
+    {
+      "target": "netlify/functions/generate-dalpick.js",
+      "source": "netlify/legacy-functions/generate-dalpick.js",
+      "publishedSha1": "b6a377c95a0dd2f211fb2f8caf92de7a7338c328"
+    },
+    {
+      "target": "netlify/functions/generate-guide.js",
+      "source": "netlify/legacy-functions/generate-guide.js",
+      "publishedSha1": "98eac9180c6267f67738d1d8cea1440ec8f1dbf2"
+    },
+    {
+      "target": "netlify/functions/google-place-rating.js",
+      "source": "netlify/legacy-functions/google-place-rating.js",
+      "publishedSha1": "ef2db05e601645726eb0a25fb564b8b44ac1a683"
+    },
+    {
+      "target": "netlify/functions/lib/community-cleanup.js",
+      "source": "netlify/functions/lib/community-cleanup.js",
+      "publishedSha1": "0924c03a11102dbdd1723b9b62166c7dd1adb7d7"
+    },
+    {
+      "target": "netlify/functions/lib/community-details.js",
+      "source": "netlify/functions/lib/community-details.js",
+      "publishedSha1": "407bef84cfc93b494334ad94b79a138bde35fcc6"
+    },
+    {
+      "target": "netlify/functions/lib/community-edit-policy.js",
+      "source": "netlify/functions/lib/community-edit-policy.js",
+      "publishedSha1": "a2041066fa57e21a7e1c4f8ba77f6e4fd9ef7dbd"
+    },
+    {
+      "target": "netlify/functions/lib/community-image-edit.js",
+      "source": "netlify/functions/lib/community-image-edit.js",
+      "publishedSha1": "e0f7759050d06f14bf0d668c55bc59744d988831"
+    },
+    {
+      "target": "netlify/functions/lib/community-lifecycle.js",
+      "source": "netlify/functions/lib/community-lifecycle.js",
+      "publishedSha1": "dbc1001135c853e2db0e8c35a9c418db5c473343"
+    },
+    {
+      "target": "netlify/functions/lib/community-maintenance.js",
+      "source": "netlify/functions/lib/community-maintenance.js",
+      "publishedSha1": "6b780e8b20fa6b887d3f8d89a52e28ebbd58e489"
+    },
+    {
+      "target": "netlify/functions/lib/community-mutate.js",
+      "source": "netlify/functions/lib/community-mutate.js",
+      "publishedSha1": "8baf4fbcb0b6b7f2f5e2844285cc7d136fa40628"
+    },
+    {
+      "target": "netlify/functions/lib/community-retention.js",
+      "source": "netlify/functions/lib/community-retention.js",
+      "publishedSha1": "24329414357a79e8f024264f1bd0ec5f9823c73e"
+    },
+    {
+      "target": "netlify/functions/lib/community-review.js",
+      "source": "netlify/functions/lib/community-review.js",
+      "publishedSha1": "2a0e452e8d502aea6750d7971ee8a8223a60678f"
+    },
+    {
+      "target": "netlify/functions/lib/community-security.js",
+      "source": "netlify/functions/lib/community-security.js",
+      "publishedSha1": "a689f9a174eface12b8606d15d34e2075a57d232"
+    },
+    {
+      "target": "netlify/functions/lib/community-video-production-config.js",
+      "source": "netlify/functions/lib/community-video-production-config.js",
+      "publishedSha1": "6da02bfe0c423e69f83504094e1b2be4e5748ccc"
+    },
+    {
+      "target": "netlify/functions/lib/community-video-url.js",
+      "source": "netlify/functions/lib/community-video-url.js",
+      "publishedSha1": "46a37d9173a62146cb8ae17db4f11cf5d4ae7bcf"
+    },
+    {
+      "target": "netlify/functions/lib/daily-core.js",
+      "source": "netlify/functions/lib/daily-core.js",
+      "publishedSha1": "39eee54b7ec0be04684897410bd2553cfd859135"
+    },
+    {
+      "target": "netlify/functions/newsroom-daily.js",
+      "source": "netlify/legacy-functions/newsroom-daily.js",
+      "publishedSha1": "6d24b4e0536ce0ce2e7c671aacf2f4b5a4bd676b"
+    },
+    {
+      "target": "netlify/functions/raffle-auto-draw.js",
+      "source": "netlify/legacy-functions/raffle-auto-draw.js",
+      "publishedSha1": "fcc763ab0313f27d9d65b029da35f00f99dc2ee8"
+    },
+    {
+      "target": "netlify/functions/runtime-settings.js",
+      "source": "netlify/legacy-functions/runtime-settings.js",
+      "publishedSha1": "6519c935e0ce07a3c7607d2bd2c46b4b11f0ff47"
+    },
+    {
+      "target": "netlify/functions/search-guide.js",
+      "source": "netlify/legacy-functions/search-guide.js",
+      "publishedSha1": "f190e83f076c4e1ab549b1c553e6783bccc5361f"
+    },
+    {
+      "target": "netlify/functions/sendpush.js",
+      "source": "netlify/legacy-functions/sendPush.js",
+      "publishedSha1": "f6c9b61dfea42a50ec552d7cddf6e92dafd8f002"
+    },
+    {
+      "target": "netlify/functions/set-admin-user.js",
+      "source": "netlify/legacy-functions/set-admin-user.js",
+      "publishedSha1": "a561f34d672c2369b6fe71c2b4f1baba40d7ddff"
+    },
+    {
+      "target": "netlify/functions/smart-flyer-admin.js",
+      "source": "netlify/legacy-functions/smart-flyer-admin.js",
+      "publishedSha1": "247522913eb0d05475f333d561b9cd014c6da271"
+    },
+    {
+      "target": "netlify/functions/smart-flyer-public.js",
+      "source": "netlify/legacy-functions/smart-flyer-public.js",
+      "publishedSha1": "81f18a0be046d826dda3de580fae79ac667e807d"
+    },
+    {
+      "target": "netlify/functions/today-daltown-feed.js",
+      "source": "netlify/legacy-functions/today-daltown-feed.js",
+      "publishedSha1": "b0d10eeac29aa11b85423c9d7310c9d2f646d84f"
+    },
+    {
+      "target": "netlify/functions/traffic-source-track.js",
+      "source": "netlify/legacy-functions/traffic-source-track.js",
+      "publishedSha1": "c8ddc8a0bd0b8a82100932c643752f13b7328b0d"
+    },
+    {
+      "target": "package.json",
+      "source": "package.json",
+      "publishedSha1": "bb5683f3446dfa8d2cea6e1ebd09b9cd745d0dc3"
+    },
+    {
+      "target": "preview/community-retention-1.1/index.html",
+      "source": "preview/community-retention-1.1/index.html",
+      "publishedSha1": "65fc967328a3befe77892faab15135c0dc6b1858"
+    },
+    {
+      "target": "privacy.html",
+      "source": "privacy.html",
+      "publishedSha1": "ce6110e56c05e4e8c0d4b327a7bd84494c2bb96d"
+    },
+    {
+      "target": "robots.txt",
+      "source": "robots.txt",
+      "publishedSha1": "6f3dca6987bebcb744f1e246f14da210d7735591"
+    },
+    {
+      "target": "scripts/generate-seo.js",
+      "source": "scripts/generate-seo.js",
+      "publishedSha1": "2fa081fe30e522e318ab095b51cf69c7ed324a6f"
+    },
+    {
+      "target": "scripts/verify-home-selection.cjs",
+      "source": "scripts/verify-home-selection.cjs",
+      "publishedSha1": "8f10ffd5ca67192dd40e34698becb5b31279b3c1"
+    },
+    {
+      "target": "seo-index.json",
+      "source": "seo-index.json",
+      "publishedSha1": "2201d37fe4f29b78c3b7cd68daf9dc8e30068fc7"
+    },
+    {
+      "target": "seo.html",
+      "source": "seo.html",
+      "publishedSha1": "bd8d282267ddafdc33b554172784ae4981e5d622"
+    },
+    {
+      "target": "sitemap.xml",
+      "source": "sitemap.xml",
+      "publishedSha1": "1d067d7d5e8d354a8fc40591126dbfd2df00651f"
+    },
+    {
+      "target": "styles.css",
+      "source": "styles.css",
+      "publishedSha1": "50b2586e5157c29ec6ed1a8144716898f65cae6e"
+    },
+    {
+      "target": "supabase/business-category-v54.sql",
+      "source": "supabase/business-category-v54.sql",
+      "publishedSha1": "cd21cd8f0b569ce687993f2c3ec4b35ea4cd12d4"
+    },
+    {
+      "target": "supabase/business-listings-video-url.sql",
+      "source": "supabase/business-listings-video-url.sql",
+      "publishedSha1": "51440118a54bbbc3c91e909916e356a8ad53fb61"
+    },
+    {
+      "target": "supabase/business-special-items-phase1.sql",
+      "source": "supabase/business-special-items-phase1.sql",
+      "publishedSha1": "dc5bb23d07a8bf3a7a2b04df9e9eb4fb196ee414"
+    },
+    {
+      "target": "supabase/business-specials-phase1.sql",
+      "source": "supabase/business-specials-phase1.sql",
+      "publishedSha1": "244b172f10ed8e479b08fc8e4d6b03407c9bb949"
+    },
+    {
+      "target": "supabase/community-board-phase3-verify.sql",
+      "source": "supabase/community-board-phase3-verify.sql",
+      "publishedSha1": "37071225d80cf329a88ab0a5b7da69afd7c4920d"
+    },
+    {
+      "target": "supabase/community-board-phase3.sql",
+      "source": "supabase/community-board-phase3.sql",
+      "publishedSha1": "80c4893de2fe8a89f276ea5da564a26c39e06ed8"
+    },
+    {
+      "target": "supabase/community-cleanup-contract-phase1.sql",
+      "source": "supabase/community-cleanup-contract-phase1.sql",
+      "publishedSha1": "68d55f1a45efaca31a029491a68966cb3f04e41a"
+    },
+    {
+      "target": "supabase/community-hidden-moderation-phase1.sql",
+      "source": "supabase/community-hidden-moderation-phase1.sql",
+      "publishedSha1": "8549a2a73c0c809924fb6512a7f14b5e63ee5409"
+    },
+    {
+      "target": "supabase/community-image-edit-phase1.sql",
+      "source": "supabase/community-image-edit-phase1.sql",
+      "publishedSha1": "eab3c042c5228c1abdd7cdf142b0098004e1e96a"
+    },
+    {
+      "target": "supabase/community-phase1.sql",
+      "source": "supabase/community-phase1.sql",
+      "publishedSha1": "9ab6d33f9fc1aac0aba4001fb95bc20860752ef3"
+    },
+    {
+      "target": "supabase/community-retention-extension-preview.sql",
+      "source": "supabase/community-retention-extension-preview.sql",
+      "publishedSha1": "e1f693b13c43f7a048d1b446639d761f9947c01d"
+    },
+    {
+      "target": "supabase/community-retention-extension-verify.sql",
+      "source": "supabase/community-retention-extension-verify.sql",
+      "publishedSha1": "892cc8539b346adb87030d1c342fe3151aeb7ebd"
+    },
+    {
+      "target": "supabase/community-video-link-phase1.sql",
+      "source": "supabase/community-video-link-phase1.sql",
+      "publishedSha1": "db90cc7100c5a468a2203c42183e8d511c8542d5"
+    },
+    {
+      "target": "supabase/community-video-upload-phase2-production-verify.sql",
+      "source": "supabase/community-video-upload-phase2-production-verify.sql",
+      "publishedSha1": "b03b77a884e4c84b87056c075fef6c29cd591585"
+    },
+    {
+      "target": "supabase/community-video-upload-phase2-production.sql",
+      "source": "supabase/community-video-upload-phase2-production.sql",
+      "publishedSha1": "3a157c62bd08d98978b6bd28cc89a0f0a2a6c87a"
+    },
+    {
+      "target": "supabase/community-video-upload-phase2-staging.sql",
+      "source": "supabase/community-video-upload-phase2-staging.sql",
+      "publishedSha1": "04ff0483e5e47383f580254af813437dd5a24614"
+    },
+    {
+      "target": "supabase/event-winner-coupon-phase1-verify.sql",
+      "source": "supabase/event-winner-coupon-phase1-verify.sql",
+      "publishedSha1": "0211720f3d87db33c617597858c256571e7c69c4"
+    },
+    {
+      "target": "supabase/event-winner-coupon-phase1.sql",
+      "source": "supabase/event-winner-coupon-phase1.sql",
+      "publishedSha1": "d8417c54a56b14b08670b1dd50df1f8a1687f668"
+    },
+    {
+      "target": "supabase/functions/newsroom/config.toml",
+      "source": "supabase/functions/newsroom/config.toml",
+      "publishedSha1": "8d634eaf5953fe8ffae1d5e4c9a610897fec76d1"
+    },
+    {
+      "target": "supabase/functions/newsroom/index.ts",
+      "source": "supabase/functions/newsroom/index.ts",
+      "publishedSha1": "d95c46909b47600c6a97584ca2b60f8433747113"
+    },
+    {
+      "target": "supabase/newsroom-daily-core-url-uniqueness.sql",
+      "source": "supabase/newsroom-daily-core-url-uniqueness.sql",
+      "publishedSha1": "9f42434f113db55b18046020f5bb3382f8ad9361"
+    },
+    {
+      "target": "supabase/newsroom-v38.2.sql",
+      "source": "supabase/newsroom-v38.2.sql",
+      "publishedSha1": "08c80beac44de6ed665fd4e2deba91b4c1c6f327"
+    },
+    {
+      "target": "supabase/newsroom-v48.3-upgrade.sql",
+      "source": "supabase/newsroom-v48.3-upgrade.sql",
+      "publishedSha1": "3a75edde75218299d0882c649a22158df6407b40"
+    },
+    {
+      "target": "supabase/newsroom-v56-auto-publish.sql",
+      "source": "supabase/newsroom-v56-auto-publish.sql",
+      "publishedSha1": "4ac56754ab66986e86be17ce7fd010b7fdf6de43"
+    },
+    {
+      "target": "supabase/newsroom-v61-daily-dallas-life-cron.sql",
+      "source": "supabase/newsroom-v61-daily-dallas-life-cron.sql",
+      "publishedSha1": "4a30e1eb4d2e59c27f7576addb57d8128e80b496"
+    },
+    {
+      "target": "supabase/newsroom-v62-split-daily-cron.sql",
+      "source": "supabase/newsroom-v62-split-daily-cron.sql",
+      "publishedSha1": "8a6f8f8fb28f6fe1f456e47e7f36e8fb6de30d82"
+    },
+    {
+      "target": "supabase/newsroom-v63-daily-publish-log.sql",
+      "source": "supabase/newsroom-v63-daily-publish-log.sql",
+      "publishedSha1": "c224f907b3cdf11b78394d905e5e673ce024c2cb"
+    },
+    {
+      "target": "supabase/newsroom-v64-daily-core-lock.sql",
+      "source": "supabase/newsroom-v64-daily-core-lock.sql",
+      "publishedSha1": "8796e92941914388eb97ca9c281316702a5e649f"
+    },
+    {
+      "target": "supabase/v74-board-alert-notice.sql",
+      "source": "supabase/v74-board-alert-notice.sql",
+      "publishedSha1": "a8af29c328524423b58c33aab7d76d0d1072d6f1"
+    },
+    {
+      "target": "supabase/v91-remove-weekday-routine.sql",
+      "source": "supabase/v91-remove-weekday-routine.sql",
+      "publishedSha1": "c28264b9dc86844b6c5b1509ffe28c0639894e37"
+    },
+    {
+      "target": "tests/active-state-contract.test.cjs",
+      "source": "tests/active-state-contract.test.cjs",
+      "publishedSha1": "34861994ad4d3af765df6804a102785cc03e0c34"
+    },
+    {
+      "target": "tests/admin-authorization.test.cjs",
+      "source": "tests/admin-authorization.test.cjs",
+      "publishedSha1": "4a928b2b74c32aa7c26351518525ddcbc98c514b"
+    },
+    {
+      "target": "tests/business-special-badge-presentation.test.cjs",
+      "source": "tests/business-special-badge-presentation.test.cjs",
+      "publishedSha1": "bec16c4b237f462b7ad9fa2ceffbb9d4046fe36c"
+    },
+    {
+      "target": "tests/community-auto-publish.test.cjs",
+      "source": "tests/community-auto-publish.test.cjs",
+      "publishedSha1": "4a2e38e26395f7ee558930974e80116fdf095319"
+    },
+    {
+      "target": "tests/community-board-phase3-local.sql",
+      "source": "tests/community-board-phase3-local.sql",
+      "publishedSha1": "0a3d143eb9eb1855eb02d3e5973121c1b8df8bb5"
+    },
+    {
+      "target": "tests/community-board-phase3.test.cjs",
+      "source": "tests/community-board-phase3.test.cjs",
+      "publishedSha1": "cd46fa03417d2a7810af653f1425b441845e03eb"
+    },
+    {
+      "target": "tests/community-cleanup-contract.test.cjs",
+      "source": "tests/community-cleanup-contract.test.cjs",
+      "publishedSha1": "397b22b6b15f2c049b0c627f7e648f289d331e1b"
+    },
+    {
+      "target": "tests/community-hidden-business-dom.test.cjs",
+      "source": "tests/community-hidden-business-dom.test.cjs",
+      "publishedSha1": "76be5a7e934e85b3420ad94a308740ee269a7fc9"
+    },
+    {
+      "target": "tests/community-hidden-moderation.test.cjs",
+      "source": "tests/community-hidden-moderation.test.cjs",
+      "publishedSha1": "6282d9885c84698d10ea23f941fd893015e2d375"
+    },
+    {
+      "target": "tests/community-image-edit.test.cjs",
+      "source": "tests/community-image-edit.test.cjs",
+      "publishedSha1": "e54dd93ba7a1742c17e2546f1373467cba3ee365"
+    },
+    {
+      "target": "tests/community-phase1.test.cjs",
+      "source": "tests/community-phase1.test.cjs",
+      "publishedSha1": "8d78dd987dc4e5e503c73d2776424439162e5da1"
+    },
+    {
+      "target": "tests/community-post-delete-ui.test.cjs",
+      "source": "tests/community-post-delete-ui.test.cjs",
+      "publishedSha1": "b030fd00f6fcfd64be8501c8d7f5f8583d6bb58e"
+    },
+    {
+      "target": "tests/community-retention-isolated.sql",
+      "source": "tests/community-retention-isolated.sql",
+      "publishedSha1": "f4e5db4217ebd94768fd0f51caef97605edf9ab3"
+    },
+    {
+      "target": "tests/community-retention-preview.test.cjs",
+      "source": "tests/community-retention-preview.test.cjs",
+      "publishedSha1": "0319238868bae1d0b6c727756f4f40687f799015"
+    },
+    {
+      "target": "tests/community-retention.test.cjs",
+      "source": "tests/community-retention.test.cjs",
+      "publishedSha1": "770f64a63f57068bb3da3b4a6180ce782b0e1880"
+    },
+    {
+      "target": "tests/community-storage-isolation.test.cjs",
+      "source": "tests/community-storage-isolation.test.cjs",
+      "publishedSha1": "20d8d82694930f4cd5296f38b987695e0f100c0c"
+    },
+    {
+      "target": "tests/community-turnstile-diagnostics.test.cjs",
+      "source": "tests/community-turnstile-diagnostics.test.cjs",
+      "publishedSha1": "67692e575b0f32311f8fb09336bd496299596022"
+    },
+    {
+      "target": "tests/community-turnstile-lifecycle.test.cjs",
+      "source": "tests/community-turnstile-lifecycle.test.cjs",
+      "publishedSha1": "2ff4822c61c07950ca30d28b462ffbcf89f3ca10"
+    },
+    {
+      "target": "tests/community-ui4-render.test.cjs",
+      "source": "tests/community-ui4-render.test.cjs",
+      "publishedSha1": "a8a02e8accfb0d07321d812e03de64f9ad44a689"
+    },
+    {
+      "target": "tests/community-ui4.test.cjs",
+      "source": "tests/community-ui4.test.cjs",
+      "publishedSha1": "99552934a5c343bda7731a0e1d00038fee66c46e"
+    },
+    {
+      "target": "tests/community-ui42-home.test.cjs",
+      "source": "tests/community-ui42-home.test.cjs",
+      "publishedSha1": "3bd7e9094a9afc6eef3cd46ffc0afaebdcb21aa9"
+    },
+    {
+      "target": "tests/community-ui46-write-cta.test.cjs",
+      "source": "tests/community-ui46-write-cta.test.cjs",
+      "publishedSha1": "4553149ec4437d821950f2095c7698a9c06b2941"
+    },
+    {
+      "target": "tests/community-video-link.test.cjs",
+      "source": "tests/community-video-link.test.cjs",
+      "publishedSha1": "ee6921757db7a1a2b73d2d024525bfe44062c5db"
+    },
+    {
+      "target": "tests/community-video-phase2-release-candidate.test.cjs",
+      "source": "tests/community-video-phase2-release-candidate.test.cjs",
+      "publishedSha1": "bda4a51c105fb328e8b69f081b5f6b7e29d6e452"
+    },
+    {
+      "target": "tests/community-video-phase31.test.cjs",
+      "source": "tests/community-video-phase31.test.cjs",
+      "publishedSha1": "704d7240c3caa801e1a3b547fc7467f4ce3c9795"
+    },
+    {
+      "target": "tests/community-video-production-config.test.cjs",
+      "source": "tests/community-video-production-config.test.cjs",
+      "publishedSha1": "f2a30f24ad400100b71d1e0a980c6fa97f182a8f"
+    },
+    {
+      "target": "tests/community-video-retry-visibility.test.cjs",
+      "source": "tests/community-video-retry-visibility.test.cjs",
+      "publishedSha1": "8eca4bc3c6e5b254ea381c38d1c09688a75f78fb"
+    },
+    {
+      "target": "tests/community-video-retry.test.cjs",
+      "source": "tests/community-video-retry.test.cjs",
+      "publishedSha1": "bb569c1dbe10193dacaf50070d722fe2ed130037"
+    },
+    {
+      "target": "tests/community-write-guide.test.cjs",
+      "source": "tests/community-write-guide.test.cjs",
+      "publishedSha1": "72ca6cd470a877d7918e61a4b00a31381b775d15"
+    },
+    {
+      "target": "tests/daily-core-url-uniqueness.sql",
+      "source": "tests/daily-core-url-uniqueness.sql",
+      "publishedSha1": "b00a786663f60c3a717b6b5807051ed01e31bac1"
+    },
+    {
+      "target": "tests/daily-core.test.js",
+      "source": "tests/daily-core.test.js",
+      "publishedSha1": "a1d879474d43093640c31bb374854c600302b805"
+    },
+    {
+      "target": "tests/dallas-time-contract.test.cjs",
+      "source": "tests/dallas-time-contract.test.cjs",
+      "publishedSha1": "10dca5effe1f30497e5bcb34b1fe9600bd85842b"
+    },
+    {
+      "target": "tests/discount-business-authority.test.cjs",
+      "source": "tests/discount-business-authority.test.cjs",
+      "publishedSha1": "3383b106ee41f9aea70f5cd9afed3367f95c5217"
+    },
+    {
+      "target": "tests/event-count-authority.test.cjs",
+      "source": "tests/event-count-authority.test.cjs",
+      "publishedSha1": "17c82123ba1567dd038c7421fd1050a6fbfeac99"
+    },
+    {
+      "target": "tests/event-winner-egift-contract.test.cjs",
+      "source": "tests/event-winner-egift-contract.test.cjs",
+      "publishedSha1": "ac6ceaabad2670053a50cc47199180ee39273a1d"
+    },
+    {
+      "target": "tests/fixtures/event-winner-phase1-base.sql",
+      "source": "tests/fixtures/event-winner-phase1-base.sql",
+      "publishedSha1": "22982ecb0de01c3492b1172fd816c010d718d168"
+    },
+    {
+      "target": "tests/fixtures/event-winner-phase1-check.sql",
+      "source": "tests/fixtures/event-winner-phase1-check.sql",
+      "publishedSha1": "c603a40bc129a40136ba32bf1b37662c747e17dd"
+    },
+    {
+      "target": "tests/fixtures/home-selection-v312.cjs",
+      "source": "tests/fixtures/home-selection-v312.cjs",
+      "publishedSha1": "6a1aa9af9a83be5f490409e50e6536187b589fa3"
+    },
+    {
+      "target": "tests/fixtures/map-v2964-benefits.json",
+      "source": "tests/fixtures/map-v2964-benefits.json",
+      "publishedSha1": "5267560ffae00e214d335d5f30a9344208e689a3"
+    },
+    {
+      "target": "tests/fixtures/restaurant-specials.cjs",
+      "source": "tests/fixtures/restaurant-specials.cjs",
+      "publishedSha1": "641f3a25a78784b4e705c55431f7a24c4b38a9e0"
+    },
+    {
+      "target": "tests/fixtures/weekly-main-src-results.jsonl",
+      "source": "tests/fixtures/weekly-main-src-results.jsonl",
+      "publishedSha1": "adbc4a0553817c8a6b2647f4c951cd337b6c8dbd"
+    },
+    {
+      "target": "tests/fixtures/weekly-public-production.json",
+      "source": "tests/fixtures/weekly-public-production.json",
+      "publishedSha1": "5b031a1501d6703fbfd2675cebc28cd1deea0117"
+    },
+    {
+      "target": "tests/flyer-price-block.test.cjs",
+      "source": "tests/flyer-price-block.test.cjs",
+      "publishedSha1": "d48ce0a7033d96a52dd9a4e2a3eae68f85b8676d"
+    },
+    {
+      "target": "tests/home-selection.test.cjs",
+      "source": "tests/home-selection.test.cjs",
+      "publishedSha1": "c5d11a528f9b515b27c15b557f57ba2ada45aedf"
+    },
+    {
+      "target": "tests/listing-modal.test.cjs",
+      "source": "tests/listing-modal.test.cjs",
+      "publishedSha1": "7388c7d6fe558345a6f2fc60d91dcecbc3ae0790"
+    },
+    {
+      "target": "tests/listing-video.test.cjs",
+      "source": "tests/listing-video.test.cjs",
+      "publishedSha1": "713020171c4f8f80d97aa22cf26a61109f63b431"
+    },
+    {
+      "target": "tests/map-status.test.cjs",
+      "source": "tests/map-status.test.cjs",
+      "publishedSha1": "95549156063858aca4bacb1ac859fd54c488f38c"
+    },
+    {
+      "target": "tests/pagination.test.cjs",
+      "source": "tests/pagination.test.cjs",
+      "publishedSha1": "8319ce33c461e4fbc7cde63d058880b658b024dd"
+    },
+    {
+      "target": "tests/popup-regression.cjs",
+      "source": "tests/popup-regression.cjs",
+      "publishedSha1": "ab499051579524480e080edd9ec848cc92ddfa46"
+    },
+    {
+      "target": "tests/production-readiness.test.cjs",
+      "source": "tests/production-readiness.test.cjs",
+      "publishedSha1": "b4d7d99e6e73129aeeea11117fb93e394177fecb"
+    },
+    {
+      "target": "tests/recommendation-authority.test.cjs",
+      "source": "tests/recommendation-authority.test.cjs",
+      "publishedSha1": "1eae04068f9d5049d31d7c571d089a37d0e00eed"
+    },
+    {
+      "target": "tests/request-coordinator.test.cjs",
+      "source": "tests/request-coordinator.test.cjs",
+      "publishedSha1": "667611a7ede4bb300e9a615d193655afc046b5fd"
+    },
+    {
+      "target": "tests/restaurant-special-detail-presentation.test.cjs",
+      "source": "tests/restaurant-special-detail-presentation.test.cjs",
+      "publishedSha1": "d956365ddc1d25160530105395746ef395fcbd1f"
+    },
+    {
+      "target": "tests/restaurant-special-items.test.cjs",
+      "source": "tests/restaurant-special-items.test.cjs",
+      "publishedSha1": "3f381b46e3aef2225d7b3ca75a7f0396bbcd4466"
+    },
+    {
+      "target": "tests/restaurant-specials.test.cjs",
+      "source": "tests/restaurant-specials.test.cjs",
+      "publishedSha1": "6d3efeb494085a2860a7620ef2697b5b48ec7e3b"
+    },
+    {
+      "target": "tests/set-admin-user-disabled.test.cjs",
+      "source": "tests/set-admin-user-disabled.test.cjs",
+      "publishedSha1": "75ba2784a806de433dd2b8dcee23a6f6043ad939"
+    },
+    {
+      "target": "tests/weekly-current.test.cjs",
+      "source": "tests/weekly-current.test.cjs",
+      "publishedSha1": "8c7df2561c7a6cef7cc40b3cd3a638a5f7693678"
+    },
+    {
+      "target": "tests/weekly-main-src.test.cjs",
+      "source": "tests/weekly-main-src.test.cjs",
+      "publishedSha1": "6d41f9afde96eab61a2500069b26f63a03f0e889"
+    },
+    {
+      "target": "tests/weekly-modal.test.cjs",
+      "source": "tests/weekly-modal.test.cjs",
+      "publishedSha1": "01b38fdbd899749e699520b6189d76e872c32abc"
+    },
+    {
+      "target": "v115-home-section-controls.js",
+      "source": "v115-home-section-controls.js",
+      "publishedSha1": "2c27cfafc158658f758175066daff91c0c9a1c11"
+    }
+  ],
+  "seoOrigin": "https://daltownmap.com",
+  "approvedSeoCommit": "ed6c7e385f176bfef2df8734340ec2f21976caee",
+  "approvalState": "OWNER_CANDIDATE_LOCAL_ONLY"
+}

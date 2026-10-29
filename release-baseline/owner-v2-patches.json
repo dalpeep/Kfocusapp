@@ -1,0 +1,28 @@
+{
+  "patches": [
+    {
+      "path": "netlify/functions/coupon-campaign-enter.mjs",
+      "baselineSha256": "b3650b91a4cbd0add57da6c60813f4dd0096961122824b9fcc07aed3c1d355ff",
+      "sha256": "1164dc34febfc3bc5b3187184ddbb090af2fe96a6242e50b87ccf85ca10310d1",
+      "purpose": "V2 dispatch only; Legacy source preserved"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-admin.mjs",
+      "baselineSha256": "04df87f0e154ce6cfdc9575baf4c63b75c4809cabf23309a6842aa5da08a0fcd",
+      "sha256": "8efed83a79f2e22ca6632edbf660937c10841478e531de6d1fd8928299957392",
+      "purpose": "V2 dispatch only; Legacy source preserved"
+    },
+    {
+      "path": "netlify/functions/coupon-used-notify.mjs",
+      "baselineSha256": "e237262ed79f79a8de6ede44d650265471031823a2d97ca6fc880e5465e784f9",
+      "sha256": "09d49e3335d0def3aae8af816eede359488b8c6367964c26f54a198d0d4cbba4",
+      "purpose": "V2 dispatch only; Legacy source preserved"
+    },
+    {
+      "path": "app-v99.js",
+      "baselineSha256": "6cb16f29672e9466b98d5684a0abe56cdccd02743e8b54a29c087610b5ab85cc",
+      "sha256": "621dd99bcbbde6d3cb1a9b4d2100de57e15d84a731ffbb281ead5575801a96c4",
+      "purpose": "V2 dispatch only; Legacy source preserved"
+    }
+  ]
+}

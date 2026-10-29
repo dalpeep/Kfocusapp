@@ -1,0 +1,15 @@
+(()=>{'use strict';
+window.OwnerImages={mount(parent,business,db){
+ if(!window.OwnerUiPolicy?.subscriber(business.feature_policy))return;
+ const section=document.createElement('section'),label=document.createElement('label'),input=document.createElement('input'),preview=document.createElement('img'),message=document.createElement('p');
+ section.className='owner-images';label.textContent='대표 이미지 (PNG·JPEG·WebP, 최대 5MB)';input.type='file';input.accept='image/png,image/jpeg,image/webp';label.append(input);preview.alt='업소 대표 이미지';preview.style.maxWidth='100%';preview.hidden=true;message.setAttribute('role','status');section.append(label,preview,message);parent.append(section);
+ let selectedPreview=null;input.onchange=()=>{if(selectedPreview)URL.revokeObjectURL(selectedPreview);selectedPreview=null;const file=input.files?.[0];if(!file)return;if(file.size>5242880||!['image/png','image/jpeg','image/webp'].includes(file.type)){message.textContent='PNG·JPEG·WebP, 최대 5MB 이미지를 선택해 주세요.';input.value='';return;}selectedPreview=URL.createObjectURL(file);preview.src=selectedPreview;preview.hidden=false;message.textContent='선택한 사진 미리보기입니다. 대표 이미지 저장을 누르면 반영됩니다.';};
+ let current='';const show=url=>{current=url||'';preview.hidden=!current;if(current)preview.src=current;else preview.removeAttribute('src');};
+ const request=async body=>{const {data:{session}}=await db.auth.getSession();if(!session)throw Error('로그인이 필요합니다.');const r=await fetch('/.netlify/functions/owner-image-uuid',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.code||'이미지 처리 실패');return data;};
+ const add=(title,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=title;b.onclick=async()=>{for(const x of section.querySelectorAll('button'))x.disabled=true;try{await fn();}catch(e){message.textContent=e.message;}finally{for(const x of section.querySelectorAll('button'))x.disabled=false;}};section.append(b);};
+ add('대표 이미지 저장',async()=>{const file=input.files[0];if(!file)throw Error('이미지를 선택해 주세요.');const {data:{session}}=await db.auth.getSession();if(!session)throw Error('로그인이 필요합니다.');const path='owner-v1/owner/'+business.id+'/'+session.user.id+'/'+crypto.randomUUID()+'.'+(file.type==='image/jpeg'?'jpg':file.type==='image/webp'?'webp':'png');const upload=await db.storage.from('public-images').upload(path,file,{contentType:file.type});if(upload.error)throw upload.error;await request({action:'attach',business_id:business.id,path:upload.data.path});show(upload.data.publicUrl);input.value='';message.textContent='대표 이미지 저장 완료';});
+ // Unlink first; keep the old object for shared references and rollback preservation.
+ add('대표 이미지 연결 해제',async()=>{await request({action:'attach',business_id:business.id,path:''});show('');message.textContent='대표 이미지 연결 해제 완료 · 원본 파일 보존';});
+ db.from('businesses').select('image_url').eq('id',business.id).single().then(({data,error})=>{if(error)message.textContent='기존 이미지 조회 실패';else show(data?.image_url||business.feature_policy?.business_image_url);});
+}};
+})();

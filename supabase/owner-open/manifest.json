@@ -1,0 +1,59 @@
+{
+  "reviewOnly": true,
+  "applied": false,
+  "productionProject": "ydrxuqmjzayejlnjzzew",
+  "files": [
+    {
+      "file": "01-security.sql",
+      "sha256": "09768d57ea7f3f454a0a3772579e9142476d8f5cbc08f6194984d7c9ad454c0f"
+    },
+    {
+      "file": "02-apply.sql",
+      "sha256": "467149fcfa8025bf625f88a8ce2522cb872ca56a579226c01b1577980298f753"
+    },
+    {
+      "file": "03-storage.sql",
+      "sha256": "4b90f4ed655d3471f9f1cd962dd71bfb59eb95da45d159b9f5ab56f89e36f29f"
+    },
+    {
+      "file": "03b-legacy-image-authorization.sql",
+      "sha256": "84fd1352108cfdc6911ed4b6b7e271ea46e35118e159651580ecc120b352fb6a"
+    },
+    {
+      "file": "03c-owner-image-link.sql",
+      "sha256": "4d039e546a4293c564af782904bf6384e208b04e7d56625336aa613f0be18a10"
+    },
+    {
+      "file": "06-owner-extensions.sql",
+      "sha256": "fab82a67ccd365baf5539978634d94e034b210a22e6aa1c7b6d83ad80963baf0"
+    },
+    {
+      "file": "07-owner-coupon-plans.sql",
+      "sha256": "9e25be000d64d734702cbd5324d56d0bbb66b91ecf4148655576d2114300e889"
+    },
+    {
+      "file": "08-owner-coupon-transition.sql",
+      "sha256": "6950f0e6ba3f37bb5ae63546165e93f554c126a11b400eac12cfba90c1d177fd"
+    },
+    {
+      "file": "09-owner-open-hardening.sql",
+      "sha256": "81faed4b37f343f607d83f7227a1dd494dfa0492198d5f2c52c885df2d957d9f"
+    },
+    {
+      "file": "10-coupon-v2-usage.sql",
+      "sha256": "ee873833f57823d12dbe2925904a5d4463a7b58d91f7d52fb9e2dd8aa38d9253"
+    },
+    {
+      "file": "11-owner-description-policy.sql",
+      "sha256": "a7ac02a6b2f19bd31ba4ddf766f86dd9b199900235ab26a3a7c37725a67341d5"
+    },
+    {
+      "file": "12-owner-description-seed.sql",
+      "sha256": "434eacd986555abc6074b3df86e2da184df8944d91ddf1ecee17d18eaf7617ab"
+    },
+    {
+      "file": "13-owner-notifications.sql",
+      "sha256": "232ee15d955e6ad9a2c18d7fe70e9d2a65bd9c4032ce3f03b3308b560ced9f4a"
+    }
+  ]
+}

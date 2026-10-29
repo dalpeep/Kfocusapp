@@ -1,0 +1,45 @@
+Owner notification readiness — 2026-10-29 (America/Chicago)
+
+Scope: development candidate only. No production DB, Netlify configuration,
+publish, GitHub main, or external email writes were performed.
+
+PASS: Production Netlify RESEND_API_KEY exists as a masked secret. QA site
+does not contain the same named variable. No credential value was printed.
+PASS: Worker/provider mock tests 14/14; isolated PostgreSQL queue tests 44/44;
+isolated Auth/PostgREST/Storage/PostgreSQL integration tests 86/86.
+Coverage includes application submission/review/approval/rejection, coupon and
+event saves, transactional enqueue, no historical backfill, concurrent leases,
+stable idempotency key, bounded retries, stale acknowledgements, and recipient
+allowlists. Provider acceptance is not proof of inbox delivery.
+BLOCKED: Actual email acceptance/delivery and hosted scheduled execution.
+No email was sent. Existing full key is unavailable; live console is paused.
+
+Candidate adds SQL 13-owner-notifications.sql and one separate scheduled
+owner-notification-worker (every 5 minutes UTC). Existing 44 production
+functions and four schedules remain untouched. Candidate total: 49 functions,
+five schedules including four previously prepared Owner functions.
+Worker and Owner activation default OFF; mock mode never calls the provider.
+Canary requires explicit actor, business and recipient allowlists. A newly
+approved business needs explicit addition before further Canary management.
+
+Before production activation, separately approve:
+1. An OFF-state hosted build of the final candidate, with artifact inspection.
+2. Fresh encrypted backup and restore evidence, schema/ACL preflight, then
+   the reviewed Owner migrations in dependency order (13 after 01–12).
+   Apply transactionally; any failure means STOP, not partial continuation.
+3. Narrow test-only configuration and actor/business/recipient allowlists.
+4. Actual email test only once a usable Sending-access credential is safely
+   available; preserve all existing keys. Confirm verified sender separately.
+
+Rollback: disable Worker and Owner entry first; stop new work, wait for
+in-flight invocation/lease acknowledgement, then restore prior Published
+deployment and confirm publish lock/Firewall. Preserve outbox, audit and
+delivery history; never drop tables or reset accepted messages. Uncertain
+acknowledgements retain their stable key, with automatic replay bounded by
+the retry window. Do not use old independent coupon sender concurrently.
+Any trigger or schema rollback requires separately reviewed SQL approval.
+
+Published scheduled invocation introduces up to 288 scheduled invocations
+per day even when the handler returns disabled; check existing plan usage.
+No paid service was created. No actual receipt, webhook/bounce processing,
+or full production opening is claimed by the isolated test results.

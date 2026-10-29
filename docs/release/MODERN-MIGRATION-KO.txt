@@ -1,0 +1,36 @@
+Modern Functions migration — development only / 2026-10-28
+Branch dev/modern-functions-20261028, based on PR50 head e819ebbc6b5ad4c27188561ece44d28a42f53c2f.
+Scope:42 Lambda-style entries migrated toModern wrappers,2 Nativeentries unchanged.44names/endpoints and4UTCcron retained.
+Original implementation tree copied byte-for-byte to netlify/legacy-functions. ExistingNativeentries/shared lib/data/staticUI unchanged.
+No OwnerPortal/booking/newpolicy implementation. No Productionenv/DB/SQL/main/Netlifysettings/build/upload/publication changes.
+
+Architecture
+netlify/functions/<name>.mjs imports preserved CJS implementation and migration/adapter.mjs.
+Adapter uses official @netlify/aws-lambda-compat2.0.2 withLambda. It only removes prohibited HTTPbodies for204/205/304.
+No manualbootstrap/invocationmetadata rewriting. OfficialZISI16.3.0 generates44API2 artifacts.
+JSentry removal is local source relocation,not removal ofFunctionnames; original source retained inlegacytree.
+Existing deployed coupon-campaign-lib is ahelper without handler. ItsModernentry still rejects invocations; no invented success/dataAPI.
+Schedulednewsroom/raffle wrapperexports copy existingcron, existingTOMLcron unchanged.
+
+QA limits and findings
+Automatedcontracts use onlyfixture.invalid/example.invalid,fetchmocks and syntheticcredentials. No realemail/push/draw/DB writes.
+Pairwiseparity comparesstatus/body/headers for39 nonscheduled handlers GET/OPTIONS/POST; runtime stacklocations normalized only inJSONerrorcomparison.
+Representativechecks coverquery/repeatedquery/authheaders/text/binary/cookies/emptybody/exceptions.
+Mockworkflows coverexistingcoupon duplicate,adminroles,Maps,OneSignal,Resend,newsroomempty pipeline.
+Same-entry concurrentraffle claim:PASS(old+Modern oneclaim/onemockmail).
+Existingcross-entry concurrentraffle cap:FAIL(old+Modern winner_count1 produced2winners with2differententries in2overlappingruns).
+Businesslogic unchanged under user scope. Do not call fullbusinessconcurrency safe. This issue requires separate fix/approval before changedrafflepublication.
+Original44source topology includespublichelpercoupon-campaign-lib with nohandler; preserve this fact inreadinessreport.
+UItestserver isloopbackonly, CSPblocks externalresources; browserusesunmodifiedindex/app withlocalmockdataandModernconfig.
+Mapiframe/externalSDKblockedintentionally. Realprovider/productionauthtests notclaimed.
+Production-equivalentNetlifyDraftready/upload/4KB-resolutionruntime remainsNOTRUNuntilseparateapproval.
+
+LinuxQA
+Workflowpushonlydev/modern-functions-20261028 plusexistingPRtrigger; no Netlifytoken/secret/deploy/SQLstep.
+Everycommit includes[skip netlify],ignore=exit0 andactivationflagsfalse retained. PR50/main unchanged.
+LocalDockerdaemon unavailable; use GitHubLinuxActions on isolateddevelopmentbranch.
+
+Rollback
+No deployedchange now. Discard/revertdevelopmentbranch only ifneeded; do not touchPR50/main.
+Laterdeploymentrequirespublishedsnapshot/lock+Firewall,44API2/4cron/secret/SEOchecks,explicitbuildthenpublicationapprovals.
+Do not setLambda flags topretendruntimeconversion. Existingenv29remain unchanged.

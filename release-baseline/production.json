@@ -1,0 +1,756 @@
+{
+  "commit": "524c984389ec44a83bd612682aadb91ecac6c5fc",
+  "publishedDeploy": "6acb1b0b7df72c0008b79f49",
+  "functions": [
+    {
+      "name": "ai-daily-home",
+      "publishedDigest": "d294c9d16de3999d7307aa880c1e50e3d17a4dd558bbb21ceb396aea645109b9",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/ai-daily-home.js",
+      "sourceSha256": "1566b2261039f68d5f72c57d4db5f53b934bfaf79ff9aedbca46ea0ff77a7957",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "analyze-newsroom",
+      "publishedDigest": "e7d03c6994d43eacbff88efd0137ff1b22c8cc01a62c51a8a71c9dd5b9d11a0d",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/analyze-newsroom.js",
+      "sourceSha256": "296d377eaea20b88d771b4645b36c004a3bf891827890653de41735396f3609b",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "collect-newsroom",
+      "publishedDigest": "8130e44942477106182a934427a1e3542ced733d28aeec75ed61fc05d303d567",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/collect-newsroom.js",
+      "sourceSha256": "ec2d1d97c4749bbed7bf09216a287cdd86a12f58bd4074a39ac1b57da7463fde",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-admin",
+      "publishedDigest": "dab19eb0ae4e4a0a3db0fe07d97b1c421a3becd51767fd1a1e8a9da7c007466c",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-admin.js",
+      "sourceSha256": "3f689e3c037f071f664a319f27c8c8a6bfb9d41c536f3dcb1cb43dde524a9c9c",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-cleanup-scheduled",
+      "publishedDigest": "36283b509947e8252f39fce465b8f2b0c1c2fea1c272e2c99c6231985baaed68",
+      "runtime": "nodejs22.x",
+      "apiVersion": 2,
+      "entry": "netlify/functions/community-cleanup-scheduled.mjs",
+      "sourceSha256": "91243ee5bb2752962d4639dd4f91bf9ace86559c6e376fdc7768fd2307bcb456",
+      "schedule": "30 9 * * *",
+      "inlineSchedules": [
+        "30 9 * * *"
+      ],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-comment-create",
+      "publishedDigest": "4fa585ed7cdaec05081b84f6745d58a656042726d94213989581d6e64c355208",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-comment-create.js",
+      "sourceSha256": "9ed8bfc0573e7326f5437c37a535afddd8a0d17c77e5f68dfa97120b413bdb9c",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-comment-delete",
+      "publishedDigest": "e45af223e57e850585bcb237b60b17790bbd9597279c76a387fc1726a016d549",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-comment-delete.js",
+      "sourceSha256": "5aba5a128ff3929cff84708aa644033ea51bf5ed780aa4acb1d73ea88628028c",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-post-create",
+      "publishedDigest": "b35b5de23b3f7ca65cd60238e1ef917fb492c16b6e666bf5e38e970ab7d2505e",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-post-create.js",
+      "sourceSha256": "94e9adba89f10f8b8b500bf749f9c2129944ce68284a51653a673ef04bf4079b",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-post-delete",
+      "publishedDigest": "ce0b7325cf21f48dbab43cac4d6cc568230e476ac29a3391f7b209a5038f179d",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-post-delete.js",
+      "sourceSha256": "6c59ed17c0a4acb5d1609a112599dd620b43013d4c089f2997882822e877ffa8",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-post-extend",
+      "publishedDigest": "d7c0766326084f71ebf98ee067a75953a803f26022f4908c81fd6d5059b52ddd",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-post-extend.js",
+      "sourceSha256": "c31edc99b762147a2875375272318d72f5c844c53214b3deb4740d2f08743bf8",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-post-owner",
+      "publishedDigest": "cbaf9fc2c689a742be0bb77ef2e3873f131010441f7cbbbf4c30921ae0dc3f59",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-post-owner.js",
+      "sourceSha256": "36d46fbac55f1bb491fb302bac854158461a68a740c332719d8ad8600f2540d8",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-post-sold",
+      "publishedDigest": "d3b7b5029f3f12c35570bfb477f3b7bda2d19abd93a36b7b6ba6da8822b7c713",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-post-sold.js",
+      "sourceSha256": "88830edd6b815f5b2df547fdd68aaf4b08fd45325cca4b2fcdbb525b90845156",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-post-update",
+      "publishedDigest": "08435f999cf21f5ae0757e9b18a70dd2aab3a54788cf4cb2954816658f49feea",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-post-update.js",
+      "sourceSha256": "71a0d9da48dec892b713884a6c75f751aae85f77e34d1f2f9ceb1c2483bd5497",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-upload-authorize",
+      "publishedDigest": "64547ddacde0e921676ddd3349afb8de0b69d195ad99d1b2f9659e1e84be47d1",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-upload-authorize.js",
+      "sourceSha256": "0ac76fa4dd5cd9932dab856be6fe59a042e7819094514140d442081b38b226dd",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-video-retry-availability",
+      "publishedDigest": "5741155dacfcc427469a974af470c1c098fd2b8d3660668b3f09ddefa4001707",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-video-retry-availability.js",
+      "sourceSha256": "f3aaea691bc492f452043392f4520722bb607c70f1463e3d2d1295987a956c4b",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-video-upload-admit",
+      "publishedDigest": "99fed7fbbcf4529c741d2ee35a325bfe4625cedb05b7b4b87bd1de4b0799ede4",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-video-upload-admit.js",
+      "sourceSha256": "2c2bf49fdc0a9912e2f0ca0dc7d5d6d5ea9fcc826d710df8874cf0934c965486",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "community-video-upload-status",
+      "publishedDigest": "b1bd9587140d96692f95fc3cc59b38a1ff8dbc63daf4ae052459a99d4fa605f6",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/community-video-upload-status.js",
+      "sourceSha256": "6262f3185de65887194ae40dbca928113fafe3884785be3c0048e617ee631f3e",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "config",
+      "publishedDigest": "bd9cfd2c8926388a865b2872b0c2cdde815c76c16e7b619b2099621b46292719",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/config.js",
+      "sourceSha256": "5b05aa573ae1e41f9701e4b9e0fd19081370d7288c9493f3ded0d4e3c4ef0007",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "coupon-campaign-admin",
+      "publishedDigest": "04dda5a8378ec497c533340a18064c526867101358e5bdb2ba072dab3ac6b98b",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/coupon-campaign-admin.js",
+      "sourceSha256": "f15b2f6901f1d3ef98b4280c379fbb1cdcb983700d6bb54ffa20cf2b8ff20ac3",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "coupon-campaign-enter",
+      "publishedDigest": "2076f8937c47c1a2269eeb09dd7a7d16751629b8221eb97e9a597858361677ec",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/coupon-campaign-enter.js",
+      "sourceSha256": "a0a1bcea4f714f4d6b25e7e7a86861a8d778af00424ba5f9eb69d3a188786e8f",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "coupon-campaign-lib",
+      "publishedDigest": "736460cabe084b8c77ab2299a92f5d05d00839a2d5a7444b00cf8ba180085474",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/coupon-campaign-lib.js",
+      "sourceSha256": "b104378b9d6f55ea0fd8c3645e00d0976f837174c9777e60d35bb82e3e8f21e9",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "coupon-redemptions-admin",
+      "publishedDigest": "77a01b230eb114623081b85ac3467781fd97e6db4704330922ce931ed3643e9c",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/coupon-redemptions-admin.js",
+      "sourceSha256": "36754fd5cf6ed8c8b7480829d81dd27941d5dc25aa8dd8e7013ea71a011dcc86",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "coupon-used-notify",
+      "publishedDigest": "1b1c96de9138e562c7b19fc557ee3118aec2806841cddd1d6cf7cc5f0afc8c88",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/coupon-used-notify.js",
+      "sourceSha256": "a8cd9747ff25ec55ba3d42d2387198fd90656fa409f49ecd3ba14ea9abecbc7e",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "daily-core-refresh",
+      "publishedDigest": "634a0da1af29fa562aa31367a7f8c4c39c595f017b6fcdf3abe75d7447cfbcb3",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/daily-core-refresh.js",
+      "sourceSha256": "75fae240fdcbd44d83152ce943dae78d3ca2024becd7e86e910cec68341a8e7c",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "daily-core-scheduled",
+      "publishedDigest": "4642501d50597f8924a8e4267e6931367753ef4f9329ba91e4c71fc16f6e7e8f",
+      "runtime": "nodejs22.x",
+      "apiVersion": 2,
+      "entry": "netlify/functions/daily-core-scheduled.mjs",
+      "sourceSha256": "709d4891b75ab75cef354c7a33852e3b875293f0d92ee78581f696fdf57d3e8b",
+      "schedule": "15 11 * * *",
+      "inlineSchedules": [
+        "15 11 * * *"
+      ],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "daltown-daily-core",
+      "publishedDigest": "a7c5aafaca79ee9c6fa211d31aded2a2f75971025b9c8afdce8c3206335c0468",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/daltown-daily-core.js",
+      "sourceSha256": "63199a1f0e2b1fe775c7f3e35f57c7c17d7c0a5fd52ac028ac2da9eee55e62c3",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "draft-newsroom",
+      "publishedDigest": "c9aca33fc791794240524e7c2e2ef72f2329c7a018a0a57748470b2c1ecb120d",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/draft-newsroom.js",
+      "sourceSha256": "11aa7af8bf5cd4682eb939a6ae02da7ced46f7e6fe5befa134c292054e0f2f46",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "event-winner-admin",
+      "publishedDigest": "6111d34928505a6a8abfaa7a4247f5046cc784426622d6fa823a92f934ece27a",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/event-winner-admin.js",
+      "sourceSha256": "c04fc392906ab6c69aff16b13c291a87248487e6dc0d220fa58de47c4d4fe172",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "generate-campaign-image",
+      "publishedDigest": "799753af9eee813aef83967eefdbac1b7629be4997d3d08d1a6b9d5c886ba79c",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/generate-campaign-image.js",
+      "sourceSha256": "2e8700995c82c34828203f220d3bddf136feaee7c700e7aa3fa76a298bbe5099",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "generate-content-suite",
+      "publishedDigest": "252bbdc57881808ed53ba9fb9992e47bf8788caab2e9ba444976e976f3db4d60",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/generate-content-suite.js",
+      "sourceSha256": "402d4ea27caa8752ec93a275a981ae6bee778effd7899945b5030136ae041c20",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "generate-dalpick",
+      "publishedDigest": "b66d62b419b1f7c9340452c4a7e59cb2e2a29fc12a8ee5d98fda22aa265e762f",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/generate-dalpick.js",
+      "sourceSha256": "a5c297ddf350638b1293c2bc84c9d1fcb02327778ce19ac2743e9113c849395c",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "generate-dalpick-image",
+      "publishedDigest": "2cf36106528ac35b494b4172b1c25800df16561107ae42e1e0fe06b3ffb26445",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/generate-dalpick-image.js",
+      "sourceSha256": "fb9f2f4e04195dbebb89ad8291fe7eb54c5856f1936f3b1f40a3b19ac4c07a0d",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "generate-guide",
+      "publishedDigest": "9d7f62286daa7e5076e37129f9151b36783ff2ac59f3b3687b6a84d418043d6e",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/generate-guide.js",
+      "sourceSha256": "3285627b3f36b94de2a5b93d9881c4867a97cba12e582bbc1684ba547522ec7f",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "google-place-rating",
+      "publishedDigest": "9248dde04f95672116adf9af279b3c1a9d47df82bdda6c6380abc144e1f07606",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/google-place-rating.js",
+      "sourceSha256": "f06f2b30f2fece2763fd28bf12cead378d99aac02d4e2d745ec5e5f2bb115711",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "newsroom-daily",
+      "publishedDigest": "7b284edad1d3a775dc611a2de742253ffe4fe760a11b073d81f94ed47ccced42",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/newsroom-daily.js",
+      "sourceSha256": "d541c4a108826c1b74e9d1f291079e558673c53501038d6e66237bcefbe00b3d",
+      "schedule": "0 11 * * *",
+      "inlineSchedules": [
+        "0 11 * * *"
+      ],
+      "tomlContainsEntry": true
+    },
+    {
+      "name": "raffle-auto-draw",
+      "publishedDigest": "f30b6e4e9300180612e54d10eb34808805280f7b06bc65ac854721c71ec42b86",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/raffle-auto-draw.js",
+      "sourceSha256": "0046c2fec3d2e1cf6b83467ab785a8d3b3d5c73fead9bd9f3203a73d3c150509",
+      "schedule": "*/10 * * * *",
+      "inlineSchedules": [],
+      "tomlContainsEntry": true
+    },
+    {
+      "name": "runtime-settings",
+      "publishedDigest": "fae2c26c447678f07ccafa9dfbc3cb6662dae0a970a87462c57f04bfee483fe3",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/runtime-settings.js",
+      "sourceSha256": "1f3c66376aaef8f61378fd4734ce72d0a1b9153f877530cff4e9fc81973a3615",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "search-guide",
+      "publishedDigest": "2b1877a80e72024cb84fe6e30f396a4ac7e9ed7a6f99df4b5e7dc82ec5d1de9b",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/search-guide.js",
+      "sourceSha256": "e47f2c1d8dc5a99acd2b9d40a2d7d8a28b65f531a49bbf3c59dbc407d7beb415",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "sendPush",
+      "publishedDigest": "ac1c4925fcdfe66bfd247d30cfb403c680a7b199a10ef7e7456796f9dc4a073b",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/sendPush.js",
+      "sourceSha256": "93825a54150662a8f9fb72190f1c735a6e86041ad2546878c791f2ada8d4903c",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "set-admin-user",
+      "publishedDigest": "4410d2dc10236fa696c4c26b8e242fa43c74038265968880bec6da6fb97c8235",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/set-admin-user.js",
+      "sourceSha256": "03819f1e7b74cda61b7428c397afa2adedaa1d68d56cfd140809cec7b87cb463",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "smart-flyer-admin",
+      "publishedDigest": "05045dae7865e724eb0a20111760acd8d62a6cca133cc75e884e5fdc0e751dde",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/smart-flyer-admin.js",
+      "sourceSha256": "482881ce2fac279d4fc9907e08627cf3154a2991b73111c542a9b301d4f1367b",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "smart-flyer-public",
+      "publishedDigest": "a499c758fa27690c59083d1f25e1d635e40e0559f69b736d785ba08ecce8257e",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/smart-flyer-public.js",
+      "sourceSha256": "975badeff4c7892a6fff21c73cadbf764b40fe01981db5369569e7bacc3ebe23",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "today-daltown-feed",
+      "publishedDigest": "c77b9c57c9cb775d2223d5c47972af888733195e8e39c3d6e515bfd550d4c7f3",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/today-daltown-feed.js",
+      "sourceSha256": "c6df4375db95b795742607ffb7c1451ca605ad4a504ed15e4070d492d2f3fcfe",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    },
+    {
+      "name": "traffic-source-track",
+      "publishedDigest": "5bffbe47324ecdc3b56c0efa5010077037acf21cedae888121c112ad0415c6a8",
+      "runtime": "nodejs22.x",
+      "apiVersion": 1,
+      "entry": "netlify/functions/traffic-source-track.js",
+      "sourceSha256": "6945140a3127e3a30ee390ecde4cbb7d7b85398e36585ac5251981131d48ab99",
+      "schedule": null,
+      "inlineSchedules": [],
+      "tomlContainsEntry": false
+    }
+  ],
+  "sources": [
+    {
+      "path": "netlify/functions/ai-daily-home.js",
+      "sha256": "1566b2261039f68d5f72c57d4db5f53b934bfaf79ff9aedbca46ea0ff77a7957"
+    },
+    {
+      "path": "netlify/functions/analyze-newsroom.js",
+      "sha256": "296d377eaea20b88d771b4645b36c004a3bf891827890653de41735396f3609b"
+    },
+    {
+      "path": "netlify/functions/collect-newsroom.js",
+      "sha256": "ec2d1d97c4749bbed7bf09216a287cdd86a12f58bd4074a39ac1b57da7463fde"
+    },
+    {
+      "path": "netlify/functions/community-admin.js",
+      "sha256": "3f689e3c037f071f664a319f27c8c8a6bfb9d41c536f3dcb1cb43dde524a9c9c"
+    },
+    {
+      "path": "netlify/functions/community-cleanup-scheduled.mjs",
+      "sha256": "91243ee5bb2752962d4639dd4f91bf9ace86559c6e376fdc7768fd2307bcb456"
+    },
+    {
+      "path": "netlify/functions/community-comment-create.js",
+      "sha256": "9ed8bfc0573e7326f5437c37a535afddd8a0d17c77e5f68dfa97120b413bdb9c"
+    },
+    {
+      "path": "netlify/functions/community-comment-delete.js",
+      "sha256": "5aba5a128ff3929cff84708aa644033ea51bf5ed780aa4acb1d73ea88628028c"
+    },
+    {
+      "path": "netlify/functions/community-post-create.js",
+      "sha256": "94e9adba89f10f8b8b500bf749f9c2129944ce68284a51653a673ef04bf4079b"
+    },
+    {
+      "path": "netlify/functions/community-post-delete.js",
+      "sha256": "6c59ed17c0a4acb5d1609a112599dd620b43013d4c089f2997882822e877ffa8"
+    },
+    {
+      "path": "netlify/functions/community-post-extend.js",
+      "sha256": "c31edc99b762147a2875375272318d72f5c844c53214b3deb4740d2f08743bf8"
+    },
+    {
+      "path": "netlify/functions/community-post-owner.js",
+      "sha256": "36d46fbac55f1bb491fb302bac854158461a68a740c332719d8ad8600f2540d8"
+    },
+    {
+      "path": "netlify/functions/community-post-sold.js",
+      "sha256": "88830edd6b815f5b2df547fdd68aaf4b08fd45325cca4b2fcdbb525b90845156"
+    },
+    {
+      "path": "netlify/functions/community-post-update.js",
+      "sha256": "71a0d9da48dec892b713884a6c75f751aae85f77e34d1f2f9ceb1c2483bd5497"
+    },
+    {
+      "path": "netlify/functions/community-upload-authorize.js",
+      "sha256": "0ac76fa4dd5cd9932dab856be6fe59a042e7819094514140d442081b38b226dd"
+    },
+    {
+      "path": "netlify/functions/community-video-retry-availability.js",
+      "sha256": "f3aaea691bc492f452043392f4520722bb607c70f1463e3d2d1295987a956c4b"
+    },
+    {
+      "path": "netlify/functions/community-video-upload-admit.js",
+      "sha256": "2c2bf49fdc0a9912e2f0ca0dc7d5d6d5ea9fcc826d710df8874cf0934c965486"
+    },
+    {
+      "path": "netlify/functions/community-video-upload-status.js",
+      "sha256": "6262f3185de65887194ae40dbca928113fafe3884785be3c0048e617ee631f3e"
+    },
+    {
+      "path": "netlify/functions/config.js",
+      "sha256": "5b05aa573ae1e41f9701e4b9e0fd19081370d7288c9493f3ded0d4e3c4ef0007"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-admin.js",
+      "sha256": "f15b2f6901f1d3ef98b4280c379fbb1cdcb983700d6bb54ffa20cf2b8ff20ac3"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-enter.js",
+      "sha256": "a0a1bcea4f714f4d6b25e7e7a86861a8d778af00424ba5f9eb69d3a188786e8f"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-lib.js",
+      "sha256": "b104378b9d6f55ea0fd8c3645e00d0976f837174c9777e60d35bb82e3e8f21e9"
+    },
+    {
+      "path": "netlify/functions/coupon-redemptions-admin.js",
+      "sha256": "36754fd5cf6ed8c8b7480829d81dd27941d5dc25aa8dd8e7013ea71a011dcc86"
+    },
+    {
+      "path": "netlify/functions/coupon-used-notify.js",
+      "sha256": "a8cd9747ff25ec55ba3d42d2387198fd90656fa409f49ecd3ba14ea9abecbc7e"
+    },
+    {
+      "path": "netlify/functions/daily-core-refresh.js",
+      "sha256": "75fae240fdcbd44d83152ce943dae78d3ca2024becd7e86e910cec68341a8e7c"
+    },
+    {
+      "path": "netlify/functions/daily-core-scheduled.mjs",
+      "sha256": "709d4891b75ab75cef354c7a33852e3b875293f0d92ee78581f696fdf57d3e8b"
+    },
+    {
+      "path": "netlify/functions/daltown-daily-core.js",
+      "sha256": "63199a1f0e2b1fe775c7f3e35f57c7c17d7c0a5fd52ac028ac2da9eee55e62c3"
+    },
+    {
+      "path": "netlify/functions/data/dalkora_business_full.csv",
+      "sha256": "d00c5c643b93dba0eeb31b58e3cd61fcf51db5c3e949337d53f432a28803d29f"
+    },
+    {
+      "path": "netlify/functions/data/ktn-businesses.json",
+      "sha256": "399be01260357417abda1bd817e7d6bbbedb937c27d93e5eab467b58a49bb242"
+    },
+    {
+      "path": "netlify/functions/draft-newsroom.js",
+      "sha256": "11aa7af8bf5cd4682eb939a6ae02da7ced46f7e6fe5befa134c292054e0f2f46"
+    },
+    {
+      "path": "netlify/functions/event-winner-admin.js",
+      "sha256": "c04fc392906ab6c69aff16b13c291a87248487e6dc0d220fa58de47c4d4fe172"
+    },
+    {
+      "path": "netlify/functions/generate-campaign-image.js",
+      "sha256": "2e8700995c82c34828203f220d3bddf136feaee7c700e7aa3fa76a298bbe5099"
+    },
+    {
+      "path": "netlify/functions/generate-content-suite.js",
+      "sha256": "402d4ea27caa8752ec93a275a981ae6bee778effd7899945b5030136ae041c20"
+    },
+    {
+      "path": "netlify/functions/generate-dalpick-image.js",
+      "sha256": "fb9f2f4e04195dbebb89ad8291fe7eb54c5856f1936f3b1f40a3b19ac4c07a0d"
+    },
+    {
+      "path": "netlify/functions/generate-dalpick.js",
+      "sha256": "a5c297ddf350638b1293c2bc84c9d1fcb02327778ce19ac2743e9113c849395c"
+    },
+    {
+      "path": "netlify/functions/generate-guide.js",
+      "sha256": "3285627b3f36b94de2a5b93d9881c4867a97cba12e582bbc1684ba547522ec7f"
+    },
+    {
+      "path": "netlify/functions/google-place-rating.js",
+      "sha256": "f06f2b30f2fece2763fd28bf12cead378d99aac02d4e2d745ec5e5f2bb115711"
+    },
+    {
+      "path": "netlify/functions/lib/community-cleanup.js",
+      "sha256": "31d6e214c41465479b9d5718daaa440cf58a72c818cde9e8011e606ef227066c"
+    },
+    {
+      "path": "netlify/functions/lib/community-details.js",
+      "sha256": "b412b0d4f7520fe5a56b00975dcc8717aac4d2c1ee6a41cc075e97e6d40c8bad"
+    },
+    {
+      "path": "netlify/functions/lib/community-edit-policy.js",
+      "sha256": "9966806b29ad54b80e7334baa40dec28aef8b55cd5e76ba1fa1df09379f6cefc"
+    },
+    {
+      "path": "netlify/functions/lib/community-image-edit.js",
+      "sha256": "3b5d530795ebca265d801998182b61d2495272cac63f4b6beab24e8aa47420db"
+    },
+    {
+      "path": "netlify/functions/lib/community-lifecycle.js",
+      "sha256": "25a7e3d832a9abc5ba73b4ea41cc74e3087e26f4d894155fd7cfae7f69456c1a"
+    },
+    {
+      "path": "netlify/functions/lib/community-maintenance.js",
+      "sha256": "c7085e3fad99db32c59797a3847414427f0aa77740f6063a53b34e201949452a"
+    },
+    {
+      "path": "netlify/functions/lib/community-mutate.js",
+      "sha256": "bea8b6149d78341559ac04aadd3991247b40ab809f812840a9ccd39669221a3a"
+    },
+    {
+      "path": "netlify/functions/lib/community-retention.js",
+      "sha256": "96f558b51ee9ee8af5da0e6e81634f905b5255f9ac83de3a10e09894b9a3c2ca"
+    },
+    {
+      "path": "netlify/functions/lib/community-review.js",
+      "sha256": "709f7823868f4605192c5ee43e343481ec45db689835d8d0339df93b7e5ae78e"
+    },
+    {
+      "path": "netlify/functions/lib/community-security.js",
+      "sha256": "aa05fbcf517550dcf1d5b9e373e4f81afacdaaa70c9b98246506b9c6258d73bf"
+    },
+    {
+      "path": "netlify/functions/lib/community-video-production-config.js",
+      "sha256": "3d49b28417ac386d734eabe9b6edfc2f482a55282efd1386e7fe17195b92c8bf"
+    },
+    {
+      "path": "netlify/functions/lib/community-video-url.js",
+      "sha256": "eab2b26b768af9d24897cc2ad62ed9623932c3a5ed6d9d88ef111ab195a4343a"
+    },
+    {
+      "path": "netlify/functions/lib/daily-core.js",
+      "sha256": "573046be45a20e18af4b66fee3f0f26e6024c10e1d2da31dcb48b34424366c8f"
+    },
+    {
+      "path": "netlify/functions/newsroom-daily.js",
+      "sha256": "d541c4a108826c1b74e9d1f291079e558673c53501038d6e66237bcefbe00b3d"
+    },
+    {
+      "path": "netlify/functions/raffle-auto-draw.js",
+      "sha256": "0046c2fec3d2e1cf6b83467ab785a8d3b3d5c73fead9bd9f3203a73d3c150509"
+    },
+    {
+      "path": "netlify/functions/runtime-settings.js",
+      "sha256": "1f3c66376aaef8f61378fd4734ce72d0a1b9153f877530cff4e9fc81973a3615"
+    },
+    {
+      "path": "netlify/functions/search-guide.js",
+      "sha256": "e47f2c1d8dc5a99acd2b9d40a2d7d8a28b65f531a49bbf3c59dbc407d7beb415"
+    },
+    {
+      "path": "netlify/functions/sendPush.js",
+      "sha256": "93825a54150662a8f9fb72190f1c735a6e86041ad2546878c791f2ada8d4903c"
+    },
+    {
+      "path": "netlify/functions/set-admin-user.js",
+      "sha256": "03819f1e7b74cda61b7428c397afa2adedaa1d68d56cfd140809cec7b87cb463"
+    },
+    {
+      "path": "netlify/functions/smart-flyer-admin.js",
+      "sha256": "482881ce2fac279d4fc9907e08627cf3154a2991b73111c542a9b301d4f1367b"
+    },
+    {
+      "path": "netlify/functions/smart-flyer-public.js",
+      "sha256": "975badeff4c7892a6fff21c73cadbf764b40fe01981db5369569e7bacc3ebe23"
+    },
+    {
+      "path": "netlify/functions/today-daltown-feed.js",
+      "sha256": "c6df4375db95b795742607ffb7c1451ca605ad4a504ed15e4070d492d2f3fcfe"
+    },
+    {
+      "path": "netlify/functions/traffic-source-track.js",
+      "sha256": "6945140a3127e3a30ee390ecde4cbb7d7b85398e36585ac5251981131d48ab99"
+    },
+    {
+      "path": "assets/dallas-time.js",
+      "sha256": "1b58e843cc4b0ff0973ab972ab243aa4e25995430f7a275f2ee74f471335a452"
+    }
+  ],
+  "schedules": [
+    {
+      "cron": "30 9 * * *",
+      "name": "community-cleanup-scheduled"
+    },
+    {
+      "cron": "15 11 * * *",
+      "name": "daily-core-scheduled"
+    },
+    {
+      "cron": "0 11 * * *",
+      "name": "newsroom-daily"
+    },
+    {
+      "cron": "*/10 * * * *",
+      "name": "raffle-auto-draw"
+    }
+  ]
+}
