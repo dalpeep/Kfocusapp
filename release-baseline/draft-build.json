@@ -9,7 +9,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "5dd222be88a755e0860a4cc7e5f602ee9f399b2caf08ae8f0bd18da19f12aad1"
+      "sha256": "621dd99bcbbde6d3cb1a9b4d2100de57e15d84a731ffbb281ead5575801a96c4"
     },
     {
       "path": "assets/community.js",
@@ -685,7 +685,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-coupon-v2.js",
-      "sha256": "1c48f0123303ffe31902bce259c4d8d53afd94a77b049fa5cf5fe76a86450d71"
+      "sha256": "63ba1ee110fb8493350a345448ae4ead9f09f077eeeca661d571cdfd9b49ecf5"
     },
     {
       "path": "supabase/owner-open/10-coupon-v2-usage.sql",
@@ -693,7 +693,7 @@
     },
     {
       "path": "release-baseline/owner-v2-patches.json",
-      "sha256": "4b44b4746503fa7023b5de6100edf1e657e3e62e195a86150e1eb324bc0cbb14"
+      "sha256": "957ce40e78b76f0bd11d602c0f523475823a33b4e5fec2e1279ea8f1cf787b57"
     },
     {
       "path": "owner-uuid/descriptions.js",

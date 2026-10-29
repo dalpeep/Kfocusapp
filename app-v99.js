@@ -6826,9 +6826,11 @@ async function useCouponNow(coupon){
     used_by: 'customer',};
 
   // V2 redemption is confirmed by an approved owner, never by a browser write.
-  const protocolRead=await client.from('coupons').select('owner_coupon_protocol').eq('id',coupon.id).maybeSingle();
-  if(protocolRead.error && protocolRead.error.code!=='42703')throw new Error('쿠폰 사용 권한을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
-  if(protocolRead.data?.owner_coupon_protocol==='v2')throw new Error('발급받은 이메일 쿠폰을 매장에 제시해 주세요. 업주가 사용을 확인합니다.');
+  const protocolResponse=await fetch('/.netlify/functions/coupon-campaign-enter?protocol_probe=1&coupon_id='+encodeURIComponent(coupon.id));
+  if(!protocolResponse.ok||!(protocolResponse.headers.get('content-type')||'').includes('application/json'))throw new Error('쿠폰 사용 권한을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
+  const protocolRead=await protocolResponse.json();
+  if(protocolRead.protocol==='v2')throw new Error('발급받은 이메일 쿠폰을 매장에 제시해 주세요. 업주가 사용을 확인합니다.');
+  if(protocolRead.protocol!=='legacy')throw new Error('쿠폰 사용 권한을 확인하지 못했습니다.');
 
   const { error } = await client
     .from('coupon_redemptions')

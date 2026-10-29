@@ -6,6 +6,13 @@ const reply=(statusCode,body)=>({statusCode,headers:{'Content-Type':'application
 function client(){return require('@supabase/supabase-js').createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
 function makeDispatch(kind,legacy,{getClient=client,enabled=()=>{requireOwnerUuidEnvironment();return process.env.OWNER_COUPON_V2_ENABLED==='true';}}={}){
  return async event=>{
+  if(kind==='enter'&&event.httpMethod==='GET'&&event.queryStringParameters?.protocol_probe==='1'){
+   const id=event.queryStringParameters.coupon_id;if(!UUID.test(id||''))return reply(400,{ok:false,error:'COUPON_ID_REQUIRED'});
+   try{const found=await getClient().from('coupons').select('owner_coupon_protocol').eq('id',id).maybeSingle();
+    if(found.error&&found.error.code!=='42703')throw Error('PROTOCOL_LOOKUP_FAILED');
+    return reply(200,{ok:true,protocol:!found.error&&found.data?.owner_coupon_protocol==='v2'?'v2':'legacy'});
+   }catch{return reply(503,{ok:false,error:'V2_UNAVAILABLE'});}
+  }
   if(event.httpMethod!=='POST')return legacy(event);
   let body;try{body=JSON.parse(event.body||'{}');}catch{return legacy(event);}
   if(kind==='admin'&&body.action==='list_all'){

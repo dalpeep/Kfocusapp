@@ -21,7 +21,7 @@
     {
       "path": "app-v99.js",
       "baselineSha256": "6cb16f29672e9466b98d5684a0abe56cdccd02743e8b54a29c087610b5ab85cc",
-      "sha256": "5dd222be88a755e0860a4cc7e5f602ee9f399b2caf08ae8f0bd18da19f12aad1",
+      "sha256": "621dd99bcbbde6d3cb1a9b4d2100de57e15d84a731ffbb281ead5575801a96c4",
       "purpose": "V2 dispatch only; Legacy source preserved"
     }
   ]

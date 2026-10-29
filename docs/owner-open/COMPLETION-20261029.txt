@@ -32,7 +32,7 @@ profiles는 authenticated 자기 행 SELECT 정책만 확인(클라이언트 역
 기존 파일·공개 URL·데이터 레코드 변경 없음. 안전한 메타데이터는 .release-artifacts/production-owner-catalog.json에 보존, 웹 배포하지 않음.
 
 4. 검증 범위
-새 v2 단위 검사 24 PASS. v2 실제 PostgreSQL 40 PASS: 발급/사용 동시 요청 10개, 알림 동시 lease 1개, 잘못된 lease/재시도 대기/고정 이벤트키, 권한·만료·종료·롤백.
+새 v2 단위 검사 26 PASS. v2 실제 PostgreSQL 40 PASS: 발급/사용 동시 요청 10개, 알림 동시 lease 1개, 잘못된 lease/재시도 대기/고정 이벤트키, 권한·만료·종료·롤백.
 소개 카탈로그 단위 검사 10 PASS: 12그룹/48개 고유 ID/한영/업종 선택/seed 일치/기존 데이터 무변경.
 실제 로컬 Auth·PostgREST·Storage·PostgreSQL 서비스 72 PASS: 생성한 가상 계정만 사용.
 관리자 승인·거절·회수, 지역별 승인·타 지역 거부, 사용자 metadata 역할 위조 차단, Free 선택형·Paid 자유 소개, 카테고리 우회 차단, 신규 신청/승인 각각 5개 동시 요청의 단일 결과, 승인 재시도 시 소개 보존 포함.
@@ -67,3 +67,5 @@ D. 장애 시 신규 Owner/v2 작업부터 차단, 이력/outbox 보존. v2 데�
 E. 기존 Published 복원 후 잠금·Firewall 재확인. 기존 소개·이미지·쿠폰·신청·사용·알림 기록 삭제/프로토콜 Legacy 변환 금지. v2 ledger/엄격 방어정책 유지, 필요 시 새 RPC 실행권한 회수는 별도 SQL 승인. 새 문구 비활성화가 기존 업소 소개를 바꾸지 않도록 유지.
 
 현재 운영 게시 또는 신규 기능 활성화 승인을 요청하지 않음. 다음 최소 승인은 최종 CI-passing Commit의 OFF 상태 미게시 빌드 1회이며, 실제 실행 전 변경 범위와 종료 조건을 다시 명시.
+
+추가 보존: Legacy 사용 전 protocol 조회는 서버 읽기 전용 probe로 처리하여, 운영에 신규 컬럼이 아직 없을 때 브라우저에서 Supabase 400 조회를 발생시키지 않습니다. probe 실패 시 DB 쓰기 전에 중단합니다.
