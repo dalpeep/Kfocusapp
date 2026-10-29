@@ -38,6 +38,14 @@ jobs:
           python3 tests/owner/postgres-policy.py
           docker exec dtm-owner-policy-20261029 psql -U postgres -c 'CREATE DATABASE owner_approval03'
           python3 tests/owner/postgres-approval.py
+          python3 tests/owner/postgres-v2.py
+      - name: Real isolated Auth PostgREST Storage flow (synthetic only)
+        run: |
+          docker pull node:22.23.4-bookworm
+          docker pull supabase/gotrue:v2.196.0
+          docker pull postgrest/postgrest:v14.17
+          docker pull supabase/storage-api:v1.83.3
+          node tests/owner/isolated-services.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: owner48-runtime-evidence
@@ -47,4 +55,6 @@ jobs:
             .release-artifacts/zip-integrity.json
             .release-artifacts/owner-postgres-qa.json
             .release-artifacts/owner-approval-postgres.json
+            .release-artifacts/owner-v2-postgres.json
+            .release-artifacts/owner-real-services.json
       # No credentials, provider calls, migrations, Netlify build or publication.

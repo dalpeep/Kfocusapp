@@ -27,6 +27,9 @@ function validate(c){
   // Owner raffle authoring remains closed until the independent atomic rollout.
   if(p.delivery_mode==='raffle'||['raffle_end_at','winner_count'].some(k=>Object.hasOwn(p,k)))throw Object.assign(Error('추첨 기능은 아직 사용할 수 없습니다.'),{status:403});
   if(p.delivery_mode&&!['display','instant_email'].includes(p.delivery_mode))invalid();
+  // New V2 campaigns use the separate email issuance ledger. Existing Legacy
+  // display coupons retain their original editing and redemption path.
+  if(c.kind==='coupon'&&!c.record_id&&p.delivery_mode!=='instant_email')throw Object.assign(Error('신규 쿠폰은 이메일 발급을 선택해 주세요.'),{status:400});
   if(p.type&&!['lunch_special','happy_hour','discount'].includes(p.type))invalid();
  }
  if(c.items!==undefined&&(c.kind!=='special'||!Array.isArray(c.items)||c.items.length>20||c.items.some(i=>!i||typeof i!=='object'||Array.isArray(i)||Object.keys(i).some(k=>!['item_name','description','price_text'].includes(k))||typeof i.item_name!=='string'||!i.item_name.trim()||i.item_name.length>160||Object.values(i).some(v=>typeof v!=='string'||v.length>5000))))invalid();

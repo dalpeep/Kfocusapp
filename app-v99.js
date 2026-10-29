@@ -6719,6 +6719,7 @@ async function submitCouponCampaign(){
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         coupon_id:c.id,
+        request_key:crypto.randomUUID(),
         email,
         marketing_opt_in:marketing,
         source:'app',
@@ -6729,7 +6730,7 @@ async function submitCouponCampaign(){
     if(!res.ok||d.ok===false)throw new Error(d.error||`HTTP ${res.status}`);
     const r=document.getElementById('couponCampaignResult');
     r.classList.remove('hidden');
-    r.textContent=d.mode==='raffle'
+    r.textContent=d.protocol==='v2' ? '발급 요청을 접수했습니다. 이메일 전송 상태는 업소에 확인해 주세요.' : d.mode==='raffle'
       ?`${d.message||'응모가 완료되었습니다.'}\n응모번호: ${d.entry_code||''}\n응모 확인 이메일 발송 요청이 접수되었습니다. 당첨 시 별도의 당첨 쿠폰 이메일을 보내드립니다.`
       :`${d.message||'쿠폰이 발급되었습니다.'}\n쿠폰 코드: ${d.coupon_code||''}\n입력하신 이메일로 실제 쿠폰을 발송했습니다. 매장에서 이메일 쿠폰을 제시해 주세요.`;
     btn.textContent='완료';
@@ -6823,6 +6824,11 @@ async function useCouponNow(coupon){
         })(),
     notify_phones: null,
     used_by: 'customer',};
+
+  // V2 redemption is confirmed by an approved owner, never by a browser write.
+  const protocolRead=await client.from('coupons').select('owner_coupon_protocol').eq('id',coupon.id).maybeSingle();
+  if(protocolRead.error && protocolRead.error.code!=='42703')throw new Error('쿠폰 사용 권한을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
+  if(protocolRead.data?.owner_coupon_protocol==='v2')throw new Error('발급받은 이메일 쿠폰을 매장에 제시해 주세요. 업주가 사용을 확인합니다.');
 
   const { error } = await client
     .from('coupon_redemptions')

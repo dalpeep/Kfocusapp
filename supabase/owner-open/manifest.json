@@ -38,6 +38,10 @@
     {
       "file": "09-owner-open-hardening.sql",
       "sha256": "81faed4b37f343f607d83f7227a1dd494dfa0492198d5f2c52c885df2d957d9f"
+    },
+    {
+      "file": "10-coupon-v2-usage.sql",
+      "sha256": "ee873833f57823d12dbe2925904a5d4463a7b58d91f7d52fb9e2dd8aa38d9253"
     }
   ]
 }
