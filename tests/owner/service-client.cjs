@@ -3,6 +3,7 @@
 const {createClient}=require('@supabase/supabase-js'),crypto=require('crypto'),fs=require('fs');
 const transport=async(url,options)=>{const u=new URL(url);if(u.hostname!=='127.0.0.1')throw Error('OUTBOUND_DENIED');let port,path;if(u.pathname.startsWith('/auth/v1/')){port=9999;path=u.pathname.slice(8);}else if(u.pathname.startsWith('/rest/v1/')){port=3000;path=u.pathname.slice(8);}else if(u.pathname.startsWith('/storage/v1/')){port=5000;path=u.pathname.slice(11);}else throw Error('PATH_DENIED');return fetch('http://127.0.0.1:'+port+path+u.search,options);};
 const db=createClient('http://127.0.0.1:9999',process.env.TEST_SERVICE_KEY,{global:{fetch:transport},auth:{persistSession:false,autoRefreshToken:false}});
+const originalRpc=db.rpc.bind(db),rpcErrors=[];db.rpc=async(...args)=>{const out=await originalRpc(...args);if(out.error)rpcErrors.push({name:args[0],code:out.error.code});return out;};
 const report=[],check=(name,ok)=>{if(!ok)throw Error('CHECK_'+name);report.push({case:name,pass:true});};
 const a='20000000-0000-4000-8000-000000000001',b='20000000-0000-4000-8000-000000000002';
 async function main(){
@@ -66,6 +67,26 @@ async function main(){
  check('revoked owner edit denied',(await command('other',{action:'update',business_id:d,changes:{hours:'forbidden'}})).statusCode===403);
  const reject=await command('other',{action:'submit',kind:'new',region:'texas',changes:{name_ko:'synthetic rejected',address:'synthetic rejection address',phone:'000',category_ko:'service'}});check('new application pending',reject.statusCode===200);
  check('administrator rejection',(await command('admin',{action:'reject',request_id:JSON.parse(reject.body).result.request_id,reason:'synthetic rejection'})).statusCode===200);
+ const catalog=await db.rpc('owner_description_catalog');check('catalog has real bilingual DB options',!catalog.error&&catalog.data.options.length===49);
+ const ko=catalog.data.options.find(x=>x.id==='cafe-menu-ko'),en=catalog.data.options.find(x=>x.id==='cafe-menu-en'),foreignChoice=catalog.data.options.find(x=>x.id==='restaurant-menu-ko');
+ check('category Korean selection accepted',(await command('free',{action:'update',business_id:b,changes:{description:ko.phrase}})).statusCode===200);
+ check('category English selection accepted',(await command('free',{action:'update',business_id:b,changes:{description:en.phrase}})).statusCode===200);
+ check('wrong category Free prose denied',(await command('free',{action:'update',business_id:b,changes:{description:foreignChoice.phrase}})).statusCode===403);
+ check('alternate content API cannot bypass category rule',(await db.rpc('owner_content_command',{p_actor:ids.free,p_command:{kind:'profile',action:'save',business_id:b,changes:{description:foreignChoice.phrase}}})).error?.code==='OP403');
+ check('alternate content API cannot accept Free prose',(await db.rpc('owner_content_command',{p_actor:ids.free,p_command:{kind:'profile',action:'save',business_id:b,changes:{description:'arbitrary free text'}}})).error?.code==='OP403');
+ const wrong=await command('other',{action:'submit',kind:'new',region:'texas',description_choice:foreignChoice.id,changes:{name_ko:'wrong synthetic cafe',address:'wrong synthetic choice',phone:'000',category_ko:'카페'}});check('new registration wrong category denied',wrong.statusCode===403);
+ const newKey=crypto.randomUUID(),application={key:newKey,action:'submit',kind:'new',region:'texas',description_choice:en.id,changes:{name_ko:'catalog synthetic cafe',address:'catalog synthetic address',phone:'000',category_ko:'카페'}};
+ const concurrent=await Promise.all(Array.from({length:5},()=>command('other',application))),submitted=concurrent[0];check('new registration selected English choice',submitted.statusCode===200);const newRequest=JSON.parse(submitted.body).result.request_id;
+ check('concurrent introduction applications produce one request',concurrent.every(r=>r.statusCode===200&&JSON.parse(r.body).result.request_id===newRequest));
+ const again=await command('other',application);check('new introduction application idempotent',again.statusCode===200&&JSON.parse(again.body).result.request_id===newRequest);
+ check('same key cannot change selected introduction',(await command('other',{...application,description_choice:ko.id})).statusCode===409);
+ const approveKey=crypto.randomUUID(),approval={key:approveKey,action:'approve',request_id:newRequest,area:'synthetic',reason:'synthetic introduction approval'};
+ const approvedRows=await Promise.all(Array.from({length:5},()=>command('admin',approval))),approved=approvedRows[0];check('approve new business selected introduction',approved.statusCode===200);const newBusiness=JSON.parse(approved.body).result.business_id;
+ check('concurrent introduction approvals create one business',approvedRows.every(r=>r.statusCode===200&&JSON.parse(r.body).result.business_id===newBusiness));
+ const saved=await db.from('businesses').select('description').eq('id',newBusiness).single();check('selected introduction set on NEW business only',!saved.error&&saved.data.description===en.phrase);
+ check('owner can choose another approved introduction',(await command('other',{action:'update',business_id:newBusiness,changes:{description:ko.phrase}})).statusCode===200);
+ check('repeat approval does not overwrite later introduction',(await command('admin',approval)).statusCode===200&&(await db.from('businesses').select('description').eq('id',newBusiness).single()).data.description===ko.phrase);
+ const read=await portal({httpMethod:'GET',headers:{authorization:'Bearer '+sessions.free},queryStringParameters:{}});check('authenticated UI read includes category catalog',read.statusCode===200&&JSON.parse(read.body).result.description_catalog.options.length===49);
  console.log(JSON.stringify({result:'PASS',pass:report.length,fail:0,realServices:['Auth','PostgREST','Storage','PostgreSQL'],externalDelivery:0,productionWrites:0,checks:report}));
 }
-main().catch(e=>{console.log(JSON.stringify({result:'FAIL',stage:/^[A-Z0-9_ ]+$/.test(e.message)?e.message:'SERVICE_TEST_FAILED',completed:report.length}));process.exitCode=1;});
+main().catch(e=>{console.log(JSON.stringify({result:'FAIL',stage:e.message.startsWith('CHECK_')?e.message:/^[A-Z0-9_ ]+$/.test(e.message)?e.message:'SERVICE_TEST_FAILED',completed:report.length,rpcErrors}));process.exitCode=1;});

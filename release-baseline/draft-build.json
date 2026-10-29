@@ -525,7 +525,7 @@
     },
     {
       "path": "owner-uuid/index.html",
-      "sha256": "c2c56d65988e9096fa81b952e404a9d1c4ea6ca3d3977c688fad85637cbcdd30"
+      "sha256": "89d6a4795267586b6686790f135c148657e634c22d645237c81c723585c6db4b"
     },
     {
       "path": "owner-uuid/layout.js",
@@ -537,7 +537,7 @@
     },
     {
       "path": "owner-uuid/portal.js",
-      "sha256": "7fb81f842e2d24e67b5487809e98d9882b5bea965854a79eb4441e6677cd264b"
+      "sha256": "e7cfdaaaa2c24d309b49f0178e09b292cd9e856ef4d53c30a2a37c6cd72fb798"
     },
     {
       "path": "owner-uuid/ui-policy.js",
@@ -585,7 +585,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-portal-uuid.js",
-      "sha256": "28a13f6c0beccee1ca768627cc3b574cc376db1d30feca84df9bfb069ecdf436"
+      "sha256": "81e3eae08d70f4f4ac8028e31b709e26ce63610bd08363c6e5e9b961af253823"
     },
     {
       "path": "netlify/legacy-functions/lib/owner-uuid-environment.js",
@@ -653,7 +653,7 @@
     },
     {
       "path": "supabase/owner-open/manifest.json",
-      "sha256": "6c09bfc10f7cf1a8e5fa415b2f218b1ac667d4ae5f294d3ebccbc3eda79ec765"
+      "sha256": "1852c240b0c8eb0261087a6a310c34c7aa1a3466d676286a496cadd7651bbd6b"
     },
     {
       "path": "scripts/release/function-bundling-config.mjs",
@@ -669,7 +669,7 @@
     },
     {
       "path": "release-baseline/owner-static.json",
-      "sha256": "c2ba2282a8f7cbc153809bbfe67f6aa712869146cc5a8b259c2c56831927d32d"
+      "sha256": "f1decfdfdec0aa0ac8a9765e218810fe7e112a562f998f5c9cfd8af2675833ba"
     },
     {
       "path": "release-baseline/owner-build-state.json",
@@ -694,6 +694,22 @@
     {
       "path": "release-baseline/owner-v2-patches.json",
       "sha256": "4b44b4746503fa7023b5de6100edf1e657e3e62e195a86150e1eb324bc0cbb14"
+    },
+    {
+      "path": "owner-uuid/descriptions.js",
+      "sha256": "71089b3e8faa9e3ce8d64389aa31bd21a8854c319884276daf6c8331f95c599e"
+    },
+    {
+      "path": "supabase/owner-open/11-owner-description-policy.sql",
+      "sha256": "a7ac02a6b2f19bd31ba4ddf766f86dd9b199900235ab26a3a7c37725a67341d5"
+    },
+    {
+      "path": "supabase/owner-open/12-owner-description-seed.sql",
+      "sha256": "434eacd986555abc6074b3df86e2da184df8944d91ddf1ecee17d18eaf7617ab"
+    },
+    {
+      "path": "supabase/owner-open/data/description-catalog.json",
+      "sha256": "5d95edc71fc75defa648b941426dd2e6b661050126d6706dd9fd0d335a299499"
     }
   ],
   "files": [

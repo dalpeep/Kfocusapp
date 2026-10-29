@@ -1,0 +1,319 @@
+{
+  "version": 1,
+  "policy": "Free selection only; Paid free text/images remain unchanged. No existing business description is rewritten.",
+  "groups": [
+    {
+      "key": "general",
+      "label_ko": "일반 업소",
+      "label_en": "General",
+      "terms": [],
+      "options": [
+        {
+          "key": "welcome",
+          "ko": "업소의 서비스와 이용 정보를 확인해 주세요.",
+          "en": "Explore our services and visitor information."
+        },
+        {
+          "key": "contact",
+          "ko": "이용 안내와 자세한 사항은 업소에 문의해 주세요.",
+          "en": "Please contact the business for service details and visitor information."
+        }
+      ]
+    },
+    {
+      "key": "restaurant",
+      "label_ko": "식당",
+      "label_en": "Restaurants",
+      "terms": [
+        "식당",
+        "한식",
+        "중식",
+        "일식",
+        "분식",
+        "양식",
+        "레스토랑",
+        "restaurant"
+      ],
+      "options": [
+        {
+          "key": "menu",
+          "ko": "다양한 메뉴와 식사 정보를 확인해 주세요.",
+          "en": "Explore our menu and dining information."
+        },
+        {
+          "key": "visit",
+          "ko": "메뉴와 이용 안내는 매장에 문의해 주세요.",
+          "en": "Please contact the restaurant for menu and dining details."
+        }
+      ]
+    },
+    {
+      "key": "cafe",
+      "label_ko": "카페·베이커리",
+      "label_en": "Cafes and bakeries",
+      "terms": [
+        "카페",
+        "커피",
+        "베이커리",
+        "제과",
+        "cafe",
+        "coffee",
+        "bakery"
+      ],
+      "options": [
+        {
+          "key": "menu",
+          "ko": "음료와 디저트 메뉴를 확인해 주세요.",
+          "en": "Explore our beverage and dessert menu."
+        },
+        {
+          "key": "visit",
+          "ko": "매장 메뉴와 이용 정보를 안내합니다.",
+          "en": "Find information about our menu and visiting the shop."
+        }
+      ]
+    },
+    {
+      "key": "beauty",
+      "label_ko": "미용·뷰티",
+      "label_en": "Beauty",
+      "terms": [
+        "미용",
+        "헤어",
+        "네일",
+        "뷰티",
+        "피부관리",
+        "hair",
+        "nail",
+        "beauty"
+      ],
+      "options": [
+        {
+          "key": "service",
+          "ko": "뷰티 서비스와 이용 정보를 확인해 주세요.",
+          "en": "Explore our beauty services and visitor information."
+        },
+        {
+          "key": "contact",
+          "ko": "서비스 항목과 상담 방법은 매장에 문의해 주세요.",
+          "en": "Please contact the salon for service options and consultation details."
+        }
+      ]
+    },
+    {
+      "key": "retail",
+      "label_ko": "쇼핑·생활용품",
+      "label_en": "Retail",
+      "terms": [
+        "쇼핑",
+        "마트",
+        "식품점",
+        "의류",
+        "소매",
+        "retail",
+        "grocery",
+        "market"
+      ],
+      "options": [
+        {
+          "key": "products",
+          "ko": "매장에서 제공하는 상품과 쇼핑 정보를 확인해 주세요.",
+          "en": "Explore the products and shopping information available at our store."
+        },
+        {
+          "key": "contact",
+          "ko": "상품 안내와 매장 이용에 관한 사항은 문의해 주세요.",
+          "en": "Please contact the store for product and shopping details."
+        }
+      ]
+    },
+    {
+      "key": "auto",
+      "label_ko": "자동차",
+      "label_en": "Automotive",
+      "terms": [
+        "자동차",
+        "정비",
+        "타이어",
+        "세차",
+        "auto",
+        "tire",
+        "car wash"
+      ],
+      "options": [
+        {
+          "key": "service",
+          "ko": "자동차 관련 서비스와 이용 정보를 확인해 주세요.",
+          "en": "Explore our automotive services and visitor information."
+        },
+        {
+          "key": "contact",
+          "ko": "차량 서비스 항목과 상담 방법은 문의해 주세요.",
+          "en": "Please contact the business for vehicle service and consultation details."
+        }
+      ]
+    },
+    {
+      "key": "home",
+      "label_ko": "주거·수리·청소",
+      "label_en": "Home services",
+      "terms": [
+        "수리",
+        "청소",
+        "인테리어",
+        "건축",
+        "이사",
+        "세탁",
+        "repair",
+        "cleaning",
+        "moving",
+        "laundry"
+      ],
+      "options": [
+        {
+          "key": "service",
+          "ko": "생활 공간을 위한 서비스와 이용 정보를 확인해 주세요.",
+          "en": "Explore services and information for your home or living space."
+        },
+        {
+          "key": "contact",
+          "ko": "서비스 범위와 상담 방법은 업소에 문의해 주세요.",
+          "en": "Please contact the business for service coverage and consultation details."
+        }
+      ]
+    },
+    {
+      "key": "education",
+      "label_ko": "교육·학원",
+      "label_en": "Education",
+      "terms": [
+        "교육",
+        "학원",
+        "과외",
+        "어학",
+        "education",
+        "academy",
+        "tutor"
+      ],
+      "options": [
+        {
+          "key": "courses",
+          "ko": "교육 과정과 수업 정보를 확인해 주세요.",
+          "en": "Explore our courses and class information."
+        },
+        {
+          "key": "contact",
+          "ko": "수업 내용과 등록 안내는 교육기관에 문의해 주세요.",
+          "en": "Please contact the school for class and enrollment information."
+        }
+      ]
+    },
+    {
+      "key": "fitness",
+      "label_ko": "운동·취미",
+      "label_en": "Fitness and hobbies",
+      "terms": [
+        "운동",
+        "체육",
+        "요가",
+        "골프",
+        "댄스",
+        "취미",
+        "fitness",
+        "yoga",
+        "golf",
+        "dance"
+      ],
+      "options": [
+        {
+          "key": "programs",
+          "ko": "운동·취미 프로그램과 이용 정보를 확인해 주세요.",
+          "en": "Explore our fitness or hobby programs and visitor information."
+        },
+        {
+          "key": "contact",
+          "ko": "프로그램 내용과 참여 방법은 문의해 주세요.",
+          "en": "Please contact the business for program and participation details."
+        }
+      ]
+    },
+    {
+      "key": "pets",
+      "label_ko": "반려동물",
+      "label_en": "Pets",
+      "terms": [
+        "반려",
+        "애견",
+        "펫",
+        "pet",
+        "grooming"
+      ],
+      "options": [
+        {
+          "key": "service",
+          "ko": "반려동물 관련 서비스와 이용 정보를 확인해 주세요.",
+          "en": "Explore our pet-related services and visitor information."
+        },
+        {
+          "key": "contact",
+          "ko": "서비스 항목과 이용 안내는 매장에 문의해 주세요.",
+          "en": "Please contact the shop for service options and visitor details."
+        }
+      ]
+    },
+    {
+      "key": "professional",
+      "label_ko": "전문·상담 서비스",
+      "label_en": "Professional services",
+      "terms": [
+        "부동산",
+        "보험",
+        "법률",
+        "변호",
+        "회계",
+        "세무",
+        "real estate",
+        "insurance",
+        "legal",
+        "accounting"
+      ],
+      "options": [
+        {
+          "key": "service",
+          "ko": "전문 서비스와 상담 이용 정보를 확인해 주세요.",
+          "en": "Explore our professional services and consultation information."
+        },
+        {
+          "key": "contact",
+          "ko": "업무 범위와 상담 방법은 사무실에 문의해 주세요.",
+          "en": "Please contact the office for service scope and consultation details."
+        }
+      ]
+    },
+    {
+      "key": "travel",
+      "label_ko": "여행·숙박",
+      "label_en": "Travel and lodging",
+      "terms": [
+        "여행",
+        "숙박",
+        "호텔",
+        "travel",
+        "hotel",
+        "lodging"
+      ],
+      "options": [
+        {
+          "key": "service",
+          "ko": "여행·숙박 서비스와 이용 정보를 확인해 주세요.",
+          "en": "Explore our travel or lodging services and visitor information."
+        },
+        {
+          "key": "contact",
+          "ko": "서비스 내용과 이용 조건은 업소에 문의해 주세요.",
+          "en": "Please contact the business for service details and terms of use."
+        }
+      ]
+    }
+  ]
+}

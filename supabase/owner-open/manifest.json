@@ -42,6 +42,14 @@
     {
       "file": "10-coupon-v2-usage.sql",
       "sha256": "ee873833f57823d12dbe2925904a5d4463a7b58d91f7d52fb9e2dd8aa38d9253"
+    },
+    {
+      "file": "11-owner-description-policy.sql",
+      "sha256": "a7ac02a6b2f19bd31ba4ddf766f86dd9b199900235ab26a3a7c37725a67341d5"
+    },
+    {
+      "file": "12-owner-description-seed.sql",
+      "sha256": "434eacd986555abc6074b3df86e2da184df8944d91ddf1ecee17d18eaf7617ab"
     }
   ]
 }

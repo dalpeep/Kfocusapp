@@ -12,7 +12,8 @@ function fields(value,allowed,required=[],allowEmpty=false){
   return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,v.trim()]));
 }
 function validate(body){
-  if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['action','key','business_id','request_id','user_id','kind','changes','reason','region','baseline','area'].includes(k)))fail(400,'허용되지 않은 요청입니다.');
+  if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).some(k=>!['action','key','business_id','request_id','user_id','kind','changes','reason','region','baseline','area','description_choice'].includes(k)))fail(400,'허용되지 않은 요청입니다.');
+  if(body.description_choice!==undefined&&(body.action!=='submit'||body.kind!=='new'||typeof body.description_choice!=='string'||!/^[a-z0-9-]{2,100}$/.test(body.description_choice)))fail(400,'업종별 소개 문구를 선택해 주세요.');
   if(!UUID.test(body.key||''))fail(400,'요청 식별자가 필요합니다.');
   if(!['submit','approve','reject','revoke','update','cancel'].includes(body.action))fail(400,'지원하지 않는 작업입니다.');
   if(body.action==='cancel'&&Object.keys(body).some(k=>!['action','key','request_id'].includes(k)))fail(400,'취소 요청에는 신청 식별자만 지정해 주세요.');
@@ -93,7 +94,10 @@ function makeHandler({getClient}={}){return async event=>{
       const status={OP403:403,OP409:409,OP400:400,'23505':409}[result.error.code]||503;
       fail(status,status===409?'이미 처리됐거나 정보가 변경됐습니다. 새로고침해 주세요.':status===403?'이 작업에 대한 권한이 없습니다.':'요청을 처리하지 못했습니다.');
     }
-    if(rpc==='owner_portal_uuid_read')for(const b of result.data.businesses||[]){const policy=await db.rpc('owner_feature_policy',{p_actor:data.user.id,p_business:b.id});if(policy.error)fail(503,'업소 이용 권한을 확인하지 못했습니다.');b.feature_policy=policy.data;}
+    if(rpc==='owner_portal_uuid_read'){
+      const catalog=await db.rpc('owner_description_catalog');if(catalog.error||!Array.isArray(catalog.data?.groups)||!Array.isArray(catalog.data?.options))fail(503,'소개 문구 목록을 확인하지 못했습니다.');result.data.description_catalog=catalog.data;
+      for(const b of result.data.businesses||[]){const policy=await db.rpc('owner_feature_policy',{p_actor:data.user.id,p_business:b.id});if(policy.error)fail(503,'업소 이용 권한을 확인하지 못했습니다.');b.feature_policy=policy.data;}
+    }
     return reply(200,{ok:true,result:result.data});
   }catch(error){return reply(error.status||503,{ok:false,error:error.status?error.message:'서버 연결을 확인해 주세요.'});}
 };}

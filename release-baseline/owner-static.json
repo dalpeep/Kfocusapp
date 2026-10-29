@@ -4,6 +4,7 @@
     "owner-uuid/availability.js",
     "owner-uuid/content.js",
     "owner-uuid/coupon-design.js",
+    "owner-uuid/descriptions.js",
     "owner-uuid/images.js",
     "owner-uuid/index.html",
     "owner-uuid/layout.js",

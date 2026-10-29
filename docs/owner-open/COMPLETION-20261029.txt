@@ -1,39 +1,69 @@
-Owner Portal remaining integration — 2026-10-29
+달타운맵 Owner Portal 개발 연결 결과 — 2026-10-29
 
-Boundary
-Development branch only. Published 6ae36f4905a1d0956a59feb8 and main 524c984389ec44a83bd612682aadb91ecac6c5fc unchanged. Owner four functions and V2 delivery remain OFF by default. No Netlify build/publish, SQL apply, production env change or external message performed.
+대상: dev/owner-modern-integration-20261029 / Draft PR #52
+운영 Published 6ae36f4905a1d0956a59feb8, main 524c984389ec44a83bd612682aadb91ecac6c5fc 유지.
+운영 DB·RLS·Storage·환경변수 변경, Netlify 빌드·게시, 실제 쿠폰 발급·이메일·추첨 실행 없음. Owner 4개 및 v2 신규 경로 기본 OFF.
 
-Implementation
-1. Separate V2 dispatch in three existing Modern entry points: coupon-campaign-enter, coupon-campaign-admin, coupon-used-notify. Original Legacy handler source files remain unchanged. Explicit reviewed old/new SHA256 patch allowlist protects those entry wrappers and the minimal customer UI branch. Function count stays 48, schedules stay 4.
-2. V2 issuance: existing leased issuance RPC reused, normalized email uniqueness and locked inventory, stable request keys; public response exposes neither email nor coupon/entry code. New Owner campaigns use instant_email. Existing Legacy display campaigns retain their original editing path. No raffle action supported.
-3. V2 use: approved owner/admin authentication, server-selected business, coupon and entry row locks, one committed use per entry, exact-key retry, one Legacy-compatible redemption record and used_count increment in one transaction. Browser direct V2 redemption is blocked. Legacy global lists exclude V2 entries, with bounded coupon-ID queries so REST pagination cannot expose the separate ledger.
-4. Notifications: committed use record required; unique event, row-locked lease, stable provider idempotency key, attempt/due-time checks, durable safe failure code and mock acknowledgement. Generic injected delivery helper reuses issuance leases and validates an explicit recipient allowlist. No real provider is connected/enabled; no unattended delivery schedule is added. Production transport/automatic worker activation remains separate work/approval, not a successful real-mail test.
-5. Existing Free/Paid description and image controls reused. Empty approved-description list now has a clear UI message. Existing descriptions are not migrated or overwritten. New approved descriptions were NOT invented.
+1. 쿠폰 v2
+기존 Legacy 본문과 URL 보존. 기존 Modern 진입점 3개에서 DB의 protocol을 확인하여 v2만 분기.
+동일 요청키/이메일 중복 발급, 재고 제한, 동일 발급 기록 중복 사용을 트랜잭션과 행 잠금으로 방지.
+사용 기록·redemption·used_count·outbox를 함께 저장. 실제 사용 기록 없는 알림 거부, 이벤트별 중복 차단·lease·재시도 시간·안전 오류코드 구현.
+Legacy 전체 목록에서 v2 개인정보 제외(반환된 쿠폰 ID에 한정한 분할 조회로 REST 페이지 제한 회피).
+새 Owner 쿠폰은 이메일 발급형 v2 사용. 기존 Legacy 표시형 쿠폰 수정 경로는 보존. 추첨 입력은 거부.
+고객 브라우저의 v2 직접 사용 기록은 차단하며, 매장에서 승인된 업주가 이메일 쿠폰을 확인하고 사용 처리.
+사용 완료 버튼 중복 클릭 차단. 쿠폰 코드/이메일을 비인증 발급 접수 응답으로 반환하지 않음.
+알림 상태: mock 경로 및 주입형 발송/재시도 도우미 검증 READY. 실제 provider와 무인 주기 worker의 운영 연결은 INCOMPLETE/비활성. 실제 수신 PASS로 보고하지 않음.
 
-Evidence
-Production read-only catalog: transaction_read_only=on; Owner schema absent; Owner RPCs absent; 193 selected column definitions, 63 selected policies, 8 existing public buckets. No row records retrieved/changed. Full safe metadata: .release-artifacts/production-owner-catalog.json (not published).
-Targeted unit tests: 24 PASS (dispatch17, delivery7). New V2 PostgreSQL: 40 PASS, including ten concurrent issuance/use retries, one notification lease, wrong lease, retry delay, stable event key, role/tenant denial, direct-write fences, expiry/closure and rollback consistency.
-Real synthetic service QA: 55 PASS using actual Auth, PostgREST, PostgreSQL and Storage. Includes actual verified sessions, self-editable role spoof rejection, regional approval/foreign denial, administrator approval/rejection/revocation, introduction selection/free-text rules, PNG/JPEG/WebP signed upload/decode/publish/cleanup, >5MB denial, direct Storage denial and old administrator upload/delete. Original SQL bodies are extracted into synthetic fixtures; migration identity/approval guards are NOT bypassed in production. Permissive test Storage policies model the existing administrator grants and are constrained by the actual compatibility fences. This does not claim a production HTTP write test.
-Local Linux official packaging: 48 API v2 Functions / 4 unchanged cron settings. Recheck artifact loading in CI for the final commit. All test services share a network-none namespace, have no published ports and cannot send emails; generated credentials stay in memory/temporary container configuration, which is removed in finally. Synthetic DB is ephemeral tmpfs.
-PC1280/mobile375 DOM and screenshots: Free templates only, Paid custom upload choice, 48px visible buttons, no horizontal overflow, separate selected-business UI. UI fixtures are explicitly read-only and are not real QA login evidence.
+2. 업종별 한영 소개 — 사용자 추가 지시 반영
+기존 승인 원본이 없음을 확인하여 12개 그룹·48개 한국어/영어 문구를 새로 작성.
+일반, 식당, 카페·베이커리, 미용·뷰티, 쇼핑·생활용품, 자동차, 주거·수리·청소, 교육·학원, 운동·취미, 반려동물, 전문·상담, 여행·숙박.
+원본: supabase/owner-open/data/description-catalog.json (version 1).
+문구는 면허·효과·가격·직원 자격 등을 임의로 보장하지 않는 안내형 문장.
+UI: 현재 업종 + 일반 문구에서 한국어/English 선택. 미분류 업종은 일반 문구 제공. Free 자유 입력/소개 이미지 업로드 불가, Paid 자유 소개/이미지 정책 유지.
+신규 등록의 업종 입력 단계에 선택 항목 연결. 신청에는 문구 ID와 당시 텍스트 보존. 관리자 승인 시 새로 생성된 업소에만 적용.
+기존 소개는 선택지에서 그대로 유지 가능하며 일괄 수정하지 않음. 같은 승인키 재실행 시 이후 업주가 바꾼 소개를 덮어쓰지 않음.
+기존 업소 변경은 현재 소개 그대로 유지하거나 해당 업종의 활성 문구만 허용. 다른 업종·임의 문장은 서버/DB에서 거부.
+카탈로그 그룹/언어/활성/순서 필드를 분리하여 추후 관리자 기능 확장 가능. 현재 별도 관리자 편집 UI는 추가하지 않음.
+12번 seed는 기존 ID를 덮어쓰지 않음. 향후 기존 문구 수정·비활성화는 별도 검토 Migration으로 처리하며 기존 업소 내용은 자동 변경하지 않음.
 
-Status / remaining prerequisite
-V2 transaction/security/mock path: READY for isolated QA; actual delivery and unattended retry wiring INCOMPLETE, external sends BLOCKED by approval.
-Introduction policy/UI: READY; approved production phrase catalog BLOCKED. Production contains no Owner catalog. Existing QA project hseaeafmmjnbynfyynao redirected to organization selection under the current session; local prior sample is labelled synthetic-only, not an approved production list. Supply/read the existing approved list before generating a reviewed seed migration. Do not substitute new copy.
-Auth/DB/Storage isolation and administrator scope: READY in local real-service QA. Production execution remains BLOCKED until separately approved migrations and limited Canary.
-Images: READY in local real-service QA; production write/replace/delete test NOT PERFORMED.
+3. 운영 읽기 전용 확인
+transaction_read_only=on. Owner 스키마·RPC는 아직 운영에 없음. 관련 컬럼 193개 정의, 정책 63개, 기존 공개 버킷 8개 메타데이터 보존.
+profiles는 authenticated 자기 행 SELECT 정책만 확인(클라이언트 역할 수정 정책 없음).
+기존 파일·공개 URL·데이터 레코드 변경 없음. 안전한 메타데이터는 .release-artifacts/production-owner-catalog.json에 보존, 웹 배포하지 않음.
 
-Migration scope
-Existing reviewed 01,02,03,03b,03c,06,07,08,09 remain review-only. New 10 adds exactly three private tables: coupon_v2_requests (request ledger), coupon_v2_uses (entry/use/redemption link), coupon_v2_outbox (event/retry state). It adds owner_coupon_v2_command service_role-only RPC, tightens V2 entry direct-write guard and adds a V2-only redemption trigger. Existing Legacy rows are not updated. No business, coupon, event, special or reservation rows are deleted/rewritten. Runtime service_role cannot directly read/write these private tables. Existing production Storage object paths/public URLs stay unchanged.
-All migration files and hashes are in supabase/owner-open/manifest.json. Guards require explicit separate approval and verified target/drift checks; files are not blindly executable as deployment scripts. No reservation/Owner Phase5A/raffle concurrency migration is included.
+4. 검증 범위
+새 v2 단위 검사 24 PASS. v2 실제 PostgreSQL 40 PASS: 발급/사용 동시 요청 10개, 알림 동시 lease 1개, 잘못된 lease/재시도 대기/고정 이벤트키, 권한·만료·종료·롤백.
+소개 카탈로그 단위 검사 10 PASS: 12그룹/48개 고유 ID/한영/업종 선택/seed 일치/기존 데이터 무변경.
+실제 로컬 Auth·PostgREST·Storage·PostgreSQL 서비스 72 PASS: 생성한 가상 계정만 사용.
+관리자 승인·거절·회수, 지역별 승인·타 지역 거부, 사용자 metadata 역할 위조 차단, Free 선택형·Paid 자유 소개, 카테고리 우회 차단, 신규 신청/승인 각각 5개 동시 요청의 단일 결과, 승인 재시도 시 소개 보존 포함.
+이미지 JPEG·PNG·WebP 실제 signed upload→서버 decode→저장→다운로드→테스트 객체 정리, 5MB 초과/형식 제한/Free·미승인·타 업소·직접 Storage 쓰기 차단, 기존 관리자 업로드·삭제 포함.
+서비스는 network-none 공용 namespace, 외부 포트 없음. 강한 가상 암호는 메모리·임시 컨테이너 설정만 사용하고 종료 시 컨테이너 설정 제거. DB는 tmpfs. 운영 인증값·데이터는 복사하지 않음.
+테스트는 원본 승인 SQL과 관련 정책 본문을 가상 스키마에 적용. 전체 운영 Migration의 프로젝트/백업 승인 guard는 운영에서 우회하지 않음. 대체 content RPC의 정상 저장 본문은 이 서비스 fixture에서 실행하지 않으며, 소개 우회 거부만 확인. 정상 소개 저장은 실제 기존 portal command 본문으로 검증.
+PC1280/모바일375 읽기 전용 가상 UI: Free SELECT/이미지 입력 없음, Paid TEXTAREA/맞춤 이미지 선택, 신규 등록 업종별 한영 문구, 업종 변경 시 부적합 선택 해제, 미저장 이동 보호, 가로 스크롤 없음.
+Functions 48개 API v2·Scheduled 4개 보존. 최종 Commit의 Linux CI/ZIP 로딩 결과는 GitHub Actions 및 별도 .release-artifacts 증거로 확정.
 
-Apply / rollback plan (not executed)
-A. Supply approved introduction catalog; review final seed, verify fresh production schema/constraints and backup/restore evidence.
-B. Approve a single official unpublished build of the final CI-passing commit, with Owner/V2 OFF and published lock/Firewall retained. Inspect actual 48 ZIPs, SDK, sharp/fonts, 4 crons, no secrets. This is NOT publish or SQL permission.
-C. Separately approve SQL01..10 (and verified phrase seed), preserving rows and before-state definitions, transaction/guard failure => STOP. No retry/partial continuation without diagnosis.
-D. Separately approve deployment/limited Canary membership and business set; use only the agreed synthetic businesses/accounts. Real providers stay disabled until recipient-specific approval. Check Auth/business ownership, Free/Paid paths, approval/revocation, coupon issuance/use/mock, old Legacy and map/Community/news/event regression, Storage HTTP with NEW disposable objects only.
-E. Before activation, verify all old/unpublished URLs blocked. Legacy code may send before a failed V2 write, so DB triggers alone are not rollback protection.
-F. On failure, stop new Owner/V2 actions first and retain all ledgers/audit/outbox. Before rolling back to an older Legacy router, pause only the approved V2 test campaigns and verify public/old paths cannot process them; never convert V2 protocol to Legacy. Restore recorded Published version and relock/verify Firewall. Preserve restrictive guards once V2 data exists; do not DROP tables or erase issued/used/mail history. Revoke new RPC execution only with explicit SQL approval. No automatic retry of deployment or SQL.
+5. 변경 및 Migration
+기존 Legacy 44개 본문/Community 보안 수정 보존. Modern 쿠폰 진입 래퍼 3개와 고객 app-v99.js의 최소 v2 분기만 명시적 SHA allowlist로 관리.
+Owner 신규 서버/UI, 소개 모듈, 카탈로그 JSON/생성기, 검사/CI 추가. 예약·Phase5A·추첨 동시성 SQL 제외.
+기존 01,02,03,03b,03c,06,07,08,09는 계속 review-only.
+10: private 요청/사용/outbox 3개 테이블, 원자적 v2 RPC, v2 직접 쓰기 방어.
+11: private 소개 그룹 1개 테이블, 기존 문구 테이블에 업종/언어, 신청에 선택 문구 ID/스냅샷 추가. 카탈로그 읽기와 업종별 선택·승인 RPC wrapper.
+12: JSON에서 재현 생성한 48개 문구 seed, 기존 ID/기존 업소 내용 덮어쓰기 없음.
+supabase/owner-open/manifest.json에 SQL 해시 기록. 적용 전 대상/최신 스키마·제약·백업 drift 재확인 및 별도 승인 필수.
 
-Approvals needed next
-No production activation requested while approved introduction source and delivery-worker wiring are incomplete. Once those prerequisites and remote CI are complete: approve one unpublished Netlify build only. SQL, production publication, per-business Canary and approved-recipient external delivery remain distinct explicit approvals.
+6. 상태
+쿠폰 v2: 트랜잭션·권한·mock READY / 실제 provider·무인 worker 연결 INCOMPLETE.
+업소 소개: 한영/업종/신규 승인/기존 보존 READY(로컬·격리).
+Auth·DB·Storage: 실제 격리 서비스 READY / 운영 연결·HTTP 쓰기 Canary는 BLOCKED(미승인).
+이미지: Free/Paid 실제 격리 검증 READY / 운영 쓰기 미실행.
+관리자: 승인·거절·회수·지역·업소 격리 READY(격리), 운영 Canary 미실행.
+정식 오픈 전체는 아직 READY로 주장하지 않음. 실제 발송·자동 worker 운영 연결과 승인된 Canary가 남음.
+
+7. 적용·실패 시 보존 계획(미실행)
+A. 최종 원격 CI PASS 후 검증 Commit의 공식 미게시 Netlify Git 빌드 1회만 별도 승인. Owner/v2 OFF, Published·잠금·Firewall 유지. 실제 48 ZIP/SDK/sharp/폰트·4cron·비밀정보 확인. 이 승인은 SQL/게시/활성화를 포함하지 않음.
+B. 최신 백업·복구 증거와 스키마 drift 확인 후 SQL01..12 및 Storage 호환 정책을 별도 승인. 트랜잭션/guard 실패 시 STOP, 추가 적용·재시도 금지.
+C. 승인된 가상 업소·계정만 대상으로 Canary 승인 별도. 기존 권한/데이터 보존. 외부 알림은 OFF 또는 mock 유지. 실제 발송은 테스트 수신자/전송 설정 승인 후 별도.
+D. 장애 시 신규 Owner/v2 작업부터 차단, 이력/outbox 보존. v2 데이터가 생긴 뒤 Legacy 라우터로 복귀할 때는 승인된 v2 캠페인을 먼저 중단하고 공개·구버전 경로 처리 차단을 확인. Legacy가 DB 실패 전에 메일을 보낼 수 있어 trigger만으로 복구 보호를 대신할 수 없음.
+E. 기존 Published 복원 후 잠금·Firewall 재확인. 기존 소개·이미지·쿠폰·신청·사용·알림 기록 삭제/프로토콜 Legacy 변환 금지. v2 ledger/엄격 방어정책 유지, 필요 시 새 RPC 실행권한 회수는 별도 SQL 승인. 새 문구 비활성화가 기존 업소 소개를 바꾸지 않도록 유지.
+
+현재 운영 게시 또는 신규 기능 활성화 승인을 요청하지 않음. 다음 최소 승인은 최종 CI-passing Commit의 OFF 상태 미게시 빌드 1회이며, 실제 실행 전 변경 범위와 종료 조건을 다시 명시.
