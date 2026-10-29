@@ -43,9 +43,11 @@ function makeHandler({getClient}={}){return async event=>{
   const token=Object.entries(event.headers||{}).find(([k])=>k.toLowerCase()==='authorization')?.[1]?.match(/^Bearer ([^\s]+)$/)?.[1];
   if(!token)return reply(401,{error:'로그인이 필요합니다.'});
   const {data,error}=await db.auth.getUser(token);if(error||!data?.user?.email_confirmed_at)return reply(401,{error:'인증된 로그인이 필요합니다.'});
+  const canary=require('./owner-canary');if(!canary.actorAllowed(data.user.id))return reply(403,{error:'Canary 테스트 계정만 이용할 수 있습니다.'});
   const params={p_actor:data.user.id};let rpc;
   if(event.httpMethod==='GET'){const q=event.queryStringParameters||{};if(Object.keys(q).some(k=>k!=='business_id')||!UUID.test(q.business_id||''))invalid();params.p_business=q.business_id;rpc='owner_content_read';}
   else{if(event.isBase64Encoded||Buffer.byteLength(event.body||'')>30000)invalid();let c;try{c=JSON.parse(event.body);}catch{invalid();}params.p_command=validate(c);rpc='owner_content_command';}
+  if(!canary.businessAllowed(params.p_business||params.p_command?.business_id))return reply(403,{error:'Canary 테스트 업소만 이용할 수 있습니다.'});
   if(rpc==='owner_content_command'&&params.p_command.kind==='coupon'&&params.p_command.action==='save'){
    params.p_command=await require('./owner-coupon-template').prepareCoupon(db,data.user.id,params.p_command);
   }

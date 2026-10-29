@@ -39,6 +39,7 @@ jobs:
           docker exec dtm-owner-policy-20261029 psql -U postgres -c 'CREATE DATABASE owner_approval03'
           python3 tests/owner/postgres-approval.py
           python3 tests/owner/postgres-v2.py
+          python3 tests/owner/postgres-notifications.py
       - name: Real isolated Auth PostgREST Storage flow (synthetic only)
         run: |
           docker pull node:22.23.4-bookworm
@@ -48,7 +49,7 @@ jobs:
           node tests/owner/isolated-services.cjs
       - uses: actions/upload-artifact@v4
         with:
-          name: owner48-runtime-evidence
+          name: owner49-runtime-evidence
           path: |
             .release-artifacts/standalone-runtime-qa.json
             .release-artifacts/functions-build.json
@@ -56,5 +57,6 @@ jobs:
             .release-artifacts/owner-postgres-qa.json
             .release-artifacts/owner-approval-postgres.json
             .release-artifacts/owner-v2-postgres.json
+            .release-artifacts/owner-notification-postgres.json
             .release-artifacts/owner-real-services.json
       # No credentials, provider calls, migrations, Netlify build or publication.

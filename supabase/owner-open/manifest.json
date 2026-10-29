@@ -50,6 +50,10 @@
     {
       "file": "12-owner-description-seed.sql",
       "sha256": "434eacd986555abc6074b3df86e2da184df8944d91ddf1ecee17d18eaf7617ab"
+    },
+    {
+      "file": "13-owner-notifications.sql",
+      "sha256": "232ee15d955e6ad9a2c18d7fe70e9d2a65bd9c4032ce3f03b3308b560ced9f4a"
     }
   ]
 }

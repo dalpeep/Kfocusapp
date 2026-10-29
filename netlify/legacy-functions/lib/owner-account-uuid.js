@@ -14,6 +14,7 @@ function makeHandler({getClient}={}){return async event=>{
   let db;if(getClient)db=getClient();else{requireOwnerUuidEnvironment();db=require('@supabase/supabase-js').createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false}});}
   const token=Object.entries(event.headers||{}).find(([k])=>k.toLowerCase()==='authorization')?.[1]?.match(/^Bearer ([^\s]+)$/)?.[1];if(!token)return reply(401,{error:'로그인이 필요합니다.'});
   const {data,error}=await db.auth.getUser(token);if(error||!data?.user?.email_confirmed_at)return reply(401,{error:'인증된 로그인이 필요합니다.'});
+  const canary=require('./owner-canary');if(!canary.actorAllowed(data.user.id)||!canary.businessAllowed(c.business_id)||(canary.active(process.env)&&!['plan','plan_read'].includes(c.action)))return reply(403,{error:'Canary 업소의 등급 관리만 허용됩니다.'});
   const out=await db.rpc('owner_account_command',{p_actor:data.user.id,p_command:c});if(out.error)return reply(({OP403:403,OP400:400,OP409:409})[out.error.code]||503,{code:'OWNER_ACCOUNT_FORBIDDEN',error:'계정 처리 권한 또는 입력을 확인해 주세요.'});return reply(200,{ok:true,result:out.data});
  }catch{return reply(503,{error:'계정 관리 연결을 확인해 주세요.'});}
 };}

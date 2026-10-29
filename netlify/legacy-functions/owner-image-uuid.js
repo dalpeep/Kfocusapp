@@ -14,6 +14,7 @@ function makeHandler({getClient,checkEnvironment}={}){return async event=>{
  const user=(await db.auth.getUser(jwt)).data?.user;
  if(!user?.email_confirmed_at)return answer(401,'AUTH_REQUIRED');
  let body;try{body=JSON.parse(event.body);}catch{return answer(400,'INVALID_REQUEST');}
+ const canary=require('./lib/owner-canary');if(!canary.actorAllowed(user.id))return answer(403,'CANARY_ACTOR_REQUIRED');if(canary.active(process.env)){const bid=String(body.path||'').split('/')[2];if(!String(body.path||'').startsWith('owner-v1/owner/')||!canary.businessAllowed(bid))return answer(403,'CANARY_BUSINESS_REQUIRED');}
  // Coupon-purpose upload is checked server-side. Reusing a general gallery upload
  // as a coupon is separately rejected by the DB coupon policy wrapper.
  if(body.purpose==='coupon'){

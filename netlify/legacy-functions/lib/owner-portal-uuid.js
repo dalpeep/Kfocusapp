@@ -60,6 +60,7 @@ function makeHandler({getClient}={}){return async event=>{
     if(!match)fail(401,'로그인이 필요합니다.');
     const {data,error}=await db.auth.getUser(match[1]);
     if(error||!data?.user?.id||!data.user.email_confirmed_at)fail(401,'이메일 인증 후 로그인해 주세요.');
+    const canary=require('./owner-canary');if(!canary.actorAllowed(data.user.id))fail(403,'Canary 테스트 계정만 이용할 수 있습니다.');
     let params={p_actor:data.user.id},rpc='owner_portal_uuid_read';
     if(event.httpMethod==='GET'){
       const q=event.queryStringParameters||{};
@@ -77,6 +78,10 @@ function makeHandler({getClient}={}){return async event=>{
       if(event.isBase64Encoded||Buffer.byteLength(event.body||'')>20000)fail(400,'요청 크기를 확인해 주세요.');
       let body;try{body=JSON.parse(event.body||'{}');}catch{fail(400,'JSON 형식을 확인해 주세요.');}
       params.p_command=validate(body);rpc='owner_portal_uuid_command';
+      if(body.business_id&&!canary.businessAllowed(body.business_id))fail(403,'Canary 테스트 업소만 이용할 수 있습니다.');
+      if(body.action==='revoke'&&!canary.actorAllowed(body.user_id))fail(403,'Canary 계정만 처리할 수 있습니다.');
+      if(canary.active(process.env)&&body.request_id){const scope=await db.rpc('owner_portal_uuid_read',{p_actor:data.user.id});const request=scope.data?.requests?.find(r=>r.id===body.request_id);if(scope.error||!request||!canary.actorAllowed(request.user_id)||(request.business_id&&!canary.businessAllowed(request.business_id)))fail(403,'Canary 신청 범위를 확인해 주세요.');}
+
     }
     const result=await db.rpc(rpc,params);
     if(result.error){
@@ -96,6 +101,7 @@ function makeHandler({getClient}={}){return async event=>{
     }
     if(rpc==='owner_portal_uuid_read'){
       const catalog=await db.rpc('owner_description_catalog');if(catalog.error||!Array.isArray(catalog.data?.groups)||!Array.isArray(catalog.data?.options))fail(503,'소개 문구 목록을 확인하지 못했습니다.');result.data.description_catalog=catalog.data;
+      if(canary.active(process.env)){result.data.businesses=(result.data.businesses||[]).filter(b=>canary.businessAllowed(b.id));result.data.requests=(result.data.requests||[]).filter(r=>canary.actorAllowed(r.user_id)&&(!r.business_id||canary.businessAllowed(r.business_id)));result.data.memberships=(result.data.memberships||[]).filter(r=>canary.actorAllowed(r.user_id)&&canary.businessAllowed(r.business_id));result.data.counts=Object.fromEntries(['pending','approved','rejected','new','claim','core'].map(k=>[k,result.data.requests.filter(r=>['pending','approved','rejected'].includes(k)?r.status===k:r.status==='pending'&&r.kind===k).length]));result.data.audit=(result.data.audit||[]).filter(r=>canary.actorAllowed(r.actor)&&(!r.business_id||canary.businessAllowed(r.business_id)));}
       for(const b of result.data.businesses||[]){const policy=await db.rpc('owner_feature_policy',{p_actor:data.user.id,p_business:b.id});if(policy.error)fail(503,'업소 이용 권한을 확인하지 못했습니다.');b.feature_policy=policy.data;}
     }
     return reply(200,{ok:true,result:result.data});

@@ -87,6 +87,19 @@ async function main(){
  check('owner can choose another approved introduction',(await command('other',{action:'update',business_id:newBusiness,changes:{description:ko.phrase}})).statusCode===200);
  check('repeat approval does not overwrite later introduction',(await command('admin',approval)).statusCode===200&&(await db.from('businesses').select('description').eq('id',newBusiness).single()).data.description===ko.phrase);
  const read=await portal({httpMethod:'GET',headers:{authorization:'Bearer '+sessions.free},queryStringParameters:{}});check('authenticated UI read includes category catalog',read.statusCode===200&&JSON.parse(read.body).result.description_catalog.options.length===49);
+ const content=require('../../netlify/legacy-functions/lib/owner-content-uuid.js').makeHandler({getClient:()=>db});
+ const couponCommand={key:crypto.randomUUID(),kind:'coupon',action:'save',business_id:a,changes:{title:'Synthetic notification coupon',discount_label:'Synthetic benefit',delivery_mode:'instant_email',is_active:true}};
+ async function save(body){return content({httpMethod:'POST',headers:{authorization:'Bearer '+sessions.paid},body:JSON.stringify(body)});}
+ check('real Auth coupon save with notification trigger',(await save(couponCommand)).statusCode===200);
+ check('real Auth event save with notification trigger',(await save({key:crypto.randomUUID(),kind:'event',action:'save',business_id:a,changes:{title:'Synthetic notification event',is_active:true}})).statusCode===200);
+ const {makeWorker}=require('../../netlify/legacy-functions/lib/owner-notifications.js');let sent=0;
+ const workerConfig={mode:'mock',businesses:[a,b,c,d,newBusiness],actors:Object.values(ids),recipients:Object.keys(ids).map(who=>who+'@owner.synthetic.invalid')};
+ const worker=makeWorker({config:()=>workerConfig,getClient:()=>db,transport:async()=>{sent++;return {accepted:true};}});
+ let consumed=0;for(let i=0;i<30;i++){const out=await worker();check('actual SDK worker invocation '+i,out.state==='done');consumed+=out.mocked;if(!out.processed)break;}
+ check('worker drains real committed lifecycle notifications',consumed>=10);check('mock worker never invokes external provider',sent===0);
+ check('worker restart cannot redeliver',(await worker()).processed===0);
+ check('same content command retry remains successful',(await save(couponCommand)).statusCode===200);
+ check('retrying saved content creates no duplicate notice',(await worker()).processed===0);
  console.log(JSON.stringify({result:'PASS',pass:report.length,fail:0,realServices:['Auth','PostgREST','Storage','PostgreSQL'],externalDelivery:0,productionWrites:0,checks:report}));
 }
 main().catch(e=>{console.log(JSON.stringify({result:'FAIL',stage:e.message.startsWith('CHECK_')?e.message:/^[A-Z0-9_ ]+$/.test(e.message)?e.message:'SERVICE_TEST_FAILED',completed:report.length,rpcErrors}));process.exitCode=1;});

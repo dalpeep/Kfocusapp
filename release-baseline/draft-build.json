@@ -573,11 +573,11 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-account-uuid.js",
-      "sha256": "0e0195db7af5f7c350c4d493ff7493c7d575605149a335e70a253afa10f322a7"
+      "sha256": "c7766e230f6bc15361878ee1bdaf4ec16c50fd624b7ff6f1d6a095395af54e36"
     },
     {
       "path": "netlify/legacy-functions/lib/owner-content-uuid.js",
-      "sha256": "5b71fa6ecf80028d5e50e40698fb9292537fdc9d4c0513ef44cdbb928c767220"
+      "sha256": "39c490d686acdbc6e225852ecefdd097a4bfd2b0ffdf0e360647cffda4319f3c"
     },
     {
       "path": "netlify/legacy-functions/lib/owner-coupon-template.js",
@@ -585,11 +585,11 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-portal-uuid.js",
-      "sha256": "81e3eae08d70f4f4ac8028e31b709e26ce63610bd08363c6e5e9b961af253823"
+      "sha256": "2661f617c700cfae5291c72c920c5b51a47277f01cd162f9b7d88ca4894ed3ef"
     },
     {
       "path": "netlify/legacy-functions/lib/owner-uuid-environment.js",
-      "sha256": "7060201c6364ef9d1b28eedb8728a6386184570d4eda951152426c42725ce237"
+      "sha256": "72225766c843cfd0e81a078eedff1687a9041ba6cad4b481ed88ad844180d96a"
     },
     {
       "path": "netlify/legacy-functions/lib/validated-image.js",
@@ -609,7 +609,7 @@
     },
     {
       "path": "netlify/legacy-functions/owner-image-uuid.js",
-      "sha256": "75d640bbc18c63a51ac39f730bd76f1e1e3f0449aff79a11b8bb4eab874b350b"
+      "sha256": "d10269fb6d176ebf7e30b52017a33804039633b0345dd6a34adba26183b393ea"
     },
     {
       "path": "netlify/legacy-functions/owner-portal-uuid.js",
@@ -653,7 +653,7 @@
     },
     {
       "path": "supabase/owner-open/manifest.json",
-      "sha256": "1852c240b0c8eb0261087a6a310c34c7aa1a3466d676286a496cadd7651bbd6b"
+      "sha256": "de0d80e7ce81cd7a041e2938e596e8ec7826c8ec6b397622bb009721e2efc042"
     },
     {
       "path": "scripts/release/function-bundling-config.mjs",
@@ -661,7 +661,7 @@
     },
     {
       "path": "scripts/release/verify-owner-base.mjs",
-      "sha256": "b9fff73478a1cb75e73284b43ee0f3cd8d5e0248126a4e13b2c7699eb61ea6a0"
+      "sha256": "e4ff31ac4f9f2daee1d7a4a7bcb96a6a2a69661f7d3b0e913bf4c23899c191f1"
     },
     {
       "path": "release-baseline/owner-base.json",
@@ -685,7 +685,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-coupon-v2.js",
-      "sha256": "63ba1ee110fb8493350a345448ae4ead9f09f077eeeca661d571cdfd9b49ecf5"
+      "sha256": "8fd930a8093a484dfbb660b3e2a079f9fe029b6f15cfac279079d17254fb68bf"
     },
     {
       "path": "supabase/owner-open/10-coupon-v2-usage.sql",
@@ -710,6 +710,22 @@
     {
       "path": "supabase/owner-open/data/description-catalog.json",
       "sha256": "5d95edc71fc75defa648b941426dd2e6b661050126d6706dd9fd0d335a299499"
+    },
+    {
+      "path": "netlify/functions/owner-notification-worker.mjs",
+      "sha256": "2515251aab50d3222e1c1841f5b57ea15000825bb2de0421a8d99984205cd41d"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-canary.js",
+      "sha256": "25815464aaa1ecbd777f87a97f376914bcc90d1a4a3e171ddb00a66fde07d97c"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-notifications.js",
+      "sha256": "d842248b69d41a0b0392411da5b3f08268d063b78e92575b032ad9287a3c60a2"
+    },
+    {
+      "path": "supabase/owner-open/13-owner-notifications.sql",
+      "sha256": "232ee15d955e6ad9a2c18d7fe70e9d2a65bd9c4032ce3f03b3308b560ced9f4a"
     }
   ],
   "files": [

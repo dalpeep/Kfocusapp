@@ -37,10 +37,11 @@ function makeDispatch(kind,legacy,{getClient=client,enabled=()=>{requireOwnerUui
   if(!UUID.test(body.coupon_id||''))return explicit?reply(400,{ok:false,error:'COUPON_ID_REQUIRED'}):legacy(event);
   try{
    const db=getClient();
-   const found=await db.from('coupons').select('owner_coupon_protocol').eq('id',body.coupon_id).maybeSingle();
+   const found=await db.from('coupons').select('owner_coupon_protocol,business_id').eq('id',body.coupon_id).maybeSingle();
    if(found.error){if(found.error.code==='42703'&&!explicit)return legacy(event);throw Error('PROTOCOL_LOOKUP_FAILED');}
    if(found.data?.owner_coupon_protocol!=='v2')return explicit?reply(403,{ok:false,error:'V2_REQUIRED'}):legacy(event);
    if(!enabled())return reply(503,{ok:false,error:'OWNER_COUPON_V2_DISABLED'});
+   const canary=require('./owner-canary');if(!canary.businessAllowed(found.data.business_id))return reply(403,{ok:false,error:'CANARY_BUSINESS_REQUIRED'});
    // No raffle action can enter this path, irrespective of subscription tier.
    const allowed=kind==='enter'?['reserve']:kind==='notify'?['notify']:['list','redeem'];
    const action=kind==='enter'?'reserve':kind==='notify'?'notify':body.action;
@@ -52,12 +53,13 @@ function makeDispatch(kind,legacy,{getClient=client,enabled=()=>{requireOwnerUui
     if(!token)return reply(401,{ok:false,error:'AUTH_REQUIRED'});
     const verified=await db.auth.getUser(token);
     if(verified.error||!verified.data?.user?.email_confirmed_at)return reply(401,{ok:false,error:'AUTH_REQUIRED'});
-    actor=verified.data.user.id;
+    actor=verified.data.user.id;if(!canary.actorAllowed(actor))return reply(403,{ok:false,error:'CANARY_ACTOR_REQUIRED'});
    }
    const command={action,coupon_id:body.coupon_id};
    if(action==='reserve'){
     if(typeof body.email!=='string'||body.email.length>254||!/^\S+@\S+\.\S+$/.test(body.email))return reply(400,{ok:false,error:'EMAIL_REQUIRED'});
     if(!UUID.test(body.request_key||''))return reply(400,{ok:false,error:'REQUEST_KEY_REQUIRED'});
+    if(!canary.recipientAllowed(body.email))return reply(403,{ok:false,error:'CANARY_RECIPIENT_REQUIRED'});
     Object.assign(command,{email:body.email.trim().toLowerCase(),key:body.request_key});
    }
    if(action==='redeem'){
@@ -66,10 +68,9 @@ function makeDispatch(kind,legacy,{getClient=client,enabled=()=>{requireOwnerUui
    }
    if(action==='notify'){
     if(!UUID.test(body.use_id||''))return reply(400,{ok:false,error:'USE_RECORD_REQUIRED'});
-    // No external provider is connected here. Real delivery requires a separate
-    // approved transport and recipient allowlist. Mock is a sealed test mode.
-    if(process.env.OWNER_COUPON_NOTIFICATION_MODE!=='mock')return reply(503,{ok:false,error:'NOTIFICATION_TRANSPORT_DISABLED'});
-    Object.assign(command,{use_id:body.use_id});
+    const queued=await db.rpc('owner_notification_use_status',{p_actor:actor,p_coupon:body.coupon_id,p_use:body.use_id});
+    if(queued.error)return reply(queued.error.code==='OP403'?403:503,{ok:false,error:queued.error.code==='OP403'?'OP403':'NOTIFICATION_QUEUE_UNAVAILABLE'});
+    return reply(200,{ok:true,protocol:'v2',...queued.data});
    }
    const result=await db.rpc('owner_coupon_v2_command',{p_actor:actor,p_command:command});
    if(result.error){const code=result.error.code;return reply(code==='OP403'?403:code==='OP409'?409:code==='OP400'?400:503,{ok:false,error:['OP403','OP409','OP400'].includes(code)?code:'V2_UNAVAILABLE'});}

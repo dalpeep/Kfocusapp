@@ -1,0 +1,101 @@
+업주 v2 운영 전 최종 준비 — 2026-10-29 America/Chicago
+
+현재 판정: 제한 Canary 계획 READY / 운영 적용 BLOCKED
+운영 조회 기준: Published 6ae36f4905a1d0956a59feb8, Functions 44개,
+기존 Scheduled Functions 4개, 게시 잠금 true, 미게시 URL Firewall 유지.
+main 524c984389ec44a83bd612682aadb91ecac6c5fc 유지.
+이번 단계에서 원격 쓰기, 빌드, SQL 적용, 이메일 발송 없음.
+
+1. PR와 후보의 구분
+PR #52는 open/Draft, head 7edadd8ca9243ef34380996a40ef487009de3ec7.
+해당 head의 기존 Linux CI는 PASS. 최신 알림 SQL·Worker·Canary 제한은
+아직 로컬 변경이므로 이 CI가 최신 후보를 검증했다고 주장하지 않는다.
+기존 44개 보존 검사 PASS(119개 런타임 파일), Owner 4개+Worker 1개 추가.
+후보 총 49개/스케줄 5개. 승인된 Commit 확정·해시 고정·최신 원격 CI가 필요.
+현재 approvedCommit=null, ignore=exit 0으로 실제 빌드 게이트는 닫혀 있다.
+
+2. SQL 실행 순서(각 파일의 선행 조건 확인 후, 설치된 항목은 재실행 금지)
+01-security: 신뢰 권한 함수, 기존 public 테이블 쓰기 RLS 제한 fence/백업.
+02-apply: 전용 신청·소유권·감사 구조 및 RPC.
+03-storage: 기존 관리자 경로 보존을 위한 Storage 제한 정책.
+03b-legacy-image-authorization: 기존 관리자 이미지 서버 권한 검사.
+03c-owner-image-link: 자기 업소 이미지 연결 RPC.
+06-owner-extensions: 콘텐츠·계정 RPC, 공개 테이블 추가 컬럼/제약/RLS.
+07-owner-coupon-plans: Free/Paid 템플릿·이미지 정책.
+08-owner-coupon-transition: Legacy/v2 프로토콜 분리(과거 행 일괄 변환 없음).
+09-owner-open-hardening: Owner 추첨 비활성, 권한 강화.
+10-coupon-v2-usage: 발급·사용·중복 방지와 사용 기록 가드.
+11-owner-description-policy: 선택형/자유 소개 정책.
+12-owner-description-seed: 코드 관리 문구 목록 추가(기존 소개 덮어쓰기 없음).
+13-owner-notifications: private outbox·트리거·claim/finish RPC, 구 발송 경로 차단.
+번호 04/05 파일은 이 manifest에 없다. 임의 파일을 끼워 넣지 않는다.
+
+SQL 13은 자체 승인 플래그와 선행 구조를 검사하며 트랜잭션으로 실행한다.
+일부 기존 파일은 SET LOCAL 승인=false를 포함하므로 단순 외부 SET만으로
+실행할 수 없다. 최종 승인 후 승인 대상 실행본과 원본 해시의 차이를
+재검토해야 한다. 지금 승인 가드를 변경하지 않았다.
+기존 업소/쿠폰/게시물/이미지의 삭제·일괄 갱신은 계획에 없다.
+다만 RLS/Storage 정책은 기존 클라이언트의 쓰기 권한에도 영향을 줄 수 있다.
+SQL 13의 통합 발송 RPC 전환은 신규 코드와 짝을 맞춰야 한다.
+모든 Owner 생산자/Worker OFF 상태에서 적용하며 구 발송기를 함께 켜지 않는다.
+
+3. 백업과 복구
+적용 직전 새 암호화 DB 백업+무결성+격리 복구 증거가 필요하다.
+과거 복구 PASS만으로 최신 운영 복구를 보장하지 않는다.
+스키마/함수 정의/소유자/ACL/RLS/Storage 정책과 행 수를 별도 기록한다.
+Storage 객체의 파일 백업 범위는 DB 백업과 구분한다. 공개 URL 변경 없음.
+SQL 오류: 해당 트랜잭션 ROLLBACK 후 STOP, 다음 파일 실행 금지.
+일부 파일만 커밋됐으면 신규 기능 OFF를 유지하고 적용 이력/실제 상태를
+확인한다. 과거 정의를 확인한 명시적 역순 복원 SQL만 별도 승인 후 실행.
+DROP SCHEMA CASCADE, 기록 삭제, 운영 전체 DB 자동 복원은 사용하지 않는다.
+알림 이력은 보존하고 accepted/mocked 건을 pending으로 되돌리지 않는다.
+기존 게시본 복원만으로 이미 커밋된 DB 정책이 복구되는 것은 아니다.
+
+4. Worker 구성
+owner-notification-worker는 Native default export, config.schedule=*/5 * * * *.
+기존 4개 스케줄 변경 없음. 공유 Supabase SDK 포함 설정을 사용한다.
+명시적 활성화 이전에는 SDK/DB/Provider 호출 전 disabled로 반환한다.
+활성화 시 OWNER_UUID 환경 검증과 actor/business/recipient allowlist가 필수.
+OWNER_NOTIFICATION_MODE=mock으로 시작. 실제 발송은 resend_test만 허용.
+최대 3건/실행, 처리 루프 18초 한도(개별 호출 시간 별도), Provider 5초,
+RPC 3초 타임아웃. DB lease 2분, 최대 5회, 재시도 지수 backoff.
+23시간 이후 자동 재발송 중단/review. Resend idempotency 24시간과 구분.
+응답은 본문 없는 204/503; 로그는 집계 상태만, 수신자·본문·키 미출력.
+Scheduled 실행은 Published에서만 가능하므로 미게시 빌드로 cron 실행
+성공을 증명할 수 없다. 공식 빌드의 패키지/스케줄 검사와 구분한다.
+기본 OFF여도 Published에서는 5분마다 호출되어 일 최대 288회 사용량 발생.
+
+5. 제한 Canary 순서와 합격 기준
+A. 최신 후보 Commit·Linux CI·아티팩트 고정(기존 44/4 + 신규 5/1).
+B. 별도 승인된 미게시 공식 빌드: SDK 로딩, 스케줄, OFF, 비밀정보 검사.
+C. 별도 SQL 승인과 백업 완료 후 마이그레이션. Owner/Worker OFF 유지.
+D. 게시 승인 후 가상 업소 1개·명시적 테스트 계정·수신자만 허용.
+   관리자도 actor allowlist에 포함. 새 업소 ID는 승인 후 명시적으로 추가.
+E. mock으로 신청→승인/거절→쿠폰/이벤트 저장→큐→Worker ack 확인.
+   403 타 업소/계정 차단, 같은 요청/lease 동시 처리 1회, retry/ack 복구 확인.
+F. 별도 실제 발송 승인 후 지정 수신자 1명으로 제한. 기존 비밀 키 유지.
+   호스팅된 Worker는 등록된 키를 직접 사용할 수 있으므로 키 원문 회수가
+   반드시 필요한 것은 아니다. 다만 키 유효성/발신자 권한/도메인은 미검증.
+   accepted는 수신 완료가 아니다. 수신함 확인 후에만 수신 PASS로 기록.
+G. 테스트 데이터는 기존 기록과 구분, 감사 이력 보존. 끝나면 Owner/Worker OFF.
+
+성공: 허용된 업소·계정만 처리, 의도한 상태·큐 1회, 중복 발송 0건,
+기존 로그인/관리자/Legacy 쿠폰/이벤트/지도/Community 회귀 없음,
+외부 발송 승인 전 provider POST 0건, 기존 Published 복구 정보 확보.
+실패: 타 업소 접근/허용 외 발송/중복 처리/중요 HTTP 오류/권한 회귀/
+예상치 못한 Storage 변경 중 하나라도 발생하면 즉시 신규 작업 STOP.
+자동 재시도 배포 금지. Worker·Owner OFF, 진행 중 lease/ACK 상태 확인 후
+기존 Published 복구, 잠금·Firewall 확인. 정책 복원은 별도 검토 SQL로 수행.
+
+6. READY/BLOCKED
+READY: 격리 14+44+86=144 PASS/0 FAIL, 등록 여부 확인, 보호 상태 보존,
+       기본 OFF, 승인 대상 제한 설계, 적용 순서/복구/Canary 기준.
+BLOCKED: 최신 로컬 변경의 PR 반영·원격 CI·고정 아티팩트,
+         실제 Netlify 패키징/호스팅 cron, 최신 백업과 운영 schema drift 재확인,
+         마이그레이션/설정/게시/Canary 승인, 실제 이메일 수신.
+전면 오픈 READY로 판정하지 않는다. 현 단계 요청 승인은 최신 후보의
+개발 브랜치 Commit/Push와 원격 CI까지이며 운영 변경을 묶어 승인받지 않는다.
+
+공식 참고:
+https://docs.netlify.com/build/functions/scheduled-functions/
+https://resend.com/docs/dashboard/emails/idempotency-keys

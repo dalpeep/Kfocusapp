@@ -15,6 +15,6 @@ for file in sorted(root.glob('*.zip')):
                 assert not re.search(r'postgres(?:ql)?://[^\s/]+:[^\s@]+@',body), 'DB_CREDENTIAL_IN_BUNDLE'
         if file.stem in targets: z.extractall(output/file.stem)
         rows.append({'name':file.stem,'sha256':hashlib.sha256(file.read_bytes()).hexdigest(),'entries':len(z.namelist())})
-assert len(rows)==48, 'ZIP_COUNT_FAILED'
-pathlib.Path('.release-artifacts/zip-integrity.json').write_text(json.dumps({'result':'PASS','bundles':48,'crcPassed':48,'secretFindings':0,'rows':rows},indent=2))
-print(json.dumps({'result':'PASS','zipBundles':48,'crcPass':48,'secretFindings':0}))
+assert len(rows)==49, 'ZIP_COUNT_FAILED'
+pathlib.Path('.release-artifacts/zip-integrity.json').write_text(json.dumps({'result':'PASS','bundles':49,'crcPassed':49,'secretFindings':0,'rows':rows},indent=2))
+print(json.dumps({'result':'PASS','zipBundles':49,'crcPass':49,'secretFindings':0}))

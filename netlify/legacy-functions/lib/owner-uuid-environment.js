@@ -3,6 +3,7 @@
 const TARGET=Object.freeze({ref:'ydrxuqmjzayejlnjzzew',site:'e2667e40-0999-42a3-892b-2b2edff61434',origin:'https://daltownmap.com'});
 function requireOwnerUuidEnvironment(env=process.env){
  if(env.OWNER_COUPON_PROTOCOL!=='v2'||env.OWNER_UUID_ENABLED!=='true'||env.OWNER_UUID_ENV!=='production'
+ ||env.OWNER_UUID_CANARY_MODE!=='true'||![env.OWNER_NOTIFICATION_ACTORS,env.OWNER_NOTIFICATION_BUSINESSES].every(v=>typeof v==='string'&&v.split(',').every(x=>/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(x.trim())))
  ||env.OWNER_UUID_PROJECT_REF!==TARGET.ref||env.SUPABASE_URL!==`https://${TARGET.ref}.supabase.co`
  ||env.SITE_ID!==TARGET.site||env.URL!==TARGET.origin||env.OWNER_UUID_ORIGIN!==TARGET.origin
  ||(env.CONTEXT&&env.CONTEXT!=='production'))throw Error('Owner environment mismatch');
