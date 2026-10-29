@@ -1,0 +1,14 @@
+[build]
+  base = "."
+  command = "node build-stop.cjs"
+  publish = "public"
+  functions = "empty-functions"
+  ignore = "exit 0"
+
+[functions]
+  directory = "empty-functions"
+
+[build.environment]
+  NODE_VERSION = "22.23.4"
+  NPM_FLAGS = "--ignore-scripts --no-audit --no-fund"
+
