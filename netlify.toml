@@ -3,7 +3,7 @@
   command = "node verify.mjs"
   publish = "public"
   functions = "empty-functions"
-  ignore = "exit 0"
+  ignore = "exit 1"
 
 [functions]
   directory = "empty-functions"
