@@ -2,7 +2,7 @@ name: Release QA (no deployment)
 on:
   pull_request:
   push:
-    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028, dev/community-authorization-hardening-20261028]
+    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028, dev/community-authorization-hardening-20261028, dev/modern-runtime-dependencies-20261029]
 permissions:
   contents: read
 jobs:
@@ -31,8 +31,17 @@ jobs:
         run: node scripts/release/locked-draft-build.mjs --verify-only
       - run: npm run qa:secrets
       - run: npm run qa:functions
+      - name: Load all actual ZIPs outside checkout with real runtime dependencies
+        run: node scripts/release/verify-standalone-runtime.mjs
       - run: npm run qa:test
       - run: npm run qa:migration
       - name: Community cards, logo fallback and telephone contract
         run: node --test tests/community/*.test.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: standalone-functions-runtime-evidence
+          path: |
+            .release-artifacts/standalone-runtime-qa.json
+            .release-artifacts/functions-build.json
+            .release-artifacts/zip-integrity.json
       # No deploy token, production secrets, migration or Netlify deploy action.

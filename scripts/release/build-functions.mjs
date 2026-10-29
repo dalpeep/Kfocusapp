@@ -1,6 +1,6 @@
-import fs from'node:fs';import path from'node:path';import{createHash}from'node:crypto';import{zipFunctions}from'@netlify/zip-it-and-ship-it';import{verify}from'./verify-preservation.mjs';
+import fs from'node:fs';import path from'node:path';import{createHash}from'node:crypto';import{zipFunctions}from'@netlify/zip-it-and-ship-it';import{verify}from'./verify-preservation.mjs';import{bundlingConfig}from'./function-bundling-config.mjs';
 verify();const b=JSON.parse(fs.readFileSync('release-baseline/production.json'));fs.mkdirSync('.release-artifacts/functions',{recursive:true});
-const results=await zipFunctions('netlify/functions','.release-artifacts/functions',{basePath:process.cwd(),archiveFormat:'zip',config:{'*':{nodeVersion:'22.x'}}});
+const results=await zipFunctions('netlify/functions','.release-artifacts/functions',{basePath:process.cwd(),archiveFormat:'zip',config:bundlingConfig()});
 if(results.some(r=>r.runtimeAPIVersion!==2))throw Error('MODERN_RUNTIME_REQUIRED');
 const manifest=JSON.parse(fs.readFileSync('.release-artifacts/functions/manifest.json'));if(results.length!==44||b.functions.some(f=>!results.some(r=>r.name===f.name)))throw Error('BUILT_FUNCTION_INVENTORY');
 const schedules=results.filter(r=>r.schedule).map(r=>({name:r.name,cron:r.schedule}));

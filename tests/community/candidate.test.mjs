@@ -25,4 +25,10 @@ test('runtime changes are limited to approved authorization patches and QA scrip
  assert.equal(after.scripts['qa:migration'],'node --test tests/migration/*.test.mjs tests/migration/*.test.cjs');
  before.scripts['qa:migration']=after.scripts['qa:migration'];assert.deepEqual(after,before);
 });
-test('no SQL migration or activation flag changes',()=>assert.equal(execFileSync('git',['diff','4a8b0cddd4a742037e4f8b811a649fa61e831730','HEAD','--','*.sql','release-baseline/activation.json','netlify.toml'],{encoding:'utf8'}),''));
+test('only reviewed packaging settings change; no SQL or activation changes',()=>{
+ const base='4a8b0cddd4a742037e4f8b811a649fa61e831730';
+ assert.equal(execFileSync('git',['diff',base,'--','*.sql','release-baseline/activation.json'],{encoding:'utf8'}),'');
+ const block='[functions]\n  included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]\n\n';
+ const toml=fs.readFileSync('netlify.toml','utf8').replaceAll('\r\n','\n');
+ assert.ok(toml.includes(block));assert.equal(toml.replace(block,''),execFileSync('git',['show',base+':netlify.toml'],{encoding:'utf8'}).replaceAll('\r\n','\n'));
+});

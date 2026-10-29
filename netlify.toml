@@ -6,6 +6,9 @@
   # Preparation branch: skip every Netlify build until separately approved.
   ignore = "exit 0"
 
+[functions]
+  included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]
+
 [functions."raffle-auto-draw"]
   schedule = "*/10 * * * *"
 
