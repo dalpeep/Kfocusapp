@@ -1,0 +1,602 @@
+{
+  "commit": "e0aecb4c91726f3be5031df3f6244c86e1e58c93",
+  "published": "6ae36f4905a1d0956a59feb8",
+  "functions": [
+    "ai-daily-home",
+    "analyze-newsroom",
+    "collect-newsroom",
+    "community-admin",
+    "community-cleanup-scheduled",
+    "community-comment-create",
+    "community-comment-delete",
+    "community-post-create",
+    "community-post-delete",
+    "community-post-extend",
+    "community-post-owner",
+    "community-post-sold",
+    "community-post-update",
+    "community-upload-authorize",
+    "community-video-retry-availability",
+    "community-video-upload-admit",
+    "community-video-upload-status",
+    "config",
+    "coupon-campaign-admin",
+    "coupon-campaign-enter",
+    "coupon-campaign-lib",
+    "coupon-redemptions-admin",
+    "coupon-used-notify",
+    "daily-core-refresh",
+    "daily-core-scheduled",
+    "daltown-daily-core",
+    "draft-newsroom",
+    "event-winner-admin",
+    "generate-campaign-image",
+    "generate-content-suite",
+    "generate-dalpick",
+    "generate-dalpick-image",
+    "generate-guide",
+    "google-place-rating",
+    "newsroom-daily",
+    "raffle-auto-draw",
+    "runtime-settings",
+    "search-guide",
+    "sendPush",
+    "set-admin-user",
+    "smart-flyer-admin",
+    "smart-flyer-public",
+    "today-daltown-feed",
+    "traffic-source-track"
+  ],
+  "schedules": [
+    {
+      "cron": "30 9 * * *",
+      "name": "community-cleanup-scheduled"
+    },
+    {
+      "cron": "15 11 * * *",
+      "name": "daily-core-scheduled"
+    },
+    {
+      "cron": "0 11 * * *",
+      "name": "newsroom-daily"
+    },
+    {
+      "cron": "*/10 * * * *",
+      "name": "raffle-auto-draw"
+    }
+  ],
+  "files": [
+    {
+      "path": "netlify/functions/ai-daily-home.mjs",
+      "sha256": "5371b4ba55eabdf067d3702cb3f2cb2a4874ad90775de9f7084061f3b0562056"
+    },
+    {
+      "path": "netlify/functions/analyze-newsroom.mjs",
+      "sha256": "b497ea4930a55af78a081c86f5cda21d017027b52ff3c98e6885e6fcf166a8be"
+    },
+    {
+      "path": "netlify/functions/collect-newsroom.mjs",
+      "sha256": "d4246dc7e3144084b530255588f549f47772c8e1ff31235e750b18380b8cc450"
+    },
+    {
+      "path": "netlify/functions/community-admin.mjs",
+      "sha256": "a4ea608846e1c4e0206c28d1f3aa35f8987058506ff94c8cb73c3bdc7eb4ef74"
+    },
+    {
+      "path": "netlify/functions/community-cleanup-scheduled.mjs",
+      "sha256": "91243ee5bb2752962d4639dd4f91bf9ace86559c6e376fdc7768fd2307bcb456"
+    },
+    {
+      "path": "netlify/functions/community-comment-create.mjs",
+      "sha256": "9d8303c61825512d0209216b4fbdea31d079a6d912f6775c2406a4032a66cfc8"
+    },
+    {
+      "path": "netlify/functions/community-comment-delete.mjs",
+      "sha256": "2760f0e21f248c746bc6e8ccc0738dda0639498801274db6efb6bd446ff4ae99"
+    },
+    {
+      "path": "netlify/functions/community-post-create.mjs",
+      "sha256": "04c39f26686a3a8d02681f37257fe97247689d92c92cadfe462286701ae420f9"
+    },
+    {
+      "path": "netlify/functions/community-post-delete.mjs",
+      "sha256": "a02bc27e1dfd1334e91cd178319c0442a791f250d9a5985c190e76ccbeba5826"
+    },
+    {
+      "path": "netlify/functions/community-post-extend.mjs",
+      "sha256": "18aae430c36b47be4f97f9d6abe71547288f4ba942905ccd74b1c8519fd21b0e"
+    },
+    {
+      "path": "netlify/functions/community-post-owner.mjs",
+      "sha256": "e4e1d82bed7eda6a671c61c495c9f259875491e9d1c9bcbff8821bc9a8f8cd45"
+    },
+    {
+      "path": "netlify/functions/community-post-sold.mjs",
+      "sha256": "e82060bcc2ed85386044e9efa35b2db64a1e61e00192458629082510d7118ef1"
+    },
+    {
+      "path": "netlify/functions/community-post-update.mjs",
+      "sha256": "a50db600af5a5ed029160fa40e6243b1ee5a1e68d2a4fa6ece02a4e108d1d452"
+    },
+    {
+      "path": "netlify/functions/community-upload-authorize.mjs",
+      "sha256": "63b913f5ff72e76d3e99606976770abeb292507296a38a4f2207fecfd5ce6a85"
+    },
+    {
+      "path": "netlify/functions/community-video-retry-availability.mjs",
+      "sha256": "3d4161860c848b9fffd02f608c29d221120610f3c3b4e91db09867c56e06d3ff"
+    },
+    {
+      "path": "netlify/functions/community-video-upload-admit.mjs",
+      "sha256": "26a8de05b2493fac3a36a33f531ada9a61942386806ff453c232adc504f4cd80"
+    },
+    {
+      "path": "netlify/functions/community-video-upload-status.mjs",
+      "sha256": "638aebd93aa38d5f1bfd630bcd26869d579954200d2745224b1d05b1bb3a2a3d"
+    },
+    {
+      "path": "netlify/functions/config.mjs",
+      "sha256": "bf0b2c0149e0f202eec4c162288a479bee3aeab7a47538fbc2ef148750aa98ac"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-admin.mjs",
+      "sha256": "04df87f0e154ce6cfdc9575baf4c63b75c4809cabf23309a6842aa5da08a0fcd"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-enter.mjs",
+      "sha256": "b3650b91a4cbd0add57da6c60813f4dd0096961122824b9fcc07aed3c1d355ff"
+    },
+    {
+      "path": "netlify/functions/coupon-campaign-lib.mjs",
+      "sha256": "9e71eb66215350dc48366f4b6bdb7a2d596460b2fa5cd44810ce65feffe5da61"
+    },
+    {
+      "path": "netlify/functions/coupon-redemptions-admin.mjs",
+      "sha256": "b00f0a519450e87286487647de963b086b64ab4c8335ed8d37471459db5e95d3"
+    },
+    {
+      "path": "netlify/functions/coupon-used-notify.mjs",
+      "sha256": "e237262ed79f79a8de6ede44d650265471031823a2d97ca6fc880e5465e784f9"
+    },
+    {
+      "path": "netlify/functions/daily-core-refresh.mjs",
+      "sha256": "d04af73691da56550ceec1a3b8cf8afef86057450457d653080fd3d8d2850e83"
+    },
+    {
+      "path": "netlify/functions/daily-core-scheduled.mjs",
+      "sha256": "709d4891b75ab75cef354c7a33852e3b875293f0d92ee78581f696fdf57d3e8b"
+    },
+    {
+      "path": "netlify/functions/daltown-daily-core.mjs",
+      "sha256": "497e6125c9751bcd4dbf7f2bbce27e4ff51437249517d3c22f2dfe205ef30cc8"
+    },
+    {
+      "path": "netlify/functions/data/dalkora_business_full.csv",
+      "sha256": "d00c5c643b93dba0eeb31b58e3cd61fcf51db5c3e949337d53f432a28803d29f"
+    },
+    {
+      "path": "netlify/functions/data/ktn-businesses.json",
+      "sha256": "399be01260357417abda1bd817e7d6bbbedb937c27d93e5eab467b58a49bb242"
+    },
+    {
+      "path": "netlify/functions/draft-newsroom.mjs",
+      "sha256": "f883da27bae1788d8e01118e631a9738733bf4b87806f0b2d44e3e1639c955cb"
+    },
+    {
+      "path": "netlify/functions/event-winner-admin.mjs",
+      "sha256": "7c51373703fa7ced88492a5d287733699c2708b5ae10f8efdb71d097ae1a5aab"
+    },
+    {
+      "path": "netlify/functions/generate-campaign-image.mjs",
+      "sha256": "424e53b3f23eeefc2c42dde2b37e9b1f490fc6ec000c1297ff0b40c11b9ed3d0"
+    },
+    {
+      "path": "netlify/functions/generate-content-suite.mjs",
+      "sha256": "eb30d1212b88a457b00bc18ac932623e2836687060badcaabebf19241f0f485e"
+    },
+    {
+      "path": "netlify/functions/generate-dalpick-image.mjs",
+      "sha256": "edffdbee5f24d3d70e92fc17333daa06b504338cc8c16a8105ab8088380cb5b2"
+    },
+    {
+      "path": "netlify/functions/generate-dalpick.mjs",
+      "sha256": "c14fe35af5c38e60dc3e3afcd86216255e7f1e6fb9d29d0e0af683505d8d7381"
+    },
+    {
+      "path": "netlify/functions/generate-guide.mjs",
+      "sha256": "0a76f6d18ab4ce83e28f6fe3136391c39574f8abd8d90514286fef387f7cd47c"
+    },
+    {
+      "path": "netlify/functions/google-place-rating.mjs",
+      "sha256": "fe8c4c985f17af00f6938a84df5023d05e6cb104c0160171e29a7de2b10cc7cf"
+    },
+    {
+      "path": "netlify/functions/lib/community-cleanup.js",
+      "sha256": "31d6e214c41465479b9d5718daaa440cf58a72c818cde9e8011e606ef227066c"
+    },
+    {
+      "path": "netlify/functions/lib/community-details.js",
+      "sha256": "b412b0d4f7520fe5a56b00975dcc8717aac4d2c1ee6a41cc075e97e6d40c8bad"
+    },
+    {
+      "path": "netlify/functions/lib/community-edit-policy.js",
+      "sha256": "9966806b29ad54b80e7334baa40dec28aef8b55cd5e76ba1fa1df09379f6cefc"
+    },
+    {
+      "path": "netlify/functions/lib/community-image-edit.js",
+      "sha256": "3b5d530795ebca265d801998182b61d2495272cac63f4b6beab24e8aa47420db"
+    },
+    {
+      "path": "netlify/functions/lib/community-lifecycle.js",
+      "sha256": "25a7e3d832a9abc5ba73b4ea41cc74e3087e26f4d894155fd7cfae7f69456c1a"
+    },
+    {
+      "path": "netlify/functions/lib/community-maintenance.js",
+      "sha256": "c7085e3fad99db32c59797a3847414427f0aa77740f6063a53b34e201949452a"
+    },
+    {
+      "path": "netlify/functions/lib/community-mutate.js",
+      "sha256": "bea8b6149d78341559ac04aadd3991247b40ab809f812840a9ccd39669221a3a"
+    },
+    {
+      "path": "netlify/functions/lib/community-retention.js",
+      "sha256": "96f558b51ee9ee8af5da0e6e81634f905b5255f9ac83de3a10e09894b9a3c2ca"
+    },
+    {
+      "path": "netlify/functions/lib/community-review.js",
+      "sha256": "709f7823868f4605192c5ee43e343481ec45db689835d8d0339df93b7e5ae78e"
+    },
+    {
+      "path": "netlify/functions/lib/community-security.js",
+      "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    },
+    {
+      "path": "netlify/functions/lib/community-video-production-config.js",
+      "sha256": "3d49b28417ac386d734eabe9b6edfc2f482a55282efd1386e7fe17195b92c8bf"
+    },
+    {
+      "path": "netlify/functions/lib/community-video-url.js",
+      "sha256": "eab2b26b768af9d24897cc2ad62ed9623932c3a5ed6d9d88ef111ab195a4343a"
+    },
+    {
+      "path": "netlify/functions/lib/daily-core.js",
+      "sha256": "573046be45a20e18af4b66fee3f0f26e6024c10e1d2da31dcb48b34424366c8f"
+    },
+    {
+      "path": "netlify/functions/newsroom-daily.mjs",
+      "sha256": "0b024c8c157f0e9dbd9a1f8ec5cb51ef78609db38afefd164e4d675eec1313fe"
+    },
+    {
+      "path": "netlify/functions/raffle-auto-draw.mjs",
+      "sha256": "acfea50ec921451897cf9599b7c5fa5169a6ef9467b14cb2da346a172860a6cc"
+    },
+    {
+      "path": "netlify/functions/runtime-settings.mjs",
+      "sha256": "3edb1ef0dd6a9e79b10139bb65c31a51c7309522cb64731db436be17fced4e22"
+    },
+    {
+      "path": "netlify/functions/search-guide.mjs",
+      "sha256": "cf726c3ccff25cf6219de9d36a4633a2404ae6a322b15d1e89b1d38526613034"
+    },
+    {
+      "path": "netlify/functions/sendPush.mjs",
+      "sha256": "0b2c0dbec573945b65d05b2a4fd7f1057aa2b17b9e513fbd14f59e306c948935"
+    },
+    {
+      "path": "netlify/functions/set-admin-user.mjs",
+      "sha256": "afa9b3f299ade17cf2cd3ef47df5eb7c54b9fc3001bf484d51c0bdf01380e6bb"
+    },
+    {
+      "path": "netlify/functions/smart-flyer-admin.mjs",
+      "sha256": "f13f1c783cce5298451c8cea9d72eeb996dfeb94aa18cc71656c4b130fa2d933"
+    },
+    {
+      "path": "netlify/functions/smart-flyer-public.mjs",
+      "sha256": "e9c8028b9a2b7f678bdca67c63c046a3e3645a0830ae0c9e482de644dd2f8e38"
+    },
+    {
+      "path": "netlify/functions/today-daltown-feed.mjs",
+      "sha256": "ed4cbd8048adddd986fc751aa3fb1d7049f01dd0663d2cfab9e4ad17e106d6ab"
+    },
+    {
+      "path": "netlify/functions/traffic-source-track.mjs",
+      "sha256": "12865a3df720c9bb63da81cb9d025be4524ad633587aa801b4d844f5fc58a814"
+    },
+    {
+      "path": "netlify/legacy-functions/ai-daily-home.js",
+      "sha256": "1566b2261039f68d5f72c57d4db5f53b934bfaf79ff9aedbca46ea0ff77a7957"
+    },
+    {
+      "path": "netlify/legacy-functions/analyze-newsroom.js",
+      "sha256": "296d377eaea20b88d771b4645b36c004a3bf891827890653de41735396f3609b"
+    },
+    {
+      "path": "netlify/legacy-functions/collect-newsroom.js",
+      "sha256": "ec2d1d97c4749bbed7bf09216a287cdd86a12f58bd4074a39ac1b57da7463fde"
+    },
+    {
+      "path": "netlify/legacy-functions/community-admin.js",
+      "sha256": "be03a323a73ea1e89cbf31eaff90e5ba6248e788313c04ac33c2ece2d1001efb"
+    },
+    {
+      "path": "netlify/legacy-functions/community-cleanup-scheduled.mjs",
+      "sha256": "91243ee5bb2752962d4639dd4f91bf9ace86559c6e376fdc7768fd2307bcb456"
+    },
+    {
+      "path": "netlify/legacy-functions/community-comment-create.js",
+      "sha256": "9ed8bfc0573e7326f5437c37a535afddd8a0d17c77e5f68dfa97120b413bdb9c"
+    },
+    {
+      "path": "netlify/legacy-functions/community-comment-delete.js",
+      "sha256": "5aba5a128ff3929cff84708aa644033ea51bf5ed780aa4acb1d73ea88628028c"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-create.js",
+      "sha256": "94e9adba89f10f8b8b500bf749f9c2129944ce68284a51653a673ef04bf4079b"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-delete.js",
+      "sha256": "6c59ed17c0a4acb5d1609a112599dd620b43013d4c089f2997882822e877ffa8"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-extend.js",
+      "sha256": "c31edc99b762147a2875375272318d72f5c844c53214b3deb4740d2f08743bf8"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-owner.js",
+      "sha256": "36d46fbac55f1bb491fb302bac854158461a68a740c332719d8ad8600f2540d8"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-sold.js",
+      "sha256": "88830edd6b815f5b2df547fdd68aaf4b08fd45325cca4b2fcdbb525b90845156"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-update.js",
+      "sha256": "71a0d9da48dec892b713884a6c75f751aae85f77e34d1f2f9ceb1c2483bd5497"
+    },
+    {
+      "path": "netlify/legacy-functions/community-upload-authorize.js",
+      "sha256": "0ac76fa4dd5cd9932dab856be6fe59a042e7819094514140d442081b38b226dd"
+    },
+    {
+      "path": "netlify/legacy-functions/community-video-retry-availability.js",
+      "sha256": "f3aaea691bc492f452043392f4520722bb607c70f1463e3d2d1295987a956c4b"
+    },
+    {
+      "path": "netlify/legacy-functions/community-video-upload-admit.js",
+      "sha256": "2c2bf49fdc0a9912e2f0ca0dc7d5d6d5ea9fcc826d710df8874cf0934c965486"
+    },
+    {
+      "path": "netlify/legacy-functions/community-video-upload-status.js",
+      "sha256": "6262f3185de65887194ae40dbca928113fafe3884785be3c0048e617ee631f3e"
+    },
+    {
+      "path": "netlify/legacy-functions/config.js",
+      "sha256": "5b05aa573ae1e41f9701e4b9e0fd19081370d7288c9493f3ded0d4e3c4ef0007"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-campaign-admin.js",
+      "sha256": "f15b2f6901f1d3ef98b4280c379fbb1cdcb983700d6bb54ffa20cf2b8ff20ac3"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-campaign-enter.js",
+      "sha256": "a0a1bcea4f714f4d6b25e7e7a86861a8d778af00424ba5f9eb69d3a188786e8f"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-campaign-lib.js",
+      "sha256": "b104378b9d6f55ea0fd8c3645e00d0976f837174c9777e60d35bb82e3e8f21e9"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-redemptions-admin.js",
+      "sha256": "36754fd5cf6ed8c8b7480829d81dd27941d5dc25aa8dd8e7013ea71a011dcc86"
+    },
+    {
+      "path": "netlify/legacy-functions/coupon-used-notify.js",
+      "sha256": "a8cd9747ff25ec55ba3d42d2387198fd90656fa409f49ecd3ba14ea9abecbc7e"
+    },
+    {
+      "path": "netlify/legacy-functions/daily-core-refresh.js",
+      "sha256": "75fae240fdcbd44d83152ce943dae78d3ca2024becd7e86e910cec68341a8e7c"
+    },
+    {
+      "path": "netlify/legacy-functions/daily-core-scheduled.mjs",
+      "sha256": "709d4891b75ab75cef354c7a33852e3b875293f0d92ee78581f696fdf57d3e8b"
+    },
+    {
+      "path": "netlify/legacy-functions/daltown-daily-core.js",
+      "sha256": "63199a1f0e2b1fe775c7f3e35f57c7c17d7c0a5fd52ac028ac2da9eee55e62c3"
+    },
+    {
+      "path": "netlify/legacy-functions/data/dalkora_business_full.csv",
+      "sha256": "d00c5c643b93dba0eeb31b58e3cd61fcf51db5c3e949337d53f432a28803d29f"
+    },
+    {
+      "path": "netlify/legacy-functions/data/ktn-businesses.json",
+      "sha256": "399be01260357417abda1bd817e7d6bbbedb937c27d93e5eab467b58a49bb242"
+    },
+    {
+      "path": "netlify/legacy-functions/draft-newsroom.js",
+      "sha256": "11aa7af8bf5cd4682eb939a6ae02da7ced46f7e6fe5befa134c292054e0f2f46"
+    },
+    {
+      "path": "netlify/legacy-functions/event-winner-admin.js",
+      "sha256": "c04fc392906ab6c69aff16b13c291a87248487e6dc0d220fa58de47c4d4fe172"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-campaign-image.js",
+      "sha256": "2e8700995c82c34828203f220d3bddf136feaee7c700e7aa3fa76a298bbe5099"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-content-suite.js",
+      "sha256": "402d4ea27caa8752ec93a275a981ae6bee778effd7899945b5030136ae041c20"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-dalpick-image.js",
+      "sha256": "fb9f2f4e04195dbebb89ad8291fe7eb54c5856f1936f3b1f40a3b19ac4c07a0d"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-dalpick.js",
+      "sha256": "a5c297ddf350638b1293c2bc84c9d1fcb02327778ce19ac2743e9113c849395c"
+    },
+    {
+      "path": "netlify/legacy-functions/generate-guide.js",
+      "sha256": "3285627b3f36b94de2a5b93d9881c4867a97cba12e582bbc1684ba547522ec7f"
+    },
+    {
+      "path": "netlify/legacy-functions/google-place-rating.js",
+      "sha256": "f06f2b30f2fece2763fd28bf12cead378d99aac02d4e2d745ec5e5f2bb115711"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-cleanup.js",
+      "sha256": "31d6e214c41465479b9d5718daaa440cf58a72c818cde9e8011e606ef227066c"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-details.js",
+      "sha256": "b412b0d4f7520fe5a56b00975dcc8717aac4d2c1ee6a41cc075e97e6d40c8bad"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-edit-policy.js",
+      "sha256": "9966806b29ad54b80e7334baa40dec28aef8b55cd5e76ba1fa1df09379f6cefc"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-image-edit.js",
+      "sha256": "3b5d530795ebca265d801998182b61d2495272cac63f4b6beab24e8aa47420db"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-lifecycle.js",
+      "sha256": "25a7e3d832a9abc5ba73b4ea41cc74e3087e26f4d894155fd7cfae7f69456c1a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-maintenance.js",
+      "sha256": "c7085e3fad99db32c59797a3847414427f0aa77740f6063a53b34e201949452a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-mutate.js",
+      "sha256": "bea8b6149d78341559ac04aadd3991247b40ab809f812840a9ccd39669221a3a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-retention.js",
+      "sha256": "96f558b51ee9ee8af5da0e6e81634f905b5255f9ac83de3a10e09894b9a3c2ca"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-review.js",
+      "sha256": "709f7823868f4605192c5ee43e343481ec45db689835d8d0339df93b7e5ae78e"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-security.js",
+      "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-video-production-config.js",
+      "sha256": "3d49b28417ac386d734eabe9b6edfc2f482a55282efd1386e7fe17195b92c8bf"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-video-url.js",
+      "sha256": "eab2b26b768af9d24897cc2ad62ed9623932c3a5ed6d9d88ef111ab195a4343a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/daily-core.js",
+      "sha256": "573046be45a20e18af4b66fee3f0f26e6024c10e1d2da31dcb48b34424366c8f"
+    },
+    {
+      "path": "netlify/legacy-functions/newsroom-daily.js",
+      "sha256": "d541c4a108826c1b74e9d1f291079e558673c53501038d6e66237bcefbe00b3d"
+    },
+    {
+      "path": "netlify/legacy-functions/raffle-auto-draw.js",
+      "sha256": "0046c2fec3d2e1cf6b83467ab785a8d3b3d5c73fead9bd9f3203a73d3c150509"
+    },
+    {
+      "path": "netlify/legacy-functions/runtime-settings.js",
+      "sha256": "1f3c66376aaef8f61378fd4734ce72d0a1b9153f877530cff4e9fc81973a3615"
+    },
+    {
+      "path": "netlify/legacy-functions/search-guide.js",
+      "sha256": "e47f2c1d8dc5a99acd2b9d40a2d7d8a28b65f531a49bbf3c59dbc407d7beb415"
+    },
+    {
+      "path": "netlify/legacy-functions/sendPush.js",
+      "sha256": "93825a54150662a8f9fb72190f1c735a6e86041ad2546878c791f2ada8d4903c"
+    },
+    {
+      "path": "netlify/legacy-functions/set-admin-user.js",
+      "sha256": "03819f1e7b74cda61b7428c397afa2adedaa1d68d56cfd140809cec7b87cb463"
+    },
+    {
+      "path": "netlify/legacy-functions/smart-flyer-admin.js",
+      "sha256": "482881ce2fac279d4fc9907e08627cf3154a2991b73111c542a9b301d4f1367b"
+    },
+    {
+      "path": "netlify/legacy-functions/smart-flyer-public.js",
+      "sha256": "975badeff4c7892a6fff21c73cadbf764b40fe01981db5369569e7bacc3ebe23"
+    },
+    {
+      "path": "netlify/legacy-functions/today-daltown-feed.js",
+      "sha256": "c6df4375db95b795742607ffb7c1451ca605ad4a504ed15e4070d492d2f3fcfe"
+    },
+    {
+      "path": "netlify/legacy-functions/traffic-source-track.js",
+      "sha256": "6945140a3127e3a30ee390ecde4cbb7d7b85398e36585ac5251981131d48ab99"
+    },
+    {
+      "path": "netlify/migration/adapter.mjs",
+      "sha256": "e54bc37de1ac34678c4e12553c9a47f75d83af6bfadb6181e9844226499a8ed1"
+    }
+  ],
+  "addedFunctions": [
+    "owner-portal-uuid",
+    "owner-content-uuid",
+    "owner-image-uuid",
+    "owner-account-uuid"
+  ],
+  "package": {
+    "name": "daltownmap-seo-generator",
+    "version": "2.0.0",
+    "private": true,
+    "scripts": {
+      "generate-seo": "node scripts/generate-seo.js",
+      "build": "node scripts/generate-seo.js",
+      "deploy:newsroom": "npx supabase functions deploy newsroom --project-ref ydrxuqmjzayejlnjzzew --no-verify-jwt",
+      "deploy:v38.2": "npm run deploy:newsroom",
+      "delete:test-functions": "npx supabase functions delete bright-action --project-ref ydrxuqmjzayejlnjzzew && npx supabase functions delete dynamic-endpoint --project-ref ydrxuqmjzayejlnjzzew",
+      "qa:preservation": "node scripts/release/verify-preservation.mjs",
+      "qa:functions": "node scripts/release/build-functions.mjs",
+      "qa:test": "node --test tests/release/*.test.mjs",
+      "qa:secrets": "node scripts/release/scan-secrets.mjs",
+      "qa:migration": "node --test tests/migration/*.test.mjs tests/migration/*.test.cjs"
+    },
+    "engines": {
+      "node": "22.23.4"
+    },
+    "dependencies": {
+      "@netlify/aws-lambda-compat": "2.0.2",
+      "@supabase/supabase-js": "2.118.0"
+    },
+    "devDependencies": {
+      "@netlify/zip-it-and-ship-it": "16.3.0"
+    },
+    "packageManager": "npm@11.6.2"
+  },
+  "preservedUi": [
+    {
+      "path": "app-v99.js",
+      "sha256": "6cb16f29672e9466b98d5684a0abe56cdccd02743e8b54a29c087610b5ab85cc"
+    },
+    {
+      "path": "assets/community.js",
+      "sha256": "89ece9107ccea6cd7a9579b33913c591910193ad82e3a36c58835d229f0045b9"
+    },
+    {
+      "path": "styles.css",
+      "sha256": "98dc7029a6020f1291dec821587291270513b9758c4b7612eab8a34934dc0390"
+    },
+    {
+      "path": "admin/assets/admin.js",
+      "sha256": "9c6f4737e4968b5151e704da5083eca6b5e9e42d8daab14d7860ffbc97bd5415"
+    },
+    {
+      "path": "admin/assets/community-admin.js",
+      "sha256": "fe782beb17bb92bf11dd18b11252438d19e6f9943d3343154a4a930347ddf78d"
+    }
+  ]
+}

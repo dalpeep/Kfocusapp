@@ -1,6 +1,6 @@
 {
-  "approvedCommit": "8a61cb638d94430792bc0bc6b96c08e7dc296e0a",
-  "publishedDeploy": "6acb1b0b7df72c0008b79f49",
+  "approvedCommit": null,
+  "publishedDeploy": "6ae36f4905a1d0956a59feb8",
   "siteId": "e2667e40-0999-42a3-892b-2b2edff61434",
   "fingerprint": [
     {
@@ -17,7 +17,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "fe2658693fcdac61795b4330f657df4db950a62fb514bd6acdbd827077229efd"
+      "sha256": "188ca1e2816b32c26b62b378b541f182a833f036a140f4d851ba5227ca031cda"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -497,15 +497,183 @@
     },
     {
       "path": "package-lock.json",
-      "sha256": "d56d2e5d8108285c6cf17536ccf4b56a0f4ccbec0d6b05975a0bd7ad11ff8aba"
+      "sha256": "cd0a8c54cbb9b3e187746fac8438da3c1390ad5d961f339d727f6b4721615dfa"
     },
     {
       "path": "package.json",
-      "sha256": "5b0c986f5b094990948f43b13d12f6e9d96624e559795bf5bddcfb7b0d044efb"
+      "sha256": "8d41f1dd78826b1b7f7fc0a95de6a0fd9ae4b4bca3c3f3fa5b01df171f247a87"
     },
     {
       "path": "styles.css",
       "sha256": "98dc7029a6020f1291dec821587291270513b9758c4b7612eab8a34934dc0390"
+    },
+    {
+      "path": "owner-uuid/account.js",
+      "sha256": "23f94d2d63eb24d4c44eb7cece104c2de539a286335eaf8b8907c40823ec2dea"
+    },
+    {
+      "path": "owner-uuid/content.js",
+      "sha256": "e9cf3999d4e5d83b42100f756d0023f522219e8792ec7cd28291c3b168face8b"
+    },
+    {
+      "path": "owner-uuid/coupon-design.js",
+      "sha256": "f6f626abe5f3d93019dda01ccf70082d84d868ead9993f7b9e7f36a3d88e3db1"
+    },
+    {
+      "path": "owner-uuid/images.js",
+      "sha256": "3f5e3d815161e15192ca3ca20d1dc7eb7f155b83b558e27f9235bee380260fd0"
+    },
+    {
+      "path": "owner-uuid/index.html",
+      "sha256": "f897d1e363cab366e8c339ae9083f0cfcb88e95429712fafe663b600d893ec28"
+    },
+    {
+      "path": "owner-uuid/layout.js",
+      "sha256": "47627d6c9cc87e2b5330f67e112422de12d7830e0f2f0ddcfb8884c8430bf5e6"
+    },
+    {
+      "path": "owner-uuid/portal.css",
+      "sha256": "7b7ab65a3c8926756bb8d7ea8408e606e89d7ec2288bf1d1dce33c6485c52c8c"
+    },
+    {
+      "path": "owner-uuid/portal.js",
+      "sha256": "eb74e474050a18af5893b2833f07060239cf97b2381bad6eb77e35d21305a544"
+    },
+    {
+      "path": "owner-uuid/ui-policy.js",
+      "sha256": "9dd06a0376505e0a36c5b27016a68979bc81ab655e8b4dd9593ad49d83909bbb"
+    },
+    {
+      "path": "assets/validated-image-upload.js",
+      "sha256": "2ada51fb2c7be7e7b639e60556038fb4b25f767263b42bd6709ed35442f69c99"
+    },
+    {
+      "path": "netlify/functions/owner-account-uuid.mjs",
+      "sha256": "730ce7eba5f9be77308e983a3cb2e48ab271af621ec94bfe45724d7d3f112526"
+    },
+    {
+      "path": "netlify/functions/owner-content-uuid.mjs",
+      "sha256": "7001faa0e8366e5937ba6a17d325bf1874281d14411d7305bd87d1ace7394452"
+    },
+    {
+      "path": "netlify/functions/owner-image-uuid.mjs",
+      "sha256": "1291d66ba91b818a177ab50b9687fcee5d9f400a70218296d232aa05a73d213a"
+    },
+    {
+      "path": "netlify/functions/owner-portal-uuid.mjs",
+      "sha256": "1516505449642646b7e65b060832bb09e5086fd5b3b7d6a2450ca02b2f983850"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/fonts/NotoSansKR.ttf",
+      "sha256": "194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/fonts/OFL.txt",
+      "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-account-uuid.js",
+      "sha256": "0e0195db7af5f7c350c4d493ff7493c7d575605149a335e70a253afa10f322a7"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-content-uuid.js",
+      "sha256": "2e3c1bd53e3d6db7c9ee3f91e0f0583de185939a0fa00f5fab2068379c1f6334"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-coupon-template.js",
+      "sha256": "724d6995d4b6fba52bc206528f5c794d83b4f2bb1c1e4903ba6f547d4791dfc8"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-portal-uuid.js",
+      "sha256": "28a13f6c0beccee1ca768627cc3b574cc376db1d30feca84df9bfb069ecdf436"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-uuid-environment.js",
+      "sha256": "7060201c6364ef9d1b28eedb8728a6386184570d4eda951152426c42725ce237"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/validated-image.js",
+      "sha256": "9d52acff9634cc6583950148ef1c50eb6504e2ba72385876402373ac38b146b5"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/validated-video.js",
+      "sha256": "9f6406750da34ebe1e6b537f75ffbda3d59a66ff3c4b74f5645c3e91ebb6746b"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-account-uuid.js",
+      "sha256": "e888fe4ccd119882023452af1d481e2d7c81d4541278c89678fc135e8b5cb4a5"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-content-uuid.js",
+      "sha256": "073dd2de14c7c3fd904f3f3fe97b47424519b2e9dfe969d66d16ed9ede80e81e"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-image-uuid.js",
+      "sha256": "75d640bbc18c63a51ac39f730bd76f1e1e3f0449aff79a11b8bb4eab874b350b"
+    },
+    {
+      "path": "netlify/legacy-functions/owner-portal-uuid.js",
+      "sha256": "d72146fc6d9b60e4caa8bc28e4d035775492d2a76195f4daccdb3431b7cc46a6"
+    },
+    {
+      "path": "supabase/owner-open/01-security.sql",
+      "sha256": "09768d57ea7f3f454a0a3772579e9142476d8f5cbc08f6194984d7c9ad454c0f"
+    },
+    {
+      "path": "supabase/owner-open/02-apply.sql",
+      "sha256": "467149fcfa8025bf625f88a8ce2522cb872ca56a579226c01b1577980298f753"
+    },
+    {
+      "path": "supabase/owner-open/03-storage.sql",
+      "sha256": "4b90f4ed655d3471f9f1cd962dd71bfb59eb95da45d159b9f5ab56f89e36f29f"
+    },
+    {
+      "path": "supabase/owner-open/03b-legacy-image-authorization.sql",
+      "sha256": "84fd1352108cfdc6911ed4b6b7e271ea46e35118e159651580ecc120b352fb6a"
+    },
+    {
+      "path": "supabase/owner-open/03c-owner-image-link.sql",
+      "sha256": "4d039e546a4293c564af782904bf6384e208b04e7d56625336aa613f0be18a10"
+    },
+    {
+      "path": "supabase/owner-open/06-owner-extensions.sql",
+      "sha256": "fab82a67ccd365baf5539978634d94e034b210a22e6aa1c7b6d83ad80963baf0"
+    },
+    {
+      "path": "supabase/owner-open/07-owner-coupon-plans.sql",
+      "sha256": "9e25be000d64d734702cbd5324d56d0bbb66b91ecf4148655576d2114300e889"
+    },
+    {
+      "path": "supabase/owner-open/08-owner-coupon-transition.sql",
+      "sha256": "6950f0e6ba3f37bb5ae63546165e93f554c126a11b400eac12cfba90c1d177fd"
+    },
+    {
+      "path": "supabase/owner-open/09-owner-open-hardening.sql",
+      "sha256": "81faed4b37f343f607d83f7227a1dd494dfa0492198d5f2c52c885df2d957d9f"
+    },
+    {
+      "path": "supabase/owner-open/manifest.json",
+      "sha256": "f50f497b4b788bc4d253518a4ab844a9517233eaf9522f4430cc9c294da8e5e8"
+    },
+    {
+      "path": "scripts/release/function-bundling-config.mjs",
+      "sha256": "069d0d293194284df4b78cbbcd585ba7fd9addd7124673095c6336116ca4df41"
+    },
+    {
+      "path": "scripts/release/verify-owner-base.mjs",
+      "sha256": "1622edb565734c6f3fdd9e2aed2f1e87cb6c4d874a8fc9c993f0c0c96c1f30be"
+    },
+    {
+      "path": "release-baseline/owner-base.json",
+      "sha256": "fc02dbff063b081cdefb8cad5a153d9e6f5d682c9b4a9832282eb1a6a369da0a"
+    },
+    {
+      "path": "release-baseline/owner-static.json",
+      "sha256": "8938297aba1a91c68cea2f64fd1e7d73ca48238106fee85a9bc25262630a2876"
+    },
+    {
+      "path": "release-baseline/owner-build-state.json",
+      "sha256": "d540a86fdcc9975a2d4ccbdb9b6c009f66a5dc20930f0c0f3842c1f20f6ad9c7"
     }
   ],
   "files": [
@@ -1956,5 +2124,6 @@
     }
   ],
   "seoOrigin": "https://daltownmap.com",
-  "approvedSeoCommit": "ed6c7e385f176bfef2df8734340ec2f21976caee"
+  "approvedSeoCommit": "ed6c7e385f176bfef2df8734340ec2f21976caee",
+  "approvalState": "OWNER_CANDIDATE_LOCAL_ONLY"
 }

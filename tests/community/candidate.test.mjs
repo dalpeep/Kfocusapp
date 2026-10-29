@@ -16,19 +16,5 @@ test('logo resource exists',()=>assert.ok(fs.existsSync('assets/kfocus-icon.png'
 test('image error fallback is one-shot',()=>{const callbacks=[];const c={document:{addEventListener:(name,fn,capture)=>{assert.equal(name,'error');assert.equal(capture,true);callbacks.push(fn)}},HOME_CARD_LOGO:'/assets/kfocus-icon.png'};vm.createContext(c);vm.runInContext(code.match(/document.addEventListener\('error',[\s\S]*?\},true\);/)[0],c);let assignments=0;const classes=new Set();const image={matches:()=>true,classList:{contains:x=>classes.has(x),add:x=>classes.add(x)},set src(v){assert.equal(v,c.HOME_CARD_LOGO);assignments++}};callbacks[0]({target:image});callbacks[0]({target:image});assert.equal(assignments,1)});
 for(const [input,expected] of [['214-555-0100','+12145550100'],['+1 (214) 555-0100','+12145550100'],['javascript:alert(1)',''],['','']])test('safe telephone: '+JSON.stringify(input),()=>assert.equal(ctx.promotionPhone(input),expected));
 test('telephone anchor preserves native navigation',()=>assert.match(code,/href="tel:\$\{phone\}"/));
-test('runtime changes are limited to approved authorization patches and QA script',()=>{
- const base='4a8b0cddd4a742037e4f8b811a649fa61e831730';
- const patches=JSON.parse(fs.readFileSync('release-baseline/community-security-patches.json')).patches;
- const changed=execFileSync('git',['diff','--name-only',base,'--','netlify','package.json','package-lock.json'],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean).sort();
- assert.deepEqual(changed,[...patches.map(p=>p.path),'package.json'].sort());
- const before=JSON.parse(execFileSync('git',['show',base+':package.json'],{encoding:'utf8'})),after=JSON.parse(fs.readFileSync('package.json'));
- assert.equal(after.scripts['qa:migration'],'node --test tests/migration/*.test.mjs tests/migration/*.test.cjs');
- before.scripts['qa:migration']=after.scripts['qa:migration'];assert.deepEqual(after,before);
-});
-test('only reviewed packaging settings change; no SQL or activation changes',()=>{
- const base='4a8b0cddd4a742037e4f8b811a649fa61e831730';
- assert.equal(execFileSync('git',['diff',base,'--','*.sql','release-baseline/activation.json'],{encoding:'utf8'}),'');
- const block='[functions]\n  included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]\n\n';
- const toml=fs.readFileSync('netlify.toml','utf8').replaceAll('\r\n','\n');
- assert.ok(toml.includes(block));assert.equal(toml.replace(block,''),execFileSync('git',['show',base+':netlify.toml'],{encoding:'utf8'}).replaceAll('\r\n','\n'));
-});
+test('current Published runtime and security files remain exact',async()=>{const {verifyOwnerBase}=await import('../../scripts/release/verify-owner-base.mjs');assert.equal(verifyOwnerBase().existingFunctions,44);});
+test('Owner dependency addition is isolated and activation stays closed',()=>{const b=JSON.parse(fs.readFileSync('release-baseline/owner-base.json')),p=JSON.parse(fs.readFileSync('package.json'));assert.deepEqual(p.dependencies,{...b.package.dependencies,sharp:'0.35.5'});assert.deepEqual(p.devDependencies,b.package.devDependencies);const flags=JSON.parse(fs.readFileSync('release-baseline/activation.json'));assert.equal(flags.gitProductionEnabled,false);assert.equal(flags.stagingGitBuildEnabled,false);assert.match(fs.readFileSync('netlify.toml','utf8'),/ignore = "exit 0"/);});

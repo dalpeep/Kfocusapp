@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@netlify/aws-lambda-compat": "2.0.2",
-    "@supabase/supabase-js": "2.118.0"
+    "@supabase/supabase-js": "2.118.0",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@netlify/zip-it-and-ship-it": "16.3.0"

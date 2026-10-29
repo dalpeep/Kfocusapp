@@ -1,0 +1,14 @@
+{
+  "paths": [
+    "owner-uuid/account.js",
+    "owner-uuid/content.js",
+    "owner-uuid/coupon-design.js",
+    "owner-uuid/images.js",
+    "owner-uuid/index.html",
+    "owner-uuid/layout.js",
+    "owner-uuid/portal.css",
+    "owner-uuid/portal.js",
+    "owner-uuid/ui-policy.js",
+    "assets/validated-image-upload.js"
+  ]
+}

@@ -3,3 +3,5 @@ node_modules/
 .release-artifacts/
 .env
 .env.*
+
+__pycache__/

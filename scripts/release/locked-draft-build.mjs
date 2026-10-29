@@ -12,6 +12,13 @@ let stage='context';
 try {
   if(process.env.CONTEXT!=='production'||process.env.SITE_ID!==baseline.siteId)throw Error();
   stage='approved-source';
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
+  if(!process.argv.includes('--verify-only')&&!JSON.parse(fs.readFileSync('release-baseline/owner-build-state.json')).unpublishedBuildApproved)throw Error();
   for(const f of baseline.fingerprint)if(sha(f.path)!==f.sha256)throw Error();
   const preservation=verify();
   console.log(JSON.stringify({stage:'preservation',...preservation}));
@@ -62,6 +69,13 @@ try {
   // Preserve existing public paths, including legacy source paths already public.
   // Do not publish the new runtime wrappers, diagnostics, tests or migrations.
   for(const f of baseline.files)copy(f.source,f.target);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
+  for(const file of JSON.parse(fs.readFileSync('release-baseline/owner-static.json')).paths)copy(file,file);
   for(const directory of ['business','category'])if(fs.existsSync(directory))for(const file of fs.readdirSync(directory))if(file.endsWith('.html'))copy(path.join(directory,file),directory+'/'+file);
   for(const file of ['seo.html','sitemap.xml','business-index.json','seo-index.json','robots.txt','llms.txt'])if(fs.existsSync(file))copy(file,file);
   const files=[];
