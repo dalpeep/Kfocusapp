@@ -525,7 +525,7 @@
     },
     {
       "path": "owner-uuid/index.html",
-      "sha256": "f897d1e363cab366e8c339ae9083f0cfcb88e95429712fafe663b600d893ec28"
+      "sha256": "c2c56d65988e9096fa81b952e404a9d1c4ea6ca3d3977c688fad85637cbcdd30"
     },
     {
       "path": "owner-uuid/layout.js",
@@ -537,7 +537,7 @@
     },
     {
       "path": "owner-uuid/portal.js",
-      "sha256": "eb74e474050a18af5893b2833f07060239cf97b2381bad6eb77e35d21305a544"
+      "sha256": "3b30ca42a5f4a9e92a8f30a151df1f3d65704b9092d8950a420c098bbb7885cd"
     },
     {
       "path": "owner-uuid/ui-policy.js",
@@ -669,11 +669,15 @@
     },
     {
       "path": "release-baseline/owner-static.json",
-      "sha256": "8938297aba1a91c68cea2f64fd1e7d73ca48238106fee85a9bc25262630a2876"
+      "sha256": "c2ba2282a8f7cbc153809bbfe67f6aa712869146cc5a8b259c2c56831927d32d"
     },
     {
       "path": "release-baseline/owner-build-state.json",
       "sha256": "d540a86fdcc9975a2d4ccbdb9b6c009f66a5dc20930f0c0f3842c1f20f6ad9c7"
+    },
+    {
+      "path": "owner-uuid/availability.js",
+      "sha256": "17ff038249e67e39015ccd6d4541fd0795208317dfbecf32c8a27cef368938ff"
     }
   ],
   "files": [

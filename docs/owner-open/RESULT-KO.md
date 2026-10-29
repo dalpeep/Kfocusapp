@@ -55,3 +55,8 @@ GitHub Push/원격Actions/Netlify공식서버빌드는이번에실행하지않�
 - supabase/owner-open의검토SQL9개/해시명세,운영적용·복구문서.
 
 검증증거는.release-artifacts의functions-build.json,standalone-runtime-qa.json,linux-regression-final.tap,zip-integrity.json,owner-postgres-qa.json,owner-approval-postgres.json,ui-qa.json,production-boundary.json과PC/모바일JPG.실제운영데이터·토큰·비밀번호·이미지객체를복사하지않음.
+
+## 원격 CI 전 최종 검토 보완
+2026-10-29: Owner가OFF이거나API연결에실패하면로그인폼을숨기고Supabase Auth클라이언트도초기화하지않는가드를추가했다.503/500/HTML401/네트워크실패에서가입·로그인진입이닫히는7개검사PASS.활성401JSON일때만기존Auth흐름을재사용한다.
+미게시빌드준비스크립트의중복삽입을제거하고동일입력으로재실행해도변하지않도록정리했다.기존운영런타임119파일과쿠폰/Community코드는변경하지않았다.
+Netlify사이트skip_prs값은null이므로이를차단확인으로표현하지않는다.개발Commit과Draft PR제목의[skip netlify],main전용브랜치빌드설정,ignore=exit0/활성화false,게시잠금/Firewall을함께유지하여GitHubQA만실행한다.

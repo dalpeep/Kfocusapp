@@ -1,6 +1,7 @@
 {
   "paths": [
     "owner-uuid/account.js",
+    "owner-uuid/availability.js",
     "owner-uuid/content.js",
     "owner-uuid/coupon-design.js",
     "owner-uuid/images.js",

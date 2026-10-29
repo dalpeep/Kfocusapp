@@ -1,8 +1,7 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id),cfg=window.APP_CONFIG||{},status=$('status');
 if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY){status.textContent='연결 설정을 확인해 주세요.';return;}
-const db=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,cfg.OWNER_UUID_ENV==='qa'?{auth:{storage:window.sessionStorage,persistSession:true}}:{});
-window.installValidatedImageUpload?.(db);
+let db=null;
 document.querySelectorAll('.owner-nav a').forEach(a=>a.addEventListener('click',()=>{const target=document.querySelector(a.getAttribute('href'));const d=target?.closest('details');if(d)d.open=true;}));
 let state=null,offset=0,auditOffset=0,actorId=null,claimEntryOpened=false;
 const kinds={new:'신규 업소',claim:'소유권',core:'핵심 정보'},statuses={pending:'대기',approved:'승인',rejected:'거절',cancelled:'취소'},actions={submit:'신청',approve:'승인',reject:'거절',revoke:'권한 회수',update:'일반 정보 수정',cancel:'신청 취소'};
@@ -13,7 +12,7 @@ const text=(tag,value,parent)=>{const e=document.createElement(tag);e.textConten
 const button=(label,parent,fn)=>{const b=text('button',label,parent);b.type='button';b.onclick=()=>run(fn,b);return b;};
 async function run(fn,b){if(b)b.disabled=true;try{await fn();}catch(e){status.textContent=e.message||'처리에 실패했습니다.';}finally{if(b)b.disabled=false;}}
 function confirmCancellation(){return new Promise(resolve=>{const dialog=document.createElement('dialog'),title=document.createElement('h2'),message=document.createElement('p');title.id='owner-cancel-title';title.textContent='신청 취소 확인';dialog.setAttribute('aria-labelledby',title.id);message.textContent='이 신청을 취소하시겠습니까? 취소 이력은 보존됩니다.';dialog.append(title,message);let finished=false;const finish=value=>{if(finished)return;finished=true;dialog.close();dialog.remove();resolve(value);};const back=document.createElement('button');back.type='button';back.textContent='돌아가기';back.onclick=()=>finish(false);const submit=document.createElement('button');submit.type='button';submit.textContent='신청 취소 확정';submit.onclick=()=>finish(true);dialog.append(back,submit);dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false);});document.body.append(dialog);dialog.showModal();back.focus();});}
-async function api(command){const {data:{session}}=await db.auth.getSession();if(!session)throw Error('로그인이 필요합니다.');
+async function api(command){if(!db)throw Error('업주센터는 현재 준비 중입니다.');const {data:{session}}=await db.auth.getSession();if(!session)throw Error('로그인이 필요합니다.');
  actorId=session.user?.id||null;
  const query=new URLSearchParams({status:$('requestStatus').value,kind:$('requestKind').value,offset:String(offset),audit_offset:String(auditOffset)});
  const res=await fetch('/.netlify/functions/owner-portal-uuid'+(command?'':`?${query}`),{method:command?'POST':'GET',headers:{Authorization:`Bearer ${session.access_token}`,...(command?{'Content-Type':'application/json'}:{})},...(command?{body:JSON.stringify(command)}:{})});
@@ -60,14 +59,14 @@ let policyCheckBusy=false;
 const policyKey=s=>JSON.stringify((s?.businesses||[]).map(b=>[b.id,b.feature_policy]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
 async function recheckPolicy(){if(!state||policyCheckBusy||document.hidden)return;policyCheckBusy=true;try{const next=await api();if(policyKey(next)!==policyKey(state)){await refresh();status.textContent='관리자가 변경한 이용 권한을 확인하여 화면을 갱신했습니다. 저장 전 입력 내용을 다시 확인해 주세요.';}}catch{ $('businesses').replaceChildren();state=null;status.textContent='이용 권한을 확인하지 못했습니다. 새로고침 후 다시 이용해 주세요.';}finally{policyCheckBusy=false;}}
 window.addEventListener('focus',recheckPolicy);document.addEventListener('visibilitychange',()=>{if(!document.hidden)recheckPolicy();});setInterval(recheckPolicy,30000);
-$('auth').onsubmit=e=>{e.preventDefault();run(async()=>{const f=values(e.target);const signup=e.submitter?.name==='signup';if(signup&&f.password.length<12)throw Error('회원가입 비밀번호는 12자 이상 입력해 주세요.');const {error}=signup?await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}}):await db.auth.signInWithPassword(f);if(error)throw Error('가입 또는 로그인 정보를 확인해 주세요.');e.target.reset();if(signup)status.textContent='인증 이메일을 확인한 뒤 로그인해 주세요.';else await refresh();},e.submitter);};
+$('auth').onsubmit=e=>{e.preventDefault();run(async()=>{if(!db)throw Error('업주센터는 현재 준비 중입니다.');const f=values(e.target);const signup=e.submitter?.name==='signup';if(signup&&f.password.length<12)throw Error('회원가입 비밀번호는 12자 이상 입력해 주세요.');const {error}=signup?await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}}):await db.auth.signInWithPassword(f);if(error)throw Error('가입 또는 로그인 정보를 확인해 주세요.');e.target.reset();if(signup)status.textContent='인증 이메일을 확인한 뒤 로그인해 주세요.';else await refresh();},e.submitter);};
 $('logout').onclick=()=>run(async()=>{const {error}=await db.auth.signOut();if(error)throw error;state=null;$('portal').hidden=true;$('auth').hidden=false;for(const id of ['businesses','requests','queue','memberships','audit','searchResults'])$(id).replaceChildren();});
 $('refresh').onclick=()=>run(refresh);
 for(const id of ['requestStatus','requestKind'])$(id).onchange=()=>{offset=0;run(refresh);};
 for(const [id,step,isAudit] of [['requestPrev',-20,false],['requestNext',20,false],['auditPrev',-20,true],['auditNext',20,true]])$(id).onclick=()=>run(async()=>{if(isAudit)auditOffset=Math.max(0,auditOffset+step);else offset=Math.max(0,offset+step);await refresh();});
 $('newBusiness').onsubmit=e=>{e.preventDefault();run(async()=>{const changes=values(e.target);if(!changes.name_ko.trim()&&!changes.name_en.trim())throw Error('한글명 또는 영문명을 입력해 주세요.');await command({action:'submit',kind:'new',region:'texas',changes});e.target.reset();},e.submitter);};
 $('search').onsubmit=e=>{e.preventDefault();run(async()=>{const q=values(e.target).query.trim();if(!q)throw Error('검색어를 입력해 주세요.');const query=db.from('businesses').select('id,name_ko,name_en,address'),safe=q.replace(/[\\%_,()."']/g,'');if(!safe)throw Error('검색어를 확인해 주세요.');const {data,error}=await query.or(`name_ko.ilike.%${safe}%,name_en.ilike.%${safe}%`).limit(20);if(error)throw Error('업소 검색에 실패했습니다.');$('searchResults').replaceChildren();for(const b of data){const a=text('article',`${b.name_ko||b.name_en||'이름 없음'} · ${b.name_ko&&b.name_en?b.name_en+' · ':''}${b.address||''}`,$('searchResults'));button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(b.id)}));}},e.submitter);};
-db.auth.getSession().then(({data})=>{if(data.session)run(refresh);});
+window.OwnerAvailability.start({createClient:()=>window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,cfg.OWNER_UUID_ENV==='qa'?{auth:{storage:window.sessionStorage,persistSession:true}}:{}),ready:async client=>{db=client;window.installValidatedImageUpload?.(db);$('auth').hidden=false;const {data}=await db.auth.getSession();if(data.session)await refresh();},disabled:reason=>{db=null;$('auth').hidden=true;$('portal').hidden=true;status.textContent=reason==='disabled'?'업주센터는 현재 준비 중입니다.':'업주센터 연결을 확인하지 못했습니다. 잠시 후 다시 이용해 주세요.';}});
 })();
 
 
