@@ -41,7 +41,7 @@ jobs:
           python3 tests/owner/postgres-approval.py
           python3 tests/owner/postgres-v2.py
           python3 tests/owner/postgres-notifications.py
-      - name: QA adapter: real isolated Auth PostgREST Storage flow (synthetic only)
+      - name: "QA adapter: real isolated Auth PostgREST Storage flow (synthetic only)"
         run: |
           docker pull node:22.23.4-bookworm
           docker pull supabase/gotrue:v2.196.0
