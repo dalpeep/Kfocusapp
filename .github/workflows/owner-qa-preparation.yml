@@ -2,7 +2,7 @@ name: Owner QA preparation (CI only)
 on:
   workflow_dispatch:
   push:
-    branches: [dev/owner-qa-preparation-20261030]
+    branches: [dev/owner-qa-preparation-20261030, dev/owner-completion-offline-20261030]
 permissions:
   contents: read
 jobs:
@@ -41,7 +41,7 @@ jobs:
           python3 tests/owner/postgres-policy.py
           docker exec dtm-owner-policy-20261029 psql -U postgres -c 'CREATE DATABASE owner_approval03'
           python3 tests/owner/postgres-approval.py
-          python3 tests/owner/postgres-v2.py
+          python3 tests/owner/postgres-completion.py
           python3 tests/owner/postgres-notifications.py
       - name: "QA adapter: real isolated Auth PostgREST Storage flow (synthetic only)"
         run: |
@@ -60,6 +60,7 @@ jobs:
             .release-artifacts/owner-postgres-qa.json
             .release-artifacts/owner-approval-postgres.json
             .release-artifacts/owner-v2-postgres.json
+            .release-artifacts/owner-completion-postgres.json
             .release-artifacts/owner-notification-postgres.json
             .release-artifacts/owner-qa-adapter-services.json
             .release-artifacts/qa-overlay-packaging.json

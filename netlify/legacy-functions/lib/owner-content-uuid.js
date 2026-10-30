@@ -13,9 +13,11 @@ function validate(c){
  if(c.record_id!==undefined&&(typeof c.record_id!=='string'||(c.kind==='special'?!/^[1-9][0-9]{0,18}$/.test(c.record_id):!UUID.test(c.record_id))))invalid();
  if(c.action==='end'&&(!c.record_id||c.kind==='profile'||c.changes||c.items))invalid();
  if(c.action==='save'){
-  const p=c.changes;if(!p||typeof p!=='object'||Array.isArray(p)||!Object.keys(p).length||Object.entries(p).some(([k,v])=>!FIELDS[c.kind].includes(k)||(v===null&&k!=='issue_limit')||(typeof v==='string'&&v.length>5000)))invalid();
+  const p=c.changes;if(!p||typeof p!=='object'||Array.isArray(p)||!Object.keys(p).length||Object.entries(p).some(([k,v])=>!FIELDS[c.kind].includes(k)||(v===null&&k!=='issue_limit'&&!(c.kind==='special'&&require('./owner-content-validation').specialNullable.includes(k)))||(typeof v==='string'&&v.length>5000)))invalid();
   if(c.kind!=='profile'&&(!c.record_id||Object.hasOwn(p,'title'))&&(!(typeof p.title==='string')||!p.title.trim()||p.title.length>160))invalid();
+  require('./owner-content-validation').validateDates(c.kind,p);
   for(const [k,v]of Object.entries(p)){
+   if(v===null&&c.kind==='special'&&require('./owner-content-validation').specialNullable.includes(k))continue;
    if(['is_active','is_today_coupon','one_per_email','marketing_opt_in_enabled'].includes(k)){if(typeof v!=='boolean')invalid();}
    else if(k==='winner_count'){if(!Number.isInteger(v)||v<1||v>100)invalid();}
    else if(k==='issue_limit'){if(v!==null&&(!Number.isInteger(v)||v<1||v>1000000))invalid();}
