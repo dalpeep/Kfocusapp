@@ -41,13 +41,13 @@ jobs:
           python3 tests/owner/postgres-approval.py
           python3 tests/owner/postgres-v2.py
           python3 tests/owner/postgres-notifications.py
-      - name: Real isolated Auth PostgREST Storage flow (synthetic only)
+      - name: QA adapter: real isolated Auth PostgREST Storage flow (synthetic only)
         run: |
           docker pull node:22.23.4-bookworm
           docker pull supabase/gotrue:v2.196.0
           docker pull postgrest/postgrest:v14.17
           docker pull supabase/storage-api:v1.83.3
-          node tests/owner/isolated-services.cjs
+          OWNER_QA_ADAPTER_TEST=true node tests/owner/isolated-services.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: owner49-runtime-evidence
@@ -59,5 +59,5 @@ jobs:
             .release-artifacts/owner-approval-postgres.json
             .release-artifacts/owner-v2-postgres.json
             .release-artifacts/owner-notification-postgres.json
-            .release-artifacts/owner-real-services.json
+            .release-artifacts/owner-qa-adapter-services.json
       # No credentials, provider calls, migrations, Netlify build or publication.

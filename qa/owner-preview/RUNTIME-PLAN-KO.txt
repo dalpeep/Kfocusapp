@@ -1,0 +1,81 @@
+Owner QA Auth / Storage 연결 후보 — 2026-10-30
+
+현재 범위
+- 운영 Published 6ae36f4905a1d0956a59feb8 및 PR52 소스/보안 검사 보존.
+- 실제 QA/운영 DB, Auth 계정, 등급, Storage, Netlify 설정 변경 없음.
+- Production 전용 guard와 44개 기존 Functions, 4개 Owner 엔트리 변경 없음.
+- Worker 엔트리/스케줄 변경 없음. 저장소 승인 파일은 OFF 유지.
+- 이 후보는 QA overlay 준비 도구이며 배포 디렉터리가 아님.
+
+구현
+runtime.cjs: QA Site ec0bc146-8184-4627-90e0-df82ec2b06f9,
+Project hseaeafmmjnbynfyynao, deploy-preview, REVIEW_ID, HEAD,
+pull/N/head, COMMIT_REF, Preview origin을 승인 seal과 대조.
+누락/불일치, 운영 프로젝트, Worker ON, 실제 provider 키가 있으면 차단.
+QA 활성화도 별도 runtimeApproved와 명시적 actor/business allowlist 필요.
+토큰 claim은 목적지 검증에만 사용. 실제 인증 성공으로 판정하지 않음.
+SDK transport는 QA Supabase origin만 허용하고 redirect를 금지.
+
+materialize.cjs: 별도 승인 후 QA 빌드에서만 호출할 순수 준비 함수.
+원본 guard는 수정하지 않고 QA 산출물용 guard/SDK transport를 생성.
+원본 netlify.toml, ignore, activation 플래그는 변경하지 않음.
+기존 Functions 이름과 URL 및 권한/RPC는 재사용.
+Owner HTML만 공개 QA anon 설정을 사용하며 Service Role은 서버에만 유지.
+qa ENV가 기존 sessionStorage 로그인 정책을 선택함.
+미리보기 승인 seal의 commit은 저장소 자기 해시가 아닌 외부 승인 값으로
+고정한다. 검토된 source commit과 Netlify COMMIT_REF 일치 확인 후 사용.
+검증 없는 PR 번호/HEAD/commit 생성이나 무조건 허용하는 fallback 없음.
+런타임에 필수 플랫폼 메타데이터가 제공되지 않으면 계속 차단한다.
+
+Storage
+2026-10-30 확보한 QA 카탈로그 기준:
+- owner-image-quarantine: private, 5242880 bytes, JPEG/PNG/WebP.
+- public-images: public, 5242880 bytes, JPEG/PNG/WebP.
+기존 코드의 owner-portal-quarantine을 QA 산출물에서만 전자로 매핑.
+버킷 생성/정책 변경/기존 파일 이동/URL 변경 없음.
+owner-v1/owner/{business}/{actor}/{file} 경로 및 기존 DB 소유권/
+Paid 정책 검사 유지. QA 어댑터의 관리자/legacy 이미지 경로는 차단.
+기존 운영 관리자 이미지 경로와 정책은 원본에 그대로 보존.
+격리 Storage 정책은 호환성 fixture이며 실제 QA Storage HTTP PASS를
+대체하지 않음. 실제 기존 QA 정책의 HTTP 검사는 Canary 승인 이후 수행.
+
+구독 테스트 업소 계획 — 실행하지 않음
+- 기존 QA 일반 업주 계정과 가상 업소 한 곳을 사용. 새 계정 불필요.
+- 우선 후보: 기존 가상 업소 067b41b5-74fc-4fe8-89a5-481a22a00d2b.
+- 적용 직전에 가상 업소 여부, 활성 소유권, 계정 상태를 재확인.
+  확인 실패 시 다른 실제 업소로 대체하지 않고 STOP.
+- coupon_plans row 존재 여부/tier/paid_enabled/updated_at,
+  feature_policy 및 관련 계정 설정을 제한된 증거에 기록.
+- 별도 승인 후 해당 업소만 Paid/활성으로 변경. 다른 업소/계정 불변.
+- Free 대조 업소는 변경하지 않음. 테스트 신규 쿠폰/이미지는 식별 표시.
+- 종료 시 기록한 원래 등급/paid_enabled를 복구하고 DB와 RPC 재조회.
+  원래 plan row가 없으면 등급 복구 방식부터 별도 검토(임의 DELETE 금지).
+- 테스트가 만든 참조 없는 파일만 승인 범위에서 정리. 기존 파일 보존.
+- 오류 시 추가 테스트/배포 STOP. 권한 확대의 원복은 안전 정리로 우선.
+
+PC / 모바일 계획 — 실제 Preview 화면은 아직 미검증
+1280px / 375px에서 기존 QA 관리자/Free/임시 Paid 계정으로 확인:
+로그인 → 새로고침/세션 유지 → 승인 업소 선택 → 업소 간 분리.
+Free: 선택형 소개, 4개 템플릿, 자유 소개/업로드 숨김 및 직접 API 거부.
+Paid: 자유 소개, JPEG/PNG/WebP, 미리보기/저장/고객 노출.
+5MiB 경계와 초과, MIME/실제 이미지 불일치, 타 업소/타 actor 경로 차단.
+신청 → 관리자 승인/거절 → 권한 회수; 기존 지역 권한 유지.
+승인 대기 중 공개 방지. 임시 데이터만 사용. 실제 발급/메일/추첨 없음.
+가로 overflow, 44px 터치 영역, 오류/빈 상태, 뒤로 가기/새로고침 확인.
+원본 쿠폰/이벤트/스페셜/Community/지도와 예약 경로는 읽기 전용 회귀.
+
+다음 별도 승인 범위
+1. 정확한 PR/HEAD/commit을 고정한 QA Deploy Preview 1회.
+2. QA Preview에만 Owner Canary 활성화와 QA용 필수 메타데이터 제공.
+   Worker OFF/mock/provider 키 없음 유지. 운영 설정은 불변.
+3. 위 가상 업소 한 곳의 임시 Paid 변경/검사/원복.
+4. 실제 QA Auth 로그인은 사용자가 직접 수행; 비밀번호/세션 출력 금지.
+5. QA credential 인증은 QA origin에만 제한. 실패하면 실제 기능 테스트 STOP.
+Preview 빌드 또는 동작 오류 발생 시 자동 재시도 없음.
+
+롤백
+아직 배포/DB/설정 변경이 없어 현재 롤백 불필요.
+향후 Preview는 QA Owner OFF → 승인 seal 제거/폐기 → 임시 산출물 폐기.
+QA bootstrap 기본 브랜치, 기존 QA Published/lock/Firewall 그대로 유지.
+원래 등급 확인/복구와 신규 테스트 파일 참조 확인 뒤 정리.
+운영 DB migration, Production 게시 또는 main 병합은 포함하지 않음.
