@@ -1,0 +1,63 @@
+name: Owner QA preparation (CI only)
+on:
+  workflow_dispatch:
+  push:
+    branches: [dev/owner-qa-preparation-20261030]
+permissions:
+  contents: read
+jobs:
+  linux-owner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node scripts/release/verify-owner-base.mjs
+      - run: node --test qa/owner-preview/*.test.cjs
+      - run: npm run qa:preservation
+      - run: node scripts/release/locked-draft-build.mjs --verify-only
+        env:
+          CONTEXT: production
+          SITE_ID: e2667e40-0999-42a3-892b-2b2edff61434
+      - run: npm run qa:secrets
+      - run: npm run qa:functions
+      - run: node scripts/release/verify-standalone-runtime.mjs
+      - run: npm run qa:test
+      - run: npm run qa:migration
+      - run: node --test tests/community/*.test.mjs tests/owner/*.test.mjs
+      - name: Isolated PostgreSQL approval and policy tests
+        run: |
+          docker run -d --name dtm-owner-policy-20261029 --network none --read-only --tmpfs /var/lib/postgresql/data:rw,nosuid,size=512m --tmpfs /var/run/postgresql:rw,nosuid,size=8m --tmpfs /tmp:rw,nosuid,size=32m -e POSTGRES_HOST_AUTH_METHOD=trust postgres:17-alpine
+          for i in $(seq 1 30); do docker exec dtm-owner-policy-20261029 pg_isready -U postgres && break; sleep 1; done
+          docker exec dtm-owner-policy-20261029 pg_isready -U postgres
+          python3 tests/owner/postgres-policy.py
+          docker exec dtm-owner-policy-20261029 psql -U postgres -c 'CREATE DATABASE owner_approval03'
+          python3 tests/owner/postgres-approval.py
+          python3 tests/owner/postgres-v2.py
+          python3 tests/owner/postgres-notifications.py
+      - name: Real isolated Auth PostgREST Storage flow (synthetic only)
+        run: |
+          docker pull node:22.23.4-bookworm
+          docker pull supabase/gotrue:v2.196.0
+          docker pull postgrest/postgrest:v14.17
+          docker pull supabase/storage-api:v1.83.3
+          node tests/owner/isolated-services.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owner49-runtime-evidence
+          path: |
+            .release-artifacts/standalone-runtime-qa.json
+            .release-artifacts/functions-build.json
+            .release-artifacts/zip-integrity.json
+            .release-artifacts/owner-postgres-qa.json
+            .release-artifacts/owner-approval-postgres.json
+            .release-artifacts/owner-v2-postgres.json
+            .release-artifacts/owner-notification-postgres.json
+            .release-artifacts/owner-real-services.json
+      # No credentials, provider calls, migrations, Netlify build or publication.

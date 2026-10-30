@@ -1,0 +1,87 @@
+Stage 1 only / 2026-10-30 / No deployment, key authentication or shared SQL execution
+
+BASELINES
+PR52: 94204d3d8b01a34be379869b17effd919f1cb1c4 (unchanged).
+Published production: 6ae36f4905a1d0956a59feb8.
+Production main: 524c984389ec44a83bd612682aadb91ecac6c5fc.
+QA site: ec0bc146-8184-4627-90e0-df82ec2b06f9.
+QA published: 6ad9956645e74cf00bf5f6af.
+QA project hseaeafmmjnbynfyynao differs from production ydrxuqmjzayejlnjzzew.
+No change to existing Function entries, runtime guards, UI, SQL or Netlify config.
+
+PREPARATION CODE
+policy.cjs is pure, network-free and is not wired into build/runtime entrypoints.
+approval.json denies all execution by default. No approved PR/commit exists.
+BRANCH is the PR checkout reference; HEAD is the source branch. REVIEW_ID and
+COMMIT_REF must match an independently reviewed approval. Missing metadata denies.
+An allowed metadata result is NOT authorization to authenticate or enable Owner.
+Credential presence is not project binding: masked/opaque service keys stay
+UNVERIFIED. Never use decoded JWT claims alone as authentication evidence.
+Future private build-only authentication must first require exact QA URL, site,
+PR, pinned HEAD and deploy-preview context, no redirects, QA-only requests and
+safe boolean output. It must exit before deploying anything. Separate approval.
+No credentials may be serialized into CI logs/artifacts/frontend configuration.
+
+APPROVED-PR PREVIEW PLAN (NOT ACTIVE)
+Keep QA bootstrap branch, private logs, publication lock, Firewall and ignore gate.
+This branch has no PR; push uses [skip netlify]; CI has no Netlify token or deploy.
+Netlify's PR base/branch eligibility is NOT an exact PR-number allowlist.
+After separate Stage 3 approval, review the exact commit and arrange an eligible
+QA-only review base for the single approved PR. Add fail-closed preflight before
+any SEO/network/packaging command. Do not simply disable ignore or bypass guards.
+Production Owner guard remains production-only; a QA-specific adapter is a later
+reviewed change, reusing existing handlers, never relaxing the production guard.
+Build environment approval does not authorize exposing Service Role to frontend.
+Original four schedules unchanged; new notification worker stays OFF/mock.
+Legacy scheduled jobs may have side effects even in a protected Preview: verify
+platform scheduling semantics and explicitly prevent QA invocation before Stage 3.
+
+CONFIG EVIDENCE / LIMITATIONS
+Netlify metadata GETs only: check registration/context/scopes and exact QA URL.
+Preview Owner=false, Worker=false, notification=mock; both Resend names must have
+no effective Preview value. Production QA email key must not be inherited.
+No real Service Role authentication in Stage 1. Existing key's QA association is
+unproven until separately approved private read-only verification.
+Public QA Auth/DB/Storage endpoint readiness was previously observed; not repeated.
+Shared QA v2 schemas/policies and actual ownership are not established by health.
+Production/QA project refs are distinct; no production Supabase request is needed.
+
+STAGE 2 SQL/RLS/STORAGE (SEPARATE APPROVAL REQUIRED)
+1. Confirm QA project in dashboard; execute catalog-readonly.sql separately.
+   If project_ref is absent, corroborate via dashboard; never infer from DB name.
+2. Export QA schema definitions, policies/grants, bucket metadata and encrypted
+   logical data backup; test restoration in a separate local database. Preserve
+   existing object keys and public URLs; DB backup does not back up image bytes.
+3. Diff against supabase/owner-open/manifest.json. Existing SQL is review-only and
+   contains production project guards. DO NOT APPLY IT UNCHANGED TO QA.
+4. Prepare a QA-targeted delta with explicit QA project assertion, expected
+   catalog signatures and separately approved settings. Stop on any drift.
+   Dependency order: 01-security, 02-apply, 03-storage, 03b legacy authorization,
+   03c image link, 06 extensions, 07 coupon plans, 08 transition, 09 hardening,
+   10 coupon-v2, 11 description policy, 12 description seed, 13 notifications.
+   Skip already matching objects; never drop/recreate existing policies blindly.
+5. Effects to review: private Owner ownership/claims and RPC grants; public-table
+   RLS; image write policies (existing admins preserved, Paid own-business only,
+   Free/unapproved/anonymous writes denied); v2 issuance/usage/outbox tables and
+   description catalog; notification queue/retry/lease tables/RPC. No historical
+   coupon backfill, no customer notification, no raffle or reservation migration.
+6. Approve the exact QA delta/hash, backup location and reverse patch before SQL.
+   Transaction per reviewed migration; on error STOP, no next migration/deploy.
+7. Rollback: keep Owner/worker OFF; reverse only new grants/policies using exported
+   definitions. Preserve new audit/outbox/issuance records; no cascading drops.
+   Restore full backup only after separate approval and analysis of later writes.
+
+STAGE 3 (NOT AUTHORIZED)
+Private QA key authentication, actual Preview and QA actor/business Canary require
+separate approval after Stage 2. Use existing confirmed QA accounts (signup could
+send email). Verify Auth/ownership, cross-business denial, Free/Paid Storage and
+mock issuance/use/retry. No external send; no production project/key/storage calls.
+Abort first unexpected HTTP/permission error. No automatic retries/deploys.
+
+STAGE 1 ROLLBACK
+Revert only new qa/owner-preview files and new CI workflow on this dev branch.
+No production/main/PR52/Netlify/shared DB changes exist to roll back.
+
+REFERENCES
+https://docs.netlify.com/build/configure-builds/environment-variables/
+https://docs.netlify.com/deploy/deploy-types/deploy-previews/
