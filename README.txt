@@ -55,3 +55,36 @@ unexpected state and seek approval before changing Git/configuration again.
 Official references:
 https://docs.netlify.com/build/configure-builds/file-based-configuration/
 https://docs.netlify.com/build/configure-builds/stop-or-activate-builds/
+
+
+2026-10-30 verifier review candidate (NO NETLIFY EXECUTION):
+The new verify.mjs is not the configured build command; build-stop.cjs and
+ignore=exit 0 remain unchanged. CI supplies synthetic metadata and mocked fetch.
+Draft PR base: dev/qa-key-verifier-review-base-20261030, a review-only branch
+at the original safe bootstrap commit. This base is NOT a Netlify production
+or branch-deploy-enabled branch on either QA or the operational site. Keep
+this base until explicit one-off execution approval. Do not target main.
+
+The verifier separates CONTEXT, SITE_ID, PULL_REQUEST, REVIEW_ID, HEAD,
+BRANCH checkout reference, COMMIT_REF and explicit approval. All are mandatory.
+Each failure has an allowlisted safe code and boolean check results; environment
+values, tokens, credentials and raw Supabase responses are never printed.
+HEAD must match the approved source branch. BRANCH must match pull/PR/head
+(or refs/pull/PR/head) for the exact approved PR number. This is intentionally
+strict; an unknown checkout format is BLOCKED and must not be silently accepted.
+QA URL is a fixed allowlist, production project credentials fail before fetch.
+Only one QA zero-row GET can occur; no redirects, retries, Storage, writes,
+mail, coupon issuance or Worker execution. Unexpected runtime errors are redacted.
+
+A later, separately approved execution would require:
+- QA Private logs, publishing lock, Owner/Worker OFF, mock, no provider keys.
+- Exact current QA site and QA credential verification guards.
+- Retarget only this temporary PR to the QA safe default branch.
+- Use a reviewed execution commit with ignore=exit 1 and command=node verify.mjs.
+- QA Preview-only approval flag, exact PR ID, source HEAD and pinned Commit.
+- One actual execution, always exit 78 before artifacts; collect safe result.
+- Close temporary PR, remove execution branch/flags, confirm both Published IDs,
+  QA lock, operational Firewall, main and PR #52 unchanged. Preserve audit logs.
+Retargeting or changing the command/ignore flag may trigger a Preview and is NOT
+approved now. Do not create environment flags or trigger/retry any Netlify build.
+This candidate does not relax the Owner Production-only environment guard.
