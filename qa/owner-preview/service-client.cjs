@@ -34,7 +34,8 @@ const checks=[],check=(name,ok)=>{if(!ok)throw Error('CHECK_'+name);checks.push(
  check('unsupported MIME denied',(await call('paid',make('paid',a,{mime:'image/svg+xml'}))).statusCode===413);
  const limit=await call('paid',make('paid',a,{size:5242880}));check('exact 5MiB accepted by gateway',limit.statusCode===200);
  const limitToken=JSON.parse(limit.body);
- check('actual Storage rejects over 5MiB signed payload',!!(await db.storage.from('owner-image-quarantine').uploadToSignedUrl(limitToken.staging_path,limitToken.upload_token,Buffer.alloc(5242881),{contentType:'image/png'})).error);
+ const oversized=await db.storage.from('owner-image-quarantine').uploadToSignedUrl(limitToken.staging_path,limitToken.upload_token,Buffer.alloc(5242881),{contentType:'image/png'});
+ check('actual Storage rejects over 5MiB signed payload with 413',Number(oversized.error?.statusCode||oversized.error?.status)===413);
  for(const format of ['jpeg','png','webp']){
   const mime='image/'+format,ext=format==='jpeg'?'jpg':format,bytes=await require('sharp')({create:{width:32,height:32,channels:4,background:'#146b55'}}).toFormat(format).toBuffer();
   const c=make('paid',a,{path:`owner-v1/owner/${a}/${ids.paid}/${crypto.randomUUID()}.${ext}`,size:bytes.length,mime});

@@ -33,7 +33,7 @@ function prepare({root,output,env,seal}){
  files['owner-uuid/qa-config.js']='window.APP_CONFIG='+JSON.stringify({SUPABASE_URL:`https://${QA}.supabase.co`,SUPABASE_ANON_KEY:env.SUPABASE_ANON_KEY,OWNER_UUID_ENV:'qa'})+';\n';
  files['owner-uuid/index.html']=replaceOne(replaceOne(read('owner-uuid/index.html'),'/.netlify/functions/config?v=owner-phase1','/owner-uuid/qa-config.js'),'<button name="signup">회원가입</button>','');
  // Existing accounts only: do not initiate Supabase confirmation email either.
- files['owner-uuid/portal.js']=replaceOne(read('owner-uuid/portal.js'),"await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}})","Promise.resolve({error:true})");
+ files['owner-uuid/portal.js']=replaceOne(read('owner-uuid/portal.js'),"await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}})","({error:true})");
  const metadata=Object.entries(files).map(([name,data])=>({path:name,sha256:hash(data)}));
  fs.mkdirSync(dest,{recursive:true});for(const [name,data]of Object.entries(files)){const p=path.join(dest,name);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,data,{mode:0o600});}
  fs.writeFileSync(path.join(dest,'overlay-manifest.json'),JSON.stringify({kind:'QA_ONLY_OVERLAY_NOT_A_DEPLOY_DIRECTORY',files:metadata},null,2));
