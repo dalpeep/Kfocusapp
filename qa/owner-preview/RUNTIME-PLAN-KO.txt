@@ -25,7 +25,12 @@ qa ENV가 기존 sessionStorage 로그인 정책을 선택함.
 미리보기 승인 seal의 commit은 저장소 자기 해시가 아닌 외부 승인 값으로
 고정한다. 검토된 source commit과 Netlify COMMIT_REF 일치 확인 후 사용.
 검증 없는 PR 번호/HEAD/commit 생성이나 무조건 허용하는 fallback 없음.
-런타임에 필수 플랫폼 메타데이터가 제공되지 않으면 계속 차단한다.
+Netlify 공식 문서상 Functions 런타임의 읽기 전용 변수는 URL/SITE_NAME/
+SITE_ID만 보장된다. PR/HEAD/Commit/Context는 빌드 시 검증 후 서버 전용
+seal에 고정한다. 런타임에는 실제 SITE_ID/URL과 HTTP 요청 origin을 다시
+확인하며 빌드 변수가 제공되는 경우 seal과의 불일치도 차단한다.
+빌드 단계에서 필수 메타데이터가 없으면 산출물을 만들지 않는다.
+https://docs.netlify.com/build/functions/environment-variables/
 
 Storage
 2026-10-30 확보한 QA 카탈로그 기준:
