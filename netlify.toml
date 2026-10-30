@@ -56,3 +56,9 @@
 
 [functions."owner-image-uuid"]
   included_files = ["node_modules/@supabase/**","node_modules/@netlify/aws-lambda-compat/**","node_modules/@netlify/types/**","node_modules/iceberg-js/**","node_modules/tslib/**","node_modules/sharp/**","node_modules/@img/**","node_modules/detect-libc/**","node_modules/semver/**","node_modules/@emnapi/**","netlify/legacy-functions/lib/fonts/**","netlify/legacy-functions/lib/owner-coupon-template.js","netlify/legacy-functions/lib/validated-image.js"]
+
+# QA Canary branch only; default Production/branch build remains ignored.
+[context.deploy-preview]
+  command = "node qa/owner-preview/canary-build.cjs"
+  publish = ".qa-preview-public"
+  ignore = "node qa/owner-preview/ignore.cjs"
