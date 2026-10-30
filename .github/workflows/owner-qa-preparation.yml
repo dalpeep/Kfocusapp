@@ -28,6 +28,8 @@ jobs:
       - run: npm run qa:secrets
       - run: npm run qa:functions
       - run: node scripts/release/verify-standalone-runtime.mjs
+      - name: QA overlay packaging and standalone runtime
+        run: node qa/owner-preview/package-test.mjs
       - run: npm run qa:test
       - run: npm run qa:migration
       - run: node --test tests/community/*.test.mjs tests/owner/*.test.mjs
@@ -60,4 +62,5 @@ jobs:
             .release-artifacts/owner-v2-postgres.json
             .release-artifacts/owner-notification-postgres.json
             .release-artifacts/owner-qa-adapter-services.json
+            .release-artifacts/qa-overlay-packaging.json
       # No credentials, provider calls, migrations, Netlify build or publication.
