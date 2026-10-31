@@ -5,7 +5,9 @@ PR55 source branch: dev/owner-qa-canary-20261030; base remains dev/owner-qa-prep
 This integration retains both histories. No force-push/main merge or DB migration.
 
 Closed by default:
-- [build] ignore = "exit 0"; [context.deploy-preview] ignore = "exit 0".
+- [build] ignore = "exit 0" remains unchanged. Deploy Preview uses
+  ./qa/owner-preview/build-only-ignore.cjs: absent/stale/mismatched approval
+  returns0 (skip), exact QA-only preview-off approval returns1 (run).
 - QA Preview command points at build-only.cjs, NOT Canary.
 - Checked-in approval.json remains false. Runtime policy/materialize/Canary
   gates unchanged. No environment variable is created or changed.
@@ -41,6 +43,6 @@ Cancellation gate remains OFF; original QA six migrations are not rerun.
 
 After CI, still require separate approval for ONE private QA Service Role
 read-only authentication execution (no function/web endpoint, no logged body),
-and later one exact-commit unpublished QA Preview. Opening the QA-only ignore
-for a single approved build is outside this change. Owner Canary/Paid change/
+and later one exact-commit unpublished QA Preview. Setting the QA-only nonsecret approval for a single approved build remains
+outside this change. The gate never performs authentication itself. Owner Canary/Paid change/
 Storage writes/SQL/actual delivery remain separate. No production settings.

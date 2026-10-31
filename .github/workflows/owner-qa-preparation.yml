@@ -68,3 +68,16 @@ jobs:
             .release-artifacts/qa-overlay-packaging.json
             .release-artifacts/qa-build-only-packaging.json
       # No credentials, provider calls, migrations, Netlify build or publication.
+
+  netlify-ignore-node18:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.8'
+      - name: Netlify ignore runtime guard (no credentials or network)
+        run: node --test qa/owner-preview/build-only-ignore.test.cjs

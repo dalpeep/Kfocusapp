@@ -61,4 +61,4 @@
 [context.deploy-preview]
   command = "node qa/owner-preview/build-only.cjs"
   publish = ".qa-preview-public"
-  ignore = "exit 0"
+  ignore = "node ./qa/owner-preview/build-only-ignore.cjs"
