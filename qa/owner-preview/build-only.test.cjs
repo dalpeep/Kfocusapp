@@ -1,0 +1,17 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('fs');
+const {SITE,QA,ORIGIN,HEAD,preflight,approval,buildFiles}=require('./build-only.cjs');
+const root=require('path').resolve(__dirname,'../..');
+const seal={buildApproved:true,runtimeApproved:false,pr:55,head:HEAD,commit:'a'.repeat(40),serviceAuthenticationApproved:false,execution:'preview-off'};
+const good={SITE_ID:SITE,CONTEXT:'deploy-preview',NETLIFY:'true',PULL_REQUEST:'true',REVIEW_ID:'55',HEAD,BRANCH:'pull/55/head',COMMIT_REF:seal.commit,DEPLOY_PRIME_URL:ORIGIN,OWNER_UUID_ORIGIN:ORIGIN,OWNER_UUID_PROJECT_REF:QA,SUPABASE_URL:`https://${QA}.supabase.co`,SUPABASE_ANON_KEY:'synthetic-public',SUPABASE_SERVICE_ROLE_KEY:'synthetic-private',OWNER_UUID_ENABLED:'false',OWNER_NOTIFICATION_WORKER_ENABLED:'false',OWNER_NOTIFICATION_MODE:'mock'};
+test('no external approval defaults closed',()=>{assert.equal(approval(good),null);assert.equal(preflight(good).allowed,false);});
+test('Owner OFF metadata is not auth or runtime approval',()=>{const r=preflight(good,seal);assert.equal(r.allowed,true);assert.equal(r.authentication,'NOT_TESTED');assert.equal(r.runtimeEnabled,false);});
+for(const key of Object.keys(good))test('build-only missing '+key+' denied',()=>{const e={...good};delete e[key];assert.equal(preflight(e,seal).allowed,false);});
+for(const [key,value]of Object.entries({SITE_ID:'production',CONTEXT:'production',REVIEW_ID:'52',HEAD:'main',BRANCH:HEAD,COMMIT_REF:'b'.repeat(40),OWNER_UUID_ORIGIN:'https://daltownmap.com',DEPLOY_PRIME_URL:'https://daltownmap.com',OWNER_UUID_PROJECT_REF:'ydrxuqmjzayejlnjzzew',SUPABASE_URL:'https://ydrxuqmjzayejlnjzzew.supabase.co',OWNER_UUID_ENABLED:'true',OWNER_NOTIFICATION_WORKER_ENABLED:'true',OWNER_NOTIFICATION_MODE:'live'}))test('build-only rejects changed '+key,()=>assert.equal(preflight({...good,[key]:value},seal).allowed,false));
+for(const key of ['RESEND_API_KEY','OWNER_QA_RESEND_API_KEY','ONESIGNAL_REST_API_KEY','ONESIGNAL_API_KEY'])test('build-only rejects '+key,()=>assert.equal(preflight({...good,[key]:'synthetic-provider'},seal).allowed,false));
+test('Canary approval cannot enable build-only',()=>assert.equal(preflight(good,{...seal,runtimeApproved:true}).allowed,false));
+test('unsupported execution cannot run',()=>assert.equal(preflight(good,{...seal,execution:'publish'}).allowed,false));
+test('private auth-only is distinct from preview generation',()=>assert.equal(preflight(good,{...seal,execution:'authenticate-only'}).allowed,true));
+test('default production stays skipped and preview uses fail-closed gate',()=>{const t=fs.readFileSync(root+'/netlify.toml','utf8');assert.match(t.split('[functions]')[0],/ignore = "exit 0"/);const p=t.split('[context.deploy-preview]')[1];assert.match(p,/ignore = "node \.\/qa\/owner-preview\/build-only-ignore\.cjs"/);assert.match(p,/command = "node qa\/owner-preview\/build-only.cjs"/);});
+test('full candidate sources stay outside the disabled generated map',()=>{const p=buildFiles(root);assert.equal(Object.keys(p.functions).length,49);assert.equal(p.schedules.length,5);assert.equal(p.allDisabled,true);assert.match(fs.readFileSync(root+'/netlify/functions/community-admin.mjs','utf8'),/import/);});
+test('diagnostics contain no keys or provider values',()=>{const output=JSON.stringify(preflight(good,seal));assert(!output.includes(good.SUPABASE_SERVICE_ROLE_KEY));assert(!output.includes(good.SUPABASE_ANON_KEY));});

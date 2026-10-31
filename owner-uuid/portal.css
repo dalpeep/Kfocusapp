@@ -37,3 +37,5 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .coupon-save-feedback[data-state=error]{color:#991b1b;background:#fff0f0;padding:12px;border-radius:8px}
 
 .owner-admin-form{margin:16px 0;padding:16px;border:1px solid #dbe3ee;border-radius:12px}.owner-admin-form label{display:flex;flex-direction:column;gap:6px;margin:10px 0}.owner-admin-form input,.owner-admin-form select,.owner-admin-form button{min-height:44px;max-width:100%;box-sizing:border-box}.owner-admin-form p{overflow-wrap:anywhere}.owner-admin-form button{margin:6px 8px 0 0}
+
+.coupon-usage-entry{padding:12px 0;border-bottom:1px solid #ddd;overflow-wrap:anywhere}.coupon-usage-entry button{min-height:44px;margin:4px}.coupon-usage-entry input{max-width:100%;box-sizing:border-box}
