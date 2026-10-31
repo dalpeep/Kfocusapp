@@ -2,7 +2,7 @@ name: Owner QA preparation (CI only)
 on:
   workflow_dispatch:
   push:
-    branches: [dev/owner-qa-preparation-20261030, dev/owner-completion-offline-20261030]
+    branches: [dev/owner-qa-preparation-20261030, dev/owner-completion-offline-20261030, dev/owner-qa-canary-20261030]
 permissions:
   contents: read
 jobs:
@@ -30,6 +30,8 @@ jobs:
       - run: node scripts/release/verify-standalone-runtime.mjs
       - name: QA overlay packaging and standalone runtime
         run: node qa/owner-preview/package-test.mjs
+      - name: Owner OFF QA artifact packaging
+        run: node qa/owner-preview/build-only-package-test.mjs
       - run: npm run qa:test
       - run: npm run qa:migration
       - run: node --test tests/community/*.test.mjs tests/owner/*.test.mjs
@@ -64,4 +66,5 @@ jobs:
             .release-artifacts/owner-notification-postgres.json
             .release-artifacts/owner-qa-adapter-services.json
             .release-artifacts/qa-overlay-packaging.json
+            .release-artifacts/qa-build-only-packaging.json
       # No credentials, provider calls, migrations, Netlify build or publication.

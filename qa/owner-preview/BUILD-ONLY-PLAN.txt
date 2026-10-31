@@ -1,0 +1,46 @@
+Owner QA build-only integration / 2026-10-31
+
+Source baseline: a614918b2a5b0afda758999d0626d6dfb0281ac9.
+PR55 source branch: dev/owner-qa-canary-20261030; base remains dev/owner-qa-preparation-20261030.
+This integration retains both histories. No force-push/main merge or DB migration.
+
+Closed by default:
+- [build] ignore = "exit 0"; [context.deploy-preview] ignore = "exit 0".
+- QA Preview command points at build-only.cjs, NOT Canary.
+- Checked-in approval.json remains false. Runtime policy/materialize/Canary
+  gates unchanged. No environment variable is created or changed.
+- New OWNER_QA_BUILD_ONLY_APPROVAL is not configured by this change.
+  Old OWNER_QA_PREVIEW_APPROVAL cannot approve this build entry.
+- Site ec0bc146-8184-4627-90e0-df82ec2b06f9, QA ref hseaeafmmjnbynfyynao,
+  PR55, source HEAD, exact approved commit, checkout ref, Origin and context
+  must match. Owner=false, Worker=false, mock and provider-free mandatory.
+- Future private authentication additionally requires explicit separate approval.
+  execution=authenticate-only always stops before creating public artifacts.
+  execution=preview-off may create only disabled 49-function QA artifact after
+  explicit authentication approval. Neither mode is executed by CI.
+
+Artifacts:
+1. Original candidate 49 functions are officially bundled and loaded outside
+   checkout, including actual Supabase SDK. Published sources are preserved.
+2. Separate QA build-only generated artifact keeps all 49 names + original
+   four schedules + disabled Worker schedule. Every API returns503 without
+   loading DB/provider/business code. Owner4 and Worker1 also remain OFF.
+   Generated code is not an equivalent functional API and is never published
+   by this task. Branch source originals remain unchanged.
+3. Static artifact has no Supabase URL/key, no external SDK and connect-src=self.
+   Owner availability stays disabled, so this is NOT Auth/Storage/Canary E2E.
+
+Current QA41 vs candidate49:
+Common32, candidate-only17, QA-only9. No merging to58 and no modifying currently
+Published41. QA-only booking/mock/diagnostic paths will not be in the isolated
+49-function Preview. Existing QA Published and its reservations remain intact.
+See function-inventory.json for all names and paths.
+
+SQL14/15 remain review-only, not public static output and never auto-applied.
+Cancellation gate remains OFF; original QA six migrations are not rerun.
+
+After CI, still require separate approval for ONE private QA Service Role
+read-only authentication execution (no function/web endpoint, no logged body),
+and later one exact-commit unpublished QA Preview. Opening the QA-only ignore
+for a single approved build is outside this change. Owner Canary/Paid change/
+Storage writes/SQL/actual delivery remain separate. No production settings.
