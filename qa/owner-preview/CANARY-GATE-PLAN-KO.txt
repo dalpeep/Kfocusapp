@@ -1,0 +1,54 @@
+QA Canary 1단계 — 코드/CI 준비만 (2026-11-01)
+
+기준: PR55 검증 HEAD1db925aba22535e2f70da65394fa7d9beabc4ce3.
+기존 PR55/52와 Ready Preview6ae7c804c7b12d5b0e02267a는 변경하지 않는다.
+이 후보는 별도 개발 브랜치의 소스다. Netlify 설정·환경변수·DB·Storage·배포·Owner 활성화는 실행하지 않는다.
+
+Preview 선택 게이트: preview.cjs --ignore (0=skip,1=run).
+승인 없거나 잘못된 JSON/정보 누락/충돌하는 승인이면 skip.
+기존 OWNER_QA_BUILD_ONLY_APPROVAL은 기존 OFF 생성 경로만 허용한다.
+새 OWNER_QA_CANARY_APPROVAL은 독립된 Canary 허가이며 기본값은 미등록/OFF.
+새 허가는 buildApproved/runtimeApproved/serviceAuthenticationApproved=true,
+execution=owner-canary, 정확한 site/project/pr/head/commit/actors/businesses만 가진다.
+QA Site ec0bc146-8184-4627-90e0-df82ec2b06f9, QA Project hseaeafmmjnbynfyynao,
+PR55/Head dev/owner-qa-canary-20261030/정확한 COMMIT_REF/deploy-preview를 고정한다.
+checkout ref와 Origin, QA URL, URL 기본 사이트, JWT 라우팅, Owner QA 설정,
+승인 계정·가상 업소 목록, Worker OFF/mock, Provider 없음이 모두 일치해야 한다.
+메타데이터/JWT claims 일치 자체는 실제 Service Role 인증의 PASS가 아니다.
+Production 및 Branch의 build ignore exit0는 유지한다.
+이 변경으로 현재 Owner OFF 환경에서 새 Canary 빌드를 실행할 수 없다.
+
+실행 경로는 기존 canary-build/runtime/materialize 코드를 재사용한다.
+runtime/materialize 및 실제 Functions 업무 소스는 변경하지 않는다.
+검증된 조상 및 정확한 checkout Commit 검사 후 읽기 전용 인증 1회를 수행하고,
+성공해야만 새 QA 아티팩트를 생성한다. 리다이렉트와 자동 재시도는 없다.
+새 service-role-check.cjs는 QA_SERVICE_ROLE_AUTH_RESULT 한 줄에
+PASS/FAIL/NOT TESTED, 비민감 코드, HTTP 상태, attempts, qaProject만 기록한다.
+키·JWT·Authorization·원본 응답·사용자 목록·원래 예외는 로그에 전달하지 않는다.
+실행되지 않았거나 직접 성공 로그를 확인하지 못한 실제 QA 인증은 NOT TESTED 유지.
+
+CI 검증: 승인/거절/누락/다른Site·PR·Commit·Context/Provider/OwnerOFF·WorkerON,
+충돌허가/무승인/틀린 checkout, 단일 mock 인증·오류·비밀 로그 방지 검사.
+실제 builder를 합성 환경에서 호출하고 공식 번들러로49개 ZIP을 생성,
+checkout 밖에서49개 로딩, Owner4 익명401/잘못된Origin503,
+나머지44 및 Worker1의503·기존4cron·Worker cron 보존을 검사한다.
+CI의 인증 PASS는 합성 transport 결과이며 실제 QA 인증이 아니다.
+실제 Netlify 빌드나 실제 QA Service Role 요청은 이 단계에 없다.
+
+다음 별도 승인:
+1. CI가 통과한 정확한 새SHA를 PR55로 통합할 Git 변경 범위 확정.
+2. QA Deploy Preview에만 Owner/Canary/v2와 승인 계정·가상 업소 설정,
+   새 허가 등록·미게시 Preview1회·서버 내부 읽기 인증1회·결과 직접 확인.
+   Worker OFF/mock/Private/게시잠금은 유지. Production 컨텍스트와 운영은 제외.
+3. 테스트 신청/등록/승인/정보·쿠폰·이벤트·Storage 쓰기 및 정리 범위는 별도 승인.
+   Paid 테스트는 가상업소1곳의 등급 변경·원복을 별도로 명시.
+4. 신규 업소 승인 후 생성된 ID는 사전 허용 목록 밖이므로 자동 전체 허용 금지.
+   사전 승인 테스트 신청의 새 ID 한 개만 추가하는 범위를 별도 승인해야 한다.
+5. Canary 종료 시 Owner/Canary OFF, 임시 허가와 임시 허용 목록을 원래 값으로 복구.
+   단순 허가 삭제만으로 이미 생성된 런타임이 중단된다고 가정하지 않는다.
+   런타임은 Owner/Canary 설정과 밀봉된 범위를 재검사하므로 OFF 원복이 필요하다.
+   신설 항목만 제거하고 기존 값을 보존. 실패 시 추가 실행 없이 중단.
+
+기존49개의 이름을 유지하되 미래 Canary 아티팩트에서 실기능은 Owner4개만 허용한다.
+Legacy44/Worker1은 OFF. 쿠폰 발급·사용·추첨·실메일·푸시·일반예약·운영 오픈은 제외.
+기존 Published 및 GitHub main, QA SQL6개·RLS·Storage 정책은 수정하지 않는다.

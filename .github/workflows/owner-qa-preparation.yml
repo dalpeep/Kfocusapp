@@ -13,6 +13,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
@@ -30,6 +31,8 @@ jobs:
       - run: node scripts/release/verify-standalone-runtime.mjs
       - name: QA overlay packaging and standalone runtime
         run: node qa/owner-preview/package-test.mjs
+      - name: Synthetic Canary builder and 49 standalone ZIPs (no hosted build or credentials)
+        run: node qa/owner-preview/canary-package-test.mjs
       - name: Owner OFF QA artifact packaging
         run: node qa/owner-preview/build-only-package-test.mjs
       - run: npm run qa:test
@@ -66,6 +69,7 @@ jobs:
             .release-artifacts/owner-notification-postgres.json
             .release-artifacts/owner-qa-adapter-services.json
             .release-artifacts/qa-overlay-packaging.json
+            .release-artifacts/qa-canary-packaging.json
             .release-artifacts/qa-build-only-packaging.json
       # No credentials, provider calls, migrations, Netlify build or publication.
 
@@ -80,4 +84,4 @@ jobs:
         with:
           node-version: '18.20.8'
       - name: Netlify ignore runtime guard (no credentials or network)
-        run: node --test qa/owner-preview/build-only-ignore.test.cjs
+        run: node --test qa/owner-preview/build-only-ignore.test.cjs qa/owner-preview/preview.test.cjs
