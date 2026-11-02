@@ -581,7 +581,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-coupon-template.js",
-      "sha256": "724d6995d4b6fba52bc206528f5c794d83b4f2bb1c1e4903ba6f547d4791dfc8"
+      "sha256": "9cae883ebbb526e5892fddaed10737986157c93c8548a16a1cce074e668ac27f"
     },
     {
       "path": "netlify/legacy-functions/lib/owner-portal-uuid.js",
@@ -589,7 +589,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-uuid-environment.js",
-      "sha256": "72225766c843cfd0e81a078eedff1687a9041ba6cad4b481ed88ad844180d96a"
+      "sha256": "c407b4797298dd27a05cb8b00a58c37c26b87b0edad63a010525b62acbaa2510"
     },
     {
       "path": "netlify/legacy-functions/lib/validated-image.js",
