@@ -4,6 +4,8 @@ const DESIGNS={percent:['할인형','#174ea6'],gift:['무료 증정형','#146b55
 const escape=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
 async function renderPng(design,c){
  const sharp=require('sharp'),path=require('node:path'),fs=require('node:fs');
+ // Native libvips/Pango is required: WASM fallback cannot render coupon text.
+ if(!sharp.versions?.pango)throw Error('TEMPLATE_TEXT_RUNTIME_UNAVAILABLE');
  const fontfile=[path.join(__dirname,'fonts/NotoSansKR.ttf'),path.join(process.cwd(),'netlify/functions/lib/fonts/NotoSansKR.ttf')].find(p=>fs.existsSync(p));
  if(!fontfile)throw Error('TEMPLATE_FONT_MISSING');
  const format=value=>new Intl.DateTimeFormat('ko-KR',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(value));
