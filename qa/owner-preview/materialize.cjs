@@ -37,6 +37,12 @@ function prepare({root,output,env,seal}){
  // QA Private access uses the browser's existing same-origin Netlify session.
  // No cookie/header values are read, copied, logged or sent across origins.
  files['owner-uuid/availability.js']=qaAvailabilitySource(read('owner-uuid/availability.js'));
+ // Diagnostic UI exists only in this gated QA artifact. Reuse the exact login
+ // client's sessionStorage session; never create/export a second auth client.
+ files['owner-uuid/qa-read-probe.js']=read('qa/owner-preview/read-probe.js');
+ files['owner-uuid/index.html']=replaceOne(files['owner-uuid/index.html'],'<script src="/owner-uuid/portal.js" defer></script>','<script src="/owner-uuid/qa-read-probe.js" defer></script><script src="/owner-uuid/portal.js" defer></script>');
+ const probeConfig={site:seal.site,project:seal.project,pr:seal.pr,commit:seal.commit,context:env.CONTEXT,origin:env.DEPLOY_PRIME_URL,actors:seal.actors,businesses:seal.businesses};
+ files['owner-uuid/portal.js']=replaceOne(files['owner-uuid/portal.js'],'ready:async client=>{db=client;', 'ready:async client=>{db=client;window.QaOwnerReadProbe.mount({client,config:'+JSON.stringify(probeConfig)+',parent:document.querySelector("main")});');
  const metadata=Object.entries(files).map(([name,data])=>({path:name,sha256:hash(data)}));
  fs.mkdirSync(dest,{recursive:true});for(const [name,data]of Object.entries(files)){const p=path.join(dest,name);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,data,{mode:0o600});}
  fs.writeFileSync(path.join(dest,'overlay-manifest.json'),JSON.stringify({kind:'QA_ONLY_OVERLAY_NOT_A_DEPLOY_DIRECTORY',files:metadata},null,2));
