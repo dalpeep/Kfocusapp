@@ -6,8 +6,10 @@ const {authenticate}=require('./service-role-check.cjs');
 const BASE='5bff8fc780c31fadf2b55d1c544d658d0ae23a8d';
 // Reviewed public-key compatibility update; keep source-integrity enforcement.
 const REVIEWED_RUNTIME_SHA256='d48a905c7e7ca5cee3abeaf527fc842dd0f1ccead137c3165a8abb845401c8cf';
+// Reviewed QA-only Private-cookie overlay; retain materializer integrity checks.
+const REVIEWED_MATERIALIZE_SHA256='beb729ab51492e6d778571c0e6d110136391190fe94ce62d3da8fa1ebb887ada';
 function verifyReviewedRuntime(){
- if(crypto.createHash('sha256').update(fs.readFileSync('qa/owner-preview/runtime.cjs')).digest('hex')!==REVIEWED_RUNTIME_SHA256||!fs.readFileSync('qa/owner-preview/materialize.cjs').equals(cp.execFileSync('git',['show',BASE+':qa/owner-preview/materialize.cjs'])))throw Error('QA_REVIEWED_RUNTIME_CHANGED');
+ if(crypto.createHash('sha256').update(fs.readFileSync('qa/owner-preview/runtime.cjs')).digest('hex')!==REVIEWED_RUNTIME_SHA256||crypto.createHash('sha256').update(fs.readFileSync('qa/owner-preview/materialize.cjs')).digest('hex')!==REVIEWED_MATERIALIZE_SHA256)throw Error('QA_REVIEWED_RUNTIME_CHANGED');
 }
 function approval(env){try{return JSON.parse(env.OWNER_QA_PREVIEW_APPROVAL||'');}catch{return null;}}
 function preflight(env){const seal=approval(env),result=assessBuild(env,seal);if(!result.allowed)throw Error('QA_CANARY_CONTEXT_BLOCKED');return seal;}

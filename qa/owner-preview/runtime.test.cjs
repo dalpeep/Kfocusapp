@@ -13,7 +13,7 @@ test('environment drift stops every subsequent SDK request',async()=>{const {env
 test('QA overlay maps existing bucket and public config without modifying production',()=>{
  const {env,seal}=fixture(),root=path.resolve(__dirname,'../..'),output=path.join(root,'.release-artifacts','qa-overlay-test-'+crypto.randomUUID());
  const names=['netlify.toml','netlify/legacy-functions/lib/owner-uuid-environment.js','netlify/legacy-functions/owner-image-uuid.js','owner-uuid/index.html'];const before=names.map(p=>fs.readFileSync(path.join(root,p)));
- try{const result=prepare({root,output,env,seal});assert.equal(result.deployable,false);assert.equal(result.files.length,14);for(let i=0;i<names.length;i++)assert.deepEqual(fs.readFileSync(path.join(root,names[i])),before[i]);
+ try{const result=prepare({root,output,env,seal});assert.equal(result.deployable,false);assert.equal(result.files.length,15);for(let i=0;i<names.length;i++)assert.deepEqual(fs.readFileSync(path.join(root,names[i])),before[i]);
  const image=fs.readFileSync(path.join(output,'netlify/legacy-functions/owner-image-uuid.js'),'utf8');assert.match(image,/staging='owner-image-quarantine'/);assert.match(image,/QA_OWNER_PATH_REQUIRED/);assert.match(image,/OWNER_MEMBERSHIP_REQUIRED/);assert.match(image,/COUPON_PAID_REQUIRED/);assert.match(image,/size>LIMIT/);
  const client=fs.readFileSync(path.join(output,'owner-uuid/qa-config.js'),'utf8');assert(!client.includes(env.SUPABASE_SERVICE_ROLE_KEY));assert(!client.includes(PROD));assert.match(client,/"OWNER_UUID_ENV":"qa"/);
  assert(!fs.readFileSync(path.join(output,'owner-uuid/index.html'),'utf8').includes('name="signup"'));assert(!fs.readFileSync(path.join(output,'owner-uuid/portal.js'),'utf8').includes('db.auth.signUp('));
