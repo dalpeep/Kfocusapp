@@ -513,7 +513,7 @@
     },
     {
       "path": "owner-uuid/content.js",
-      "sha256": "e1860bdb18e4e1b7714d2f20723bbbe50297a5800f2f118bace207b270eac854"
+      "sha256": "39a31f2a21d9ef03ff7139a62ad75584cfb441565c1d0a59823a17c3c48bac99"
     },
     {
       "path": "owner-uuid/coupon-design.js",
@@ -533,7 +533,7 @@
     },
     {
       "path": "owner-uuid/portal.css",
-      "sha256": "7b7ab65a3c8926756bb8d7ea8408e606e89d7ec2288bf1d1dce33c6485c52c8c"
+      "sha256": "4c802ce1e56cb74c6f2510a283f0778916bea5c2df0f7f94e3bf8ae1068e247c"
     },
     {
       "path": "owner-uuid/portal.js",
@@ -577,7 +577,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-content-uuid.js",
-      "sha256": "39c490d686acdbc6e225852ecefdd097a4bfd2b0ffdf0e360647cffda4319f3c"
+      "sha256": "bab777472835eb7f69d37fab7e844bee8a0943d4060d7876eb3a159ab799140e"
     },
     {
       "path": "netlify/legacy-functions/lib/owner-coupon-template.js",
@@ -685,7 +685,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/owner-coupon-v2.js",
-      "sha256": "8fd930a8093a484dfbb660b3e2a079f9fe029b6f15cfac279079d17254fb68bf"
+      "sha256": "7e80f40559be9696f2b3f1955b509c01102f7720a362cd2388de91f7791855e3"
     },
     {
       "path": "supabase/owner-open/10-coupon-v2-usage.sql",
@@ -726,6 +726,10 @@
     {
       "path": "supabase/owner-open/13-owner-notifications.sql",
       "sha256": "232ee15d955e6ad9a2c18d7fe70e9d2a65bd9c4032ce3f03b3308b560ced9f4a"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/owner-content-validation.js",
+      "sha256": "697374c009c95825461dae2f0ba8cde3802bc30757141e94cc873e517b5fae8f"
     }
   ],
   "files": [

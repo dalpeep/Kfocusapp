@@ -4,6 +4,9 @@ const QA='hseaeafmmjnbynfyynao', PROD='ydrxuqmjzayejlnjzzew';
 const SITE='ec0bc146-8184-4627-90e0-df82ec2b06f9';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 function claims(key){try{return JSON.parse(Buffer.from(key.split('.')[1],'base64url'));}catch{return {};}}
+// Routing/shape only. Opaque publishable keys do not contain project/role claims.
+// This is never user authentication or proof that an opaque key belongs to QA.
+function publicKeyShape(value,legacyClaims){return typeof value==='string'&&(/^sb_publishable_[A-Za-z0-9_-]{20,}$/.test(value)||(legacyClaims.ref===QA&&legacyClaims.role==='anon'));}
 function ids(value){return String(value||'').split(',').map(x=>x.trim()).filter(Boolean).sort();}
 function sameIds(value,expected){const actual=ids(value);return Array.isArray(expected)&&expected.length>0&&expected.every(x=>UUID.test(x))&&new Set(expected).size===expected.length&&JSON.stringify(actual)===JSON.stringify([...expected].sort());}
 function assessBuild(env,seal){
@@ -23,7 +26,7 @@ function assessBuild(env,seal){
   workerOff:env.OWNER_NOTIFICATION_WORKER_ENABLED==='false',
   mock:env.OWNER_NOTIFICATION_MODE==='mock',
   providersOff:!env.RESEND_API_KEY&&!env.OWNER_QA_RESEND_API_KEY&&!env.ONESIGNAL_REST_API_KEY&&!env.ONESIGNAL_API_KEY,
-  credentialRouting:anon.ref===QA&&anon.role==='anon'&&service.ref===QA&&service.role==='service_role'&&env.SUPABASE_ANON_KEY!==env.SUPABASE_SERVICE_ROLE_KEY
+  credentialRouting:publicKeyShape(env.SUPABASE_ANON_KEY,anon)&&service.ref===QA&&service.role==='service_role'&&env.SUPABASE_ANON_KEY!==env.SUPABASE_SERVICE_ROLE_KEY
  };
  const failed=Object.keys(checks).filter(k=>!checks[k]);
  return {allowed:failed.length===0,code:failed.length?'QA_RUNTIME_BLOCKED':'QA_RUNTIME_ROUTING_MATCH',checks,failed,serviceAuthentication:'NOT_TESTED'};

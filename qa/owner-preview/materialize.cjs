@@ -34,10 +34,23 @@ function prepare({root,output,env,seal}){
  files['owner-uuid/index.html']=replaceOne(replaceOne(read('owner-uuid/index.html'),'/.netlify/functions/config?v=owner-phase1','/owner-uuid/qa-config.js'),'<button name="signup">회원가입</button>','');
  // Existing accounts only: do not initiate Supabase confirmation email either.
  files['owner-uuid/portal.js']=replaceOne(read('owner-uuid/portal.js'),"await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}})","({error:true})");
+ // QA Private access uses the browser's existing same-origin Netlify session.
+ // No cookie/header values are read, copied, logged or sent across origins.
+ files['owner-uuid/availability.js']=qaAvailabilitySource(read('owner-uuid/availability.js'));
+ // Diagnostic UI exists only in this gated QA artifact. Reuse the exact login
+ // client's sessionStorage session; never create/export a second auth client.
+ files['owner-uuid/qa-read-probe.js']=read('qa/owner-preview/read-probe.js');
+ files['owner-uuid/index.html']=replaceOne(files['owner-uuid/index.html'],'<script src="/owner-uuid/portal.js" defer></script>','<script src="/owner-uuid/qa-read-probe.js" defer></script><script src="/owner-uuid/portal.js" defer></script>');
+ const probeConfig={site:seal.site,project:seal.project,pr:seal.pr,commit:seal.commit,context:env.CONTEXT,origin:env.DEPLOY_PRIME_URL,actors:seal.actors,businesses:seal.businesses};
+ files['owner-uuid/portal.js']=replaceOne(files['owner-uuid/portal.js'],'ready:async client=>{db=client;', 'ready:async client=>{db=client;window.QaOwnerReadProbe.mount({client,config:'+JSON.stringify(probeConfig)+',parent:document.querySelector("main")});');
  const metadata=Object.entries(files).map(([name,data])=>({path:name,sha256:hash(data)}));
  fs.mkdirSync(dest,{recursive:true});for(const [name,data]of Object.entries(files)){const p=path.join(dest,name);fs.mkdirSync(path.dirname(p),{recursive:true});fs.writeFileSync(p,data,{mode:0o600});}
  fs.writeFileSync(path.join(dest,'overlay-manifest.json'),JSON.stringify({kind:'QA_ONLY_OVERLAY_NOT_A_DEPLOY_DIRECTORY',files:metadata},null,2));
  return {files:metadata,deployable:false};
+}
+function qaAvailabilitySource(source){
+ const scoped=replaceOne(source,"credentials:'omit'","credentials:'same-origin',redirect:'error'");
+ return replaceOne(scoped,"!r.headers.get('content-type')?.includes('application/json')","(r.headers.get('content-type')||'').split(';',1)[0].trim().toLowerCase()!=='application/json'");
 }
 function qaImageSource(source){
  let image=replaceOne(source,"staging='owner-portal-quarantine',bucket='public-images'","staging='owner-image-quarantine',bucket='public-images'");
@@ -46,4 +59,4 @@ function qaImageSource(source){
  image=replaceOne(image,"if(parts[1]==='owner'){","if(parts[1]!=='owner')return answer(403,'QA_OWNER_PATH_REQUIRED');\n if(parts[1]==='owner'){");
  return image;
 }
-module.exports={prepare,replaceOne,qaImageSource};
+module.exports={prepare,replaceOne,qaImageSource,qaAvailabilitySource};

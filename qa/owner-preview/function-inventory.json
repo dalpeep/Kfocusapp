@@ -1,0 +1,261 @@
+{
+  "sourceBaseline": "a614918b2a5b0afda758999d0626d6dfb0281ac9",
+  "qaPublished": "6ad9956645e74cf00bf5f6af",
+  "common": [
+    {
+      "name": "community-admin",
+      "path": "/.netlify/functions/community-admin"
+    },
+    {
+      "name": "community-cleanup-scheduled",
+      "path": "/.netlify/functions/community-cleanup-scheduled"
+    },
+    {
+      "name": "community-comment-create",
+      "path": "/.netlify/functions/community-comment-create"
+    },
+    {
+      "name": "community-comment-delete",
+      "path": "/.netlify/functions/community-comment-delete"
+    },
+    {
+      "name": "community-post-create",
+      "path": "/.netlify/functions/community-post-create"
+    },
+    {
+      "name": "community-post-delete",
+      "path": "/.netlify/functions/community-post-delete"
+    },
+    {
+      "name": "community-post-extend",
+      "path": "/.netlify/functions/community-post-extend"
+    },
+    {
+      "name": "community-post-owner",
+      "path": "/.netlify/functions/community-post-owner"
+    },
+    {
+      "name": "community-post-sold",
+      "path": "/.netlify/functions/community-post-sold"
+    },
+    {
+      "name": "community-post-update",
+      "path": "/.netlify/functions/community-post-update"
+    },
+    {
+      "name": "community-upload-authorize",
+      "path": "/.netlify/functions/community-upload-authorize"
+    },
+    {
+      "name": "community-video-retry-availability",
+      "path": "/.netlify/functions/community-video-retry-availability"
+    },
+    {
+      "name": "community-video-upload-admit",
+      "path": "/.netlify/functions/community-video-upload-admit"
+    },
+    {
+      "name": "community-video-upload-status",
+      "path": "/.netlify/functions/community-video-upload-status"
+    },
+    {
+      "name": "config",
+      "path": "/.netlify/functions/config"
+    },
+    {
+      "name": "coupon-campaign-admin",
+      "path": "/.netlify/functions/coupon-campaign-admin"
+    },
+    {
+      "name": "coupon-campaign-enter",
+      "path": "/.netlify/functions/coupon-campaign-enter"
+    },
+    {
+      "name": "coupon-campaign-lib",
+      "path": "/.netlify/functions/coupon-campaign-lib"
+    },
+    {
+      "name": "coupon-redemptions-admin",
+      "path": "/.netlify/functions/coupon-redemptions-admin"
+    },
+    {
+      "name": "coupon-used-notify",
+      "path": "/.netlify/functions/coupon-used-notify"
+    },
+    {
+      "name": "daily-core-scheduled",
+      "path": "/.netlify/functions/daily-core-scheduled"
+    },
+    {
+      "name": "event-winner-admin",
+      "path": "/.netlify/functions/event-winner-admin"
+    },
+    {
+      "name": "google-place-rating",
+      "path": "/.netlify/functions/google-place-rating"
+    },
+    {
+      "name": "owner-account-uuid",
+      "path": "/.netlify/functions/owner-account-uuid"
+    },
+    {
+      "name": "owner-content-uuid",
+      "path": "/.netlify/functions/owner-content-uuid"
+    },
+    {
+      "name": "owner-image-uuid",
+      "path": "/.netlify/functions/owner-image-uuid"
+    },
+    {
+      "name": "owner-portal-uuid",
+      "path": "/.netlify/functions/owner-portal-uuid"
+    },
+    {
+      "name": "runtime-settings",
+      "path": "/.netlify/functions/runtime-settings"
+    },
+    {
+      "name": "smart-flyer-admin",
+      "path": "/.netlify/functions/smart-flyer-admin"
+    },
+    {
+      "name": "smart-flyer-public",
+      "path": "/.netlify/functions/smart-flyer-public"
+    },
+    {
+      "name": "today-daltown-feed",
+      "path": "/.netlify/functions/today-daltown-feed"
+    },
+    {
+      "name": "traffic-source-track",
+      "path": "/.netlify/functions/traffic-source-track"
+    }
+  ],
+  "candidateOnly": [
+    {
+      "name": "ai-daily-home",
+      "path": "/.netlify/functions/ai-daily-home"
+    },
+    {
+      "name": "analyze-newsroom",
+      "path": "/.netlify/functions/analyze-newsroom"
+    },
+    {
+      "name": "collect-newsroom",
+      "path": "/.netlify/functions/collect-newsroom"
+    },
+    {
+      "name": "daily-core-refresh",
+      "path": "/.netlify/functions/daily-core-refresh"
+    },
+    {
+      "name": "daltown-daily-core",
+      "path": "/.netlify/functions/daltown-daily-core"
+    },
+    {
+      "name": "draft-newsroom",
+      "path": "/.netlify/functions/draft-newsroom"
+    },
+    {
+      "name": "generate-campaign-image",
+      "path": "/.netlify/functions/generate-campaign-image"
+    },
+    {
+      "name": "generate-content-suite",
+      "path": "/.netlify/functions/generate-content-suite"
+    },
+    {
+      "name": "generate-dalpick",
+      "path": "/.netlify/functions/generate-dalpick"
+    },
+    {
+      "name": "generate-dalpick-image",
+      "path": "/.netlify/functions/generate-dalpick-image"
+    },
+    {
+      "name": "generate-guide",
+      "path": "/.netlify/functions/generate-guide"
+    },
+    {
+      "name": "newsroom-daily",
+      "path": "/.netlify/functions/newsroom-daily"
+    },
+    {
+      "name": "owner-notification-worker",
+      "path": "/.netlify/functions/owner-notification-worker"
+    },
+    {
+      "name": "raffle-auto-draw",
+      "path": "/.netlify/functions/raffle-auto-draw"
+    },
+    {
+      "name": "search-guide",
+      "path": "/.netlify/functions/search-guide"
+    },
+    {
+      "name": "sendPush",
+      "path": "/.netlify/functions/sendPush"
+    },
+    {
+      "name": "set-admin-user",
+      "path": "/.netlify/functions/set-admin-user"
+    }
+  ],
+  "qaPublishedOnly": [
+    {
+      "name": "booking-api",
+      "path": "/.netlify/functions/booking-api",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "booking-outbox",
+      "path": "/.netlify/functions/booking-outbox",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "community-qa-prepare",
+      "path": "/.netlify/functions/community-qa-prepare",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "coupon-qa-mock",
+      "path": "/.netlify/functions/coupon-qa-mock",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "home-settings",
+      "path": "/.netlify/functions/home-settings",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "owner-image-quarantine-cleanup",
+      "path": "/.netlify/functions/owner-image-quarantine-cleanup",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "owner-qa-boundaries",
+      "path": "/.netlify/functions/owner-qa-boundaries",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "owner-qa-recovery-export",
+      "path": "/.netlify/functions/owner-qa-recovery-export",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    },
+    {
+      "name": "owner-uuid-health",
+      "path": "/.netlify/functions/owner-uuid-health",
+      "previewIncluded": false,
+      "publishedPreserved": true
+    }
+  ],
+  "impact": "Independent unpublished OFF Preview only. Current QA41 unchanged; nine QA-only routes absent from isolated49 preview. Not a replacement deployment or 58-function union."
+}
