@@ -3,7 +3,7 @@
 // Import/tests are pure; authentication is never run without separate approval.
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const {assess}=require('./policy.cjs');
-const {authenticate}=require('./canary-build.cjs');
+const {authenticate}=require('./service-role-check.cjs');
 const QA='hseaeafmmjnbynfyynao',SITE='ec0bc146-8184-4627-90e0-df82ec2b06f9',PR=55;
 const ORIGIN=`https://deploy-preview-${PR}--daltownmap-owner-uuid-qa.netlify.app`;
 const HEAD='dev/owner-qa-canary-20261030';
@@ -33,13 +33,20 @@ function buildFiles(root){
  const functions=Object.fromEntries(names.map(name=>[name+'.mjs',disabledEntry(name,schedules.find(x=>x.name===name)?.cron)]));
  return {functions,schedules,existingFunctions:44,ownerFunctions:4,workerFunctions:1,allDisabled:true};
 }
-async function main(env=process.env){
- const seal=approval(env);if(!preflight(env,seal).allowed)throw Error('QA_BUILD_ONLY_CONTEXT_BLOCKED');
- if(cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim()!==seal.commit)throw Error('QA_SOURCE_COMMIT_BLOCKED');
- if(cp.spawnSync('git',['merge-base','--is-ancestor',SOURCE_BASE,'HEAD']).status!==0)throw Error('QA_OWNER_SOURCE_BASE_BLOCKED');
+async function main(env=process.env,diagnostic=()=>{}){
+ const seal=approval(env),valid=preflight(env,seal).allowed;diagnostic('PREFLIGHT',{allowed:valid});
+ if(!valid)throw Error('QA_BUILD_ONLY_CONTEXT_BLOCKED');
+ let exact,ancestor;
+ try{exact=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8',stdio:['ignore','pipe','ignore']}).trim()===seal.commit;
+ ancestor=exact&&cp.spawnSync('git',['merge-base','--is-ancestor',SOURCE_BASE,'HEAD'],{stdio:'ignore'}).status===0;}
+ catch{diagnostic('SOURCE_CHECK',{allowed:false,code:'QA_SOURCE_CHECK_FAILED'});throw Error('QA_SOURCE_CHECK_FAILED');}
+ const sourceCode=!exact?'QA_SOURCE_COMMIT_BLOCKED':!ancestor?'QA_OWNER_SOURCE_BASE_BLOCKED':undefined;
+ diagnostic('SOURCE_CHECK',{allowed:exact&&ancestor,code:sourceCode});
+ if(sourceCode)throw Error(sourceCode);
  if(seal.serviceAuthenticationApproved!==true)throw Error('QA_PRIVATE_AUTH_APPROVAL_REQUIRED');
  // Only this explicit future approval permits ONE private QA admin GET.
- const result=await authenticate(env,fetch,record=>console.log(JSON.stringify(record)));console.log(JSON.stringify({stage:'QA_PRIVATE_AUTH',...result}));
+ const transport=(...args)=>{diagnostic('REQUEST_START',{attempts:1});return fetch(...args);};
+ const result=await authenticate(env,transport,record=>{console.log(JSON.stringify(record));diagnostic('RESULT',record);});console.log(JSON.stringify({stage:'QA_PRIVATE_AUTH',...result}));
  if(seal.execution==='authenticate-only')throw Error('QA_AUTH_COMPLETE_NO_DEPLOY');
  const root=process.cwd(),prepared=buildFiles(root),publish=path.join(root,'.qa-preview-public');
  if(fs.existsSync(publish))throw Error('QA_OUTPUT_EXISTS');
