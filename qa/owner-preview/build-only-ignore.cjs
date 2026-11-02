@@ -3,7 +3,7 @@
 function shouldBuild(env,load=()=>require('./build-only.cjs')){
  try{
   const {approval,preflight}=load(),seal=approval(env);
-  return seal?.serviceAuthenticationApproved===true&&seal.execution==='preview-off'&&preflight(env,seal).allowed===true;
+  return seal?.serviceAuthenticationApproved===true&&['preview-off','authenticate-only'].includes(seal.execution)&&preflight(env,seal).allowed===true;
  }catch{return false;}
 }
 module.exports={shouldBuild};

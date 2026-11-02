@@ -16,3 +16,17 @@ test('denied authentication stops the real builder before creating any overlay o
  try{await assert.rejects(main(f.env),/^Error: QA_SERVICE_ROLE_AUTH_FAILED$/);}finally{global.fetch=originalFetch;console.log=originalLog;}
  assert.equal(calls,1);assert.deepEqual(paths.map(p=>fs.existsSync(p)),before);assert.equal(logs.length,1);assert.equal(logs[0].result,'FAIL');assert.equal(logs[0].httpStatus,401);
 });
+
+test('Owner OFF authentication-only reports once and stops before any artifact writes',async()=>{
+ const fs=require('node:fs'),cp=require('node:child_process'),{main,SITE,QA,ORIGIN,HEAD}=require('./build-only.cjs');
+ const sha=cp.execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();
+ const seal={buildApproved:true,runtimeApproved:false,pr:55,head:HEAD,commit:sha,serviceAuthenticationApproved:true,execution:'authenticate-only'};
+ const e={SITE_ID:SITE,CONTEXT:'deploy-preview',NETLIFY:'true',PULL_REQUEST:'true',REVIEW_ID:'55',HEAD,BRANCH:'pull/55/head',COMMIT_REF:sha,DEPLOY_PRIME_URL:ORIGIN,OWNER_UUID_ORIGIN:ORIGIN,OWNER_UUID_PROJECT_REF:QA,SUPABASE_URL:`https://${QA}.supabase.co`,SUPABASE_ANON_KEY:'synthetic-public',SUPABASE_SERVICE_ROLE_KEY:env.SUPABASE_SERVICE_ROLE_KEY,OWNER_UUID_ENABLED:'false',OWNER_NOTIFICATION_WORKER_ENABLED:'false',OWNER_NOTIFICATION_MODE:'mock',OWNER_QA_BUILD_ONLY_APPROVAL:JSON.stringify(seal)};
+ for(const status of [200,401]){
+  const logs=[],originalFetch=global.fetch,originalLog=console.log,originalMkdir=fs.mkdirSync,originalWrite=fs.writeFileSync;let calls=0;
+  global.fetch=async()=>{calls++;return new Response('synthetic-private-response',{status})};console.log=line=>logs.push(JSON.parse(line));
+  fs.mkdirSync=fs.writeFileSync=()=>assert.fail('authentication-only must not write artifacts');
+  try{await assert.rejects(main(e),status===200?/QA_AUTH_COMPLETE_NO_DEPLOY/:/QA_SERVICE_ROLE_AUTH_FAILED/);}finally{global.fetch=originalFetch;console.log=originalLog;fs.mkdirSync=originalMkdir;fs.writeFileSync=originalWrite;}
+  assert.equal(calls,1);const result=logs.filter(x=>x.stage==='QA_SERVICE_ROLE_AUTH_RESULT');assert.equal(result.length,1);assert.equal(result[0].result,status===200?'PASS':'FAIL');assert.equal(result[0].httpStatus,status);assert(!JSON.stringify(logs).includes(env.SUPABASE_SERVICE_ROLE_KEY));assert(!JSON.stringify(logs).includes('synthetic-private-response'));
+ }
+});

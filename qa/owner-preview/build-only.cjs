@@ -39,7 +39,7 @@ async function main(env=process.env){
  if(cp.spawnSync('git',['merge-base','--is-ancestor',SOURCE_BASE,'HEAD']).status!==0)throw Error('QA_OWNER_SOURCE_BASE_BLOCKED');
  if(seal.serviceAuthenticationApproved!==true)throw Error('QA_PRIVATE_AUTH_APPROVAL_REQUIRED');
  // Only this explicit future approval permits ONE private QA admin GET.
- const result=await authenticate(env);console.log(JSON.stringify({stage:'QA_PRIVATE_AUTH',...result}));
+ const result=await authenticate(env,fetch,record=>console.log(JSON.stringify(record)));console.log(JSON.stringify({stage:'QA_PRIVATE_AUTH',...result}));
  if(seal.execution==='authenticate-only')throw Error('QA_AUTH_COMPLETE_NO_DEPLOY');
  const root=process.cwd(),prepared=buildFiles(root),publish=path.join(root,'.qa-preview-public');
  if(fs.existsSync(publish))throw Error('QA_OUTPUT_EXISTS');
