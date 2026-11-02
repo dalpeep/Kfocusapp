@@ -10,7 +10,7 @@ try{
  fs.mkdirSync(path.join(stage,'assets'));fs.copyFileSync(path.join(root,'assets/validated-image-upload.js'),path.join(stage,'assets/validated-image-upload.js'));
  const {env,seal}=synthetic.fixture(),origin='https://deploy-preview-55--daltownmap-owner-uuid-qa.netlify.app';
  seal.commit=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim();Object.assign(seal,{pr:55,head:'dev/owner-qa-canary-20261030',execution:'owner-canary',serviceAuthenticationApproved:true});
- Object.assign(env,{REVIEW_ID:'55',HEAD:seal.head,BRANCH:'pull/55/head',COMMIT_REF:seal.commit,DEPLOY_PRIME_URL:origin,OWNER_UUID_ORIGIN:origin,OWNER_QA_CANARY_APPROVAL:JSON.stringify(seal)});
+ Object.assign(env,{SUPABASE_ANON_KEY:'sb_publishable_SYNTHETIC_ONLY_NOT_A_REAL_KEY',REVIEW_ID:'55',HEAD:seal.head,BRANCH:'pull/55/head',COMMIT_REF:seal.commit,DEPLOY_PRIME_URL:origin,OWNER_UUID_ORIGIN:origin,OWNER_QA_CANARY_APPROVAL:JSON.stringify(seal)});
  const authLogs=[];let mockAuthRequests=0;
  globalThis.fetch=async(url,options)=>{mockAuthRequests++;if(new URL(url).hostname!=='hseaeafmmjnbynfyynao.supabase.co'||options.method!=='GET'||options.redirect!=='error')throw Error('SYNTHETIC_AUTH_CONTRACT');return new Response('{"users":[]}',{status:200});};
  console.log=line=>{const row=JSON.parse(line);if(row.stage==='QA_SERVICE_ROLE_AUTH_RESULT')authLogs.push(row);};

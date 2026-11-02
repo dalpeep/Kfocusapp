@@ -26,9 +26,11 @@ function select(env){
  }catch{return null;}
 }
 async function run(env=process.env,builders,diagnostic=()=>{}){
- const mode=select(env);if(!mode){diagnostic('PREFLIGHT',{allowed:false});throw Error('QA_PREVIEW_APPROVAL_BLOCKED');}
+ const mode=select(env);
+ if(configured(env[CANARY_KEY])){const assessment=assessCanary(env);diagnostic('PREFLIGHT',{allowed:assessment.allowed,checks:assessment.checks,code:assessment.code});}
+ else if(!mode)diagnostic('PREFLIGHT',{allowed:false,code:'QA_PREVIEW_APPROVAL_BLOCKED'});
+ if(!mode)throw Error('QA_PREVIEW_APPROVAL_BLOCKED');
  if(mode==='build-only')return (builders?.off||require('./build-only.cjs').main)(env,diagnostic);
- diagnostic('PREFLIGHT',{allowed:true});
  const scoped={...env,OWNER_QA_PREVIEW_APPROVAL:JSON.stringify(runtimeApproval(canaryApproval(env)))};
  return (builders?.canary||require('./canary-build.cjs').main)(scoped);
 }
