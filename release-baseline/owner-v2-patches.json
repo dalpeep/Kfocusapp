@@ -21,7 +21,7 @@
     {
       "path": "app-v99.js",
       "baselineSha256": "6cb16f29672e9466b98d5684a0abe56cdccd02743e8b54a29c087610b5ab85cc",
-      "sha256": "9758831a52a82fb27a4fca4c4bac22b80904c85211bbca5c9fd725209f4981f4",
+      "sha256": "6315d8380bb45b367d581de7c41b1022ad01229bdb2b87ba89d2ad938c74a2d4",
       "purpose": "Reviewed operational coupon security + existing V2 dispatch; original Legacy source retained"
     }
   ]

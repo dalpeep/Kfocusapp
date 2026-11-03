@@ -6830,7 +6830,7 @@ async function useCouponNow(coupon){
   coupon._serverRedemptionKey ||= crypto.randomUUID();
   const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({action:'redeem_display',coupon_id:coupon.id,request_key:coupon._serverRedemptionKey})});
   const redeemed=await response.json().catch(()=>null);
-  if(!response.ok||redeemed?.ok!==true||!Number.isSafeInteger(redeemed.used_count))throw new Error('쿠폰 사용을 확인하지 못했습니다. 기간 또는 사용 가능 여부를 확인해 주세요.');
+  if(!response.ok||redeemed?.ok!==true||!Number.isSafeInteger(redeemed.used_count)||!Number.isFinite(Date.parse(redeemed.used_at)))throw new Error('쿠폰 사용을 확인하지 못했습니다. 기간 또는 사용 가능 여부를 확인해 주세요.');
   coupon.used_count=redeemed.used_count;
 
   if(businessId){
@@ -6859,7 +6859,8 @@ if(!redeemed.already_used)try {
 
 const useLink = String(coupon.use_link_url || '').trim();
 
-const usedAt=new Date();
+const usedAt=new Date(redeemed.used_at);
+const proofStatus=redeemed.already_used?'이미 처리된 쿠폰 사용 내역입니다':'쿠폰 사용이 확인되었습니다';
 const usedAtText=usedAt.toLocaleString('ko-KR',{
   timeZone:'America/Chicago',
   year:'numeric',month:'2-digit',day:'2-digit',
@@ -6874,7 +6875,7 @@ if(couponUseCard){
   couponUseCard.innerHTML=`
     <div class="coupon-use-wrap" style="text-align:center;">
       <div class="coupon-use-title" style="color:#15803d;margin-bottom:8px;">
-        ✓ 쿠폰 사용이 확인되었습니다
+        ✓ ${esc(proofStatus)}
       </div>
 
       <div class="coupon-use-business" style="margin-bottom:14px;">
