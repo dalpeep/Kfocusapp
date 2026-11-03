@@ -1,0 +1,10 @@
+{
+  "patches": [
+    {
+      "path": "netlify/functions/coupon-redemptions-admin.mjs",
+      "baselineSha256": "b00f0a519450e87286487647de963b086b64ab4c8335ed8d37471459db5e95d3",
+      "sha256": "b4066e28f1de8d1943f1a47cbeabe0ec72a583ac16aa90660b5dedceb3e1b279",
+      "purpose": "Server-verified role and coupon region checks; same Function URL"
+    }
+  ]
+}

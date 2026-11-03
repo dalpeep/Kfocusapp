@@ -6786,9 +6786,6 @@ async function useCouponNow(coupon){
 
   const business = getBiz(businessId);
 
-  console.log('coupon', coupon);
-  console.log('businessId', businessId);
-  console.log('business', business);
 
   const payload = {
     coupon_id: coupon.id,
@@ -6825,32 +6822,16 @@ async function useCouponNow(coupon){
     notify_phones: null,
     used_by: 'customer',};
 
-  // V2 redemption is confirmed by an approved owner, never by a browser write.
-  const protocolResponse=await fetch('/.netlify/functions/coupon-campaign-enter?protocol_probe=1&coupon_id='+encodeURIComponent(coupon.id));
-  if(!protocolResponse.ok||!(protocolResponse.headers.get('content-type')||'').includes('application/json'))throw new Error('쿠폰 사용 권한을 확인하지 못했습니다. 잠시 후 다시 확인해 주세요.');
-  const protocolRead=await protocolResponse.json();
-  if(protocolRead.protocol==='v2')throw new Error('발급받은 이메일 쿠폰을 매장에 제시해 주세요. 업주가 사용을 확인합니다.');
-  if(protocolRead.protocol!=='legacy')throw new Error('쿠폰 사용 권한을 확인하지 못했습니다.');
-
-  const { error } = await client
-    .from('coupon_redemptions')
-    .insert(payload);
-
-  if(error){
-    throw new Error('쿠폰 사용 저장 실패: ' + error.message);
-  }
-
-  const nextUsedCount=Number(coupon.used_count || 0)+1;
-  const {error:updateError}=await client
-    .from('coupons')
-    .update({used_count:nextUsedCount})
-    .eq('id',coupon.id);
-
-  if(updateError){
-    console.warn('[V241.2] used_count update failed after redemption',updateError);
-  }else{
-    coupon.used_count=nextUsedCount;
-  }
+  // The server validates Legacy display mode, period, quota and idempotency.
+  // Browser session is convenience deduplication, not proof of a unique person.
+  const endpoint='/.netlify/functions/coupon-campaign-enter';
+  const ready=await fetch(endpoint+'?redemption_session=1',{credentials:'same-origin',headers:{Accept:'application/json'}});
+  if(!ready.ok||!(ready.headers.get('content-type')||'').includes('application/json'))throw new Error('쿠폰 사용 연결을 확인해 주세요.');
+  coupon._serverRedemptionKey ||= crypto.randomUUID();
+  const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({action:'redeem_display',coupon_id:coupon.id,request_key:coupon._serverRedemptionKey})});
+  const redeemed=await response.json().catch(()=>null);
+  if(!response.ok||redeemed?.ok!==true||!Number.isSafeInteger(redeemed.used_count))throw new Error('쿠폰 사용을 확인하지 못했습니다. 기간 또는 사용 가능 여부를 확인해 주세요.');
+  coupon.used_count=redeemed.used_count;
 
   if(businessId){
     logBusinessActivity(businessId,'coupon_use',{
@@ -6859,7 +6840,7 @@ async function useCouponNow(coupon){
     });
   }
 
-try {
+if(!redeemed.already_used)try {
     const notifyRes = await fetch('/.netlify/functions/coupon-used-notify', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },

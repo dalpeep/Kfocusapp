@@ -1,0 +1,44 @@
+달타운맵 기존 쿠폰 사용·관리자 보안 호환 수정 — 2026-11-03
+개발 브랜치: dev/operational-security-coupon-20261103
+기준:80a038e7685313f653be2bc1ba133ebb2aa1ef25. Owner 신규 개발/활성화와 독립.
+
+1 구현 및 사용자 확정 정책
+익명 유지·브라우저당1회. 이는편의중복방지이며동일인물식별/부정사용완전차단아님. 쿠키삭제/다른브라우저/서명키교체/새쿠키로새식별이생길수있다. 글로벌사용한도는별도로서버에서검사.
+현재공개쿠폰화면/버튼/사용확인결과는유지. useCouponNow의직접coupon_redemptions INSERT·coupons.used_count UPDATE를제거했다. 기존coupon-campaign-enter URL의GET redemption_session=1로HttpOnly/Secure/SameSite서명쿠키를확인하고POST action=redeem_display로만사용한다. 새Functions이름추가없음.
+서버는같은Origin/세션서명/쿠폰UUID/요청키UUID/허용필드를검증. Client가보낸카운터·업소·identity·수신자필드거부. 서버전용RPC가쿠폰행FOR UPDATE와요청잠금을사용해기록/ledger/카운터를한transaction에처리한다. 동일키다른쿠폰거부,같은키/브라우저재요청은같은사용기록응답이며추가카운터없음.
+유효기간/활성/Legacy display mode/업소존재/사용한도를서버확인. 이메일발급·추첨·Owner v2쿠폰은새display경로에서거부하며기존응모/발급dispatch는유지. 고객발급/추첨/알림을실제실행안함.
+기존issue_limit는발급한도로확인되어사용한도로재해석하지않았다. 별도서버전용display_rules에기존사용한도를명시적으로검토/매핑해야한다. NULL은검토된기존무제한정책일때만설정. 미등록쿠폰은503으로보류,미확인을임의무제한으로변경안함. 운영사용한도의정본/기존컬럼매핑은아직확정전.
+RPC는서비스롤만EXECUTE가능. 서명키COUPON_REDEMPTION_SIGNING_KEY(32바이트이상)와서버URL설정이필요. 키생성/등록/출력/운영env변경은하지않음. 설정/RPC없으면503 failclosed이며브라우저직접쓰기로fallback하지않음.
+
+2 관리자
+coupon-campaign-admin/coupon-redemptions-admin 기존URL앞에SDK검증사용자→profiles역할·area→대상쿠폰연결업소지역검사를추가했다. super_admin전체,regional_editor허용지역,denver→colorado정규화. 일반회원·user_metadata위조는거부. 복수business_ids모두권한검사,영역혼합쿠폰은지역관리자거부. 지역관리자list_all은권한있는Legacy쿠폰의entries만조회,응답형식유지. super_admin기존legacy/v2 dispatch유지.
+admin/regional_admin 별칭은기존서버helper에있었지만지역의미미확정이라새경계는자동허용안함. 운영정상계정역할확인필수. profiles.role/area자기변조차단역시적용전필수조건.
+업소·쿠폰관리화면의기존직접Supabase CRUD는유지. 서버인Postgres에서관리자/OLD·NEW지역/쿠폰전체연결업소검사를강제하는독립RLS helper/fence를SQL초안으로준비. Owner소유권테이블을임의생성/권한부여안함. 기존Owner권한검사는별도RPC그대로OFF. 실제RLS미적용상태에서는현재운영브라우저직접쓰기위험이계속남음.
+서비스롤이우회하는RLS를유일한보안경계로보지않고API검사를추가했다. Legacy handler자체는보존. API권한확인과Legacy write사이의동시관리자권한변경/대상재연결에대한트랜잭션통합검증은추가검토대상이며운영안전성을단정하지않음.
+
+3 코드/SQL
+app-v99.js,기존Modern entry3개(enter/admin/redemptions-admin),새serverlib2개.
+01-display-redemption-DRAFT.sql:독립보안schema,display_rules/uses,RPC. Owner불필요. 기존데이터행변환/복사는없음. 기존coupon_entries/쿠폰발급규칙안건드림.
+02-admin-fences-DRAFT.sql:trustedprofile기반helper,authenticated업소/쿠폰RESTRICTIVE쓰기가드. 새API로모든정상사용경로가옮겨진뒤coupon_redemptions직접쓰기도차단하는후보. 기존관리삭제는서비스롤API유지. 실제적용안함.
+03-anon-fences-DRAFT.sql:이전익명6개차단초안을독립보안검증경로에포함. 운영적용안함.
+원본생산60개Legacy source해시와원본119파일baseline은변경하지않고,변경된Modern entry/UI의승인후보해시·한정예외만명시했다. Functions49이름/URL·기존스케줄4를보존하고후보fingerprint를고정. 검증기를끄거나통과조건을무조건허용하지않음.
+
+4 실제 검증 범위
+로컬Node단위/화면모의34PASS,기존migration mock포함Linux50PASS. 최초migration호환검사에서일반회원거부응답이기존500→새403으로의도적으로달라져1FAIL;검사를명시적403보안계약으로갱신후PASS. 기존handler동작은그대로다.
+격리PostgreSQL41PASS:동일요청10개한기록/한증가,20개동시요청한도5정확반영,익명I/U/D차단,일반회원타업소거부,정상/지역관리자쓰기허용·지역이동/복수업소우회거부,발급한도미변경,기존entry·과거사용기록보존,기록실패카운터/ledger롤백. 실제공유DB/HTTP쓰기가아니라가상fixture검사다.
+Functions49 ZIP패키징/소스외부SDK로딩PASS,원래스케줄4·OwnerOFF·WorkerOFF검사PASS. 최종원격CI결과는별도증거JSON/최종보고로기록한다. 실제운영HTTP/브라우저쿠키실사용E2E는NOT TESTED.
+
+5 현재 긴급SQL 적용 가능 여부
+아직NO. 코드만준비했고실제운영에는새RPC/키/쿠키가없다. 기존쿠폰사용한도매핑,스키마/역할·profiles보호/현재정책26개정본,원상복구수단확인전정책을실행하지않는다. 코드PASS는적용승인이아님.
+추가로기존직접coupon_redemptions INSERT를열어두면새서버쿠폰사용을우회한기록생성이가능하므로,그테이블의관련쓰기정책도같이최소검토해야함. 현재2개테이블차단SQL만으로전체사용경로보호완료가아님.
+외부알림은새발급/Worker를활성화하지않았고정상첫사용후기존notify절차만유지.중복응답에서는클라이언트알림반복호출안함. 기존coupon-used-notify자체의공개요청보호/신뢰사용기록기반발송/네트워크재시도중복은이번패치완료범위가아니므로실발송개방전별도검토필요. 실제발송0.
+
+6 운영 순서 제안 (모두별도승인)
+A 원본26개정책/ACL·실제Schema/정상계정role/area/profiles변조차단/한도정의·복구수단을읽기확인. 알수없는기존정책을과거238행fingerprint등으로우회하지않음.
+B 정본을재현한격리환경에서완성된최소SQL/사용한도매핑/서버키/쿠키호환·캡쳐없는E2E검증. 실제발급/메일없이가상데이터만.
+C 승인후보안전용RPC/ledger/rules를가산설치하고검토된한도를새rules에매핑. 아직익명권한을확대하지않음. 키설정은별도승인.
+D 새미게시Git빌드→정확한SHA·49개·OFF상태확인→별도운영게시승인. 새화면·서버가활성확인된뒤짧은전환창에anon/authenticated/redemptions최소fence를적용. 이전탭/캐시가옛직접쓰기코드를계속사용할수있어새로고침안내·오류감시필요. 변환중기존열린권한위험과불일치창을최소화해야함.
+E 승인된최소스모크(현재쓰기승인없음),공개신청/조회·지도/Community·응모회귀,원본기능/잠금/외부발송OFF확인.
+장애시사용처리중단·보호fence유지·증거보존후전진수정/승인복구. 이전취약한GRANT/RLS로자동복귀하거나새사용ledger를DROP/CASCADE하지않음. 이전JS배포만복귀하면새fence와호환되지않을수있다.
+
+안전결과: 실제QA/운영DB·Storage/RLS변경0,Netlify배포0,main변경0,Owner/Worker활성0,외부발송0,백업·인증도구개발0.

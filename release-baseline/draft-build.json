@@ -9,7 +9,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "621dd99bcbbde6d3cb1a9b4d2100de57e15d84a731ffbb281ead5575801a96c4"
+      "sha256": "9758831a52a82fb27a4fca4c4bac22b80904c85211bbca5c9fd725209f4981f4"
     },
     {
       "path": "assets/community.js",
@@ -93,11 +93,11 @@
     },
     {
       "path": "netlify/functions/coupon-campaign-admin.mjs",
-      "sha256": "8efed83a79f2e22ca6632edbf660937c10841478e531de6d1fd8928299957392"
+      "sha256": "fdc083fc206d76d14c8ed84a5b00d5a3da70851581cb94cb5fab2d36631d5a3c"
     },
     {
       "path": "netlify/functions/coupon-campaign-enter.mjs",
-      "sha256": "1164dc34febfc3bc5b3187184ddbb090af2fe96a6242e50b87ccf85ca10310d1"
+      "sha256": "f751cdbaf26558609a952c1581288bf4e3a0da66f8e98119bd6bfcee9c51e427"
     },
     {
       "path": "netlify/functions/coupon-campaign-lib.mjs",
@@ -105,7 +105,7 @@
     },
     {
       "path": "netlify/functions/coupon-redemptions-admin.mjs",
-      "sha256": "b00f0a519450e87286487647de963b086b64ab4c8335ed8d37471459db5e95d3"
+      "sha256": "b4066e28f1de8d1943f1a47cbeabe0ec72a583ac16aa90660b5dedceb3e1b279"
     },
     {
       "path": "netlify/functions/coupon-used-notify.mjs",
@@ -661,7 +661,7 @@
     },
     {
       "path": "scripts/release/verify-owner-base.mjs",
-      "sha256": "e4ff31ac4f9f2daee1d7a4a7bcb96a6a2a69661f7d3b0e913bf4c23899c191f1"
+      "sha256": "280312d7ba6cdb690c046b7151d6a992a748228dd53cacefd6b4ed4cdb28cad5"
     },
     {
       "path": "release-baseline/owner-base.json",
@@ -693,7 +693,7 @@
     },
     {
       "path": "release-baseline/owner-v2-patches.json",
-      "sha256": "957ce40e78b76f0bd11d602c0f523475823a33b4e5fec2e1279ea8f1cf787b57"
+      "sha256": "16671bb456d1b7989eea9bc5693a6bcc72f724dad5cb3acbbb70c030546786f7"
     },
     {
       "path": "owner-uuid/descriptions.js",
@@ -730,6 +730,30 @@
     {
       "path": "netlify/legacy-functions/lib/owner-content-validation.js",
       "sha256": "697374c009c95825461dae2f0ba8cde3802bc30757141e94cc873e517b5fae8f"
+    },
+    {
+      "path": "release-baseline/operational-security-patches.json",
+      "sha256": "a8c2a5c4bd503fcbb1a5108f39d73b018a00fcddbd52f5897b5633b36bba67ab"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/operational-security/admin-scope.js",
+      "sha256": "a47a9e0e3ba70986d07a582bc6f474b2c7964a19962bd9f7499f827375bc2272"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/operational-security/display-redemption.js",
+      "sha256": "c92fd7ea33d656d40a3a89ef83839fcbfd19a4544c8d3c8f5b123daf467a92f2"
+    },
+    {
+      "path": "supabase/operational-security/01-display-redemption-DRAFT.sql",
+      "sha256": "88939483bd8d70282fdc27be9d2130fd8bb134f8bd9b256e53e71f422d34d070"
+    },
+    {
+      "path": "supabase/operational-security/02-admin-fences-DRAFT.sql",
+      "sha256": "cec1a95ff2237eb82869cbc6e1b9880524c77742c7a8eb8667ebdf624db3b496"
+    },
+    {
+      "path": "supabase/operational-security/03-anon-fences-DRAFT.sql",
+      "sha256": "f3c884768e73c7b84587f5495e745b9fcaca2515322523e3ffce6a2b4faf408d"
     }
   ],
   "files": [

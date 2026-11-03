@@ -2,7 +2,7 @@ name: Release QA (no deployment)
 on:
   pull_request:
   push:
-    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028, dev/community-authorization-hardening-20261028, dev/modern-runtime-dependencies-20261029, dev/owner-public-opening-20261102]
+    branches: [dev/modern-functions-20261028, dev/modern-community-candidate-20261028, dev/community-authorization-hardening-20261028, dev/modern-runtime-dependencies-20261029, dev/owner-public-opening-20261102, dev/operational-security-coupon-20261103]
 permissions:
   contents: read
 jobs:
@@ -33,6 +33,7 @@ jobs:
       - run: npm run qa:functions
       - name: Load all actual ZIPs outside checkout with real runtime dependencies
         run: node scripts/release/verify-standalone-runtime.mjs
+      - run: node --test tests/operational-security/*.test.mjs
       - run: npm run qa:test
       - run: npm run qa:migration
       - name: Community cards, logo fallback and telephone contract
