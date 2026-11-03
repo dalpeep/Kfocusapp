@@ -9,7 +9,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "6315d8380bb45b367d581de7c41b1022ad01229bdb2b87ba89d2ad938c74a2d4"
+      "sha256": "8125717a1e4ca5a3d24c6bb920b4ff0b0d7b0269e01b51cebba90d4ac1134be5"
     },
     {
       "path": "assets/community.js",
@@ -693,7 +693,7 @@
     },
     {
       "path": "release-baseline/owner-v2-patches.json",
-      "sha256": "f41336c8107aebad61fe04b42e6a07dd537a8e74f157633d3162ecb5665c8cc6"
+      "sha256": "220c78f53811c7738d905d89f23bcec7961b8d33072a967fa2498d5f1cfb86df"
     },
     {
       "path": "owner-uuid/descriptions.js",
@@ -741,11 +741,11 @@
     },
     {
       "path": "netlify/legacy-functions/lib/operational-security/display-redemption.js",
-      "sha256": "adb2e78dc5af7edc537cf1841a755b4f12a48693929d058ff3c6dd4051d04d18"
+      "sha256": "81e6342c15d5a2189bcfaae215fc37f854364b33edb3708eb7a12c68b6b2bbad"
     },
     {
       "path": "supabase/operational-security/01-display-redemption-DRAFT.sql",
-      "sha256": "c53e6fb3e43eaac064acd19292bd7757370f58e52ab50372c553456f93817a62"
+      "sha256": "bf3d88d57548f893b2f0d71e2791bc4045ef88a20a5cf621244e59c49722649b"
     },
     {
       "path": "supabase/operational-security/02-admin-fences-DRAFT.sql",

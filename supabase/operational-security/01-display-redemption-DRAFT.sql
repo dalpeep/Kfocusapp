@@ -1,5 +1,12 @@
 -- DRAFT: isolated tests only. Production/QA execution needs separate approval.
 -- Does not install Owner Portal, change current RLS or send notifications.
+-- Approved policy 2026-11-03: preserve every existing used_count and history.
+-- Unconfirmed existing display coupons: NO display_rules row (SC503 hold).
+-- Never seed NULL as a default or backfill counters from redemption/entry counts.
+-- New display coupons require an explicit positive total max_uses from the owner,
+-- checked by a trusted, ownership-authorized creation route, in the creation transaction.
+-- issue_limit remains an issuance limit and must not populate max_uses.
+-- Public SELECT/download paths are outside this use-only RPC.
 BEGIN;
 CREATE SCHEMA coupon_security_internal;
 REVOKE ALL ON SCHEMA coupon_security_internal FROM PUBLIC,anon,authenticated,service_role;
@@ -8,7 +15,7 @@ CREATE TABLE coupon_security_internal.display_rules(
  max_uses bigint CHECK(max_uses>0)
 );
 COMMENT ON TABLE coupon_security_internal.display_rules IS
- 'Server-managed display redemption quota. Missing rule fails closed until the existing usage policy is reviewed. NULL is an explicitly approved no-cap rule; issue_limit is NOT a redemption limit.';
+ 'Server-managed total display usage quota, inclusive of existing used_count. Missing rule holds usage. New coupons require an explicit positive limit; NULL is reserved for separately verified legacy no-cap policies, never unknown limits. issue_limit is NOT a redemption limit.';
 CREATE TABLE coupon_security_internal.display_uses(
  coupon_id uuid NOT NULL REFERENCES public.coupons(id) ON DELETE CASCADE,
  identity_hash text NOT NULL CHECK(identity_hash ~ '^[0-9a-f]{64}$'),

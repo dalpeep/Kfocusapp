@@ -25,6 +25,8 @@ function makeDispatch(legacy,{getClient=client,getConfig=config,now=()=>Date.now
    const db=getClient(),identity='browser:'+s.id;
    const fingerprint=crypto.createHmac('sha256',cfg.key).update('coupon-identity-v1:'+identity).digest('hex');
    const {data,error}=await db.rpc('security_legacy_display_redeem',{p_coupon:body.coupon_id,p_key:body.request_key,p_identity:fingerprint});
+   // An unknown usage policy is a deliberate hold, not an unlimited allowance.
+   if(error?.code==='SC503')throw fail(503,'COUPON_USAGE_LIMIT_UNCONFIRMED');
    if(error){const status={SC400:400,SC403:403,SC404:404,SC409:409,SC410:410}[error.code];throw fail(status||503,status?'COUPON_REDEMPTION_REJECTED':'COUPON_SERVICE_UNAVAILABLE');}
    if(!data||!UUID.test(data.redemption_id||'')||!Number.isSafeInteger(data.used_count)||typeof data.already_used!=='boolean'||!Number.isFinite(Date.parse(data.used_at)))throw fail(503,'COUPON_SERVICE_UNAVAILABLE');
    return reply(200,{ok:true,redemption_id:data.redemption_id,used_count:data.used_count,already_used:data.already_used,used_at:data.used_at});

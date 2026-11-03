@@ -6830,6 +6830,7 @@ async function useCouponNow(coupon){
   coupon._serverRedemptionKey ||= crypto.randomUUID();
   const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({action:'redeem_display',coupon_id:coupon.id,request_key:coupon._serverRedemptionKey})});
   const redeemed=await response.json().catch(()=>null);
+  if(!response.ok&&redeemed?.error==='COUPON_USAGE_LIMIT_UNCONFIRMED')throw new Error('사용 한도 확인 전까지 이 쿠폰의 신규 사용이 보류됩니다. 쿠폰 조회·다운로드는 계속 이용할 수 있습니다.');
   if(!response.ok||redeemed?.ok!==true||!Number.isSafeInteger(redeemed.used_count)||!Number.isFinite(Date.parse(redeemed.used_at)))throw new Error('쿠폰 사용을 확인하지 못했습니다. 기간 또는 사용 가능 여부를 확인해 주세요.');
   coupon.used_count=redeemed.used_count;
 
