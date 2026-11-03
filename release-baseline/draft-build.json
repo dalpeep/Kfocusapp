@@ -737,7 +737,7 @@
     },
     {
       "path": "netlify/legacy-functions/lib/operational-security/admin-scope.js",
-      "sha256": "a47a9e0e3ba70986d07a582bc6f474b2c7964a19962bd9f7499f827375bc2272"
+      "sha256": "5f9489990709016fdadce3df9a0eb458e4f0acbfd9ce1d22ce8f71d1eef46589"
     },
     {
       "path": "netlify/legacy-functions/lib/operational-security/display-redemption.js",

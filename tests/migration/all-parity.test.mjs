@@ -17,6 +17,7 @@ for(const f of baseline.functions.filter(f=>f.apiVersion===1&&!f.schedule&&f.nam
  let expected,oldError;try{expected=await legacy(event(method,body));}catch(e){oldError=e;}
  if(oldError){await assert.rejects(modern(new Request('https://fixture.invalid/.netlify/functions/fixture',{method,headers:{'content-type':'application/json'},...(body?{body}:{})}),context));return;}
  const actual=await modern(new Request('https://fixture.invalid/.netlify/functions/fixture',{method,headers:{'content-type':'application/json'},...(body?{body}:{})}),context);
+ if(method==='POST'&&['coupon-campaign-admin','coupon-redemptions-admin'].includes(f.name)){assert.equal(actual.status,401);assert.deepEqual(normal(await actual.text()),{ok:false,error:'ADMIN_AUTH_REQUIRED'});assert.equal(actual.headers.get('cache-control'),'no-store');return;}
  assert.equal(actual.status,expected.statusCode);assert.deepEqual(normal(await actual.text()),normal([204,205,304].includes(expected.statusCode)?'':expected.body??''));for(const[k,v]of Object.entries(expected.headers||{}))assert.equal(actual.headers.get(k),String(v));
 });
 test('legacy deployed helper has no public handler, modern also rejects',async()=>{assert.equal(require('../../netlify/legacy-functions/coupon-campaign-lib.js').handler,undefined);const fn=(await import('../../netlify/functions/coupon-campaign-lib.mjs')).default;await assert.rejects(fn(new Request('https://fixture.invalid/'),context),TypeError);});

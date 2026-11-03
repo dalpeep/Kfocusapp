@@ -22,7 +22,7 @@ async function regionalList(db,access){
 }
 function makeDispatch(kind,legacy,{getClient=client}={}){return async event=>{
  if(event.httpMethod!=='POST')return legacy(event);
- try{let body;try{body=JSON.parse(event.body||'{}')}catch{throw failure(400,'INVALID_JSON');}if(!body||Array.isArray(body)||typeof body!=='object')throw failure(400,'INVALID_REQUEST');const db=getClient(),access=await verify(db,event);
+ try{let body;try{body=JSON.parse(event.body||'{}')}catch{throw failure(400,'INVALID_JSON');}if(!body||Array.isArray(body)||typeof body!=='object')throw failure(400,'INVALID_REQUEST');const bearer=Object.entries(event.headers||{}).find(([k])=>k.toLowerCase()==='authorization')?.[1]||'';if(!/^Bearer\s+\S+/i.test(bearer))throw failure(401,'ADMIN_AUTH_REQUIRED');const db=getClient(),access=await verify(db,event);
   // Query entries only for region-authorized coupons, including every linked business.
   if(kind==='campaign'){
    if((body.action||'list')==='list_all'){if(access.role!=='super_admin')return await regionalList(db,access);}
