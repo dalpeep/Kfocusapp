@@ -1,9 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import {spawnSync} from 'node:child_process';
+import {gunzipSync} from 'node:zlib';
 import {verify} from './verify-preservation.mjs';
-import publicAuthModule from './seo-public-auth.cjs';
 
 // Build-only harness. Never invoke deployed Functions or run migrations.
 const baseline=JSON.parse(fs.readFileSync('release-baseline/draft-build.json'));
@@ -16,41 +15,6 @@ try {
   const preservation=verify();
   console.log(JSON.stringify({stage:'preservation',...preservation}));
   if(process.argv.includes('--verify-only'))process.exit(0);
-  stage='seo-public-auth';
-  const env={...process.env};
-  // SEO may use only the already configured public anonymous credential.
-  delete env.SUPABASE_SERVICE_ROLE_KEY;
-  const auth=await publicAuthModule.resolvePublicAuth(env);
-  env.SUPABASE_URL=auth.url;
-  env.SUPABASE_ANON_KEY=auth.key;
-  env.SITE_URL=baseline.seoOrigin;
-  stage='seo-readonly';
-  // Raw SEO errors/responses must never be written into hosted build logs.
-  const seo=spawnSync(process.execPath,['scripts/generate-seo.js'],{env,encoding:'utf8',stdio:['ignore','pipe','pipe'],maxBuffer:8*1024*1024});
-  if(seo.error||seo.status!==0||seo.stderr?.trim())throw Error();
-  if(!/\[SEO\] Generated \d+ business pages, \d+ category pages, \d+ coupon sitemap entries, \d+ post sitemap entries\./.test(seo.stdout))throw Error();
-  console.log('SEO_GENERATION_COMPLETED');
-  stage='seo-output-audit';
-  const seoIndex=JSON.parse(fs.readFileSync('seo-index.json'));
-  const businesses=JSON.parse(fs.readFileSync('business-index.json'));
-  const sitemap=fs.readFileSync('sitemap.xml','utf8');
-  const urls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].replaceAll('&amp;','&'));
-  if(new Set(urls).size!==urls.length||businesses.length!==seoIndex.business_count||!businesses.length)throw Error();
-  if(new Set(seoIndex.categories.map(row=>row.url)).size!==seoIndex.categories.length)throw Error();
-  let checkedLinks=0;
-  for(const row of [...businesses,...seoIndex.categories]){
-    const url=new URL(row.url);
-    if(url.origin!==baseline.seoOrigin||!urls.includes(row.url))throw Error();
-    const file=url.pathname.slice(1);
-    if(!/^(business|category)\/[a-z0-9-]+\.html$/.test(file))throw Error();
-    const html=fs.readFileSync(file,'utf8');
-    if(!html.includes('<link rel="canonical" href="'+row.url+'">'))throw Error();
-    for(const link of html.matchAll(/href="[^"#]*\/(business|category)\/([^"/]+\.html)"/g)){
-      if(!fs.existsSync(path.join(link[1],link[2])))throw Error();
-      checkedLinks++;
-    }
-  }
-  console.log(JSON.stringify({stage,businesses:seoIndex.business_count,categories:seoIndex.categories.length,coupons:seoIndex.coupon_count,posts:seoIndex.post_count,sitemapUrls:urls.length,duplicateUrls:0,checkedLinks,missingLinks:0}));
   stage='public-output';
   const out='.public-build';
   if(fs.existsSync(out))throw Error();
@@ -62,11 +26,46 @@ try {
   // Preserve existing public paths, including legacy source paths already public.
   // Do not publish the new runtime wrappers, diagnostics, tests or migrations.
   for(const f of baseline.files)copy(f.source,f.target);
-  for(const directory of ['business','category'])if(fs.existsSync(directory))for(const file of fs.readdirSync(directory))if(file.endsWith('.html'))copy(path.join(directory,file),directory+'/'+file);
-  for(const file of ['seo.html','sitemap.xml','business-index.json','seo-index.json','robots.txt','llms.txt'])if(fs.existsSync(file))copy(file,file);
+  stage='restore-reviewed-seo';
+  const snapshot=JSON.parse(gunzipSync(fs.readFileSync('release-baseline/dallas-life-seo.json.gz')));
+  for(const [file,bytes] of Object.entries(snapshot.seo)){
+    if(!/^(?:(?:business|category)\/[a-z0-9-]+\.html|seo\.html|sitemap\.xml|business-index\.json|seo-index\.json|robots\.txt|llms\.txt)$/.test(file))throw Error();
+    const destination=path.join(out,file);
+    fs.mkdirSync(path.dirname(destination),{recursive:true});
+    fs.writeFileSync(destination,Buffer.from(bytes,'base64'));
+  }
+  stage='seo-output-audit';
+  const seoIndex=JSON.parse(fs.readFileSync(path.join(out,'seo-index.json')));
+  const businesses=JSON.parse(fs.readFileSync(path.join(out,'business-index.json')));
+  const sitemap=fs.readFileSync(path.join(out,'sitemap.xml'),'utf8');
+  const urls=[...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match=>match[1].replaceAll('&amp;','&'));
+  if(new Set(urls).size!==urls.length||businesses.length!==seoIndex.business_count||!businesses.length)throw Error();
+  if(new Set(seoIndex.categories.map(row=>row.url)).size!==seoIndex.categories.length)throw Error();
+  let checkedLinks=0;
+  for(const row of [...businesses,...seoIndex.categories]){
+    const url=new URL(row.url);
+    if(url.origin!==baseline.seoOrigin||!urls.includes(row.url))throw Error();
+    const file=url.pathname.slice(1);
+    if(!/^(business|category)\/[a-z0-9-]+\.html$/.test(file))throw Error();
+    const html=fs.readFileSync(path.join(out,file),'utf8');
+    if(!html.includes('<link rel="canonical" href="'+row.url+'">'))throw Error();
+    for(const link of html.matchAll(/href="[^"#]*\/(business|category)\/([^"/]+\.html)"/g)){
+      if(!fs.existsSync(path.join(out,link[1],link[2])))throw Error();
+      checkedLinks++;
+    }
+  }
+  console.log(JSON.stringify({stage,businesses:seoIndex.business_count,categories:seoIndex.categories.length,coupons:seoIndex.coupon_count,posts:seoIndex.post_count,sitemapUrls:urls.length,duplicateUrls:0,checkedLinks,missingLinks:0}));
   const files=[];
   const walk=dir=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())walk(file);else files.push(file);}};
   walk(out);
+  stage='published-file-inventory';
+  if(files.length!==Object.keys(snapshot.sha1).length)throw Error();
+  for(const file of files){
+    const relative=path.relative(out,file).split(path.sep).join('/');
+    if(sha(file,'sha1')!==snapshot.sha1[relative])throw Error();
+  }
+  stage='public-output';
+
   const secretPatterns=[/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,/sb_secret_[A-Za-z0-9_-]{20,}/,/postgres(?:ql)?:\/\/[^\s/]+:[^\s@]+@/];
   for(const file of files)if(/\.(?:js|mjs|json|html|txt|toml|ya?ml|sql)$/.test(file)){
     const text=fs.readFileSync(file,'utf8');

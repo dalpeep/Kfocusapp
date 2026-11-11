@@ -8610,7 +8610,7 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
   if(selectedBoardType!=='life'){showBoard(selectedBoardType);return;}
   lastBasePage=currentPage;
-  globalThis.DtmCommunity?.openPage(boardPostsByType('life'),selectedHomeCommunityCategory);
+  globalThis.DtmCommunity?.openPage(boardPostsByType('life'));
 });
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();

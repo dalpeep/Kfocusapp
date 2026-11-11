@@ -5608,3 +5608,67 @@ body.nearby-businesses-open{overflow:hidden!important}
 .community-contact-call svg{flex:none}
 .community-contact-call .community-contact-number{font-weight:400;overflow-wrap:anywhere}
 .community-contact-call:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}
+
+/* Dallas Life category and search layout. */
+#page-community #communityCategoryFilters:not([hidden]) {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  overflow: visible;
+  gap: 6px;
+  padding: 3px 2px 6px;
+}
+#page-community #communityCategoryFilters:not([hidden]) button {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  flex-direction: column;
+  padding: 0 2px;
+  gap: 3px;
+  font-size: 12px;
+}
+#page-community #communityCategoryFilters:not([hidden]) .life-category-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+#page-community:has(#communityCategoryFilters:not([hidden])) .community-tools {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+}
+#page-community:has(#communityCategoryFilters:not([hidden])) .community-search-field,
+#page-community:has(#communityCategoryFilters:not([hidden])) .community-tools > #communitySearchBtn {
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  box-sizing: border-box;
+  margin: 0;
+}
+@media (max-width: 480px) {
+  #page-community #communityCategoryFilters:not([hidden]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #page-community #communityCategoryFilters:not([hidden]) button {
+    flex-direction: row;
+    gap: 5px;
+  }
+}
+
+#page-community #communityCategoryFilters button[aria-pressed="true"] {
+  background: #174d9c;
+  border-color: #174d9c;
+  color: #fff;
+}
+#page-community #communityReset {
+  grid-column: 1 / -1;
+  justify-self: start;
+  height: auto;
+  min-height: 32px;
+  color: #174d9c;
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+}
+#page-community #communityReset[hidden] {
+  display: none;
+}
