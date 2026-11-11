@@ -513,7 +513,7 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "4b319ac535e937a5eed4b46cc7363844fd2a6b30c763716d91c438f2d234ae29"
+      "sha256": "fa9817ab3a04419cbb1a72ea8e057e9a5d99d9ffbe3bf61a601d488109b61cbd"
     }
   ],
   "files": [
@@ -1713,11 +1713,6 @@
       "publishedSha1": "e54dd93ba7a1742c17e2546f1373467cba3ee365"
     },
     {
-      "target": "tests/community-phase1.test.cjs",
-      "source": "tests/community-phase1.test.cjs",
-      "publishedSha1": "8d78dd987dc4e5e503c73d2776424439162e5da1"
-    },
-    {
       "target": "tests/community-post-delete-ui.test.cjs",
       "source": "tests/community-post-delete-ui.test.cjs",
       "publishedSha1": "b030fd00f6fcfd64be8501c8d7f5f8583d6bb58e"
@@ -1756,11 +1751,6 @@
       "target": "tests/community-ui4-render.test.cjs",
       "source": "tests/community-ui4-render.test.cjs",
       "publishedSha1": "a8a02e8accfb0d07321d812e03de64f9ad44a689"
-    },
-    {
-      "target": "tests/community-ui4.test.cjs",
-      "source": "tests/community-ui4.test.cjs",
-      "publishedSha1": "99552934a5c343bda7731a0e1d00038fee66c46e"
     },
     {
       "target": "tests/community-ui42-home.test.cjs",
