@@ -8,3 +8,4 @@ __pycache__/
 
 .qa-preview-public/
 .qa-source-public/
+/supabase/functions/owner-phase1-qa/handler.generated.mjs

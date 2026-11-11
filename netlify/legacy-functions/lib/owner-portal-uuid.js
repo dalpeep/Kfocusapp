@@ -46,11 +46,11 @@ function validate(body){
   }
   return body;
 }
-function makeHandler({getClient,getEntitlements,bookingEnabled=()=>process.env.OWNER_BOOKING_ENABLED==='true',mediaEnabled=()=>process.env.OWNER_MEDIA_ENABLED==='true'}={}){return async event=>{
+function makeHandler({getClient,getEntitlements,accessMode=()=>process.env.OWNER_UUID_ACCESS_MODE,bookingEnabled=()=>process.env.OWNER_BOOKING_ENABLED==='true',mediaEnabled=()=>process.env.OWNER_MEDIA_ENABLED==='true'}={}){return async event=>{
   const reply=(status,body)=>({statusCode:status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'},body:JSON.stringify(body)});
   try{
     if(!['GET','POST'].includes(event.httpMethod))return reply(405,{error:'허용되지 않은 메서드입니다.'});
-    const phase1=process.env.OWNER_UUID_ACCESS_MODE==='phase1';
+    const phase1=accessMode()==='phase1';
     let db;
     if(getClient)db=getClient();else{
       requireOwnerUuidEnvironment(process.env,{allowPhase1:true});
@@ -108,7 +108,7 @@ function makeHandler({getClient,getEntitlements,bookingEnabled=()=>process.env.O
         }[`${result.error.code}:${result.error.message}`];
         if(pilotError)return reply(pilotError[0],{ok:false,code:pilotError[1],error:pilotError[2]});
       }
-      if(phase1&&result.error.code==='OP503')fail(503,'업주 관리 시험 운영이 중지됐습니다.');
+      if(phase1&&result.error.code==='OP503')return reply(503,{ok:false,phase1:true,code:'OWNER_QA_PILOT_OFF',error:'업주 관리 시험 운영이 중지됐습니다.'});
       if(result.error.code==='OP409'&&result.error.message==='신청 제한')return reply(429,{ok:false,code:'OWNER_REQUEST_RATE_LIMIT',error:'1시간에 최대 5건까지 신청할 수 있습니다. 잠시 후 다시 신청해 주세요.'});
       // DB가 확정한 오류만 공개용 코드로 변환한다. 권한 판단은 RPC에 유지한다.
       const known={

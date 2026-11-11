@@ -1,13 +1,6 @@
-import portal from '../../../netlify/legacy-functions/lib/owner-portal-uuid.js';
 import target from '../target.cjs';
 
-const previewHost = /^deploy-preview-[1-9]\d*--daltownmap-owner-uuid-qa\.netlify\.app$/;
-const pilotPaths = new Set([
-  '/auth/v1/user',
-  '/rest/v1/rpc/owner_pilot_status_v1',
-  '/rest/v1/rpc/owner_pilot_read_v1',
-  '/rest/v1/rpc/owner_pilot_command_v1',
-]);
+const origin = 'https://deploy-preview-59--daltownmap-owner-uuid-qa.netlify.app';
 
 function blocked() {
   return Response.json({ok: false, phase1: true, code: 'OWNER_QA_PILOT_OFF',
@@ -16,35 +9,33 @@ function blocked() {
   });
 }
 
-export function pilotFetch(input, options) {
-  const url = new URL(input instanceof Request ? input.url : input);
-  if (url.origin !== target.SUPABASE_URL || url.username || url.password || !pilotPaths.has(url.pathname)) {
-    throw Error('QA_OWNER_TARGET_REQUIRED');
-  }
-  return fetch(input, {...options, redirect: 'error'});
-}
-
 export default async function ownerPortal(request, context) {
   const url = new URL(request.url);
-  if (context?.site?.id !== target.SITE_ID || url.protocol !== 'https:' || url.port ||
-      !previewHost.test(url.hostname) || process.env.OWNER_UUID_ACCESS_MODE !== 'phase1' ||
+  if (context?.site?.id !== target.SITE_ID || url.origin !== origin ||
+      process.env.OWNER_UUID_ACCESS_MODE !== 'phase1' ||
       process.env.QA_OWNER_PHASE1_RUNTIME_ENABLED !== 'true') return blocked();
+  if (!['GET', 'POST'].includes(request.method)) return new Response(null, {status: 405});
 
   try {
-    target.requireTarget(process.env);
-    const service = process.env.QA_OWNER_PHASE1_SERVICE_ROLE_KEY || '';
-    const claims = target.tokenClaims(service);
-    if (claims?.role !== 'service_role' || claims.ref !== new URL(target.SUPABASE_URL).hostname.split('.')[0]) return blocked();
-    const {createClient} = await import('@supabase/supabase-js');
-    const db = createClient(target.SUPABASE_URL, service, {
-      auth: {persistSession: false, autoRefreshToken: false},
-      global: {fetch: pilotFetch},
+    const env = target.requireTarget(process.env);
+    const endpoint = new URL('/functions/v1/owner-phase1-qa', target.SUPABASE_URL);
+    endpoint.search = url.search;
+    const headers = new Headers({Origin: origin, apikey: env.SUPABASE_ANON_KEY});
+    const token = request.headers.get('authorization');
+    if (!token) return Response.json({ok: false, phase1: true, error: '로그인이 필요합니다.'}, {
+      status: 401, headers: {'Cache-Control': 'no-store'},
     });
-    const handler = portal.makeHandler({getClient: () => db});
-    const result = await handler({httpMethod: request.method, headers: Object.fromEntries(request.headers),
-      queryStringParameters: Object.fromEntries(url.searchParams),
-      body: request.method === 'POST' ? await request.text() : undefined});
-    return new Response(result.body, {status: result.statusCode, headers: result.headers});
+    headers.set('Authorization', token);
+    const options = {method: request.method, headers, redirect: 'error'};
+    if (request.method === 'POST') {
+      headers.set('Content-Type', 'application/json');
+      options.body = request.body;
+      options.duplex = 'half';
+    }
+    const response = await fetch(endpoint, options);
+    if (!response.headers.get('content-type')?.includes('application/json')) return blocked();
+    return new Response(response.body, {status: response.status,
+      headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store'}});
   } catch {
     return blocked();
   }
