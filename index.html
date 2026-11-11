@@ -105,7 +105,7 @@
 
   <link rel="manifest" href="/manifest.json?v=263">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/styles.css?v=dallas-life-tabs-20261110" />
+  <link rel="stylesheet" href="/styles.css?v=owner-center-shortcut" />
   <script src="/.netlify/functions/config?v=community-phase1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -350,9 +350,17 @@ onclick="showPage('contact');closeMenu();">
       <i data-lucide="store"></i>
       업소 목록
     </h3>
-    <button class="text-link" type="button" data-nav="business">
-      전체보기
-    </button>
+    <div class="home-business-actions">
+      <a class="home-owner-link" href="/owner-uuid/">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 9l2-5h14l2 5M3 9v2a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V9H3zM5 14v6h14v-6M10 20v-5h4v5"/>
+        </svg>
+        <span>업주센터</span>
+      </a>
+      <button class="text-link" type="button" data-nav="business">
+        전체보기
+      </button>
+    </div>
   </div>
 
   <div class="home-business-tabs" id="homeBusinessTabs">

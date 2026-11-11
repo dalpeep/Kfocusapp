@@ -5708,3 +5708,55 @@ body.map-page-open #page-map .map-notice{pointer-events:auto;flex-shrink:0}
     gap: 5px;
   }
 }
+
+#homeBusinessListSection > .section-head {
+  gap: 8px;
+}
+#homeBusinessListSection > .section-head .section-title {
+  min-width: 0;
+  white-space: nowrap;
+}
+.home-business-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+.home-business-actions .text-link,
+.home-owner-link {
+  white-space: nowrap;
+}
+.home-owner-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid #c5daf7;
+  border-radius: 8px;
+  background: #f3f8ff;
+  color: #174d9c;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+.home-owner-link svg {
+  flex: 0 0 auto;
+}
+.home-owner-link:focus-visible {
+  outline: 2px solid #174d9c;
+  outline-offset: 2px;
+}
+@media (max-width: 480px) {
+  #homeBusinessListSection > .section-head .section-title {
+    font-size: 17px;
+  }
+  .home-business-actions {
+    gap: 4px;
+  }
+  .home-business-actions .text-link {
+    padding-inline: 4px;
+    font-size: 13px;
+  }
+}
