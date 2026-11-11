@@ -1,0 +1,1 @@
+(()=>{'use strict';window.OwnerBooking={mount(parent,bid,db,isAdmin){if(!window.OwnerBookingEnabled)return;const root=document.createElement('section');root.className='booking-owner';parent.append(root);DtmBookingUI.mount(root,{bid,session:{role:isAdmin?'admin':'owner'},getSession:async()=>(await db.auth.getSession()).data?.session});}};})();

@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {zipFunctions} from '@netlify/zip-it-and-ship-it';
+
+const output = process.argv[2] ?? fs.mkdtempSync(path.join(os.tmpdir(), 'daltownmap-qa-'));
+const functions = await zipFunctions('qa/source-preview/functions', output, {
+  basePath: process.cwd(), archiveFormat: 'zip',
+});
+assert.deepEqual(functions.map(fn => fn.name).sort(), ['config', 'today-daltown-feed']);
+assert.ok(functions.every(fn => fn.runtimeAPIVersion === 2 && !fn.schedule));
+console.log('QA Functions built from source: ' + functions.map(fn => fn.name).sort().join(', '));
