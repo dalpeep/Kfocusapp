@@ -41,7 +41,7 @@ test('QA uses only its pinned public configuration and read transport', async t 
   assert.equal(globalThis.fetch.mock.callCount(), 1);
 });
 
-test('QA artifact preserves the application and excludes function sources and auth connections', () => {
+test('QA artifact preserves the application and excludes function sources and restricts auth to UUID QA', () => {
   for (const name of ['index.html', 'app-v99.js', 'assets/community.js', 'owner-uuid/index.html']) {
     assert.deepEqual(fs.readFileSync('.qa-source-public/' + name), fs.readFileSync(name));
   }
@@ -51,7 +51,8 @@ test('QA artifact preserves the application and excludes function sources and au
   const headers = fs.readFileSync('.qa-source-public/_headers', 'utf8');
   assert.ok(headers.includes(target.SUPABASE_URL + '/rest/v1/'));
   assert.ok(headers.includes('frame-src https://challenges.cloudflare.com'));
-  assert.ok(!headers.includes('/auth/v1/') && !headers.includes('ydrxuqmjzayejlnjzzew'));
+  assert.ok(headers.includes(target.SUPABASE_URL + '/auth/v1/'));
+  assert.ok(!headers.includes('ydrxuqmjzayejlnjzzew'));
   const css = fs.readFileSync('.qa-source-public/styles.css', 'utf8');
   assert.ok(css.startsWith(fs.readFileSync('styles.css', 'utf8')));
   assert.match(css, /#communityModal input\[type="file"\] \{ display: none; \}/);

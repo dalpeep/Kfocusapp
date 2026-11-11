@@ -11,9 +11,10 @@ const functions = await zipFunctions('qa/source-preview/functions', output, {
   config: {
     'community-admin': {includedFiles},
     'community-post-create': {includedFiles},
+    'owner-portal-uuid': {includedFiles},
   },
 });
 assert.deepEqual(functions.map(fn => fn.name).sort(),
-  ['community-admin', 'community-post-create', 'config', 'today-daltown-feed']);
+  ['community-admin', 'community-post-create', 'config', 'owner-portal-uuid', 'today-daltown-feed']);
 assert.ok(functions.every(fn => fn.runtimeAPIVersion === 2 && !fn.schedule));
 console.log('QA Functions built from source: ' + functions.map(fn => fn.name).sort().join(', '));

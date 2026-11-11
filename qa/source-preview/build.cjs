@@ -49,7 +49,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: " + SUPABASE_URL + "/storage/v1/object/public/ https://maps.googleapis.com https://maps.gstatic.com",
-  "connect-src 'self' " + SUPABASE_URL + "/rest/v1/ https://maps.googleapis.com https://maps.gstatic.com",
+  "connect-src 'self' " + SUPABASE_URL + "/rest/v1/ " + SUPABASE_URL + "/auth/v1/ https://maps.googleapis.com https://maps.gstatic.com",
 ].join('; ');
 fs.writeFileSync(path.join(output, '_headers'),
   '/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store\n  Content-Security-Policy: ' + csp + '\n');

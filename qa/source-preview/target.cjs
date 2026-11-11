@@ -56,4 +56,4 @@ function qaRead(url, options) {
   return fetch(target, {method: 'GET', headers: options.headers, redirect: 'error'});
 }
 
-module.exports = {SITE_ID, SUPABASE_URL, requireTarget, requireCommunityWrite, qaRead};
+module.exports = {SITE_ID, SUPABASE_URL, tokenClaims, requireTarget, requireCommunityWrite, qaRead};
