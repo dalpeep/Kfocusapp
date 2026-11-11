@@ -1,5 +1,7 @@
 const crypto=require('crypto');
+const {AsyncLocalStorage}=require('node:async_hooks');
 const {validateVideoLink}=require('./community-video-url');
+const communityContext=new AsyncLocalStorage();
 
 const CATEGORIES=new Set(['job_hiring','job_seeking','marketplace','housing','qna','neighborhood','business_promotion']);
 const IMAGE_LIMITS={job_hiring:1,job_seeking:1,marketplace:3,housing:3,qna:2,neighborhood:3,business_promotion:3};
@@ -7,6 +9,8 @@ const CONTACT_TYPES=new Set(['phone','text','email','kakao','other']);
 const AREAS=new Set(['dallas','carrollton','plano','frisco','lewisville','richardson','irving','coppell','fort_worth','other']);
 const text=(v,max=5000)=>String(v??'').trim().slice(0,max);
 function env(){
+  const scoped=communityContext.getStore();
+  if(scoped)return scoped;
   const url=process.env.SUPABASE_URL||'';
   const service=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY||'';
   if(!url||!service)throw Object.assign(new Error('Community service is not configured.'),{status:503});
@@ -14,7 +18,7 @@ function env(){
   if(bucket!=='community-images')throw Object.assign(new Error('Community storage is not configured.'),{status:503});
   return{url,service,pepper:process.env.COMMUNITY_PASSWORD_PEPPER||'',rateSecret:process.env.COMMUNITY_RATE_LIMIT_HMAC_SECRET||'',turnstile:process.env.COMMUNITY_TURNSTILE_SECRET_KEY||'',bucket};
 }
-const client=()=>{const {createClient}=require('@supabase/supabase-js');const e=env();return createClient(e.url,e.service,{auth:{persistSession:false,autoRefreshToken:false}})};
+const client=()=>{const {createClient}=require('@supabase/supabase-js');const e=env();return createClient(e.url,e.service,{auth:{persistSession:false,autoRefreshToken:false},...(e.transport?{global:{fetch:e.transport}}:{})})};
 function response(status,body){return{statusCode:status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'},body:JSON.stringify(body)}}
 function parse(event){try{return JSON.parse(event.body||'{}')}catch{throw Object.assign(new Error('Invalid JSON.'),{status:400})}}
 function ip(event){return text((event.headers||{})['x-nf-client-connection-ip']||(event.headers||{})['x-forwarded-for']||'',200).split(',')[0].trim()||'unknown'}
@@ -25,9 +29,9 @@ async function rateLimit(db,event,action,limit,windowSeconds,target=''){
   if(data!==true)throw Object.assign(new Error('요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.'),{status:429});
 }
 async function verifyTurnstile(event,token){
-  const secret=env().turnstile;if(!secret)throw Object.assign(new Error('Turnstile is not configured.'),{status:503});
+  const {turnstile:secret,hostname}=env();if(!secret)throw Object.assign(new Error('Turnstile is not configured.'),{status:503});
   const form=new URLSearchParams({secret,response:text(token,4000),remoteip:ip(event)});
-  const res=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:form});
+  const res=await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify',{method:'POST',body:form,redirect:'error'});
   const json=await res.json().catch(()=>({}));
   const errorCodes=Array.isArray(json['error-codes'])?json['error-codes'].filter(code=>typeof code==='string'&&/^[a-z0-9-]{1,80}$/.test(code)):[];
   console.info('[community-turnstile]',JSON.stringify({
@@ -35,10 +39,10 @@ async function verifyTurnstile(event,token){
     siteverify_http_status:res.status,
     siteverify_success:json.success===true,
     siteverify_error_codes:errorCodes,
-    hostname_matches:json.hostname==='daltownmap.com',
+    hostname_matches:json.hostname===(hostname||'daltownmap.com'),
     action_empty:!json.action
   }));
-  if(!res.ok||json.success!==true)throw Object.assign(new Error('보안 확인에 실패했습니다.'),{status:403});
+  if(!res.ok||json.success!==true||(hostname&&json.hostname!==hostname))throw Object.assign(new Error('보안 확인에 실패했습니다.'),{status:403});
 }
 function validatePassword(value){const p=String(value||'');if(p.length<6||p.length>72)throw Object.assign(new Error('수정/삭제 비밀번호는 6~72자로 입력해 주세요.'),{status:400});return p}
 function hashPassword(value){const password=validatePassword(value),salt=crypto.randomBytes(16),pepper=env().pepper;const hash=crypto.scryptSync(password+pepper,salt,32);return `scrypt-v1$${salt.toString('base64url')}$${hash.toString('base64url')}`}
@@ -96,3 +100,4 @@ async function verifyAdmin(event,region){
 }
 function handler(fn){return async event=>{if(event.httpMethod==='OPTIONS')return response(204,{});try{return await fn(event)}catch(error){const status=Number(error.status)||500;if(status>=500)console.error('[community]',error.message);return response(status,{ok:false,error:status>=500?'Community request failed.':error.message})}}}
 module.exports={CATEGORIES,IMAGE_LIMITS,AREAS,text,env,client,response,parse,ip,fingerprint,rateLimit,verifyTurnstile,hashPassword,verifyPassword,validatePost,verifyUploadedObjects,verifiedUploadDrafts,verifyAdmin,handler};
+module.exports.withCommunityConfig=(config,run)=>communityContext.run(config,run);

@@ -44,7 +44,8 @@ for (const file of paths) {
 const csp = [
   "default-src 'self'", "base-uri 'self'", "object-src 'none'", "frame-ancestors 'none'",
   "form-action 'none'", "worker-src 'none'",
-  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://maps.googleapis.com https://maps.gstatic.com",
+  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://maps.googleapis.com https://maps.gstatic.com https://challenges.cloudflare.com",
+  'frame-src https://challenges.cloudflare.com',
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: " + SUPABASE_URL + "/storage/v1/object/public/ https://maps.googleapis.com https://maps.gstatic.com",
@@ -53,4 +54,6 @@ const csp = [
 fs.writeFileSync(path.join(output, '_headers'),
   '/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store\n  Content-Security-Policy: ' + csp + '\n');
 fs.writeFileSync(path.join(output, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
+fs.appendFileSync(path.join(output, 'styles.css'),
+  '\n#communityModal label:has(input[type="file"]), #communityModal input[type="file"] { display: none; }\n');
 console.log('QA static files: ' + paths.length + ' | Supabase: ' + SUPABASE_URL);
