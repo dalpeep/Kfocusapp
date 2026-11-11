@@ -14,4 +14,15 @@ for(const [name,method,status]of[['coupon-campaign-enter','GET',405],['coupon-ca
  const before=globalThis.fetch;let calls=0;globalThis.fetch=async()=>{calls++;throw Error('EXTERNAL_NETWORK_FORBIDDEN');};try{const mod=require('../../'+file);const r=await mod.handler({httpMethod:method,headers:{},body:'{}',queryStringParameters:{}});assert.equal(r.statusCode,status);if(method!=='OPTIONS')assert.equal(typeof JSON.parse(r.body),'object');assert.equal(calls,0);}finally{globalThis.fetch=before;}
 });
 
-test('Netlify builds remain ignored during GitHub-only QA',()=>assert.match(fs.readFileSync('netlify.toml','utf8'),/ignore = "exit 0"/));
+test('the locked build requires both the production context and the approved site',()=>{
+ const toml=fs.readFileSync('netlify.toml','utf8');
+ assert.match(toml,/publish = "\.public-build"/);
+ assert.match(toml,/functions = "netlify\/functions"/);
+ assert.match(toml,/command = "node scripts\/release\/locked-draft-build\.mjs && node scripts\/release\/build-functions\.mjs && node scripts\/release\/verify-standalone-runtime\.mjs"/);
+ const {siteId}=JSON.parse(fs.readFileSync('release-baseline/draft-build.json'));
+ for(const [CONTEXT,SITE_ID] of [['deploy-preview',siteId],['production','unapproved-site']]){
+   assert.throws(()=>execFileSync(process.execPath,['scripts/release/locked-draft-build.mjs','--verify-only'],{
+     stdio:'pipe',env:{PATH:process.env.PATH,SystemRoot:process.env.SystemRoot,CONTEXT,SITE_ID},
+   }),error=>error.status===1&&JSON.parse(String(error.stderr)).stage==='context');
+ }
+});
