@@ -1,14 +1,70 @@
 [build]
   base = "."
-  command = "node build-stop.cjs"
-  publish = "public"
-  functions = "empty-functions"
+  publish = "."
+  command = "node scripts/release/netlify-build.mjs"
+  # Preparation branch: skip every Netlify build until separately approved.
   ignore = "exit 0"
 
 [functions]
-  directory = "empty-functions"
+  directory = "netlify/functions"
+  included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]
 
-[build.environment]
-  NODE_VERSION = "22.23.4"
-  NPM_FLAGS = "--ignore-scripts --no-audit --no-fund"
+[functions."raffle-auto-draw"]
+  schedule = "*/10 * * * *"
 
+[functions."newsroom-daily"]
+  schedule = "0 11 * * *"
+
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy.html"
+  status = 200
+
+# V263: HTML/manifest는 항상 최신 여부를 확인하고, 버전된 정적자산만 장기 캐시합니다.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/app-v99.js"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/main-banners.js"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[[headers]]
+  for = "/styles.css"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
+
+[functions."owner-content-uuid"]
+  included_files = ["node_modules/@supabase/**","node_modules/@netlify/aws-lambda-compat/**","node_modules/@netlify/types/**","node_modules/iceberg-js/**","node_modules/tslib/**","node_modules/sharp/**","node_modules/@img/**","node_modules/detect-libc/**","node_modules/semver/**","node_modules/@emnapi/**","netlify/legacy-functions/lib/fonts/**","netlify/legacy-functions/lib/owner-coupon-template.js","netlify/legacy-functions/lib/validated-image.js"]
+
+[functions."owner-image-uuid"]
+  included_files = ["node_modules/@supabase/**","node_modules/@netlify/aws-lambda-compat/**","node_modules/@netlify/types/**","node_modules/iceberg-js/**","node_modules/tslib/**","node_modules/sharp/**","node_modules/@img/**","node_modules/detect-libc/**","node_modules/semver/**","node_modules/@emnapi/**","netlify/legacy-functions/lib/fonts/**","netlify/legacy-functions/lib/owner-coupon-template.js","netlify/legacy-functions/lib/validated-image.js"]
+
+[functions."owner-media-uuid"]
+  included_files = ["node_modules/@supabase/**","node_modules/@netlify/aws-lambda-compat/**","node_modules/@netlify/types/**","node_modules/iceberg-js/**","node_modules/tslib/**","node_modules/sharp/**","node_modules/@img/**","node_modules/detect-libc/**","node_modules/semver/**","node_modules/@emnapi/**","netlify/legacy-functions/lib/fonts/**","netlify/legacy-functions/lib/owner-coupon-template.js","netlify/legacy-functions/lib/validated-image.js"]
+
+# QA previews remain closed without a distinct, exact build-only or Canary approval.
+[context.deploy-preview]
+  command = "node qa/source-preview/build.cjs"
+  publish = ".qa-source-public"
+  ignore = "node qa/source-preview/build.cjs --ignore"
+
+[context.deploy-preview.functions]
+  directory = "qa/source-preview/functions"

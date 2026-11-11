@@ -1,0 +1,27 @@
+(()=>{'use strict';
+// Keep an uncertain mutation's exact payload and key until the same request is
+// acknowledged. The existing server command ledger performs the deduplication.
+function mutationSender(send,uuid=()=>crypto.randomUUID()){
+ let pending=null,flight=null;
+ return function submit(value){
+  const snapshot=JSON.stringify(value);
+  if(pending&&pending.snapshot!==snapshot)return Promise.reject(Error('이전 저장 결과가 아직 확인되지 않았습니다. 같은 내용으로 재시도해 결과를 확인한 뒤 수정해 주세요.'));
+  if(flight)return flight;
+  if(!pending)pending={snapshot,body:{...JSON.parse(snapshot),key:uuid()}};
+  flight=Promise.resolve().then(()=>send(JSON.parse(JSON.stringify(pending.body)))).then(result=>{pending=null;return result;},error=>{if(error.definitive===true)pending=null;throw error;}).finally(()=>{flight=null;});
+  return flight;
+ };
+}
+async function readResponse(response){
+ const fail=(message,definitive=false)=>{throw Object.assign(Error(message),{definitive});};
+ if(response.redirected||!(response.headers.get('content-type')||'').toLowerCase().match(/^application\/(?:[\w.+-]+\+)?json(?:;|$)/))return fail('응답을 확인하지 못했습니다. 작성 내용은 유지됩니다. 같은 요청으로 재시도해 저장 결과를 확인해 주세요.');
+ let out;try{out=await response.json();}catch{return fail('응답을 확인하지 못했습니다. 작성 내용을 유지하고 저장 결과를 확인해 주세요.');}
+ if(!response.ok){
+  const codes={OWNER_ADMIN_REQUIRED:'해당 지역의 관리자 권한이 필요합니다. 로그인 계정과 담당 지역을 확인해 주세요.',OWNER_SELF_REVIEW_BLOCKED:'본인 신청은 처리할 수 없습니다. 다른 관리자가 처리해야 합니다.',OWNER_MEMBERSHIP_REQUIRED:'이 업소의 활성 소유권이 없습니다. 승인·권한 회수 상태를 확인해 주세요.',OWNER_ACCOUNT_UNAVAILABLE:'이메일 인증과 계정 활성 상태를 확인해 주세요.',OWNER_BASELINE_CONFLICT:'공개 정보가 변경되어 처리하지 않았습니다. 작성 내용을 보관하고 최신 정보를 확인한 뒤 다시 신청해 주세요.',OWNER_REQUEST_ALREADY_REVIEWED:'이미 처리된 신청입니다. 목록을 새로고침해 승인·거절 결과를 확인해 주세요.',OWNER_MEMBERSHIP_REVOKED:'신청 후 관리 권한이 회수되어 승인할 수 없습니다.',OWNER_DESCRIPTION_CHOICE_REQUIRED:'현재 업종의 승인된 소개 문구를 선택해 주세요. 기존 소개는 유지할 수 있습니다.',OWNER_REQUEST_RATE_LIMIT:'1시간에 최대 5건까지 신청할 수 있습니다. 잠시 후 다시 신청해 주세요.'};
+  return fail(codes[out?.code]||(response.status===401?'로그인이 만료되었습니다. 작성 내용을 유지하고 다시 로그인해 주세요.':response.status===403?'이 업소를 수정할 권한이 없습니다. 승인 상태를 확인해 주세요.':response.status===400?'입력 내용과 기간을 확인해 주세요.':response.status===409?'정보가 변경되었거나 요청이 충돌했습니다. 목록을 새로고침해 주세요.':'저장 결과를 확인하지 못했습니다. 같은 요청으로 재시도해 주세요.'),[400,401,403,409,429].includes(response.status));
+ }
+ if(!out||out.ok!==true||!out.result||typeof out.result!=='object'||Array.isArray(out.result))return fail('저장 결과가 올바르지 않습니다. 작성 내용을 유지하고 저장 여부를 확인해 주세요.');
+ return out;
+}
+window.OwnerRequests=Object.freeze({mutationSender,readResponse});
+})();
