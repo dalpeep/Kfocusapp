@@ -1,0 +1,20 @@
+{
+  "purpose": "Approved authorization fix, including identical retained Native cleanup helper copy",
+  "patches": [
+    {
+      "path": "netlify/legacy-functions/community-admin.js",
+      "baselineSha256": "3f689e3c037f071f664a319f27c8c8a6bfb9d41c536f3dcb1cb43dde524a9c9c",
+      "sha256": "be03a323a73ea1e89cbf31eaff90e5ba6248e788313c04ac33c2ece2d1001efb"
+    },
+    {
+      "path": "netlify/legacy-functions/lib/community-security.js",
+      "baselineSha256": "aa05fbcf517550dcf1d5b9e373e4f81afacdaaa70c9b98246506b9c6258d73bf",
+      "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    },
+    {
+      "path": "netlify/functions/lib/community-security.js",
+      "baselineSha256": "aa05fbcf517550dcf1d5b9e373e4f81afacdaaa70c9b98246506b9c6258d73bf",
+      "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    }
+  ]
+}

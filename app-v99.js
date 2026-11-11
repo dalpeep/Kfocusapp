@@ -7461,7 +7461,7 @@ function initBoardGallery(root=document){
   });
 }
 function showBoard(board){
-  if(normalizeBoardType(board)==='notice'&&globalThis.DtmCommunity){renderHomeBoardSection('notice');document.getElementById('homeBoardList')?.scrollIntoView({block:'start'});return;}
+  if(normalizeBoardType(board)==='notice'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openEventsPage(boardPostsByType('notice'));return;}
   if(normalizeBoardType(board)==='business_promotion'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPromotionPage(boardPostsByType('business_story'));return;}
   if(normalizeBoardType(board)==='life'&&globalThis.DtmCommunity){lastBasePage=currentPage;globalThis.DtmCommunity.openPage(boardPostsByType('life'));return;}
   renderBoardPage(board); lastBasePage = currentPage; showPage('board-detail');
@@ -8610,7 +8610,7 @@ document.querySelector('.community-more-btn')?.addEventListener('click', () => {
 document.querySelector('.community-full-btn')?.addEventListener('click', () => {
   if(selectedBoardType!=='life'){showBoard(selectedBoardType);return;}
   lastBasePage=currentPage;
-  globalThis.DtmCommunity?.openPage(boardPostsByType('life'),selectedHomeCommunityCategory);
+  globalThis.DtmCommunity?.openPage(boardPostsByType('life'));
 });
 document.getElementById('userLoginSubmit')?.addEventListener('click', async () => {
   const email = document.getElementById('userLoginEmail')?.value.trim();

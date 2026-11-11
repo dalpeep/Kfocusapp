@@ -86,7 +86,10 @@ async function verifyAdmin(event,region){
   const lookup=await db.from('profiles').select('role,area').eq('user_id',user.id).maybeSingle();profile=lookup.data;profileError=lookup.error;
   const missing=profileError&&(['42P01','PGRST205'].includes(String(profileError.code))||/profiles.*(?:does not exist|schema cache|could not find)/i.test(profileError.message||''));
   if(profileError&&!missing)throw Object.assign(new Error('Authorization lookup failed.'),{status:503});
-  const meta=user.app_metadata||{},fallback=user.user_metadata||{};const role=text(profile?.role||meta.role||fallback.role,30);const area=text(profile?.area||meta.area||fallback.area,30).toLowerCase();
+  // Keep role and region from the same trusted authority. User-editable
+  // user_metadata must never grant either a role or a regional scope.
+  const authority=profile?.role?profile:(user.app_metadata||{});
+  const role=text(authority.role,30),area=text(authority.area,30).toLowerCase();
   if(!['super_admin','regional_editor'].includes(role))throw Object.assign(new Error('Forbidden.'),{status:403});
   if(role==='regional_editor'&&area!==text(region,30).toLowerCase())throw Object.assign(new Error('Forbidden region.'),{status:403});
   return{db,user,role,area};
