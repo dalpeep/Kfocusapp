@@ -47,3 +47,17 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 #businesses>article>.owner-media{grid-column:1/-1;min-width:0}.owner-media .media-list{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
 
 #businesses>article>.booking-owner{grid-column:1/-1;min-width:0}.booking-calendar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
+
+#pilot-businesses .pilot-business-description {
+  min-height: 250px;
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+}
+
+@supports (field-sizing: content) {
+  #pilot-businesses .pilot-business-description {
+    field-sizing: content;
+  }
+}

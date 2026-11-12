@@ -9,6 +9,7 @@
   const endpoint = 'https://ydrxuqmjzayejlnjzzew.supabase.co/functions/v1/owner-phase1';
   const off = '업주 관리 시험 운영이 중지됐습니다.';
   let generation = 0;
+  let descriptionObserver;
 
   function append(parent, tag, value) {
     const element = document.createElement(tag);
@@ -19,6 +20,8 @@
 
   function show(client, active) {
     const current = ++generation;
+    descriptionObserver?.disconnect();
+    descriptionObserver = undefined;
     admin.hidden = owner.hidden = true;
     get('pilot-queue').replaceChildren();
     get('pilot-businesses').replaceChildren();
@@ -76,7 +79,10 @@
         const data = await request('?status=pending&offset=' + offset);
         if (current !== generation) return;
         const businesses = get('pilot-businesses');
+        descriptionObserver?.disconnect();
+        descriptionObserver = undefined;
         businesses.replaceChildren();
+        const resizeDescriptions = new Map();
         if (!data.is_admin) {
           for (const candidate of data.claim_candidates || []) {
             const card = append(businesses, 'article', '');
@@ -91,7 +97,27 @@
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
           const description = append(append(card, 'label', '소개'), 'textarea', '');
+          description.className = 'pilot-business-description';
           description.value = business.description || '';
+          if (!CSS.supports('field-sizing', 'content')) {
+            const fitDescription = () => {
+              description.style.height = 'auto';
+              const borders = description.offsetHeight - description.clientHeight;
+              description.style.height = (description.scrollHeight + borders) + 'px';
+            };
+            description.addEventListener('input', fitDescription);
+            requestAnimationFrame(fitDescription);
+            descriptionObserver ??= new ResizeObserver(entries => {
+              for (const {target} of entries) resizeDescriptions.get(target)();
+            });
+            let width;
+            resizeDescriptions.set(card, () => {
+              if (width === card.clientWidth) return;
+              width = card.clientWidth;
+              fitDescription();
+            });
+            descriptionObserver.observe(card);
+          }
           const hours = append(append(card, 'label', '영업시간'), 'input', '');
           hours.value = business.hours || '';
           action(card, '정보 저장', () => ({action: 'update', business_id: business.id,
