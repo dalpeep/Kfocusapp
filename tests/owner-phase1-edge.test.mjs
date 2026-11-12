@@ -76,3 +76,39 @@ test('the Edge handler returns database OFF and actor denial without exposing up
   assert.equal(denied.status, 403);
   assert.doesNotMatch(await denied.text(), /private upstream detail|fixture-server/);
 });
+
+test('gallery uses the verified actor, is off by default, and maps scoped RPC errors', async () => {
+  const actor = '11111111-1111-4111-8111-111111111111';
+  const business = '33333333-3333-4333-8333-333333333333';
+  let code = 'OP403';
+  const calls = [];
+  const options = {
+    projectUrl: supabase, serviceKey: 'fixture-server',
+    transport: async (url, options) => {
+      calls.push(url);
+      if (url.endsWith('/auth/v1/user')) {
+        return options.headers.Authorization === 'Bearer valid'
+          ? Response.json({id: actor}) : Response.json({}, {status: 401});
+      }
+      assert.equal(url, supabase + '/rest/v1/rpc/owner_pilot_gallery_v1');
+      assert.deepEqual(JSON.parse(options.body), {p_actor: actor, p_business: business, p_expected: [], p_urls: []});
+      return code ? Response.json({code, message: 'private detail'}, {status: 400}) : Response.json([]);
+    },
+  };
+  const request = token => new Request(supabase + '?content=gallery&business=' + business, {
+    method: 'POST', headers: {Origin: origin, Authorization: 'Bearer ' + token},
+    body: JSON.stringify({actor: 'forged', expected: [], urls: []}),
+  });
+  assert.equal((await makeEdgeHandler(options)(request('valid'))).status, 503);
+  assert.equal(calls.length, 0);
+  const handle = makeEdgeHandler({...options, galleryEnabled: true});
+  assert.equal((await handle(request('invalid'))).status, 401);
+  assert.deepEqual(calls, [supabase + '/auth/v1/user']);
+  const denied = await handle(request('valid'));
+  assert.equal(denied.status, 403);
+  assert.doesNotMatch(await denied.text(), /private detail/);
+  code = 'OP409';
+  assert.equal((await handle(request('valid'))).status, 409);
+  code = null;
+  assert.deepEqual(await (await handle(request('valid'))).json(), {ok: true, result: []});
+});

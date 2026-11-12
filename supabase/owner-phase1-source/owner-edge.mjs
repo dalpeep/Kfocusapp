@@ -3,9 +3,9 @@ import portal from './owner-portal-uuid.js';
 
 export const origin = 'https://daltownmap.com';
 export const supabase = 'https://ydrxuqmjzayejlnjzzew.supabase.co';
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1']);
 
-export function makeEdgeHandler({projectUrl, serviceKey, transport = fetch}) {
+export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
   const denied = () => json(403, {ok: false, error: '달타운맵에서만 이용할 수 있습니다.'});
   const off = () => json(503, {ok: false, phase1: true, code: 'OWNER_QA_PILOT_OFF',
@@ -59,6 +59,32 @@ export function makeEdgeHandler({projectUrl, serviceKey, transport = fetch}) {
         }
       }
       body = Buffer.concat(chunks).toString('utf8');
+    }
+    const url = new URL(request.url);
+    if (url.searchParams.get('content') === 'gallery') {
+      if (!galleryEnabled) return off();
+      const business = url.searchParams.get('business');
+      if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(business || '')) {
+        return json(400, {ok: false});
+      }
+      try {
+        const actor = await client.auth.getUser(authorization.slice(7));
+        if (!actor.data?.user?.id) return json(401, {ok: false});
+        const params = {p_actor: actor.data.user.id, p_business: business};
+        if (method === 'POST') {
+          let payload;
+          try { payload = JSON.parse(body); } catch { return json(400, {ok: false}); }
+          if (!Array.isArray(payload?.expected) || !Array.isArray(payload?.urls)) return json(400, {ok: false});
+          params.p_expected = payload.expected;
+          params.p_urls = payload.urls;
+        }
+        const result = await client.rpc('owner_pilot_gallery_v1', params);
+        if (!result.error) return json(200, {ok: true, result: result.data});
+        const status = {OP400: 400, OP403: 403, OP409: 409, OP503: 503}[result.error.code] || 502;
+        return json(status, {ok: false});
+      } catch {
+        return json(502, {ok: false});
+      }
     }
     const result = await handle({
       httpMethod: method, headers: authorization ? {authorization} : {},

@@ -103,6 +103,44 @@
         for (const business of data.businesses) {
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
+          const gallery = append(card, 'details', '');
+          append(gallery, 'summary', '업소 사진');
+          const feedback = append(gallery, 'p', '');
+          feedback.setAttribute('role', 'status');
+          const galleryQuery = '?content=gallery&business=' + encodeURIComponent(business.id);
+          let loaded = false;
+          gallery.addEventListener('toggle', async () => {
+            if (!gallery.open || loaded) return;
+            loaded = true;
+            feedback.textContent = '사진 목록을 불러오는 중입니다.';
+            try {
+              let expected = await request(galleryQuery);
+              if (current !== generation) return;
+              const urls = append(append(gallery, 'label', '사진 주소 (한 줄에 하나씩)'), 'textarea', '');
+              urls.value = expected.join('\n');
+              feedback.textContent = '';
+              const save = append(gallery, 'button', '사진 목록 저장');
+              save.type = 'button';
+              save.onclick = async () => {
+                save.disabled = urls.disabled = true;
+                try {
+                  const next = urls.value.split(/\r?\n/).map(url => url.trim()).filter(Boolean);
+                  expected = await request(galleryQuery, {expected, urls: next});
+                  urls.value = expected.join('\n');
+                  feedback.textContent = '사진 목록을 저장했습니다.';
+                } catch (error) {
+                  feedback.textContent = error.status === 409
+                    ? '사진 목록이 변경됐습니다. 페이지를 새로고침해 다시 확인해 주세요.'
+                    : '사진 목록을 저장하지 못했습니다.';
+                } finally {
+                  save.disabled = urls.disabled = false;
+                }
+              };
+            } catch (error) {
+              loaded = false;
+              feedback.textContent = error.status === 503 ? '사진 관리는 준비 중입니다.' : '사진 목록을 불러오지 못했습니다.';
+            }
+          });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
