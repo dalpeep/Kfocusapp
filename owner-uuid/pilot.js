@@ -3,12 +3,14 @@
   const get = id => document.getElementById(id);
   const status = get('pilot-status');
   const owner = get('pilot-owner');
+  const ownerTitle = owner.querySelector('h2');
   const admin = get('admin');
   const labels = {new: '신규 업소', claim: '소유권', core: '핵심 정보', name_ko: '업소명',
     name_en: '영문 업소명', address: '주소', phone: '전화', category_ko: '업종'};
   const endpoint = 'https://ydrxuqmjzayejlnjzzew.supabase.co/functions/v1/owner-phase1';
   const off = '업주 관리 시험 운영이 중지됐습니다.';
   let generation = 0;
+  let descriptionObserver;
 
   function append(parent, tag, value) {
     const element = document.createElement(tag);
@@ -19,6 +21,9 @@
 
   function show(client, active) {
     const current = ++generation;
+    ownerTitle.textContent = '내 업소';
+    descriptionObserver?.disconnect();
+    descriptionObserver = undefined;
     admin.hidden = owner.hidden = true;
     get('pilot-queue').replaceChildren();
     get('pilot-businesses').replaceChildren();
@@ -75,9 +80,14 @@
       try {
         const data = await request('?status=pending&offset=' + offset);
         if (current !== generation) return;
+        const isAdmin = data.is_admin === true;
+        ownerTitle.textContent = isAdmin ? '관리 업소' : '내 업소';
         const businesses = get('pilot-businesses');
+        descriptionObserver?.disconnect();
+        descriptionObserver = undefined;
         businesses.replaceChildren();
-        if (!data.is_admin) {
+        const resizeDescriptions = new Map();
+        if (!isAdmin) {
           for (const candidate of data.claim_candidates || []) {
             const card = append(businesses, 'article', '');
             append(card, 'h3', candidate.name_ko || candidate.name_en || '지정 시험 업소');
@@ -91,16 +101,34 @@
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
           const description = append(append(card, 'label', '소개'), 'textarea', '');
+          description.className = 'pilot-business-description';
           description.value = business.description || '';
+          const fitDescription = () => {
+            description.style.height = '0px';
+            const borders = description.offsetHeight - description.clientHeight;
+            description.style.height = (description.scrollHeight + borders) + 'px';
+          };
+          description.addEventListener('input', fitDescription);
+          descriptionObserver ??= new ResizeObserver(entries => {
+            for (const {target} of entries) resizeDescriptions.get(target)();
+          });
+          let width;
+          resizeDescriptions.set(card, () => {
+            if (width === card.clientWidth) return;
+            width = card.clientWidth;
+            fitDescription();
+          });
+          descriptionObserver.observe(card);
           const hours = append(append(card, 'label', '영업시간'), 'input', '');
           hours.value = business.hours || '';
           action(card, '정보 저장', () => ({action: 'update', business_id: business.id,
             changes: {description: description.value, hours: hours.value}}));
         }
         owner.hidden = false;
+        for (const fitDescription of resizeDescriptions.values()) fitDescription();
         const queue = get('pilot-queue');
         queue.replaceChildren();
-        admin.hidden = data.is_admin !== true;
+        admin.hidden = !isAdmin;
         if (admin.hidden) return true;
         const {data: sessionData} = await client.auth.getSession();
         if (current !== generation || !sessionData?.session) return;
