@@ -12,6 +12,9 @@ try {
   if(process.env.CONTEXT!=='production'||process.env.SITE_ID!==baseline.siteId)throw Error();
   stage='approved-source';
   for(const f of baseline.fingerprint)if(sha(f.path)!==f.sha256)throw Error();
+  const ownerFiles=JSON.parse(fs.readFileSync('release-baseline/owner-phase1-public.json'));
+  if(new Set(ownerFiles.map(f=>f.path)).size!==ownerFiles.length||
+     ownerFiles.some(f=>!/^owner-uuid\/[a-z-]+\.(?:html|css|js)$/.test(f.path)||sha(f.path,'sha256')!==f.sha256))throw Error();
   const preservation=verify();
   console.log(JSON.stringify({stage:'preservation',...preservation}));
   if(process.argv.includes('--verify-only'))process.exit(0);
@@ -26,6 +29,7 @@ try {
   // Preserve existing public paths, including legacy source paths already public.
   // Do not publish the new runtime wrappers, diagnostics, tests or migrations.
   for(const f of baseline.files)copy(f.source,f.target);
+  for(const f of ownerFiles)copy(f.path,f.path);
   stage='restore-reviewed-seo';
   const snapshot=JSON.parse(gunzipSync(fs.readFileSync('release-baseline/dallas-life-seo.json.gz')));
   for(const [file,bytes] of Object.entries(snapshot.seo)){
@@ -59,10 +63,13 @@ try {
   const walk=dir=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,entry.name);if(entry.isDirectory())walk(file);else files.push(file);}};
   walk(out);
   stage='published-file-inventory';
-  if(files.length!==Object.keys(snapshot.sha1).length)throw Error();
+  const ownerPaths=new Map(ownerFiles.map(f=>[f.path,f.sha256]));
+  if(files.length!==Object.keys(snapshot.sha1).length+ownerPaths.size)throw Error();
   for(const file of files){
     const relative=path.relative(out,file).split(path.sep).join('/');
-    if(sha(file,'sha1')!==snapshot.sha1[relative])throw Error();
+    if(ownerPaths.has(relative)){
+      if(Object.hasOwn(snapshot.sha1,relative)||sha(file,'sha256')!==ownerPaths.get(relative))throw Error();
+    }else if(sha(file,'sha1')!==snapshot.sha1[relative])throw Error();
   }
   stage='public-output';
 

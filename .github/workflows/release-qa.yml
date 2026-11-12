@@ -31,6 +31,10 @@ jobs:
         run: node scripts/release/locked-draft-build.mjs --verify-only
       - run: npm run qa:secrets
       - run: npm run qa:functions
+      - name: Bundle and verify the owner pilot Edge Function
+        run: |
+          node scripts/release/build-owner-phase1-edge.mjs
+          node --test tests/owner-phase1-edge.test.mjs
       - name: Load all actual ZIPs outside checkout with real runtime dependencies
         run: node scripts/release/verify-standalone-runtime.mjs
       - run: npm run qa:test
