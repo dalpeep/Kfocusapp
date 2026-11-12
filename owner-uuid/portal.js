@@ -1,120 +1,65 @@
-(()=>{'use strict';
-const $=id=>document.getElementById(id),cfg=window.APP_CONFIG||{},status=$('status');
-if(!cfg.SUPABASE_URL||!cfg.SUPABASE_ANON_KEY){status.textContent='연결 설정을 확인해 주세요.';return;}
-let db=null,phase1=false,qaLoginOnly=false;
-const productionPilot=location.origin==="https://daltownmap.com"&&cfg.SUPABASE_URL==="https://ydrxuqmjzayejlnjzzew.supabase.co";
-const endpoint=cfg.SUPABASE_URL+"/functions/v1/owner-phase1";
-const pilotOffMessage='시험 운영이 중지되어 화면을 확인할 수 있습니다. 신청·수정·승인 기능은 중지 상태입니다.';
-document.querySelectorAll('.owner-nav a').forEach(a=>a.addEventListener('click',()=>{const target=document.querySelector(a.getAttribute('href'));const d=target?.closest('details');if(d)d.open=true;}));
-let state=null,offset=0,auditOffset=0,actorId=null,claimEntryOpened=false;
-const kinds={new:'신규 업소',claim:'소유권',core:'핵심 정보'},statuses={pending:'대기',approved:'승인',rejected:'거절',cancelled:'취소'},actions={submit:'신청',approve:'승인',reject:'거절',revoke:'권한 회수',update:'일반 정보 수정',cancel:'신청 취소'};
-const labels={name_ko:'업소명(한글)',name_en:'업소명(영문)',address:'주소',phone:'전화',category_ko:'업종',description:'소개',hours:'영업시간',user_id:'대상 회원',active:'활성 권한'};
-const fields=(value,parent)=>{for(const [k,v] of Object.entries(value||{}))text('p',`${labels[k]||k}: ${v??'없음'}`,parent);};
-const date=value=>value?new Date(value).toLocaleString('ko-KR'):'없음';
-const text=(tag,value,parent)=>{const e=document.createElement(tag);e.textContent=value;parent.append(e);return e;};
-const button=(label,parent,fn)=>{const b=text('button',label,parent);b.type='button';b.onclick=()=>run(()=>fn(b),b);return b;};
-function operationScope(b){return b?.form||b?.closest('[data-owner-operation]')||b;}
-async function run(fn,b){const scope=operationScope(b);if(b?.dataset.completed==='true'||scope?.dataset.completed==='true'||scope?.dataset.busy==='true')return;if(scope)scope.dataset.busy='true';const buttons=b?.form?[b]:[...(scope?.querySelectorAll?.('button')||[])];if(b&&!buttons.includes(b))buttons.push(b);const disabled=buttons.map(button=>button.disabled);buttons.forEach(button=>button.disabled=true);try{await fn();}catch(e){status.textContent=e.message||'처리에 실패했습니다.';}finally{if(scope)delete scope.dataset.busy;buttons.forEach((button,index)=>button.disabled=button.dataset.completed==='true'||scope?.dataset.completed==='true'||disabled[index]);}}
-function confirmCancellation(){return new Promise(resolve=>{const dialog=document.createElement('dialog'),title=document.createElement('h2'),message=document.createElement('p');title.id='owner-cancel-title';title.textContent='신청 취소 확인';dialog.setAttribute('aria-labelledby',title.id);message.textContent='이 신청을 취소하시겠습니까? 취소 이력은 보존됩니다.';dialog.append(title,message);let finished=false;const finish=value=>{if(finished)return;finished=true;dialog.close();dialog.remove();resolve(value);};const back=document.createElement('button');back.type='button';back.textContent='돌아가기';back.onclick=()=>finish(false);const submit=document.createElement('button');submit.type='button';submit.textContent='신청 취소 확정';submit.onclick=()=>finish(true);dialog.append(back,submit);dialog.addEventListener('cancel',e=>{e.preventDefault();finish(false);});document.body.append(dialog);dialog.showModal();back.focus();});}
-const send=window.OwnerRequests.mutationSender(command=>request(command));
-async function api(command){return command?send(command):request();}
-async function request(command){if(!db)throw Error('업주센터는 현재 준비 중입니다.');const {data:{session}}=await db.auth.getSession();if(!session)throw Error('로그인이 필요합니다.');
- actorId=session.user?.id||null;
- const query=new URLSearchParams({status:$('requestStatus').value,kind:$('requestKind').value,offset:String(offset),audit_offset:String(auditOffset)});
- const res=await fetch(endpoint+(command?'':`?${query}`),{method:command?'POST':'GET',headers:{apikey:cfg.SUPABASE_ANON_KEY,Authorization:`Bearer ${session.access_token}`,...(command?{'Content-Type':'application/json'}:{})},...(command?{body:JSON.stringify(command)}:{})});
- const json=await window.OwnerRequests.readResponse(res,{
-  pilotRead:phase1&&!command,
-  pilotClaim:phase1&&command?.action==='submit'&&command.kind==='claim',
- });return json.result;}
-async function command(value,button){if(qaLoginOnly)throw Error(pilotOffMessage);await api(value);const scope=operationScope(button);if(button)button.dataset.completed='true';if(scope)scope.dataset.completed='true';window.dispatchEvent(new Event('owner-content-saved'));offset=0;auditOffset=0;status.textContent=value.action==='update'?'저장 완료 — 소개와 영업시간이 바로 반영되었습니다.':value.action==='submit'?'신청 완료 — 관리자 검토 중입니다. 승인 결과는 신청 현황에서 확인하세요.':value.action==='cancel'?'신청을 취소했습니다. 기존 업소 정보는 변경되지 않았습니다.':'처리가 완료되었습니다.';try{await refresh();if(button)delete button.dataset.completed;if(scope)delete scope.dataset.completed;}catch(e){throw Error('저장은 완료됐지만 목록을 갱신하지 못했습니다. 중복 저장하지 말고 새로고침으로 결과를 확인해 주세요.');}}
-const values=form=>Object.fromEntries(new FormData(form));
-function reasonInput(parent){const label=text('label','처리 사유 (승인: 선택 / 거절·권한 회수: 필수)',parent),input=document.createElement('textarea');input.maxLength=1000;label.append(input);return input;}
-function reason(input,required=true){const v=input.value.trim();if(required&&!v){input.focus();throw Error('처리 사유가 필요합니다.');}return v;}
-function reviewRequest(action,requestId,reviewReason,approvalArea,button){
- const approving=action==='approve';
- const value={action,request_id:requestId,reason:reason(reviewReason,!approving)};
- if(approving&&approvalArea){
-  const area=approvalArea.value.trim();
-  if(!area){approvalArea.focus();throw Error('신규 업소의 승인 지역을 입력해 주세요.');}
-  value.area=area;
- }
- return command(value,button);
-}
-async function openClaimEntry(){
- const id=new URLSearchParams(location.search).get('claim');
- if(claimEntryOpened||!id)return;claimEntryOpened=true;
- if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)){status.textContent='업소 링크를 확인해 주세요.';return;}
- const {data,error}=await db.from('businesses').select('id,name_ko,name_en,address').eq('id',id).maybeSingle();
- if(error||!data){status.textContent='업소를 찾을 수 없습니다. 업소명으로 검색해 주세요.';return;}
- $('search').closest('details').open=true;
- $('search').elements.query.value=data.name_ko||data.name_en||'';
- $('searchResults').replaceChildren();
- const a=text('article',String(data.name_ko||data.name_en||'업소')+' · '+String(data.address||''),$('searchResults'));
- button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(data.id)}));
- status.textContent='선택한 업소를 확인한 뒤 소유권 신청을 눌러 주세요. 관리자 승인 후 관리할 수 있습니다.';
-}
-async function refresh(){
- if(qaLoginOnly){
-  const {data,error}=await db.auth.getUser();
-  if(error||!data?.user?.email_confirmed_at)throw Error('이메일 인증을 완료한 시험 계정으로 로그인해 주세요.');
-  $('auth').hidden=true;
-  $('portal').hidden=false;
-  $('admin').hidden=true;
-  $('newBusiness').querySelector('button').disabled=true;
-  $('counts').textContent='시험 운영 중지';
-  $('businesses').replaceChildren();
-  text('p','시험 운영을 시작하면 승인된 본인 업소를 이곳에서 관리할 수 있습니다.',$('businesses'));
-  status.textContent=pilotOffMessage;
-  return;
- }
- try{state=await api();}catch(error){
-  if(phase1){
-   state=null;$('portal').hidden=true;
-   const signedIn=error.status===403||error.status===503;
-   $('auth').hidden=signedIn;$('pilotSessionActions').hidden=!signedIn;
+(() => {
+  'use strict';
+  const config = window.APP_CONFIG || {};
+  const status = document.getElementById('status');
+  const login = document.getElementById('auth');
+  const signedIn = document.getElementById('signed-in');
+  const logout = document.getElementById('logout');
+  if (location.origin !== 'https://daltownmap.com' ||
+      config.SUPABASE_URL !== 'https://ydrxuqmjzayejlnjzzew.supabase.co' ||
+      !config.SUPABASE_ANON_KEY || !window.supabase) {
+    status.textContent = '운영 업주센터 연결 설정을 확인해 주세요.';
+    return;
   }
-  throw error;
- }
- if(!$('pilotSessionActions').hidden)status.textContent='';
- $('pilotSessionActions').hidden=true;
- window.OwnerMediaEnabled=state.media_enabled===true;window.OwnerBookingEnabled=state.booking_enabled===true;if(!phase1)window.OwnerDescriptions?.registration($('newBusiness'),state.description_catalog);$('auth').hidden=true;$('portal').hidden=false;$('admin').hidden=!state.is_admin;
- let accountPanel=$('ownerAccountPanel');if(!accountPanel){accountPanel=document.createElement('section');accountPanel.id='ownerAccountPanel';$('admin').append(accountPanel);}accountPanel.replaceChildren();if(!phase1&&state.is_admin&&window.OwnerAccountPanel)window.OwnerAccountPanel.mount(accountPanel,db,state);
- let mediaAdmin=$('ownerMediaAdmin');if(!mediaAdmin){mediaAdmin=document.createElement('section');mediaAdmin.id='ownerMediaAdmin';$('admin').append(mediaAdmin);}mediaAdmin.replaceChildren();if(window.OwnerMediaEnabled&&state.is_admin){const targets=new Map((state.businesses||[]).map(b=>[b.id,b]));for(const m of state.memberships||[])if(!targets.has(m.business_id))targets.set(m.business_id,{id:m.business_id});window.OwnerMedia?.mountAdmin(mediaAdmin,[...targets.values()],db);}
- const c=state.counts||{};$('counts').textContent=`대기 ${c.pending||0} · 승인 ${c.approved||0} · 거절 ${c.rejected||0}`;
- $('pendingCounts').textContent=`승인 대기 ${c.pending||0}건 · 신규 ${c.new||0} · 소유권 ${c.claim||0} · 핵심 정보 ${c.core||0}`;
- for(const [prefix,start,total] of [['request',offset,state.request_total||0],['audit',auditOffset,state.audit_total||0]]){
-  $(prefix+'Page').textContent=total?`${start+1}–${Math.min(start+20,total)} / ${total}건`:'0건';$(prefix+'Prev').disabled=start===0;$(prefix+'Next').disabled=start+20>=total;
- }
- for(const id of ['businesses','requests','queue','memberships','audit'])$(id).replaceChildren();
- if(phase1&&!state.businesses.length)text('p','아직 승인된 업소가 없습니다. 새 업소를 등록하거나 기존 업소의 관리 권한을 신청하세요.',$('businesses'));
- for(const b of [...state.businesses].sort((a,b)=>String(a.id).localeCompare(String(b.id)))){const a=text('article','',$('businesses'));a.dataset.businessId=b.id;a.dataset.ownerUi=window.OwnerUiPolicy.subscriber(b.feature_policy)?'subscriber':'basic';text('h3',b.name_ko||b.name_en||'이름 없음',a);if(b.name_ko&&b.name_en)text('p',b.name_en,a);text('p',`${b.address||''} · ${b.phone||''}`,a);
- const badge=text('p',window.OwnerUiPolicy.label(b.feature_policy),a);badge.className='owner-tier-badge';text('p',phase1?'지정 계정에만 보이는 시험 업소입니다.':window.OwnerUiPolicy.subscriber(b.feature_policy)?'업소 정보와 사진·쿠폰·홍보 콘텐츠를 관리하세요.':'기본 정보·기본 쿠폰·텍스트 이벤트와 할인을 간편하게 관리하세요.',a);if(window.OwnerMediaEnabled)window.OwnerMedia?.mountUpgrade(a,b,db);if(!phase1){window.OwnerImages?.mount(a,b,db);window.OwnerBooking?.mount(a,b.id,db,state.is_admin);window.OwnerContentPanel?.mount(a,b.id,db);}const f=document.createElement('form');a.append(f);text('h3','바로 수정하는 정보',f);text('p',phase1?'소개·영업시간은 시험 운영 화면에만 반영됩니다.':'소개·영업시간은 저장하면 바로 반영됩니다. 웹사이트는 아래 웹사이트·요일별 영업시간 메뉴에서 직접 수정할 수 있습니다.',f);for(const [key,label] of [['description','소개'],['hours','영업시간']]){const l=text('label',label,f),restricted=!phase1&&key==='description'&&b.feature_policy?.free_description!==false,i=document.createElement(restricted?'select':'textarea');i.name=key;if(restricted){if(window.OwnerDescriptions)window.OwnerDescriptions.fill(i,b.feature_policy?.description_choices||(b.feature_policy?.description_options||[]).map(phrase=>({phrase,locale:'ko'})),b[key]||'');text('p',b.feature_policy?.description_options?.length?'승인된 소개 문구를 선택하세요. 기존 소개는 유지할 수 있습니다.':'승인된 소개 문구를 준비 중입니다. 기존 소개는 그대로 유지됩니다.',f);}i.value=b[key]||'';l.append(i);}const save=button('일반 정보 저장',f,()=>command({action:'update',business_id:b.id,changes:values(f)},save));f.onsubmit=e=>{e.preventDefault();if(!save.disabled)save.click();};
- const core=document.createElement('form');core.className='core-request';a.append(core);text('h3','승인이 필요한 정보',core);text('p','업소명·주소·전화·업종은 관리자 승인 후 반영됩니다. 검토 중에는 기존 정보가 유지됩니다.',core);
- for(const k of ['name_ko','name_en','address','phone','category_ko']){const l=text('label',labels[k],core),i=document.createElement('input');i.name=k;i.value=b[k]||'';i.maxLength=500;i.required=!['name_ko','name_en'].includes(k);l.append(i);}
- const rl=text('label','변경 사유(선택)',core),ri=document.createElement('textarea');ri.name='reason';ri.maxLength=1000;rl.append(ri);
- const submit=text('button','핵심 정보 변경 신청',core);submit.type='submit';core.onsubmit=e=>{e.preventDefault();run(async()=>{const {reason:why,...v}=values(core),changes={},baseline={};if(!v.name_ko.trim()&&!v.name_en.trim())throw Error('한글명 또는 영문명을 입력해 주세요.');for(const [k,value] of Object.entries(v))if(value.trim()!==(b[k]||'')){changes[k]=value.trim();baseline[k]=b[k]??null;}if(!Object.keys(changes).length)throw Error('변경한 정보가 없습니다.');await command({action:'submit',kind:'core',business_id:b.id,changes,baseline,reason:why.trim()},submit);},submit);};}
- for(const r of state.requests){const a=text('article',`${kinds[r.kind]} · ${r.status==='pending'?'승인 대기':statuses[r.status]}`,$('requests'));text('p',`신청 ${r.id} · 업소 ${r.business_id||'승인 시 생성'} · ${r.region}`,a);text('p',`신청일 ${date(r.created_at)} · 처리일 ${date(r.reviewed_at)}`,a);fields(r.changes,a);if(r.description_choice_text)text('p','선택한 소개: '+r.description_choice_text,a);if(r.reason)text('p',`${r.status==='rejected'?'거절 사유 — 내용을 확인하고 다시 신청해 주세요':'처리 사유'}: ${r.reason}`,a);if(r.status==='pending'&&actorId&&r.user_id===actorId)button('신청 취소',a,async cancelButton=>{if(await confirmCancellation())return command({action:'cancel',request_id:r.id},cancelButton);});
- if(state.is_admin&&r.status==='pending'){const q=text('article',`${kinds[r.kind]} · ${r.region}`,$('queue'));q.dataset.ownerOperation=r.id;text('p',`신청 ${r.id} · 회원 ${r.user_id} · 업소 ${r.business_id||'신규'}`,q);if(r.submission_reason)text('p',`신청 사유: ${r.submission_reason}`,q);for(const k of ['name_ko','name_en']){const before=Object.hasOwn(r.baseline||{},k)?r.baseline[k]:r.current_names?.[k];const after=Object.hasOwn(r.changes||{},k)?r.changes[k]:before;text('p',`${labels[k]}: ${before||'없음'} → ${after||'없음'}`,q);}if(Object.keys(r.baseline||{}).length){text('h3','변경 전',q);fields(r.baseline,q);}text('h3','신청 내용',q);fields(r.changes,q);if(r.description_choice_text)text('p','승인 후 적용할 소개: '+r.description_choice_text,q);const own=!!actorId&&r.user_id===actorId,conflict=r.kind==='claim'&&(state.memberships||[]).some(m=>String(m.business_id)===String(r.business_id)&&m.active);text('p','신청자 취소 가능: 신청자 본인이 신청 현황에서 취소할 수 있습니다.',q);if(own)text('p','다른 관리자가 처리해야 합니다.',q);if(conflict)text('p','이미 활성 소유자가 있는 업소입니다. 중복 소유권 승인은 처리할 수 없습니다.',q);const reviewReason=reasonInput(q);let approvalArea=null;if(r.kind==='new'){const l=text('label',phase1?'시험 업소 지역(area, 필수)':'운영 업소 지역(area, 필수)',q);approvalArea=document.createElement('input');approvalArea.maxLength=100;l.append(approvalArea);}const approve=button('승인',q,reviewButton=>reviewRequest('approve',r.id,reviewReason,approvalArea,reviewButton)),reject=button('거절',q,reviewButton=>reviewRequest('reject',r.id,reviewReason,null,reviewButton));approve.disabled=own||conflict;reject.disabled=own;}}
- for(const m of state.memberships){const a=text('article',`${m.business_id} · ${m.user_id} · ${m.active?'활성':'회수'}`,$('memberships'));if(m.active){const revokeReason=reasonInput(a);button('권한 회수',a,()=>command({action:'revoke',business_id:m.business_id,user_id:m.user_id,reason:reason(revokeReason)}));}}
- for(const a of state.audit){const card=text('article',`${actions[a.action]||a.action} · ${date(a.created_at)}`,$('audit'));text('p',`처리자 ${a.actor} · 업소 ${a.business_id||'미생성'} · 신청 ${a.request_id||'없음'}`,card);if(a.before_value){text('h3','변경 전',card);fields(a.before_value,card);}if(a.after_value){text('h3','처리 내용',card);fields(a.after_value,card);}if(a.reason)text('p',`사유: ${a.reason}`,card);}
- await openClaimEntry();
- const registration=$('newBusiness');if(registration.dataset.completed==='true'){registration.reset();delete registration.dataset.completed;for(const button of registration.querySelectorAll('button')){if(button.dataset.completed==='true'){delete button.dataset.completed;button.disabled=false;}}}
-}
-// Recheck capabilities without discarding drafts when the policy is unchanged.
-let policyCheckBusy=false;
-const policyKey=s=>JSON.stringify((s?.businesses||[]).map(b=>[b.id,b.feature_policy]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
-async function recheckPolicy(){if(!state||policyCheckBusy||document.hidden)return;policyCheckBusy=true;try{const next=await api();if(policyKey(next)!==policyKey(state)){await refresh();status.textContent='관리자가 변경한 이용 권한을 확인하여 화면을 갱신했습니다. 저장 전 입력 내용을 다시 확인해 주세요.';}}catch{ $('businesses').replaceChildren();state=null;status.textContent='이용 권한을 확인하지 못했습니다. 새로고침 후 다시 이용해 주세요.';}finally{policyCheckBusy=false;}}
-window.addEventListener('focus',recheckPolicy);document.addEventListener('visibilitychange',()=>{if(!document.hidden)recheckPolicy();});setInterval(recheckPolicy,30000);
-$('auth').onsubmit=e=>{e.preventDefault();run(async()=>{if(!db)throw Error('업주센터는 현재 준비 중입니다.');const f=values(e.target);const signup=e.submitter?.name==='signup';if(phase1&&signup)throw Error('시험 운영은 지정 계정만 이용할 수 있습니다.');if(signup&&f.password.length<12)throw Error('회원가입 비밀번호는 12자 이상 입력해 주세요.');const {error}=signup?await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}}):await db.auth.signInWithPassword(f);if(error)throw Error('가입 또는 로그인 정보를 확인해 주세요.');e.target.reset();if(signup)status.textContent='인증 이메일을 확인한 뒤 로그인해 주세요.';else await refresh();},e.submitter);};
-const pilotSessionActions=document.createElement('div');pilotSessionActions.id='pilotSessionActions';pilotSessionActions.hidden=true;status.after(pilotSessionActions);
-const signOut=async()=>{const {error}=await db.auth.signOut();if(error)throw error;state=null;actorId=null;status.textContent='';pilotSessionActions.hidden=true;$('portal').hidden=true;$('auth').hidden=false;for(const id of ['businesses','requests','queue','memberships','audit','searchResults'])$(id).replaceChildren();};
-$('logout').onclick=()=>run(signOut);
-button('다른 계정으로 로그인',pilotSessionActions,signOut);
-button('다시 확인',pilotSessionActions,refresh);
-$('refresh').onclick=()=>run(refresh);
-for(const id of ['requestStatus','requestKind'])$(id).onchange=()=>{offset=0;run(refresh);};
-for(const [id,step,isAudit] of [['requestPrev',-20,false],['requestNext',20,false],['auditPrev',-20,true],['auditNext',20,true]])$(id).onclick=()=>run(async()=>{if(isAudit)auditOffset=Math.max(0,auditOffset+step);else offset=Math.max(0,offset+step);await refresh();});
-$('newBusiness').onsubmit=e=>{e.preventDefault();const submit=e.submitter||e.target.querySelector('button:not([type]),button[type=submit]');run(async()=>{const {description_choice,...changes}=values(e.target);if(!changes.name_ko.trim()&&!changes.name_en.trim())throw Error('한글명 또는 영문명을 입력해 주세요.');await command({action:'submit',kind:'new',region:'texas',changes,...(description_choice?{description_choice}:{})},submit);e.target.reset();},submit);};
-$('search').onsubmit=e=>{e.preventDefault();run(async()=>{const q=values(e.target).query.trim();if(!q)throw Error('검색어를 입력해 주세요.');const query=db.from('businesses').select('id,name_ko,name_en,address'),safe=q.replace(/[\\%_,()."']/g,'');if(!safe)throw Error('검색어를 확인해 주세요.');const {data,error}=await query.or(`name_ko.ilike.%${safe}%,name_en.ilike.%${safe}%`).limit(20);if(error)throw Error('업소 검색에 실패했습니다.');$('searchResults').replaceChildren();for(const b of data){const a=text('article',`${b.name_ko||b.name_en||'이름 없음'} · ${b.name_ko&&b.name_en?b.name_en+' · ':''}${b.address||''}`,$('searchResults'));button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(b.id)})).disabled=qaLoginOnly;}},e.submitter);};
-window.OwnerAvailability.start({check:async()=>productionPilot?Response.json({ok:false,phase1:true,error:"로그인이 필요합니다."},{status:401}):Response.json({ok:false,error:"이용할 수 없습니다."},{status:503}),createClient:()=>window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,{auth:{storage:window.sessionStorage,persistSession:true}}),ready:async (client,isPhase1,loginOnly)=>{db=client;phase1=isPhase1;qaLoginOnly=loginOnly===true;for(const id of ['coupon','events']){const tab=$('tab-'+id);if(tab)tab.hidden=phase1;}const signup=$('auth').querySelector('[name="signup"]');if(signup)signup.hidden=phase1;window.installValidatedImageUpload?.(db);$('auth').hidden=false;const {data}=await db.auth.getSession();if(qaLoginOnly)status.textContent='이메일 인증을 완료한 시험 계정으로 로그인해 주세요. 신청·수정은 시험 운영 시작 후 이용할 수 있습니다.';if(data.session){try{await refresh();}catch(error){status.textContent=error.message;}}},disabled:reason=>{db=null;$('auth').hidden=true;$('portal').hidden=true;status.textContent=reason==='disabled'?'업주센터는 현재 준비 중입니다.':'업주센터 연결을 확인하지 못했습니다. 잠시 후 다시 이용해 주세요.';}});
+
+  const createClient = options => window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY,
+    {auth: {detectSessionInUrl: false, ...options}});
+
+  async function startLogin() {
+    const client = createClient({storage: sessionStorage, persistSession: true});
+    const showSession = active => {
+      signedIn.hidden = !active;
+      login.hidden = active;
+    };
+    const {data} = await client.auth.getSession();
+    showSession(Boolean(data.session));
+    login.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = login.querySelector('button');
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        const fields = new FormData(login);
+        const {data: result, error} = await client.auth.signInWithPassword({
+          email: String(fields.get('email')).trim(), password: fields.get('password'),
+        });
+        if (error || !result?.session) {
+          status.textContent = '이메일 인증 상태와 로그인 정보를 확인해 주세요.';
+          return;
+        }
+        login.reset();
+        showSession(true);
+        status.textContent = '';
+      } catch {
+        status.textContent = '연결을 확인하고 다시 로그인해 주세요.';
+      } finally {
+        button.disabled = false;
+      }
+    });
+    logout.addEventListener('click', async () => {
+      const {error} = await client.auth.signOut({scope: 'local'});
+      if (error) {
+        status.textContent = '로그아웃하지 못했습니다. 다시 시도해 주세요.';
+        return;
+      }
+      showSession(false);
+      status.textContent = '';
+    });
+  }
+
+  if (window.OwnerInvite) {
+    window.OwnerInvite.start(() => createClient({persistSession: false, autoRefreshToken: false}), startLogin);
+  } else {
+    void startLogin();
+  }
 })();

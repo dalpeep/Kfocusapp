@@ -1,15 +1,11 @@
 [
   {
-    "path": "owner-uuid/availability.js",
-    "sha256": "39f291b7b9e9a247cec8d5078162aa7565387eed35537e7e8dd4aafea71a3672"
-  },
-  {
     "path": "owner-uuid/index.html",
-    "sha256": "8e2a8878dfc2e58092ee32383a6645ff38854fe0b8102f6cee8f6710991e6c5f"
+    "sha256": "c203ea85344663ab3f6b3c3a355f62d28df94405364541e1c989fb6cdd79341a"
   },
   {
-    "path": "owner-uuid/layout.js",
-    "sha256": "d35c2df2d98f3dbe86f389526a3ababf8d015e8da9439c648675261ff2848183"
+    "path": "owner-uuid/invite.js",
+    "sha256": "c97f8cca1931e84ad772584f9c6509c717307de9a164f188e082769571419b4d"
   },
   {
     "path": "owner-uuid/portal.css",
@@ -17,14 +13,6 @@
   },
   {
     "path": "owner-uuid/portal.js",
-    "sha256": "86cccfc2b4ed8c4ea8d658fe291a0e6be6387ec285efc55507806a159e3ff9a2"
-  },
-  {
-    "path": "owner-uuid/requests.js",
-    "sha256": "5aebeba14dcd07bf63cf0c45892327ebb0e9e2ee80275a315bc260574c3d511d"
-  },
-  {
-    "path": "owner-uuid/ui-policy.js",
-    "sha256": "095a9eceb0124e2564ae2c42498931a3023042b58f0be8c93889fdfb39e18db3"
+    "sha256": "718416e6936c8c0bd070e6d94df46dd8a930d17475df08e710aa383cc9d4cf0a"
   }
 ]

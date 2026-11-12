@@ -2,6 +2,25 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {makeEdgeHandler, origin, supabase} from '../supabase/functions/owner-phase1/handler.generated.mjs';
 
+test('the authentication-only release denies all owner business operations', async () => {
+  let serve;
+  const previous = globalThis.Deno;
+  globalThis.Deno = {serve: handler => { serve = handler; }};
+  try {
+    await import('../supabase/functions/owner-phase1/index.ts');
+    const headers = {Origin: origin, Authorization: 'Bearer fixture'};
+    for (const method of ['GET', 'POST']) {
+      const response = await serve(new Request(supabase, {method, headers}));
+      assert.equal(response.status, 503);
+      assert.equal((await response.json()).code, 'OWNER_QA_PILOT_OFF');
+    }
+    assert.equal((await serve(new Request(supabase, {method: 'OPTIONS', headers}))).status, 204);
+  } finally {
+    if (previous === undefined) delete globalThis.Deno;
+    else globalThis.Deno = previous;
+  }
+});
+
 test('production owner claim uses the authenticated actor and preserves the request key', async () => {
   const actor = '11111111-1111-4111-8111-111111111111';
   const key = '22222222-2222-4222-8222-222222222222';
