@@ -2,6 +2,7 @@
   'use strict';
   const get = id => document.getElementById(id);
   const status = get('pilot-status');
+  const pageHeading = get('owner-page-heading');
   const owner = get('pilot-owner');
   const ownerTitle = owner.querySelector('h2');
   const admin = get('admin');
@@ -21,6 +22,7 @@
 
   function show(client, active) {
     const current = ++generation;
+    pageHeading.textContent = '업주 관리';
     ownerTitle.textContent = '내 업소';
     descriptionObserver?.disconnect();
     descriptionObserver = undefined;
@@ -81,6 +83,7 @@
         const data = await request('?status=pending&offset=' + offset);
         if (current !== generation) return;
         const isAdmin = data.is_admin === true;
+        pageHeading.textContent = isAdmin ? '업소 관리' : '업주 관리';
         ownerTitle.textContent = isAdmin ? '관리 업소' : '내 업소';
         const businesses = get('pilot-businesses');
         descriptionObserver?.disconnect();
@@ -164,6 +167,7 @@
         return true;
       } catch (error) {
         if (current !== generation) return;
+        pageHeading.textContent = '업주 관리';
         owner.hidden = admin.hidden = true;
         status.textContent = error.status ? error.message : '업주 관리 상태를 확인할 수 없습니다.';
       }
