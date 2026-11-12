@@ -49,15 +49,17 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 #businesses>article>.booking-owner{grid-column:1/-1;min-width:0}.booking-calendar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px}
 
 #pilot-businesses .pilot-business-description {
-  min-height: 250px;
+  min-height: 400px;
+  max-height: none;
   max-width: 100%;
+  overflow: hidden;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   resize: none;
 }
 
-@supports (field-sizing: content) {
+@media (max-width: 600px) {
   #pilot-businesses .pilot-business-description {
-    field-sizing: content;
+    min-height: 300px;
   }
 }

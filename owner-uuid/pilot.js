@@ -103,31 +103,29 @@
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
-          if (!CSS.supports('field-sizing', 'content')) {
-            const fitDescription = () => {
-              description.style.height = 'auto';
-              const borders = description.offsetHeight - description.clientHeight;
-              description.style.height = (description.scrollHeight + borders) + 'px';
-            };
-            description.addEventListener('input', fitDescription);
-            requestAnimationFrame(fitDescription);
-            descriptionObserver ??= new ResizeObserver(entries => {
-              for (const {target} of entries) resizeDescriptions.get(target)();
-            });
-            let width;
-            resizeDescriptions.set(card, () => {
-              if (width === card.clientWidth) return;
-              width = card.clientWidth;
-              fitDescription();
-            });
-            descriptionObserver.observe(card);
-          }
+          const fitDescription = () => {
+            description.style.height = '0px';
+            const borders = description.offsetHeight - description.clientHeight;
+            description.style.height = (description.scrollHeight + borders) + 'px';
+          };
+          description.addEventListener('input', fitDescription);
+          descriptionObserver ??= new ResizeObserver(entries => {
+            for (const {target} of entries) resizeDescriptions.get(target)();
+          });
+          let width;
+          resizeDescriptions.set(card, () => {
+            if (width === card.clientWidth) return;
+            width = card.clientWidth;
+            fitDescription();
+          });
+          descriptionObserver.observe(card);
           const hours = append(append(card, 'label', '영업시간'), 'input', '');
           hours.value = business.hours || '';
           action(card, '정보 저장', () => ({action: 'update', business_id: business.id,
             changes: {description: description.value, hours: hours.value}}));
         }
         owner.hidden = false;
+        for (const fitDescription of resizeDescriptions.values()) fitDescription();
         const queue = get('pilot-queue');
         queue.replaceChildren();
         admin.hidden = !isAdmin;
