@@ -112,3 +112,37 @@ test('gallery uses the verified actor, is off by default, and maps scoped RPC er
   code = null;
   assert.deepEqual(await (await handle(request('valid'))).json(), {ok: true, result: []});
 });
+
+test('photo upload checks ownership before writing a new object without upsert', async () => {
+  const actor = '11111111-1111-4111-8111-111111111111';
+  const business = '33333333-3333-4333-8333-333333333333';
+  const calls = [];
+  let ownsBusiness = false;
+  const handle = makeEdgeHandler({
+    projectUrl: supabase, serviceKey: 'fixture-server', galleryEnabled: true,
+    transport: async (url, options) => {
+      calls.push(url);
+      if (url.endsWith('/auth/v1/user')) return Response.json({id: actor});
+      if (url.endsWith('/owner_pilot_gallery_v1')) {
+        assert.deepEqual(JSON.parse(options.body), {p_actor: actor, p_business: business});
+        return ownsBusiness ? Response.json([]) : Response.json({code: 'OP403'}, {status: 400});
+      }
+      assert.ok(url.startsWith(supabase + '/storage/v1/object/public-images/owner-phase2/' + business + '/'));
+      assert.equal(options.headers['x-upsert'], 'false');
+      assert.equal(options.headers['Content-Type'], 'image/png');
+      return Response.json({});
+    },
+  });
+  const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+  const upload = body => handle(new Request(supabase + '?content=gallery&upload=1&business=' + business, {
+    method: 'POST', headers: {Origin: origin, Authorization: 'Bearer fixture'}, body,
+  }));
+  assert.equal((await upload(png)).status, 403);
+  assert.equal(calls.length, 2);
+  ownsBusiness = true;
+  assert.equal((await upload(Buffer.from('<html>not an image</html>'))).status, 400);
+  assert.equal(calls.length, 3);
+  const result = await upload(png);
+  assert.equal(result.status, 200);
+  assert.equal((await result.json()).result, calls.at(-1).replace('/object/', '/object/public/'));
+});

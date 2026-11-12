@@ -48,6 +48,14 @@ BEGIN
   ) THEN
     RAISE EXCEPTION USING ERRCODE='OP400', MESSAGE='Invalid gallery image';
   END IF;
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(current_urls) old(value)
+    WHERE NOT p_urls @> jsonb_build_array(value)
+      AND (value #>> '{}') NOT LIKE
+        'https://ydrxuqmjzayejlnjzzew.supabase.co/storage/v1/object/public/public-images/owner-phase2/' || p_business::text || '/%'
+  ) THEN
+    RAISE EXCEPTION USING ERRCODE='OP403', MESSAGE='Legacy images are retained';
+  END IF;
   IF current_urls = p_urls THEN
     RETURN current_urls;
   END IF;

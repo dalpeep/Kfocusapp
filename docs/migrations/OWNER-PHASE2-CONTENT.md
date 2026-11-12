@@ -10,18 +10,19 @@ to OFF.
 
 | Content | Existing production contract | Integration status |
 | --- | --- | --- |
-| Gallery | businesses.gallery_urls and public-images, consumed by the existing business detail UI | Local URL list editing. New URLs must resolve to an existing Storage object in the selected business's reserved prefix. Old URLs can be retained or removed. |
+| Gallery | businesses.gallery_urls and public-images, consumed by the existing business detail UI | Local upload and URL list editing. New URLs must resolve to an existing Storage object in the selected business's reserved prefix. The RPC rejects removal of legacy gallery references. |
 | Menu | Prior development has a bilingual menu document and public media adapter | Review menu fields and a dedicated public read projection before adding a table or using the old draft with subscription prerequisites. |
 | Coupon | coupons, including business_id, business_ids and campaign delivery options | Use the display workflow first. Protect multi-business links and keep campaign delivery, notifications and shared records outside owner editing until verified. |
 | Event | posts and existing community event filtering | Reuse event classification and publication windows. Verify approval and public visibility rules before opening writes. |
 | Special | business_specials and business_special_items | Reuse schedule fields and update parent/child rows atomically with business scoping. |
 
-The gallery UI detaches references without deleting files. File upload is pending.
-Before adding upload, confirm the existing bucket limits and validate image bytes,
-reserve a per-business path, and define cleanup for partial failures. Check the current
-Storage policies for writes into that prefix before enabling it. Keep legacy object
-paths and policy behavior. The scope SQL intentionally accepts only existing objects
-in the reserved prefix for new references.
+The Edge Function uploads JPG, PNG or WebP files up to 4 MiB using its
+existing service role, a new random object key, and upsert disabled. It checks
+current ownership before upload and again when saving the gallery. Removing a
+new photo detaches its URL. Files are retained. If an upload succeeds and the
+gallery save fails, the object may remain unreferenced. The design requires no
+Storage policy change provided the bucket permits the image types and the
+reserved prefix cannot be written by untrusted users.
 
 Before applying SQL, review the target catalog with
 PROD-OWNER-PHASE2-CONTENT-PREFLIGHT-READONLY.sql and confirm the backup and Storage

@@ -13,7 +13,8 @@ SELECT jsonb_build_object(
     'id', id, 'public', public, 'file_size_limit', file_size_limit,
     'allowed_mime_types', allowed_mime_types) ORDER BY id) FROM storage.buckets),
   'storage_policy_metadata', (SELECT jsonb_agg(jsonb_build_object(
-    'name', policyname, 'command', cmd, 'roles', roles) ORDER BY policyname)
+    'name', policyname, 'command', cmd, 'roles', roles, 'permissive', permissive,
+    'using', qual, 'with_check', with_check) ORDER BY policyname)
     FROM pg_policies WHERE schemaname='storage' AND tablename='objects'),
   'pilot_status_rpc', to_regprocedure('public.owner_pilot_status_v1(uuid)') IS NOT NULL
 ) AS owner_phase2_catalog;
