@@ -132,6 +132,9 @@ BEGIN
   SELECT jsonb_build_object(
     'pilot',true,
     'is_admin',owner_portal_pilot.is_admin(p_actor,'dallas') OR owner_portal_pilot.is_admin(p_actor,'colorado'),
+    'claim_candidates',coalesce((SELECT jsonb_agg(jsonb_build_object('id',b.id,'name_ko',b.name_ko,'name_en',b.name_en) ORDER BY b.id)
+      FROM owner_portal_pilot.business_scope s JOIN public.businesses b ON b.id=s.business_id
+      WHERE NOT EXISTS (SELECT 1 FROM owner_portal_pilot.businesses owned WHERE owned.public_id=b.id AND owned.user_id IS NOT NULL)),'[]'),
     'businesses',coalesce((SELECT jsonb_agg(b.details||jsonb_build_object('id',b.id,'region',b.region)
       ORDER BY b.id) FROM owner_portal_pilot.businesses b WHERE b.user_id=p_actor),'[]'),
     'requests',coalesce((SELECT jsonb_agg(to_jsonb(r) ORDER BY r.created_at DESC,r.id DESC)

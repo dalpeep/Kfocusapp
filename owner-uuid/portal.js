@@ -20,6 +20,7 @@
     const showSession = active => {
       signedIn.hidden = !active;
       login.hidden = active;
+      window.OwnerPilot.show(client, active);
     };
     const {data} = await client.auth.getSession();
     showSession(!showLogin && Boolean(data.session));
