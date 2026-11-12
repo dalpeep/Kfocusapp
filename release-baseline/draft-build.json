@@ -509,7 +509,7 @@
     },
     {
       "path": "scripts/release/locked-draft-build.mjs",
-      "sha256": "16f2cad83f8801146744e4a93661f6dbaea97c599c5fad2023eb9b191820a8ce"
+      "sha256": "ac1cad02fdc05ebce17a6fbff90bd2881b8c35285ac4cb822a34a2f21afc5787"
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",

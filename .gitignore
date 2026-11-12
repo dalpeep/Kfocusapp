@@ -1,4 +1,6 @@
 node_modules/
+/supabase/functions/owner-phase1/handler.generated.mjs
+/.public-build/
 .local-tools/
 .release-artifacts/
 .env

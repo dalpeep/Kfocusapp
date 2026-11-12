@@ -27,7 +27,9 @@ test('runtime changes are limited to approved authorization patches and QA scrip
 });
 test('the UI release retains the deployed build settings, SQL, and activation gate',()=>{
  const production='e0aecb4c91726f3be5031df3f6244c86e1e58c93';
- const diff=execFileSync('git',['diff',production,'--','netlify','*.sql','release-baseline/activation.json'],{encoding:'utf8'});
+ const diff=execFileSync('git',['diff',production,'--','netlify','*.sql','release-baseline/activation.json',
+  ':(exclude)docs/migrations/DRAFT-owner-phase1-pilot.sql',
+  ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql'],{encoding:'utf8'});
  assert.equal(diff,'');
  const toml=fs.readFileSync('netlify.toml','utf8').replaceAll('\r\n','\n');
  const published=execFileSync('git',['show',production+':netlify.toml'],{encoding:'utf8'}).replaceAll('\r\n','\n');

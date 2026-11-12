@@ -1,0 +1,30 @@
+[
+  {
+    "path": "owner-uuid/availability.js",
+    "sha256": "39f291b7b9e9a247cec8d5078162aa7565387eed35537e7e8dd4aafea71a3672"
+  },
+  {
+    "path": "owner-uuid/index.html",
+    "sha256": "8e2a8878dfc2e58092ee32383a6645ff38854fe0b8102f6cee8f6710991e6c5f"
+  },
+  {
+    "path": "owner-uuid/layout.js",
+    "sha256": "d35c2df2d98f3dbe86f389526a3ababf8d015e8da9439c648675261ff2848183"
+  },
+  {
+    "path": "owner-uuid/portal.css",
+    "sha256": "2638a2094a13aa6443cb1f6564b064ac219c3c2eb8a50f65141189360435fb86"
+  },
+  {
+    "path": "owner-uuid/portal.js",
+    "sha256": "86cccfc2b4ed8c4ea8d658fe291a0e6be6387ec285efc55507806a159e3ff9a2"
+  },
+  {
+    "path": "owner-uuid/requests.js",
+    "sha256": "5aebeba14dcd07bf63cf0c45892327ebb0e9e2ee80275a315bc260574c3d511d"
+  },
+  {
+    "path": "owner-uuid/ui-policy.js",
+    "sha256": "095a9eceb0124e2564ae2c42498931a3023042b58f0be8c93889fdfb39e18db3"
+  }
+]
