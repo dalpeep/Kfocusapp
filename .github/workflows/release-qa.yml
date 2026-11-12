@@ -38,6 +38,16 @@ jobs:
       - name: Load all actual ZIPs outside checkout with real runtime dependencies
         run: node scripts/release/verify-standalone-runtime.mjs
       - run: npm run qa:test
+      - name: Prepare verified ZIPs for migration tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          artifacts = Path(".release-artifacts")
+          for archive in sorted((artifacts / "functions").glob("*.zip")):
+              with ZipFile(archive) as bundle:
+                  bundle.extractall(artifacts / "unpacked" / archive.stem)
+          PY
       - run: npm run qa:migration
       - name: Community cards, logo fallback and telephone contract
         run: node --test tests/community/*.test.mjs
