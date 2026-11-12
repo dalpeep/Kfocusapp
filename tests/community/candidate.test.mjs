@@ -29,7 +29,10 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
  const production='e0aecb4c91726f3be5031df3f6244c86e1e58c93';
  const diff=execFileSync('git',['diff',production,'--','netlify','*.sql','release-baseline/activation.json',
   ':(exclude)docs/migrations/DRAFT-owner-phase1-pilot.sql',
-  ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql'],{encoding:'utf8'});
+  ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql',
+  // Review-only phase-two SQL, applied separately from Netlify builds.
+  ':(exclude)docs/migrations/DRAFT-owner-phase2-gallery.sql',
+  ':(exclude)docs/migrations/PROD-OWNER-PHASE2-CONTENT-PREFLIGHT-READONLY.sql'],{encoding:'utf8'});
  assert.equal(diff,'');
  const toml=fs.readFileSync('netlify.toml','utf8').replaceAll('\r\n','\n');
  const published=execFileSync('git',['show',production+':netlify.toml'],{encoding:'utf8'}).replaceAll('\r\n','\n');
