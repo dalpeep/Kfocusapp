@@ -15,14 +15,35 @@
   const createClient = options => window.supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY,
     {auth: {detectSessionInUrl: false, ...options}});
 
-  async function startLogin() {
+  async function startLogin({showLogin = false} = {}) {
     const client = createClient({storage: sessionStorage, persistSession: true});
     const showSession = active => {
       signedIn.hidden = !active;
       login.hidden = active;
     };
     const {data} = await client.auth.getSession();
-    showSession(Boolean(data.session));
+    showSession(!showLogin && Boolean(data.session));
+    const reset = document.getElementById('password-reset');
+    reset.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = reset.querySelector('button');
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        const email = String(new FormData(reset).get('email')).trim();
+        const {error} = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: 'https://daltownmap.com/owner-uuid/',
+        });
+        status.textContent = error
+          ? '재설정 메일을 요청하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+          : '등록된 이메일이라면 비밀번호 재설정 링크를 받을 수 있습니다.';
+        if (!error) reset.reset();
+      } catch {
+        status.textContent = '연결을 확인하고 다시 시도해 주세요.';
+      } finally {
+        button.disabled = false;
+      }
+    });
     login.addEventListener('submit', async event => {
       event.preventDefault();
       const button = login.querySelector('button');
