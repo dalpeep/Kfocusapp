@@ -1127,7 +1127,6 @@
           };
           const basic = basicTab.panel;
           const description = append(append(basic, 'label', '소개'), 'textarea', '');
-          basicTab.activate = () => fitDescription();
           description.className = 'pilot-business-description';
           description.value = business.description || '';
           const fitDescription = () => {
@@ -1146,10 +1145,100 @@
             fitDescription();
           });
           descriptionObserver.observe(card);
-          const hours = append(append(basic, 'label', '영업시간'), 'input', '');
-          hours.value = business.hours || '';
-          action(basic, '정보 저장', () => ({action: 'update', business_id: business.id,
-            changes: {description: description.value, hours: hours.value}}));
+          const hours = append(basic, 'fieldset', '');
+          append(hours, 'legend', '영업시간');
+          const feedbackHours = append(basic, 'p', '');
+          feedbackHours.setAttribute('role', 'status');
+          const saveInfo = append(basic, 'button', '정보 저장');
+          saveInfo.type = 'button';
+          saveInfo.disabled = true;
+          const hoursQuery = '?content=hours&business=' + encodeURIComponent(business.id);
+          const dayFields = new Map();
+          const legacyHours = typeof business.hours === 'string' ? business.hours : '';
+          let originalHours, originalDescription = description.value, loadingHours = false;
+          function drawHours(value) {
+            originalHours = value;
+            dayFields.clear();
+            hours.replaceChildren();
+            append(hours, 'legend', '영업시간');
+            if (legacyHours) append(hours, 'p', '기존 영업시간 안내 · ' + legacyHours);
+            if (value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+              append(hours, 'p', '기존 영업시간 형식은 관리자에게 수정을 요청해 주세요.');
+              return;
+            }
+            for (const [day, name] of [['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금'],['sat','토'],['sun','일']]) {
+              const row = append(hours, 'fieldset', '');
+              row.className = 'owner-hours-day';
+              append(row, 'legend', name + '요일');
+              const previous = value?.[day];
+              if (previous !== undefined && (!previous || typeof previous !== 'object' || Array.isArray(previous))) {
+                append(row, 'p', '기존 값은 관리자에게 수정을 요청해 주세요.');
+                continue;
+              }
+              const closedLabel = append(row, 'label', '');
+              const closed = append(closedLabel, 'input', '');
+              closed.type = 'checkbox';
+              closed.checked = previous?.closed === true || previous?.closed === 'true';
+              closedLabel.append('휴무');
+              const grid = append(row, 'div', '');
+              grid.className = 'owner-hours-fields';
+              const fields = new Map([['closed', closed]]);
+              for (const [key, label] of [['open1','시작'],['close1','종료'],['open2','추가 시작'],['close2','추가 종료']]) {
+                const input = append(append(grid, 'label', label), 'input', '');
+                input.placeholder = '11:00 AM';
+                input.maxLength = 60;
+                input.value = typeof previous?.[key] === 'string' ? previous[key] : '';
+                fields.set(key,input);
+              }
+              dayFields.set(day, {fields, initial:new Map([...fields].map(([key,input])=>[key,key==='closed'?input.checked:input.value]))});
+            }
+          }
+          basicTab.activate = async () => {
+            fitDescription();
+            if (loadingHours || originalHours !== undefined) return;
+            loadingHours = true;
+            try {
+              drawHours((await request(hoursQuery)).hours);
+              saveInfo.disabled = false;
+              feedbackHours.textContent = '';
+            } catch (error) {
+              feedbackHours.textContent = error.message + ' 기본정보 탭을 다시 선택해 주세요.';
+            } finally { loadingHours = false; }
+          };
+          saveInfo.onclick = async () => {
+            if (saveInfo.disabled) return;
+            const days = {}, expected = {};
+            for (const [day, {fields, initial}] of dayFields) {
+              const patch = {};
+              for (const [key, input] of fields) {
+                const value = key==='closed'?input.checked:input.value;
+                if (value !== initial.get(key)) patch[key]=value;
+              }
+              if (Object.keys(patch).length) {
+                days[day]=patch;
+                expected[day]=originalHours?.[day]??null;
+              }
+            }
+            const submittedDescription = description.value;
+            const command = {days, expected, key:crypto.randomUUID()};
+            if (submittedDescription !== originalDescription) command.description=submittedDescription;
+            saveInfo.disabled = true;
+            for (const group of dayFields.values()) for (const input of group.fields.values()) input.disabled=true;
+            description.readOnly = true;
+            try {
+              const result = await request(hoursQuery, command);
+              originalDescription = submittedDescription;
+              drawHours(result.hours);
+              feedbackHours.textContent = '기본정보를 저장했습니다.';
+            } catch (error) {
+              feedbackHours.textContent = error.status===409
+                ? '영업시간이 변경됐거나 기존 형식을 확인해야 합니다. 입력을 복사한 뒤 새로고침해 주세요.' : error.message;
+            } finally {
+              for (const group of dayFields.values()) for (const input of group.fields.values()) input.disabled=false;
+              description.readOnly = false;
+              saveInfo.disabled = false;
+            }
+          };
           selectTab(basicTab);
         }
         owner.hidden = false;
