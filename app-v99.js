@@ -2492,7 +2492,7 @@ async function loadCouponsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   try {
-    const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,sort_order,created_at,notify_emails,notify_phones,delivery_mode,raffle_end_at,winner_count,one_per_email,marketing_opt_in_enabled';
+    const select = 'id,business_id,business_ids,title,description,coupon_code,use_link_url,image_url,discount_label,start_at,end_at,is_active,is_today_coupon,owner_verified_use,sort_order,created_at,notify_emails,notify_phones,delivery_mode,raffle_end_at,winner_count,one_per_email,marketing_opt_in_enabled';
     const url = `${SUPABASE_URL}/rest/v1/coupons?select=${encodeURIComponent(select)}&is_active=eq.true&order=sort_order.asc.nullslast,end_at.asc.nullslast,created_at.desc.nullslast`;
     const res = await fetch(url,{
       headers:{ apikey:SUPABASE_ANON_KEY, Authorization:`Bearer ${SUPABASE_ANON_KEY}` },
@@ -2521,6 +2521,7 @@ async function loadCouponsFromSupabase(){
       end_at: row.end_at || '',
       isActive: row.is_active !== false,
       is_active: row.is_active !== false,
+      ownerVerifiedUse: row.owner_verified_use === true,
       isToday: row.is_today_coupon === true,
       is_today_coupon: row.is_today_coupon === true,
       sortOrder: row.sort_order == null ? 1000 : Number(row.sort_order),
@@ -6649,7 +6650,8 @@ async function confirmCouponUse(id){
   }
 
   try{
-    await useCouponNow(coupon);
+    if (coupon.ownerVerifiedUse) await showVerifiedCouponCode(coupon);
+    else await useCouponNow(coupon);
     return true;
   }catch(e){
     console.error('[V241.2] display coupon redeem failed',e);
@@ -6965,7 +6967,29 @@ if(couponUseCard){
 // 사용 링크가 있는 특수 쿠폰도 자동 이동하지 않고, 필요하면 별도 버튼 UX로 확장합니다.
 return true;
 }
-	
+async function showVerifiedCouponCode(coupon){
+  const client = getAuthClient();
+  if (!client || !coupon?.id) throw new Error('쿠폰 정보를 확인해 주세요.');
+  const card = document.getElementById('couponUseCard');
+  const button = card?.querySelector('.coupon-confirm-btn');
+  if (!button) return;
+  const {data: proof,error} = await client.rpc('owner_issue_coupon_use_proof_v1',{p_coupon:coupon.id});
+  if (error || !proof) throw new Error('사용 코드를 발급하지 못했습니다. 매장에 문의해 주세요.');
+  const message = document.createElement('p');
+  message.textContent = '이 코드를 5분 안에 매장 직원에게 보여주세요.';
+  const code = document.createElement('input');
+  code.readOnly = true;
+  code.setAttribute('aria-label','일회용 쿠폰 사용 코드');
+  code.value = proof;
+  code.style.width = '100%';
+  const refresh = document.createElement('button');
+  refresh.type = 'button';
+  refresh.className = 'coupon-confirm-btn';
+  refresh.textContent = '새 사용 코드 받기';
+  refresh.onclick = () => { void confirmCouponUse(coupon.id); };
+  button.replaceWith(message,code,refresh);
+}
+
 function renderLucideStars(rating){
   const score = Number(rating || 0);
   let html = '<span class="google-stars">';
@@ -7059,8 +7083,8 @@ function renderCouponUse(id){
       </div>
 
       <p style="margin:6px 0 16px;color:#64748b;font-size:13px;line-height:1.5;">
-        매장 직원이 쿠폰 내용을 확인한 뒤 아래 버튼을 눌러주세요.<br>
-        사용 확인 후에는 사용 완료 화면이 그대로 유지됩니다.
+        ${c.ownerVerifiedUse ? '아래 버튼을 눌러 사용 코드를 받은 뒤 매장 직원에게 보여주세요.' : '매장 직원이 쿠폰 내용을 확인한 뒤 아래 버튼을 눌러주세요.'}<br>
+        ${c.ownerVerifiedUse ? '매장에서 확인하면 사용이 기록됩니다.' : '사용 확인 후에는 사용 완료 화면이 그대로 유지됩니다.'}
       </p>
 
       <button
@@ -7069,7 +7093,7 @@ function renderCouponUse(id){
         onclick="confirmCouponUse('${c.id}')"
       >
         <span class="coupon-confirm-icon">✓</span>
-        쿠폰 사용 확인
+        ${c.ownerVerifiedUse ? '쿠폰 사용 코드 받기' : '쿠폰 사용 확인'}
       </button>
     </div>
   `;
