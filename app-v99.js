@@ -5740,7 +5740,7 @@ async function loadBusinessReservation(id,target){
     input.date.onchange=input.party.onchange=refresh;
     const addProof=()=>{
       if(!dialog.isConnected||widget!==undefined)return;
-      widget=window.turnstile.render(dialog.querySelector('[data-proof]'),{sitekey,action:'reservation',size:'flexible',
+      widget=window.turnstile.render(dialog.querySelector('[data-proof]'),{sitekey,action:'reservation',size:'compact',
         callback:token=>{proof=token;submit.disabled=false;},
         'expired-callback':()=>{proof='';submit.disabled=true;},
         'error-callback':()=>{proof='';submit.disabled=true;status.textContent='보안 확인을 완료하지 못했습니다.';}});
@@ -5785,8 +5785,8 @@ async function loadBusinessReservation(id,target){
     };
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
     dialog.addEventListener('close',()=>{
-      dialog.remove();
-      if(widget!==undefined)window.turnstile.remove(widget);
+      try { if(widget!==undefined)window.turnstile.remove(widget); }
+      finally { dialog.remove(); }
     },{once:true});
     dialog.showModal();
   };
