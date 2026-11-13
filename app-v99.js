@@ -6984,18 +6984,20 @@ function watchVerifiedCouponCode(area, proof, customer){
   const input = area.querySelector('input');
   const status = area.querySelector('[role=status]');
   const button = area.querySelector('button');
-  input.value = proof.id;
-  input.hidden = false;
+  const displayCode = proof.code || proof.id;
+  input.value = '';
+  input.hidden = true;
+  area.dataset.proofId = proof.id;
   button.textContent = '새 사용 코드 받기';
-  status.textContent = '이 코드를 5분 안에 매장 직원에게 보여주세요.';
+  status.textContent = '사용 코드 상태를 확인하고 있습니다.';
   async function update(){
-    if (!area.isConnected || input.value !== proof.id) return;
+    if (!area.isConnected || area.dataset.proofId !== proof.id) return;
     let state;
     try {
       const {data} = await getAuthClient().rpc('owner_coupon_use_status_v2', {p_proof:proof.id,p_customer:customer});
       state = data;
     } catch (_) {}
-    if (!area.isConnected || input.value !== proof.id) return;
+    if (!area.isConnected || area.dataset.proofId !== proof.id) return;
     if (state === 'used' || state === 'revoked' || state === 'expired' ||
         (!state && Date.now() >= Date.parse(proof.expires_at))) {
       input.hidden = true;
@@ -7004,7 +7006,12 @@ function watchVerifiedCouponCode(area, proof, customer){
         state === 'revoked' ? '새 코드가 발급되어 이 코드는 사용할 수 없습니다.' : '사용 코드가 만료되었습니다.';
       return;
     }
-    couponCodePoll = setTimeout(update, 3000);
+    if (state === 'pending') {
+      input.value = displayCode;
+      input.hidden = false;
+      status.textContent = '이 코드를 5분 안에 매장 직원에게 보여주세요.';
+    }
+    couponCodePoll = setTimeout(update, 1500);
   }
   void update();
 }

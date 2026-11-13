@@ -14,7 +14,7 @@ function imageType(bytes) {
   return null;
 }
 
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1', 'redeem_owner_display_coupon_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1', 'owner_redeem_coupon_code_v3', 'owner_coupon_history_v3']);
 
 export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, specialsV2Enabled = false, couponsEnabled = false, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
@@ -96,17 +96,22 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
               return json(400, {ok: false});
             }
           }
+          if (coupons && method === 'GET' && url.searchParams.get('view') === 'history') {
+            const result = await client.rpc('owner_coupon_history_v3', params);
+            if (!result.error) return json(200, {ok: true, result: result.data});
+            return json({OP403: 403, OP503: 503}[result.error.code] || 502, {ok: false});
+          }
           if (coupons && params.p_command?.action === 'redeem_use_proof') {
             const couponId = params.p_command.id;
             if (typeof couponId !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(couponId)) {
               return json(400, {ok: false});
             }
-            const proof = params.p_command.proof;
-            if (typeof proof !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(proof)) {
+            const proof = typeof params.p_command.proof === 'string' ? params.p_command.proof.trim().toUpperCase() : '';
+            if (!/^(?:[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{6}|[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12})$/.test(proof)) {
               return json(400, {ok: false});
             }
-            const result = await client.rpc('redeem_owner_display_coupon_v1', {
-              p_actor: params.p_actor, p_business: business, p_coupon: couponId, p_proof: proof,
+            const result = await client.rpc('owner_redeem_coupon_code_v3', {
+              p_actor: params.p_actor, p_business: business, p_coupon: couponId, p_code: proof,
             });
             if (!result.error) return json(200, {ok: true, result: result.data});
             return json({OP403: 403, OP503: 503}[result.error.code] || 502, {ok: false});
