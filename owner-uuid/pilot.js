@@ -33,15 +33,15 @@
     if (!active) return;
     let offset = 0;
 
-    async function request(query, command) {
+    async function request(query, command, file) {
       const {data} = await client.auth.getSession();
       if (current !== generation || !data?.session) throw Error('다시 로그인해 주세요.');
       const response = await fetch(endpoint + query, {
-        method: command ? 'POST' : 'GET', redirect: 'error', cache: 'no-store',
+        method: command || file ? 'POST' : 'GET', redirect: 'error', cache: 'no-store',
         headers: {apikey: window.APP_CONFIG.SUPABASE_ANON_KEY,
           Authorization: 'Bearer ' + data.session.access_token,
-          ...(command ? {'Content-Type': 'application/json'} : {})},
-        ...(command ? {body: JSON.stringify(command)} : {}),
+          ...(command || file ? {'Content-Type': file ? 'application/octet-stream' : 'application/json'} : {})},
+        ...(command || file ? {body: file || JSON.stringify(command)} : {}),
       });
       const body = await response.json();
       if (response.ok && body.ok) return body.result;
@@ -103,6 +103,63 @@
         for (const business of data.businesses) {
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
+          const gallery = append(card, 'details', '');
+          append(gallery, 'summary', '업소 사진');
+          const feedback = append(gallery, 'p', '');
+          feedback.setAttribute('role', 'status');
+          const galleryQuery = '?content=gallery&business=' + encodeURIComponent(business.id);
+          let loaded = false;
+          gallery.addEventListener('toggle', async () => {
+            if (!gallery.open || loaded) return;
+            loaded = true;
+            feedback.textContent = '사진 목록을 불러오는 중입니다.';
+            try {
+              let expected = await request(galleryQuery);
+              if (current !== generation) return;
+              const urls = append(append(gallery, 'label', '업주가 올린 사진 주소 (한 줄에 하나씩)'), 'textarea', '');
+              const uploadPrefix = endpoint.split('/functions/')[0]
+                + '/storage/v1/object/public/public-images/owner-phase2/' + business.id + '/';
+              const isOwnerUpload = url => url.startsWith(uploadPrefix);
+              let existing = expected.filter(url => !isOwnerUpload(url));
+              if (existing.length) append(gallery, 'p', '기존 사진은 보존됩니다.');
+              urls.value = expected.filter(isOwnerUpload).join('\n');
+              const file = append(append(gallery, 'label', '새 사진 (JPG, PNG, WebP · 최대 4MB)'), 'input', '');
+              file.type = 'file';
+              file.accept = 'image/jpeg,image/png,image/webp';
+              feedback.textContent = '';
+              const save = append(gallery, 'button', '사진 목록 저장');
+              save.type = 'button';
+              save.onclick = async () => {
+                save.disabled = urls.disabled = file.disabled = true;
+                try {
+                  const image = file.files[0];
+                  if (image) {
+                    if (image.size > 4 * 1024 * 1024) {
+                      feedback.textContent = '4MB 이하의 사진을 선택해 주세요.';
+                      return;
+                    }
+                    const uploaded = await request(galleryQuery + '&upload=1', null, image);
+                    urls.value = [urls.value.trim(), uploaded].filter(Boolean).join('\n');
+                    file.value = '';
+                  }
+                  const next = urls.value.split(/\r?\n/).map(url => url.trim()).filter(Boolean);
+                  expected = await request(galleryQuery, {expected, urls: [...existing, ...next]});
+                  existing = expected.filter(url => !isOwnerUpload(url));
+                  urls.value = expected.filter(isOwnerUpload).join('\n');
+                  feedback.textContent = '사진 목록을 저장했습니다.';
+                } catch (error) {
+                  feedback.textContent = error.status === 409
+                    ? '사진 목록이 변경됐습니다. 페이지를 새로고침해 다시 확인해 주세요.'
+                    : '사진 목록을 저장하지 못했습니다.';
+                } finally {
+                  save.disabled = urls.disabled = file.disabled = false;
+                }
+              };
+            } catch (error) {
+              loaded = false;
+              feedback.textContent = error.status === 503 ? '사진 관리는 준비 중입니다.' : '사진 목록을 불러오지 못했습니다.';
+            }
+          });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
