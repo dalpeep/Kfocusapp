@@ -5810,3 +5810,24 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 .reservation-actions [data-back-to-reservation] { background:#166534; color:#fff; }
 .reservation-actions [data-cancel] { background:#b91c1c; color:#fff; }
 @media(max-width:350px) { .reservation-slot-fields { grid-template-columns:minmax(0,1fr); } }
+
+.home-owner-entry {
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:8px 12px; margin:8px 0; background:#f0f6ff; border:1px solid #dce9ff;
+  border-radius:12px; color:#18335f; font-size:14px;
+}
+.home-owner-entry a,.business-inquiry-tabs a {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  min-height:44px; padding:6px 10px; border-radius:10px; text-decoration:none;
+  font-weight:700; text-align:center;
+}
+.home-owner-entry a { flex:none; background:#1d4ed8; color:#fff; }
+.home-owner-entry svg,.business-entry-link svg { width:17px; height:17px; flex:none; }
+.side-menu .business-entry-link { display:flex; align-items:center; gap:8px; text-decoration:none; }
+.business-inquiry-tabs {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+  max-width:720px; margin:16px auto 0;
+}
+.business-inquiry-tabs a { background:#edf2fa; color:#18335f; }
+.business-inquiry-tabs a[aria-current=page] { background:#1d4ed8; color:#fff; }
+.business-claim-link { display:block; width:fit-content; margin:12px auto 0; color:#1d4ed8; }

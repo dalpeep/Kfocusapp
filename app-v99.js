@@ -8010,6 +8010,17 @@ function boardBottomList(){
 
 function showPage(page, opts={}){
   const requestedPage=page;
+  if(page==='business-register'||page==='advertise'){
+    const tabs=document.querySelector('.business-inquiry-tabs');
+    const panel=document.getElementById('page-'+page);
+    if(tabs&&panel){
+      if(tabs.parentElement!==panel)panel.prepend(tabs);
+      for(const tab of tabs.querySelectorAll('a')){
+        if(tab.hash==='#'+page)tab.setAttribute('aria-current','page');
+        else tab.removeAttribute('aria-current');
+      }
+    }
+  }
   const renderedPage=page==='discount'?'coupon':page;
   if(renderedPage==='coupon')setCouponShellMode(page==='discount'?'discount':'coupon');
   const prevPage = currentPage;
