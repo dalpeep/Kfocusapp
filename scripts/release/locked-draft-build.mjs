@@ -38,6 +38,11 @@ try {
     fs.mkdirSync(path.dirname(destination),{recursive:true});
     fs.writeFileSync(destination,Buffer.from(bytes,'base64'));
   }
+  // Keep the legacy public test bytes while GitHub QA runs the current tests.
+  for(const [file,bytes] of Object.entries(snapshot.publicTestFiles||{})){
+    if(!/^tests\/(?:active-state-contract|discount-business-authority|event-count-authority|map-status)\.test\.cjs$/.test(file))throw Error();
+    fs.writeFileSync(path.join(out,file),Buffer.from(bytes,'base64'));
+  }
   stage='seo-output-audit';
   const seoIndex=JSON.parse(fs.readFileSync(path.join(out,'seo-index.json')));
   const businesses=JSON.parse(fs.readFileSync(path.join(out,'business-index.json')));
