@@ -1,3 +1,5 @@
+import {scheduleReservationMail} from '../_shared/reservation-mail.mjs';
+
 const origin = 'https://daltownmap.com';
 const project = 'https://ydrxuqmjzayejlnjzzew.supabase.co';
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -71,7 +73,13 @@ Deno.serve(async request => {
       headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},body:JSON.stringify(args)});
     const data=await response.json();
     if(credentialLookup && response.ok && data.error==='CREDENTIALS')return reply(403,{code:'CREDENTIALS'});
-    if(response.ok)return reply(200,{result:data});
+    if(response.ok){
+      if(body.action==='submit'||body.action==='submit-number'||body.action==='cancel'||body.action==='cancel-number'){
+        try{scheduleReservationMail(project,service,data);}
+        catch{console.warn('RESERVATION_MAIL_SCHEDULE_FAILED');}
+      }
+      return reply(200,{result:data});
+    }
     const status=({OP400:400,OP403:403,OP409:409,OP429:429} as Record<string,number>)[data.code]||503;
     return reply(status,{code:status===503?'RESERVATION_UNAVAILABLE':data.code});
   } catch { return reply(503,{code:'RESERVATION_UNAVAILABLE'}); }
