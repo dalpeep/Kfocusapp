@@ -3016,10 +3016,7 @@ function activeCoupons(list=coupons){
   );
 }
 function todayCoupons(){
-  // '오늘의 쿠폰'으로 명시적으로 지정된 활성 쿠폰만 반환합니다.
-  // 과거에는 지정된 쿠폰이 하나도 없을 때 모든 활성 쿠폰을 대신 노출했기 때문에
-  // 관리자 화면과 실제 홈 DalPick/오늘의 쿠폰 노출이 서로 다르게 보일 수 있었습니다.
-  return activeCoupons(coupons).filter(c=>c.isToday === true);
+  return activeCoupons(coupons).sort((a,b)=>Number(b.isToday === true)-Number(a.isToday === true));
 }
 function getCoupon(id){ return coupons.find(c=>String(c.id)===String(id)) || null; }
 function couponCardHTML(c, mode='all'){
@@ -6640,6 +6637,8 @@ async function confirmCouponUse(id){
     return true;
   }
 
+  if (coupon.ownerVerifiedUse) return showVerifiedCouponCode(coupon);
+
   const btn=document.querySelector('.coupon-confirm-btn');
   if(btn?.dataset.busy==='1') return false;
 
@@ -6650,8 +6649,7 @@ async function confirmCouponUse(id){
   }
 
   try{
-    if (coupon.ownerVerifiedUse) await showVerifiedCouponCode(coupon);
-    else await useCouponNow(coupon);
+    await useCouponNow(coupon);
     return true;
   }catch(e){
     console.error('[V241.2] display coupon redeem failed',e);
@@ -6967,27 +6965,69 @@ if(couponUseCard){
 // 사용 링크가 있는 특수 쿠폰도 자동 이동하지 않고, 필요하면 별도 버튼 UX로 확장합니다.
 return true;
 }
+let couponCustomerKey;
+let couponCodePoll;
+
+function getCouponCustomerKey(){
+  if (!couponCustomerKey) {
+    couponCustomerKey = crypto.randomUUID();
+    try {
+      couponCustomerKey = localStorage.getItem('dtm-coupon-customer') || couponCustomerKey;
+      localStorage.setItem('dtm-coupon-customer', couponCustomerKey);
+    } catch (_) {}
+  }
+  return couponCustomerKey;
+}
+
+function watchVerifiedCouponCode(area, proof, customer){
+  clearTimeout(couponCodePoll);
+  const input = area.querySelector('input');
+  const status = area.querySelector('[role=status]');
+  const button = area.querySelector('button');
+  input.value = proof.id;
+  input.hidden = false;
+  button.textContent = '새 사용 코드 받기';
+  status.textContent = '이 코드를 5분 안에 매장 직원에게 보여주세요.';
+  async function update(){
+    if (!area.isConnected || input.value !== proof.id) return;
+    let state;
+    try {
+      const {data} = await getAuthClient().rpc('owner_coupon_use_status_v2', {p_proof:proof.id,p_customer:customer});
+      state = data;
+    } catch (_) {}
+    if (!area.isConnected || input.value !== proof.id) return;
+    if (state === 'used' || state === 'revoked' || state === 'expired' ||
+        (!state && Date.now() >= Date.parse(proof.expires_at))) {
+      input.hidden = true;
+      input.value = '';
+      status.textContent = state === 'used' ? '쿠폰 사용이 확인되었습니다.' :
+        state === 'revoked' ? '새 코드가 발급되어 이 코드는 사용할 수 없습니다.' : '사용 코드가 만료되었습니다.';
+      return;
+    }
+    couponCodePoll = setTimeout(update, 3000);
+  }
+  void update();
+}
+
 async function showVerifiedCouponCode(coupon){
-  const client = getAuthClient();
-  if (!client || !coupon?.id) throw new Error('쿠폰 정보를 확인해 주세요.');
-  const card = document.getElementById('couponUseCard');
-  const button = card?.querySelector('.coupon-confirm-btn');
-  if (!button) return;
-  const {data: proof,error} = await client.rpc('owner_issue_coupon_use_proof_v1',{p_coupon:coupon.id});
-  if (error || !proof) throw new Error('사용 코드를 발급하지 못했습니다. 매장에 문의해 주세요.');
-  const message = document.createElement('p');
-  message.textContent = '이 코드를 5분 안에 매장 직원에게 보여주세요.';
-  const code = document.createElement('input');
-  code.readOnly = true;
-  code.setAttribute('aria-label','일회용 쿠폰 사용 코드');
-  code.value = proof;
-  code.style.width = '100%';
-  const refresh = document.createElement('button');
-  refresh.type = 'button';
-  refresh.className = 'coupon-confirm-btn';
-  refresh.textContent = '새 사용 코드 받기';
-  refresh.onclick = () => { void confirmCouponUse(coupon.id); };
-  button.replaceWith(message,code,refresh);
+  const area = document.querySelector('#couponUseCard [data-verified-code]');
+  const button = area?.querySelector('button');
+  if (!button || button.disabled) return false;
+  const status = area.querySelector('[role=status]');
+  button.disabled = true;
+  try {
+    const customer = getCouponCustomerKey();
+    const {data:proof,error} = await getAuthClient().rpc('owner_refresh_coupon_use_proof_v2', {p_coupon:coupon.id,p_customer:customer});
+    if (error || !proof?.id) throw new Error('Coupon proof unavailable');
+    try { sessionStorage.setItem('dtm-coupon-proof:'+coupon.id, JSON.stringify(proof)); } catch (_) {}
+    if (area.isConnected) watchVerifiedCouponCode(area, proof, customer);
+    return true;
+  } catch (_) {
+    status.textContent = '사용 코드를 발급하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    return false;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderLucideStars(rating){
@@ -7087,16 +7127,23 @@ function renderCouponUse(id){
         ${c.ownerVerifiedUse ? '매장에서 확인하면 사용이 기록됩니다.' : '사용 확인 후에는 사용 완료 화면이 그대로 유지됩니다.'}
       </p>
 
-      <button
-        class="coupon-confirm-btn"
-        type="button"
-        onclick="confirmCouponUse('${c.id}')"
-      >
-        <span class="coupon-confirm-icon">✓</span>
-        ${c.ownerVerifiedUse ? '쿠폰 사용 코드 받기' : '쿠폰 사용 확인'}
-      </button>
+      ${c.ownerVerifiedUse ? `
+        <div data-verified-code>
+          <p role="status"></p>
+          <input hidden readonly aria-label="일회용 쿠폰 사용 코드" style="width:100%;box-sizing:border-box;">
+          <button class="coupon-confirm-btn" type="button" onclick="confirmCouponUse('${esc(c.id)}')">쿠폰 사용 코드 받기</button>
+        </div>` : `
+        <button class="coupon-confirm-btn" type="button" onclick="confirmCouponUse('${esc(c.id)}')">
+          <span class="coupon-confirm-icon">✓</span> 쿠폰 사용 확인
+        </button>`}
     </div>
   `;
+  if (c.ownerVerifiedUse) {
+    try {
+      const proof = JSON.parse(sessionStorage.getItem('dtm-coupon-proof:'+c.id));
+      if (proof?.id) watchVerifiedCouponCode(couponUseCard.querySelector('[data-verified-code]'), proof, getCouponCustomerKey());
+    } catch (_) {}
+  }
 }
 window.confirmCouponUse = confirmCouponUse;
 function getYouTubeId(url) {
