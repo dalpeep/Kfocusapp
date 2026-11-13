@@ -6346,7 +6346,12 @@ function renderCouponDetail(id){
 
   const title = c.title || '쿠폰';
   const bizName = b.name || b.name_ko || b.name_en || '';
-  const desc = c.description || '';
+  const benefitSections = [{label:'한글 설명',text:''}];
+  for (const line of (c.description || '').split(/\n\n(?=English:|사용 조건:)/)) {
+    if (line.startsWith('English:')) benefitSections.push({label:'English',text:line.slice(8).trim()});
+    else if (line.startsWith('사용 조건:')) benefitSections.push({label:'사용 조건',text:line.slice(6).trim()});
+    else benefitSections[0].text = line;
+  }
   const badge = c.discount_label || c.badge || 'DEAL';
 
   const start = v249CouponEffectiveStart(c);
@@ -6389,123 +6394,36 @@ function renderCouponDetail(id){
 </div>
 
       <section class="coupon-detail-card">
-        <h2 style="margin-top:10px;">
-  ${esc(title)}
-</h2>
-<div style="margin:-2px 0 10px;font-size:12px;font-weight:800;color:#64748b;">
-  ${String(c.delivery_mode||'display')==='raffle'
-    ? '🎟 이메일 응모·추첨'
-    : String(c.delivery_mode||'display')==='instant_email'
-      ? '✉️ 이메일 즉시 발급'
-      : '🏷 일반 표시 쿠폰'}
-</div>
-
-        ${b && b.id && bizName ? `<button
-  class="coupon-detail-biz biz-open"
-  type="button"
-  data-biz="${esc(b.id)}"
-  style="
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    border:0;
-    border-radius:999px;
-    background:#eef5ff;
-    color:#2a60ab;
-    padding:8px 12px;
-    font-size:14px;
-    font-weight:900;
-    margin:0 0 12px;
-  ">
-  ${esc(bizName)}
-  <i data-lucide="chevron-right"></i>
-</button>` : ''}
-
-
-        <div style="
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  background:#fff7ed;
-  border:1px solid #fed7aa;
-  border-radius:16px;
-  padding:12px 14px;
-  margin:12px 0;
-">
-  <div style="
-    display:flex;
-    align-items:center;
-    gap:8px;
-    font-weight:800;
-    color:#7c2d12;
-  ">
-    <i data-lucide="clock"></i>
-    <strong>남은 시간</strong>
-  </div>
-
-  <b style="
-    font-size:18px;
-    font-weight:900;
-    color:#b45309;
-    white-space:nowrap;
-  ">
-    ${esc(getRemainText(c))}
-  </b>
-</div>
-
-        <div
-  style="
-    display:flex;
-    gap:12px;
-    align-items:flex-start;
-    background:#fff;
-    border:1px solid #e5edff;
-    border-radius:18px;
-    padding:14px;
-    margin:12px 0;
-  "
->
-  <div
-    style="
-      width:42px;
-      height:42px;
-      border-radius:12px;
-      background:#fff1e8;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      color:#f97316;
-      flex-shrink:0;
-    "
-  >
-    <i data-lucide="gift"></i>
-  </div>
-
-  <div>
-    <strong
-      style="
-        display:block;
-        margin-bottom:6px;
-        color:#10224a;
-        font-size:16px;
-      "
-    >
-      혜택 안내
-    </strong>
-
-    <p>${esc(desc || '쿠폰 혜택을 확인하세요.')}</p>
-
-    <ul>
-    </ul>
-  </div>
-</div>
+        <header class="coupon-detail-heading">
+          <h2>${esc(title)}</h2>
+          <span class="coupon-detail-type">${String(c.delivery_mode||'display')==='raffle'
+            ? '🎟 이메일 응모·추첨'
+            : String(c.delivery_mode||'display')==='instant_email'
+              ? '✉️ 이메일 즉시 발급'
+              : '🏷 일반 표시 쿠폰'}</span>
+        </header>
+        ${b.id && bizName ? `<div class="coupon-detail-business-row"><button
+          class="coupon-detail-biz biz-open" type="button" data-biz="${esc(b.id)}">
+          <span>${esc(bizName)}</span><i data-lucide="chevron-right"></i>
+        </button></div>` : ''}
+        <div class="coupon-detail-time">
+          <strong><i data-lucide="clock" aria-hidden="true"></i> 남은 시간</strong>
+          <b>${esc(getRemainText(c))}</b>
+        </div>
+        <section class="coupon-detail-benefits">
+          <h3>혜택 안내</h3>
+          ${benefitSections.some(section=>section.text)
+            ? benefitSections.filter(section=>section.text).map(section=>`
+              <div><h4>${esc(section.label)}</h4><p>${esc(section.text)}</p></div>`).join('')
+            : '<p>쿠폰 혜택을 확인하세요.</p>'}
+        </section>
 
         <button
   class="coupon-primary-use"
   type="button"
   ${v249CanAct?`onclick="${String(c.delivery_mode||'display')==='display'
     ? `renderCouponUse('${esc(c.id)}'); showPage('coupon-use');`
-    : `openCouponCampaignForm('${esc(c.id)}')`}"`:'disabled'}"
+    : `openCouponCampaignForm('${esc(c.id)}')`}"`:'disabled'}
   style="
     width:100%;
     height:54px;
