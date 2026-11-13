@@ -641,6 +641,163 @@
           coupons.addEventListener('toggle', () => {
             if (coupons.open && !couponBusy) void loadCoupons();
           });
+          const events = append(card, 'details', '');
+          append(events, 'summary', '이벤트');
+          const eventStatus = append(events, 'p', '');
+          eventStatus.setAttribute('role', 'status');
+          const eventBody = append(events, 'div', '');
+          const eventQuery = '?content=events&business=' + encodeURIComponent(business.id);
+          let eventBusy = false;
+          async function loadEvents() {
+            try {
+              const rows = await request(eventQuery);
+              eventBody.replaceChildren();
+              const list = append(eventBody, 'div', '');
+              const form = append(eventBody, 'form', '');
+              let selected;
+              const fields = {};
+              function field(name, label, type) {
+                const input = append(append(form, 'label', label), type === 'textarea' ? 'textarea' : 'input', '');
+                if (type !== 'textarea') input.type = type;
+                fields[name] = input;
+                return input;
+              }
+              field('title', '이벤트 제목', 'text').required = true;
+              field('title_en', 'English title', 'text');
+              field('description', '설명', 'textarea');
+              field('address', '장소', 'text').required = true;
+              field('start_at', '시작 (기기 현지 시간)', 'datetime-local').required = true;
+              field('end_at', '종료 (기기 현지 시간)', 'datetime-local').required = true;
+              const localTime = value => {
+                if (!value) return '';
+                const date = new Date(value);
+                return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+              };
+              const media = append(form, 'div', '');
+              media.className = 'pilot-special-image';
+              const preview = append(media, 'img', '');
+              preview.alt = '이벤트 이미지';
+              preview.referrerPolicy = 'no-referrer';
+              const imageButton = append(media, 'button', '이미지 추가');
+              const removeImage = append(media, 'button', '이미지 삭제');
+              imageButton.type = removeImage.type = 'button';
+              const imagePicker = append(media, 'input', '');
+              imagePicker.type = 'file';
+              imagePicker.accept = 'image/jpeg,image/png,image/webp';
+              imagePicker.hidden = true;
+              let imageUrl = null;
+              let imageFile;
+              let previewUrl;
+
+              function renderImage() {
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
+                previewUrl = imageFile ? URL.createObjectURL(imageFile) : undefined;
+                const src = previewUrl || (/^https?:\/\//i.test(imageUrl || '') ? imageUrl : '');
+                if (src) preview.src = src;
+                else preview.removeAttribute('src');
+                preview.hidden = !src;
+                imageButton.textContent = imageUrl || imageFile ? '이미지 교체' : '이미지 추가';
+                removeImage.hidden = !(imageUrl || imageFile);
+              }
+              renderImage();
+              imageButton.onclick = () => {
+                if ((imageUrl || imageFile) && !window.confirm('이벤트 이미지를 교체할까요?')) return;
+                imagePicker.value = '';
+                imagePicker.click();
+              };
+              imagePicker.onchange = () => {
+                const file = imagePicker.files[0];
+                if (!file) return;
+                if (file.size > 4 * 1024 * 1024) {
+                  eventStatus.textContent = '4MB 이하의 사진을 선택해 주세요.';
+                  return;
+                }
+                imageFile = file;
+                renderImage();
+              };
+              removeImage.onclick = () => {
+                if (!window.confirm('이벤트 이미지 참조를 삭제할까요?')) return;
+                imageFile = undefined;
+                imageUrl = null;
+                renderImage();
+              };
+              append(form, 'button', '저장 및 공개').type = 'submit';
+              const reset = append(form, 'button', '새 이벤트');
+              reset.type = 'button';
+              reset.onclick = () => { selected = undefined; form.reset(); imageUrl = null; imageFile = undefined; renderImage(); };
+              for (const row of rows) {
+                const item = append(list, 'div', '');
+                append(item, 'p', row.title + (!row.is_active ? ' · 종료' : new Date(row.end_at)<=new Date() ? ' · 만료' : new Date(row.start_at)>new Date() ? ' · 공개 예정' : ' · 공개'));
+                const edit = append(item, 'button', '수정');
+                edit.type = 'button';
+                edit.onclick = () => {
+                  selected = row;
+                  imageUrl = row.image_url || null;
+                  imageFile = undefined;
+                  renderImage();
+                  for (const name of ['title','title_en','description','address']) fields[name].value = row[name] || '';
+                  fields.start_at.value = localTime(row.start_at);
+                  fields.end_at.value = localTime(row.end_at);
+                };
+                const end = append(item, 'button', '종료');
+                end.type = 'button';
+                end.disabled = !row.is_active;
+                end.onclick = () => {
+                  if (window.confirm('이 이벤트의 공개를 종료할까요?')) void saveEvent({action:'end',id:row.id,expected:row.updated_at});
+                };
+              }
+              if (!rows.length) append(list, 'p', '등록된 이벤트가 없습니다.');
+              form.onsubmit = async event => {
+                event.preventDefault();
+                if (eventBusy) return;
+                const start = new Date(fields.start_at.value);
+                const end = new Date(fields.end_at.value);
+                if (!(end > start)) {
+                  eventStatus.textContent = '종료일은 시작일보다 뒤여야 합니다.';
+                  return;
+                }
+                await saveEvent({action:'save', fields:{title:fields.title.value.trim(),title_en:fields.title_en.value.trim(),
+                  address:fields.address.value.trim(),description:fields.description.value.trim(),
+                  start_at:start.toISOString(),end_at:end.toISOString(),image_url:imageUrl},
+                  ...(selected ? {id:selected.id,expected:selected.updated_at} : {})}, async command => {
+                    if (imageFile) {
+                      imageUrl = await request(galleryQuery + '&upload=1', null, imageFile);
+                      imageFile = undefined;
+                      renderImage();
+                      command.fields.image_url = imageUrl;
+                    }
+                  });
+                if (!form.isConnected && previewUrl) URL.revokeObjectURL(previewUrl);
+              };
+            } catch (error) {
+              eventStatus.textContent = error.status === 503 ? '이벤트 관리는 준비 중입니다.' : '이벤트을 불러오지 못했습니다.';
+            }
+          }
+
+          async function saveEvent(command, prepare) {
+            if (eventBusy || current !== generation) return;
+            eventBusy = true;
+            const controls = [...eventBody.querySelectorAll('button, input, textarea, select')]
+              .filter(control => !control.disabled);
+            for (const control of controls) control.disabled = true;
+            try {
+              if (prepare) await prepare(command);
+              await request(eventQuery, {...command,key:crypto.randomUUID()});
+              eventStatus.textContent = command.action === 'end' ? '공개를 종료했습니다.'
+                : '저장되었습니다. 적용 조건에 따라 공개됩니다.';
+              await loadEvents();
+            } catch (error) {
+              eventStatus.textContent = error.status === 409 ? '목록을 다시 열어 최신 내용을 확인해 주세요.'
+                : '저장 결과를 확인하지 못했습니다. 목록을 다시 열어 확인해 주세요.';
+            } finally {
+              eventBusy = false;
+              for (const control of controls) control.disabled = false;
+            }
+          }
+
+          events.addEventListener('toggle', () => {
+            if (events.open && !eventBusy) void loadEvents();
+          });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';

@@ -1382,6 +1382,36 @@ function renderRecentSearches(){
   const items = getRecentSearches();
   recentSearches.innerHTML = items.length ? `<div class="recent-title">최근 검색</div><div class="recent-chip-row">${items.map(v=>`<button class="recent-chip" data-recent-search="${esc(v)}">${esc(v)}</button>`).join('')}</div>` : '<div class="recent-title">최근 검색이 없습니다.</div>';
 }
+let businessEvents = [];
+async function loadBusinessEvents(){
+  const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
+  if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  try {
+    const response=await fetch(SUPABASE_URL+'/rest/v1/events?select=id,business_id,title,title_en,description,address,image_url,region,start_at,end_at,is_active&business_id=not.is.null&order=end_at.asc,id.asc',{
+      headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}
+    });
+    if(response.ok) businessEvents=await response.json();
+  } catch (_) {}
+}
+function activeBusinessEvents(businessId){
+  return businessEvents.filter(row=>
+    normalizeRegionKey(row.region)===currentRegion &&
+    (!businessId || String(row.business_id)===String(businessId)) &&
+    globalThis.DtmActiveState.isActive(row,'event'));
+}
+function businessEventCards(rows){
+  if(!rows.length) return '';
+  const time=new Intl.DateTimeFormat('ko-KR',{timeZone:currentRegion==='colorado'?'America/Denver':'America/Chicago',dateStyle:'medium',timeStyle:'short'});
+  return `<section class="detail-coupon-block"><h3 class="subsection-title">업소 이벤트</h3>${rows.map(row=>`
+    <details class="detail-coupon-item">
+      <summary>${esc(row.title)}${row.title_en?' · '+esc(row.title_en):''}</summary>
+      ${/^https:\/\//i.test(row.image_url||'')?`<img src="${esc(row.image_url)}" alt="" loading="lazy" style="max-width:100%">`:''}
+      <p>${esc(time.format(new Date(row.start_at)))} – ${esc(time.format(new Date(row.end_at)))}</p>
+      <p>${esc(row.address)}</p><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(row.description||'')}</p>
+      <button type="button" class="biz-open" data-biz="${esc(row.business_id)}">업소 보기</button>
+    </details>`).join('')}</section>`;
+}
+window.DtmBusinessEventCards = () => businessEventCards(activeBusinessEvents());
 async function loadBoardPostsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   boardPosts = [...FALLBACK_BOARD_POSTS];
@@ -1472,7 +1502,7 @@ async function refreshBoardPostsSilently({force=false}={}){
   boardPostsRefreshBusy=true;
   const before=String(boardPosts[0]?.id||'')+'|'+String(boardPosts[0]?.created_at||'');
   try{
-    await loadBoardPostsFromSupabase();
+    await Promise.all([loadBoardPostsFromSupabase(),loadBusinessEvents()]);
     await loadAlertNoticePostsFromSupabase();
     syncBusinessStoriesToBoardPosts();
     boardPostsLastRefreshAt=Date.now();
@@ -2107,7 +2137,7 @@ async function loadRealData(){
   await v295LoadWeeklyPopularClicks(true);
   await loadCouponsFromSupabase();
   await loadDalpicksFromSupabase();
-  await loadBoardPostsFromSupabase();
+  await Promise.all([loadBoardPostsFromSupabase(),loadBusinessEvents()]);
   await loadAlertNoticePostsFromSupabase();
   syncBusinessStoriesToBoardPosts();
   // V84: 초기 데이터 로드 시 공지 게시글을 읽은 뒤 달타운 알림을 즉시 갱신합니다.
@@ -6045,6 +6075,7 @@ ${activeCoupon ? `
 ` : ''}
 
 ${specialHtml}
+${businessEventCards(activeBusinessEvents(b.id))}
 
 ${renderBusinessListings(b.id)}
 
@@ -10644,7 +10675,7 @@ function v245SaleCount(){
   return reels.length;
 }
 function v245EventPostCount(){
-  return activePublicEventPosts().length;
+  return activePublicEventPosts().length + activeBusinessEvents().length;
 }
 function v245Badge(n){
   const num=Number(n||0);
