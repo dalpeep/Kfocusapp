@@ -505,7 +505,7 @@
     },
     {
       "path": "styles.css",
-      "sha256": "e3e26698a9b38147ff59d809ef753efff1bdf1e63c2108432065848bb98469ad"
+      "sha256": "d3151d1d8d95c920234bc36c48bb8c08526a96cfa87da84f74ba338010427bdb"
     },
     {
       "path": "scripts/release/locked-draft-build.mjs",
@@ -513,7 +513,7 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "ab923dfe94720aa4e6bc2c247a0e5e79190f894000951d1688ba91ac15d33eb0"
+      "sha256": "077a3f0c3c2da45274b1d9498e821961f011aad0d0232b899e4c4f1e523e8963"
     }
   ],
   "files": [

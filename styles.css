@@ -5709,3 +5709,5 @@ body.nearby-businesses-open{overflow:hidden!important}
 #mapFilterRow .benefit-icon-wrap.discount { background:var(--today-promotion-color); color:#fff; }
 #mapFilterRow .benefit-icon-wrap.event { background:var(--today-event-color); color:#fff; }
 #page-map #mapFilterRow .benefit-icon-wrap { flex-basis:18px; }
+
+#page-map #mapFilterRow .benefit-label { font-size:clamp(10px,2.7vw,12px); }
