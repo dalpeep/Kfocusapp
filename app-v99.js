@@ -5776,8 +5776,9 @@ async function loadBusinessReservation(id,target){
         <label>전화번호 <input name="phone" type="tel" autocomplete="tel" maxlength="25" required></label>
         <label>이메일 (선택) <input name="email" type="email" autocomplete="email" maxlength="254"></label>
         <label>요청 사항 (선택) <textarea name="note" maxlength="300" rows="3"></textarea></label>
-        <label>예약 PIN <input name="password" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4}" minlength="4" maxlength="4" required></label>
-        <label>PIN 확인 <input name="passwordConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4}" minlength="4" maxlength="4" required></label>
+        <label>예약 비밀번호 (숫자 6자리 필수) <input name="password" type="password" inputmode="numeric" autocomplete="new-password" placeholder="숫자 6자리를 입력하세요" aria-describedby="reservation-pin-help" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label>
+        <label>비밀번호 확인 <input name="passwordConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" minlength="6" maxlength="6" required></label>
+        <p id="reservation-pin-help">예약 조회 및 취소할 때 사용하므로 기억해 주세요.</p>
         <p>의료정보 등 민감정보는 입력하지 마세요.</p>
         <div data-proof></div>
         <button type="submit" disabled>예약 신청</button>
@@ -5939,8 +5940,8 @@ async function loadBusinessReservation(id,target){
       if(password!==input.passwordConfirm.value){
         status.textContent='예약 PIN과 확인 값이 일치하지 않습니다.';return;
       }
-      if(!/^[0-9]{4}$/.test(password)){
-        status.textContent='예약 PIN은 숫자 4자리로 입력해 주세요.';return;
+      if(!/^[0-9]{6}$/.test(password)){
+        status.textContent='예약 PIN은 숫자 6자리로 입력해 주세요.';return;
       }
       busy=true;updateSubmit();
       try{
