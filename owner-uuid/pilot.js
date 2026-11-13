@@ -264,10 +264,33 @@
                 input.type = 'checkbox';
                 return input;
               });
+              const itemList = append(form, 'fieldset', '');
+              append(itemList, 'legend', '특선 하위 항목');
+              const itemRows = append(itemList, 'div', '');
+              const itemEditors = [];
+              function addItem(item = {}) {
+                const row = append(itemRows, 'div', '');
+                const inputs = {};
+                for (const [name, label, max] of [['item_name', '항목 이름', 160], ['description', '설명', 2000], ['price_text', '가격', 80]]) {
+                  const input = append(append(row, 'label', label), 'input', '');
+                  input.maxLength = max;
+                  input.value = item[name] ?? '';
+                  inputs[name] = input;
+                }
+                itemEditors.push({item, inputs});
+              }
+              const addItemButton = append(itemList, 'button', '하위 항목 추가');
+              addItemButton.type = 'button';
+              addItemButton.onclick = () => addItem();
+              function resetItems(items = []) {
+                itemRows.replaceChildren();
+                itemEditors.length = 0;
+                items.forEach(addItem);
+              }
               append(form, 'button', '특선 저장').type = 'submit';
               const reset = append(form, 'button', '새 특선');
               reset.type = 'button';
-              reset.onclick = () => { selected = undefined; form.reset(); };
+              reset.onclick = () => { selected = undefined; form.reset(); resetItems(); };
               for (const row of rows) {
                 const item = append(list, 'div', '');
                 append(item, 'p', row.title + (row.is_active ? ' · 공개' : ' · 비공개'));
@@ -275,6 +298,7 @@
                 edit.type = 'button';
                 edit.onclick = () => {
                   selected = row;
+                  resetItems(row.items);
                   kind.value = row.type;
                   for (const [name, input] of Object.entries(fields)) {
                     if (input.type === 'checkbox') input.checked = row[name];
@@ -293,7 +317,13 @@
                 event.preventDefault();
                 const values = Object.fromEntries(Object.entries(fields).map(([name, input]) =>
                   [name, input.type === 'checkbox' ? input.checked : input.value.trim() || null]));
-                void saveSpecial({action:'save', fields:{...values,type:kind.value,
+                const items = itemEditors.flatMap(({item, inputs}) => {
+                  const values = Object.fromEntries(Object.entries(inputs).map(([name, input]) => [name, input.value.trim()]));
+                  if (!Object.values(values).some(Boolean) && !item.id) return [];
+                  if (item.id && Object.entries(values).every(([name, value]) => value === (item[name] ?? ''))) return [];
+                  return [{...values, ...(item.id ? {id:item.id, expected:item.updated_at} : {})}];
+                });
+                void saveSpecial({action:'save', items, fields:{...values,type:kind.value,
                   days_of_week:dayInputs.flatMap((input, i) => input.checked ? [i] : [])},
                   ...(selected ? {id:selected.id,expected:selected.updated_at} : {})});
               };

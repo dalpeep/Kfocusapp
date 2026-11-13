@@ -9,11 +9,14 @@ DECLARE
   request_key uuid;
   receipt owner_portal_pilot.commands;
   result jsonb;
+  item jsonb;
 BEGIN
   -- Reuse the gallery RPC's active pilot, approved ownership and public scope checks.
   PERFORM public.owner_pilot_gallery_v1(p_actor, p_business);
   IF p_command IS NULL THEN
-    RETURN coalesce((SELECT jsonb_agg(to_jsonb(s) || jsonb_build_object('id',s.id::text)
+    RETURN coalesce((SELECT jsonb_agg(to_jsonb(s) || jsonb_build_object('id',s.id::text,'items',coalesce(
+      (SELECT jsonb_agg(to_jsonb(i)||jsonb_build_object('id',i.id::text) ORDER BY i.sort_order,i.id)
+       FROM public.business_special_items i WHERE i.special_id=s.id),'[]'::jsonb))
       ORDER BY s.sort_order,s.id) FROM public.business_specials s WHERE s.business_id=p_business),'[]'::jsonb);
   END IF;
   request_key := (p_command->>'key')::uuid;
@@ -66,6 +69,31 @@ BEGIN
         start_date=changes.start_date,end_date=changes.end_date,image_url=changes.image_url,
         is_active=changes.is_active,updated_at=clock_timestamp() WHERE id=existing.id;
     END IF;
+  END IF;
+  IF p_command->>'action'='save' AND p_command ? 'items' THEN
+    IF jsonb_typeof(p_command->'items') IS DISTINCT FROM 'array'
+       OR jsonb_array_length(p_command->'items') > 50 THEN
+      RAISE EXCEPTION USING ERRCODE='OP400', MESSAGE='Invalid special items';
+    END IF;
+    FOR item IN SELECT value FROM jsonb_array_elements(p_command->'items') LOOP
+      IF length(btrim(coalesce(item->>'item_name',''))) NOT BETWEEN 1 AND 160
+         OR length(coalesce(item->>'description','')) > 2000
+         OR length(coalesce(item->>'price_text','')) > 80 THEN
+        RAISE EXCEPTION USING ERRCODE='OP400', MESSAGE='Invalid special item fields';
+      END IF;
+      IF item ? 'id' THEN
+        UPDATE public.business_special_items
+        SET item_name=btrim(item->>'item_name'),description=item->>'description',price_text=item->>'price_text',
+            updated_at=clock_timestamp()
+        WHERE id=(item->>'id')::bigint AND special_id=existing.id
+          AND updated_at IS NOT DISTINCT FROM (item->>'expected')::timestamptz;
+        IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='OP409', MESSAGE='Special item changed or unavailable'; END IF;
+      ELSE
+        INSERT INTO public.business_special_items(special_id,item_name,description,price_text,sort_order)
+        VALUES(existing.id,btrim(item->>'item_name'),item->>'description',item->>'price_text',
+          coalesce((SELECT max(sort_order)+1 FROM public.business_special_items WHERE special_id=existing.id),0));
+      END IF;
+    END LOOP;
   END IF;
   result := jsonb_build_object('special_id',existing.id::text);
   INSERT INTO owner_portal_pilot.commands(actor,key,command,result)
