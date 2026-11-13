@@ -5732,6 +5732,9 @@ async function loadBusinessReservation(id,target){
     return data.result;
   };
   const storageKey='dtm-reservation:'+id;
+  const numberKey=storageKey+'.number';
+  const linkNumber=target.hasAttribute('data-reservation-lookup')?
+    /^#reservation=([A-F0-9]{20})$/.exec(location.hash)?.[1]:undefined;
   let enabled=false;
   try { enabled=await checkBusinessReservation(id,rpc)===true; } catch (_) {}
   if(!target.isConnected||(!enabled&&!target.hasAttribute('data-reservation-lookup')))return;
@@ -5741,10 +5744,11 @@ async function loadBusinessReservation(id,target){
   opener.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>'+
     (enabled?'예약하기':'예약 조회·취소');
   opener.onclick=()=>{
-    let saved, attempt;
+    let saved, attempt, rememberedNumber;
     try {
       saved=JSON.parse(sessionStorage.getItem(storageKey));
       attempt=JSON.parse(sessionStorage.getItem(storageKey+'.pending'));
+      rememberedNumber=localStorage.getItem(numberKey);
     } catch (_) {}
     const dialog=document.createElement('dialog');
     dialog.className='reservation-dialog';
@@ -5774,15 +5778,17 @@ async function loadBusinessReservation(id,target){
         <label>예약번호 <input name="number" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="24" required></label>
         <label>예약 PIN 또는 기존 비밀번호 <input name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
         <button type="submit">조회하기</button>
-        <p>예약번호나 비밀번호를 잊었다면 업소에 직접 문의해 주세요. 온라인 재발급은 지원하지 않습니다.</p>
+        <button type="button" data-manual-lookup hidden>다른 예약번호 입력</button>
+        <p>브라우저 데이터가 지워졌다면 저장한 조회 링크나 예약번호와 PIN을 사용해 주세요. 둘 다 없다면 업소에 직접 문의해 주세요.</p>
       </form>
       <div class="reservation-receipt" hidden>
         <p>예약번호 <strong data-booking-number></strong></p>
         <button type="button" data-copy-number>예약번호 복사</button>
+        <button type="button" data-copy-link>예약 조회 링크 복사</button>
       </div>
       <p class="reservation-status" role="status"></p>
       <div class="reservation-actions">
-        <button type="button" data-lookup>예약 조회</button>
+        <button type="button" data-lookup>내 예약</button>
         <button type="button" data-back-to-reservation hidden>예약 신청으로</button>
         <button type="button" data-cancel>예약 취소</button>
         <button type="button" data-close>닫기</button>
@@ -5792,6 +5798,7 @@ async function loadBusinessReservation(id,target){
     form.hidden=!enabled;
     const input=form.elements;
     const lookup=dialog.querySelector('[data-reservation-lookup-form]');
+    const manualLookup=dialog.querySelector('[data-manual-lookup]');
     const receiptPanel=dialog.querySelector('.reservation-receipt');
     const cancelButton=dialog.querySelector('[data-cancel]');
     const backButton=dialog.querySelector('[data-back-to-reservation]');
@@ -5894,6 +5901,8 @@ async function loadBusinessReservation(id,target){
           email:input.email.value,note:input.note.value});
         if(!result?.number)throw Error('RESERVATION_UNAVAILABLE');
         try { sessionStorage.removeItem(storageKey+'.pending'); } catch (_) {}
+        rememberedNumber=result.number;
+        try { localStorage.setItem(numberKey,result.number); } catch (_) {}
         attempt=null;
         receiptPanel.querySelector('[data-booking-number]').textContent=result.number;
         receiptPanel.hidden=false;
@@ -5932,6 +5941,14 @@ async function loadBusinessReservation(id,target){
     };
     const lookupCredentials=()=>({number:lookup.elements.number.value.replace(/[\s-]/g,'').toUpperCase(),
       password:lookup.elements.password.value});
+    const openLookup=number=>{
+      const available=/^[A-F0-9]{20}$/.test(number||'');
+      lookup.elements.number.value=available?number:'';
+      lookup.elements.number.closest('label').hidden=available;
+      manualLookup.hidden=!available;
+      (available?lookup.elements.password:lookup.elements.number).focus();
+    };
+    manualLookup.onclick=()=>{lookup.reset();authenticated=null;cancelButton.hidden=true;status.textContent='';openLookup('');};
     lookup.oninput=()=>{authenticated=null;cancelButton.hidden=true;};
     lookup.onsubmit=event=>{event.preventDefault();void manage('lookup',lookupCredentials());};
     dialog.querySelector('[data-lookup]').onclick=()=>{
@@ -5942,9 +5959,9 @@ async function loadBusinessReservation(id,target){
       backButton.hidden=!enabled;
       authenticated=null;
       cancelButton.hidden=true;
-      lookup.elements.number.focus();
+      openLookup(linkNumber||rememberedNumber);
       status.textContent='';
-      if(saved?.id&&saved?.secret)void manage('lookup',null);
+      if(!linkNumber&&!rememberedNumber&&saved?.id&&saved?.secret)void manage('lookup',null);
     };
     backButton.onclick=()=>{
       lookup.reset();
@@ -5956,7 +5973,13 @@ async function loadBusinessReservation(id,target){
       status.textContent='';
       input.date.focus();
     };
-    if(!enabled)dialog.querySelector('[data-lookup]').click();
+    receiptPanel.querySelector('[data-copy-link]').onclick=async()=>{
+      const number=receiptPanel.querySelector('[data-booking-number]').textContent;
+      try{
+        await navigator.clipboard.writeText(location.origin+'/business/'+id+'#reservation='+number);
+        status.textContent='예약 조회 링크를 복사했습니다. PIN과 함께 보관해 주세요.';
+      }catch{status.textContent='링크를 복사하지 못했습니다. 예약번호를 보관해 주세요.';}
+    };
     receiptPanel.querySelector('[data-copy-number]').onclick=async()=>{
       const number=receiptPanel.querySelector('[data-booking-number]').textContent;
       try{await navigator.clipboard.writeText(number);status.textContent='예약번호를 복사했습니다.';}
@@ -5973,7 +5996,12 @@ async function loadBusinessReservation(id,target){
       finally { dialog.remove(); }
     },{once:true});
     dialog.showModal();
+    if(linkNumber||!enabled)dialog.querySelector('[data-lookup]').click();
   };
+  if(linkNumber){
+    history.replaceState(history.state,'',location.pathname+location.search);
+    opener.click();
+  }
 }
 async function loadBusinessMenu(business, target){
   const id=business.id;

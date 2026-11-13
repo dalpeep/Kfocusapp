@@ -29,12 +29,15 @@ export async function deliverReservationMail(project, service, key, from, reserv
           dateStyle:'full',timeStyle:'short',timeZone:row.zone
         }).format(new Date(row.starts_at));
         const url=row.audience==='owner'?'https://daltownmap.com/owner-uuid/':
-          'https://daltownmap.com/business/'+encodeURIComponent(row.business);
+          'https://daltownmap.com/business/'+encodeURIComponent(row.business)+
+          (/^[A-F0-9]{20}$/.test(row.booking_number||'')?'#reservation='+row.booking_number:'');
+        const label=row.event==='pending'&&row.audience==='customer'?'예약 신청 접수 · 업주 승인 대기':labels[row.event];
         const response=await request('https://api.resend.com/emails',{
           method:'POST',redirect:'error',signal:AbortSignal.timeout(6000),
           headers:{Authorization:'Bearer '+key,'Content-Type':'application/json','Idempotency-Key':'reservation/'+row.id},
-          body:JSON.stringify({from,to:[row.recipient],subject:'달타운맵 '+labels[row.event],
-            text:[labels[row.event],when+' (업소 현지 시간)','예약 확인: '+url].join('\n')})
+          body:JSON.stringify({from,to:[row.recipient],subject:'달타운맵 '+label,
+            text:[label,when+' (업소 현지 시간)','예약 확인: '+url,
+              row.booking_number?'조회 시 예약 PIN 또는 기존 비밀번호가 필요합니다.':''].filter(Boolean).join('\n')})
         });
         delivery=response.ok?'sent':'failed';
         await response.body?.cancel();
