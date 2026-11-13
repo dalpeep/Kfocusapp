@@ -1,66 +1,41 @@
 BEGIN;
 SET LOCAL lock_timeout = '2s';
 
--- Compatibility boundary: the legacy browser still writes the redemption counter.
--- Do not deploy this draft until the redemption flow has trusted server confirmation.
+ALTER TABLE public.coupons ADD COLUMN owner_verified_use boolean NOT NULL DEFAULT false;
+
 CREATE FUNCTION owner_portal_pilot.guard_coupon_content_v1() RETURNS trigger
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog AS $$
-DECLARE
-  links text[] := ARRAY[]::text[];
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=pg_catalog AS $$
 BEGIN
   IF current_user IN ('anon','authenticated') THEN
-    IF TG_OP='UPDATE'
-       AND (to_jsonb(NEW)-'used_count'-'updated_at')=(to_jsonb(OLD)-'used_count'-'updated_at') THEN
-      RETURN NEW;
-    END IF;
-    IF TG_OP <> 'INSERT' THEN
-      links := links || OLD.business_ids || array_remove(ARRAY[OLD.business_id::text],NULL);
-    END IF;
-    IF TG_OP <> 'DELETE' THEN
-      links := links || NEW.business_ids || array_remove(ARRAY[NEW.business_id::text],NULL);
-    END IF;
-
-    -- Legacy coupons can have NULL region. Verify all old and new business links.
-    IF current_user <> 'authenticated' OR NOT EXISTS (
-      SELECT 1 FROM public.profiles p WHERE p.user_id=auth.uid()
-      AND (p.role='super_admin' OR (
-        p.role='regional_editor' AND cardinality(links)>0 AND NOT EXISTS (
-          SELECT 1 FROM unnest(links) AS linked(id)
-          WHERE NOT EXISTS (
-            SELECT 1 FROM public.businesses b WHERE b.id::text=linked.id
-            AND CASE p.area WHEN 'denver' THEN 'colorado' ELSE p.area END =
-                CASE b.region WHEN 'denver' THEN 'colorado' ELSE b.region END
-          )
-        )
-      ))
-    ) THEN
-      RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='Coupon content requires administrator or owner service';
+    IF (TG_OP <> 'INSERT' AND OLD.owner_verified_use)
+       OR (TG_OP <> 'DELETE' AND NEW.owner_verified_use) THEN
+      IF TG_OP <> 'UPDATE' OR NEW.owner_verified_use IS DISTINCT FROM OLD.owner_verified_use
+         OR NEW.business_id IS DISTINCT FROM OLD.business_id OR NEW.business_ids IS DISTINCT FROM OLD.business_ids
+         OR NEW.delivery_mode IS DISTINCT FROM OLD.delivery_mode OR NEW.id IS DISTINCT FROM OLD.id
+         OR NEW.used_count IS DISTINCT FROM OLD.used_count OR current_user <> 'authenticated'
+         OR NOT EXISTS (SELECT 1 FROM public.profiles p JOIN public.businesses b ON b.id=OLD.business_id
+           WHERE p.user_id=auth.uid() AND (p.role='super_admin' OR
+             (p.role='regional_editor' AND CASE p.area WHEN 'denver' THEN 'colorado' ELSE p.area END=b.region))) THEN
+        RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='Protected owner coupon';
+      END IF;
     END IF;
   END IF;
   IF TG_OP='DELETE' THEN RETURN OLD; END IF;
   RETURN NEW;
 END $$;
-REVOKE ALL ON FUNCTION owner_portal_pilot.guard_coupon_content_v1()
-  FROM PUBLIC, anon, authenticated, service_role;
-CREATE TRIGGER owner_phase2_guard_coupon_content
-BEFORE INSERT OR UPDATE OR DELETE ON public.coupons
+REVOKE ALL ON FUNCTION owner_portal_pilot.guard_coupon_content_v1() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER owner_phase2_guard_coupon_content BEFORE INSERT OR UPDATE OR DELETE ON public.coupons
 FOR EACH ROW EXECUTE FUNCTION owner_portal_pilot.guard_coupon_content_v1();
 
--- A business deletion must not silently delete coupons and their history.
--- PostgreSQL enforces this even for server roles and concurrent inserts.
--- Replace only the verified single-column cascading relationship.
-DO $$
-DECLARE fk_name name;
-BEGIN
-  SELECT conname INTO STRICT fk_name FROM pg_constraint
-  WHERE conrelid='public.coupons'::regclass AND confrelid='public.businesses'::regclass
-    AND contype='f' AND convalidated AND NOT condeferrable
-    AND pg_get_constraintdef(oid) IN ('FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE',
-      'FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE');
-  EXECUTE format('ALTER TABLE public.coupons DROP CONSTRAINT %I',fk_name);
-END $$;
-ALTER TABLE public.coupons ADD CONSTRAINT owner_phase2_coupons_preserve_business
-  FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE RESTRICT;
+-- Block parent deletion only for businesses with verified-use coupons.
+CREATE FUNCTION public.business_has_verified_coupons_v1(p_business uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog AS $$
+  SELECT EXISTS (SELECT 1 FROM public.coupons WHERE business_id=p_business AND owner_verified_use);
+$$;
+REVOKE ALL ON FUNCTION public.business_has_verified_coupons_v1(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.business_has_verified_coupons_v1(uuid) TO anon,authenticated;
+CREATE POLICY owner_verified_coupon_parent_delete ON public.businesses
+  AS RESTRICTIVE FOR DELETE TO anon,authenticated USING (NOT public.business_has_verified_coupons_v1(id));
 
 CREATE FUNCTION public.owner_pilot_coupon_v1(p_actor uuid,p_business uuid,p_command jsonb DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
@@ -74,13 +49,16 @@ DECLARE
   prior owner_portal_pilot.commands;
   result jsonb;
 BEGIN
+  IF p_business IS DISTINCT FROM 'fe414a56-44ea-4d45-b13e-a175aa616fd5'::uuid THEN
+    RAISE EXCEPTION USING ERRCODE='OP403', MESSAGE='Outside coupon pilot';
+  END IF;
   gallery := public.owner_pilot_gallery_v1(p_actor,p_business);
   IF p_command IS NULL THEN
     RETURN coalesce((SELECT jsonb_agg(jsonb_build_object(
       'id',c.id,'title',c.title,'description',c.description,'discount_label',c.discount_label,
       'start_at',c.start_at,'end_at',c.end_at,'image_url',c.image_url,'is_active',c.is_active,
       'updated_at',c.updated_at) ORDER BY c.created_at DESC)
-      FROM public.coupons c WHERE c.business_id=p_business AND c.delivery_mode='display'
+      FROM public.coupons c WHERE c.business_id=p_business AND c.delivery_mode='display' AND c.owner_verified_use
       AND c.business_ids <@ ARRAY[p_business::text]),'[]'::jsonb);
   END IF;
   request_key := (p_command->>'key')::uuid;
@@ -99,7 +77,7 @@ BEGIN
 
   IF p_command ? 'id' THEN
     SELECT * INTO existing FROM public.coupons WHERE id=(p_command->>'id')::uuid
-      AND business_id=p_business AND delivery_mode='display'
+      AND business_id=p_business AND delivery_mode='display' AND owner_verified_use
       AND business_ids <@ ARRAY[p_business::text] FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE='OP403', MESSAGE='Coupon is outside business scope'; END IF;
     IF existing.updated_at IS DISTINCT FROM (p_command->>'expected')::timestamptz THEN
@@ -125,9 +103,9 @@ BEGIN
     END IF;
     IF existing.id IS NULL THEN
       SELECT * INTO STRICT source FROM public.businesses WHERE id=p_business;
-      INSERT INTO public.coupons(business_id,business_ids,area,region,title,description,discount_label,start_at,end_at,image_url,is_active,delivery_mode)
+      INSERT INTO public.coupons(business_id,business_ids,area,region,title,description,discount_label,start_at,end_at,image_url,is_active,delivery_mode,owner_verified_use)
       VALUES(p_business,ARRAY[p_business::text],source.area,source.region,btrim(fields.title),fields.description,
-        btrim(fields.discount_label),fields.start_at,fields.end_at,fields.image_url,true,'display')
+        btrim(fields.discount_label),fields.start_at,fields.end_at,fields.image_url,true,'display',true)
       RETURNING id INTO existing.id;
     ELSE
       UPDATE public.coupons SET title=btrim(fields.title),description=fields.description,discount_label=btrim(fields.discount_label),

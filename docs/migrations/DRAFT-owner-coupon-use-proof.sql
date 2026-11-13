@@ -23,7 +23,7 @@ BEGIN
   JOIN owner_portal_pilot.business_scope scope ON scope.business_id=b.id
   JOIN owner_portal_pilot.actors actor ON actor.actor=owned.user_id AND actor.enabled
   JOIN auth.users u ON u.id=actor.actor
-  WHERE c.id=p_coupon AND b.is_active IS TRUE AND b.list_visible IS TRUE
+  WHERE c.id=p_coupon AND c.owner_verified_use AND b.is_active IS TRUE AND b.list_visible IS TRUE
     AND u.email_confirmed_at IS NOT NULL AND u.deleted_at IS NULL
     AND (u.banned_until IS NULL OR u.banned_until<=now())
     AND EXISTS (SELECT 1 FROM owner_portal_pilot.settings WHERE singleton AND enabled);
@@ -62,7 +62,7 @@ BEGIN
   IF proof.expires_at<=clock_timestamp() THEN RAISE EXCEPTION USING ERRCODE='OP403', MESSAGE='Coupon proof expired'; END IF;
 
   SELECT * INTO coupon FROM public.coupons WHERE id=p_coupon AND business_id=proof.business_id FOR UPDATE;
-  IF NOT FOUND OR NOT coupon.is_active OR coupon.delivery_mode<>'display'
+  IF NOT FOUND OR NOT coupon.is_active OR NOT coupon.owner_verified_use OR coupon.delivery_mode<>'display'
      OR NOT coupon.business_ids <@ ARRAY[proof.business_id::text]
      OR coupon.start_at>clock_timestamp() OR coupon.end_at<=clock_timestamp() THEN
     RAISE EXCEPTION USING ERRCODE='OP403', MESSAGE='Coupon not eligible';

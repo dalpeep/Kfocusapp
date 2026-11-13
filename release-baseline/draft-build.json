@@ -9,7 +9,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "38d90a9ce8efe42cc95cc0b5df49f74231ea5b9742c1753006617cdf27cefebc"
+      "sha256": "31392946e3e6596bcabe653f51e9d2cdea0883b861ea2c7672151dcc5ce88d45"
     },
     {
       "path": "assets/community.js",
@@ -513,7 +513,7 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "566b778cc29818c24453eb5f60121baf16bf81bd11c94a70fd4a1f64f51a5262"
+      "sha256": "e4705f0467c8022f550bc9aee5c9ef699659c5939c56585358c2e79a70247b41"
     }
   ],
   "files": [
