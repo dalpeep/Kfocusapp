@@ -22,10 +22,16 @@ deleting a business from implicitly deleting its coupons. Verify legacy
 administrator delete behavior and plan an explicit archive workflow before
 applying it. The rollback restores the original FK definition.
 
-The proof draft implements a five-minute bearer UUID issued by the owner Edge
-route after existing ownership checks. Redemption locks the proof and coupon
-and records one use. Replays return the original receipt. Rollback revokes RPC
-access and preserves issued proofs, counters and usage records. Customer and
-merchant screens still need to exchange the proof. Keep this draft off production
-while legacy clients use direct writes and there is no verified merchant flow
-for businesses outside the owner pilot.
+The customer screen requests a five-minute proof for an active display coupon
+at a visible pilot business with an approved owner. No customer login is
+required. Only the authenticated owner Edge route can consume the proof.
+The RPC locks the proof and coupon, records one use, and returns the original
+receipt on replay. Its rollback revokes RPC access and preserves records.
+
+The cutover draft blocks browser writes to redemption records and direct
+counter edits. Before applying it, verify the existing campaign administrator
+route with a server credential and confirm real merchant access for display
+coupons. Keep the Netlify deploy, Edge bundle and both SQL rollback scripts
+ready. Old cached browser versions will lose the direct redemption path after
+cutover and must reload. Keep the use flow off if production end-to-end
+compatibility cannot be established.

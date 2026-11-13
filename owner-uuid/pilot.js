@@ -522,6 +522,26 @@
                   fields.start_at.value = localTime(row.start_at);
                   fields.end_at.value = localTime(row.end_at);
                 };
+                if (row.is_active) {
+                  const verify = append(item, 'button', '고객 사용 코드 확인');
+                  verify.type = 'button';
+                  verify.onclick = async () => {
+                    if (couponBusy) return;
+                    const proof = window.prompt('고객 화면의 일회용 사용 코드를 입력해 주세요.')?.trim();
+                    if (!proof || !window.confirm('이 쿠폰을 사용 처리할까요?')) return;
+                    couponBusy = true;
+                    verify.disabled = true;
+                    try {
+                      await request(couponQuery, {action:'redeem_use_proof',id:row.id,proof});
+                      couponStatus.textContent = '쿠폰 사용이 확인되었습니다.';
+                    } catch {
+                      couponStatus.textContent = '사용 코드를 확인하지 못했습니다. 코드와 유효기간을 확인해 주세요.';
+                    } finally {
+                      couponBusy = false;
+                      verify.disabled = false;
+                    }
+                  };
+                }
                 const end = append(item, 'button', '종료');
                 end.type = 'button';
                 end.disabled = !row.is_active;
