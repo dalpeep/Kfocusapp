@@ -5749,6 +5749,10 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 .reservation-dialog :is(input,select,textarea) { background:#fff; color:inherit; }
 .reservation-dialog textarea { resize:vertical; }
 .reservation-dialog p { margin:0; overflow-wrap:anywhere; }
+.reservation-dialog .reservation-date-notice:not(:empty) {
+  display:flex; align-items:baseline; gap:6px; margin-top:6px;
+  padding:8px 10px; border-radius:8px; background:#fff7ed; color:#9a3412; font-weight:600;
+}
 .reservation-dialog [data-proof] { min-width:0; }
 .reservation-dialog [data-proof] iframe { max-width:100%; }
 .reservation-dialog button { background:#edf2fa; color:#13264b; font-weight:700; }
