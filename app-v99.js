@@ -5732,17 +5732,20 @@ async function loadBusinessReservation(id,target){
     return data.result;
   };
   const storageKey='dtm-reservation:'+id;
-  let saved;
-  try { saved=JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) {}
   let enabled=false;
   try { enabled=await checkBusinessReservation(id,rpc)===true; } catch (_) {}
-  if(!target.isConnected||(!enabled&&(!saved||!target.hasAttribute('data-reservation-lookup'))))return;
+  if(!target.isConnected||(!enabled&&!target.hasAttribute('data-reservation-lookup')))return;
   target.innerHTML='<button type="button"></button>';
   const opener=target.firstElementChild;
   opener.className='business-reservation-button';
   opener.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>'+
     (enabled?'예약하기':'예약 조회·취소');
   opener.onclick=()=>{
+    let saved, attempt;
+    try {
+      saved=JSON.parse(sessionStorage.getItem(storageKey));
+      attempt=JSON.parse(sessionStorage.getItem(storageKey+'.pending'));
+    } catch (_) {}
     const dialog=document.createElement('dialog');
     dialog.className='reservation-dialog';
     dialog.setAttribute('aria-labelledby','reservation-dialog-title');
@@ -5761,13 +5764,27 @@ async function loadBusinessReservation(id,target){
         <label>전화번호 <input name="phone" type="tel" autocomplete="tel" maxlength="25" required></label>
         <label>이메일 (선택) <input name="email" type="email" autocomplete="email" maxlength="254"></label>
         <label>요청 사항 (선택) <textarea name="note" maxlength="300" rows="3"></textarea></label>
+        <label>예약 비밀번호 <input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></label>
+        <label>비밀번호 확인 <input name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></label>
+        <p>영문자와 숫자 또는 기호를 포함해 8자 이상 입력해 주세요.</p>
         <p>의료정보 등 민감정보는 입력하지 마세요.</p>
         <div data-proof></div>
         <button type="submit" disabled>예약 신청</button>
       </form>
+      <form data-reservation-lookup-form hidden>
+        <label>예약번호 <input name="number" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="24" required></label>
+        <label>예약 비밀번호 <input name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <button type="submit">조회하기</button>
+        <p>예약번호나 비밀번호를 잊었다면 업소에 직접 문의해 주세요. 온라인 재발급은 지원하지 않습니다.</p>
+      </form>
+      <div class="reservation-receipt" hidden>
+        <p>예약번호 <strong data-booking-number></strong></p>
+        <button type="button" data-copy-number>예약번호 복사</button>
+      </div>
       <p class="reservation-status" role="status"></p>
       <div class="reservation-actions">
         <button type="button" data-lookup>예약 조회</button>
+        <button type="button" data-back-to-reservation hidden>예약 신청으로</button>
         <button type="button" data-cancel>예약 취소</button>
         <button type="button" data-close>닫기</button>
       </div>`;
@@ -5775,14 +5792,31 @@ async function loadBusinessReservation(id,target){
     const form=dialog.querySelector('form');
     form.hidden=!enabled;
     const input=form.elements;
+    const lookup=dialog.querySelector('[data-reservation-lookup-form]');
+    const receiptPanel=dialog.querySelector('.reservation-receipt');
+    const cancelButton=dialog.querySelector('[data-cancel]');
+    const backButton=dialog.querySelector('[data-back-to-reservation]');
+    const lookupButton=lookup.querySelector('[type=submit]');
     const status=dialog.querySelector('[role=status]');
     const submit=form.querySelector('[type=submit]');
     const notice=form.querySelector('#reservation-date-notice');
     const states={pending:'업주 승인 대기',confirmed:'예약 확정',rejected:'예약 거절',cancelled:'예약 취소'};
     let widget, proof='', busy=false, revision=0;
-    let attempt=saved?.pending?saved:null;
-    const report=result=>{status.textContent=states[result.status]||'예약 상태를 확인할 수 없습니다.';};
-    const updateSubmit=()=>{submit.disabled=busy||!proof||input.slot.disabled||!input.slot.value;};
+    let authenticated=null;
+    const report=result=>{
+      const state=states[result.status]||'예약 상태를 확인할 수 없습니다.';
+      const details=result.starts_at?new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeStyle:'short',
+        timeZone:result.zone||'America/Chicago'}).format(new Date(result.starts_at))+' · '+result.party+'명':'';
+      status.textContent=[state,details].filter(Boolean).join(' · ');
+      cancelButton.hidden=!(result.can_cancel??(['pending','confirmed'].includes(result.status)&&Date.parse(result.starts_at)>Date.now()));
+    };
+    cancelButton.hidden=true;
+    const updateSubmit=()=>{
+      submit.disabled=busy||!proof||input.slot.disabled||!input.slot.value;
+      lookupButton.disabled=busy;
+      cancelButton.disabled=busy;
+      backButton.disabled=busy;
+    };
     const dateNotice=message=>{
       notice.replaceChildren();
       if(!message)return;
@@ -5845,33 +5879,94 @@ async function loadBusinessReservation(id,target){
     form.onsubmit=async event=>{
       event.preventDefault();
       if(submit.disabled)return;
+      const password=input.password.value;
+      if(password!==input.passwordConfirm.value){
+        status.textContent='예약 비밀번호와 확인 값이 일치하지 않습니다.';return;
+      }
+      if(new TextEncoder().encode(password).length>72||!/[A-Za-z]/.test(password)||!/[^A-Za-z\s]/.test(password)
+        ||/^(password|qwerty|letmein|daltownmap|admin|welcome|abc123|encpro)/i.test(password)){
+        status.textContent='다른 곳에서 쓰지 않는 비밀번호를 입력해 주세요. 영문자와 숫자 또는 기호가 필요합니다.';return;
+      }
       busy=true;updateSubmit();
       try{
-        attempt??={id:crypto.randomUUID(),secret:crypto.randomUUID(),pending:true};
-        sessionStorage.setItem(storageKey,JSON.stringify(attempt));
-        const result=await customer({action:'submit',id:attempt.id,secret:attempt.secret,business:id,proof,
+        attempt??={id:crypto.randomUUID(),secret:crypto.randomUUID(),pending:true,numbered:true};
+        try { sessionStorage.setItem(storageKey+'.pending',JSON.stringify(attempt)); } catch (_) {}
+        const result=await customer({action:'submit-number',id:attempt.id,secret:attempt.secret,business:id,proof,password,
           slot:input.slot.value,party:Number(input.party.value),name:input.name.value,phone:input.phone.value,
           email:input.email.value,note:input.note.value});
-        saved={id:attempt.id,secret:attempt.secret};
-        sessionStorage.setItem(storageKey,JSON.stringify(saved));
+        if(!result?.number)throw Error('RESERVATION_UNAVAILABLE');
+        try { sessionStorage.removeItem(storageKey+'.pending'); } catch (_) {}
+        attempt=null;
+        receiptPanel.querySelector('[data-booking-number]').textContent=result.number;
+        receiptPanel.hidden=false;
         report(result);
+        cancelButton.hidden=true;
+        input.password.value=input.passwordConfirm.value='';
         form.hidden=true;
       }catch(error){
         if(error.message==='OP409'){
           status.textContent='';
           await refresh('선택한 시간은 더 이상 예약할 수 없습니다. 다른 시간을 선택해 주세요.');
-        }else status.textContent='신청 결과를 확인하지 못했습니다. 같은 예약을 다시 확인해 주세요.';
+        }else status.textContent=error.message==='INPUT'||error.message==='OP400'?'예약 정보와 비밀번호 조건을 확인해 주세요.':
+          '신청 결과를 확인하지 못했습니다. 같은 정보로 다시 시도해 주세요.';
       }finally{busy=false;proof='';updateSubmit();if(widget!==undefined)window.turnstile.reset(widget);}
     };
-    for(const action of ['lookup','cancel'])dialog.querySelector('[data-'+action+']').onclick=async()=>{
-      const receipt=saved||attempt;
-      if(!receipt){status.textContent='이 탭에 저장된 예약 확인 정보가 없습니다.';return;}
-      if(busy||(action==='cancel'&&!confirm('예약을 취소할까요?')))return;
+    const manage=async (action,credentials)=>{
+      if(busy)return;
+      if(action==='cancel'&&!confirm('예약을 취소할까요?'))return;
       busy=true;
       updateSubmit();
-      try{report(await customer({action,id:receipt.id,secret:receipt.secret}));}
-      catch{status.textContent='예약을 확인하지 못했습니다.';}
+      const payload=credentials||saved;
+      try{
+        const result=await customer(credentials?{action:action+'-number',business:id,...payload}:
+          {action,id:payload.id,secret:payload.secret});
+        if(credentials&&(lookupCredentials().number!==credentials.number||lookupCredentials().password!==credentials.password))return;
+        report(result);
+        authenticated=credentials?credentials.number:null;
+      }catch(error){
+        authenticated=null;
+        cancelButton.hidden=true;
+        status.textContent=error.message==='CREDENTIALS'||error.message==='OP403'
+          ?'예약 정보를 확인할 수 없습니다. 입력을 확인하거나 잠시 후 다시 시도해 주세요.'
+          :'예약을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+      }
       finally{busy=false;updateSubmit();}
+    };
+    const lookupCredentials=()=>({number:lookup.elements.number.value.replace(/[\s-]/g,'').toUpperCase(),
+      password:lookup.elements.password.value});
+    lookup.oninput=()=>{authenticated=null;cancelButton.hidden=true;};
+    lookup.onsubmit=event=>{event.preventDefault();void manage('lookup',lookupCredentials());};
+    dialog.querySelector('[data-lookup]').onclick=()=>{
+      if(busy)return;
+      form.hidden=true;
+      receiptPanel.hidden=true;
+      lookup.hidden=false;
+      backButton.hidden=!enabled;
+      authenticated=null;
+      cancelButton.hidden=true;
+      lookup.elements.number.focus();
+      status.textContent='';
+      if(saved?.id&&saved?.secret)void manage('lookup',null);
+    };
+    backButton.onclick=()=>{
+      lookup.reset();
+      lookup.hidden=true;
+      backButton.hidden=true;
+      cancelButton.hidden=true;
+      authenticated=null;
+      form.hidden=false;
+      status.textContent='';
+      input.date.focus();
+    };
+    if(!enabled)dialog.querySelector('[data-lookup]').click();
+    receiptPanel.querySelector('[data-copy-number]').onclick=async()=>{
+      const number=receiptPanel.querySelector('[data-booking-number]').textContent;
+      try{await navigator.clipboard.writeText(number);status.textContent='예약번호를 복사했습니다.';}
+      catch{status.textContent='예약번호를 길게 누르거나 선택해 복사해 주세요.';}
+    };
+    cancelButton.onclick=()=>{
+      if(authenticated)void manage('cancel',lookupCredentials());
+      else if(saved?.id&&saved?.secret)void manage('cancel',null);
     };
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
     dialog.addEventListener('close',()=>{
