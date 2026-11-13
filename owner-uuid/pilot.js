@@ -221,6 +221,105 @@
               busy = false;
             }
           });
+          const specials = append(card, 'details', '');
+          append(specials, 'summary', '할인·특선');
+          const specialStatus = append(specials, 'p', '');
+          specialStatus.setAttribute('role', 'status');
+          const specialBody = append(specials, 'div', '');
+          const specialQuery = '?content=specials&business=' + encodeURIComponent(business.id);
+          let specialBusy = false;
+
+          async function loadSpecials() {
+            try {
+              const rows = await request(specialQuery);
+              specialBody.replaceChildren();
+              const list = append(specialBody, 'div', '');
+              const form = append(specialBody, 'form', '');
+              let selected;
+              const fields = {};
+              function field(name, label, type) {
+                const input = append(append(form, 'label', label), type === 'textarea' ? 'textarea' : 'input', '');
+                if (type !== 'textarea') input.type = type;
+                fields[name] = input;
+                return input;
+              }
+              const kind = append(append(form, 'label', '종류'), 'select', '');
+              for (const [value, label] of [['lunch_special', '런치·요일 할인'], ['happy_hour', '해피아워']]) {
+                append(kind, 'option', label).value = value;
+              }
+              field('title', '제목', 'text').required = true;
+              fields.title.maxLength = 120;
+              field('description', '설명', 'textarea').maxLength = 2000;
+              field('price_text', '가격·할인 내용', 'text').maxLength = 80;
+              field('start_date', '시작일', 'date');
+              field('end_date', '종료일', 'date');
+              field('start_time', '시작 시간 (업소 현지 시간)', 'time');
+              field('end_time', '종료 시간 (업소 현지 시간)', 'time');
+              field('image_url', '업소 사진 주소', 'url');
+              field('is_active', '공개', 'checkbox').checked = false;
+              const days = append(form, 'fieldset', '');
+              append(days, 'legend', '요일 (선택하지 않으면 매일)');
+              const dayInputs = ['일', '월', '화', '수', '목', '금', '토'].map(label => {
+                const input = append(append(days, 'label', label), 'input', '');
+                input.type = 'checkbox';
+                return input;
+              });
+              append(form, 'button', '특선 저장').type = 'submit';
+              const reset = append(form, 'button', '새 특선');
+              reset.type = 'button';
+              reset.onclick = () => { selected = undefined; form.reset(); };
+              for (const row of rows) {
+                const item = append(list, 'div', '');
+                append(item, 'p', row.title + (row.is_active ? ' · 공개' : ' · 비공개'));
+                const edit = append(item, 'button', '수정');
+                edit.type = 'button';
+                edit.onclick = () => {
+                  selected = row;
+                  kind.value = row.type;
+                  for (const [name, input] of Object.entries(fields)) {
+                    if (input.type === 'checkbox') input.checked = row[name];
+                    else input.value = row[name] ?? '';
+                  }
+                  dayInputs.forEach((input, i) => { input.checked = row.days_of_week.includes(i); });
+                };
+                const end = append(item, 'button', '종료');
+                end.type = 'button';
+                end.disabled = !row.is_active;
+                end.onclick = () => {
+                  if (window.confirm('이 특선의 공개를 종료할까요?')) void saveSpecial({action:'end',id:row.id,expected:row.updated_at});
+                };
+              }
+              form.onsubmit = event => {
+                event.preventDefault();
+                const values = Object.fromEntries(Object.entries(fields).map(([name, input]) =>
+                  [name, input.type === 'checkbox' ? input.checked : input.value.trim() || null]));
+                void saveSpecial({action:'save', fields:{...values,type:kind.value,
+                  days_of_week:dayInputs.flatMap((input, i) => input.checked ? [i] : [])},
+                  ...(selected ? {id:selected.id,expected:selected.updated_at} : {})});
+              };
+            } catch (error) {
+              specialStatus.textContent = error.status === 503 ? '할인·특선 관리는 준비 중입니다.' : '할인·특선을 불러오지 못했습니다.';
+            }
+          }
+
+          async function saveSpecial(command) {
+            if (specialBusy || current !== generation) return;
+            specialBusy = true;
+            try {
+              await request(specialQuery, {...command,key:crypto.randomUUID()});
+              specialStatus.textContent = '할인·특선을 저장했습니다.';
+              await loadSpecials();
+            } catch (error) {
+              specialStatus.textContent = error.status === 409 ? '목록을 다시 열어 최신 내용을 확인해 주세요.'
+                : '저장 결과를 확인하지 못했습니다. 목록을 다시 열어 확인해 주세요.';
+            } finally {
+              specialBusy = false;
+            }
+          }
+
+          specials.addEventListener('toggle', () => {
+            if (specials.open && !specialBusy) void loadSpecials();
+          });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
