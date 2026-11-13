@@ -63,3 +63,24 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
     min-height: 300px;
   }
 }
+
+.pilot-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.pilot-photo { min-width: 0; }
+.pilot-photo img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.pilot-photo > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
