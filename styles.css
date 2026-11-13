@@ -5690,3 +5690,24 @@ body.nearby-businesses-open{overflow:hidden!important}
 #couponDetailCard .coupon-detail-benefits :is(h3,h4,p) { margin:0; }
 #couponDetailCard .coupon-detail-benefits h4 { margin-bottom:4px; }
 .coupon-detail-benefits p { white-space:pre-wrap; overflow-wrap:anywhere; }
+
+#page-map #mapFilterRow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:4px; overflow:visible; }
+#page-map #mapFilterRow .map-benefit-tab { min-width:0; width:100%; padding:4px; gap:3px; font-size:clamp(10px,2.9vw,14px); }
+#page-map #mapFilterRow .benefit-icon-wrap { width:18px; height:18px; flex:none; }
+#page-map #mapFilterRow .benefit-icon-wrap svg { width:15px; height:15px; }
+#page-map #mapFilterRow .benefit-count { min-width:12px; padding:0 2px; font-size:10px; }
+#page-map #mapFilterRow .campaign .benefit-icon-wrap { background:#fff1e7; color:#c2410c; }
+.v245-shortcuts-grid .benefit-shortcut .v245-shortcut-icon::before { display:none; }
+.v245-shortcuts-grid .benefit-shortcut .v245-shortcut-icon svg { display:block; width:55%; height:55%; margin:auto; }
+.business-event-card { display:block; width:100%; box-sizing:border-box; padding:14px; margin:10px 0; border:1px solid #e2e8f0; border-radius:14px; overflow-wrap:anywhere; }
+.business-event-card summary, .business-event-name { text-align:center; font-weight:700; }
+.business-event-image { display:block; width:min(100%,460px); aspect-ratio:16/9; object-fit:contain; margin:12px auto; }
+.business-event-card p { margin:10px 0; }
+.business-event-open { display:block; margin:14px auto 0; }
+#mapFilterRow .benefit-icon-wrap.campaign { background:#ff8a00; color:#fff; }
+#mapFilterRow .benefit-icon-wrap.coupon { background:var(--today-coupon-color); color:#fff; }
+#mapFilterRow .benefit-icon-wrap.discount { background:var(--today-promotion-color); color:#fff; }
+#mapFilterRow .benefit-icon-wrap.event { background:var(--today-event-color); color:#fff; }
+#page-map #mapFilterRow .benefit-icon-wrap { flex-basis:18px; }
+
+#page-map #mapFilterRow .benefit-label { font-size:clamp(10px,2.7vw,12px); }

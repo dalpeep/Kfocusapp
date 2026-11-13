@@ -113,9 +113,9 @@ test('undated consulate registration notice is not a current event; explicit liv
   row.business_id='a';row.event_end_at='2026-09-09';assert.deepEqual(plain(ctx.mapBusinessBadgeKinds(biz())),[]);
 });
 
-test('map retains business, coupon and event selectors without total-count UI',()=>{
+test('map renders four benefit selectors',()=>{
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  assert.equal((html.match(/data-map-filter=/g)||[]).length,3);
+  assert.equal((html.match(/data-map-filter=/g)||[]).length,4);
   assert(html.includes('data-map-filter="event"'));
   assert(html.includes('data-map-filter="promotion"'));
 });
@@ -221,4 +221,17 @@ test('V296.4 live banner snapshot yields four distinct event businesses from two
   assert.equal(ctx.mapActiveBenefitRecords().length,2);
   ctx.mainBanners[0].is_active=false;assert.equal(ctx.mapBenefitBusinesses('event').length,3);
   ctx.mainBanners[1].title='20% OFF';assert.equal(ctx.mapBenefitBusinesses('event').length,0);assert.equal(ctx.mapBenefitBusinesses('promotion').length,3);
+});
+
+test('owner events share the nearby list with legacy events and omit duplicates and expired events',()=>{
+ const dated={start_at:'2026-09-09T00:00:00Z',end_at:'2026-09-12T00:00:00Z'};
+ const owner=[active({...dated,id:'e1',title:'Open house'}),active({...dated,id:'e2',title:'Remote event',business_id:'far'}),
+  active({...dated,id:'expired',title:'Expired',end_at:'2026-09-10T00:00:00Z'})];
+ const {ctx}=runtime({businesses:[{...biz('far'),lat:33.5},biz()],businessEvents:owner,
+  activeBusinessEvents:(_id,now)=>owner.filter(row=>DtmActiveState.isActive(row,'event',now)),
+  boardPosts:[active({...dated,id:'legacy',type:'event',title:'Open house'})]});
+ const rows=ctx.mapBenefitBusinesses('event');
+ assert.deepEqual(plain(rows.map(row=>row.business.id)),['a','far']);
+ assert.deepEqual([...rows[0].benefits.values()].map(row=>row.title),['Open house']);
+ assert.deepEqual([...rows[1].benefits.values()].map(row=>row.title),['Remote event']);
 });
