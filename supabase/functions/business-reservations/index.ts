@@ -1,3 +1,5 @@
+import {scheduleReservationMail} from '../_shared/reservation-mail.mjs';
+
 const origin = 'https://daltownmap.com';
 const project = 'https://ydrxuqmjzayejlnjzzew.supabase.co';
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -78,12 +80,10 @@ Deno.serve(async request => {
       rpc='customer_reservation_v2';
       args={p_business:body.business,p_number:body.number,p_password:body.password,p_cancel:body.action==='cancel-number'};
       if(pinLookup){
-        const ip=request.headers.get('cf-connecting-ip');
-        if(!ip||!/^[0-9a-f:.]{3,45}$/i.test(ip))return reply(403,{code:'CREDENTIALS'});
         const limit=await fetch(project+'/rest/v1/rpc/reserve_pin_attempt_v1',{
           method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),
           headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},
-          body:JSON.stringify({p_number:body.number,p_ip:await pinDigest(pepper!,'ip',ip.toLowerCase())})
+          body:JSON.stringify({p_number:body.number})
         });
         if(!limit.ok||await limit.json()!==true)return reply(403,{code:'CREDENTIALS'});
         rpc='customer_reservation_pin_v1';
@@ -97,7 +97,13 @@ Deno.serve(async request => {
       headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},body:JSON.stringify(args)});
     const data=await response.json();
     if(credentialLookup && response.ok && data.error==='CREDENTIALS')return reply(403,{code:'CREDENTIALS'});
-    if(response.ok)return reply(200,{result:data});
+    if(response.ok){
+      if(body.action==='submit'||body.action==='submit-number'||pinSubmission||body.action==='cancel'||body.action==='cancel-number'){
+        try{scheduleReservationMail(project,service,data);}
+        catch{console.warn('RESERVATION_MAIL_SCHEDULE_FAILED');}
+      }
+      return reply(200,{result:data});
+    }
     const status=({OP400:400,OP403:403,OP409:409,OP429:429} as Record<string,number>)[data.code]||503;
     return reply(status,{code:status===503?'RESERVATION_UNAVAILABLE':data.code});
   } catch { return reply(503,{code:'RESERVATION_UNAVAILABLE'}); }
