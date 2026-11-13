@@ -1406,7 +1406,11 @@ function businessEventCards(rows){
     <details class="business-event-card">
       <summary>${esc(row.title)}${row.title_en?' · '+esc(row.title_en):''}</summary>
       ${/^https:\/\//i.test(row.image_url||'')?`<img src="${esc(row.image_url)}" alt="" loading="lazy" class="business-event-image">`:''}
-      <p class="business-event-name">${esc(getBiz(row.business_id)?.name||'')}</p><p>${esc(time.format(new Date(row.start_at)))} – ${esc(time.format(new Date(row.end_at)))}</p>
+      <p class="business-event-name">${esc(getBiz(row.business_id)?.name||'')}</p>
+      <dl class="business-event-period">
+        <dt>시작</dt><dd><time datetime="${esc(row.start_at)}">${esc(time.format(new Date(row.start_at)))}</time></dd>
+        <dt>종료</dt><dd><time datetime="${esc(row.end_at)}">${esc(time.format(new Date(row.end_at)))}</time></dd>
+      </dl>
       <p>${esc(row.address)}</p><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(row.description||'')}</p>
       <button type="button" class="biz-open business-event-open" data-biz="${esc(row.business_id)}">업소 보기</button>
     </details>`).join('')}</section>`;

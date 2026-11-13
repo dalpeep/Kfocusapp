@@ -5714,3 +5714,8 @@ body.nearby-businesses-open{overflow:hidden!important}
 
 .v245-shortcuts-grid .benefit-shortcut .v245-shortcut-icon svg,
 #mapFilterRow .benefit-icon-wrap svg { color:#fff; stroke:#fff !important; fill:none; }
+
+.business-event-period { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:4px 12px; margin:10px 0; text-align:left; font-size:.875rem; line-height:1.5; }
+.business-event-period dt { font-weight:700; }
+.business-event-period dd { margin:0; }
+.business-event-period time { white-space:nowrap; }
