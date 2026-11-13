@@ -5730,3 +5730,30 @@ body.nearby-businesses-open{overflow:hidden!important}
 .business-menu-description summary { cursor:pointer; white-space:pre-wrap; font-size:.875rem; }
 .business-menu-description:not([open]) summary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
 @media(max-width:640px) { .business-menu-grid { grid-template-columns:minmax(0,1fr); } }
+
+.reservation-dialog {
+  box-sizing:border-box; width:min(100% - 16px, 480px); max-width:none;
+  max-height:calc(100dvh - 16px); overflow:auto; overscroll-behavior:contain;
+  padding:16px; border:0; border-radius:16px; color:#13264b; background:#fff;
+}
+.reservation-dialog::backdrop { background:rgb(15 23 42 / 60%); }
+html:has(.reservation-dialog[open]) { overflow:hidden; }
+.reservation-dialog h2 { margin:0 0 14px; }
+.reservation-dialog form:not([hidden]), .reservation-slot-fields { display:grid; gap:14px; }
+.reservation-slot-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.reservation-dialog label { display:grid; gap:5px; min-width:0; font-weight:600; }
+.reservation-dialog :is(input,select,textarea,button) {
+  box-sizing:border-box; width:100%; min-width:0; max-width:100%; min-height:44px;
+  border:1px solid #b7c4d8; border-radius:8px; padding:8px; font-size:16px;
+}
+.reservation-dialog :is(input,select,textarea) { background:#fff; color:inherit; }
+.reservation-dialog textarea { resize:vertical; }
+.reservation-dialog p { margin:0; overflow-wrap:anywhere; }
+.reservation-dialog [data-proof] { min-width:0; }
+.reservation-dialog [data-proof] iframe { max-width:100%; }
+.reservation-dialog button { background:#edf2fa; color:#13264b; font-weight:700; }
+.reservation-dialog button[type=submit] { background:#1d4ed8; border-color:#1d4ed8; color:#fff; }
+.reservation-dialog button:disabled { opacity:.65; }
+.reservation-dialog .reservation-status:not(:empty) { margin-top:12px; }
+.reservation-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:14px; }
+@media(max-width:350px) { .reservation-slot-fields { grid-template-columns:minmax(0,1fr); } }

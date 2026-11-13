@@ -5691,8 +5691,30 @@ async function loadBusinessReservation(id,target){
   opener.textContent=enabled?'예약하기':'예약 조회·취소';
   opener.onclick=()=>{
     const dialog=document.createElement('dialog');
-    dialog.className='map-benefits-dialog';
-    dialog.innerHTML='<form><h2>예약</h2><label>날짜 <input name="date" type="date" required></label><label>인원 <input name="party" type="number" min="1" max="100" value="1" required></label><label>가능한 시간 <select name="slot" required></select></label><label>이름 <input name="name" maxlength="100" required></label><label>전화번호 <input name="phone" type="tel" maxlength="25" required></label><label>이메일 (선택) <input name="email" type="email" maxlength="254"></label><label>요청 사항 (선택) <textarea name="note" maxlength="300"></textarea></label><p>의료정보 등 민감정보는 입력하지 마세요.</p><div data-proof></div><button type="submit" disabled>예약 신청</button></form><button type="button" data-lookup>예약 조회</button><button type="button" data-cancel>예약 취소</button><button type="button" data-close>닫기</button><p role="status"></p>';
+    dialog.className='reservation-dialog';
+    dialog.setAttribute('aria-labelledby','reservation-dialog-title');
+    dialog.innerHTML=`
+      <h2 id="reservation-dialog-title">예약</h2>
+      <form>
+        <label>예약 날짜 <input name="date" type="date" required></label>
+        <div class="reservation-slot-fields">
+          <label>예약 시간 <select name="slot" required></select></label>
+          <label>예약 인원 <input name="party" type="number" min="1" max="100" value="1" required></label>
+        </div>
+        <label>이름 <input name="name" autocomplete="name" maxlength="100" required></label>
+        <label>전화번호 <input name="phone" type="tel" autocomplete="tel" maxlength="25" required></label>
+        <label>이메일 (선택) <input name="email" type="email" autocomplete="email" maxlength="254"></label>
+        <label>요청 사항 (선택) <textarea name="note" maxlength="300" rows="3"></textarea></label>
+        <p>의료정보 등 민감정보는 입력하지 마세요.</p>
+        <div data-proof></div>
+        <button type="submit" disabled>예약 신청</button>
+      </form>
+      <p class="reservation-status" role="status"></p>
+      <div class="reservation-actions">
+        <button type="button" data-lookup>예약 조회</button>
+        <button type="button" data-cancel>예약 취소</button>
+        <button type="button" data-close>닫기</button>
+      </div>`;
     document.body.append(dialog);
     const form=dialog.querySelector('form');
     form.hidden=!enabled;
@@ -5718,7 +5740,7 @@ async function loadBusinessReservation(id,target){
     input.date.onchange=input.party.onchange=refresh;
     const addProof=()=>{
       if(!dialog.isConnected||widget!==undefined)return;
-      widget=window.turnstile.render(dialog.querySelector('[data-proof]'),{sitekey,action:'reservation',
+      widget=window.turnstile.render(dialog.querySelector('[data-proof]'),{sitekey,action:'reservation',size:'flexible',
         callback:token=>{proof=token;submit.disabled=false;},
         'expired-callback':()=>{proof='';submit.disabled=true;},
         'error-callback':()=>{proof='';submit.disabled=true;status.textContent='보안 확인을 완료하지 못했습니다.';}});
@@ -5762,7 +5784,10 @@ async function loadBusinessReservation(id,target){
       finally{busy=false;}
     };
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
-    dialog.addEventListener('close',()=>{if(widget!==undefined)window.turnstile.remove(widget);dialog.remove();},{once:true});
+    dialog.addEventListener('close',()=>{
+      dialog.remove();
+      if(widget!==undefined)window.turnstile.remove(widget);
+    },{once:true});
     dialog.showModal();
   };
 }
