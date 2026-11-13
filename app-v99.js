@@ -5740,13 +5740,8 @@ async function loadBusinessReservation(id,target){
     && reservationEntryPath.replace(/\/$/,'')==='/business/'+id?reservationEntryLink:undefined;
   let enabled=false;
   try { enabled=await checkBusinessReservation(id,rpc)===true; } catch (_) {}
-  if(!target.isConnected||(!enabled&&!target.hasAttribute('data-reservation-lookup')))return;
-  target.innerHTML='<button type="button"></button>';
-  const opener=target.firstElementChild;
-  opener.className='business-reservation-button';
-  opener.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>'+
-    (enabled?'예약하기':'예약 조회·취소');
-  opener.onclick=()=>{
+  if(!target.isConnected||(!enabled&&!linkNumber))return;
+  const openReservation=(startInLookup=false)=>{
     let saved, attempt, rememberedNumber;
     try {
       saved=JSON.parse(sessionStorage.getItem(storageKey));
@@ -5791,6 +5786,7 @@ async function loadBusinessReservation(id,target){
         </div>
         <button type="submit">조회하기</button>
         <button type="button" data-manual-lookup hidden>다른 예약번호 입력</button>
+        <p data-lookup-other-device hidden>다른 휴대폰이나 PC에서 예약하셨나요? 예약 확인 이메일의 링크를 열거나 예약번호와 6자리 PIN을 입력해 주세요.</p>
         <p class="reservation-lookup-help">브라우저 데이터가 지워졌다면 저장한 조회 링크나 예약번호와 PIN을 사용해 주세요. 둘 다 없다면 업소에 직접 문의해 주세요.</p>
       </form>
       <div class="reservation-receipt" hidden>
@@ -5998,6 +5994,7 @@ async function loadBusinessReservation(id,target){
       lookup.elements.number.value=available?number:'';
       lookup.elements.number.closest('label').hidden=available;
       manualLookup.hidden=!available;
+      lookup.querySelector('[data-lookup-other-device]').hidden=available;
       (available?lookup.elements.password:lookup.elements.number).focus();
     };
     const clearLookupResult=()=>{
@@ -6057,12 +6054,26 @@ async function loadBusinessReservation(id,target){
     },{once:true});
     dialog.showModal();
     window.lucide?.createIcons();
-    if(linkNumber||!enabled)dialog.querySelector('[data-lookup]').click();
+    if(startInLookup)dialog.querySelector('[data-lookup]').click();
   };
+  if(enabled){
+    const addAction=(label,mark,lookup=false)=>{
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='business-reservation-button'+(lookup?' reservation-confirm-button':'');
+      button.innerHTML=`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18${mark}"/></svg>`;
+      button.append(label);
+      button.onclick=()=>openReservation(lookup);
+      target.append(button);
+    };
+    const detail=target.hasAttribute('data-reservation-lookup');
+    addAction('예약하기',detail?'M9 15h6M12 12v6':'');
+    if(detail)addAction('예약 확인','m9 15 2 2 4-4',true);
+  }
   if(linkNumber){
     reservationEntryOpened=true;
     history.replaceState(history.state,'',location.pathname+location.search);
-    opener.click();
+    openReservation(true);
   }
 }
 async function loadBusinessMenu(business, target){
