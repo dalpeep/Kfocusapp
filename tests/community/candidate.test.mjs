@@ -39,6 +39,7 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)docs/migrations/DRAFT-owner-coupon-history-readonly.sql',
   ':(exclude)docs/migrations/DRAFT-owner-events.sql',
   ':(exclude)docs/migrations/DRAFT-owner-menu.sql',
+  ':(exclude)docs/migrations/DRAFT-menu-optional-price.sql',
   ':(exclude)docs/migrations/DRAFT-business-reservations.sql',
   ':(exclude)docs/migrations/ROLLBACK-business-reservations.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-menu.sql',
@@ -99,5 +100,5 @@ test('community event lists use posts, while home and map show owner events',()=
 test('public menu loads on detail render without requiring an order link',()=>{
  const app=fs.readFileSync('app-v99.js','utf8');
  const orderBindings=app.slice(app.indexOf("detailCard.querySelectorAll('.order-link-btn')"),app.indexOf('const hoursHtml = renderBusinessHours(b);',app.indexOf("detailCard.querySelectorAll('.order-link-btn')")));
- assert.match(orderBindings,/\n\}\);\r?\n  void loadBusinessMenu\(b.id, detailCard.querySelector\('\[data-business-menu\]'\)\);/);
+ assert.match(orderBindings,/\n\}\);\r?\n  void loadBusinessMenu\(b, detailCard.querySelector\('\[data-business-menu\]'\)\);/);
 });

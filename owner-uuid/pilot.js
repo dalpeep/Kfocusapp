@@ -823,8 +823,8 @@
               field('title', '메뉴·서비스명', 'text').required = true;
               field('title_en', 'English title', 'text');
               field('description', '설명', 'textarea');
-              const price = field('price', '가격 (USD)', 'number');
-              price.required = true; price.min = '0'; price.max = '1000000'; price.step = '0.01';
+              const price = field('price', '가격 (USD, 선택)', 'number');
+              price.min = '0'; price.max = '1000000'; price.step = '0.01';
               const order = field('sort_order', '표시 순서 (작은 숫자부터)', 'number');
               order.required = true; order.min = '0'; order.max = '100000'; order.defaultValue = '100';
               field('sold_out', '품절', 'checkbox');
@@ -892,7 +892,7 @@
                   imageFile = undefined;
                   renderImage();
                   for (const name of ['title','title_en','description']) fields[name].value = row[name] || '';
-                  fields.price.value = (row.price_cents / 100).toFixed(2);
+                  fields.price.value = row.price_cents == null ? '' : (row.price_cents / 100).toFixed(2);
                   fields.sort_order.value = row.sort_order;
                   fields.sold_out.checked = row.sold_out;
                   fields.is_active.checked = row.is_active;
@@ -909,7 +909,7 @@
                 event.preventDefault();
                 if (menuBusy) return;
                 await saveMenu({action:'save', fields:{title:fields.title.value.trim(),title_en:fields.title_en.value.trim(),
-                  description:fields.description.value.trim(),price_cents:Math.round(Number(fields.price.value)*100),
+                  description:fields.description.value.trim(),price_cents:fields.price.value === '' ? null : Math.round(Number(fields.price.value)*100),
                   sort_order:Number(fields.sort_order.value),sold_out:fields.sold_out.checked,is_active:fields.is_active.checked,image_url:imageUrl},
                   ...(selected ? {id:selected.id,expected:selected.updated_at} : {})}, async command => {
                     if (imageFile) {
