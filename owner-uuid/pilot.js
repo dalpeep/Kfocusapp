@@ -255,12 +255,60 @@
               field('end_date', '종료일', 'date');
               field('start_time', '시작 시간 (업소 현지 시간)', 'time');
               field('end_time', '종료 시간 (업소 현지 시간)', 'time');
-              field('image_url', '업소 사진 주소', 'url');
-              field('is_active', '공개', 'checkbox').checked = false;
+              const media = append(form, 'div', '');
+              media.className = 'pilot-special-image';
+              const preview = append(media, 'img', '');
+              preview.alt = '특선 이미지';
+              preview.referrerPolicy = 'no-referrer';
+              const imageButton = append(media, 'button', '이미지 추가');
+              const removeImage = append(media, 'button', '이미지 삭제');
+              imageButton.type = removeImage.type = 'button';
+              const imagePicker = append(media, 'input', '');
+              imagePicker.type = 'file';
+              imagePicker.accept = 'image/jpeg,image/png,image/webp';
+              imagePicker.hidden = true;
+              let imageUrl = null;
+              let imageFile;
+              let previewUrl;
+
+              function renderImage() {
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
+                previewUrl = imageFile ? URL.createObjectURL(imageFile) : undefined;
+                const src = previewUrl || (/^https?:\/\//i.test(imageUrl || '') ? imageUrl : '');
+                if (src) preview.src = src;
+                else preview.removeAttribute('src');
+                preview.hidden = !src;
+                imageButton.textContent = imageUrl || imageFile ? '이미지 교체' : '이미지 추가';
+                removeImage.hidden = !(imageUrl || imageFile);
+              }
+              renderImage();
+              imageButton.onclick = () => {
+                if ((imageUrl || imageFile) && !window.confirm('특선 이미지를 교체할까요?')) return;
+                imagePicker.value = '';
+                imagePicker.click();
+              };
+              imagePicker.onchange = () => {
+                const file = imagePicker.files[0];
+                if (!file) return;
+                if (file.size > 4 * 1024 * 1024) {
+                  specialStatus.textContent = '4MB 이하의 사진을 선택해 주세요.';
+                  return;
+                }
+                imageFile = file;
+                renderImage();
+              };
+              removeImage.onclick = () => {
+                if (!window.confirm('특선 이미지 참조를 삭제할까요?')) return;
+                imageFile = undefined;
+                imageUrl = null;
+                renderImage();
+              };
               const days = append(form, 'fieldset', '');
               append(days, 'legend', '요일 (선택하지 않으면 매일)');
+              const dayRow = append(days, 'div', '');
+              dayRow.className = 'pilot-special-days';
               const dayInputs = ['일', '월', '화', '수', '목', '금', '토'].map(label => {
-                const input = append(append(days, 'label', label), 'input', '');
+                const input = append(append(dayRow, 'label', label), 'input', '');
                 input.type = 'checkbox';
                 return input;
               });
@@ -287,10 +335,10 @@
                 itemEditors.length = 0;
                 items.forEach(addItem);
               }
-              append(form, 'button', '특선 저장').type = 'submit';
+              append(form, 'button', '저장 및 공개').type = 'submit';
               const reset = append(form, 'button', '새 특선');
               reset.type = 'button';
-              reset.onclick = () => { selected = undefined; form.reset(); resetItems(); };
+              reset.onclick = () => { selected = undefined; form.reset(); resetItems(); imageUrl = null; imageFile = undefined; renderImage(); };
               for (const row of rows) {
                 const item = append(list, 'div', '');
                 append(item, 'p', row.title + (row.is_active ? ' · 공개' : ' · 비공개'));
@@ -298,6 +346,9 @@
                 edit.type = 'button';
                 edit.onclick = () => {
                   selected = row;
+                  imageUrl = row.image_url || null;
+                  imageFile = undefined;
+                  renderImage();
                   resetItems(row.items);
                   kind.value = row.type;
                   for (const [name, input] of Object.entries(fields)) {
@@ -313,7 +364,7 @@
                   if (window.confirm('이 특선의 공개를 종료할까요?')) void saveSpecial({action:'end',id:row.id,expected:row.updated_at});
                 };
               }
-              form.onsubmit = event => {
+              form.onsubmit = async event => {
                 event.preventDefault();
                 const values = Object.fromEntries(Object.entries(fields).map(([name, input]) =>
                   [name, input.type === 'checkbox' ? input.checked : input.value.trim() || null]));
@@ -323,27 +374,43 @@
                   if (item.id && Object.entries(values).every(([name, value]) => value === (item[name] ?? ''))) return [];
                   return [{...values, ...(item.id ? {id:item.id, expected:item.updated_at} : {})}];
                 });
-                void saveSpecial({action:'save', items, fields:{...values,type:kind.value,
+                if (specialBusy) return;
+                await saveSpecial({action:'save', items, fields:{...values,type:kind.value,
+                  image_url:imageUrl, is_active:selected?.is_active ?? true,
                   days_of_week:dayInputs.flatMap((input, i) => input.checked ? [i] : [])},
-                  ...(selected ? {id:selected.id,expected:selected.updated_at} : {})});
+                  ...(selected ? {id:selected.id,expected:selected.updated_at} : {})}, async command => {
+                    if (imageFile) {
+                      imageUrl = await request(galleryQuery + '&upload=1', null, imageFile);
+                      imageFile = undefined;
+                      renderImage();
+                      command.fields.image_url = imageUrl;
+                    }
+                  });
+                if (!form.isConnected && previewUrl) URL.revokeObjectURL(previewUrl);
               };
             } catch (error) {
               specialStatus.textContent = error.status === 503 ? '할인·특선 관리는 준비 중입니다.' : '할인·특선을 불러오지 못했습니다.';
             }
           }
 
-          async function saveSpecial(command) {
+          async function saveSpecial(command, prepare) {
             if (specialBusy || current !== generation) return;
             specialBusy = true;
+            const controls = [...specialBody.querySelectorAll('button, input, textarea, select')]
+              .filter(control => !control.disabled);
+            for (const control of controls) control.disabled = true;
             try {
+              if (prepare) await prepare(command);
               await request(specialQuery, {...command,key:crypto.randomUUID()});
-              specialStatus.textContent = '할인·특선을 저장했습니다.';
+              specialStatus.textContent = command.action === 'end' ? '공개를 종료했습니다.'
+                : '저장되었습니다. 적용 조건에 따라 공개됩니다.';
               await loadSpecials();
             } catch (error) {
               specialStatus.textContent = error.status === 409 ? '목록을 다시 열어 최신 내용을 확인해 주세요.'
                 : '저장 결과를 확인하지 못했습니다. 목록을 다시 열어 확인해 주세요.';
             } finally {
               specialBusy = false;
+              for (const control of controls) control.disabled = false;
             }
           }
 

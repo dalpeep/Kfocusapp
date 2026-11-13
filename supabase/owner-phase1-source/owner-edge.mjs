@@ -14,9 +14,9 @@ function imageType(bytes) {
   return null;
 }
 
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2']);
 
-export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, transport = fetch}) {
+export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, specialsV2Enabled = false, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
   const denied = () => json(403, {ok: false, error: '달타운맵에서만 이용할 수 있습니다.'});
   const off = () => json(503, {ok: false, phase1: true, code: 'OWNER_QA_PILOT_OFF',
@@ -95,7 +95,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
               return json(400, {ok: false});
             }
           }
-          const result = await client.rpc('owner_pilot_special_v1', params);
+          const result = await client.rpc(specialsV2Enabled ? 'owner_pilot_special_v2' : 'owner_pilot_special_v1', params);
           if (!result.error) return json(200, {ok: true, result: result.data});
           return json({OP400: 400, OP403: 403, OP409: 409, OP503: 503}[result.error.code] || 502, {ok: false});
         }

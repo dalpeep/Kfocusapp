@@ -84,3 +84,7 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
   gap: 8px;
   margin-top: 8px;
 }
+
+.pilot-special-days { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.pilot-special-days label { display: flex; align-items: center; gap: 4px; margin: 0; }
+.pilot-special-image img { display: block; width: min(220px, 100%); border-radius: 8px; }

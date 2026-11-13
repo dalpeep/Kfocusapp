@@ -33,6 +33,8 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   // Review-only phase-two SQL, applied separately from Netlify builds.
   ':(exclude)docs/migrations/DRAFT-owner-phase2-gallery.sql',
   ':(exclude)docs/migrations/DRAFT-owner-phase2-specials.sql',
+  ':(exclude)docs/migrations/DRAFT-owner-phase2-specials-v2.sql',
+  ':(exclude)docs/migrations/ROLLBACK-owner-phase2-specials-v2.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-phase2-specials.sql',
   ':(exclude)docs/migrations/DRAFT-owner-phase2-specials-admin-guard.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-phase2-specials-admin-guard.sql',
