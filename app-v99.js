@@ -5766,7 +5766,8 @@ async function loadBusinessReservation(id,target){
     dialog.showModal();
   };
 }
-async function loadBusinessMenu(id, target){
+async function loadBusinessMenu(business, target){
+  const id=business.id;
   const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
   if (!target || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
   try {
@@ -5775,14 +5776,21 @@ async function loadBusinessMenu(id, target){
     if (!response.ok || !target.isConnected) return;
     const rows=await response.json();
     if (!rows.length || !target.isConnected) return;
-    const price=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
-    target.innerHTML=`<h3>메뉴·서비스</h3>${rows.map(row=>`
-      <article class="business-event-card">
-        <strong>${esc(row.title)}${row.title_en?' · '+esc(row.title_en):''}</strong>
-        <p>${price.format(row.price_cents/100)}${row.sold_out?' · 품절':''}</p>
-        ${row.image_url?`<img class="business-event-image" src="${esc(row.image_url)}" alt="" loading="lazy">`:''}
-        <p>${esc(row.description||'')}</p>
-      </article>`).join('')}`;
+    const price=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',minimumFractionDigits:0,maximumFractionDigits:2});
+    const category=getMainCategoryLabel(business.map_category || business.category_main || business.category);
+    const isFood=category==='식당';
+    const unavailable=isFood||category==='쇼핑'?'품절':'제공 중단';
+    const normalizeName=name=>String(name||'').normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase();
+    target.innerHTML=`<h3>${isFood?'메뉴':'서비스·상품'}</h3><div class="business-menu-grid">${rows.map(row=>`
+      <article class="business-menu-item">
+        ${row.image_url?`<img class="business-menu-thumb" src="${esc(row.image_url)}" alt="" loading="lazy">`:''}
+        <div class="business-menu-copy">
+          <div class="business-menu-heading"><strong>${esc(row.title)}${row.title_en&&normalizeName(row.title_en)!==normalizeName(row.title)?' · '+esc(row.title_en):''}</strong>
+          ${row.sold_out?`<span class="business-menu-unavailable">${unavailable}</span>`:''}</div>
+          ${row.description?`<details class="business-menu-description"><summary>${esc(row.description)}</summary></details>`:''}
+          <span class="business-menu-price">${row.price_cents==null?'가격 문의':price.format(row.price_cents/100)}</span>
+        </div>
+      </article>`).join('')}</div>`;
     target.hidden=false;
   } catch (_) {}
 }
@@ -6347,7 +6355,7 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     alert(`${label} 링크는 아직 준비중입니다.`);
   });
 });
-  void loadBusinessMenu(b.id, detailCard.querySelector('[data-business-menu]'));
+  void loadBusinessMenu(b, detailCard.querySelector('[data-business-menu]'));
   void loadBusinessReservation(b.id, detailCard.querySelector('[data-business-reservation]'));
 
 const hoursHtml = renderBusinessHours(b);

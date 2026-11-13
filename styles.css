@@ -5719,3 +5719,14 @@ body.nearby-businesses-open{overflow:hidden!important}
 .business-event-period dt { font-weight:700; }
 .business-event-period dd { margin:0; }
 .business-event-period time { white-space:nowrap; }
+
+.business-menu-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:10px; }
+.business-menu-item { display:flex; gap:12px; align-items:flex-start; min-width:0; padding:10px; border:1px solid #e2e8f0; border-radius:12px; }
+.business-menu-thumb { flex:none; width:72px; aspect-ratio:1; object-fit:contain; background:#f8fafc; border-radius:8px; }
+.business-menu-copy { flex:1; min-width:0; display:grid; gap:4px; overflow-wrap:anywhere; }
+.business-menu-heading { display:flex; align-items:center; flex-wrap:wrap; gap:5px 8px; }
+.business-menu-unavailable { background:#dc2626; color:#fff; font-size:.75rem; font-weight:700; padding:3px 8px; border-radius:999px; }
+.business-menu-price { font-weight:700; }
+.business-menu-description summary { cursor:pointer; white-space:pre-wrap; font-size:.875rem; }
+.business-menu-description:not([open]) summary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+@media(max-width:640px) { .business-menu-grid { grid-template-columns:minmax(0,1fr); } }
