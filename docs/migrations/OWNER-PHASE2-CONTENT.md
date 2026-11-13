@@ -20,9 +20,13 @@ The Edge Function uploads JPG, PNG or WebP files up to 4 MiB using its
 existing service role, a new random object key, and upsert disabled. It checks
 current ownership before upload and again when saving the gallery. Removing a
 new photo detaches its URL. Files are retained. If an upload succeeds and the
-gallery save fails, the object may remain unreferenced. The design requires no
-Storage policy change provided the bucket permits the image types and the
-reserved prefix cannot be written by untrusted users.
+gallery save fails, the object may remain unreferenced. Production grants anon and authenticated bucket-wide writes to public-images.
+The reserved prefix had zero objects and zero business gallery or cover references.
+Add the restrictive Storage guards before the gallery RPC. They block direct
+insert, update, rename and delete under owner-phase2 for those roles. Public reads
+still use the existing policies. Production service_role has BYPASSRLS. Existing
+admin uploads use paths such as businesses, business-gallery, boards and coupons.
+The public community uploader uses signed uploads in its community bucket.
 
 Before applying SQL, review the target catalog with
 PROD-OWNER-PHASE2-CONTENT-PREFLIGHT-READONLY.sql and confirm the backup and Storage
@@ -34,7 +38,17 @@ switches and OWNER_PHASE2_GALLERY_ENABLED=true to expose the new route. Verify t
 Edge JWT setting on the target before any release.
 
 To undo installation, disable the gallery Edge flag and use the previous app/Edge
-release as needed. Drop public.owner_pilot_gallery_v1(uuid,uuid,jsonb,jsonb) in a
-reviewed transaction. That removes only the added RPC. To undo actual content edits,
+release as needed. Run ROLLBACK-owner-phase2-gallery.sql to remove the added RPC. Keep
+the Storage guards if phase-two files exist. ROLLBACK-owner-phase2-storage-guard.sql
+removes only the three added policies and restores direct writes to that prefix. To undo actual content edits,
 restore the saved pre-change gallery for the specific business after checking for
 subsequent administrator edits. The install itself does not change Storage objects.
+
+The legacy businesses policies allow gallery updates for anon and authenticated.
+Apply DRAFT-owner-phase2-business-gallery-guard.sql before enabling owner uploads.
+It protects gallery changes, gallery-bearing row insertion and deletion, and ID
+or region changes that could bypass the region check. Existing server-owned
+writes and verified administrators keep their access. Regional editors can edit
+galleries in their assigned region. Ordinary edits that leave these fields
+unchanged retain the existing policies. ROLLBACK-owner-phase2-business-gallery-guard.sql
+removes the trigger and its function. It does not restore data.

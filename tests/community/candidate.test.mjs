@@ -32,6 +32,11 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql',
   // Review-only phase-two SQL, applied separately from Netlify builds.
   ':(exclude)docs/migrations/DRAFT-owner-phase2-gallery.sql',
+  ':(exclude)docs/migrations/DRAFT-owner-phase2-storage-guard.sql',
+  ':(exclude)docs/migrations/DRAFT-owner-phase2-business-gallery-guard.sql',
+  ':(exclude)docs/migrations/ROLLBACK-owner-phase2-business-gallery-guard.sql',
+  ':(exclude)docs/migrations/ROLLBACK-owner-phase2-storage-guard.sql',
+  ':(exclude)docs/migrations/ROLLBACK-owner-phase2-gallery.sql',
   ':(exclude)docs/migrations/PROD-OWNER-PHASE2-CONTENT-PREFLIGHT-READONLY.sql'],{encoding:'utf8'});
  assert.equal(diff,'');
  const toml=fs.readFileSync('netlify.toml','utf8').replaceAll('\r\n','\n');
