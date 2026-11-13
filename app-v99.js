@@ -5694,11 +5694,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     for(const entry of entries){
       if(!entry.isIntersecting)continue;
       visibility.unobserve(entry.target);
-      void initialize(entry.target);
+      entry.target.querySelectorAll(selector).forEach(target=>void initialize(target));
     }
-  });
-  // The empty action sits at the card edge and is observed before it has a button.
-  const observe=target=>visibility.observe(target);
+  },{rootMargin:'120px'});
+  // Observe the card so the check can run before its action has a height.
+  const observe=target=>visibility.observe(target.parentElement);
   const watch=node=>{
     if(node.nodeType!==1)return;
     if(node.matches(selector))observe(node);
@@ -5709,8 +5709,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       record.addedNodes.forEach(watch);
       for(const node of record.removedNodes){
         if(node.nodeType!==1||node.isConnected)continue;
-        if(node.matches(selector))visibility.unobserve(node);
-        node.querySelectorAll(selector).forEach(target=>visibility.unobserve(target));
+        node.querySelectorAll(selector).forEach(target=>visibility.unobserve(target.parentElement));
       }
     }
   }).observe(document.body,{childList:true,subtree:true});
