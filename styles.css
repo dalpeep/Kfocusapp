@@ -5742,6 +5742,12 @@ body.nearby-businesses-open{overflow:hidden!important}
   cursor:pointer; touch-action:manipulation;
 }
 .business-reservation-button svg { flex:none; }
+.business-reservation-action[data-reservation-lookup]:not(:empty) {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;
+}
+.business-reservation-action > .reservation-confirm-button {
+  background:#fff; color:#1d4ed8; border:1px solid #2563eb;
+}
 .business-reservation-button:focus-visible { outline:2px solid #1e3a8a; outline-offset:2px; }
 .reservation-dialog {
   box-sizing:border-box; width:min(100% - 16px, 480px); max-width:none;
