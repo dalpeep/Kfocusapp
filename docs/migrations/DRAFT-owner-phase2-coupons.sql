@@ -1,23 +1,37 @@
 BEGIN;
 SET LOCAL lock_timeout = '2s';
 
--- Keep the existing browser redemption counter write and server campaign writes.
+-- Compatibility boundary: the legacy browser still writes the redemption counter.
+-- Do not deploy this draft until the redemption flow has trusted server confirmation.
 CREATE FUNCTION owner_portal_pilot.guard_coupon_content_v1() RETURNS trigger
 LANGUAGE plpgsql SECURITY INVOKER SET search_path = pg_catalog AS $$
+DECLARE
+  links text[] := ARRAY[]::text[];
 BEGIN
   IF current_user IN ('anon','authenticated') THEN
-    IF TG_OP='UPDATE' THEN
-      IF (to_jsonb(NEW)-'used_count'-'updated_at')=(to_jsonb(OLD)-'used_count'-'updated_at') THEN
-        RETURN NEW;
-      END IF;
+    IF TG_OP='UPDATE'
+       AND (to_jsonb(NEW)-'used_count'-'updated_at')=(to_jsonb(OLD)-'used_count'-'updated_at') THEN
+      RETURN NEW;
     END IF;
+    IF TG_OP <> 'INSERT' THEN
+      links := links || OLD.business_ids || array_remove(ARRAY[OLD.business_id::text],NULL);
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+      links := links || NEW.business_ids || array_remove(ARRAY[NEW.business_id::text],NULL);
+    END IF;
+
+    -- Legacy coupons can have NULL region. Verify all old and new business links.
     IF current_user <> 'authenticated' OR NOT EXISTS (
       SELECT 1 FROM public.profiles p WHERE p.user_id=auth.uid()
       AND (p.role='super_admin' OR (
-        p.role='regional_editor' AND
-        CASE p.area WHEN 'denver' THEN 'colorado' ELSE p.area END =
-        CASE WHEN TG_OP='INSERT' THEN NEW.region ELSE OLD.region END
-        AND (TG_OP <> 'UPDATE' OR NEW.region IS NOT DISTINCT FROM OLD.region)
+        p.role='regional_editor' AND cardinality(links)>0 AND NOT EXISTS (
+          SELECT 1 FROM unnest(links) AS linked(id)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM public.businesses b WHERE b.id::text=linked.id
+            AND CASE p.area WHEN 'denver' THEN 'colorado' ELSE p.area END =
+                CASE b.region WHEN 'denver' THEN 'colorado' ELSE b.region END
+          )
+        )
       ))
     ) THEN
       RAISE EXCEPTION USING ERRCODE='42501', MESSAGE='Coupon content requires administrator or owner service';
@@ -31,6 +45,22 @@ REVOKE ALL ON FUNCTION owner_portal_pilot.guard_coupon_content_v1()
 CREATE TRIGGER owner_phase2_guard_coupon_content
 BEFORE INSERT OR UPDATE OR DELETE ON public.coupons
 FOR EACH ROW EXECUTE FUNCTION owner_portal_pilot.guard_coupon_content_v1();
+
+-- A business deletion must not silently delete coupons and their history.
+-- PostgreSQL enforces this even for server roles and concurrent inserts.
+-- Replace only the verified single-column cascading relationship.
+DO $$
+DECLARE fk_name name;
+BEGIN
+  SELECT conname INTO STRICT fk_name FROM pg_constraint
+  WHERE conrelid='public.coupons'::regclass AND confrelid='public.businesses'::regclass
+    AND contype='f' AND convalidated AND NOT condeferrable
+    AND pg_get_constraintdef(oid) IN ('FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE',
+      'FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE');
+  EXECUTE format('ALTER TABLE public.coupons DROP CONSTRAINT %I',fk_name);
+END $$;
+ALTER TABLE public.coupons ADD CONSTRAINT owner_phase2_coupons_preserve_business
+  FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE RESTRICT;
 
 CREATE FUNCTION public.owner_pilot_coupon_v1(p_actor uuid,p_business uuid,p_command jsonb DEFAULT NULL)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
