@@ -2545,7 +2545,7 @@ function fillBusinessOptions() {
 /* ---------------------------
    Coupons
 --------------------------- */
-function ensureCouponCampaignAdminUI(){if(qs('couponCampaignAdminBox'))return;const anchor=qs('coupon_start_at')?.closest('.field')||qs('coupon_start_at')?.parentElement;if(!anchor)return;const box=document.createElement('div');box.id='couponCampaignAdminBox';box.style.cssText='grid-column:1/-1;border:1px solid #d8e4f5;border-radius:16px;padding:16px;background:#f8fbff;margin:8px 0 14px';box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px"><div><strong style="font-size:16px">쿠폰 발급 방식</strong><div class="muted" style="margin-top:3px">기존 일반 쿠폰 / 이메일 즉시 발급 / 이메일 응모·추첨 중 선택합니다.</div></div><button id="couponCampaignManageBtn" type="button" class="btn secondary">응모·발급 관리</button></div><div class="form-grid"><label class="field"><span>발급 방식</span><select id="coupon_delivery_mode"><option value="display">일반 표시 쿠폰</option><option value="instant_email">이메일 즉시 발급 (100%)</option><option value="raffle">이메일 응모·추첨</option></select></label><label class="field coupon-raffle-only"><span>응모 마감일시</span><input id="coupon_raffle_end_at" type="datetime-local"></label><label class="field coupon-raffle-only"><span>당첨 인원</span><input id="coupon_winner_count" type="number" min="1" max="500" value="1"></label><label class="field coupon-raffle-only"><span>추첨 방식</span><select id="coupon_raffle_draw_mode"><option value="manual">수동 추첨</option><option value="auto">자동 추첨</option></select><small class="muted">자동: 응모 마감 후 시스템이 자동 추첨 · 수동: 관리자가 직접 추첨 버튼 실행</small></label><label class="field checkbox-line"><input id="coupon_one_per_email" type="checkbox" checked><span>이메일당 1회만 발급/응모</span></label><label class="field checkbox-line"><input id="coupon_marketing_opt_in_enabled" type="checkbox" checked><span>마케팅 수신 동의(선택) 표시</span></label>
+function ensureCouponCampaignAdminUI(){if(qs('couponCampaignAdminBox'))return;const anchor=qs('coupon_start_at')?.closest('.field')||qs('coupon_start_at')?.parentElement;if(!anchor)return;const box=document.createElement('div');box.id='couponCampaignAdminBox';box.style.cssText='grid-column:1/-1;border:1px solid #d8e4f5;border-radius:16px;padding:16px;background:#f8fbff;margin:8px 0 14px';box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px"><div><strong style="font-size:16px">쿠폰 발급 방식</strong><div class="muted" style="margin-top:3px">기존 일반 쿠폰 / 이메일 즉시 발급 / 이메일 응모·추첨 중 선택합니다.</div></div><button id="couponCampaignManageBtn" type="button" class="btn secondary">응모·발급 관리</button></div><div class="form-grid"><label class="field"><span>발급 방식</span><select id="coupon_delivery_mode"><option value="display">일반 표시 쿠폰</option><option value="instant_email">이메일 즉시 발급 (100%)</option><option value="raffle">유료 프로모션 · 이메일 응모·추첨</option></select></label><label class="field coupon-raffle-only"><span>응모 마감일시</span><input id="coupon_raffle_end_at" type="datetime-local"></label><label class="field coupon-raffle-only"><span>당첨 인원</span><input id="coupon_winner_count" type="number" min="1" max="500" value="1"></label><label class="field coupon-raffle-only"><span>추첨 방식</span><select id="coupon_raffle_draw_mode"><option value="manual">수동 추첨</option><option value="auto">자동 추첨</option></select><small class="muted">자동: 응모 마감 후 시스템이 자동 추첨 · 수동: 관리자가 직접 추첨 버튼 실행</small></label><label class="field checkbox-line"><input id="coupon_one_per_email" type="checkbox" checked><span>이메일당 1회만 발급/응모</span></label><label class="field checkbox-line"><input id="coupon_marketing_opt_in_enabled" type="checkbox" checked><span>마케팅 수신 동의(선택) 표시</span></label>
       <div class="field full">
         <span>이메일 쿠폰 이미지</span>
         <input id="coupon_email_image_url" type="hidden">
@@ -2569,7 +2569,7 @@ function ensureCouponCampaignAdminUI(){if(qs('couponCampaignAdminBox'))return;co
         <small class="muted">응모 확인 메일에는 사용하지 않고 당첨 메일에만 표시합니다. 비워두면 이메일 쿠폰 이미지 → 현재 쿠폰 이미지 순으로 자동 대체합니다.</small>
       </div>
     </div>`;anchor.parentElement?.insertBefore(box,anchor);qs('coupon_delivery_mode')?.addEventListener('change',updateCouponCampaignAdminVisibility);qs('couponCampaignManageBtn')?.addEventListener('click',openCouponCampaignAdminManager);updateCouponCampaignAdminVisibility()}
-function updateCouponCampaignAdminVisibility(){const mode=val('coupon_delivery_mode')||'display';$$('.coupon-raffle-only').forEach(x=>x.style.display=mode==='raffle'?'':'none');const btn=qs('couponCampaignManageBtn');if(btn)btn.style.display=selectedCouponId&&mode!=='display'?'':'none'}
+function updateCouponCampaignAdminVisibility(){const raffle=qs('coupon_delivery_mode')?.querySelector('option[value=raffle]');if(raffle)raffle.disabled=window.ADMIN_ROLE!=='super_admin';const mode=val('coupon_delivery_mode')||'display';$$('.coupon-raffle-only').forEach(x=>x.style.display=mode==='raffle'?'':'none');const btn=qs('couponCampaignManageBtn');if(btn)btn.style.display=selectedCouponId&&mode!=='display'?'':'none'}
 function ensureCouponCampaignManagerUI(){if(qs('couponCampaignManagerOverlay'))return;const st=document.createElement('style');st.textContent=`.ccm-overlay{position:fixed;inset:0;background:rgba(15,23,42,.62);z-index:120000;display:flex;align-items:center;justify-content:center;padding:20px}.ccm-overlay.hidden{display:none}.ccm-dialog{width:min(1040px,97vw);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 25px 70px rgba(15,23,42,.3)}.ccm-head{position:sticky;top:0;background:#fff;z-index:2;padding:16px 18px;border-bottom:1px solid #e5eaf1;display:flex;justify-content:space-between;align-items:center}.ccm-body{padding:18px}.ccm-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px}.ccm-stat{padding:12px;background:#f7f9fc;border-radius:12px}.ccm-stat b{display:block;font-size:20px}.ccm-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.ccm-table{width:100%;border-collapse:collapse;font-size:13px}.ccm-table th,.ccm-table td{padding:9px;border-bottom:1px solid #edf1f5;text-align:left}.ccm-marketing{color:#137333;font-weight:800}@media(max-width:760px){.ccm-stats{grid-template-columns:repeat(2,1fr)}.ccm-table{min-width:760px}.ccm-table-wrap{overflow:auto}}`;document.head.appendChild(st);const o=document.createElement('div');o.id='couponCampaignManagerOverlay';o.className='ccm-overlay hidden';o.innerHTML=`<div class="ccm-dialog"><div class="ccm-head"><div><strong style="font-size:18px">쿠폰 응모·발급 관리</strong><div id="ccmSubtitle" class="muted"></div></div><button id="ccmClose" class="btn ghost" type="button">닫기</button></div><div class="ccm-body" id="ccmBody"></div></div>`;document.body.appendChild(o);qs('ccmClose').onclick=()=>o.classList.add('hidden');o.addEventListener('click',e=>{if(e.target===o)o.classList.add('hidden')})}
 async function couponCampaignAdminRequest(payload){const{data:{session}}=await supabase.auth.getSession();if(!session?.access_token)throw new Error('관리자 로그인이 필요합니다.');const r=await fetch('/.netlify/functions/coupon-campaign-admin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||`HTTP ${r.status}`);return d}
 async function openCouponCampaignAdminManager(){if(!selectedCouponId)return alert('먼저 저장된 쿠폰을 선택하세요.');ensureCouponCampaignManagerUI();qs('couponCampaignManagerOverlay').classList.remove('hidden');qs('ccmSubtitle').textContent=val('coupon_title')||`쿠폰 #${selectedCouponId}`;await refreshCouponCampaignManager()}
@@ -2880,6 +2880,10 @@ function collectCouponPayload() {
   };
 }
 async function saveCoupon() {
+  const prior = coupons.find(row=>String(row.id)===String(selectedCouponId));
+  if ((prior?.delivery_mode==='raffle'||val('coupon_delivery_mode')==='raffle') && window.ADMIN_ROLE!=='super_admin') {
+    return alert('유료 프로모션은 최고 관리자만 등록하거나 수정할 수 있습니다.');
+  }
   const p = collectCouponPayload();
   if (!p.business_ids.length || !p.title) return alert('연결 업소와 쿠폰 제목을 입력하세요.');
 
@@ -2908,6 +2912,17 @@ async function saveCoupon() {
 }
 async function deleteCoupon() {
   if (!selectedCouponId) return;
+  const prior = coupons.find(row=>String(row.id)===String(selectedCouponId));
+  if (prior?.delivery_mode==='raffle') {
+    if (window.ADMIN_ROLE!=='super_admin') return alert('유료 프로모션은 최고 관리자만 종료할 수 있습니다.');
+    if (!confirm('이 프로모션의 공개를 종료할까요?')) return;
+    const {error}=await supabase.from('coupons').update({is_active:false}).eq('id',selectedCouponId).select('id').single();
+    if (error) return alert('프로모션을 종료하지 못했습니다.');
+    await loadCoupons();
+    const ended = coupons.find(row=>String(row.id)===String(selectedCouponId));
+    if (ended) fillCouponForm(ended);
+    return;
+  }
   if (!confirm('이 쿠폰을 삭제할까요?')) return;
   const { error } = await supabase.from('coupons').delete().eq('id', selectedCouponId);
   if (error) return alert(`쿠폰 삭제 실패: ${error.message}`);
