@@ -1,5 +1,11 @@
 const labels = {pending:'신규 예약 신청',confirmed:'예약 확정',rejected:'예약 거절',cancelled:'예약 취소'};
 
+export function reservationMailConfig(env) {
+  const key=env.get('RESERVATION_RESEND_API_KEY');
+  const from=env.get('RESEND_FROM_EMAIL')?.trim();
+  return key&&from&&!/@resend\.dev\b/i.test(from)?{key,from}:null;
+}
+
 export async function deliverReservationMail(project, service, key, from, reservation, request=fetch) {
   const rpc = async (name, args) => {
     const response = await request(project+'/rest/v1/rpc/'+name,{
@@ -43,9 +49,8 @@ export async function deliverReservationMail(project, service, key, from, reserv
 
 export function scheduleReservationMail(project,service,reservation) {
   if(Deno.env.get('RESERVATION_EMAIL_ENABLED')!=='true')return;
-  const key=Deno.env.get('RESEND_API_KEY');
-  const from=Deno.env.get('RESEND_FROM_EMAIL');
-  if(!(reservation?.id||reservation?.number)||!service||!key||!from||/@resend\.dev\b/i.test(from))return;
-  EdgeRuntime.waitUntil(deliverReservationMail(project,service,key,from,reservation)
+  const config=reservationMailConfig(Deno.env);
+  if(!(reservation?.id||reservation?.number)||!service||!config)return;
+  EdgeRuntime.waitUntil(deliverReservationMail(project,service,config.key,config.from,reservation)
     .catch(()=>console.warn('RESERVATION_MAIL_QUEUE_FAILED')));
 }
