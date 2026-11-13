@@ -34,6 +34,7 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)docs/migrations/DRAFT-owner-phase2-gallery.sql',
   ':(exclude)docs/migrations/DRAFT-owner-phase2-coupons.sql',
   ':(exclude)docs/migrations/DRAFT-owner-coupon-use-proof.sql',
+  ':(exclude)docs/migrations/DRAFT-owner-coupon-proof-refresh.sql',
   ':(exclude)docs/migrations/DRAFT-owner-coupon-use-cutover.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-coupon-use-cutover.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-coupon-use-proof.sql',
@@ -54,4 +55,26 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
  const toml=fs.readFileSync('netlify.toml','utf8').replaceAll('\r\n','\n');
  const published=execFileSync('git',['show',production+':netlify.toml'],{encoding:'utf8'}).replaceAll('\r\n','\n');
  assert.equal(toml,published);
+});
+
+test('Today includes unfeatured coupons on Dallas start, middle and end dates',()=>{
+ const app=fs.readFileSync('app-v99.js','utf8');
+ const context=vm.createContext({currentRegion:'dallas'});
+ vm.runInContext(fs.readFileSync('assets/dallas-time.js','utf8'),context);
+ vm.runInContext(fs.readFileSync('assets/active-state.js','utf8'),context);
+ const functions=['v249CouponEffectiveEnd','activeCoupons','todayCoupons'].map(name=>app.match(new RegExp('function '+name+'\\([^\\n]*\\n[\\s\\S]*?\\n\\}'))[0]);
+ vm.runInContext(functions.join('\n'),context);
+ context.coupons=[
+  {id:'pilot',region:'dallas',start_date:'2026-11-12',end_date:'2026-11-14'},
+  {id:'ended',region:'dallas',is_active:false,start_date:'2026-11-12',end_date:'2026-11-14'},
+ ];
+ const ids=instant=>{
+   context.Date=class extends Date {static now(){return Date.parse(instant)}};
+   return Array.from(context.todayCoupons(),row=>row.id);
+ };
+ assert.deepEqual(ids('2026-11-12T05:59:59Z'),[]);
+ assert.deepEqual(ids('2026-11-12T06:00:00Z'),['pilot']);
+ assert.deepEqual(ids('2026-11-13T18:00:00Z'),['pilot']);
+ assert.deepEqual(ids('2026-11-15T05:59:59Z'),['pilot']);
+ assert.deepEqual(ids('2026-11-15T06:00:00Z'),[]);
 });
