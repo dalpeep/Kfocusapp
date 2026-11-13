@@ -798,6 +798,157 @@
           events.addEventListener('toggle', () => {
             if (events.open && !eventBusy) void loadEvents();
           });
+          const menu = append(card, 'details', '');
+          append(menu, 'summary', '메뉴 관리');
+          const menuStatus = append(menu, 'p', '');
+          menuStatus.setAttribute('role', 'status');
+          const menuBody = append(menu, 'div', '');
+          const menuQuery = '?content=menu&business=' + encodeURIComponent(business.id);
+          let menuBusy = false;
+          async function loadMenu() {
+            try {
+              const rows = await request(menuQuery);
+              menuBody.replaceChildren();
+              const list = append(menuBody, 'div', '');
+              const form = append(menuBody, 'form', '');
+              let selected;
+              const fields = {};
+              function field(name, label, type) {
+                const input = append(append(form, 'label', label), type === 'textarea' ? 'textarea' : 'input', '');
+                if (type !== 'textarea') input.type = type;
+                fields[name] = input;
+                return input;
+              }
+              field('title', '메뉴·서비스명', 'text').required = true;
+              field('title_en', 'English title', 'text');
+              field('description', '설명', 'textarea');
+              const price = field('price', '가격 (USD)', 'number');
+              price.required = true; price.min = '0'; price.max = '1000000'; price.step = '0.01';
+              const order = field('sort_order', '표시 순서 (작은 숫자부터)', 'number');
+              order.required = true; order.min = '0'; order.max = '100000'; order.defaultValue = '100';
+              field('sold_out', '품절', 'checkbox');
+              field('is_active', '공개', 'checkbox').defaultChecked = true;
+              const media = append(form, 'div', '');
+              media.className = 'pilot-special-image';
+              const preview = append(media, 'img', '');
+              preview.alt = '메뉴 이미지';
+              preview.referrerPolicy = 'no-referrer';
+              const imageButton = append(media, 'button', '이미지 추가');
+              const removeImage = append(media, 'button', '이미지 삭제');
+              imageButton.type = removeImage.type = 'button';
+              const imagePicker = append(media, 'input', '');
+              imagePicker.type = 'file';
+              imagePicker.accept = 'image/jpeg,image/png,image/webp';
+              imagePicker.hidden = true;
+              let imageUrl = null;
+              let imageFile;
+              let previewUrl;
+
+              function renderImage() {
+                if (previewUrl) URL.revokeObjectURL(previewUrl);
+                previewUrl = imageFile ? URL.createObjectURL(imageFile) : undefined;
+                const src = previewUrl || (/^https?:\/\//i.test(imageUrl || '') ? imageUrl : '');
+                if (src) preview.src = src;
+                else preview.removeAttribute('src');
+                preview.hidden = !src;
+                imageButton.textContent = imageUrl || imageFile ? '이미지 교체' : '이미지 추가';
+                removeImage.hidden = !(imageUrl || imageFile);
+              }
+              renderImage();
+              imageButton.onclick = () => {
+                if ((imageUrl || imageFile) && !window.confirm('메뉴 이미지를 교체할까요?')) return;
+                imagePicker.value = '';
+                imagePicker.click();
+              };
+              imagePicker.onchange = () => {
+                const file = imagePicker.files[0];
+                if (!file) return;
+                if (file.size > 4 * 1024 * 1024) {
+                  menuStatus.textContent = '4MB 이하의 사진을 선택해 주세요.';
+                  return;
+                }
+                imageFile = file;
+                renderImage();
+              };
+              removeImage.onclick = () => {
+                if (!window.confirm('메뉴 이미지 참조를 삭제할까요?')) return;
+                imageFile = undefined;
+                imageUrl = null;
+                renderImage();
+              };
+              append(form, 'button', '저장 및 공개').type = 'submit';
+              const reset = append(form, 'button', '새 메뉴');
+              reset.type = 'button';
+              reset.onclick = () => { selected = undefined; form.reset(); imageUrl = null; imageFile = undefined; renderImage(); };
+              for (const row of rows) {
+                const item = append(list, 'div', '');
+                append(item, 'p', row.title + (!row.is_active ? ' · 비공개' : row.sold_out ? ' · 품절' : ' · 공개'));
+                const edit = append(item, 'button', '수정');
+                edit.type = 'button';
+                edit.onclick = () => {
+                  selected = row;
+                  imageUrl = row.image_url || null;
+                  imageFile = undefined;
+                  renderImage();
+                  for (const name of ['title','title_en','description']) fields[name].value = row[name] || '';
+                  fields.price.value = (row.price_cents / 100).toFixed(2);
+                  fields.sort_order.value = row.sort_order;
+                  fields.sold_out.checked = row.sold_out;
+                  fields.is_active.checked = row.is_active;
+                };
+                const end = append(item, 'button', '목록에서 제거');
+                end.type = 'button';
+                end.disabled = !row.is_active;
+                end.onclick = () => {
+                  if (window.confirm('이 메뉴를 공개 목록에서 제거할까요?')) void saveMenu({action:'end',id:row.id,expected:row.updated_at});
+                };
+              }
+              if (!rows.length) append(list, 'p', '등록된 메뉴가 없습니다.');
+              form.onsubmit = async event => {
+                menu.prmenuDefault();
+                if (menuBusy) return;
+                await saveMenu({action:'save', fields:{title:fields.title.value.trim(),title_en:fields.title_en.value.trim(),
+                  description:fields.description.value.trim(),price_cents:Math.round(Number(fields.price.value)*100),
+                  sort_order:Number(fields.sort_order.value),sold_out:fields.sold_out.checked,is_active:fields.is_active.checked,image_url:imageUrl},
+                  ...(selected ? {id:selected.id,expected:selected.updated_at} : {})}, async command => {
+                    if (imageFile) {
+                      imageUrl = await request(galleryQuery + '&upload=1', null, imageFile);
+                      imageFile = undefined;
+                      renderImage();
+                      command.fields.image_url = imageUrl;
+                    }
+                  });
+                if (!form.isConnected && previewUrl) URL.revokeObjectURL(previewUrl);
+              };
+            } catch (error) {
+              menuStatus.textContent = error.status === 503 ? '메뉴 관리는 준비 중입니다.' : '메뉴을 불러오지 못했습니다.';
+            }
+          }
+
+          async function saveMenu(command, prepare) {
+            if (menuBusy || current !== generation) return;
+            menuBusy = true;
+            const controls = [...menuBody.querySelectorAll('button, input, textarea, select')]
+              .filter(control => !control.disabled);
+            for (const control of controls) control.disabled = true;
+            try {
+              if (prepare) await prepare(command);
+              await request(menuQuery, {...command,key:crypto.randomUUID()});
+              menuStatus.textContent = command.action === 'end' ? '공개를 종료했습니다.'
+                : '저장되었습니다. 적용 조건에 따라 공개됩니다.';
+              await loadMenu();
+            } catch (error) {
+              menuStatus.textContent = error.status === 409 ? '목록을 다시 열어 최신 내용을 확인해 주세요.'
+                : '저장 결과를 확인하지 못했습니다. 목록을 다시 열어 확인해 주세요.';
+            } finally {
+              menuBusy = false;
+              for (const control of controls) control.disabled = false;
+            }
+          }
+
+          menu.addEventListener('toggle', () => {
+            if (menu.open && !menuBusy) void loadMenu();
+          });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
