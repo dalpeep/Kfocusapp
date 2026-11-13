@@ -5672,3 +5672,21 @@ body.nearby-businesses-open{overflow:hidden!important}
 #page-community #communityReset[hidden] {
   display: none;
 }
+
+/* Coupon details share a single left edge below the image. */
+#couponDetailCard .coupon-detail-card { display:grid; gap:16px; min-width:0; }
+#couponDetailCard .coupon-detail-heading { display:grid; gap:4px; }
+#couponDetailCard .coupon-detail-heading h2 { margin:0; overflow-wrap:anywhere; }
+.coupon-detail-type { color:#64748b; font-size:.875rem; font-weight:700; }
+.coupon-detail-biz { display:inline-flex; max-width:100%; align-items:center; gap:6px; text-align:left;
+  border:0; border-radius:16px; padding:8px 12px; background:#eef5ff; color:#2a60ab; font-weight:800; }
+.coupon-detail-biz span { min-width:0; overflow-wrap:anywhere; }
+.coupon-detail-biz svg, .coupon-detail-time svg { width:18px; height:18px; flex:none; }
+.coupon-detail-time { display:flex; align-items:center; justify-content:space-between; gap:12px;
+  border:1px solid #fed7aa; border-radius:16px; padding:12px; background:#fff7ed; color:#7c2d12; }
+.coupon-detail-time strong { display:flex; align-items:center; gap:6px; }
+.coupon-detail-time b { text-align:right; overflow-wrap:anywhere; }
+.coupon-detail-benefits { display:grid; gap:12px; border:1px solid #e5edff; border-radius:16px; padding:14px; min-width:0; }
+#couponDetailCard .coupon-detail-benefits :is(h3,h4,p) { margin:0; }
+#couponDetailCard .coupon-detail-benefits h4 { margin-bottom:4px; }
+.coupon-detail-benefits p { white-space:pre-wrap; overflow-wrap:anywhere; }

@@ -86,7 +86,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
       }
       try {
         const actor = await client.auth.getUser(authorization.slice(7));
-        if (!actor.data?.user?.id) return json(401, {ok: false});
+        if (!actor.data?.user?.id) return json(401, {ok: false, code: 'OWNER_AUTH_REQUIRED'});
         const params = {p_actor: actor.data.user.id, p_business: business};
         if (specials || coupons) {
           if (method === 'POST') {
@@ -99,7 +99,12 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
           if (coupons && method === 'GET' && url.searchParams.get('view') === 'history') {
             const result = await client.rpc('owner_coupon_history_v3', params);
             if (!result.error) return json(200, {ok: true, result: result.data});
-            return json({OP403: 403, OP503: 503}[result.error.code] || 502, {ok: false});
+            const failure = {
+              OP403: [403, 'COUPON_HISTORY_DENIED'],
+              OP503: [503, 'OWNER_QA_PILOT_OFF'],
+              PGRST202: [404, 'COUPON_HISTORY_UNAVAILABLE'],
+            }[result.error.code] || [502, 'COUPON_HISTORY_QUERY_FAILED'];
+            return json(failure[0], {ok: false, code: failure[1]});
           }
           if (coupons && params.p_command?.action === 'redeem_use_proof') {
             const couponId = params.p_command.id;

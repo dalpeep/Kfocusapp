@@ -50,6 +50,7 @@
         : response.status === 409 ? '신청이 변경됐습니다. 목록을 다시 확인해 주세요.'
         : '입력 내용을 확인해 주세요.');
       error.status = response.status;
+      error.code = body.code;
       throw error;
     }
 
@@ -444,9 +445,11 @@
               for (const row of recent) {
                 append(historyBody, 'p', historyDate.format(new Date(row.occurred_at)) + ' · ' + row.title + ' · ' + states[row.state]);
               }
-              if (!recent.length) append(historyBody, 'p', '아직 발급 또는 사용 기록이 없습니다.');
-            } catch (_) {
-              historyBody.textContent = '사용 내역을 불러오지 못했습니다.';
+              if (!recent.length) append(historyBody, 'p', '사용 내역이 없습니다.');
+            } catch (error) {
+              const code = ['COUPON_HISTORY_DENIED','COUPON_HISTORY_UNAVAILABLE','COUPON_HISTORY_QUERY_FAILED','OWNER_QA_PILOT_OFF','OWNER_AUTH_REQUIRED'].includes(error.code)
+                ? error.code : error.status ? 'HTTP_' + error.status : 'COUPON_HISTORY_NETWORK';
+              historyBody.textContent = '사용 내역을 불러오지 못했습니다. (' + code + ')';
             }
           }
           history.addEventListener('toggle', () => { if (history.open) void loadCouponHistory(); });
