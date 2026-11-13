@@ -6,7 +6,9 @@ const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const bookingNumber = /^[A-F0-9]{20}$/;
 const passwordSize = (value: unknown): value is string =>
   typeof value==='string' && new TextEncoder().encode(value).length<=72;
-const isPin = (value: unknown): value is string => typeof value==='string' && /^[0-9]{4}$/.test(value);
+const isNewPin = (value: unknown): value is string => typeof value==='string' && /^[0-9]{6}$/.test(value);
+const isLookupPin = (value: unknown): value is string =>
+  isNewPin(value) || (typeof value==='string' && /^[0-9]{4}$/.test(value));
 async function pinDigest(secret: string, purpose: string, value: string) {
   const encoder=new TextEncoder();
   const key=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
@@ -44,7 +46,7 @@ Deno.serve(async request => {
     if (!body || typeof body!=='object') return reply(400,{code:'INPUT'});
     const credentialLookup=body.action==='lookup-number'||body.action==='cancel-number';
     const pinSubmission=body.action==='submit-pin';
-    const pinLookup=credentialLookup&&isPin(body.password);
+    const pinLookup=credentialLookup&&isLookupPin(body.password);
     const pepper=Deno.env.get('RESERVATION_PIN_PEPPER');
     if((pinSubmission||pinLookup)&&(!pepper||pepper.length<32))
       return reply(pinLookup?403:503,{code:pinLookup?'CREDENTIALS':'RESERVATION_UNAVAILABLE'});
@@ -53,7 +55,7 @@ Deno.serve(async request => {
     let rpc, args;
     if (body.action==='submit'||body.action==='submit-number'||pinSubmission) {
       const numbered=body.action==='submit-number';
-      if((pinSubmission&&!isPin(body.password))||(numbered&&(!passwordSize(body.password)||body.password.length<8)))
+      if((pinSubmission&&!isNewPin(body.password))||(numbered&&(!passwordSize(body.password)||body.password.length<8)))
         return reply(400,{code:'INPUT'});
       if (!uuid.test(body.business||'') || !Number.isInteger(body.party) || body.party<1 || body.party>100 ||
           typeof body.slot!=='string' || !Number.isFinite(Date.parse(body.slot)) ||
