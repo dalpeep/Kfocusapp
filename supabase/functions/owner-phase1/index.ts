@@ -9,7 +9,8 @@ const headers = {
 };
 const projectUrl = Deno.env.get('SUPABASE_URL');
 const handle = makeEdgeHandler({projectUrl, serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-  galleryEnabled: Deno.env.get('OWNER_PHASE2_GALLERY_ENABLED') === 'true'});
+  galleryEnabled: Deno.env.get('OWNER_PHASE2_GALLERY_ENABLED') === 'true',
+  specialsEnabled: Deno.env.get('OWNER_PHASE2_SPECIALS_ENABLED') === 'true'});
 
 Deno.serve(async request => {
   if (request.headers.get('origin') !== origin) return new Response(null, {status: 403});

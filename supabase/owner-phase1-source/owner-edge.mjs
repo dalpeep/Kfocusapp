@@ -14,9 +14,9 @@ function imageType(bytes) {
   return null;
 }
 
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1']);
 
-export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, transport = fetch}) {
+export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
   const denied = () => json(403, {ok: false, error: '달타운맵에서만 이용할 수 있습니다.'});
   const off = () => json(503, {ok: false, phase1: true, code: 'OWNER_QA_PILOT_OFF',
@@ -54,6 +54,8 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
     if (!/^Bearer [^\s]+$/.test(authorization || '')) return json(401, {ok: false, error: '로그인이 필요합니다.'});
     const url = new URL(request.url);
     const gallery = url.searchParams.get('content') === 'gallery';
+    const specials = url.searchParams.get('content') === 'specials';
+    if (specials && !specialsEnabled) return off();
     const upload = gallery && url.searchParams.get('upload') === '1';
     if (gallery && !galleryEnabled) return off();
     if (upload && method !== 'POST') return json(405, {ok: false});
@@ -76,7 +78,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
       }
       body = Buffer.concat(chunks);
     }
-    if (gallery) {
+    if (gallery || specials) {
       const business = url.searchParams.get('business');
       if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(business || '')) {
         return json(400, {ok: false});
@@ -85,6 +87,18 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
         const actor = await client.auth.getUser(authorization.slice(7));
         if (!actor.data?.user?.id) return json(401, {ok: false});
         const params = {p_actor: actor.data.user.id, p_business: business};
+        if (specials) {
+          if (method === 'POST') {
+            try { params.p_command = JSON.parse(body.toString('utf8')); }
+            catch { return json(400, {ok: false}); }
+            if (!params.p_command || typeof params.p_command !== 'object' || Array.isArray(params.p_command)) {
+              return json(400, {ok: false});
+            }
+          }
+          const result = await client.rpc('owner_pilot_special_v1', params);
+          if (!result.error) return json(200, {ok: true, result: result.data});
+          return json({OP400: 400, OP403: 403, OP409: 409, OP503: 503}[result.error.code] || 502, {ok: false});
+        }
         if (upload) {
           const image = imageType(body);
           if (!image) return json(400, {ok: false});
