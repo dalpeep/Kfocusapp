@@ -642,7 +642,7 @@
             if (coupons.open && !couponBusy) void loadCoupons();
           });
           const events = append(card, 'details', '');
-          append(events, 'summary', '이벤트');
+          append(events, 'summary', '이벤트 관리');
           const eventStatus = append(events, 'p', '');
           eventStatus.setAttribute('role', 'status');
           const eventBody = append(events, 'div', '');
