@@ -659,7 +659,7 @@ function homeBusinessItemHTML(b){
     (typeof businessHasActiveListing === 'function' && businessHasActiveListing(b)) ? '<span class="home-business-listing-badge">LISTING</span>' : ''
   ].filter(Boolean).join('');
 
-  return `
+  return `<div class="reservation-card-row">
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
       <span class="home-biz-map-img-wrap">${businessImageHTML(b,'home-biz-map-img',b.name||'')}<span class="home-business-promo-badges">${promoBadges}</span></span>
 
@@ -674,6 +674,7 @@ function homeBusinessItemHTML(b){
         </div>
       </div>
     </button>
+    ${businessReservationTarget(b.id)}</div>
   `;
 }
 function todayKey(){
@@ -1595,7 +1596,7 @@ function renderSearchResults(query){
   const biz = businessSearchResults(q);
   const cpn = couponSearchResults(q);
   const brd = boardSearchResults(q);
-  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}">${businessTitleRowHTML(b,b.name,{className:'search-business-title',nameClass:'search-business-name'})}<span>${esc(getBusinessDisplayCategory(b))} · ${esc(b.address || b.region || '')}</span></button>`).join('');
+  if(searchBusinessList) searchBusinessList.innerHTML = biz.map(b=>`<div class="reservation-card-row"><button class="search-result-item" data-search-type="business" data-biz="${esc(b.id)}">${businessTitleRowHTML(b,b.name,{className:'search-business-title',nameClass:'search-business-name'})}<span>${esc(getBusinessDisplayCategory(b))} · ${esc(b.address || b.region || '')}</span></button>${businessReservationTarget(b.id)}</div>`).join('');
   if(searchCouponList) searchCouponList.innerHTML = cpn.map(c=>{ const biz=getBiz(c.businessId) || {}; return `<button class="search-result-item" data-search-type="coupon" data-coupon="${esc(c.id)}"><strong>${esc(c.title)}</strong><span>${esc(biz.name || '')}${biz.name?' · ':''}${esc(countdownLabel(c.endAt,true))}</span></button>`; }).join('');
   if(searchBoardList) searchBoardList.innerHTML = brd.map(p=>`<button class="search-result-item" data-search-type="board" data-board-result="${esc(p.type)}" data-board-title="${esc(p.title)}"><strong>${esc(p.title)}</strong><span>${esc(p.content || p.type || '')}</span></button>`).join('');
   searchBusinessSection?.classList.toggle('hidden', !biz.length);
@@ -3237,7 +3238,7 @@ function mapBottomItemHTML(b){
     meta.push(`${miles.toFixed(1)} mi`);
   }
 
-  return `
+  return `<div class="reservation-card-row">
     <button class="map-bottom-item" data-map-biz="${esc(b.id)}">
       ${businessImageHTML(b,'map-bottom-thumb',b.name)}
       <span class="map-bottom-copy">
@@ -3246,6 +3247,7 @@ function mapBottomItemHTML(b){
         ${mapBusinessBadgesHTML(b)}
       </span>
     </button>
+    ${businessReservationTarget(b.id)}</div>
   `;
 }
 
@@ -3401,6 +3403,7 @@ function mapBusinessPreviewHTML(b){
       <a href="https://www.google.com/maps/dir/?api=1&destination=${Number(b.lat)},${Number(b.lng)}" target="_blank" rel="noopener" data-map-action="direction" data-map-id="${esc(b.id)}">길찾기</a>
       <button type="button" data-map-detail="${esc(b.id)}">상세정보</button>
     </div>
+    ${businessReservationTarget(b.id)}
   </div>`;
 }
 function showMapBusinessPreview(b){
@@ -3436,7 +3439,7 @@ function nearbyBusinessItemHTML(b){
     businessHasActiveBanner(b) ? '<span class="business-banner-badge">배너</span>' : ''
   ].filter(Boolean).join('');
 
-  return `
+  return `<div class="reservation-card-row">
     <button class="nearby-business-item biz-open" data-biz="${esc(b.id)}">
       <span class="nearby-thumb-wrap">${businessImageHTML(b,'nearby-thumb',bizName)}<span class="business-promo-badges">${promoBadges}</span></span>
       <div class="nearby-copy">
@@ -3444,6 +3447,7 @@ function nearbyBusinessItemHTML(b){
         <span>${esc(meta.join(' · '))}</span>
       </div>
     </button>
+    ${businessReservationTarget(b.id)}</div>
   `;
 }
 function bindBizOpenButtons() {
@@ -5664,6 +5668,55 @@ function bindV229ListingCards(root=document){
 ensureV229ListingPublicStyles();
 
 
+function businessReservationTarget(id, allowLookup=false){
+  return /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id)
+    ? `<div class="business-reservation-action" data-business-reservation="${esc(id)}"${allowLookup?' data-reservation-lookup':''}></div>`
+    : '';
+}
+
+const reservationAvailability=new Map();
+function checkBusinessReservation(id, request){
+  const cached=reservationAvailability.get(id);
+  if(cached && cached.expires>Date.now())return cached.promise;
+  const entry={expires:Date.now()+30000,promise:null};
+  entry.promise=request('business_reservation_enabled_v1',{p_business:id}).catch(error=>{
+    if(reservationAvailability.get(id)===entry)reservationAvailability.delete(id);
+    throw error;
+  });
+  reservationAvailability.set(id,entry);
+  return entry.promise;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const selector='[data-business-reservation]';
+  const initialize=target=>loadBusinessReservation(target.dataset.businessReservation,target);
+  const visibility=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting)continue;
+      visibility.unobserve(entry.target);
+      void initialize(entry.target);
+    }
+  });
+  // The empty action sits at the card edge and is observed before it has a button.
+  const observe=target=>visibility.observe(target);
+  const watch=node=>{
+    if(node.nodeType!==1)return;
+    if(node.matches(selector))observe(node);
+    node.querySelectorAll(selector).forEach(observe);
+  };
+  new MutationObserver(records=>{
+    for(const record of records){
+      record.addedNodes.forEach(watch);
+      for(const node of record.removedNodes){
+        if(node.nodeType!==1||node.isConnected)continue;
+        if(node.matches(selector))visibility.unobserve(node);
+        node.querySelectorAll(selector).forEach(target=>visibility.unobserve(target));
+      }
+    }
+  }).observe(document.body,{childList:true,subtree:true});
+  watch(document.body);
+});
+
 async function loadBusinessReservation(id,target){
   const {SUPABASE_URL:url,SUPABASE_ANON_KEY:key,COMMUNITY_TURNSTILE_SITE_KEY:sitekey}=getConfig();
   if(!target||!url||!key)return;
@@ -5683,12 +5736,13 @@ async function loadBusinessReservation(id,target){
   let saved;
   try { saved=JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) {}
   let enabled=false;
-  try { enabled=await rpc('business_reservation_enabled_v1',{p_business:id}); } catch (_) {}
-  if(!target.isConnected||(!enabled&&!saved))return;
-  target.hidden=false;
+  try { enabled=await checkBusinessReservation(id,rpc)===true; } catch (_) {}
+  if(!target.isConnected||(!enabled&&(!saved||!target.hasAttribute('data-reservation-lookup'))))return;
   target.innerHTML='<button type="button"></button>';
   const opener=target.firstElementChild;
-  opener.textContent=enabled?'예약하기':'예약 조회·취소';
+  opener.className='business-reservation-button';
+  opener.innerHTML='<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>'+
+    (enabled?'예약하기':'예약 조회·취소');
   opener.onclick=()=>{
     const dialog=document.createElement('dialog');
     dialog.className='reservation-dialog';
@@ -6255,12 +6309,12 @@ ${b.rating ? `
 `}
 </div>
 
+      ${businessReservationTarget(b.id,true)}
       <div class="biz-action-row">
         ${safePhoneHref ? `<a href="${esc(safePhoneHref)}" data-biz-detail-action="phone">전화</a>` : ''}
         ${safeSmsHref ? `<a href="${esc(safeSmsHref)}" data-biz-detail-action="sms">문자</a>` : ''}
         ${safeDirections ? `<a href="${esc(safeDirections)}" target="_blank" rel="noopener" data-biz-detail-action="directions">길찾기</a>` : ''}
         ${safeWebsite ? `<a href="${esc(safeWebsite)}" target="_blank" rel="noopener" data-biz-detail-action="website">웹사이트</a>` : ''}
-        <span data-business-reservation hidden></span>
         <button type="button" data-biz-detail-action="share" onclick="shareBusiness('${b.id}')">
         공유
        </button>
@@ -6419,7 +6473,6 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
   });
 });
   void loadBusinessMenu(b, detailCard.querySelector('[data-business-menu]'));
-  void loadBusinessReservation(b.id, detailCard.querySelector('[data-business-reservation]'));
 
 const hoursHtml = renderBusinessHours(b);
 
@@ -8024,7 +8077,7 @@ function createInfoWindowContent(b){
   const hasCoupon = mapBusinessBadgeKinds(b).includes('coupon');
   const thumb = b.image || 'assets/kfocus-icon.png';
   const badges = mapBusinessBadgesHTML(b)+(b.video?'<span class="map-iw-badge video">🎥 영상</span>':'');
-  return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div></div>`;
+  return `<div class=\"map-infowindow\"><div class=\"map-iw-row\"><img class=\"map-iw-thumb\" src=\"${esc(thumb)}\" alt=\"${esc(b.name)}\"><div class=\"map-iw-meta\"><h4>${esc(b.name)}</h4><p>${esc(b.subcategory || b.category_sub || getMainCategoryLabel(b.category))} · ${esc(b.address)}</p>${badges?`<div class=\"map-iw-badges\">${badges}</div>`:''}</div></div><div class=\"map-iw-actions\"><a href=\"#\" class=\"iw-btn\" onclick=\"return window.openBusinessFromMap('${esc(b.id)}')\">상세보기</a>${hasCoupon?`<a href=\"#\" class=\"iw-btn coupon\" onclick=\"return window.openCouponFromMap('${esc(b.id)}')\">할인</a>`:''}<a class=\"iw-btn route\" href=\"https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}\" target=\"_blank\">길찾기</a></div>${businessReservationTarget(b.id)}</div>`;
 }
 
 function youtubeEmbed(url) {
