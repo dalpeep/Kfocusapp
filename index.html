@@ -105,7 +105,7 @@
 
   <link rel="manifest" href="/manifest.json?v=263">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/styles.css?v=business-reservation-actions" />
+  <link rel="stylesheet" href="/styles.css?v=owner-entry-inquiry" />
   <script src="/.netlify/functions/config?v=community-phase1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -195,15 +195,8 @@ Dallas Korean Business Directory</strong>
 비즈니스
 </div>
 
-<button class="side-link"
-onclick="showPage('business-register');closeMenu();">
-업소 등록
-</button>
-
-<button class="side-link"
-onclick="showPage('advertise');closeMenu();">
-광고 문의
-</button>
+<a class="side-link business-entry-link" href="/#business-register"><i data-lucide="store" aria-hidden="true"></i>업소등록 · 광고문의</a>
+<a class="side-link business-entry-link" href="/owner-uuid/"><i data-lucide="settings" aria-hidden="true"></i>업소관리</a>
 
 <hr class="side-divider">
 
@@ -286,6 +279,10 @@ onclick="showPage('contact');closeMenu();">
 
     <main id="appMain" class="pages-wrap">
       <section class="page active" id="page-home">
+        <div class="home-owner-entry">
+          <span>업소를 운영하시나요?</span>
+          <a href="/owner-uuid/"><i data-lucide="store" aria-hidden="true"></i>업소관리</a>
+        </div>
         <section class="card hero-wrap home-hero-wrap" id="homeHeroSection">
           <div class="hero-viewport" id="heroViewport">
             <div class="hero-track" id="heroTrack"></div>
@@ -502,6 +499,10 @@ onclick="showPage('contact');closeMenu();">
       </section>
 	  
 <section class="page" id="page-business-register">
+  <nav class="business-inquiry-tabs" aria-label="업소등록 및 광고문의">
+    <a href="/#business-register" aria-current="page">업소등록</a>
+    <a href="/#advertise">광고문의</a>
+  </nav>
   <div class="request-card">
     <h2>업소 등록 신청</h2>
     <p>DalTownMap에 무료로 등록해 드립니다.</p>
@@ -520,6 +521,7 @@ onclick="showPage('contact');closeMenu();">
     <textarea id="reqMessage" class="large-textarea" placeholder="추가 사항을 입력해 주세요"></textarea>
 
     <button class="primary-submit" onclick="submitBusinessRequest()">업소 등록 신청</button>
+    <a class="business-claim-link" href="/owner-uuid/">기존 업소 소유권 신청 및 상태 확인</a>
   </div>
 </section>
 
@@ -684,7 +686,7 @@ onclick="showPage('contact');closeMenu();">
 <script src="/assets/community-contract.js?v=community-event-ui-20261011-r3"></script>
 <script src="/assets/community.js?v=separate-events"></script>
 <script src="/assets/home-selection.js?v=313"></script>
-  <script src="/app-v99.js?v=business-reservation-actions"></script>
+  <script src="/app-v99.js?v=owner-entry-inquiry"></script>
 <script src="/main-banners.js?v=263"></script>
 
 <div id="videoModal" class="video-modal hidden">
