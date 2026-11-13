@@ -7807,8 +7807,8 @@ function closeSlideDetailModal(){
   document.getElementById('slideDetailModal')
     ?.classList.add('hidden');
 }
-function closeSideMenu(){ $('#sideMenu')?.classList.remove('open'); $('#sideOverlay')?.classList.remove('show'); }
-function openSideMenu(){ $('#sideMenu')?.classList.add('open'); $('#sideOverlay')?.classList.add('show'); }
+function closeSideMenu(){ $('#sideMenu')?.classList.remove('open'); $('#sideMenu')?.setAttribute('aria-hidden','true'); $('#sideOverlay')?.classList.remove('show'); }
+function openSideMenu(){ $('#sideMenu')?.classList.add('open'); $('#sideMenu')?.setAttribute('aria-hidden','false'); $('#sideOverlay')?.classList.add('show'); }
 function getYouTubeVideoId(url) {
     if (!url) return '';
 
@@ -9054,6 +9054,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.DalTownRefreshHome=()=>p009ScheduleRefresh('external',0);
 
 function bindEvents(){
+  document.addEventListener('click',event=>{
+    const link=event.target.closest('.business-inquiry-tabs a, #sideMenu a[href="/#business-register"]');
+    if(!link||event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+    event.preventDefault();
+    const page=link.hash.slice(1);
+    if(location.pathname+location.hash!==routeFor(page))history.pushState(null,'',routeFor(page));
+    showPage(page,{skipRoute:true});
+  },true);
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
   $('#homeBrand')?.addEventListener('click', ()=>showPage('home'));
   $$('.nav-item').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
