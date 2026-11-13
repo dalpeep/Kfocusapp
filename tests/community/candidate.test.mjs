@@ -44,6 +44,7 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)docs/migrations/ROLLBACK-business-reservations.sql',
   ':(exclude)docs/migrations/ADD-reservation-customer-credentials.sql',
   ':(exclude)docs/migrations/ROLLBACK-reservation-customer-credentials.sql',
+  ':(exclude)docs/migrations/ADD-reservation-pin.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-menu.sql',
   ':(exclude)docs/migrations/DRAFT-paid-promotion-guard.sql',
   ':(exclude)docs/migrations/ROLLBACK-paid-promotion-guard.sql',

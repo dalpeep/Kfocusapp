@@ -4,6 +4,13 @@ const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const bookingNumber = /^[A-F0-9]{20}$/;
 const passwordSize = (value: unknown): value is string =>
   typeof value==='string' && new TextEncoder().encode(value).length<=72;
+const isPin = (value: unknown): value is string => typeof value==='string' && /^[0-9]{4}$/.test(value);
+async function pinDigest(secret: string, purpose: string, value: string) {
+  const encoder=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const bytes=await crypto.subtle.sign('HMAC',key,encoder.encode(purpose+':'+value));
+  return Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('');
+}
 const headers = {'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'content-type',
   'Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store',Vary:'Origin'};
 
@@ -34,12 +41,18 @@ Deno.serve(async request => {
     try { body=JSON.parse(new TextDecoder().decode(bytes)); } catch { return reply(400,{code:'INPUT'}); }
     if (!body || typeof body!=='object') return reply(400,{code:'INPUT'});
     const credentialLookup=body.action==='lookup-number'||body.action==='cancel-number';
+    const pinSubmission=body.action==='submit-pin';
+    const pinLookup=credentialLookup&&isPin(body.password);
+    const pepper=Deno.env.get('RESERVATION_PIN_PEPPER');
+    if((pinSubmission||pinLookup)&&(!pepper||pepper.length<32))
+      return reply(pinLookup?403:503,{code:pinLookup?'CREDENTIALS':'RESERVATION_UNAVAILABLE'});
     if (!credentialLookup && (!uuid.test(body.id||'') || !uuid.test(body.secret||''))) return reply(400,{code:'INPUT'});
     const params = {p_id:body.id,p_secret:body.secret};
     let rpc, args;
-    if (body.action==='submit'||body.action==='submit-number') {
+    if (body.action==='submit'||body.action==='submit-number'||pinSubmission) {
       const numbered=body.action==='submit-number';
-      if(numbered && (!passwordSize(body.password)||body.password.length<8))return reply(400,{code:'INPUT'});
+      if((pinSubmission&&!isPin(body.password))||(numbered&&(!passwordSize(body.password)||body.password.length<8)))
+        return reply(400,{code:'INPUT'});
       if (!uuid.test(body.business||'') || !Number.isInteger(body.party) || body.party<1 || body.party>100 ||
           typeof body.slot!=='string' || !Number.isFinite(Date.parse(body.slot)) ||
           typeof body.name!=='string' || !body.name.trim() || body.name.length>100 ||
@@ -54,15 +67,28 @@ Deno.serve(async request => {
       const result=await verification.json();
       if(!verification.ok || !result.success || result.hostname!=='daltownmap.com' || result.action!=='reservation')
         return reply(403,{code:'BOT_CHECK'});
-      rpc=numbered?'business_reservation_submit_v2':'business_reservation_submit_v1';
+      rpc=pinSubmission?'business_reservation_submit_pin_v1':numbered?'business_reservation_submit_v2':'business_reservation_submit_v1';
       args={...params,p_business:body.business,p_slot:body.slot,p_party:body.party,p_name:body.name,
         p_phone:body.phone,p_email:body.email||null,p_note:body.note||null};
       if(numbered)Object.assign(args,{p_password:body.password});
+      if(pinSubmission)Object.assign(args,{p_peppered_pin:await pinDigest(pepper!,'pin',body.password)});
     } else if(credentialLookup){
       if(!uuid.test(body.business||'')||typeof body.number!=='string'||!bookingNumber.test(body.number)||!passwordSize(body.password))
         return reply(403,{code:'CREDENTIALS'});
       rpc='customer_reservation_v2';
       args={p_business:body.business,p_number:body.number,p_password:body.password,p_cancel:body.action==='cancel-number'};
+      if(pinLookup){
+        const ip=request.headers.get('cf-connecting-ip');
+        if(!ip||!/^[0-9a-f:.]{3,45}$/i.test(ip))return reply(403,{code:'CREDENTIALS'});
+        const limit=await fetch(project+'/rest/v1/rpc/reserve_pin_attempt_v1',{
+          method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),
+          headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},
+          body:JSON.stringify({p_number:body.number,p_ip:await pinDigest(pepper!,'ip',ip.toLowerCase())})
+        });
+        if(!limit.ok||await limit.json()!==true)return reply(403,{code:'CREDENTIALS'});
+        rpc='customer_reservation_pin_v1';
+        Object.assign(args,{p_password:await pinDigest(pepper!,'pin',body.password)});
+      }
     } else if(body.action==='lookup'||body.action==='cancel') {
       rpc='customer_reservation_v1';
       args={...params,p_cancel:body.action==='cancel'};
