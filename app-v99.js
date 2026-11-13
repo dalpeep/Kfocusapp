@@ -1411,7 +1411,6 @@ function businessEventCards(rows){
       <button type="button" class="biz-open business-event-open" data-biz="${esc(row.business_id)}">업소 보기</button>
     </details>`).join('')}</section>`;
 }
-window.DtmBusinessEventCards = () => businessEventCards(activeBusinessEvents());
 async function loadBoardPostsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
   boardPosts = [...FALLBACK_BOARD_POSTS];
@@ -1819,10 +1818,10 @@ function mapCategoryBenefits(now=Date.now()){
 }
 function mapBenefitTone(group){return group.kinds.size>1?'mixed':([...group.kinds][0]||'');}
 let mapBenefitsCategory='';
-function mapBenefitBusinesses(kind){
+function mapBenefitBusinesses(kind, {ownerEventsOnly=false}={}){
   const grouped=new Map();
   const byId=new Map(businesses.filter(b=>b.is_active!==false && b.list_visible!==false && (!b.region||b.region===currentRegion)).map(b=>[String(b.id),b]));
-  mapActiveBenefitRecords().filter(r=>r.kind===kind).forEach(record=>record.businessIds.forEach(id=>{
+  mapActiveBenefitRecords().filter(r=>r.kind===kind && (!ownerEventsOnly || r.key.startsWith('events:'))).forEach(record=>record.businessIds.forEach(id=>{
     const business=byId.get(id);if(!business)return;
     if(!grouped.has(id))grouped.set(id,{business,benefits:new Map()});
     const dateKey=value=>value ? globalThis.DtmDallasTime.dateKey(value) : '';
@@ -1838,7 +1837,7 @@ function renderMapBenefitsDialog(){
   const dialog=document.getElementById('mapBenefitsDialog');
   if(!dialog || !mapBenefitsCategory)return;
   const kind=mapBenefitsCategory;
-  const rows=mapBenefitBusinesses(kind),origin=v293DistanceOrigin();
+  const rows=mapBenefitBusinesses(kind,{ownerEventsOnly:kind==='event'}),origin=v293DistanceOrigin();
   document.getElementById('mapBenefitsTitle').textContent=MAP_BENEFIT_LABELS[kind]||'이벤트';
   document.getElementById('mapBenefitsSummary').textContent=`활성 혜택 업소 ${rows.length}곳 · ${origin?'현재 위치에서 가까운 순':'위치 권한 허용 시 거리 표시'}`;
   document.getElementById('mapBenefitsList').innerHTML=rows.map(({business:b,benefits})=>{
@@ -1856,7 +1855,7 @@ function openMapBenefits(kind){
   if(dialog && !dialog.open)dialog.showModal();
 }
 function selectMapBenefitBusiness(id){
-  const entry=mapBenefitBusinesses(mapBenefitsCategory).find(row=>String(row.business.id)===String(id));
+  const entry=mapBenefitBusinesses(mapBenefitsCategory,{ownerEventsOnly:mapBenefitsCategory==='event'}).find(row=>String(row.business.id)===String(id));
   if(!entry)return;
   const b=entry.business;
   document.getElementById('mapBenefitsDialog')?.close();
@@ -1916,7 +1915,7 @@ function mapModeLabel(mode){
 const MAP_BENEFIT_ICONS={campaign:"<svg aria-hidden='true' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linejoin='round'><path d='M4 11h16v10H4zM2 7h20v4H2zM12 7v14M12 7H8a2 2 0 1 1 2-2l2 2Zm0 0h4a2 2 0 1 0-2-2l-2 2Z'/></svg>","event": "<svg aria-hidden='true' focusable='false' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2v3M16 2v3M3 9h18'/><rect x='3' y='4' width='18' height='17' rx='2'/><path d='m12 12 1.1 2.2 2.4.35-1.75 1.7.42 2.4L12 17.5l-2.17 1.15.42-2.4-1.75-1.7 2.4-.35Z'/></svg>", "coupon": "<svg aria-hidden='true' focusable='false' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M2 9a3 3 0 0 0 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 0 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z'/><path d='M13 5v2M13 17v2M13 11v2'/></svg>", "promotion": "<svg aria-hidden='true' focusable='false' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='8' cy='21' r='1'/><circle cx='19' cy='21' r='1'/><path d='M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h7.78a2 2 0 0 0 1.95-1.57L20 7H5.12'/></svg>"};
 function mapBenefitCount(kind){
   if(kind==='promotion') return activeDiscountBusinessIds().size;
-  if(kind==='event') return mapBenefitBusinesses('event').reduce((count,row)=>count+row.benefits.size,0);
+  if(kind==='event') return mapBenefitBusinesses('event',{ownerEventsOnly:true}).reduce((count,row)=>count+row.benefits.size,0);
   return kind==='campaign' ? v245EventCoupons().length : v245ActiveCoupons().length;
 }
 function renderMapFilters(){
@@ -11004,7 +11003,7 @@ function renderV245TodayShortcuts(){
       ${v245Shortcut('campaign','프로모션',eventCount,'v245OpenEvents()')}
       ${v245Shortcut('coupon','쿠폰',couponCount,'v245OpenCoupons()')}
       ${v245Shortcut('promotion','할인',discountCount,'v245OpenDiscounts()')}
-      ${v245Shortcut('event','이벤트',postCount,'event.stopPropagation();event.preventDefault();v260OpenEventBoard();return false;')}
+      ${v245Shortcut('event','이벤트',postCount,'event.stopPropagation();event.preventDefault();openMapBenefits(&quot;event&quot;);return false;')}
     </div>`;
 }
 window.renderV245TodayShortcuts=renderV245TodayShortcuts;

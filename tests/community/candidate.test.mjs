@@ -83,3 +83,11 @@ test('Today includes unfeatured coupons on Dallas start, middle and end dates',(
  assert.deepEqual(ids('2026-11-15T05:59:59Z'),['pilot']);
  assert.deepEqual(ids('2026-11-15T06:00:00Z'),[]);
 });
+
+test('community event lists use posts, while home and map show owner events',()=>{
+ const app=fs.readFileSync('app-v99.js','utf8');
+ assert.doesNotMatch(code,/DtmBusinessEventCards|\/rest\/v1\/events/);
+ assert.match(code,/등록된 행사안내 글이 없습니다/);
+ assert.match(app,/ownerEventsOnly:kind==='event'/);
+ assert.match(app,/openMapBenefits\(&quot;event&quot;\)/);
+});

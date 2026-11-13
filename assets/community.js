@@ -474,14 +474,7 @@ renderHome=async function(container,selectedCategory='all'){
   }
 };
 const ui4RenderList=renderList;
-renderList=function(){ui4RenderList();if(all.length||query)return;const box=el('communityResults');if(box)box.innerHTML=`<div class="community-empty"><p>아직 등록된 ${esc(filter==='all'?'커뮤니티':(filter==='event'?'행사안내':ui4Labels[filter])||'커뮤니티')} 글이 없습니다.</p><p>첫 번째 글을 등록해 보세요.</p><button class="community-write" type="button" data-community-write>＋ 글쓰기</button></div>`};
-const renderCommunityPostList=renderList;
-renderList=function(){
-  renderCommunityPostList();
-  if(filter!=='event'||query) return;
-  const cards=root.DtmBusinessEventCards?.();
-  if(cards) el('communityResults')?.insertAdjacentHTML('afterbegin',cards);
-};
+renderList=function(){ui4RenderList();if(all.length||query)return;const box=el('communityResults');if(box)box.innerHTML=`<div class="community-empty"><p>${filter==='event'?'등록된 행사안내 글이 없습니다':`아직 등록된 ${esc(filter==='all'?'커뮤니티':ui4Labels[filter]||'커뮤니티')} 글이 없습니다.`}</p><p>첫 번째 글을 등록해 보세요.</p><button class="community-write" type="button" data-community-write>＋ 글쓰기</button></div>`};
 const ui4OpenWrite=openWrite;
 openWrite=function(existing=null){
   ui4OpenWrite(existing);
@@ -598,7 +591,7 @@ async function renderEventsHome(container,legacyRows=[]){
  try{const rows=[];for(let offset=0;;offset+=100){const batch=await rpc('community_list_public_v5',{p_region:cfg().APP_REGION||'dallas',p_category:'neighborhood',p_query:null,p_offset:offset,p_limit:100});rows.push(...batch);if(batch.length<100)break;}
  if(request!==eventHomeRequest||document.querySelector('#communityTabs .active')?.dataset.board!=='notice')return;
  const events=rows.filter(row=>row.details?.news_type==='event');
- container.innerHTML=(root.DtmBusinessEventCards?.()||'')+events.map(row=>homeCard(row)).join('')+(legacyRows.length?'<h3>기존 행사안내</h3>'+legacyRows.slice(0,4).map(row=>homeCard(row,'event')).join(''):'')||'<div class="community-home-empty">등록된 행사안내가 없습니다.</div>';
+ container.innerHTML=events.map(row=>homeCard(row)).join('')+(legacyRows.length?'<h3>기존 행사안내</h3>'+legacyRows.slice(0,4).map(row=>homeCard(row,'event')).join(''):'')||'<div class="community-home-empty">등록된 행사안내가 없습니다.</div>';
  container.querySelectorAll('[data-event-legacy]').forEach(button=>button.onclick=()=>root.openBoardPost?.(button.dataset.eventLegacy));
  }catch{if(request===eventHomeRequest)container.innerHTML='<div class="community-home-empty">행사안내를 불러오지 못했습니다.</div>';}
 }
