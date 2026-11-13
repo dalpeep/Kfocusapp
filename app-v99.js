@@ -5696,9 +5696,12 @@ async function loadBusinessReservation(id,target){
     dialog.innerHTML=`
       <h2 id="reservation-dialog-title">예약</h2>
       <form>
-        <label>예약 날짜 <input name="date" type="date" required></label>
+        <div class="reservation-date">
+          <label>예약 날짜 <input name="date" type="date" aria-describedby="reservation-date-notice" required></label>
+          <p id="reservation-date-notice" class="reservation-date-notice" aria-live="polite" aria-atomic="true"></p>
+        </div>
         <div class="reservation-slot-fields">
-          <label>예약 시간 <select name="slot" required></select></label>
+          <label>예약 시간 <select name="slot" disabled required></select></label>
           <label>예약 인원 <input name="party" type="number" min="1" max="100" value="1" required></label>
         </div>
         <label>이름 <input name="name" autocomplete="name" maxlength="100" required></label>
@@ -5721,29 +5724,60 @@ async function loadBusinessReservation(id,target){
     const input=form.elements;
     const status=dialog.querySelector('[role=status]');
     const submit=form.querySelector('[type=submit]');
+    const notice=form.querySelector('#reservation-date-notice');
     const states={pending:'업주 승인 대기',confirmed:'예약 확정',rejected:'예약 거절',cancelled:'예약 취소'};
     let widget, proof='', busy=false, revision=0;
     let attempt=saved?.pending?saved:null;
     const report=result=>{status.textContent=states[result.status]||'예약 상태를 확인할 수 없습니다.';};
-    const refresh=async()=>{
+    const updateSubmit=()=>{submit.disabled=busy||!proof||input.slot.disabled||!input.slot.value;};
+    const dateNotice=message=>{
+      notice.replaceChildren();
+      if(!message)return;
+      const icon=document.createElement('span');
+      icon.setAttribute('aria-hidden','true');
+      icon.textContent='⚠';
+      notice.append(icon,document.createTextNode(message));
+    };
+    const refresh=async (slotWarning='')=>{
       const current=++revision;
+      input.slot.disabled=true;
       input.slot.replaceChildren();
+      updateSubmit();
+      dateNotice('');
       const date=input.date.value, party=Number(input.party.value);
       if(!date||!Number.isInteger(party)||party<1||party>100)return;
       try{
         const rows=await rpc('business_reservation_slots_v1',{p_business:id,p_date:date,p_party:party});
         if(current!==revision)return;
+        if(!rows.length){
+          const accepting=await rpc('business_reservation_enabled_v1',{p_business:id});
+          if(current!==revision)return;
+          if(!accepting){dateNotice('이 업소는 현재 예약을 받지 않습니다.');return;}
+          if(party>1){
+            const smallerParty=await rpc('business_reservation_slots_v1',{p_business:id,p_date:date,p_party:1});
+            if(current!==revision)return;
+            if(smallerParty.length){dateNotice('선택한 인원으로 예약할 수 있는 시간이 마감되었습니다.');return;}
+          }
+          dateNotice('선택한 날짜는 예약할 수 없습니다. 다른 날짜를 선택해 주세요.');
+          return;
+        }
         for(const row of rows)input.slot.add(new Option(row.local_time,row.starts_at));
-        status.textContent=rows.length?'업소 현지 시간 기준입니다.':'예약 가능한 시간이 없습니다.';
-      }catch{if(current===revision)status.textContent='예약 시간을 불러오지 못했습니다.';}
+        if(slotWarning){
+          input.slot.selectedIndex=-1;
+          dateNotice(slotWarning);
+        }
+        input.slot.disabled=false;
+        updateSubmit();
+      }catch{if(current===revision)dateNotice('예약 시간을 불러오지 못했습니다. 날짜를 다시 선택해 주세요.');}
     };
-    input.date.onchange=input.party.onchange=refresh;
+    input.date.oninput=input.party.oninput=()=>refresh();
+    input.slot.onchange=()=>{dateNotice('');updateSubmit();};
     const addProof=()=>{
       if(!dialog.isConnected||widget!==undefined)return;
       widget=window.turnstile.render(dialog.querySelector('[data-proof]'),{sitekey,action:'reservation',size:'compact',
-        callback:token=>{proof=token;submit.disabled=false;},
-        'expired-callback':()=>{proof='';submit.disabled=true;},
-        'error-callback':()=>{proof='';submit.disabled=true;status.textContent='보안 확인을 완료하지 못했습니다.';}});
+        callback:token=>{proof=token;updateSubmit();},
+        'expired-callback':()=>{proof='';updateSubmit();},
+        'error-callback':()=>{proof='';updateSubmit();status.textContent='보안 확인을 완료하지 못했습니다.';}});
     };
     if(enabled&&sitekey){
       if(window.turnstile)addProof();
@@ -5757,8 +5791,8 @@ async function loadBusinessReservation(id,target){
     }else if(enabled)status.textContent='예약 보안 확인을 준비 중입니다.';
     form.onsubmit=async event=>{
       event.preventDefault();
-      if(busy||!proof||!input.slot.value)return;
-      busy=true;submit.disabled=true;
+      if(submit.disabled)return;
+      busy=true;updateSubmit();
       try{
         attempt??={id:crypto.randomUUID(),secret:crypto.randomUUID(),pending:true};
         sessionStorage.setItem(storageKey,JSON.stringify(attempt));
@@ -5770,21 +5804,25 @@ async function loadBusinessReservation(id,target){
         report(result);
         form.hidden=true;
       }catch(error){
-        status.textContent=error.message==='OP409'?'선택한 시간이 마감됐습니다. 시간을 다시 선택해 주세요.':
-          '신청 결과를 확인하지 못했습니다. 같은 예약을 다시 확인해 주세요.';
-      }finally{busy=false;proof='';if(widget!==undefined)window.turnstile.reset(widget);}
+        if(error.message==='OP409'){
+          status.textContent='';
+          await refresh('선택한 시간은 더 이상 예약할 수 없습니다. 다른 시간을 선택해 주세요.');
+        }else status.textContent='신청 결과를 확인하지 못했습니다. 같은 예약을 다시 확인해 주세요.';
+      }finally{busy=false;proof='';updateSubmit();if(widget!==undefined)window.turnstile.reset(widget);}
     };
     for(const action of ['lookup','cancel'])dialog.querySelector('[data-'+action+']').onclick=async()=>{
       const receipt=saved||attempt;
       if(!receipt){status.textContent='이 탭에 저장된 예약 확인 정보가 없습니다.';return;}
       if(busy||(action==='cancel'&&!confirm('예약을 취소할까요?')))return;
       busy=true;
+      updateSubmit();
       try{report(await customer({action,id:receipt.id,secret:receipt.secret}));}
       catch{status.textContent='예약을 확인하지 못했습니다.';}
-      finally{busy=false;}
+      finally{busy=false;updateSubmit();}
     };
     dialog.querySelector('[data-close]').onclick=()=>dialog.close();
     dialog.addEventListener('close',()=>{
+      revision++;
       try { if(widget!==undefined)window.turnstile.remove(widget); }
       finally { dialog.remove(); }
     },{once:true});
