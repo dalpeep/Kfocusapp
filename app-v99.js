@@ -5664,6 +5664,108 @@ function bindV229ListingCards(root=document){
 ensureV229ListingPublicStyles();
 
 
+async function loadBusinessReservation(id,target){
+  const {SUPABASE_URL:url,SUPABASE_ANON_KEY:key,COMMUNITY_TURNSTILE_SITE_KEY:sitekey}=getConfig();
+  if(!target||!url||!key)return;
+  const rpc=async (name,body)=>{
+    const res=await fetch(url+'/rest/v1/rpc/'+name,{method:'POST',cache:'no-store',
+      headers:{apikey:key,Authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok)throw Error('Availability');
+    return res.json();
+  };
+  const customer=async body=>{
+    const res=await fetch(url+'/functions/v1/business-reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok)throw Error(data.code);
+    return data.result;
+  };
+  const storageKey='dtm-reservation:'+id;
+  let saved;
+  try { saved=JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) {}
+  let enabled=false;
+  try { enabled=await rpc('business_reservation_enabled_v1',{p_business:id}); } catch (_) {}
+  if(!target.isConnected||(!enabled&&!saved))return;
+  target.hidden=false;
+  target.innerHTML='<button type="button"></button>';
+  const opener=target.firstElementChild;
+  opener.textContent=enabled?'예약하기':'예약 조회·취소';
+  opener.onclick=()=>{
+    const dialog=document.createElement('dialog');
+    dialog.className='map-benefits-dialog';
+    dialog.innerHTML='<form><h2>예약</h2><label>날짜 <input name="date" type="date" required></label><label>인원 <input name="party" type="number" min="1" max="100" value="1" required></label><label>가능한 시간 <select name="slot" required></select></label><label>이름 <input name="name" maxlength="100" required></label><label>전화번호 <input name="phone" type="tel" maxlength="25" required></label><label>이메일 (선택) <input name="email" type="email" maxlength="254"></label><label>요청 사항 (선택) <textarea name="note" maxlength="300"></textarea></label><p>의료정보 등 민감정보는 입력하지 마세요.</p><div data-proof></div><button type="submit" disabled>예약 신청</button></form><button type="button" data-lookup>예약 조회</button><button type="button" data-cancel>예약 취소</button><button type="button" data-close>닫기</button><p role="status"></p>';
+    document.body.append(dialog);
+    const form=dialog.querySelector('form');
+    form.hidden=!enabled;
+    const input=form.elements;
+    const status=dialog.querySelector('[role=status]');
+    const submit=form.querySelector('[type=submit]');
+    const states={pending:'업주 승인 대기',confirmed:'예약 확정',rejected:'예약 거절',cancelled:'예약 취소'};
+    let widget, proof='', busy=false, revision=0;
+    let attempt=saved?.pending?saved:null;
+    const report=result=>{status.textContent=states[result.status]||'예약 상태를 확인할 수 없습니다.';};
+    const refresh=async()=>{
+      const current=++revision;
+      input.slot.replaceChildren();
+      const date=input.date.value, party=Number(input.party.value);
+      if(!date||!Number.isInteger(party)||party<1||party>100)return;
+      try{
+        const rows=await rpc('business_reservation_slots_v1',{p_business:id,p_date:date,p_party:party});
+        if(current!==revision)return;
+        for(const row of rows)input.slot.add(new Option(row.local_time,row.starts_at));
+        status.textContent=rows.length?'업소 현지 시간 기준입니다.':'예약 가능한 시간이 없습니다.';
+      }catch{if(current===revision)status.textContent='예약 시간을 불러오지 못했습니다.';}
+    };
+    input.date.onchange=input.party.onchange=refresh;
+    const addProof=()=>{
+      if(!dialog.isConnected||widget!==undefined)return;
+      widget=window.turnstile.render(dialog.querySelector('[data-proof]'),{sitekey,action:'reservation',
+        callback:token=>{proof=token;submit.disabled=false;},
+        'expired-callback':()=>{proof='';submit.disabled=true;},
+        'error-callback':()=>{proof='';submit.disabled=true;status.textContent='보안 확인을 완료하지 못했습니다.';}});
+    };
+    if(enabled&&sitekey){
+      if(window.turnstile)addProof();
+      else{
+        const script=document.createElement('script');
+        script.src='https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+        script.onload=addProof;
+        script.onerror=()=>{status.textContent='보안 확인을 불러오지 못했습니다.';};
+        document.head.append(script);
+      }
+    }else if(enabled)status.textContent='예약 보안 확인을 준비 중입니다.';
+    form.onsubmit=async event=>{
+      event.preventDefault();
+      if(busy||!proof||!input.slot.value)return;
+      busy=true;submit.disabled=true;
+      try{
+        attempt??={id:crypto.randomUUID(),secret:crypto.randomUUID(),pending:true};
+        sessionStorage.setItem(storageKey,JSON.stringify(attempt));
+        const result=await customer({action:'submit',id:attempt.id,secret:attempt.secret,business:id,proof,
+          slot:input.slot.value,party:Number(input.party.value),name:input.name.value,phone:input.phone.value,
+          email:input.email.value,note:input.note.value});
+        saved={id:attempt.id,secret:attempt.secret};
+        sessionStorage.setItem(storageKey,JSON.stringify(saved));
+        report(result);
+        form.hidden=true;
+      }catch(error){
+        status.textContent=error.message==='OP409'?'선택한 시간이 마감됐습니다. 시간을 다시 선택해 주세요.':
+          '신청 결과를 확인하지 못했습니다. 같은 예약을 다시 확인해 주세요.';
+      }finally{busy=false;proof='';if(widget!==undefined)window.turnstile.reset(widget);}
+    };
+    for(const action of ['lookup','cancel'])dialog.querySelector('[data-'+action+']').onclick=async()=>{
+      const receipt=saved||attempt;
+      if(!receipt){status.textContent='이 탭에 저장된 예약 확인 정보가 없습니다.';return;}
+      if(busy||(action==='cancel'&&!confirm('예약을 취소할까요?')))return;
+      busy=true;
+      try{report(await customer({action,id:receipt.id,secret:receipt.secret}));}
+      catch{status.textContent='예약을 확인하지 못했습니다.';}
+      finally{busy=false;}
+    };
+    dialog.querySelector('[data-close]').onclick=()=>dialog.close();
+    dialog.addEventListener('close',()=>{if(widget!==undefined)window.turnstile.remove(widget);dialog.remove();},{once:true});
+    dialog.showModal();
+  };
+}
 async function loadBusinessMenu(id, target){
   const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
   if (!target || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
@@ -5729,14 +5831,12 @@ const specialHtml=bizSpecials.length?`<section class="biz-detail-card restaurant
 
 const orderUrl = normalizeUrl(b.order_url || '');
 const deliveryUrl = normalizeUrl(b.delivery_url || '');
-const reservationUrl = normalizeUrl(b.reservation_url || '');
 const orderActionHtml = `
   <div class="detail-order-block">
     <h3 class="subsection-title">주문 · 예약</h3>
     <div class="detail-order-actions">
       <button class="action-btn order-link-btn ${orderUrl ? '' : 'disabled'}" type="button" data-url="${esc(orderUrl)}" data-label="온라인 주문">${orderUrl ? '온라인 주문' : '온라인 주문'}</button>
       <button class="action-btn order-link-btn ${deliveryUrl ? '' : 'disabled'}" type="button" data-url="${esc(deliveryUrl)}" data-label="배달 주문">${deliveryUrl ? '배달 주문' : '배달 주문'}</button>
-      <button class="action-btn order-link-btn ${reservationUrl ? '' : 'disabled'}" type="button" data-url="${esc(reservationUrl)}" data-label="예약하기">${reservationUrl ? '예약하기' : '예약하기'}</button>
     </div>
     <div class="detail-order-note">업소별 주문·예약 링크는 순차적으로 연결됩니다.</div>
   </div>`;
@@ -6089,14 +6189,7 @@ ${b.rating ? `
         ${safeSmsHref ? `<a href="${esc(safeSmsHref)}" data-biz-detail-action="sms">문자</a>` : ''}
         ${safeDirections ? `<a href="${esc(safeDirections)}" target="_blank" rel="noopener" data-biz-detail-action="directions">길찾기</a>` : ''}
         ${safeWebsite ? `<a href="${esc(safeWebsite)}" target="_blank" rel="noopener" data-biz-detail-action="website">웹사이트</a>` : ''}
-        ${b.reservation_enabled && (b.reservation_url || b.phone) ? `
-        <button
-           type="button"
-           data-biz-detail-action="reservation"
-           onclick="openReservation('${b.id}')">
-           예약
-        </button>
-         ` : ''}
+        <span data-business-reservation hidden></span>
         <button type="button" data-biz-detail-action="share" onclick="shareBusiness('${b.id}')">
         공유
        </button>
@@ -6255,6 +6348,7 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
   });
 });
   void loadBusinessMenu(b.id, detailCard.querySelector('[data-business-menu]'));
+  void loadBusinessReservation(b.id, detailCard.querySelector('[data-business-reservation]'));
 
 const hoursHtml = renderBusinessHours(b);
 

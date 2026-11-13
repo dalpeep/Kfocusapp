@@ -39,6 +39,8 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)docs/migrations/DRAFT-owner-coupon-history-readonly.sql',
   ':(exclude)docs/migrations/DRAFT-owner-events.sql',
   ':(exclude)docs/migrations/DRAFT-owner-menu.sql',
+  ':(exclude)docs/migrations/DRAFT-business-reservations.sql',
+  ':(exclude)docs/migrations/ROLLBACK-business-reservations.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-menu.sql',
   ':(exclude)docs/migrations/DRAFT-paid-promotion-guard.sql',
   ':(exclude)docs/migrations/ROLLBACK-paid-promotion-guard.sql',

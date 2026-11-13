@@ -969,6 +969,97 @@
           menu.addEventListener('toggle', () => {
             if (menu.open && !menuBusy) void loadMenu();
           });
+          const booking = append(card,'details','');
+          append(booking,'summary','예약 관리');
+          const bookingStatus=append(booking,'p','');
+          bookingStatus.setAttribute('role','status');
+          const bookingBody=append(booking,'div','');
+          const bookingQuery='?content=reservations&business='+encodeURIComponent(business.id);
+          const states={pending:'승인 대기',confirmed:'확정',rejected:'거절',cancelled:'취소'};
+          let bookingBusy=false;
+          async function changeBooking(command){
+            if(bookingBusy)return;
+            bookingBusy=true;
+            try{
+              await request(bookingQuery,command);
+              const result=await request(bookingQuery);
+              if(command.action==='settings' && result.settings?.enabled!==command.settings.enabled)
+                throw Error('Settings mismatch');
+              drawBooking(result);
+              bookingStatus.textContent='예약 변경을 저장했습니다.';
+            }catch(error){
+              bookingStatus.textContent=error.code==='RESERVATION_BOT_CHECK_UNAVAILABLE'?'예약 보안 확인 설정이 완료되면 접수를 켤 수 있습니다.':error.status===403?'이 업소는 예약 파일럿 대상이 아닙니다.':
+                error.status===409?'이미 변경된 예약입니다. 목록을 다시 열어 주세요.':'예약 변경 결과를 확인하지 못했습니다.';
+            }finally{bookingBusy=false;}
+          }
+          function drawBooking(result){
+            bookingBody.replaceChildren();
+            const cfg=result.settings||{};
+            const form=append(bookingBody,'form','');
+            function field(label,type,value){
+              const input=append(append(form,'label',label),'input','');
+              input.type=type;
+              if(type==='checkbox')input.checked=!!value;
+              else input.value=value;
+              return input;
+            }
+            const enabled=field('예약 기능 켜기','checkbox',cfg.enabled);
+            const days=['일','월','화','수','목','금','토'].map((label,i)=>field(label,'checkbox',(cfg.weekdays||[1,2,3,4,5]).includes(i)));
+            const opens=field('접수 시작','time',cfg.opens||'09:00');
+            const closes=field('접수 종료','time',cfg.closes||'17:00');
+            function select(label,choices,value){
+              const input=append(append(form,'label',label),'select','');
+              for(const [key,text] of choices)append(input,'option',text).value=key;
+              input.value=value;
+              return input;
+            }
+            const interval=select('간격',[15,30,60].map(n=>[n,n+'분']),cfg.slot_minutes||30);
+            const capacity=field('정원','number',cfg.capacity||4);
+            capacity.min='1';capacity.max='100';capacity.required=true;
+            const mode=select('정원 단위',[['people','인원'],['bookings','건수']],cfg.capacity_mode||'people');
+            const zone=select('현지 시간대',[['America/Chicago','Dallas'],['America/Denver','Denver']],cfg.zone||'America/Chicago');
+            append(form,'p','업주 승인 후 예약이 확정됩니다.');
+            append(form,'button','예약 설정 저장').type='submit';
+            form.onsubmit=event=>{
+              event.preventDefault();
+              void changeBooking({action:'settings',settings:{enabled:enabled.checked,
+                weekdays:days.flatMap((d,i)=>d.checked?[i]:[]),opens:opens.value,closes:closes.value,
+                slot_minutes:Number(interval.value),capacity:Number(capacity.value),capacity_mode:mode.value,zone:zone.value}});
+            };
+            append(bookingBody,'p',Object.entries(states).map(([key,value])=>value+' '+(result.counts[key]||0)+'건').join(' · '));
+            const filter=append(append(bookingBody,'label','상태'),'select','');
+            append(filter,'option','전체').value='';
+            for(const [key,value] of Object.entries(states))append(filter,'option',value).value=key;
+            const day=append(append(bookingBody,'label','예약 날짜'),'input','');day.type='date';
+            const list=append(bookingBody,'div','');
+            const tz=cfg.zone||'America/Chicago';
+            const dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'});
+            const timeFormat=new Intl.DateTimeFormat('ko-KR',{timeZone:tz,dateStyle:'medium',timeStyle:'short'});
+            function drawList(){
+              list.replaceChildren();
+              for(const row of result.reservations){
+                if(filter.value&&row.status!==filter.value)continue;
+                const when=new Date(row.starts_at);
+                if(day.value&&dateFormat.format(when)!==day.value)continue;
+                const item=append(list,'details','');
+                append(item,'summary',timeFormat.format(when)+' · '+states[row.status]+' · '+row.party+'명');
+                append(item,'p',[row.name,row.phone,row.email,row.note].filter(Boolean).join(' · '));
+                const actions=row.status==='pending'?[['confirmed','승인'],['rejected','거절'],['cancelled','취소']]:
+                  row.status==='confirmed'?[['cancelled','취소']]:[];
+                for(const [action,label] of actions){
+                  const button=append(item,'button',label);button.type='button';
+                  button.onclick=()=>{if(window.confirm(label+' 처리할까요?'))void changeBooking({action,id:row.id});};
+                }
+              }
+              if(!list.childElementCount)append(list,'p','해당 예약이 없습니다.');
+            }
+            filter.onchange=day.onchange=drawList;drawList();
+          }
+          booking.addEventListener('toggle',async ()=>{
+            if(!booking.open||bookingBusy)return;
+            try{drawBooking(await request(bookingQuery));}
+            catch{bookingStatus.textContent='예약 목록을 불러오지 못했습니다.';}
+          });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
