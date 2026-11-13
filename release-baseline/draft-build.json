@@ -1674,7 +1674,7 @@
     },
     {
       "target": "tests/business-special-badge-presentation.test.cjs",
-      "source": "tests/business-special-badge-presentation.test.cjs",
+      "source": "release-baseline/legacy-public/business-special-badge-presentation.test.cjs",
       "publishedSha1": "bec16c4b237f462b7ad9fa2ceffbb9d4046fe36c"
     },
     {
