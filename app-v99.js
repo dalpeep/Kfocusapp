@@ -2804,6 +2804,10 @@ function routeFor(page){
   const base = '/';
   return page === 'home' ? base : `${base}#${page}`;
 }
+const reservationEntryLink=/^\/business\/([a-f0-9-]{36})\/?$/i.exec(location.pathname)?.[1]
+  && /^#reservation=([A-F0-9]{20})$/.exec(location.hash)?.[1];
+const reservationEntryPath=location.pathname;
+let reservationEntryOpened=false;
 function setRoute(page){ history.replaceState(null,'', routeFor(page)); }
 function getRoute(){
   const clean = location.hash.replace('#','');
@@ -5733,8 +5737,8 @@ async function loadBusinessReservation(id,target){
   };
   const storageKey='dtm-reservation:'+id;
   const numberKey=storageKey+'.number';
-  const linkNumber=target.hasAttribute('data-reservation-lookup')?
-    /^#reservation=([A-F0-9]{20})$/.exec(location.hash)?.[1]:undefined;
+  const linkNumber=target.hasAttribute('data-reservation-lookup')&&!reservationEntryOpened
+    && reservationEntryPath.replace(/\/$/,'')==='/business/'+id?reservationEntryLink:undefined;
   let enabled=false;
   try { enabled=await checkBusinessReservation(id,rpc)===true; } catch (_) {}
   if(!target.isConnected||(!enabled&&!target.hasAttribute('data-reservation-lookup')))return;
@@ -5999,6 +6003,7 @@ async function loadBusinessReservation(id,target){
     if(linkNumber||!enabled)dialog.querySelector('[data-lookup]').click();
   };
   if(linkNumber){
+    reservationEntryOpened=true;
     history.replaceState(history.state,'',location.pathname+location.search);
     opener.click();
   }
