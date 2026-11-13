@@ -805,6 +805,7 @@
           const menuBody = append(menu, 'div', '');
           const menuQuery = '?content=menu&business=' + encodeURIComponent(business.id);
           let menuBusy = false;
+          let menuRequest;
           async function loadMenu() {
             try {
               const rows = await request(menuQuery);
@@ -905,7 +906,7 @@
               }
               if (!rows.length) append(list, 'p', '등록된 메뉴가 없습니다.');
               form.onsubmit = async event => {
-                menu.prmenuDefault();
+                event.preventDefault();
                 if (menuBusy) return;
                 await saveMenu({action:'save', fields:{title:fields.title.value.trim(),title_en:fields.title_en.value.trim(),
                   description:fields.description.value.trim(),price_cents:Math.round(Number(fields.price.value)*100),
@@ -920,8 +921,10 @@
                   });
                 if (!form.isConnected && previewUrl) URL.revokeObjectURL(previewUrl);
               };
+              return true;
             } catch (error) {
-              menuStatus.textContent = error.status === 503 ? '메뉴 관리는 준비 중입니다.' : '메뉴을 불러오지 못했습니다.';
+              menuStatus.textContent = error.status === 503 ? '메뉴 관리는 준비 중입니다.' : '메뉴를 불러오지 못했습니다.';
+              return false;
             }
           }
 
@@ -932,14 +935,31 @@
               .filter(control => !control.disabled);
             for (const control of controls) control.disabled = true;
             try {
-              if (prepare) await prepare(command);
-              await request(menuQuery, {...command,key:crypto.randomUUID()});
-              menuStatus.textContent = command.action === 'end' ? '공개를 종료했습니다.'
-                : '저장되었습니다. 적용 조건에 따라 공개됩니다.';
-              await loadMenu();
+              if (prepare) {
+                try { await prepare(command); }
+                catch (_) { menuStatus.textContent = '사진을 업로드하지 못했습니다. 입력 내용은 유지됩니다.'; return; }
+              }
+              const payload = JSON.stringify(command);
+              if (menuRequest && menuRequest.payload !== payload) {
+                menuStatus.textContent = '이전 저장 결과가 미확인입니다. 목록을 새로고침해 확인해 주세요.';
+                return;
+              }
+              menuRequest ??= {payload,key:crypto.randomUUID()};
+              const saved = await request(menuQuery, {...command,key:menuRequest.key});
+              if (!saved?.id) throw Error('Missing menu receipt');
+              menuRequest = undefined;
+              const refreshed = await loadMenu();
+              menuStatus.textContent = refreshed
+                ? command.action === 'end' ? '공개를 종료했습니다.' : '메뉴를 저장했습니다.'
+                : '저장됐지만 메뉴 목록을 새로고침하지 못했습니다.';
             } catch (error) {
-              menuStatus.textContent = error.status === 409 ? '목록을 다시 열어 최신 내용을 확인해 주세요.'
-                : '저장 결과를 확인하지 못했습니다. 목록을 다시 열어 확인해 주세요.';
+              if ([400,401,403,409].includes(error.status)) menuRequest = undefined;
+              menuStatus.textContent = ({
+                400:'메뉴 이름, 가격, 순서와 사진을 확인해 주세요.',
+                401:'로그인이 만료됐습니다. 다시 로그인해 주세요.',
+                403:'이 업소의 메뉴를 변경할 권한이 없습니다.',
+                409:'메뉴가 변경됐습니다. 목록을 다시 열어 최신 내용을 확인해 주세요.',
+              })[error.status] || '저장 결과를 확인하지 못했습니다. 같은 내용으로 재시도해 주세요.';
             } finally {
               menuBusy = false;
               for (const control of controls) control.disabled = false;
