@@ -424,6 +424,32 @@
           const couponBody = append(coupons, 'div', '');
           const couponQuery = '?content=coupons&business=' + encodeURIComponent(business.id);
           let couponBusy = false;
+          const history = append(coupons, 'details', '');
+          append(history, 'summary', '사용 내역');
+          const historyBody = append(history, 'div', '');
+          const historyDate = new Intl.DateTimeFormat('ko-KR', {
+            timeZone:'America/Chicago', dateStyle:'medium', timeStyle:'short',
+          });
+          async function loadCouponHistory() {
+            historyBody.textContent = '사용 내역을 불러오는 중입니다.';
+            try {
+              const {totals, recent} = await request(couponQuery + '&view=history');
+              historyBody.replaceChildren();
+              append(historyBody, 'p', '미사용은 만료되거나 재발급으로 취소된 코드를 포함합니다. 시간은 Dallas 기준입니다.');
+              for (const row of totals) {
+                append(historyBody, 'p', row.title + ' · 발급 ' + row.issued + ' · 사용 완료 ' + row.used + ' · 미사용 ' + row.unused);
+              }
+              append(historyBody, 'h4', '최근 기록 (최대 100건)');
+              const states = {used:'사용 완료',pending:'미사용',expired:'만료',revoked:'재발급으로 취소'};
+              for (const row of recent) {
+                append(historyBody, 'p', historyDate.format(new Date(row.occurred_at)) + ' · ' + row.title + ' · ' + states[row.state]);
+              }
+              if (!recent.length) append(historyBody, 'p', '아직 발급 또는 사용 기록이 없습니다.');
+            } catch (_) {
+              historyBody.textContent = '사용 내역을 불러오지 못했습니다.';
+            }
+          }
+          history.addEventListener('toggle', () => { if (history.open) void loadCouponHistory(); });
 
           async function loadCoupons() {
             try {
@@ -532,8 +558,17 @@
                     couponBusy = true;
                     verify.disabled = true;
                     try {
-                      await request(couponQuery, {action:'redeem_use_proof',id:row.id,proof});
-                      couponStatus.textContent = '쿠폰 사용이 확인되었습니다.';
+                      const result = await request(couponQuery, {action:'redeem_use_proof',id:row.id,proof});
+                      const messages = {
+                        redeemed:'쿠폰 사용이 확인되었습니다.',
+                        used:'이미 사용된 쿠폰입니다.',
+                        expired:'사용 코드가 만료되었습니다.',
+                        revoked:'재발급으로 취소된 코드입니다.',
+                        invalid:'이 쿠폰의 사용 코드가 아닙니다.',
+                        rate_limited:'확인 횟수를 초과했습니다. 잠시 후 다시 시도해 주세요.',
+                      };
+                      couponStatus.textContent = messages[result] || '사용 코드를 확인하지 못했습니다.';
+                      if (history.open) void loadCouponHistory();
                     } catch {
                       couponStatus.textContent = '사용 코드를 확인하지 못했습니다. 코드와 유효기간을 확인해 주세요.';
                     } finally {

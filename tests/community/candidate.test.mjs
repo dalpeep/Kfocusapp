@@ -35,6 +35,7 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)docs/migrations/DRAFT-owner-phase2-coupons.sql',
   ':(exclude)docs/migrations/DRAFT-owner-coupon-use-proof.sql',
   ':(exclude)docs/migrations/DRAFT-owner-coupon-proof-refresh.sql',
+  ':(exclude)docs/migrations/DRAFT-owner-coupon-short-code.sql',
   ':(exclude)docs/migrations/DRAFT-owner-coupon-use-cutover.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-coupon-use-cutover.sql',
   ':(exclude)docs/migrations/ROLLBACK-owner-coupon-use-proof.sql',
