@@ -39,7 +39,7 @@ CREATE FUNCTION public.reserve_pin_attempt_v1(p_number text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog AS $$
 DECLARE k text; limit_count integer; ts timestamptz:=clock_timestamp();
 BEGIN
-  IF p_number IS NULL OR p_number !~ '^[A-F0-9]{20}$' THEN RETURN false; END IF;
+  IF p_number IS NULL OR p_number !~ '^[a-f0-9]{64}$' THEN RETURN false; END IF;
   -- Bounded buckets prevent arbitrary identifiers from growing the table.
   FOREACH k IN ARRAY ARRAY['global','number:'||(hashtextextended(p_number,0)&65535)::text] LOOP
     limit_count:=CASE WHEN k='global' THEN 8 ELSE 5 END;

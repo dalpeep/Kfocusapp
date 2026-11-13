@@ -83,7 +83,7 @@ Deno.serve(async request => {
         const limit=await fetch(project+'/rest/v1/rpc/reserve_pin_attempt_v1',{
           method:'POST',redirect:'error',signal:AbortSignal.timeout(5000),
           headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},
-          body:JSON.stringify({p_number:body.number})
+          body:JSON.stringify({p_number:await pinDigest(pepper!,'number',body.number)})
         });
         if(!limit.ok||await limit.json()!==true)return reply(403,{code:'CREDENTIALS'});
         rpc='customer_reservation_pin_v1';
