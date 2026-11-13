@@ -5711,3 +5711,6 @@ body.nearby-businesses-open{overflow:hidden!important}
 #page-map #mapFilterRow .benefit-icon-wrap { flex-basis:18px; }
 
 #page-map #mapFilterRow .benefit-label { font-size:clamp(10px,2.7vw,12px); }
+
+.v245-shortcuts-grid .benefit-shortcut .v245-shortcut-icon svg,
+#mapFilterRow .benefit-icon-wrap svg { color:#fff; stroke:#fff !important; fill:none; }
