@@ -5756,9 +5756,13 @@ async function loadBusinessReservation(id,target){
     } catch (_) {}
     const dialog=document.createElement('dialog');
     dialog.className='reservation-dialog';
+    const icon=(name)=>`<i data-lucide="${name}" aria-hidden="true"></i>`;
     dialog.setAttribute('aria-labelledby','reservation-dialog-title');
     dialog.innerHTML=`
-      <h2 id="reservation-dialog-title">예약</h2>
+      <header class="reservation-heading">
+        <h2 id="reservation-dialog-title"><span data-lookup-icon hidden>${icon('calendar-days')}</span><span data-dialog-title>예약</span></h2>
+        <p data-lookup-intro hidden>예약번호와 PIN을 입력해 예약을 확인하세요.</p>
+      </header>
       <form>
         <div class="reservation-date">
           <label>예약 날짜 <input name="date" type="date" aria-describedby="reservation-date-notice" required></label>
@@ -5780,22 +5784,34 @@ async function loadBusinessReservation(id,target){
       </form>
       <form data-reservation-lookup-form hidden>
         <label>예약번호 <input name="number" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="24" required></label>
-        <label>예약 PIN 또는 기존 비밀번호 <input name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <div class="reservation-password">
+          <label for="reservation-lookup-password">예약 PIN 또는 기존 비밀번호</label>
+          <input id="reservation-lookup-password" name="password" type="password" autocomplete="current-password" maxlength="72" required>
+          <button type="button" data-show-pin aria-controls="reservation-lookup-password" aria-pressed="false">PIN 표시</button>
+        </div>
         <button type="submit">조회하기</button>
         <button type="button" data-manual-lookup hidden>다른 예약번호 입력</button>
-        <p>브라우저 데이터가 지워졌다면 저장한 조회 링크나 예약번호와 PIN을 사용해 주세요. 둘 다 없다면 업소에 직접 문의해 주세요.</p>
+        <p class="reservation-lookup-help">브라우저 데이터가 지워졌다면 저장한 조회 링크나 예약번호와 PIN을 사용해 주세요. 둘 다 없다면 업소에 직접 문의해 주세요.</p>
       </form>
       <div class="reservation-receipt" hidden>
         <p>예약번호 <strong data-booking-number></strong></p>
         <button type="button" data-copy-number>예약번호 복사</button>
         <button type="button" data-copy-link>예약 조회 링크 복사</button>
       </div>
+      <section class="reservation-result" aria-label="조회된 예약" hidden>
+        <strong data-result-state></strong>
+        <dl data-result-details hidden>
+          <div><dt>날짜</dt><dd data-result-date></dd></div>
+          <div><dt>시간</dt><dd data-result-time></dd></div>
+          <div><dt>인원</dt><dd data-result-party></dd></div>
+        </dl>
+      </section>
       <p class="reservation-status" role="status"></p>
       <div class="reservation-actions">
-        <button type="button" data-lookup>내 예약</button>
-        <button type="button" data-back-to-reservation hidden>예약 신청으로</button>
-        <button type="button" data-cancel>예약 취소</button>
-        <button type="button" data-close>닫기</button>
+        <button type="button" data-lookup>${icon('calendar-check')}내 예약</button>
+        <button type="button" data-back-to-reservation hidden>${icon('calendar-plus')}예약 신청으로</button>
+        <button type="button" data-cancel>${icon('calendar-x')}예약 취소</button>
+        <button type="button" data-close>${icon('x')}닫기</button>
       </div>`;
     document.body.append(dialog);
     const form=dialog.querySelector('form');
@@ -5803,6 +5819,22 @@ async function loadBusinessReservation(id,target){
     const input=form.elements;
     const lookup=dialog.querySelector('[data-reservation-lookup-form]');
     const manualLookup=dialog.querySelector('[data-manual-lookup]');
+    const resultCard=dialog.querySelector('.reservation-result');
+    const pinToggle=dialog.querySelector('[data-show-pin]');
+    const showPin=visible=>{
+      lookup.elements.password.type=visible?'text':'password';
+      pinToggle.setAttribute('aria-pressed',String(visible));
+      pinToggle.textContent=visible?'PIN 숨기기':'PIN 표시';
+    };
+    pinToggle.onclick=()=>showPin(lookup.elements.password.type==='password');
+    const setLookupMode=active=>{
+      dialog.classList.toggle('reservation-lookup-mode',active);
+      dialog.querySelector('[data-dialog-title]').textContent=active?'예약 조회':'예약';
+      dialog.querySelector('[data-lookup-icon]').hidden=!active;
+      dialog.querySelector('[data-lookup-intro]').hidden=!active;
+      resultCard.hidden=true;
+      showPin(false);
+    };
     const receiptPanel=dialog.querySelector('.reservation-receipt');
     const cancelButton=dialog.querySelector('[data-cancel]');
     const backButton=dialog.querySelector('[data-back-to-reservation]');
@@ -5818,6 +5850,20 @@ async function loadBusinessReservation(id,target){
       const details=result.starts_at?new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeStyle:'short',
         timeZone:result.zone||'America/Chicago'}).format(new Date(result.starts_at))+' · '+result.party+'명':'';
       status.textContent=[state,details].filter(Boolean).join(' · ');
+      if(!lookup.hidden){
+        resultCard.dataset.state=result.status;
+        resultCard.querySelector('[data-result-state]').textContent=state;
+        resultCard.querySelector('[data-result-details]').hidden=!result.starts_at;
+        if(result.starts_at){
+          const timestamp=new Date(result.starts_at);
+          const timeZone=result.zone||'America/Chicago';
+          resultCard.querySelector('[data-result-date]').textContent=new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium',timeZone}).format(timestamp);
+          resultCard.querySelector('[data-result-time]').textContent=new Intl.DateTimeFormat('ko-KR',{timeStyle:'short',timeZone}).format(timestamp);
+          resultCard.querySelector('[data-result-party]').textContent=result.party+'명';
+        }
+        resultCard.hidden=false;
+        status.classList.add('reservation-status-announcement');
+      }
       cancelButton.hidden=!(result.can_cancel??(['pending','confirmed'].includes(result.status)&&Date.parse(result.starts_at)>Date.now()));
     };
     cancelButton.hidden=true;
@@ -5928,6 +5974,8 @@ async function loadBusinessReservation(id,target){
       busy=true;
       updateSubmit();
       const payload=credentials||saved;
+      resultCard.hidden=true;
+      status.classList.remove('reservation-status-announcement');
       try{
         const result=await customer(credentials?{action:action+'-number',business:id,...payload}:
           {action,id:payload.id,secret:payload.secret});
@@ -5952,17 +6000,24 @@ async function loadBusinessReservation(id,target){
       manualLookup.hidden=!available;
       (available?lookup.elements.password:lookup.elements.number).focus();
     };
-    manualLookup.onclick=()=>{lookup.reset();authenticated=null;cancelButton.hidden=true;status.textContent='';openLookup('');};
-    lookup.oninput=()=>{authenticated=null;cancelButton.hidden=true;};
+    const clearLookupResult=()=>{
+      authenticated=null;
+      cancelButton.hidden=true;
+      resultCard.hidden=true;
+      status.textContent='';
+      status.classList.remove('reservation-status-announcement');
+    };
+    manualLookup.onclick=()=>{lookup.reset();showPin(false);clearLookupResult();openLookup('');};
+    lookup.oninput=clearLookupResult;
     lookup.onsubmit=event=>{event.preventDefault();void manage('lookup',lookupCredentials());};
     dialog.querySelector('[data-lookup]').onclick=()=>{
       if(busy)return;
       form.hidden=true;
       receiptPanel.hidden=true;
       lookup.hidden=false;
+      setLookupMode(true);
       backButton.hidden=!enabled;
-      authenticated=null;
-      cancelButton.hidden=true;
+      clearLookupResult();
       openLookup(linkNumber||rememberedNumber);
       status.textContent='';
       if(!linkNumber&&!rememberedNumber&&saved?.id&&saved?.secret)void manage('lookup',null);
@@ -5970,9 +6025,10 @@ async function loadBusinessReservation(id,target){
     backButton.onclick=()=>{
       lookup.reset();
       lookup.hidden=true;
+      setLookupMode(false);
       backButton.hidden=true;
       cancelButton.hidden=true;
-      authenticated=null;
+      clearLookupResult();
       form.hidden=false;
       status.textContent='';
       input.date.focus();
@@ -6000,6 +6056,7 @@ async function loadBusinessReservation(id,target){
       finally { dialog.remove(); }
     },{once:true});
     dialog.showModal();
+    window.lucide?.createIcons();
     if(linkNumber||!enabled)dialog.querySelector('[data-lookup]').click();
   };
   if(linkNumber){
