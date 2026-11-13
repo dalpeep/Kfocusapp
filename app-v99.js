@@ -5669,7 +5669,7 @@ async function loadBusinessMenu(id, target){
   if (!target || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
   try {
     const response=await fetch(SUPABASE_URL+'/rest/v1/business_menu_items?business_id=eq.'+encodeURIComponent(id)+'&select=title,title_en,description,price_cents,image_url,sold_out&order=sort_order.asc,id.asc',
-      {headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}});
+      {cache:'no-store',headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}});
     if (!response.ok || !target.isConnected) return;
     const rows=await response.json();
     if (!rows.length || !target.isConnected) return;
@@ -6253,8 +6253,8 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     }
     alert(`${label} 링크는 아직 준비중입니다.`);
   });
-  void loadBusinessMenu(b.id, detailCard.querySelector('[data-business-menu]'));
 });
+  void loadBusinessMenu(b.id, detailCard.querySelector('[data-business-menu]'));
 
 const hoursHtml = renderBusinessHours(b);
 

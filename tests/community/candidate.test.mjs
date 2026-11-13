@@ -93,3 +93,9 @@ test('community event lists use posts, while home and map show owner events',()=
  assert.match(app,/ownerEventsOnly:kind==='event'/);
  assert.match(app,/openMapBenefits\(&quot;event&quot;\)/);
 });
+
+test('public menu loads on detail render without requiring an order link',()=>{
+ const app=fs.readFileSync('app-v99.js','utf8');
+ const orderBindings=app.slice(app.indexOf("detailCard.querySelectorAll('.order-link-btn')"),app.indexOf('const hoursHtml = renderBusinessHours(b);',app.indexOf("detailCard.querySelectorAll('.order-link-btn')")));
+ assert.match(orderBindings,/\n\}\);\r?\n  void loadBusinessMenu\(b.id, detailCard.querySelector\('\[data-business-menu\]'\)\);/);
+});
