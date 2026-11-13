@@ -14,7 +14,7 @@ function imageType(bytes) {
   return null;
 }
 
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1', 'owner_issue_coupon_use_proof_v1']);
 
 export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, specialsV2Enabled = false, couponsEnabled = false, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
@@ -95,6 +95,17 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
             if (!params.p_command || typeof params.p_command !== 'object' || Array.isArray(params.p_command)) {
               return json(400, {ok: false});
             }
+          }
+          if (coupons && params.p_command?.action === 'issue_use_proof') {
+            const couponId = params.p_command.id;
+            if (typeof couponId !== 'string' || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(couponId)) {
+              return json(400, {ok: false});
+            }
+            const result = await client.rpc('owner_issue_coupon_use_proof_v1', {
+              p_actor: params.p_actor, p_business: business, p_coupon: couponId,
+            });
+            if (!result.error) return json(200, {ok: true, result: result.data});
+            return json({OP403: 403, OP503: 503}[result.error.code] || 502, {ok: false});
           }
           const result = await client.rpc(coupons ? 'owner_pilot_coupon_v1' : specialsV2Enabled ? 'owner_pilot_special_v2' : 'owner_pilot_special_v1', params);
           if (!result.error) return json(200, {ok: true, result: result.data});

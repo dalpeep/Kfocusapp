@@ -21,3 +21,11 @@ including legacy coupons with NULL region. The draft FK change prevents
 deleting a business from implicitly deleting its coupons. Verify legacy
 administrator delete behavior and plan an explicit archive workflow before
 applying it. The rollback restores the original FK definition.
+
+The proof draft implements a five-minute bearer UUID issued by the owner Edge
+route after existing ownership checks. Redemption locks the proof and coupon
+and records one use. Replays return the original receipt. Rollback revokes RPC
+access and preserves issued proofs, counters and usage records. Customer and
+merchant screens still need to exchange the proof. Keep this draft off production
+while legacy clients use direct writes and there is no verified merchant flow
+for businesses outside the owner pilot.
