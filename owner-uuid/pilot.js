@@ -104,8 +104,55 @@
         for (const business of data.businesses) {
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
-          const gallery = append(card, 'details', '');
-          append(gallery, 'summary', '업소 사진');
+          card.classList.add('owner-management-card');
+          const tabs = append(card, 'div', '');
+          tabs.className = 'owner-management-tabs';
+          tabs.setAttribute('role', 'tablist');
+          tabs.setAttribute('aria-label', '업소 관리 메뉴');
+          const items = [];
+          function selectTab(item) {
+            for (const entry of items) {
+              const selected = entry === item;
+              entry.button.setAttribute('aria-selected', String(selected));
+              entry.button.tabIndex = selected ? 0 : -1;
+              entry.panel.hidden = !selected;
+            }
+            const bounds = tabs.getBoundingClientRect();
+            const button = item.button.getBoundingClientRect();
+            if (button.left < bounds.left) tabs.scrollLeft += button.left - bounds.left;
+            else if (button.right > bounds.right) tabs.scrollLeft += button.right - bounds.right;
+            void item.activate?.();
+          }
+          function managementPanel(key, label, icon) {
+            const button = append(tabs, 'button', '');
+            button.type = 'button';
+            button.id = 'owner-tab-' + business.id + '-' + key;
+            button.setAttribute('role', 'tab');
+            append(button, 'span', icon).setAttribute('aria-hidden', 'true');
+            button.append(label);
+            const panel = append(card, 'div', '');
+            panel.className = 'owner-management-panel';
+            panel.id = button.id + '-panel';
+            panel.setAttribute('role', 'tabpanel');
+            panel.setAttribute('aria-labelledby', button.id);
+            button.setAttribute('aria-controls', panel.id);
+            const item = {button, panel};
+            items.push(item);
+            button.onclick = () => selectTab(item);
+            button.onkeydown = event => {
+              const index = items.indexOf(item);
+              const next = {ArrowLeft:(index + items.length - 1) % items.length,
+                ArrowRight:(index + 1) % items.length, Home:0, End:items.length - 1}[event.key];
+              if (next === undefined) return;
+              event.preventDefault();
+              selectTab(items[next]);
+              items[next].button.focus({preventScroll:true});
+            };
+            return item;
+          }
+          const basicTab = managementPanel('info', '기본정보', 'ℹ');
+          const galleryTab = managementPanel('photos', '업소 사진', '📷');
+          const gallery = galleryTab.panel;
           const feedback = append(gallery, 'p', '');
           feedback.setAttribute('role', 'status');
           const galleryQuery = '?content=gallery&business=' + encodeURIComponent(business.id);
@@ -206,8 +253,8 @@
             const files = Array.from(picker.files);
             if (files.length) void changePhotos(files, replacement);
           };
-          gallery.addEventListener('toggle', async () => {
-            if (!gallery.open || expected || busy) return;
+          galleryTab.activate = async () => {
+            if (expected || busy) return;
             busy = true;
             feedback.textContent = '사진 목록을 불러오는 중입니다.';
             try {
@@ -221,9 +268,9 @@
             } finally {
               busy = false;
             }
-          });
-          const specials = append(card, 'details', '');
-          append(specials, 'summary', '할인·특선');
+          };
+          const specialsTab = managementPanel('specials', '할인·특선', '🏷');
+          const specials = specialsTab.panel;
           const specialStatus = append(specials, 'p', '');
           specialStatus.setAttribute('role', 'status');
           const specialBody = append(specials, 'div', '');
@@ -415,11 +462,15 @@
             }
           }
 
-          specials.addEventListener('toggle', () => {
-            if (specials.open && !specialBusy) void loadSpecials();
-          });
-          const coupons = append(card, 'details', '');
-          append(coupons, 'summary', '쿠폰');
+          let specialsLoading = false;
+          specialsTab.activate = async () => {
+            if (specialsLoading || specialBusy || specialBody.querySelector('form')) return;
+            specialsLoading = true;
+            try { await loadSpecials(); }
+            finally { specialsLoading = false; }
+          };
+          const couponsTab = managementPanel('coupons', '쿠폰', '🎟');
+          const coupons = couponsTab.panel;
           const couponStatus = append(coupons, 'p', '');
           couponStatus.setAttribute('role', 'status');
           const couponBody = append(coupons, 'div', '');
@@ -638,11 +689,15 @@
             }
           }
 
-          coupons.addEventListener('toggle', () => {
-            if (coupons.open && !couponBusy) void loadCoupons();
-          });
-          const events = append(card, 'details', '');
-          append(events, 'summary', '이벤트 관리');
+          let couponsLoading = false;
+          couponsTab.activate = async () => {
+            if (couponsLoading || couponBusy || couponBody.querySelector('form')) return;
+            couponsLoading = true;
+            try { await loadCoupons(); }
+            finally { couponsLoading = false; }
+          };
+          const eventsTab = managementPanel('events', '이벤트', '🎉');
+          const events = eventsTab.panel;
           const eventStatus = append(events, 'p', '');
           eventStatus.setAttribute('role', 'status');
           const eventBody = append(events, 'div', '');
@@ -795,11 +850,15 @@
             }
           }
 
-          events.addEventListener('toggle', () => {
-            if (events.open && !eventBusy) void loadEvents();
-          });
-          const menu = append(card, 'details', '');
-          append(menu, 'summary', '메뉴 관리');
+          let eventsLoading = false;
+          eventsTab.activate = async () => {
+            if (eventsLoading || eventBusy || eventBody.querySelector('form')) return;
+            eventsLoading = true;
+            try { await loadEvents(); }
+            finally { eventsLoading = false; }
+          };
+          const menuTab = managementPanel('menu', '메뉴 관리', '📋');
+          const menu = menuTab.panel;
           const menuStatus = append(menu, 'p', '');
           menuStatus.setAttribute('role', 'status');
           const menuBody = append(menu, 'div', '');
@@ -966,11 +1025,15 @@
             }
           }
 
-          menu.addEventListener('toggle', () => {
-            if (menu.open && !menuBusy) void loadMenu();
-          });
-          const booking = append(card,'details','');
-          append(booking,'summary','예약 관리');
+          let menuLoading = false;
+          menuTab.activate = async () => {
+            if (menuLoading || menuBusy || menuBody.querySelector('form')) return;
+            menuLoading = true;
+            try { await loadMenu(); }
+            finally { menuLoading = false; }
+          };
+          const bookingTab = managementPanel('booking', '예약 관리', '📅');
+          const booking = bookingTab.panel;
           const bookingStatus=append(booking,'p','');
           bookingStatus.setAttribute('role','status');
           const bookingBody=append(booking,'div','');
@@ -1055,12 +1118,16 @@
             }
             filter.onchange=day.onchange=drawList;drawList();
           }
-          booking.addEventListener('toggle',async ()=>{
-            if(!booking.open||bookingBusy)return;
-            try{drawBooking(await request(bookingQuery));}
-            catch{bookingStatus.textContent='예약 목록을 불러오지 못했습니다.';}
-          });
-          const description = append(append(card, 'label', '소개'), 'textarea', '');
+          bookingTab.activate = async () => {
+            if (bookingBusy || bookingBody.querySelector('form')) return;
+            bookingBusy = true;
+            try { drawBooking(await request(bookingQuery)); }
+            catch { bookingStatus.textContent = '예약 목록을 불러오지 못했습니다.'; }
+            finally { bookingBusy = false; }
+          };
+          const basic = basicTab.panel;
+          const description = append(append(basic, 'label', '소개'), 'textarea', '');
+          basicTab.activate = () => fitDescription();
           description.className = 'pilot-business-description';
           description.value = business.description || '';
           const fitDescription = () => {
@@ -1079,10 +1146,11 @@
             fitDescription();
           });
           descriptionObserver.observe(card);
-          const hours = append(append(card, 'label', '영업시간'), 'input', '');
+          const hours = append(append(basic, 'label', '영업시간'), 'input', '');
           hours.value = business.hours || '';
-          action(card, '정보 저장', () => ({action: 'update', business_id: business.id,
+          action(basic, '정보 저장', () => ({action: 'update', business_id: business.id,
             changes: {description: description.value, hours: hours.value}}));
+          selectTab(basicTab);
         }
         owner.hidden = false;
         for (const fitDescription of resizeDescriptions.values()) fitDescription();

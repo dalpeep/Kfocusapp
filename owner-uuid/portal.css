@@ -31,6 +31,21 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .coupon-field-help{font-size:13px;color:#526580;line-height:1.5}
 .coupon-customer-summary{overflow-wrap:anywhere;background:#f5f8fc;padding:12px;border-radius:10px}
 .coupon-customer-summary p:first-child{font-size:20px;font-weight:700}.coupon-customer-summary p:nth-child(2){font-weight:700;color:#174ea6}
+.owner-management-card { min-width:0; }
+.owner-management-tabs {
+  display:flex; flex-wrap:nowrap; gap:6px; max-width:100%; overflow-x:auto;
+  overscroll-behavior-x:contain; padding:4px 2px 8px; margin-bottom:12px;
+}
+.owner-management-tabs button {
+  display:flex; align-items:center; justify-content:center; gap:5px;
+  flex:1 0 auto; margin:0; padding:8px; min-height:48px;
+  white-space:nowrap; font-size:14px; font-weight:700;
+  background:#eff2f6; color:#18335f; border-color:transparent;
+}
+.owner-management-tabs [aria-selected=true] { background:#1769e0; color:#fff; }
+.owner-management-tabs button:focus-visible { outline:2px solid #174b96; outline-offset:-3px; }
+.owner-management-panel { max-width:740px; min-width:0; margin-inline:auto; }
+.owner-management-panel :is(input,textarea,select,button) { max-width:100%; }
 .owner-content>[role=status][data-state]{padding:12px;border-radius:8px;white-space:pre-wrap}.owner-content>[role=status][data-state=success]{background:#e8f6ee;color:#14532d}.owner-content>[role=status][data-state=error]{background:#fff0f0;color:#991b1b}
 @media(max-width:700px){.owner-content form.coupon-editor{grid-template-columns:minmax(0,1fr);gap:12px}.coupon-editor .coupon-design-preview{position:static}.coupon-editor input,.coupon-editor select,.coupon-editor textarea{box-sizing:border-box;max-width:100%;min-width:0}.coupon-editor-actions{grid-column:1}}
 
