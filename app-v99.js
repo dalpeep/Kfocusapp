@@ -5764,16 +5764,15 @@ async function loadBusinessReservation(id,target){
         <label>전화번호 <input name="phone" type="tel" autocomplete="tel" maxlength="25" required></label>
         <label>이메일 (선택) <input name="email" type="email" autocomplete="email" maxlength="254"></label>
         <label>요청 사항 (선택) <textarea name="note" maxlength="300" rows="3"></textarea></label>
-        <label>예약 비밀번호 <input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></label>
-        <label>비밀번호 확인 <input name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" maxlength="72" required></label>
-        <p>영문자와 숫자 또는 기호를 포함해 8자 이상 입력해 주세요.</p>
+        <label>예약 PIN <input name="password" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4}" minlength="4" maxlength="4" required></label>
+        <label>PIN 확인 <input name="passwordConfirm" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{4}" minlength="4" maxlength="4" required></label>
         <p>의료정보 등 민감정보는 입력하지 마세요.</p>
         <div data-proof></div>
         <button type="submit" disabled>예약 신청</button>
       </form>
       <form data-reservation-lookup-form hidden>
         <label>예약번호 <input name="number" autocapitalize="characters" autocomplete="off" spellcheck="false" maxlength="24" required></label>
-        <label>예약 비밀번호 <input name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
+        <label>예약 PIN 또는 기존 비밀번호 <input name="password" type="password" autocomplete="current-password" maxlength="72" required></label>
         <button type="submit">조회하기</button>
         <p>예약번호나 비밀번호를 잊었다면 업소에 직접 문의해 주세요. 온라인 재발급은 지원하지 않습니다.</p>
       </form>
@@ -5881,17 +5880,16 @@ async function loadBusinessReservation(id,target){
       if(submit.disabled)return;
       const password=input.password.value;
       if(password!==input.passwordConfirm.value){
-        status.textContent='예약 비밀번호와 확인 값이 일치하지 않습니다.';return;
+        status.textContent='예약 PIN과 확인 값이 일치하지 않습니다.';return;
       }
-      if(new TextEncoder().encode(password).length>72||!/[A-Za-z]/.test(password)||!/[^A-Za-z\s]/.test(password)
-        ||/^(password|qwerty|letmein|daltownmap|admin|welcome|abc123|encpro)/i.test(password)){
-        status.textContent='다른 곳에서 쓰지 않는 비밀번호를 입력해 주세요. 영문자와 숫자 또는 기호가 필요합니다.';return;
+      if(!/^[0-9]{4}$/.test(password)){
+        status.textContent='예약 PIN은 숫자 4자리로 입력해 주세요.';return;
       }
       busy=true;updateSubmit();
       try{
         attempt??={id:crypto.randomUUID(),secret:crypto.randomUUID(),pending:true,numbered:true};
         try { sessionStorage.setItem(storageKey+'.pending',JSON.stringify(attempt)); } catch (_) {}
-        const result=await customer({action:'submit-number',id:attempt.id,secret:attempt.secret,business:id,proof,password,
+        const result=await customer({action:'submit-pin',id:attempt.id,secret:attempt.secret,business:id,proof,password,
           slot:input.slot.value,party:Number(input.party.value),name:input.name.value,phone:input.phone.value,
           email:input.email.value,note:input.note.value});
         if(!result?.number)throw Error('RESERVATION_UNAVAILABLE');
