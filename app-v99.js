@@ -10681,7 +10681,8 @@ function v245ActiveCoupons(){
   return globalThis.DtmActiveState.activeRecords(coupons||[],'coupon',Date.now(),{region:currentRegion});
 }
 function v245EventCoupons(){
-  return v245ActiveCoupons().filter(c=>String(c.delivery_mode||'display')==='raffle');
+  return activeCoupons(coupons).filter(c=>c.delivery_mode==='raffle' &&
+    globalThis.DtmDallasTime.periodActive(c.startAt||c.start_at,c.endAt||c.end_at));
 }
 function v245RegularCoupons(){
   return v245ActiveCoupons().filter(c=>String(c.delivery_mode||'display')!=='raffle');
@@ -11083,7 +11084,7 @@ function v256ScheduleShortcutExpiryRefresh(){
   const now=Date.now();
   const futureEnds=(coupons||[])
     .filter(c=>c && c.is_active!==false && c.active!==false && c.hidden!==true)
-    .map(c=>v249CouponEffectiveEnd(c))
+    .flatMap(c=>[v249CouponEffectiveEnd(c),c.delivery_mode==='raffle'?(c.endAt||c.end_at):''])
     .filter(Boolean)
     .map(x=>new Date(x).getTime())
     .filter(t=>Number.isFinite(t) && t>now)
