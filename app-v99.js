@@ -659,7 +659,7 @@ function homeBusinessItemHTML(b){
     (typeof businessHasActiveListing === 'function' && businessHasActiveListing(b)) ? '<span class="home-business-listing-badge">LISTING</span>' : ''
   ].filter(Boolean).join('');
 
-  return `<div class="reservation-card-row">
+  return `
     <button class="home-biz-map-card biz-open" type="button" data-biz="${esc(b.id)}">
       <span class="home-biz-map-img-wrap">${businessImageHTML(b,'home-biz-map-img',b.name||'')}<span class="home-business-promo-badges">${promoBadges}</span></span>
 
@@ -674,7 +674,6 @@ function homeBusinessItemHTML(b){
         </div>
       </div>
     </button>
-    ${businessReservationTarget(b.id)}</div>
   `;
 }
 function todayKey(){
