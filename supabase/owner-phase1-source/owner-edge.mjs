@@ -14,7 +14,7 @@ function imageType(bytes) {
   return null;
 }
 
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1', 'owner_redeem_coupon_code_v3', 'owner_coupon_history_v3', 'owner_events_v1', 'owner_menu_v1', 'owner_reservations_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1', 'owner_redeem_coupon_code_v3', 'owner_coupon_history_v3', 'owner_events_v1', 'owner_menu_v1', 'owner_reservations_v1', 'owner_business_hours_v1']);
 
 export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, specialsV2Enabled = false, couponsEnabled = false, reservationIntakeReady = false, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
@@ -57,6 +57,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
     const specials = url.searchParams.get('content') === 'specials';
     const coupons = url.searchParams.get('content') === 'coupons';
     const reservations = url.searchParams.get('content') === 'reservations';
+    const hours = url.searchParams.get('content') === 'hours';
     const menu = url.searchParams.get('content') === 'menu';
     const events = url.searchParams.get('content') === 'events';
     if ((specials && !specialsEnabled) || (coupons && !couponsEnabled)) return off();
@@ -82,7 +83,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
       }
       body = Buffer.concat(chunks);
     }
-    if (gallery || specials || coupons || events || menu || reservations) {
+    if (gallery || specials || coupons || events || menu || reservations || hours) {
       const business = url.searchParams.get('business');
       if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(business || '')) {
         return json(400, {ok: false});
@@ -91,7 +92,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
         const actor = await client.auth.getUser(authorization.slice(7));
         if (!actor.data?.user?.id) return json(401, {ok: false, code: 'OWNER_AUTH_REQUIRED'});
         const params = {p_actor: actor.data.user.id, p_business: business};
-        if (specials || coupons || events || menu || reservations) {
+        if (specials || coupons || events || menu || reservations || hours) {
           if (method === 'POST') {
             try { params.p_command = JSON.parse(body.toString('utf8')); }
             catch { return json(400, {ok: false}); }
@@ -126,7 +127,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
           }
           if (reservations && params.p_command?.action==='settings' && params.p_command.settings?.enabled===true && !reservationIntakeReady)
             return json(503,{ok:false,code:'RESERVATION_BOT_CHECK_UNAVAILABLE'});
-          const result = await client.rpc(reservations ? 'owner_reservations_v1' : menu ? 'owner_menu_v1' : events ? 'owner_events_v1' : coupons ? 'owner_pilot_coupon_v1' : specialsV2Enabled ? 'owner_pilot_special_v2' : 'owner_pilot_special_v1', params);
+          const result = await client.rpc(hours ? 'owner_business_hours_v1' : reservations ? 'owner_reservations_v1' : menu ? 'owner_menu_v1' : events ? 'owner_events_v1' : coupons ? 'owner_pilot_coupon_v1' : specialsV2Enabled ? 'owner_pilot_special_v2' : 'owner_pilot_special_v1', params);
           if (!result.error) return json(200, {ok: true, result: result.data});
           return json({OP400: 400, OP403: 403, OP409: 409, OP503: 503}[result.error.code] || 502, {ok: false});
         }
