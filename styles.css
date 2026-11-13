@@ -5731,6 +5731,18 @@ body.nearby-businesses-open{overflow:hidden!important}
 .business-menu-description:not([open]) summary { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
 @media(max-width:640px) { .business-menu-grid { grid-template-columns:minmax(0,1fr); } }
 
+.reservation-card-row { display:grid; min-width:0; }
+.reservation-card-row > button { width:100%; min-width:0; }
+.business-reservation-action:not(:empty) { margin-top:6px; }
+.business-reservation-action > .business-reservation-button {
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  box-sizing:border-box; max-width:100%; min-height:44px; padding:8px 14px;
+  border:0; border-radius:12px; background:#2563eb; color:#fff;
+  font:inherit; font-size:14px; font-weight:800; line-height:1.25;
+  cursor:pointer; touch-action:manipulation;
+}
+.business-reservation-button svg { flex:none; }
+.business-reservation-button:focus-visible { outline:2px solid #1e3a8a; outline-offset:2px; }
 .reservation-dialog {
   box-sizing:border-box; width:min(100% - 16px, 480px); max-width:none;
   max-height:calc(100dvh - 16px); overflow:auto; overscroll-behavior:contain;
