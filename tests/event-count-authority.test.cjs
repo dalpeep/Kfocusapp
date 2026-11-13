@@ -56,9 +56,9 @@ test('duplicate event ids count once',()=>{
 
 test('board notice list and main badge both consume the canonical authority while map stays independent',()=>{
   assert.match(authoritySource,/const source=normalizeBoardType\(type\)==='notice'\?activePublicEventPosts\(\):boardPosts/);
-  assert.match(source,/function v245EventPostCount\(\)\{\s*return activePublicEventPosts\(\)\.length;/);
+  assert.match(source,/function v245EventPostCount\(\)\{\s*return mapBenefitCount\('event'\);/);
   assert.match(source,/const postCount=v245EventPostCount\(\);/);
-  assert.match(source,/kind==='event'\?activeEventBusinessIds\(\)/);
+  assert.match(source,/kind==='event'\) return mapBenefitBusinesses\('event'\)/);
 });
 
 test('production-equivalent fixture counts one board event without banner-linked businesses',()=>{

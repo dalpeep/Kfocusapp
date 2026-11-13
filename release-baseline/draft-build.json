@@ -9,7 +9,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "2ee90573bb124d727463874d9f2ab172dfd1f55bbd9836142dd1278060f50930"
+      "sha256": "b49e25357927024f0435300e0e4a81e54b30b9fd91bf830869492543ca13f011"
     },
     {
       "path": "assets/community.js",
@@ -17,7 +17,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "304645adc2c938609240ed2e47f815f5d0c797eaf8dc4b5e6fb85ae6be8513ae"
+      "sha256": "ae2d77c2cada9ad6b9d782ee6d6fd83b20ec4fd2b83044dc1e6cda7fe43c1f40"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -505,7 +505,7 @@
     },
     {
       "path": "styles.css",
-      "sha256": "a3f7d625609e27cdb6b0faebfbd70bb2ed602132c2b08a2b3a9ae04f40417f88"
+      "sha256": "e3e26698a9b38147ff59d809ef753efff1bdf1e63c2108432065848bb98469ad"
     },
     {
       "path": "scripts/release/locked-draft-build.mjs",
@@ -513,7 +513,7 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "23cad4cd3d78f5a2613fde0621f88ce80c4e99a8fb34fb2229d0c2001566f483"
+      "sha256": "ab923dfe94720aa4e6bc2c247a0e5e79190f894000951d1688ba91ac15d33eb0"
     }
   ],
   "files": [

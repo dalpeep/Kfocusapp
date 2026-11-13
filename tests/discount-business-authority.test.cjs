@@ -19,7 +19,7 @@ test('discount and map-event counts retain canonical business authorities while 
   const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
   assert.match(source,/const discountCount=activeDiscountBusinessIds\(\)\.size/);
   assert.match(source,/const postCount=v245EventPostCount\(\)/);
-  assert.match(source,/kind==='event'\?activeEventBusinessIds\(\)/);
+  assert.match(source,/kind==='event'\) return mapBenefitBusinesses\('event'\)/);
   assert.doesNotMatch(source,/querySelectorAll\([^\n]*restaurant-special-card[^\n]*length/);
 });
 test('market grouping remains separate and unchanged as a callable authority',()=>{
@@ -46,7 +46,7 @@ test('coupon and discount shortcuts use separate shell modes and routes',()=>{
   const source=fs.readFileSync(path.join(__dirname,'..','app-v99.js'),'utf8');
   const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.match(source,/function v245OpenDiscounts\(\)/);
-  assert.match(source,/v245Shortcut\('🏷️','할인',discountCount,'v245OpenDiscounts\(\)'\)/);
+  assert.match(source,/v245Shortcut\('promotion','할인',discountCount,'v245OpenDiscounts\(\)'\)/);
   assert.match(source,/const renderedPage=page==='discount'\?'coupon':page/);
   assert.match(html,/id="discountModeContent"[^>]*hidden/);
   assert.match(html,/id="couponModeContent"/);

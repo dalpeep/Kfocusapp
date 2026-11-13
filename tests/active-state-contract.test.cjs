@@ -100,5 +100,5 @@ test('public helper adapters reference the authoritative contract',()=>{
     assert.notEqual(start,-1,name);
     assert.match(source.slice(start,end+2),/DtmActiveState/,name);
   }
-  assert.match(source,/function v245EventPostCount\(\)\{\s*return activePublicEventPosts\(\)\.length;/);
+  assert.match(source,/function v245EventPostCount\(\)\{\s*return mapBenefitCount\('event'\);/);
 });
