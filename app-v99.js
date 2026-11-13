@@ -5664,6 +5664,26 @@ function bindV229ListingCards(root=document){
 ensureV229ListingPublicStyles();
 
 
+async function loadBusinessMenu(id, target){
+  const {SUPABASE_URL,SUPABASE_ANON_KEY}=getConfig();
+  if (!target || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  try {
+    const response=await fetch(SUPABASE_URL+'/rest/v1/business_menu_items?business_id=eq.'+encodeURIComponent(id)+'&select=title,title_en,description,price_cents,image_url,sold_out&order=sort_order.asc,id.asc',
+      {headers:{apikey:SUPABASE_ANON_KEY,Authorization:'Bearer '+SUPABASE_ANON_KEY}});
+    if (!response.ok || !target.isConnected) return;
+    const rows=await response.json();
+    if (!rows.length || !target.isConnected) return;
+    const price=new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
+    target.innerHTML=`<h3>메뉴·서비스</h3>${rows.map(row=>`
+      <article class="business-event-card">
+        <strong>${esc(row.title)}${row.title_en?' · '+esc(row.title_en):''}</strong>
+        <p>${price.format(row.price_cents/100)}${row.sold_out?' · 품절':''}</p>
+        ${row.image_url?`<img class="business-event-image" src="${esc(row.image_url)}" alt="" loading="lazy">`:''}
+        <p>${esc(row.description||'')}</p>
+      </article>`).join('')}`;
+    target.hidden=false;
+  } catch (_) {}
+}
 function renderDetail(id){
   const b = businesses.find(v => String(v.id) === String(id)) || businesses[0];
   if(!b || !detailCard) return;
@@ -6099,6 +6119,7 @@ ${activeCoupon ? `
 
 ${specialHtml}
 ${businessEventCards(activeBusinessEvents(b.id))}
+<section class="biz-detail-card" data-business-menu hidden></section>
 
 ${renderBusinessListings(b.id)}
 
@@ -6232,6 +6253,7 @@ detailCard.querySelectorAll('.order-link-btn').forEach(btn => {
     }
     alert(`${label} 링크는 아직 준비중입니다.`);
   });
+  void loadBusinessMenu(b.id, detailCard.querySelector('[data-business-menu]'));
 });
 
 const hoursHtml = renderBusinessHours(b);
