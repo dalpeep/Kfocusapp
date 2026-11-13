@@ -1,6 +1,9 @@
 const origin = 'https://daltownmap.com';
 const project = 'https://ydrxuqmjzayejlnjzzew.supabase.co';
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const bookingNumber = /^[A-F0-9]{20}$/;
+const passwordSize = (value: unknown): value is string =>
+  typeof value==='string' && new TextEncoder().encode(value).length<=72;
 const headers = {'Access-Control-Allow-Origin':origin,'Access-Control-Allow-Headers':'content-type',
   'Access-Control-Allow-Methods':'POST, OPTIONS','Cache-Control':'no-store',Vary:'Origin'};
 
@@ -29,10 +32,14 @@ Deno.serve(async request => {
     for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
     let body;
     try { body=JSON.parse(new TextDecoder().decode(bytes)); } catch { return reply(400,{code:'INPUT'}); }
-    if (!body || !uuid.test(body.id||'') || !uuid.test(body.secret||'')) return reply(400,{code:'INPUT'});
+    if (!body || typeof body!=='object') return reply(400,{code:'INPUT'});
+    const credentialLookup=body.action==='lookup-number'||body.action==='cancel-number';
+    if (!credentialLookup && (!uuid.test(body.id||'') || !uuid.test(body.secret||''))) return reply(400,{code:'INPUT'});
     const params = {p_id:body.id,p_secret:body.secret};
     let rpc, args;
-    if (body.action==='submit') {
+    if (body.action==='submit'||body.action==='submit-number') {
+      const numbered=body.action==='submit-number';
+      if(numbered && (!passwordSize(body.password)||body.password.length<8))return reply(400,{code:'INPUT'});
       if (!uuid.test(body.business||'') || !Number.isInteger(body.party) || body.party<1 || body.party>100 ||
           typeof body.slot!=='string' || !Number.isFinite(Date.parse(body.slot)) ||
           typeof body.name!=='string' || !body.name.trim() || body.name.length>100 ||
@@ -47,9 +54,15 @@ Deno.serve(async request => {
       const result=await verification.json();
       if(!verification.ok || !result.success || result.hostname!=='daltownmap.com' || result.action!=='reservation')
         return reply(403,{code:'BOT_CHECK'});
-      rpc='business_reservation_submit_v1';
+      rpc=numbered?'business_reservation_submit_v2':'business_reservation_submit_v1';
       args={...params,p_business:body.business,p_slot:body.slot,p_party:body.party,p_name:body.name,
         p_phone:body.phone,p_email:body.email||null,p_note:body.note||null};
+      if(numbered)Object.assign(args,{p_password:body.password});
+    } else if(credentialLookup){
+      if(!uuid.test(body.business||'')||typeof body.number!=='string'||!bookingNumber.test(body.number)||!passwordSize(body.password))
+        return reply(403,{code:'CREDENTIALS'});
+      rpc='customer_reservation_v2';
+      args={p_business:body.business,p_number:body.number,p_password:body.password,p_cancel:body.action==='cancel-number'};
     } else if(body.action==='lookup'||body.action==='cancel') {
       rpc='customer_reservation_v1';
       args={...params,p_cancel:body.action==='cancel'};
@@ -57,6 +70,7 @@ Deno.serve(async request => {
     const response=await fetch(project+'/rest/v1/rpc/'+rpc,{method:'POST',redirect:'error',signal:AbortSignal.timeout(8000),
       headers:{apikey:service,Authorization:'Bearer '+service,'Content-Type':'application/json'},body:JSON.stringify(args)});
     const data=await response.json();
+    if(credentialLookup && response.ok && data.error==='CREDENTIALS')return reply(403,{code:'CREDENTIALS'});
     if(response.ok)return reply(200,{result:data});
     const status=({OP400:400,OP403:403,OP409:409,OP429:429} as Record<string,number>)[data.code]||503;
     return reply(status,{code:status===503?'RESERVATION_UNAVAILABLE':data.code});
