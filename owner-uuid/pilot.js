@@ -108,56 +108,117 @@
           const feedback = append(gallery, 'p', '');
           feedback.setAttribute('role', 'status');
           const galleryQuery = '?content=gallery&business=' + encodeURIComponent(business.id);
-          let loaded = false;
+          const uploadPrefix = endpoint.split('/functions/')[0]
+            + '/storage/v1/object/public/public-images/owner-phase2/' + business.id + '/';
+          const grid = append(gallery, 'div', '');
+          grid.className = 'pilot-photo-grid';
+          const controls = append(gallery, 'div', '');
+          const add = append(controls, 'button', '사진 추가');
+          const picker = append(controls, 'input', '');
+          add.type = 'button';
+          picker.type = 'file';
+          picker.accept = 'image/jpeg,image/png,image/webp';
+          picker.hidden = true;
+          let expected;
+          let busy = false;
+          let replacement;
+          add.disabled = true;
+
+          function choose(index) {
+            if (busy) return;
+            replacement = index;
+            picker.multiple = index === undefined;
+            picker.value = '';
+            picker.click();
+          }
+
+          function renderPhotos() {
+            grid.replaceChildren();
+            if (!expected.length) append(grid, 'p', '등록된 사진이 없습니다.');
+            expected.forEach((url, index) => {
+              const photo = append(grid, 'div', '');
+              photo.className = 'pilot-photo';
+              const image = append(photo, 'img', '');
+              image.alt = '업소 사진 ' + (index + 1);
+              image.loading = 'lazy';
+              image.referrerPolicy = 'no-referrer';
+              if (/^https?:\/\//i.test(url)) image.src = url;
+              if (!url.startsWith(uploadPrefix)) {
+                append(photo, 'small', '관리자 등록 사진');
+                return;
+              }
+              const buttons = append(photo, 'div', '');
+              const replace = append(buttons, 'button', '교체');
+              const remove = append(buttons, 'button', '삭제');
+              replace.type = remove.type = 'button';
+              replace.onclick = () => choose(index);
+              remove.onclick = () => {
+                if (busy || !window.confirm('이 사진을 업소 사진 목록에서 삭제할까요?')) return;
+                void changePhotos([], index);
+              };
+            });
+          }
+
+          async function changePhotos(files, index) {
+            if (busy || current !== generation || !expected) return;
+            if (files.some(file => file.size > 4 * 1024 * 1024)) {
+              feedback.textContent = '각 사진은 4MB 이하여야 합니다.';
+              return;
+            }
+            if (index === undefined && expected.length + files.length > 20) {
+              feedback.textContent = '사진은 최대 20장까지 등록할 수 있습니다.';
+              return;
+            }
+            busy = true;
+            for (const button of gallery.querySelectorAll('button')) button.disabled = true;
+            let saved = 0;
+            try {
+              if (!files.length) {
+                expected = await request(galleryQuery, {expected, urls: expected.filter((_, i) => i !== index)});
+              }
+              for (const file of files) {
+                feedback.textContent = '사진 저장 중 (' + (saved + 1) + '/' + files.length + ')';
+                const uploaded = await request(galleryQuery + '&upload=1', null, file);
+                const urls = expected.slice();
+                if (index === undefined) urls.push(uploaded);
+                else urls[index] = uploaded;
+                expected = await request(galleryQuery, {expected, urls});
+                saved++;
+              }
+              feedback.textContent = !files.length ? '사진을 목록에서 삭제했습니다.'
+                : index === undefined ? '사진 ' + saved + '장을 저장했습니다.' : '사진을 교체했습니다.';
+            } catch (error) {
+              const message = error.status === 409 ? '다른 곳에서 사진 목록이 변경됐습니다.'
+                : '사진 저장 결과를 확인하지 못했습니다.';
+              feedback.textContent = (saved ? saved + '장 저장 완료. ' : '') + message;
+              try { expected = await request(galleryQuery); }
+              catch { expected = undefined; grid.replaceChildren(); feedback.textContent += ' 사진 영역을 다시 열어 확인해 주세요.'; }
+            } finally {
+              busy = false;
+              if (current === generation && expected) renderPhotos();
+              add.disabled = !expected;
+            }
+          }
+
+          add.onclick = () => choose();
+          picker.onchange = () => {
+            const files = Array.from(picker.files);
+            if (files.length) void changePhotos(files, replacement);
+          };
           gallery.addEventListener('toggle', async () => {
-            if (!gallery.open || loaded) return;
-            loaded = true;
+            if (!gallery.open || expected || busy) return;
+            busy = true;
             feedback.textContent = '사진 목록을 불러오는 중입니다.';
             try {
-              let expected = await request(galleryQuery);
+              expected = await request(galleryQuery);
               if (current !== generation) return;
-              const urls = append(append(gallery, 'label', '업주가 올린 사진 주소 (한 줄에 하나씩)'), 'textarea', '');
-              const uploadPrefix = endpoint.split('/functions/')[0]
-                + '/storage/v1/object/public/public-images/owner-phase2/' + business.id + '/';
-              const isOwnerUpload = url => url.startsWith(uploadPrefix);
-              let existing = expected.filter(url => !isOwnerUpload(url));
-              if (existing.length) append(gallery, 'p', '기존 사진은 보존됩니다.');
-              urls.value = expected.filter(isOwnerUpload).join('\n');
-              const file = append(append(gallery, 'label', '새 사진 (JPG, PNG, WebP · 최대 4MB)'), 'input', '');
-              file.type = 'file';
-              file.accept = 'image/jpeg,image/png,image/webp';
+              renderPhotos();
+              add.disabled = false;
               feedback.textContent = '';
-              const save = append(gallery, 'button', '사진 목록 저장');
-              save.type = 'button';
-              save.onclick = async () => {
-                save.disabled = urls.disabled = file.disabled = true;
-                try {
-                  const image = file.files[0];
-                  if (image) {
-                    if (image.size > 4 * 1024 * 1024) {
-                      feedback.textContent = '4MB 이하의 사진을 선택해 주세요.';
-                      return;
-                    }
-                    const uploaded = await request(galleryQuery + '&upload=1', null, image);
-                    urls.value = [urls.value.trim(), uploaded].filter(Boolean).join('\n');
-                    file.value = '';
-                  }
-                  const next = urls.value.split(/\r?\n/).map(url => url.trim()).filter(Boolean);
-                  expected = await request(galleryQuery, {expected, urls: [...existing, ...next]});
-                  existing = expected.filter(url => !isOwnerUpload(url));
-                  urls.value = expected.filter(isOwnerUpload).join('\n');
-                  feedback.textContent = '사진 목록을 저장했습니다.';
-                } catch (error) {
-                  feedback.textContent = error.status === 409
-                    ? '사진 목록이 변경됐습니다. 페이지를 새로고침해 다시 확인해 주세요.'
-                    : '사진 목록을 저장하지 못했습니다.';
-                } finally {
-                  save.disabled = urls.disabled = file.disabled = false;
-                }
-              };
             } catch (error) {
-              loaded = false;
               feedback.textContent = error.status === 503 ? '사진 관리는 준비 중입니다.' : '사진 목록을 불러오지 못했습니다.';
+            } finally {
+              busy = false;
             }
           });
           const description = append(append(card, 'label', '소개'), 'textarea', '');
