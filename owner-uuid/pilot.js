@@ -84,7 +84,7 @@
       const links = append(businesses, 'nav', '');
       links.className = 'owner-onboarding-links';
       const find = append(links, 'a', '내 업소찾기');
-      find.href = allowClaims ? '#find' : '/#business';
+      find.href = '#find';
       if (allowClaims) find.addEventListener('click', event => {
         event.preventDefault();
         if (location.hash !== '#find') history.pushState(null, '', '#find');
@@ -92,7 +92,61 @@
       });
       append(links, 'a', '신규 업소등록').href = '/#business-register';
       if (!allowClaims) {
-        append(businesses, 'p', '업소록에서 등록된 업소를 검색할 수 있습니다. 온라인 소유권 신청은 현재 지정 계정과 업소에 한해 접수합니다.');
+        const panel = append(businesses, 'section', '');
+        panel.hidden = true;
+        const form = append(panel, 'form', '');
+        const input = append(append(form, 'label', '업소명 또는 지역'), 'input', '');
+        input.type = 'search';
+        input.maxLength = 80;
+        input.required = true;
+        const button = append(form, 'button', '검색');
+        button.type = 'submit';
+        const feedback = append(panel, 'p', '');
+        feedback.setAttribute('role', 'status');
+        const results = append(panel, 'div', '');
+        find.addEventListener('click', event => {
+          event.preventDefault();
+          if (location.hash !== '#find') history.replaceState(null, '', '#find');
+          panel.hidden = false;
+          input.focus();
+        });
+        if (location.hash === '#find') panel.hidden = false;
+
+        form.addEventListener('submit', async event => {
+          event.preventDefault();
+          if (button.disabled) return;
+          // Keep PostgREST filter separators and pattern wildcards out of user input.
+          const term = input.value.replace(/[^\p{L}\p{M}\p{N} .'-]/gu, ' ').trim().replace(/ +/g, ' ');
+          if (!term) {
+            feedback.textContent = '업소명 또는 지역을 입력해 주세요.';
+            return;
+          }
+          button.disabled = true;
+          results.replaceChildren();
+          feedback.textContent = '검색 중입니다.';
+          try {
+            const {data, error} = await client.from('businesses')
+              .select('id,name_ko,name_en,area,region,address')
+              .eq('is_active', true).eq('list_visible', true)
+              .or(['name_ko','name_en','area','region'].map(field => field + '.ilike.*' + term + '*').join(','))
+              .order('name_ko').order('id').limit(30);
+            if (current !== generation) return;
+            if (error) throw error;
+            feedback.textContent = data.length ? '검색 결과 (최대 30개)' : '검색 결과가 없습니다.';
+            for (const business of data) {
+              const card = append(results, 'article', '');
+              append(card, 'h3', [business.name_ko, business.name_en].filter(Boolean).join(' · '));
+              append(card, 'p', [business.area, business.address].filter(Boolean).join(' · '));
+              const claim = append(card, 'details', '');
+              append(claim, 'summary', '관리 권한 신청');
+              append(claim, 'p', '이 계정의 온라인 신청 접수는 아직 열리지 않았습니다.');
+            }
+          } catch {
+            if (current === generation) feedback.textContent = '업소를 검색하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+          } finally {
+            button.disabled = false;
+          }
+        });
       }
     }
 
