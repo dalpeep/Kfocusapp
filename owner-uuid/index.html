@@ -1,11 +1,19 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>달타운맵 업주 관리</title><link rel="stylesheet" href="/owner-uuid/portal.css?v=business-hours"><script src="/owner-uuid/invite.js"></script></head><body>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>달타운맵 업주 관리</title><link rel="stylesheet" href="/owner-uuid/portal.css?v=auth-tabs"><script src="/owner-uuid/invite.js?v=auth-tabs"></script></head><body>
 <main><h1 id="owner-page-heading">업주 관리</h1><p>이메일 인증과 관리자 승인 후 승인받은 업소를 관리할 수 있습니다.</p>
 <form id="owner-invite" hidden><h2>업주 초대 수락</h2><label>새 비밀번호<input name="password" type="password" autocomplete="new-password" minlength="12" required></label><label>새 비밀번호 확인<input name="confirmation" type="password" autocomplete="new-password" minlength="12" required></label><button>초대 수락 및 비밀번호 설정</button></form>
-<form id="auth" hidden><h2>회원가입·로그인</h2><label>이메일<input name="email" type="email" autocomplete="email" required></label><label>비밀번호<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><button name="login">로그인</button></form>
-<details><summary>비밀번호 찾기</summary><form id="password-reset"><label>이메일<input name="email" type="email" autocomplete="email" required></label><button>재설정 메일 보내기</button></form></details>
+<section id="owner-auth" hidden aria-label="업주 계정">
+<div class="owner-auth-tabs" role="group" aria-label="계정 메뉴"><button type="button" id="owner-login-tab" aria-pressed="true" aria-controls="owner-login-panel">로그인</button><button type="button" id="owner-signup-tab" aria-pressed="false" aria-controls="owner-signup-panel">회원가입</button></div>
+<div id="owner-login-panel"><form id="auth" hidden><h2>로그인</h2><label>이메일<input name="email" type="email" autocomplete="email" required></label><label>비밀번호<input name="password" type="password" autocomplete="current-password" minlength="6" required></label><button name="login">로그인</button></form>
+<details><summary>비밀번호 찾기</summary><form id="password-reset"><label>이메일<input name="email" type="email" autocomplete="email" required></label><button>재설정 메일 보내기</button></form></details></div>
+<div id="owner-signup-panel" hidden><form id="owner-signup"><h2>회원가입</h2>
+<p>가입 후 이메일로 받은 인증 링크를 열어 주세요. 이메일 인증 후 로그인해 주세요. 현재 소유권 신청은 지정 계정과 업소를 대상으로 운영되며, 업소 관리는 관리자 승인 후 이용할 수 있습니다.</p>
+<label>이메일<input name="email" type="email" autocomplete="email" required></label>
+<label>비밀번호<input name="password" type="password" autocomplete="new-password" minlength="12" required></label>
+<label>비밀번호 확인<input name="confirmation" type="password" autocomplete="new-password" minlength="12" required></label>
+<button type="submit">인증 메일 보내기</button></form></div></section>
 <section id="signed-in" hidden><h2>로그인 완료</h2><button id="logout" type="button">로그아웃</button><p id="pilot-status" role="status" aria-live="polite"></p>
 <section id="pilot-owner" hidden><h2>내 업소</h2><div id="pilot-businesses"></div></section>
 <section id="admin" hidden><h2>관리자 승인 대기</h2><div id="pilot-queue"></div><button id="pilot-prev" type="button">이전</button><button id="pilot-next" type="button">다음</button></section>
 </section>
 <p id="status" role="status" aria-live="polite"></p></main>
-<script src="/.netlify/functions/config?v=owner-phase1"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script><script src="/owner-uuid/pilot.js?v=owner-services" defer></script><script src="/owner-uuid/portal.js" defer></script></body></html>
+<script src="/.netlify/functions/config?v=owner-phase1"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script><script src="/owner-uuid/pilot.js?v=owner-services" defer></script><script src="/owner-uuid/portal.js?v=auth-tabs" defer></script></body></html>

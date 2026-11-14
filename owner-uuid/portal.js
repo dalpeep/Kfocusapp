@@ -3,6 +3,9 @@
   const config = window.APP_CONFIG || {};
   const status = document.getElementById('status');
   const login = document.getElementById('auth');
+  const account = document.getElementById('owner-auth');
+  const signUp = document.getElementById('owner-signup');
+  const redirect = 'https://daltownmap.com/owner-uuid/';
   const signedIn = document.getElementById('signed-in');
   const logout = document.getElementById('logout');
   if (location.origin !== 'https://daltownmap.com' ||
@@ -19,11 +22,51 @@
     const client = createClient({storage: sessionStorage, persistSession: true});
     const showSession = active => {
       signedIn.hidden = !active;
-      login.hidden = active;
+      account.hidden = login.hidden = active;
       window.OwnerPilot.show(client, active);
     };
     const {data} = await client.auth.getSession();
     showSession(!showLogin && Boolean(data.session));
+    const loginTab = document.getElementById('owner-login-tab');
+    const signupTab = document.getElementById('owner-signup-tab');
+    function selectAuth(signingUp) {
+      loginTab.setAttribute('aria-pressed', String(!signingUp));
+      signupTab.setAttribute('aria-pressed', String(signingUp));
+      document.getElementById('owner-login-panel').hidden = signingUp;
+      document.getElementById('owner-signup-panel').hidden = !signingUp;
+      status.textContent = '';
+    }
+    loginTab.onclick = () => selectAuth(false);
+    signupTab.onclick = () => selectAuth(true);
+    signUp.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = signUp.querySelector('button');
+      if (button.disabled) return;
+      const fields = new FormData(signUp);
+      const password = fields.get('password');
+      if (password !== fields.get('confirmation')) {
+        status.textContent = '비밀번호와 확인 값이 일치하지 않습니다.';
+        return;
+      }
+      button.disabled = true;
+      try {
+        const {data, error} = await client.auth.signUp({
+          email: String(fields.get('email')).trim(), password,
+          options: {emailRedirectTo: redirect},
+        });
+        if (data?.session) await client.auth.signOut({scope:'local'});
+        if (error || data?.session) {
+          status.textContent = '가입 인증을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+          return;
+        }
+        signUp.reset();
+        status.textContent = '인증 메일을 확인해 주세요. 기존 계정이 있다면 로그인 또는 비밀번호 찾기를 이용해 주세요.';
+      } catch {
+        status.textContent = '연결을 확인하고 다시 시도해 주세요.';
+      } finally {
+        button.disabled = false;
+      }
+    });
     const reset = document.getElementById('password-reset');
     reset.addEventListener('submit', async event => {
       event.preventDefault();
@@ -33,7 +76,7 @@
       try {
         const email = String(new FormData(reset).get('email')).trim();
         const {error} = await client.auth.resetPasswordForEmail(email, {
-          redirectTo: 'https://daltownmap.com/owner-uuid/',
+          redirectTo: redirect,
         });
         status.textContent = error
           ? '재설정 메일을 요청하지 못했습니다. 잠시 후 다시 시도해 주세요.'
