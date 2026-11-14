@@ -79,7 +79,31 @@
       };
     }
 
-    function showUnlinkedBusiness(businesses, allowClaims) {
+    function showClaimForm(card, businessId) {
+      const form = append(card, 'details', '');
+      append(form, 'summary', '관리 권한 신청');
+      const fields = [
+        ['신청자 이름', 'text', 80], ['연락처', 'tel', 80], ['이메일', 'email', 180],
+        ['업소와의 관계', 'text', 100], ['인증 설명', 'text', 450],
+      ].map(([label, type, maxLength]) => {
+        const input = append(append(form, 'label', label), 'input', '');
+        input.type = type;
+        input.maxLength = maxLength;
+        return [label, input];
+      });
+      action(form, '신청 접수', () => {
+        const invalid = fields.find(([, input]) => !input.value.trim() || !input.validity.valid);
+        if (invalid) {
+          status.textContent = invalid[0] + ' 항목을 확인해 주세요.';
+          invalid[1].focus();
+          return;
+        }
+        return {action:'submit', kind:'claim', business_id:businessId,
+          reason:fields.map(([label,input]) => label + ': ' + input.value.trim()).join('\n')};
+      });
+    }
+
+    function showUnlinkedBusiness(businesses, allowClaims, intake) {
       append(businesses, 'p', '아직 연결된 업소가 없습니다. 등록된 내 업소를 찾아 관리 권한을 신청하세요.');
       const links = append(businesses, 'nav', '');
       links.className = 'owner-onboarding-links';
@@ -94,6 +118,13 @@
       if (!allowClaims) {
         const panel = append(businesses, 'section', '');
         panel.hidden = true;
+        if (intake) {
+          for (const item of intake.requests) {
+            const message = {pending:'관리자 승인 대기', approved:'승인 완료', rejected:'거절', cancelled:'취소'}[item.status];
+            if (message) append(businesses, 'p', message + ' · ' + String(item.created_at).slice(0,10)
+              + (item.status === 'rejected' ? ' · ' + (item.reason || '관리자에게 문의해 주세요.') + ' · 업소를 검색해 다시 신청할 수 있습니다.' : ''));
+          }
+        }
         const form = append(panel, 'form', '');
         const input = append(append(form, 'label', '업소명 또는 지역'), 'input', '');
         input.type = 'search';
@@ -137,9 +168,13 @@
               const card = append(results, 'article', '');
               append(card, 'h3', [business.name_ko, business.name_en].filter(Boolean).join(' · '));
               append(card, 'p', [business.area, business.address].filter(Boolean).join(' · '));
-              const claim = append(card, 'details', '');
-              append(claim, 'summary', '관리 권한 신청');
-              append(claim, 'p', '이 계정의 온라인 신청 접수는 아직 열리지 않았습니다.');
+              if (intake?.requests.some(item => item.business_id === business.id && item.status === 'pending')) {
+                append(card, 'p', '관리자 승인 대기');
+              } else if (intake) {
+                showClaimForm(card, business.id);
+              } else {
+                append(card, 'p', '이 계정의 온라인 신청 접수는 아직 열리지 않았습니다.');
+              }
             }
           } catch {
             if (current === generation) feedback.textContent = '업소를 검색하지 못했습니다. 잠시 후 다시 시도해 주세요.';
@@ -173,7 +208,8 @@
             document.getElementById('owner-business-' + picker.value)?.scrollIntoView({block:'start'});
           };
         }
-        if (!isAdmin && (!findingBusiness || !data.businesses.length)) {
+        if (data.claim_intake === true) showUnlinkedBusiness(businesses, false, data);
+        if (!data.claim_intake && !isAdmin && (!findingBusiness || !data.businesses.length)) {
           const candidates = data.claim_candidates || [];
           const claims = findingBusiness ? await request('?kind=claim') : data;
           if (current !== generation) return;
@@ -201,30 +237,10 @@
               append(card, 'p', '소유권 신청 승인 대기 중');
               continue;
             }
-            const form = append(card, 'details', '');
-            append(form, 'summary', '소유권 신청');
-            const fields = [
-              ['신청자 이름', 'text', 80], ['연락처', 'tel', 80], ['이메일', 'email', 180],
-              ['업소와의 관계', 'text', 100], ['인증 설명', 'text', 450],
-            ].map(([label, type, maxLength]) => {
-              const input = append(append(form, 'label', label), 'input', '');
-              input.type = type;
-              input.maxLength = maxLength;
-              return [label, input];
-            });
-            action(form, '신청 접수', () => {
-              const invalid = fields.find(([, input]) => !input.value.trim() || !input.validity.valid);
-              if (invalid) {
-                status.textContent = invalid[0] + ' 항목을 확인해 주세요.';
-                invalid[1].focus();
-                return;
-              }
-              return {action:'submit', kind:'claim', business_id:candidate.id,
-                reason:fields.map(([label,input]) => label + ': ' + input.value.trim()).join('\n')};
-            });
+            showClaimForm(card, candidate.id);
           }
         }
-        if (!isAdmin && !findingBusiness && !data.businesses.length) showUnlinkedBusiness(businesses, true);
+        if (!data.claim_intake && !isAdmin && !findingBusiness && !data.businesses.length) showUnlinkedBusiness(businesses, true);
         for (const business of data.businesses) {
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');

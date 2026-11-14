@@ -1,7 +1,7 @@
 [
   {
     "path": "owner-uuid/index.html",
-    "sha256": "287c6ca6725cd7fe0d58228967586f5b3420e4c8b15907905a440852b4db6d79"
+    "sha256": "e881564bf54f161cde087370dc631f840e9194f8ed7889a5993d1a91307271bf"
   },
   {
     "path": "owner-uuid/invite.js",
@@ -9,7 +9,7 @@
   },
   {
     "path": "owner-uuid/pilot.js",
-    "sha256": "e3070db3a1f104a2bc5d99e79bd9787b67afef255b45c3fea66d4f8fa38f7aed"
+    "sha256": "0033b9c8d9454b61ed8b75e1928d192b70a51344c60a751cc5cfb583ead29b76"
   },
   {
     "path": "owner-uuid/portal.css",
