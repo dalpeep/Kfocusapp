@@ -1126,6 +1126,26 @@
             finally { bookingBusy = false; }
           };
           const basic = basicTab.panel;
+          const coreFields = new Map();
+          const coreHelp = append(basic, 'p', '업소명·주소·연락처 변경은 관리자 검토 후 공개됩니다.');
+          for (const [key, label] of [['name_ko','업소명 (한글)'],['name_en','업소명 (영문)'],['address','주소'],['phone','연락처']]) {
+            const input = append(append(basic, 'label', label), 'input', '');
+            input.maxLength = 500;
+            input.type = key === 'phone' ? 'tel' : 'text';
+            input.readOnly = true;
+            coreFields.set(key, input);
+          }
+          let originalCore;
+          function loadCore(value) {
+            originalCore = value;
+            coreHelp.hidden = !value;
+            for (const [key, input] of coreFields) {
+              input.parentElement.hidden = !value;
+              input.value = value?.[key] ?? '';
+              input.readOnly = !value;
+            }
+          }
+          loadCore(null);
           const description = append(append(basic, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
@@ -1156,6 +1176,7 @@
           const dayFields = new Map();
           const legacyHours = typeof business.hours === 'string' ? business.hours : '';
           let originalHours, originalDescription = description.value, loadingHours = false;
+          let selectedDay = 'mon';
           function drawHours(value) {
             originalHours = value;
             dayFields.clear();
@@ -1166,9 +1187,28 @@
               append(hours, 'p', '기존 영업시간 형식은 관리자에게 수정을 요청해 주세요.');
               return;
             }
+            const weekdays = append(hours, 'div', '');
+            weekdays.className = 'owner-hours-tabs';
+            weekdays.setAttribute('role', 'group');
+            weekdays.setAttribute('aria-label', '영업시간 요일');
+            const tabs = new Map();
+            function selectDay(day) {
+              selectedDay = day;
+              for (const [key, {button, row}] of tabs) {
+                button.setAttribute('aria-pressed', String(key === day));
+                row.hidden = key !== day;
+              }
+            }
             for (const [day, name] of [['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금'],['sat','토'],['sun','일']]) {
               const row = append(hours, 'fieldset', '');
               row.className = 'owner-hours-day';
+              row.id = 'owner-hours-' + business.id + '-' + day;
+              const button = append(weekdays, 'button', name);
+              button.type = 'button';
+              button.setAttribute('aria-label', name + '요일');
+              button.setAttribute('aria-controls', row.id);
+              button.onclick = () => selectDay(day);
+              tabs.set(day, {button, row});
               append(row, 'legend', name + '요일');
               const previous = value?.[day];
               if (previous !== undefined && (!previous || typeof previous !== 'object' || Array.isArray(previous))) {
@@ -1192,13 +1232,16 @@
               }
               dayFields.set(day, {fields, initial:new Map([...fields].map(([key,input])=>[key,key==='closed'?input.checked:input.value]))});
             }
+            selectDay(selectedDay);
           }
           basicTab.activate = async () => {
             fitDescription();
             if (loadingHours || originalHours !== undefined) return;
             loadingHours = true;
             try {
-              drawHours((await request(hoursQuery)).hours);
+              const result = await request(hoursQuery);
+              loadCore(result.core);
+              drawHours(result.hours);
               saveInfo.disabled = false;
               feedbackHours.textContent = '';
             } catch (error) {
@@ -1219,23 +1262,48 @@
                 expected[day]=originalHours?.[day]??null;
               }
             }
+            const core = {}, coreExpected = {};
+            if (originalCore) {
+              for (const [key, input] of coreFields) {
+                if (input.value.trim() === (originalCore[key] ?? '').trim()) continue;
+                core[key] = input.value.trim();
+                coreExpected[key] = originalCore[key];
+              }
+              if (Object.keys(core).length && (
+                !['name_ko','name_en'].some(key => (core[key] ?? originalCore[key] ?? '').trim())
+                || core.address === '' || core.phone === ''
+              )) {
+                feedbackHours.textContent = '업소명은 한글 또는 영문 중 하나가 필요합니다. 주소와 연락처를 비울 수 없습니다.';
+                return;
+              }
+            }
             const submittedDescription = description.value;
             const command = {days, expected, key:crypto.randomUUID()};
             if (submittedDescription !== originalDescription) command.description=submittedDescription;
+            if (Object.keys(core).length) {
+              command.core = core;
+              command.core_expected = coreExpected;
+              command.core_key = crypto.randomUUID();
+            }
             saveInfo.disabled = true;
+            for (const input of coreFields.values()) input.readOnly = true;
             for (const group of dayFields.values()) for (const input of group.fields.values()) input.disabled=true;
             description.readOnly = true;
             try {
               const result = await request(hoursQuery, command);
               originalDescription = submittedDescription;
               drawHours(result.hours);
-              feedbackHours.textContent = '기본정보를 저장했습니다.';
+              loadCore(result.core);
+              feedbackHours.textContent = result.core_submitted
+                ? '업소명·주소·연락처 변경 신청을 접수했습니다. 관리자 승인 후 공개됩니다.'
+                : '기본정보를 저장했습니다.';
             } catch (error) {
               feedbackHours.textContent = error.status===409
-                ? '영업시간이 변경됐거나 기존 형식을 확인해야 합니다. 입력을 복사한 뒤 새로고침해 주세요.' : error.message;
+                ? '기존 정보가 변경됐거나 검토 중인 신청이 있습니다. 신청 현황을 확인해 주세요.' : error.message;
             } finally {
               for (const group of dayFields.values()) for (const input of group.fields.values()) input.disabled=false;
               description.readOnly = false;
+              for (const input of coreFields.values()) input.readOnly = !originalCore;
               saveInfo.disabled = false;
             }
           };
@@ -1262,6 +1330,9 @@
             for (const [key, value] of Object.entries(fields)) append(card, 'p', (labels[key] || key) + ' ' + (value ?? '없음'));
           }
           if (item.submission_reason) append(card, 'p', '신청 사유 ' + item.submission_reason);
+          if (item.kind === 'core' && item.submission_reason === '업주센터 공개 정보 변경' && item.changes?.address) {
+            append(card, 'p', '주소 변경은 관리자 업소 관리에서 새 주소로 위치를 검색하고 지도 위치를 확인해 저장한 뒤 승인해 주세요.');
+          }
           if (item.user_id === sessionData.session.user.id) continue;
           const reason = append(append(card, 'label', '처리 사유'), 'textarea', '');
           reason.maxLength = 1000;
