@@ -9055,7 +9055,7 @@ window.DalTownRefreshHome=()=>p009ScheduleRefresh('external',0);
 
 function bindEvents(){
   document.addEventListener('click',event=>{
-    const link=event.target.closest('.business-inquiry-tabs a, #sideMenu a[href="/#business-register"]');
+    const link=event.target.closest('.business-inquiry-tabs a, [data-owner-register], #sideMenu a[href="/#business-register"]');
     if(!link||event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
     event.preventDefault();
     const page=link.hash.slice(1);

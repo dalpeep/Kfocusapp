@@ -91,13 +91,66 @@
         descriptionObserver = undefined;
         businesses.replaceChildren();
         const resizeDescriptions = new Map();
-        if (!isAdmin) {
-          for (const candidate of data.claim_candidates || []) {
+        const findingBusiness = !isAdmin && location.hash === '#find';
+        if (findingBusiness && data.businesses.length > 1) {
+          const picker = append(append(businesses, 'label', '관리할 업소'), 'select', '');
+          append(picker, 'option', '업소 선택').value = '';
+          for (const business of data.businesses) {
+            append(picker, 'option', business.name_ko || business.name_en || '승인된 업소').value = business.id;
+          }
+          picker.onchange = () => {
+            document.getElementById('owner-business-' + picker.value)?.scrollIntoView({block:'start'});
+          };
+        }
+        if (!isAdmin && (!findingBusiness || !data.businesses.length)) {
+          const candidates = data.claim_candidates || [];
+          const claims = findingBusiness ? await request('?kind=claim') : data;
+          if (current !== generation) return;
+          const search = findingBusiness && candidates.length
+            ? append(append(businesses, 'label', '업소명 검색'), 'input', '') : null;
+          if (search) search.type = 'search';
+          if (findingBusiness) {
+            append(businesses, 'p', '현재 소유권을 신청할 수 있는 지정 업소만 표시됩니다.');
+            for (const claim of claims.requests.filter(item => item.kind === 'claim')) {
+              const candidate = candidates.find(item => item.id === claim.business_id);
+              const claimLabel = candidate?.name_ko || candidate?.name_en || '소유권 신청';
+              if (claim.status === 'pending') append(businesses, 'p', claimLabel + ' · 검토 중');
+              if (claim.status === 'rejected') append(businesses, 'p', claimLabel + ' · 거절: ' + (claim.reason || '사유를 관리자에게 문의해 주세요.') + ' 아래에서 다시 신청할 수 있습니다.');
+            }
+          }
+          for (const candidate of candidates) {
             const card = append(businesses, 'article', '');
+            const name = [candidate.name_ko, candidate.name_en].filter(Boolean).join(' ');
             append(card, 'h3', candidate.name_ko || candidate.name_en || '지정 시험 업소');
+            if (search) search.addEventListener('input', () => {
+              card.hidden = !name.toLocaleLowerCase().includes(search.value.trim().toLocaleLowerCase());
+            });
             const pending = data.requests.some(r => r.kind === 'claim' && r.business_id === candidate.id);
-            if (pending) append(card, 'p', '소유권 신청 승인 대기 중');
-            else action(card, '소유권 신청', () => ({action: 'submit', kind: 'claim', business_id: candidate.id}));
+            if (pending) {
+              append(card, 'p', '소유권 신청 승인 대기 중');
+              continue;
+            }
+            const form = append(card, 'details', '');
+            append(form, 'summary', '소유권 신청');
+            const fields = [
+              ['신청자 이름', 'text', 80], ['연락처', 'tel', 80], ['이메일', 'email', 180],
+              ['업소와의 관계', 'text', 100], ['인증 설명', 'text', 450],
+            ].map(([label, type, maxLength]) => {
+              const input = append(append(form, 'label', label), 'input', '');
+              input.type = type;
+              input.maxLength = maxLength;
+              return [label, input];
+            });
+            action(form, '신청 접수', () => {
+              const invalid = fields.find(([, input]) => !input.value.trim() || !input.validity.valid);
+              if (invalid) {
+                status.textContent = invalid[0] + ' 항목을 확인해 주세요.';
+                invalid[1].focus();
+                return;
+              }
+              return {action:'submit', kind:'claim', business_id:candidate.id,
+                reason:fields.map(([label,input]) => label + ': ' + input.value.trim()).join('\n')};
+            });
           }
         }
         if (!data.businesses.length) append(businesses, 'p', '아직 승인된 시험 업소가 없습니다.');
@@ -105,6 +158,7 @@
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
           card.classList.add('owner-management-card');
+          card.id = 'owner-business-' + business.id;
           const tabs = append(card, 'div', '');
           tabs.className = 'owner-management-tabs';
           tabs.setAttribute('role', 'tablist');
@@ -1126,6 +1180,12 @@
             finally { bookingBusy = false; }
           };
           const basic = basicTab.panel;
+          const publicInfo = append(basic, 'dl', '');
+          const publicFields = [['name_ko','업소명'],['name_en','영문 업소명'],['address','주소'],['phone','전화번호']]
+            .map(([key,label]) => {
+              append(publicInfo, 'dt', label);
+              return [key, append(publicInfo, 'dd', '불러오는 중')];
+            });
           const description = append(append(basic, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
@@ -1199,6 +1259,14 @@
             loadingHours = true;
             try {
               drawHours((await request(hoursQuery)).hours);
+              void client.from('businesses').select('name_ko,name_en,address,phone')
+                .eq('id', business.id).maybeSingle().then(({data, error}) => {
+                  for (const [key, field] of publicFields) {
+                    field.textContent = error || !data ? '조회할 수 없습니다' : data[key] || '미등록';
+                  }
+                }, () => {
+                  for (const [, field] of publicFields) field.textContent = '조회할 수 없습니다';
+                });
               saveInfo.disabled = false;
               feedbackHours.textContent = '';
             } catch (error) {

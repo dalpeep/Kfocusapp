@@ -9,7 +9,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "d7aed7f57dc926f4abae8171ac11ce20a0d253809ab95d475e1d058774ef4540"
+      "sha256": "ef249e7d46249413a2c50e17107c68b40404854a1c8e162a4d71aed3d4d197a8"
     },
     {
       "path": "assets/community.js",
@@ -17,7 +17,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "c98ee6fefe77c216e281cccc75fa44a5dfc02181d2a403159ff460dc8b29ddeb"
+      "sha256": "aea13ffd92844acbcb5ea94e6ef109b71353bd518424fe30f107c19c63c6caec"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -505,7 +505,7 @@
     },
     {
       "path": "styles.css",
-      "sha256": "6cb254c7894a439281cad1b8e60749a846d5146de5890e9eff39310121b53e48"
+      "sha256": "3fe492c059a7abadff00fd096c348340535a1f0692c0ad53d44583055f6d0038"
     },
     {
       "path": "scripts/release/locked-draft-build.mjs",
