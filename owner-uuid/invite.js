@@ -4,16 +4,17 @@
   const fragment = new URLSearchParams(location.hash.slice(1));
   const type = fragment.get('type');
   const recovery = type === 'recovery';
-  if (type !== 'invite' && !recovery && !fragment.has('error_code')) return;
+  const signup = type === 'signup' || type === 'email';
+  if (type !== 'invite' && !recovery && !signup && !fragment.has('error_code')) return;
   let token = fragment.get('token_hash');
-  let recoverySession = recovery && fragment.has('access_token') && fragment.has('refresh_token')
+  let recoverySession = (recovery || signup) && fragment.has('access_token') && fragment.has('refresh_token')
     ? {access_token: fragment.get('access_token'), refresh_token: fragment.get('refresh_token')}
     : null;
   for (const key of [...fragment.keys()]) fragment.delete(key);
   history.replaceState(history.state, '', location.pathname + location.search);
 
   window.OwnerInvite = Object.freeze({
-    start(createClient, ready) {
+    async start(createClient, ready) {
       const form = document.getElementById('owner-invite');
       const status = document.getElementById('status');
       if (!token && !recoverySession) {
@@ -22,6 +23,27 @@
         return;
       }
       const client = createClient();
+      if (signup) {
+        try {
+          const result = token
+            ? await client.auth.verifyOtp({token_hash: token, type: 'email'})
+            : await client.auth.setSession(recoverySession);
+          const {data: identity, error} = result.error ? {} : await client.auth.getUser();
+          const confirmed = !error && result.data?.session && identity?.user?.email_confirmed_at
+            && identity.user.id === result.data.user?.id;
+          if (confirmed) history.replaceState(history.state, '', location.pathname + location.search + '#find');
+          await ready({showLogin:true});
+          status.textContent = confirmed
+            ? '이메일 인증을 완료했습니다. 로그인해 소유권 신청 가능 여부를 확인해 주세요.'
+            : '인증 링크가 만료됐거나 이미 사용됐습니다.';
+        } catch {
+          await ready({showLogin:true});
+          status.textContent = '이메일 인증을 확인하지 못했습니다.';
+        } finally {
+          token = recoverySession = null;
+        }
+        return;
+      }
       let verified = false;
       if (recovery) {
         form.querySelector('h2').textContent = '비밀번호 재설정';

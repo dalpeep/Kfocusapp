@@ -42,3 +42,23 @@ for (const scenario of [
     assert.equal(form.hidden, true);
   });
 }
+
+test('signup callback scrubs credentials and routes verified users to owner lookup without changing the password', async () => {
+  const routes = [];
+  const calls = [];
+  const user = {id:'fixture', email_confirmed_at:'2026-01-01'};
+  const window = {};
+  runInNewContext(script, {
+    window, URLSearchParams,
+    location:{hash:'#type=signup&access_token=fixture&refresh_token=fixture', pathname:'/owner-uuid/', search:''},
+    history:{replaceState:(_,__,path)=>routes.push(path)},
+    document:{getElementById:()=>({})},
+  });
+  assert.deepEqual(routes,['/owner-uuid/']);
+  await window.OwnerInvite.start(()=>({auth:{
+    setSession:async()=>{calls.push('session');return {data:{session:{},user}};},
+    getUser:async()=>{calls.push('identity');return {data:{user}};},
+  }}), async options=>{assert.equal(options.showLogin,true);calls.push('login');});
+  assert.deepEqual(routes,['/owner-uuid/','/owner-uuid/#find']);
+  assert.deepEqual(calls,['session','identity','login']);
+});
