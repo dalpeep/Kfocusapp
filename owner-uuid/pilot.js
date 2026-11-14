@@ -79,6 +79,23 @@
       };
     }
 
+    function showUnlinkedBusiness(businesses, allowClaims) {
+      append(businesses, 'p', '아직 연결된 업소가 없습니다. 등록된 내 업소를 찾아 관리 권한을 신청하세요.');
+      const links = append(businesses, 'nav', '');
+      links.className = 'owner-onboarding-links';
+      const find = append(links, 'a', '내 업소찾기');
+      find.href = allowClaims ? '#find' : '/#business';
+      if (allowClaims) find.addEventListener('click', event => {
+        event.preventDefault();
+        if (location.hash !== '#find') history.pushState(null, '', '#find');
+        void load();
+      });
+      append(links, 'a', '신규 업소등록').href = '/#business-register';
+      if (!allowClaims) {
+        append(businesses, 'p', '업소록에서 등록된 업소를 검색할 수 있습니다. 온라인 소유권 신청은 현재 지정 계정과 업소에 한해 접수합니다.');
+      }
+    }
+
     async function load() {
       try {
         const data = await request('?status=pending&offset=' + offset);
@@ -153,7 +170,7 @@
             });
           }
         }
-        if (!data.businesses.length) append(businesses, 'p', '아직 승인된 시험 업소가 없습니다.');
+        if (!isAdmin && !findingBusiness && !data.businesses.length) showUnlinkedBusiness(businesses, true);
         for (const business of data.businesses) {
           const card = append(businesses, 'article', '');
           append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
@@ -1351,6 +1368,18 @@
         if (current !== generation) return;
         pageHeading.textContent = '업주 관리';
         owner.hidden = admin.hidden = true;
+        if (error.status === 403) {
+          const identity = await client.auth.getUser().catch(() => null);
+          if (current !== generation) return;
+          if (!identity?.error && identity?.data?.user?.email_confirmed_at) {
+            const businesses = get('pilot-businesses');
+            businesses.replaceChildren();
+            showUnlinkedBusiness(businesses, false);
+            owner.hidden = false;
+            status.textContent = '';
+            return;
+          }
+        }
         status.textContent = error.status ? error.message : '업주 관리 상태를 확인할 수 없습니다.';
       }
     }
