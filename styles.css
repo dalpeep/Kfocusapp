@@ -5831,3 +5831,7 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 .business-inquiry-tabs a { background:#edf2fa; color:#18335f; }
 .business-inquiry-tabs a[aria-current=page] { background:#1d4ed8; color:#fff; }
 .business-claim-link { display:block; width:fit-content; margin:12px auto 0; color:#1d4ed8; }
+
+.home-owner-entry { flex-wrap:wrap; justify-content:flex-start; gap:6px; }
+.home-owner-entry span { flex:1 0 100%; }
+.home-owner-entry a { flex:1 0 auto; padding-inline:6px; }
