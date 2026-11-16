@@ -108,3 +108,25 @@ test('edge derives actor from Auth and preserves RPC authorization and the DB sw
   assert.equal(calls.length, 4);
   assert.ok(calls.every(([url]) => new URL(url).origin === supabase));
 });
+
+test('content review forwards the verified actor and preserves database denials', async () => {
+  const actor = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const command = {action:'approve', request_id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', actor:'forged'};
+  let calls = 0;
+  const handler = makeEdgeHandler({projectUrl:supabase,serviceKey:'fixture-server',transport:async (url, options) => {
+    calls++;
+    if (url.endsWith('/auth/v1/user')) {
+      assert.equal(options.headers.Authorization,'Bearer user-jwt');
+      return Response.json({id:actor,email_confirmed_at:'confirmed'});
+    }
+    assert.equal(url,supabase+'/rest/v1/rpc/qa_owner_content_review');
+    assert.deepEqual(JSON.parse(options.body),{p_actor:actor,p_command:command});
+    assert.equal(options.headers.Authorization,'Bearer fixture-server');
+    return Response.json({code:'OP403'},{status:400});
+  }});
+  const url=supabase+'/functions/v1/owner-phase1-qa?content=review';
+  assert.equal((await handler(new Request(url,{method:'POST',headers:{Origin:origin}}))).status,401);
+  assert.equal(calls,0);
+  assert.equal((await handler(new Request(url,{method:'POST',headers:{Origin:origin,Authorization:'Bearer user-jwt'},body:JSON.stringify(command)}))).status,403);
+  assert.equal(calls,2);
+});

@@ -54,6 +54,7 @@ const csp = [
 fs.writeFileSync(path.join(output, '_headers'),
   '/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store\n  Content-Security-Policy: ' + csp + '\n');
 fs.writeFileSync(path.join(output, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
+fs.writeFileSync(path.join(output, '_redirects'), '/business/:id /index.html 200\n');
 fs.appendFileSync(path.join(output, 'styles.css'),
   '\n#communityModal label:has(input[type="file"]), #communityModal input[type="file"] { display: none; }\n');
 console.log('QA static files: ' + paths.length + ' | Supabase: ' + SUPABASE_URL);

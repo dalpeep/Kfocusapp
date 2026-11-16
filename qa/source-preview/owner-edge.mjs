@@ -2,8 +2,9 @@ import {Buffer} from 'node:buffer';
 import portal from '../../netlify/legacy-functions/lib/owner-portal-uuid.js';
 
 export const origin = 'https://deploy-preview-59--daltownmap-owner-uuid-qa.netlify.app';
+// The expected QA origin is an allowlist. Requests use the verified runtime URL.
 export const supabase = 'https://hseaeafmmjnbynfyynao.supabase.co';
-const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1']);
+const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'qa_owner_content_review']);
 
 export function makeEdgeHandler({projectUrl, serviceKey, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
@@ -11,8 +12,10 @@ export function makeEdgeHandler({projectUrl, serviceKey, transport = fetch}) {
   const off = () => json(503, {ok: false, phase1: true, code: 'OWNER_QA_PILOT_OFF',
     error: '업주 관리 시험 운영이 중지됐습니다.'});
 
+  const target = projectUrl === supabase && serviceKey ? projectUrl : null;
+
   async function call(path, {method, bearer, body}) {
-    const response = await transport(supabase + path, {
+    const response = await transport(target + path, {
       method, redirect: 'error', headers: {apikey: serviceKey, Authorization: 'Bearer ' + bearer,
         'Content-Type': 'application/json'}, body,
     });
@@ -36,7 +39,7 @@ export function makeEdgeHandler({projectUrl, serviceKey, transport = fetch}) {
   return async request => {
     // Origin limits browser entry points. Auth and the database enforce access.
     if (request.headers.get('origin') !== origin) return denied();
-    if (projectUrl !== supabase || !serviceKey) return off();
+    if (!target) return off();
     const authorization = request.headers.get('authorization');
     const method = request.method;
     if (method !== 'GET' && method !== 'POST') return json(405, {ok: false, error: '허용되지 않은 메서드입니다.'});
@@ -59,6 +62,22 @@ export function makeEdgeHandler({projectUrl, serviceKey, transport = fetch}) {
         }
       }
       body = Buffer.concat(chunks).toString('utf8');
+    }
+    const params = new URL(request.url).searchParams;
+    const content = params.get('content');
+    if (content !== null) {
+      if (content !== 'review' || method !== 'POST') return json(400,{ok:false});
+      try {
+        let command;
+        try { command = JSON.parse(body); } catch { return json(400,{ok:false}); }
+        if (!command || typeof command !== 'object' || Array.isArray(command)) return json(400,{ok:false});
+        const identity = await client.auth.getUser(authorization.slice(7));
+        const actor = identity.data?.user;
+        if (!actor?.id || !actor.email_confirmed_at) return json(401,{ok:false});
+        const result = await client.rpc('qa_owner_content_review',{p_actor:actor.id,p_command:command});
+        if (result.error) return json({OP400:400,OP403:403,OP409:409,OP503:503}[result.error.code] || 502,{ok:false});
+        return json(200,{ok:true,result:result.data});
+      } catch { return json(502,{ok:false}); }
     }
     const result = await handle({
       httpMethod: method, headers: authorization ? {authorization} : {},
