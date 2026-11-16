@@ -189,6 +189,10 @@
       try {
         const data = await request('?status=pending&offset=' + offset);
         if (current !== generation) return;
+        const reviewQuery = '?content=review';
+        const reviewMode = (await request(reviewQuery).catch(() => null))?.enabled === true;
+        if (current !== generation) return;
+        const reviewRequest = command => request(reviewQuery, command);
         const isAdmin = data.is_admin === true;
         pageHeading.textContent = isAdmin ? '업소 관리' : '업주 관리';
         ownerTitle.textContent = isAdmin ? '관리 업소' : '내 업소';
@@ -610,6 +614,15 @@
             try { await loadSpecials(); }
             finally { specialsLoading = false; }
           };
+          const reviewTab = reviewMode && window.OwnerContentReview
+            ? managementPanel('review', '쿠폰·이벤트 심사', '') : null;
+          const reviewPanel = reviewTab && window.OwnerContentReview.mount(reviewTab.panel, reviewRequest, business.id);
+          function reviewPublished(kind, row, detail) {
+            selectTab(reviewTab);
+            const iso = value => Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : '';
+            reviewPanel.editPublished(kind, row.id, {title: row.title, description: row.description, detail,
+              start_at: iso(row.start_at), end_at: iso(row.end_at)});
+          }
           const couponsTab = managementPanel('coupons', '쿠폰', '🎟');
           const coupons = couponsTab.panel;
           const couponStatus = append(coupons, 'p', '');
@@ -652,6 +665,7 @@
               couponBody.replaceChildren();
               const list = append(couponBody, 'div', '');
               const form = append(couponBody, 'form', '');
+              form.hidden = reviewMode;
               let selected;
               const fields = {};
               function field(name, label, type) {
@@ -727,9 +741,11 @@
               for (const row of rows) {
                 const item = append(list, 'div', '');
                 append(item, 'p', row.title + (row.is_active ? ' · 공개' : ' · 비공개'));
-                const edit = append(item, 'button', '수정');
+                const edit = append(item, 'button', reviewMode ? '수정 신청' : '수정');
                 edit.type = 'button';
+                edit.hidden = reviewMode && !reviewPanel;
                 edit.onclick = () => {
+                  if (reviewMode) return reviewPublished('coupon', row, row.discount_label);
                   selected = row;
                   imageUrl = row.image_url || null;
                   imageFile = undefined;
@@ -774,6 +790,7 @@
                 }
                 const end = append(item, 'button', '종료');
                 end.type = 'button';
+                end.hidden = reviewMode;
                 end.disabled = !row.is_active;
                 end.onclick = () => {
                   if (window.confirm('이 쿠폰의 공개를 종료할까요?')) void saveCoupon({action:'end',id:row.id,expected:row.updated_at});
@@ -850,6 +867,7 @@
               eventBody.replaceChildren();
               const list = append(eventBody, 'div', '');
               const form = append(eventBody, 'form', '');
+              form.hidden = reviewMode;
               let selected;
               const fields = {};
               function field(name, label, type) {
@@ -924,9 +942,11 @@
               for (const row of rows) {
                 const item = append(list, 'div', '');
                 append(item, 'p', row.title + (!row.is_active ? ' · 종료' : new Date(row.end_at)<=new Date() ? ' · 만료' : new Date(row.start_at)>new Date() ? ' · 공개 예정' : ' · 공개'));
-                const edit = append(item, 'button', '수정');
+                const edit = append(item, 'button', reviewMode ? '수정 신청' : '수정');
                 edit.type = 'button';
+                edit.hidden = reviewMode && !reviewPanel;
                 edit.onclick = () => {
+                  if (reviewMode) return reviewPublished('event', row, row.address);
                   selected = row;
                   imageUrl = row.image_url || null;
                   imageFile = undefined;
@@ -937,6 +957,7 @@
                 };
                 const end = append(item, 'button', '종료');
                 end.type = 'button';
+                end.hidden = reviewMode;
                 end.disabled = !row.is_active;
                 end.onclick = () => {
                   if (window.confirm('이 이벤트의 공개를 종료할까요?')) void saveEvent({action:'end',id:row.id,expected:row.updated_at});
@@ -1404,6 +1425,7 @@
         if (admin.hidden) return true;
         const {data: sessionData} = await client.auth.getSession();
         if (current !== generation || !sessionData?.session) return;
+        if (reviewMode) window.OwnerContentReview?.mountAdmin(queue, reviewRequest);
         if (!data.requests.length) append(queue, 'p', '승인 대기 신청이 없습니다.');
         for (const item of data.requests) {
           const card = append(queue, 'article', '');

@@ -2,6 +2,40 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {makeEdgeHandler, origin, supabase} from '../supabase/functions/owner-phase1/handler.generated.mjs';
 
+test('content review blocks legacy publication and uses only the verified actor', async () => {
+  const actor = '11111111-1111-4111-8111-111111111111';
+  const calls = [];
+  const transport = async (url, options) => {
+    if (url.endsWith('/auth/v1/user')) return Response.json({id: actor, email_confirmed_at: '2026-01-01'});
+    calls.push({route: new URL(url).pathname, payload: JSON.parse(options.body)});
+    return Response.json({code: 'OP403'}, {status: 400});
+  };
+  const make = enabled => makeEdgeHandler({projectUrl: supabase, serviceKey: 'fixture', couponsEnabled: true,
+    contentReviewEnabled: enabled, transport});
+  const request = (content, params, extra = '') => new Request(supabase + '?content=' + content + extra, {
+    method: params ? 'POST' : 'GET', headers: {Origin: origin, Authorization: 'Bearer fixture'},
+    body: params ? JSON.stringify(params) : undefined,
+  });
+  const disabled = make(false);
+  assert.deepEqual((await (await disabled(request('review'))).json()).result, {enabled: false});
+  assert.equal((await disabled(request('review', {action: 'submit'}))).status, 503);
+  const enabled = make(true);
+  assert.deepEqual((await (await enabled(request('review'))).json()).result, {enabled: true});
+  for (const content of ['coupons', 'events']) {
+    const response = await enabled(request(content, {action: 'save'}, '&business=' + actor));
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).code, 'OWNER_CONTENT_REVIEW_REQUIRED');
+  }
+  assert.deepEqual(calls, []);
+  const command = {action: 'submit', actor: 'forged'};
+  assert.equal((await enabled(request('review', command))).status, 403);
+  assert.deepEqual(calls, [{route: '/rest/v1/rpc/owner_content_review_v1', payload: {p_actor: actor, p_command: command}}]);
+  await enabled(request('coupons', undefined, '&business=' + actor + '&view=history'));
+  await enabled(request('coupons', {action: 'redeem_use_proof', id: actor, proof: 'ABC234'}, '&business=' + actor));
+  assert.deepEqual(calls.slice(1).map(call => call.route),
+    ['/rest/v1/rpc/owner_coupon_history_v3', '/rest/v1/rpc/owner_redeem_coupon_code_v3']);
+});
+
 test('the production entry point fails closed and rejects preview origins', async () => {
   let serve;
   const previous = globalThis.Deno;
