@@ -5774,3 +5774,10 @@ body.map-page-open #page-map .map-notice{pointer-events:auto;flex-shrink:0}
 }
 .home-owner-entry a { min-width:0; padding-inline:6px; background:#1d4ed8; color:#fff; }
 .home-owner-entry svg { width:17px; height:17px; flex:none; }
+
+.business-register-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.business-register-nav a {
+  display:inline-flex; align-items:center; min-height:44px; padding:0 14px;
+  color:#174b96; background:#eaf2ff; border-radius:10px;
+  text-decoration:none; font-weight:600;
+}

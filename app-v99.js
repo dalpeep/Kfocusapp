@@ -7531,7 +7531,16 @@ function showPage(page, opts={}){
   $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===renderedPage));
   updateBottomNavMode(renderedPage);
   if (nextIdx >= 0) lastBasePage = requestedPage;
-  if(!opts.skipRoute)setRoute(requestedPage);
+  if (!opts.skipRoute) {
+    if (requestedPage === 'business-register') {
+      const route = routeFor(requestedPage);
+      if (location.pathname + location.hash !== route) {
+        history.pushState(null, '', route);
+      }
+    } else {
+      setRoute(requestedPage);
+    }
+  }
   globalThis.DtmCommunity?.syncRobots?.();
   if(renderedPage==='home')refreshHomePresentation();else if(renderedPage==='business')renderMainBanners();else stopMainBannerRotation();
   if(renderedPage==='guide') renderGuidePosts();
@@ -8067,6 +8076,14 @@ document.addEventListener('DOMContentLoaded',()=>{
 window.DalTownRefreshHome=()=>p009ScheduleRefresh('external',0);
 
 function bindEvents(){
+  $('#business-register-back')?.addEventListener('click', event => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const canGoBack = window.navigation?.canGoBack ?? (history.length > 1);
+    if (canGoBack) {
+      event.preventDefault();
+      history.back();
+    }
+  });
   $('#searchBtn')?.addEventListener('click', ()=>openSearchOverlay());
   $('#homeBrand')?.addEventListener('click', ()=>showPage('home'));
   $$('.nav-item').forEach(btn=>btn.addEventListener('click', ()=>showPage(btn.dataset.nav)));
