@@ -130,3 +130,13 @@ test('content review forwards the verified actor and preserves database denials'
   assert.equal((await handler(new Request(url,{method:'POST',headers:{Origin:origin,Authorization:'Bearer user-jwt'},body:JSON.stringify(command)}))).status,403);
   assert.equal(calls,2);
 });
+
+test('review reads accept array results without relaxing mutation parsing', async () => {
+  const browser = {window: {}};
+  runInNewContext(readFileSync(new URL('../../owner-uuid/requests.js', import.meta.url), 'utf8'), browser);
+  const read = browser.window.OwnerRequests.readResponse;
+  const rows = [{id: 'fixture'}];
+  assert.deepEqual((await read(Response.json({ok: true, result: rows}), {reviewList: true})).result, rows);
+  await assert.rejects(read(Response.json({ok: true, result: rows})));
+  await assert.rejects(read(Response.json({ok: false}, {status: 403}), {reviewList: true}), {status: 403});
+});

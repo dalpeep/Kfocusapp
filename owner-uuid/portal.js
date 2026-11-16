@@ -97,7 +97,7 @@ async function loadPortal(){
     headers:{Authorization:'Bearer '+data.session.access_token,'Content-Type':'application/json'},
     body:JSON.stringify(command),
   });
-  return (await window.OwnerRequests.readResponse(response)).result;
+  return (await window.OwnerRequests.readResponse(response,{reviewList:['list','admin_list'].includes(command.action)})).result;
  };
  let reviewQueue=$('qaContentReviewQueue');if(!reviewQueue){reviewQueue=text('div','',$('admin'));reviewQueue.id='qaContentReviewQueue';}reviewQueue.replaceChildren();if(qaPreview&&phase1&&state.is_admin)window.OwnerContentReview?.mountAdmin(reviewQueue,requestContentReview);
  let accountPanel=$('ownerAccountPanel');if(!accountPanel){accountPanel=document.createElement('section');accountPanel.id='ownerAccountPanel';$('admin').append(accountPanel);}accountPanel.replaceChildren();if(!phase1&&state.is_admin&&window.OwnerAccountPanel)window.OwnerAccountPanel.mount(accountPanel,db,state);
