@@ -8037,7 +8037,14 @@ function showPage(page, opts={}){
   $$('.nav-item').forEach(btn=>btn.classList.toggle('active', btn.dataset.nav===renderedPage));
   updateBottomNavMode(renderedPage);
   if (nextIdx >= 0) lastBasePage = requestedPage;
-  if(!opts.skipRoute)setRoute(requestedPage);
+  if (!opts.skipRoute) {
+    if (requestedPage === 'business-register') {
+      const route = routeFor(requestedPage);
+      if (location.pathname + location.hash !== route) history.pushState(null, '', route);
+    } else {
+      setRoute(requestedPage);
+    }
+  }
   globalThis.DtmCommunity?.syncRobots?.();
   if(renderedPage==='guide') renderGuidePosts();
   if(renderedPage==='business' && opts.focusSearch) setTimeout(()=>businessSearch?.focus(), 80);

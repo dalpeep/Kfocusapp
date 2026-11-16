@@ -115,3 +115,10 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 
 .owner-onboarding-links { display:flex; flex-wrap:wrap; gap:8px; }
 .owner-onboarding-links a { display:inline-flex; align-items:center; min-height:44px; padding:0 12px; background:#1769e0; border-radius:8px; color:#fff; font-weight:700; text-decoration:none; }
+
+.owner-page-links { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.owner-page-links a {
+  display:inline-flex; align-items:center; min-height:44px; padding:0 14px;
+  color:#174b96; background:#eaf2ff; border-radius:10px;
+  text-decoration:none; font-weight:600;
+}

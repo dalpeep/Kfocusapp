@@ -5832,6 +5832,13 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 .business-inquiry-tabs a[aria-current=page] { background:#1d4ed8; color:#fff; }
 .business-claim-link { display:block; width:fit-content; margin:12px auto 0; color:#1d4ed8; }
 
-.home-owner-entry { flex-wrap:wrap; justify-content:flex-start; gap:6px; }
-.home-owner-entry span { flex:1 0 100%; }
-.home-owner-entry a { flex:1 0 auto; padding-inline:6px; }
+.home-owner-entry { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; }
+.home-owner-entry span { grid-column:1 / -1; }
+.home-owner-entry a { min-width:0; padding-inline:6px; }
+
+.business-register-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.business-register-nav a {
+  display:inline-flex; align-items:center; min-height:44px; padding:0 14px;
+  color:#174b96; background:#eaf2ff; border-radius:10px;
+  text-decoration:none; font-weight:600;
+}
