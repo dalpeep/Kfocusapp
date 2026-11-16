@@ -5760,3 +5760,17 @@ body.map-page-open #page-map .map-notice{pointer-events:auto;flex-shrink:0}
     font-size: 13px;
   }
 }
+
+.home-owner-entry {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px;
+  padding:8px 12px; margin:8px 0; background:#f0f6ff; border:1px solid #dce9ff;
+  border-radius:12px; color:#18335f; font-size:14px;
+}
+.home-owner-entry span { grid-column:1 / -1; }
+.home-owner-entry a {
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  min-height:44px; padding:6px 10px; border-radius:10px; text-decoration:none;
+  font-weight:700; text-align:center;
+}
+.home-owner-entry a { min-width:0; padding-inline:6px; background:#1d4ed8; color:#fff; }
+.home-owner-entry svg { width:17px; height:17px; flex:none; }

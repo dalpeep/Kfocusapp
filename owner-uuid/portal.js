@@ -56,7 +56,7 @@ async function refresh(){
   const {data,error}=await db.auth.getUser();
   if(error||!data?.user?.email_confirmed_at)throw Error('이메일 인증을 완료한 QA 계정으로 로그인해 주세요.');
   $('auth').hidden=true;
-  $('portal').hidden=false;
+  $('portal').hidden=false;if(location.hash==='#find'){$('tab-register')?.click();$('search').closest('details').open=true;}
   $('admin').hidden=true;
   $('newBusiness').querySelector('button').disabled=true;
   $('counts').textContent='시험 운영 중지';
@@ -65,7 +65,7 @@ async function refresh(){
   status.textContent=pilotOffMessage;
   return;
  }
- state=await api();window.OwnerMediaEnabled=state.media_enabled===true;window.OwnerBookingEnabled=state.booking_enabled===true;if(!phase1)window.OwnerDescriptions?.registration($('newBusiness'),state.description_catalog);$('auth').hidden=true;$('portal').hidden=false;$('admin').hidden=!state.is_admin;
+ state=await api();window.OwnerMediaEnabled=state.media_enabled===true;window.OwnerBookingEnabled=state.booking_enabled===true;if(!phase1)window.OwnerDescriptions?.registration($('newBusiness'),state.description_catalog);$('auth').hidden=true;$('portal').hidden=false;if(location.hash==='#find'){$('tab-register')?.click();$('search').closest('details').open=true;}$('admin').hidden=!state.is_admin;
  let accountPanel=$('ownerAccountPanel');if(!accountPanel){accountPanel=document.createElement('section');accountPanel.id='ownerAccountPanel';$('admin').append(accountPanel);}accountPanel.replaceChildren();if(!phase1&&state.is_admin&&window.OwnerAccountPanel)window.OwnerAccountPanel.mount(accountPanel,db,state);
  let mediaAdmin=$('ownerMediaAdmin');if(!mediaAdmin){mediaAdmin=document.createElement('section');mediaAdmin.id='ownerMediaAdmin';$('admin').append(mediaAdmin);}mediaAdmin.replaceChildren();if(window.OwnerMediaEnabled&&state.is_admin){const targets=new Map((state.businesses||[]).map(b=>[b.id,b]));for(const m of state.memberships||[])if(!targets.has(m.business_id))targets.set(m.business_id,{id:m.business_id});window.OwnerMedia?.mountAdmin(mediaAdmin,[...targets.values()],db);}
  const c=state.counts||{};$('counts').textContent=`대기 ${c.pending||0} · 승인 ${c.approved||0} · 거절 ${c.rejected||0}`;
@@ -92,6 +92,20 @@ let policyCheckBusy=false;
 const policyKey=s=>JSON.stringify((s?.businesses||[]).map(b=>[b.id,b.feature_policy]).sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
 async function recheckPolicy(){if(!state||policyCheckBusy||document.hidden)return;policyCheckBusy=true;try{const next=await api();if(policyKey(next)!==policyKey(state)){await refresh();status.textContent='관리자가 변경한 이용 권한을 확인하여 화면을 갱신했습니다. 저장 전 입력 내용을 다시 확인해 주세요.';}}catch{ $('businesses').replaceChildren();state=null;status.textContent='이용 권한을 확인하지 못했습니다. 새로고침 후 다시 이용해 주세요.';}finally{policyCheckBusy=false;}}
 window.addEventListener('focus',recheckPolicy);document.addEventListener('visibilitychange',()=>{if(!document.hidden)recheckPolicy();});setInterval(recheckPolicy,30000);
+function selectQaAuth(signup) {
+  signup = signup && !phase1;
+  const form = $('auth');
+  $('qa-login-tab').setAttribute('aria-pressed', String(!signup));
+  $('qa-signup-tab').setAttribute('aria-pressed', String(signup));
+  $('qa-auth-heading').textContent = signup ? '회원가입' : '로그인';
+  $('qa-signup-help').hidden = !signup;
+  form.elements.login.hidden = signup;
+  form.elements.signup.hidden = !signup;
+  form.elements.password.minLength = signup ? 12 : 6;
+  form.elements.password.autocomplete = signup ? 'new-password' : 'current-password';
+}
+$('qa-login-tab').onclick = () => selectQaAuth(false);
+$('qa-signup-tab').onclick = () => selectQaAuth(true);
 $('auth').onsubmit=e=>{e.preventDefault();run(async()=>{if(!db)throw Error('업주센터는 현재 준비 중입니다.');const f=values(e.target);const signup=e.submitter?.name==='signup';if(phase1&&signup)throw Error('시험 운영은 지정 계정만 이용할 수 있습니다.');if(signup&&f.password.length<12)throw Error('회원가입 비밀번호는 12자 이상 입력해 주세요.');const {error}=signup?await db.auth.signUp({email:f.email,password:f.password,options:{emailRedirectTo:location.origin+'/owner-uuid/'}}):await db.auth.signInWithPassword(f);if(error)throw Error('가입 또는 로그인 정보를 확인해 주세요.');e.target.reset();if(signup)status.textContent='인증 이메일을 확인한 뒤 로그인해 주세요.';else await refresh();},e.submitter);};
 $('logout').onclick=()=>run(async()=>{const {error}=await db.auth.signOut();if(error)throw error;state=null;$('portal').hidden=true;$('auth').hidden=false;for(const id of ['businesses','requests','queue','memberships','audit','searchResults'])$(id).replaceChildren();});
 $('refresh').onclick=()=>run(refresh);
@@ -99,7 +113,7 @@ for(const id of ['requestStatus','requestKind'])$(id).onchange=()=>{offset=0;run
 for(const [id,step,isAudit] of [['requestPrev',-20,false],['requestNext',20,false],['auditPrev',-20,true],['auditNext',20,true]])$(id).onclick=()=>run(async()=>{if(isAudit)auditOffset=Math.max(0,auditOffset+step);else offset=Math.max(0,offset+step);await refresh();});
 $('newBusiness').onsubmit=e=>{e.preventDefault();const submit=e.submitter||e.target.querySelector('button:not([type]),button[type=submit]');run(async()=>{const {description_choice,...changes}=values(e.target);if(!changes.name_ko.trim()&&!changes.name_en.trim())throw Error('한글명 또는 영문명을 입력해 주세요.');await command({action:'submit',kind:'new',region:'texas',changes,...(description_choice?{description_choice}:{})},submit);e.target.reset();},submit);};
 $('search').onsubmit=e=>{e.preventDefault();run(async()=>{const q=values(e.target).query.trim();if(!q)throw Error('검색어를 입력해 주세요.');const query=db.from('businesses').select('id,name_ko,name_en,address'),safe=q.replace(/[\\%_,()."']/g,'');if(!safe)throw Error('검색어를 확인해 주세요.');const {data,error}=await query.or(`name_ko.ilike.%${safe}%,name_en.ilike.%${safe}%`).limit(20);if(error)throw Error('업소 검색에 실패했습니다.');$('searchResults').replaceChildren();for(const b of data){const a=text('article',`${b.name_ko||b.name_en||'이름 없음'} · ${b.name_ko&&b.name_en?b.name_en+' · ':''}${b.address||''}`,$('searchResults'));button('소유권 신청',a,()=>command({action:'submit',kind:'claim',business_id:String(b.id)})).disabled=qaLoginOnly;}},e.submitter);};
-window.OwnerAvailability.start({allowQaLogin:qaPreview,createClient:()=>window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,cfg.OWNER_UUID_ENV==='qa'?{auth:{storage:window.sessionStorage,persistSession:true}}:{}),ready:async (client,isPhase1,loginOnly)=>{db=client;phase1=isPhase1;qaLoginOnly=loginOnly===true;for(const id of ['coupon','events']){const tab=$('tab-'+id);if(tab)tab.hidden=phase1;}const signup=$('auth').querySelector('[name="signup"]');if(signup)signup.hidden=phase1;window.installValidatedImageUpload?.(db);$('auth').hidden=false;const {data}=await db.auth.getSession();if(qaLoginOnly)status.textContent='이메일 인증을 완료한 QA 계정으로 로그인해 주세요. 신청·수정은 시험 운영 시작 후 이용할 수 있습니다.';if(data.session){try{await refresh();}catch(error){status.textContent=error.message;}}},disabled:reason=>{db=null;$('auth').hidden=true;$('portal').hidden=true;status.textContent=reason==='disabled'?'업주센터는 현재 준비 중입니다.':'업주센터 연결을 확인하지 못했습니다. 잠시 후 다시 이용해 주세요.';}});
+window.OwnerAvailability.start({allowQaLogin:qaPreview,createClient:()=>window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY,cfg.OWNER_UUID_ENV==='qa'?{auth:{storage:window.sessionStorage,persistSession:true}}:{}),ready:async (client,isPhase1,loginOnly)=>{db=client;phase1=isPhase1;qaLoginOnly=loginOnly===true;for(const id of ['coupon','events']){const tab=$('tab-'+id);if(tab)tab.hidden=phase1;}$('qa-signup-tab').disabled=phase1;selectQaAuth(false);window.installValidatedImageUpload?.(db);$('auth').hidden=false;const {data}=await db.auth.getSession();if(qaLoginOnly)status.textContent='이메일 인증을 완료한 QA 계정으로 로그인해 주세요. 신청·수정은 시험 운영 시작 후 이용할 수 있습니다.';if(data.session){try{await refresh();}catch(error){status.textContent=error.message;}}},disabled:reason=>{db=null;$('auth').hidden=true;$('portal').hidden=true;status.textContent=reason==='disabled'?'업주센터는 현재 준비 중입니다.':'업주센터 연결을 확인하지 못했습니다. 잠시 후 다시 이용해 주세요.';}});
 })();
 
 

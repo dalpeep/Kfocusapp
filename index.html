@@ -105,7 +105,7 @@
 
   <link rel="manifest" href="/manifest.json?v=263">
   <meta name="theme-color" content="#2563eb">
-  <link rel="stylesheet" href="/styles.css?v=owner-center-shortcut" />
+  <link rel="stylesheet" href="/styles.css?v=qa59-owner-nav" />
   <script src="/.netlify/functions/config?v=community-phase1"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -195,7 +195,7 @@ Dallas Korean Business Directory</strong>
 비즈니스
 </div>
 
-<a class="side-link" href="/owner-uuid/" onclick="closeMenu()" style="display:block;min-height:48px;text-decoration:none">업주센터 <small>로그인 · 내 업소 관리</small></a>
+<a class="side-link" href="/owner-uuid/" onclick="closeMenu()" style="display:block;min-height:48px;text-decoration:none">내 업소관리</a>
 <button class="side-link"
 onclick="showPage('business-register');closeMenu();">
 업소 등록
@@ -287,6 +287,10 @@ onclick="showPage('contact');closeMenu();">
 
     <main id="appMain" class="pages-wrap">
       <section class="page active" id="page-home">
+        <nav class="home-owner-entry" aria-label="업소 등록 및 관리">
+          <a href="/#business-register" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); showPage('business-register'); }">내 업소 등록</a>
+          <a href="/owner-uuid/">내 업소관리</a>
+        </nav>
         <section class="card hero-wrap home-hero-wrap" id="homeHeroSection">
           <div class="hero-viewport" id="heroViewport">
             <div class="hero-track" id="heroTrack"></div>
@@ -351,12 +355,7 @@ onclick="showPage('contact');closeMenu();">
       업소 목록
     </h3>
     <div class="home-business-actions">
-      <a class="home-owner-link" href="/owner-uuid/">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M3 9l2-5h14l2 5M3 9v2a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0V9H3zM5 14v6h14v-6M10 20v-5h4v5"/>
-        </svg>
-        <span>업주센터</span>
-      </a>
+
       <button class="text-link" type="button" data-nav="business">
         전체보기
       </button>
