@@ -45,8 +45,17 @@ test('QA artifact preserves the application and excludes function sources and re
   for (const name of ['index.html', 'app-v99.js', 'assets/community.js', 'owner-uuid/index.html']) {
     assert.deepEqual(fs.readFileSync('.qa-source-public/' + name), fs.readFileSync(name));
   }
-  for (const name of ['netlify', 'admin', 'OneSignalSDKWorker.js', 'package.json', '.git']) {
+  for (const name of ['netlify', 'OneSignalSDKWorker.js', 'package.json', '.git']) {
     assert.ok(!fs.existsSync('.qa-source-public/' + name));
+  }
+  const includesAdmin = process.env.SITE_ID === target.SITE_ID &&
+    process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '59';
+  assert.equal(fs.existsSync('.qa-source-public/admin'), includesAdmin);
+  if (includesAdmin) {
+    for (const name of ['index.html', 'assets/admin.js', 'assets/admin.css',
+      'assets/exposure-preview.js', 'assets/event-winner-manager.js']) {
+      assert.deepEqual(fs.readFileSync('.qa-source-public/admin/' + name), fs.readFileSync('admin/' + name));
+    }
   }
   const headers = fs.readFileSync('.qa-source-public/_headers', 'utf8');
   assert.ok(headers.includes(target.SUPABASE_URL + '/rest/v1/'));

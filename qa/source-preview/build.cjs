@@ -19,7 +19,9 @@ const topLevel = new Set([
   'business-index.json', 'seo-index.json', 'manifest.json', 'privacy.html', 'seo.html',
 ]);
 const tracked = execFileSync('git', ['ls-files', '-z'], {cwd: root, encoding: 'utf8'}).split('\0');
+const includeAdmin = isPreview(process.env) && process.env.REVIEW_ID === '59';
 const paths = [...new Set(tracked.filter(file => topLevel.has(file) ||
+  (includeAdmin && /^admin\/(?:index\.html|assets\/[\w.-]+\.(?:js|css))$/.test(file)) ||
   /^(assets|icons|owner-uuid)\/[\w./-]+\.(?:js|css|html|png|jpe?g|webp|svg|ico|woff2?)$/i.test(file)))];
 for (const file of topLevel) {
   if (!paths.includes(file)) throw Error('MISSING_QA_STATIC_SOURCE: ' + file);
