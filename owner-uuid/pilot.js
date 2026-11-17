@@ -351,9 +351,9 @@
           const photoNotice = notificationNotice(gallery, '업소 사진 등록 안내');
           notificationTier(photoNotice, 'owner-notification-basic', '기본 업주 — 무료 사진 등록',
             '업소를 소개할 수 있는 대표 사진 1장을 무료로 등록하실 수 있습니다. 등록된 사진은 언제든지 교체할 수 있습니다.');
-          notificationTier(photoNotice, 'owner-review-premium', '👑 프리미엄 업주 — 사진 최대 5장',
-            '업소 내부, 시설, 상품 및 서비스 등을 소개하는 사진을 최대 5장까지 등록할 수 있습니다. 프리미엄 서비스는 추후 오픈 예정입니다.');
-          append(photoNotice, 'small', '현재는 기존 사진 등록 기준(최대 20장)이 적용됩니다.');
+          notificationTier(photoNotice, 'owner-review-premium', '👑 프리미엄 업주 — 사진 최대 10장',
+            '업소 내부, 시설, 상품 및 서비스를 소개하는 사진을 최대 10장까지 등록하실 수 있습니다. 프리미엄 서비스는 추후 오픈 예정입니다.');
+          append(photoNotice, 'small', '이 화면에서는 대표 사진 1장만 새로 등록할 수 있습니다. 기존 사진은 모두 유지됩니다.');
           const feedback = append(gallery, 'p', '');
           feedback.setAttribute('role', 'status');
           const galleryQuery = '?content=gallery&business=' + encodeURIComponent(business.id);
@@ -376,16 +376,15 @@
           add.disabled = true;
 
           function choose(index) {
-            if (busy) return;
+            if (busy || !expected || (index === undefined && expected.length)) return;
             replacement = index;
-            picker.multiple = index === undefined;
             picker.value = '';
             picker.click();
           }
 
           function renderPhotos() {
             grid.replaceChildren();
-            add.hidden = expected.some(url => url.startsWith(uploadPrefix));
+            add.hidden = expected.length > 0;
             if (!expected.length) append(grid, 'p', '등록된 사진이 없습니다.');
             expected.forEach((url, index) => {
               const photo = append(grid, 'div', '');
@@ -401,10 +400,6 @@
               }
               const buttons = append(photo, 'div', '');
               buttons.className = 'pilot-photo-actions';
-              const addPhoto = append(buttons, 'button', '사진 추가');
-              addPhoto.type = 'button';
-              addPhoto.className = 'pilot-photo-add';
-              addPhoto.onclick = () => choose();
               const replace = append(buttons, 'button', '교체');
               const remove = append(buttons, 'button', '삭제');
               replace.type = remove.type = 'button';
@@ -424,8 +419,8 @@
               feedback.textContent = '각 사진은 4MB 이하여야 합니다.';
               return;
             }
-            if (index === undefined && expected.length + files.length > 20) {
-              feedback.textContent = '사진은 최대 20장까지 등록할 수 있습니다.';
+            if (files.length > 1 || (index === undefined && expected.length + files.length > 1)) {
+              feedback.textContent = '사진이 등록되어 있으면 새 사진을 추가할 수 없습니다. 기존 사진을 교체해 주세요.';
               return;
             }
             busy = true;
