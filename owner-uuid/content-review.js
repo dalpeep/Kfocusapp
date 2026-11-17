@@ -30,6 +30,14 @@
   function mount(parent, request, business, kind) {
     const section = add(parent,'div','');
     section.className='owner-review';
+    const approvalNotice=add(section,'aside','');
+    approvalNotice.className='owner-review-notice';
+    approvalNotice.setAttribute('aria-label','쿠폰·이벤트 승인 안내');
+    add(approvalNotice,'p','일반 업주는 쿠폰·이벤트 등록 및 수정 시 관리자 승인 후 게시됩니다.');
+    const premium=add(approvalNotice,'div','');
+    premium.className='owner-review-premium';
+    add(premium,'strong','👑 프리미엄 업주는 관리자 승인 없이 즉시 게시할 수 있습니다.');
+    add(premium,'p','프리미엄 서비스는 추후 오픈 예정이며, 서비스 시작 시 별도로 안내해 드립니다.');
     const label=kindLabels[kind];
     const form = add(section,'form','');
     const heading=add(form,'h3',label+' 등록 신청');
