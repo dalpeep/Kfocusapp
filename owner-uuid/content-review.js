@@ -11,55 +11,94 @@
   const keys = ['title','detail','description','start_at','end_at'];
   const labels = ['제목','혜택 또는 행사 장소','설명','시작 (UTC ISO 8601)','종료 (UTC ISO 8601)'];
 
-  function mount(parent, request, business) {
-    const section = add(parent,'section','');
-    section.hidden=true;
-    add(section,'h3','쿠폰·이벤트 심사 신청');
+  function localInput(iso) {
+    const date=new Date(iso);
+    if (!iso || !Number.isFinite(date.getTime())) return '';
+    const pad=value=>String(value).padStart(2,'0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  function utcInput(value, original) {
+    const date=new Date(value);
+    const normalized=value.length===16 ? value+':00' : value;
+    if (!Number.isFinite(date.getTime()) || localInput(date.toISOString())!==normalized) {
+      throw Error('선택한 현지 시간을 확인해 주세요.');
+    }
+    return original && localInput(original)===normalized ? new Date(original).toISOString() : date.toISOString();
+  }
+
+  function mount(parent, request, business, kind) {
+    const section = add(parent,'div','');
+    section.className='owner-review';
+    const label=kindLabels[kind];
     const form = add(section,'form','');
-    const kind = add(add(form,'label','종류'),'select','');
-    for (const [key,label] of Object.entries(kindLabels)) add(kind,'option',label).value=key;
+    const heading=add(form,'h3',label+' 등록 신청');
+    const dateFields=add(form,'div','');
+    dateFields.className='owner-review-dates';
     const inputs = keys.map((key,i) => {
-      const input=add(add(form,'label',labels[i]),key==='description'?'textarea':'input','');
+      const date=key.endsWith('_at');
+      const fieldLabel=date ? (key==='start_at'?'시작':'종료') : key==='detail' ? (kind==='coupon'?'쿠폰 혜택':'행사 장소') : labels[i];
+      const input=add(add(date ? dateFields : form,'label',fieldLabel),key==='description'?'textarea':'input','');
       input.required=key!=='description';
-      input.maxLength=key==='description'?3000:160;
-      if (key.endsWith('_at')) input.placeholder='2027-01-01T18:00:00Z';
+      if (date) { input.type='datetime-local'; input.step='1'; }
+      else input.maxLength=key==='description'?3000:160;
       return input;
     });
-    const submit=add(form,'button','심사 신청');
+    form.append(dateFields);
+    add(form,'small','날짜와 시간은 이 기기의 현지 시간으로 표시됩니다.');
+    const actions=add(form,'div','');
+    actions.className='owner-review-actions';
+    const submit=add(actions,'button','심사 신청');
     const notice=add(section,'p',''); notice.setAttribute('role','status');
+    add(section,'h3',label+' 신청 내역');
     const list=add(section,'div','');
     let target=null;
+    let originals={};
     let pending;
-    function editPublished(contentKind, publishedId, fields) {
-      if (submit.disabled || pending || section.hidden) return;
+    let loading;
+    let loaded=false;
+    function editPublished(publishedId, fields) {
+      if (submit.disabled || pending) return;
       target=publishedId;
-      kind.value=contentKind;
-      kind.disabled=true;
-      inputs.forEach((input,i)=>{input.value=fields[keys[i]]||'';});
+      originals=fields;
+      heading.textContent=label+' 수정 신청';
+      inputs.forEach((input,i)=>{const key=keys[i];input.value=key.endsWith('_at')?localInput(fields[key]):fields[key]||'';});
       notice.textContent='수정 신청 · '+fields.title;
       inputs[0].focus();
     }
     async function refresh() {
       const rows=await request({action:'list',business_id:business});
-      section.hidden=false;
       list.replaceChildren();
       const shown = new Set();
       for (const row of rows) {
+        if (row.kind!==kind) continue;
         const card=add(list,'article','');
-        add(card,'p',kindLabels[row.kind]+' · '+row.payload.title+' · '+stateLabels[row.status]);
+        add(card,'p',row.payload.title+' · '+stateLabels[row.status]);
         if (row.review_reason) add(card,'p',row.review_reason);
         if (row.status==='approved' && row.published_id && !shown.has(row.published_id)) {
           shown.add(row.published_id);
           const edit=add(card,'button','수정 신청'); edit.type='button';
-          edit.onclick=()=>editPublished(row.kind,row.published_id,row.payload);
+          edit.onclick=()=>editPublished(row.published_id,row.payload);
         }
       }
+      if (!list.childElementCount) add(list,'p','신청 내역이 없습니다.');
+      loaded=true;
+    }
+    function clearForm() {
+      target=null;
+      originals={};
+      heading.textContent=label+' 등록 신청';
+      form.reset();
     }
     form.onsubmit=async event=>{
       event.preventDefault();
       if(submit.disabled)return;
-      const command={action:'submit',kind:kind.value,business_id:business,
-        fields:Object.fromEntries(keys.map((key,i)=>[key,inputs[i].value.trim()]))};
+      let fields;
+      try {
+        fields=Object.fromEntries(keys.map((key,i)=>[key,key.endsWith('_at')?utcInput(inputs[i].value,originals[key]):inputs[i].value.trim()]));
+        if (fields.end_at<=fields.start_at) throw Error('종료 시간은 시작 시간 이후로 선택해 주세요.');
+      } catch(error) { notice.textContent=error.message; return; }
+      const command={action:'submit',kind,business_id:business,fields};
       if(target) command.target_id=target;
       const fingerprint=JSON.stringify(command);
       if(pending && pending.fingerprint!==fingerprint){
@@ -71,26 +110,29 @@
       try {
         const receipt=await request({...command,key:pending.key});
         if(!receipt?.id)throw Error('접수 결과를 확인하지 못했습니다.');
-        pending=null; target=null; kind.disabled=false; form.reset();
+        pending=null;
+        clearForm();
         notice.textContent='신청이 접수되었습니다. 관리자 승인 대기 중입니다.';
-        await refresh().catch(()=>{notice.textContent+=' 새로고침하여 목록을 확인해 주세요.';});
+        await refresh().catch(()=>{loaded=false;notice.textContent+=' 새로고침하여 목록을 확인해 주세요.';});
       }catch(error){
         if ([400,401,403,409].includes(error.status)) pending=null;
         notice.textContent=error.message;
       }
       finally{submit.disabled=false;}
     };
-    const reset=add(form,'button','새 신청');
+    const reset=add(actions,'button','새 신청');
     reset.type='button';
     reset.onclick=()=>{
       if (submit.disabled || pending) return;
-      target=null;
-      kind.disabled=false;
-      form.reset();
+      clearForm();
       notice.textContent='';
     };
-    void refresh().catch(error=>{if(error.status!==403){section.hidden=false;notice.textContent=error.message;}});
-    return {editPublished};
+    function load() {
+      if (loaded || loading) return loading;
+      loading=refresh().catch(error=>{notice.textContent=error.message;}).finally(()=>{loading=null;});
+      return loading;
+    }
+    return {editPublished,load};
   }
 
   function mountAdmin(parent,request) {

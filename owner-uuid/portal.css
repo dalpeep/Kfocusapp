@@ -122,3 +122,42 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
   color:#174b96; background:#eaf2ff; border-radius:10px;
   text-decoration:none; font-weight:600;
 }
+
+.owner-review { margin-block: 10px 18px; }
+.owner-review form { margin: 0 0 10px; }
+.owner-review h3 { margin: 0 0 8px; }
+.owner-review article p { margin: 4px 0; }
+.owner-review textarea { min-height: 72px; resize: vertical; }
+.owner-review-dates, .owner-booking-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.owner-review-dates label, .owner-booking-form label { min-width: 0; margin: 0; }
+.owner-review-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.owner-review-actions button { margin: 0; }
+.owner-review-actions button[type=button] { background: #eaf2ff; color: #174b96; }
+.owner-booking-form > :is(fieldset,p,button), .owner-booking-form > label:first-child { grid-column: 1 / -1; }
+.owner-booking-form p { margin: 0; }
+.owner-booking-weekdays { margin: 0; padding: 6px; }
+.owner-booking-weekdays > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.owner-booking-weekdays label { display: inline-flex; align-items: center; gap: 3px; min-height: 32px; padding-inline: 4px; }
+.owner-booking-weekdays input[type=checkbox] { width: 16px; min-height: 0; height: 16px; margin: 0; }
+.owner-management-panel label, .owner-management-panel fieldset { min-width: 0; }
+.owner-management-panel input, .owner-management-panel select, .owner-management-panel textarea { min-width: 0; }
+@media (max-width: 600px) {
+  .owner-management-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; padding: 0; margin-bottom: 10px; }
+  .owner-management-tabs button { min-width: 0; min-height: 44px; padding: 4px 2px; white-space: normal; }
+  .owner-management-panel :is(form,fieldset,article) { margin-block: 8px; }
+  .owner-management-panel button { margin-inline: 0; }
+  .owner-basic-panel dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; margin: 6px 0; }
+  .owner-basic-panel dd { margin: 0; }
+  #pilot-businesses .owner-basic-panel .pilot-business-description { min-height: 72px; max-height: 144px; }
+  .owner-basic-panel fieldset { padding: 8px; }
+}
+@media (max-width: 430px) {
+  .owner-review-dates { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 340px) {
+  .owner-management-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
