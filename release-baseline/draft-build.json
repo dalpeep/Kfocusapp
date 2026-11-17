@@ -109,7 +109,7 @@
     },
     {
       "path": "netlify/functions/coupon-used-notify.mjs",
-      "sha256": "e237262ed79f79a8de6ede44d650265471031823a2d97ca6fc880e5465e784f9"
+      "sha256": "32bb68976712ea1729d25ca75819053fb387d5f831393fc4d6213650b4489582"
     },
     {
       "path": "netlify/functions/daily-core-refresh.mjs",
