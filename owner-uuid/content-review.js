@@ -61,13 +61,14 @@
     add(section,'h3',label+' 신청 내역');
     const list=add(section,'div','');
     list.className='owner-listing';
+    let cancelledEvents=new Set();
     let target=null;
     let originals={};
     let pending;
     let loading;
     let loaded=false;
     function editPublished(publishedId, fields) {
-      if (submit.disabled || pending) return;
+      if (submit.disabled || pending || cancelledEvents.has(publishedId)) return;
       target=publishedId;
       originals=fields;
       heading.textContent=label+' 수정 신청';
@@ -102,6 +103,8 @@
         if (row.status==='approved' && row.published_id && !shown.has(row.published_id)) {
           shown.add(row.published_id);
           const edit=add(actions,'button','수정 신청'); edit.type='button';
+          edit.dataset.eventTarget=row.published_id;
+          edit.hidden=cancelledEvents.has(row.published_id);
           edit.onclick=()=>editPublished(row.published_id,row.payload);
         }
       }
@@ -156,7 +159,12 @@
       loading=refresh().catch(error=>{notice.textContent=error.message;}).finally(()=>{loading=null;});
       return loading;
     }
-    return {editPublished,load};
+    function setCancelledEvents(ids) {
+      cancelledEvents=new Set(ids);
+      if (cancelledEvents.has(target) && !submit.disabled && !pending) clearForm();
+      for (const button of list.querySelectorAll('[data-event-target]')) button.hidden=cancelledEvents.has(button.dataset.eventTarget);
+    }
+    return {editPublished,load,setCancelledEvents};
   }
 
   function mountAdmin(parent,request) {

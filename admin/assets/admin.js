@@ -1573,7 +1573,10 @@ async function openApplication(entry) {
   const fields=qs('applicationDetailFields');fields.replaceChildren();
   qs('applicationDetailTitle').textContent=entry.title||applicationTypes[entry.type];
   const items=[['업소명',entry.business],['신청자',entry.contact],['처리 상태',applicationStates[entry.status]],
-    ['신청일',entry.created?fmtLocal(entry.created):''],['신청 사유',row.submission_reason],['처리 사유',row.review_reason||row.reason]];
+    ['신청일',entry.created?fmtLocal(entry.created):''],
+    [row.review_status==='approved'||entry.status==='approved'?'승인일':'처리일',row.reviewed_at?fmtLocal(row.reviewed_at):''],
+    ['처리 관리자',row.reviewed_by],['신청 사유',row.submission_reason],['처리 사유',row.review_reason||row.reason],
+    ['취소일',row.cancelled_at?fmtLocal(row.cancelled_at):''],['취소 계정',row.cancelled_by]];
   for (const [key,value] of Object.entries(row.payload||row.changes||{})) items.push([({title:'제목',detail:'혜택·장소',description:'설명',start_at:'시작',end_at:'종료',name_ko:'업소명',name_en:'영문 업소명',address:'주소',phone:'전화',category_ko:'분류'})[key]||key,value]);
   for(const [label,value] of items) if(typeof value==='string'&&value){const name=document.createElement('dt');name.textContent=label;const text=document.createElement('dd');text.textContent=value;fields.append(name,text);}
   const actions=qs('applicationReviewActions');
