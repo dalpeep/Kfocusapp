@@ -341,9 +341,11 @@
           const grid = append(gallery, 'div', '');
           grid.className = 'pilot-photo-grid';
           const controls = append(gallery, 'div', '');
+          controls.className = 'pilot-photo-controls';
           const add = append(controls, 'button', '사진 추가');
           const picker = append(controls, 'input', '');
           add.type = 'button';
+          add.className = 'pilot-photo-add';
           picker.type = 'file';
           picker.accept = 'image/jpeg,image/png,image/webp';
           picker.hidden = true;
@@ -362,6 +364,7 @@
 
           function renderPhotos() {
             grid.replaceChildren();
+            add.hidden = expected.some(url => url.startsWith(uploadPrefix));
             if (!expected.length) append(grid, 'p', '등록된 사진이 없습니다.');
             expected.forEach((url, index) => {
               const photo = append(grid, 'div', '');
@@ -376,9 +379,16 @@
                 return;
               }
               const buttons = append(photo, 'div', '');
+              buttons.className = 'pilot-photo-actions';
+              const addPhoto = append(buttons, 'button', '사진 추가');
+              addPhoto.type = 'button';
+              addPhoto.className = 'pilot-photo-add';
+              addPhoto.onclick = () => choose();
               const replace = append(buttons, 'button', '교체');
               const remove = append(buttons, 'button', '삭제');
               replace.type = remove.type = 'button';
+              replace.className = 'pilot-photo-replace';
+              remove.className = 'pilot-photo-remove';
               replace.onclick = () => choose(index);
               remove.onclick = () => {
                 if (busy || !window.confirm('이 사진을 업소 사진 목록에서 삭제할까요?')) return;
@@ -1262,6 +1272,7 @@
           const bookingStatus=append(booking,'p','');
           bookingStatus.setAttribute('role','status');
           const bookingBody=append(booking,'div','');
+          bookingBody.className='owner-booking';
           const bookingQuery='?content=reservations&business='+encodeURIComponent(business.id);
           const states={pending:'승인 대기',confirmed:'확정',rejected:'거절',cancelled:'취소'};
           let bookingBusy=false;
@@ -1320,10 +1331,13 @@
                 slot_minutes:Number(interval.value),capacity:Number(capacity.value),capacity_mode:mode.value,zone:zone.value}});
             };
             append(bookingBody,'p',Object.entries(states).map(([key,value])=>value+' '+(result.counts[key]||0)+'건').join(' · '));
-            const filter=append(append(bookingBody,'label','상태'),'select','');
+            const filters=append(bookingBody,'div','');
+            filters.className='owner-booking-filters';
+            const filter=append(append(filters,'label','상태'),'select','');
             append(filter,'option','전체').value='';
             for(const [key,value] of Object.entries(states))append(filter,'option',value).value=key;
-            const day=append(append(bookingBody,'label','예약 날짜'),'input','');day.type='date';
+            const from=append(append(filters,'label','예약 시작일'),'input','');from.type='date';
+            const to=append(append(filters,'label','예약 종료일'),'input','');to.type='date';
             const list=append(bookingBody,'div','');
             const tz=cfg.zone||'America/Chicago';
             const dateFormat=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'});
@@ -1333,7 +1347,9 @@
               for(const row of result.reservations){
                 if(filter.value&&row.status!==filter.value)continue;
                 const when=new Date(row.starts_at);
-                if(day.value&&dateFormat.format(when)!==day.value)continue;
+                const parts=Object.fromEntries(dateFormat.formatToParts(when).map(({type,value})=>[type,value]));
+                const day=`${parts.year}-${parts.month}-${parts.day}`;
+                if ((from.value && day<from.value) || (to.value && day>to.value)) continue;
                 const item=append(list,'details','');
                 append(item,'summary',timeFormat.format(when)+' · '+states[row.status]+' · '+row.party+'명');
                 append(item,'p',[row.name,row.phone,row.email,row.note].filter(Boolean).join(' · '));
@@ -1346,7 +1362,7 @@
               }
               if(!list.childElementCount)append(list,'p','해당 예약이 없습니다.');
             }
-            filter.onchange=day.onchange=drawList;drawList();
+            filter.onchange=from.onchange=to.onchange=drawList;drawList();
           }
           bookingTab.activate = async () => {
             if (bookingBusy || bookingBody.querySelector('form')) return;
@@ -1472,7 +1488,12 @@
                 const field = append(grid, 'div', '');
                 const caption = append(field, 'label', label);
                 if (key.endsWith('2')) append(caption, 'small', ' (선택)');
-                const select = append(field, 'select', '');
+                const timeControl = append(field, 'div', '');
+                timeControl.className = 'owner-hours-time-control';
+                const icon = append(timeControl, 'span', '');
+                icon.className = 'owner-hours-clock';
+                icon.setAttribute('aria-hidden', 'true');
+                const select = append(timeControl, 'select', '');
                 select.id = id + '-' + key;
                 caption.htmlFor = select.id;
                 append(select, 'option', '선택').value = '';
