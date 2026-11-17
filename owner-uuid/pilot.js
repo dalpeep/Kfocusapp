@@ -21,6 +21,35 @@
     return element;
   }
 
+  function weekdayChoices(parent, selected = []) {
+    const row = append(parent, 'div', '');
+    row.className = 'owner-weekday-choices';
+    const inputs = [];
+    for (const [day, label] of [[1,'월'],[2,'화'],[3,'수'],[4,'목'],[5,'금'],[6,'토'],[0,'일']]) {
+      const option = append(row, 'label', '');
+      const input = append(option, 'input', '');
+      input.type = 'checkbox';
+      input.checked = selected.includes(day);
+      append(option, 'span', label);
+      input.setAttribute('aria-label', label);
+      inputs[day] = input;
+    }
+    return inputs;
+  }
+
+  function listingCard(list, title, state, badge) {
+    const card = append(list, 'article', '');
+    card.className = 'owner-listing-card';
+    card.dataset.state = state;
+    const info = append(card, 'div', '');
+    info.className = 'owner-listing-info';
+    append(info, 'h4', title);
+    append(info, 'span', badge).className = 'owner-listing-badge';
+    const actions = append(card, 'div', '');
+    actions.className = 'owner-listing-actions';
+    return {card, info, actions};
+  }
+
   function show(client, active) {
     const current = ++generation;
     pageHeading.textContent = '업주 관리';
@@ -276,6 +305,7 @@
           function managementPanel(key, label, icon) {
             const button = append(tabs, 'button', '');
             button.type = 'button';
+            button.dataset.menu = key;
             button.id = 'owner-tab-' + business.id + '-' + key;
             button.setAttribute('role', 'tab');
             append(button, 'span', icon).setAttribute('aria-hidden', 'true');
@@ -503,13 +533,7 @@
               };
               const days = append(form, 'fieldset', '');
               append(days, 'legend', '요일 (선택하지 않으면 매일)');
-              const dayRow = append(days, 'div', '');
-              dayRow.className = 'pilot-special-days';
-              const dayInputs = ['일', '월', '화', '수', '목', '금', '토'].map(label => {
-                const input = append(append(dayRow, 'label', label), 'input', '');
-                input.type = 'checkbox';
-                return input;
-              });
+              const dayInputs = weekdayChoices(days);
               const itemList = append(form, 'fieldset', '');
               append(itemList, 'legend', '특선 하위 항목');
               const itemRows = append(itemList, 'div', '');
@@ -625,6 +649,8 @@
           }
           const couponsTab = managementPanel('coupons', '쿠폰', '🎟');
           const coupons = couponsTab.panel;
+          coupons.classList.add('owner-panel-coupons');
+          append(coupons, 'h3', '🎟 쿠폰 관리').className = 'owner-panel-banner';
           const couponReview = reviewMode && window.OwnerContentReview?.mount(coupons, reviewRequest, business.id, 'coupon');
           const couponStatus = append(coupons, 'p', '');
           couponStatus.setAttribute('role', 'status');
@@ -665,6 +691,7 @@
               const rows = await request(couponQuery);
               couponBody.replaceChildren();
               const list = append(couponBody, 'div', '');
+              list.className = 'owner-listing';
               const form = append(couponBody, 'form', '');
               form.hidden = reviewMode;
               let selected;
@@ -740,8 +767,11 @@
               reset.type = 'button';
               reset.onclick = () => { selected = undefined; form.reset(); imageUrl = null; imageFile = undefined; renderImage(); };
               for (const row of rows) {
-                const item = append(list, 'div', '');
-                append(item, 'p', row.title + (row.is_active ? ' · 공개' : ' · 비공개'));
+                const {info, actions:item} = listingCard(list, row.title, row.is_active ? 'approved' : 'private', row.is_active ? '공개' : '비공개');
+                const details = append(info, 'details', '');
+                append(details, 'summary', '상세');
+                if (row.discount_label) append(details, 'p', row.discount_label);
+                if (row.description) append(details, 'p', row.description);
                 const edit = append(item, 'button', reviewMode ? '수정 신청' : '수정');
                 edit.type = 'button';
                 edit.hidden = reviewMode && !couponReview;
@@ -858,6 +888,8 @@
           };
           const eventsTab = managementPanel('events', '이벤트', '🎉');
           const events = eventsTab.panel;
+          events.classList.add('owner-panel-events');
+          append(events, 'h3', '🎉 이벤트 관리').className = 'owner-panel-banner';
           const eventReview = reviewMode && window.OwnerContentReview?.mount(events, reviewRequest, business.id, 'event');
           const eventStatus = append(events, 'p', '');
           eventStatus.setAttribute('role', 'status');
@@ -869,6 +901,7 @@
               const rows = await request(eventQuery);
               eventBody.replaceChildren();
               const list = append(eventBody, 'div', '');
+              list.className = 'owner-listing';
               const form = append(eventBody, 'form', '');
               form.hidden = reviewMode;
               let selected;
@@ -943,8 +976,12 @@
               reset.type = 'button';
               reset.onclick = () => { selected = undefined; form.reset(); imageUrl = null; imageFile = undefined; renderImage(); };
               for (const row of rows) {
-                const item = append(list, 'div', '');
-                append(item, 'p', row.title + (!row.is_active ? ' · 종료' : new Date(row.end_at)<=new Date() ? ' · 만료' : new Date(row.start_at)>new Date() ? ' · 공개 예정' : ' · 공개'));
+                const status = !row.is_active ? '비공개' : new Date(row.end_at)<=new Date() ? '만료' : new Date(row.start_at)>new Date() ? '공개 예정' : '공개';
+                const {info, actions:item} = listingCard(list, row.title, status === '공개' ? 'approved' : 'private', status);
+                const details = append(info, 'details', '');
+                append(details, 'summary', '상세');
+                if (row.address) append(details, 'p', row.address);
+                if (row.description) append(details, 'p', row.description);
                 const edit = append(item, 'button', reviewMode ? '수정 신청' : '수정');
                 edit.type = 'button';
                 edit.hidden = reviewMode && !eventReview;
@@ -1025,6 +1062,13 @@
           };
           const menuTab = managementPanel('menu', '메뉴 관리', '📋');
           const menu = menuTab.panel;
+          menu.classList.add('owner-panel-menu');
+          const menuBanner = append(menu, 'div', '');
+          menuBanner.className = 'owner-panel-banner owner-menu-banner';
+          append(menuBanner, 'h3', '🍴 메뉴 관리');
+          const registerMenu = append(menuBanner, 'button', '＋ 메뉴 등록');
+          registerMenu.type = 'button';
+          registerMenu.disabled = true;
           const menuStatus = append(menu, 'p', '');
           menuStatus.setAttribute('role', 'status');
           const menuBody = append(menu, 'div', '');
@@ -1036,6 +1080,7 @@
               const rows = await request(menuQuery);
               menuBody.replaceChildren();
               const list = append(menuBody, 'div', '');
+              list.className = 'owner-listing';
               const form = append(menuBody, 'form', '');
               let selected;
               const fields = {};
@@ -1106,9 +1151,22 @@
               const reset = append(form, 'button', '새 메뉴');
               reset.type = 'button';
               reset.onclick = () => { selected = undefined; form.reset(); imageUrl = null; imageFile = undefined; renderImage(); };
+              registerMenu.disabled = false;
+              registerMenu.onclick = () => { if (!menuBusy) { reset.click(); fields.title.focus(); } };
               for (const row of rows) {
-                const item = append(list, 'div', '');
-                append(item, 'p', row.title + (!row.is_active ? ' · 비공개' : row.sold_out ? ' · 품절' : ' · 공개'));
+                const {card, info, actions:item} = listingCard(list, row.title, row.is_active ? 'approved' : 'private', row.is_active ? '공개' : '비공개');
+                if (row.image_url && /^https?:\/\//i.test(row.image_url)) {
+                  const image = append(card, 'img', '');
+                  image.alt = '';
+                  image.loading = 'lazy';
+                  image.referrerPolicy = 'no-referrer';
+                  image.src = row.image_url;
+                  card.classList.add('owner-listing-with-image');
+                  card.prepend(image);
+                }
+                if (row.title_en) append(info, 'p', row.title_en);
+                if (row.price_cents != null) append(info, 'p', new Intl.NumberFormat('en-US', {style:'currency',currency:'USD'}).format(row.price_cents / 100)).className = 'owner-listing-price';
+                if (row.sold_out) append(info, 'p', '품절');
                 const edit = append(item, 'button', '수정');
                 edit.type = 'button';
                 edit.onclick = () => {
@@ -1121,6 +1179,7 @@
                   fields.sort_order.value = row.sort_order;
                   fields.sold_out.checked = row.sold_out;
                   fields.is_active.checked = row.is_active;
+                  fields.title.focus();
                 };
                 const end = append(item, 'button', '목록에서 제거');
                 end.type = 'button';
@@ -1236,9 +1295,8 @@
             const enabled=field('예약 기능 켜기','checkbox',cfg.enabled);
             const weekdays=append(form,'fieldset','');
             weekdays.className='owner-booking-weekdays';
-            append(weekdays,'legend','예약 가능 요일');
-            const dayChoices=append(weekdays,'div','');
-            const days=['일','월','화','수','목','금','토'].map((label,i)=>field(label,'checkbox',(cfg.weekdays||[1,2,3,4,5]).includes(i),dayChoices));
+            append(weekdays,'legend','예약 가능 요일 (선택하지 않으면 매일)');
+            const days=weekdayChoices(weekdays,cfg.weekdays||[1,2,3,4,5]);
             const opens=field('접수 시작','time',cfg.opens||'09:00');
             const closes=field('접수 종료','time',cfg.closes||'17:00');
             function select(label,choices,value){
@@ -1256,8 +1314,9 @@
             append(form,'button','예약 설정 저장').type='submit';
             form.onsubmit=event=>{
               event.preventDefault();
+              const selectedDays=days.flatMap((day,i)=>day.checked?[i]:[]);
               void changeBooking({action:'settings',settings:{enabled:enabled.checked,
-                weekdays:days.flatMap((d,i)=>d.checked?[i]:[]),opens:opens.value,closes:closes.value,
+                weekdays:selectedDays.length ? selectedDays : days.map((_,i)=>i),opens:opens.value,closes:closes.value,
                 slot_minutes:Number(interval.value),capacity:Number(capacity.value),capacity_mode:mode.value,zone:zone.value}});
             };
             append(bookingBody,'p',Object.entries(states).map(([key,value])=>value+' '+(result.counts[key]||0)+'건').join(' · '));

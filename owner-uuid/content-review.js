@@ -60,6 +60,7 @@
     const notice=add(section,'p',''); notice.setAttribute('role','status');
     add(section,'h3',label+' 신청 내역');
     const list=add(section,'div','');
+    list.className='owner-listing';
     let target=null;
     let originals={};
     let pending;
@@ -81,11 +82,26 @@
       for (const row of rows) {
         if (row.kind!==kind) continue;
         const card=add(list,'article','');
-        add(card,'p',row.payload.title+' · '+stateLabels[row.status]);
-        if (row.review_reason) add(card,'p',row.review_reason);
+        card.className='owner-listing-card';
+        card.dataset.state=row.status;
+        const info=add(card,'div','');
+        info.className='owner-listing-info';
+        add(info,'h4',row.payload.title);
+        add(info,'span',stateLabels[row.status]).className='owner-listing-badge';
+        const date=new Date(row.created_at);
+        if (row.created_at && Number.isFinite(date.getTime())) {
+          add(info,'p','신청일 · '+new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium'}).format(date));
+        }
+        const details=add(info,'details','');
+        add(details,'summary','상세');
+        if (row.review_reason) add(details,'p','거절 사유 · '+row.review_reason);
+        if (row.payload.detail) add(details,'p',row.payload.detail);
+        if (row.payload.description) add(details,'p',row.payload.description);
+        const actions=add(card,'div','');
+        actions.className='owner-listing-actions';
         if (row.status==='approved' && row.published_id && !shown.has(row.published_id)) {
           shown.add(row.published_id);
-          const edit=add(card,'button','수정 신청'); edit.type='button';
+          const edit=add(actions,'button','수정 신청'); edit.type='button';
           edit.onclick=()=>editPublished(row.published_id,row.payload);
         }
       }
