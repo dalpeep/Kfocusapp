@@ -1402,18 +1402,23 @@ function activeBusinessEvents(businessId,now=Date.now()){
 function businessEventCards(rows){
   if(!rows.length) return '';
   const time=new Intl.DateTimeFormat('ko-KR',{timeZone:'America/Chicago',dateStyle:'medium',timeStyle:'short'});
-  return `<section class="detail-coupon-block"><h3 class="subsection-title">업소 이벤트</h3>${rows.map(row=>`
-    <details class="business-event-card">
-      <summary>${esc(row.title)}${row.title_en?' · '+esc(row.title_en):''}</summary>
-      ${/^https:\/\//i.test(row.image_url||'')?`<img src="${esc(row.image_url)}" alt="" loading="lazy" class="business-event-image">`:''}
-      <p class="business-event-name">${esc(getBiz(row.business_id)?.name||'')}</p>
+  return `<section class="detail-coupon-block"><h3 class="subsection-title">업소 이벤트</h3>${rows.map(row=>{
+    const description=String(row.description||'').trim();
+    const characters=Array.from(description);
+    const long=characters.length>120;
+    const summary=long?characters.slice(0,120).join('').trimEnd()+'…':description;
+    return `<article class="business-event-card">
+      <h4><span aria-hidden="true">🎉</span> ${esc(row.title)}${row.title_en?' · '+esc(row.title_en):''}</h4>
       <dl class="business-event-period">
         <dt>시작</dt><dd><time datetime="${esc(row.start_at)}">${esc(time.format(new Date(row.start_at)))}</time></dd>
         <dt>종료</dt><dd><time datetime="${esc(row.end_at)}">${esc(time.format(new Date(row.end_at)))}</time></dd>
       </dl>
-      <p>${esc(row.address)}</p><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(row.description||'')}</p>
-      <button type="button" class="biz-open business-event-open" data-biz="${esc(row.business_id)}">업소 보기</button>
-    </details>`).join('')}</section>`;
+      ${row.address?`<p class="business-event-address">${esc(row.address)}</p>`:''}
+      ${summary?`<p class="business-event-description">${esc(summary)}</p>`:''}
+      ${long?`<details class="business-event-details"><summary>자세히 보기</summary><p class="business-event-description">${esc(description)}</p></details>`:''}
+      ${/^https:\/\//i.test(row.image_url||'')?`<img src="${esc(row.image_url)}" alt="" loading="lazy" class="business-event-image">`:''}
+    </article>`;
+  }).join('')}</section>`;
 }
 async function loadBoardPostsFromSupabase(){
   const { SUPABASE_URL, SUPABASE_ANON_KEY } = getConfig();
