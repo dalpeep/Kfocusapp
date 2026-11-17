@@ -17,7 +17,7 @@
   <script src="/assets/request-coordinator.js?v=1"></script>
   <script src="/assets/pagination.js?v=1"></script>
   <script src="/assets/home-selection.js?v=313"></script>
-  <script type="module" src="assets/admin.js?v=paid-promotions"></script>
+  <script type="module" src="assets/admin.js?v=application-workspace"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -68,6 +68,41 @@
 #section-smartFlyer .p190-delete-expired:hover{background:#fecaca!important}
 </style>
 
+<style>
+#section-requests .application-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+#section-requests :is(.application-tabs,.application-pagination,.application-table,.application-detail) button{min-height:36px;padding:6px 11px;border:1px solid #c3d3ed;border-radius:9px;background:#f1f6ff;color:#153d7d;font:inherit;cursor:pointer}
+#section-requests .application-tabs [aria-pressed=true]{background:#1558e5;border-color:#1558e5;color:white;font-weight:700}
+#section-requests .application-tools{display:grid;grid-template-columns:minmax(0,2fr) repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+#section-requests :is(.application-tools,.application-detail) label{display:grid;gap:4px;min-width:0}
+#section-requests :is(.application-tools,.application-detail) :is(input,select,textarea){box-sizing:border-box;width:100%;min-width:0;border:1px solid #c3d3ed;border-radius:8px;padding:8px;background:white;color:#16305a}
+#section-requests .application-table-wrap{overflow-x:auto;border:1px solid #dbe4f4;border-radius:12px}
+#section-requests .application-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:14px}
+#section-requests .application-table :is(th,td){padding:8px 6px;text-align:left;overflow-wrap:anywhere;border-bottom:1px solid #e4eaf5}
+#section-requests .application-table th{background:#eaf0fc;color:#12346c}
+#section-requests .application-badge{display:inline-block;border-radius:999px;padding:4px 7px;background:#e9eef7;color:#263d65;font-size:12px;font-weight:700}
+#section-requests [data-tone=pending]{background:#fff0d6;color:#85430a}
+#section-requests :is([data-tone=approved],[data-tone=completed],[data-tone=event]){background:#dff5e7;color:#185d37}
+#section-requests :is([data-tone=rejected],[data-tone=coupon]){background:#ffe2ea;color:#932140}
+#section-requests [data-tone=ad]{background:#eee5fc;color:#59358a}
+#section-requests [data-tone=new]{background:#dfeaff;color:#1649a1}
+#section-requests .application-pagination{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:10px}
+#section-requests .application-pagination button:disabled{opacity:.5;cursor:default}
+#section-requests .application-detail{width:min(560px,calc(100vw - 32px));max-height:85vh;box-sizing:border-box;border:1px solid #c3d3ed;border-radius:14px;padding:16px;color:#122d59;overflow:auto}
+#section-requests .application-detail::backdrop{background:#10274788}
+#section-requests .application-detail dl{display:grid;grid-template-columns:minmax(65px,auto) minmax(0,1fr);gap:8px}
+#section-requests .application-detail dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:780px){
+ #section-requests .application-tools{grid-template-columns:repeat(2,minmax(0,1fr))}
+ #section-requests .application-tools label:first-child{grid-column:1/-1}
+ #section-requests .application-table-wrap{overflow:visible;border:0}
+ #section-requests .application-table,#section-requests .application-table tbody{display:block}
+ #section-requests .application-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ #section-requests .application-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;margin:0 0 10px;padding:9px;border:1px solid #dbe4f4;border-radius:12px;background:white}
+ #section-requests .application-table td{display:grid;gap:2px;padding:3px;border:0}
+ #section-requests .application-table td::before{content:attr(data-label);font-size:11px;color:#536887}
+ #section-requests .application-table td:last-child{grid-column:1/-1;justify-items:end}
+}
+</style>
 </head>
 <body>
   <div class="app-shell">
@@ -311,32 +346,32 @@
 <section id="section-requests" class="admin-section hidden">
   <h2>신청 관리</h2>
 
-  <div class="request-tabs">
-    <button class="tab active" type="button" onclick="showRequestTab('business')">
-      업소 등록 신청
-    </button>
-    <button class="tab" type="button" onclick="showRequestTab('ad')">
-      광고 문의
-    </button>
+  <div id="applicationTabs" class="application-tabs" role="group" aria-label="신청 유형"></div>
+  <div class="application-tools">
+    <label>검색<input id="applicationSearch" type="search" placeholder="업소명, 담당자, 전화, 이메일, 신청 내용"></label>
+    <label>상태<select id="applicationStatus"><option value="">전체</option><option value="pending">처리 대기</option><option value="approved">승인 완료</option><option value="rejected">거절</option><option value="completed">처리 완료</option><option value="cancelled">취소</option></select></label>
+    <label>신청일 정렬<select id="applicationSort"><option value="desc">최신순</option><option value="asc">오래된순</option></select></label>
   </div>
-
-  <div id="businessRequestsArea">
-    <div class="request-tools">
-      <input id="businessRequestSearch" placeholder="업소명, 담당자, 전화 검색">
-      <button type="button" onclick="loadBusinessRequests(1)">검색</button>
+  <p id="applicationNotice" class="muted" role="status"></p>
+  <div class="application-table-wrap"><table class="application-table">
+    <thead><tr><th>유형</th><th>신청 내용</th><th>업소명</th><th>담당자</th><th>연락처</th><th>이메일</th><th>신청일</th><th>상태</th><th>상세</th></tr></thead>
+    <tbody id="applicationRows"></tbody>
+  </table></div>
+  <p id="applicationEmpty" class="muted" hidden>표시할 신청이 없습니다.</p>
+  <div class="application-pagination"><button id="applicationPrev" type="button">이전</button><span id="applicationPage"></span><button id="applicationNext" type="button">다음</button></div>
+  <dialog id="applicationDetail" class="application-detail" aria-labelledby="applicationDetailTitle">
+    <h3 id="applicationDetailTitle"></h3>
+    <dl id="applicationDetailFields"></dl>
+    <div id="applicationReviewActions" hidden>
+      <label>승인 지역<input id="applicationReviewArea" maxlength="100"></label>
+      <label>처리 사유<textarea id="applicationReviewReason" maxlength="1000" rows="3"></textarea></label>
+      <p id="applicationReviewResponse" role="status"></p>
+      <button id="applicationApprove" type="button">승인</button>
+      <button id="applicationReject" type="button">거절</button>
     </div>
-    <div id="businessRequestsList"></div>
-    <div id="businessRequestsPager" class="pager"></div>
-  </div>
-
-  <div id="adRequestsArea" style="display:none">
-    <div class="request-tools">
-      <input id="adRequestSearch" placeholder="회사명, 담당자, 전화 검색">
-      <button type="button" onclick="loadAdRequests(1)">검색</button>
-    </div>
-    <div id="adRequestsList"></div>
-    <div id="adRequestsPager" class="pager"></div>
-  </div>
+    <button id="applicationClose" type="button">닫기</button>
+  </dialog>
+  <div hidden><div id="businessRequestsList"></div><div id="businessRequestsPager"></div><div id="adRequestsList"></div><div id="adRequestsPager"></div></div>
 </section>
 
 	  <section id="section-adminUsers" class="admin-section">
@@ -1188,7 +1223,7 @@
 
     <div class="modal-actions">
       <button onclick="saveRequestEdit()">수정 저장</button>
-      <button onclick="approveCurrentRequest()">승인</button>
+      <button id="requestCompleteAction" onclick="approveCurrentRequest()">승인</button>
       <button onclick="deleteCurrentRequest()" class="danger">삭제</button>
     </div>
   </div>

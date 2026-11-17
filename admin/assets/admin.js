@@ -369,7 +369,7 @@ function switchSection(section) {
     const requestsSection = document.getElementById('section-requests');
     if (requestsSection) requestsSection.classList.remove('hidden');
     setTimeout(()=>{
-      if (typeof showRequestTab === 'function') showRequestTab('business');
+      if (typeof showRequestTab === 'function') showRequestTab('all');
       else if (typeof loadBusinessRequests === 'function') loadBusinessRequests(1);
     }, 0);
   }
@@ -392,7 +392,7 @@ function setPageMeta() {
     board: ['커뮤니티 관리자', '지역소식 / 라이프 / 비즈니스 글을 관리합니다.'],
     newsroom: ['AI 운영센터', '수집부터 AI 기사 작성과 게시까지 관리자 화면에서 처리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
-    requests: ['신청 관리', '업소 등록 신청과 광고 문의를 확인합니다.'],
+    requests: ['신청 관리', '업소·소유권·정보 수정·쿠폰·이벤트 신청과 광고 문의를 확인합니다.'],
     trafficSources: ['유입 분석', '신문·플라이어·SNS 등 홍보 경로별 유입을 확인합니다.'],
     adsOps: ['광고 센터', '광고 현황, 편성, 오늘 로테이션과 종료 예정 광고를 관리합니다.'],
     push: ['푸시 발송', '공지와 알림 메시지를 발송합니다.'],
@@ -425,6 +425,7 @@ async function uploadFileToStorage(file, folder = 'uploads') {
 const REQUEST_PAGE_SIZE = 20;
 
 async function loadBusinessRequests(page = 1){
+  if (!applicationLegacyAllowed()) return;
   const keyword = (document.querySelector('#businessRequestSearch')?.value || '').trim();
   const from = (page - 1) * REQUEST_PAGE_SIZE;
   const to = from + REQUEST_PAGE_SIZE - 1;
@@ -482,6 +483,7 @@ async function loadBusinessRequests(page = 1){
 }
 
 async function loadAdRequests(page = 1){
+  if (!applicationLegacyAllowed()) return;
   const keyword = (document.querySelector('#adRequestSearch')?.value || '').trim();
   const from = (page - 1) * REQUEST_PAGE_SIZE;
   const to = from + REQUEST_PAGE_SIZE - 1;
@@ -1383,6 +1385,7 @@ function renderPager(target, page, total, fnName){
 
 window.showRequestTab = showRequestTab;
 async function approveBusinessRequest(id){
+  if (!applicationLegacyAllowed()) return;
 
   const { data:req, error:reqError } = await supabase
     .from('business_requests')
@@ -1419,31 +1422,198 @@ window.loadAdRequests = loadAdRequests;
 window.loadBusinessRequests = loadBusinessRequests;
 window.approveBusinessRequest = approveBusinessRequest;
 
-function showRequestTab(type){
+const applicationTypes = {all:'전체 신청',new:'업소 등록',claim:'소유권 신청',core:'정보 수정',coupon:'쿠폰 신청',event:'이벤트 신청',ad:'광고 문의'};
+const applicationStates = {pending:'처리 대기',approved:'승인 완료',rejected:'거절',completed:'처리 완료',cancelled:'취소'};
+let applicationScope;
+let applicationTab = 'all';
+let applicationRows = [];
+let applicationCounts = {};
+let applicationPage = 0;
+let applicationGeneration = 0;
 
-    document.getElementById('businessRequestsArea').style.display =
-        type==='business' ? 'block':'none';
+async function applicationEdge(query, command) {
+  const {data:{session}} = await supabase.auth.getSession();
+  if (!applicationScope || session?.user?.id !== applicationScope.actor) throw Object.assign(new Error('관리자 로그인이 필요합니다.'), {status:401});
+  const production = 'https://ydrxuqmjzayejlnjzzew.supabase.co';
+  if (cfg.SUPABASE_URL !== production) throw Object.assign(new Error('현재 환경의 업주 심사 연결이 설정되지 않았습니다.'), {status:503});
+  const response = await fetch(production + '/functions/v1/owner-phase1' + query, {
+    method:command ? 'POST' : 'GET', cache:'no-store', redirect:'error',
+    headers:{apikey:cfg.SUPABASE_ANON_KEY, Authorization:'Bearer '+session.access_token,
+      ...(command ? {'Content-Type':'application/json'} : {})},
+    ...(command ? {body:JSON.stringify(command)} : {}),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw Object.assign(new Error(result.error || '심사 요청을 처리하지 못했습니다.'), {status:response.status});
+  return result.result;
+}
 
-    document.getElementById('adRequestsArea').style.display =
-        type==='ad' ? 'block':'none';
+async function applicationPages(read, pageSize, totalOf = result => result.total) {
+  const rows = [];
+  let first;
+  for (let offset = 0; ; offset += pageSize) {
+    const page = await read(offset);
+    first ??= page;
+    rows.push(...page.rows);
+    if (page.rows.length < pageSize || rows.length >= totalOf(page)) return {...first, rows};
+  }
+}
+function applicationLegacyAllowed() { return applicationScope?.role === 'super_admin'; }
 
-    document.querySelectorAll('.request-tabs .tab')
-        .forEach(btn=>btn.classList.remove('active'));
-
-    if(type==='business'){
-        document.querySelectorAll('.request-tabs .tab')[0]
-            .classList.add('active');
-
-        loadBusinessRequests();
-    }else{
-        document.querySelectorAll('.request-tabs .tab')[1]
-            .classList.add('active');
-
-        loadAdRequests();
+async function loadApplications() {
+  const generation = ++applicationGeneration;
+  const notice = qs('applicationNotice');
+  applicationRows = [];
+  applicationCounts = {};
+  renderApplications();
+  if (!applicationScope) { notice.textContent = '관리자 권한을 확인할 수 없습니다.'; return; }
+  notice.textContent = '신청을 불러오는 중입니다.';
+  const legacy = async (table, kind) => {
+    const result = await applicationPages(async offset => {
+      const {data,error,count} = await supabase.from(table).select('*',{count:'exact'})
+        .order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+99);
+      if (error) throw error;
+      return {rows:data,total:count};
+    },100);
+    return result.rows.map(row => ({source:kind,type:kind==='ad'?'ad':'new',id:row.id,
+      title:kind==='ad' ? row.ad_type || '광고 문의' : '업소 등록 신청', business:row.business_name||row.company_name,
+      contact:row.owner_name||row.contact_name, phone:row.phone, email:row.email, searchText:row.message, created:row.created_at, status:row.status||'pending'}));
+  };
+  const ownerRequests = async () => {
+    const result = await applicationPages(async offset => {
+      const page = await applicationEdge('?offset='+offset);
+      if (!page.is_admin) throw Error('업주 심사 관리자 권한이 필요합니다.');
+      return {...page, rows:page.requests, total:page.request_total};
+    },20);
+    const names = new Map([...result.claim_candidates||[],...result.businesses||[]].map(b => [b.id,b.name_ko||b.name_en]));
+    return result.rows.filter(row => applicationScope.role==='super_admin' || row.region===applicationScope.area)
+      .map(row => ({source:'owner',type:row.kind,id:row.id, title:applicationTypes[row.kind],
+        business:row.changes?.name_ko||row.changes?.name_en||row.baseline?.name_ko||row.baseline?.name_en||names.get(row.business_id),
+        contact:row.user_id,phone:row.changes?.phone,created:row.created_at,status:row.status,row}));
+  };
+  const content = async () => {
+    let result;
+    try { result = await applicationPages(offset => applicationEdge('?content=review',{action:'admin_history',offset}),50); }
+    catch (error) {
+      if (error.status!==400) throw error;
+      result = {rows:await applicationEdge('?content=review',{action:'admin_list'})};
     }
+    return {...result,rows:result.rows.map(row => ({source:'content',type:row.kind,id:row.id,
+      title:row.payload?.title,business:row.business_name,contact:row.actor,created:row.created_at,status:row.status,row}))};
+  };
+  const canReadLegacy = applicationLegacyAllowed();
+  const [registration, advertising, owners, reviews] = await Promise.allSettled([
+    canReadLegacy ? legacy('business_requests','business') : [], canReadLegacy ? legacy('advertising_requests','ad') : [], ownerRequests(), content(),
+  ]);
+  if (generation!==applicationGeneration) return;
+  applicationRows = [...registration.value||[],...advertising.value||[],...owners.value||[],...reviews.value?.rows||[]];
+  const count = (group,type) => group.value.filter(row=>row.type===type&&row.status==='pending').length;
+  if (owners.status==='fulfilled') {
+    for (const type of ['claim','core']) applicationCounts[type]=count(owners,type);
+    if (registration.status==='fulfilled') applicationCounts.new=count(owners,'new')+count(registration,'new');
+  }
+  if (advertising.status==='fulfilled'&&canReadLegacy) applicationCounts.ad=count(advertising,'ad');
+  if (reviews.value?.pending) Object.assign(applicationCounts,reviews.value.pending);
+  if (Object.keys(applicationTypes).filter(type=>type!=='all').every(type=>Number.isInteger(applicationCounts[type]))) {
+    applicationCounts.all=Object.values(applicationCounts).reduce((sum,value)=>sum+value,0);
+  }
+  const messages = [];
+  if (!canReadLegacy) messages.push('지역이 확인되지 않은 기존 업소 등록·광고 문의는 최고 관리자 화면에만 표시됩니다.');
+  if (registration.status==='rejected'||advertising.status==='rejected') messages.push('기존 등록·광고 문의 일부를 불러오지 못했습니다.');
+  if (owners.status==='rejected') messages.push('업소 등록·소유권·정보 수정 심사 목록을 불러오지 못했습니다.');
+  if (reviews.status==='rejected') messages.push('쿠폰·이벤트 심사 목록을 불러오지 못했습니다.');
+  else if (!reviews.value.pending) messages.push('쿠폰·이벤트는 서버의 대기 목록만 표시됩니다. 전체 이력과 정확한 대기 건수는 조회 기능 적용 후 표시됩니다.');
+  notice.textContent = messages.join(' ');
+  renderApplications();
+}
+
+function renderApplications() {
+  const tabs = qs('applicationTabs');
+  if (!tabs) return;
+  tabs.replaceChildren();
+  for (const [key,label] of Object.entries(applicationTypes)) {
+    const button = document.createElement('button');
+    button.type='button'; button.dataset.kind=key;
+    button.setAttribute('aria-pressed',String(key===applicationTab));
+    button.textContent=label+' ('+(applicationCounts[key]??'—')+')';
+    button.onclick=()=>{applicationTab=key;applicationPage=0;renderApplications();};
+    tabs.append(button);
+  }
+  const search=qs('applicationSearch').value.trim().toLocaleLowerCase();
+  const status=qs('applicationStatus').value;
+  const direction=qs('applicationSort').value==='asc'?1:-1;
+  const rows=applicationRows.filter(row => (applicationTab==='all'||row.type===applicationTab)
+    && (!status||row.status===status) && (!search||[row.title,row.business,row.contact,row.phone,row.email,row.searchText,...Object.values(row.row?.payload||row.row?.changes||{})]
+      .some(value=>String(value||'').toLocaleLowerCase().includes(search))))
+    .sort((a,b)=>direction*((Date.parse(a.created)||0)-(Date.parse(b.created)||0)));
+  const body=qs('applicationRows'); body.replaceChildren();
+  applicationPage=Math.min(applicationPage,Math.max(0,Math.ceil(rows.length/20)-1));
+  for (const row of rows.slice(applicationPage*20,applicationPage*20+20)) {
+    const tr=body.insertRow();
+    const values=[applicationTypes[row.type],row.title,row.business,row.contact,row.phone,row.email,row.created?fmtLocal(row.created):'',applicationStates[row.status]||row.status];
+    for (const [index,value] of values.entries()) {
+      const cell=tr.insertCell(); cell.dataset.label=['유형','신청 내용','업소명','담당자','연락처','이메일','신청일','상태'][index];
+      if(index===0||index===7){const badge=document.createElement('span');badge.className='application-badge';badge.dataset.tone=index===0?row.type:row.status;badge.textContent=value||'—';cell.append(badge);}else cell.textContent=value||'—';
+    }
+    const button=document.createElement('button');button.type='button';button.textContent='상세';button.onclick=()=>void openApplication(row);tr.insertCell().append(button);
+  }
+  qs('applicationEmpty').hidden=!!rows.length;
+  qs('applicationPage').textContent=(applicationPage+1)+' / '+Math.max(1,Math.ceil(rows.length/20));
+  qs('applicationPrev').disabled=applicationPage===0;
+  qs('applicationNext').disabled=(applicationPage+1)*20>=rows.length;
+}
+
+async function openApplication(entry) {
+  if (!applicationScope) return;
+  if (entry.source==='business'||entry.source==='ad') {
+    if (!applicationLegacyAllowed()) return;
+    return entry.source==='business'?openBusinessRequestModal(entry.id):openAdRequestModal(entry.id);
+  }
+  const {row}=entry;
+  const dialog=qs('applicationDetail');
+  const fields=qs('applicationDetailFields');fields.replaceChildren();
+  qs('applicationDetailTitle').textContent=entry.title||applicationTypes[entry.type];
+  const items=[['업소명',entry.business],['신청자',entry.contact],['처리 상태',applicationStates[entry.status]],
+    ['신청일',entry.created?fmtLocal(entry.created):''],['신청 사유',row.submission_reason],['처리 사유',row.review_reason||row.reason]];
+  for (const [key,value] of Object.entries(row.payload||row.changes||{})) items.push([({title:'제목',detail:'혜택·장소',description:'설명',start_at:'시작',end_at:'종료',name_ko:'업소명',name_en:'영문 업소명',address:'주소',phone:'전화',category_ko:'분류'})[key]||key,value]);
+  for(const [label,value] of items) if(typeof value==='string'&&value){const name=document.createElement('dt');name.textContent=label;const text=document.createElement('dd');text.textContent=value;fields.append(name,text);}
+  const actions=qs('applicationReviewActions');
+  const area=qs('applicationReviewArea');
+  const reason=qs('applicationReviewReason');
+  const response=qs('applicationReviewResponse');
+  const approve=qs('applicationApprove'), reject=qs('applicationReject');
+  actions.hidden=entry.status!=='pending'||entry.contact===applicationScope.actor;
+  area.parentElement.hidden=!(entry.source==='owner'&&entry.type==='new');
+  area.value=reason.value=response.textContent='';
+  approve.disabled=reject.disabled=false;
+  async function decide(action) {
+    if (approve.disabled||actions.hidden) return;
+    if(action==='reject'&&!reason.value.trim()){response.textContent='거절 사유를 입력해 주세요.';reason.focus();return;}
+    if(action==='approve'&&!area.parentElement.hidden&&!area.value.trim()){response.textContent='승인 지역을 입력해 주세요.';area.focus();return;}
+    approve.disabled=reject.disabled=true;
+    try {
+      const command={action,request_id:entry.id,reason:reason.value.trim()};
+      if(entry.source==='owner') {command.key=crypto.randomUUID();if(action==='approve'&&!area.parentElement.hidden)command.area=area.value.trim();}
+      await applicationEdge(entry.source==='content'?'?content=review':'',command);
+      dialog.close(); await loadApplications();
+    } catch(error) {response.textContent=error.message;}
+    finally {approve.disabled=reject.disabled=false;}
+  }
+  approve.onclick=()=>void decide('approve');reject.onclick=()=>void decide('reject');
+  dialog.showModal();
+}
+
+function showRequestTab(type) {
+  applicationTab=type==='business'?'new':applicationTypes[type]?type:'all';
+  applicationPage=0;
+  for (const id of ['applicationSearch','applicationStatus','applicationSort']) qs(id).oninput=()=>{applicationPage=0;renderApplications();};
+  qs('applicationPrev').onclick=()=>{if(applicationPage>0)applicationPage--;renderApplications();};
+  qs('applicationNext').onclick=()=>{applicationPage++;renderApplications();};
+  qs('applicationClose').onclick=()=>qs('applicationDetail').close();
+  void loadApplications();
 }
 
 async function viewBusinessRequest(id){
+  if (!applicationLegacyAllowed()) return;
   const { data:r, error } = await supabase
     .from('business_requests')
     .select('*')
@@ -1467,6 +1637,7 @@ ${r.message || ''}`
 }
 
 async function viewAdRequest(id){
+  if (!applicationLegacyAllowed()) return;
   const { data:r, error } = await supabase
     .from('advertising_requests')
     .select('*')
@@ -1494,6 +1665,7 @@ window.approveBusinessRequest = approveBusinessRequest;
 let currentRequestRow = null;
 
 async function openBusinessRequestModal(id){
+  if (!applicationLegacyAllowed()) return;
   const { data:r, error } = await supabase
     .from('business_requests')
     .select('*')
@@ -1515,11 +1687,13 @@ async function openBusinessRequestModal(id){
   setVal('requestMessage', r.message || '');
   setVal('requestStatus', r.status || 'pending');
 
+  safeText('requestCompleteAction','업소관리로 불러오기');
   document.getElementById('requestModalTitle').textContent = '업소 등록 신청';
   document.getElementById('requestModal').classList.remove('hidden');
 }
 
 async function openAdRequestModal(id){
+  if (!applicationLegacyAllowed()) return;
   const { data:r, error } = await supabase
     .from('advertising_requests')
     .select('*')
@@ -1541,6 +1715,7 @@ async function openAdRequestModal(id){
   setVal('requestMessage', r.message || '');
   setVal('requestStatus', r.status || 'pending');
 
+  safeText('requestCompleteAction','처리 완료');
   document.getElementById('requestModalTitle').textContent = '광고 문의';
   document.getElementById('requestModal').classList.remove('hidden');
 }
@@ -1550,6 +1725,7 @@ function closeRequestModal(){
 }
 
 async function saveRequestEdit(){
+  if (!applicationLegacyAllowed()) return;
   const type = val('requestType');
   const id = val('requestId');
 
@@ -1582,10 +1758,11 @@ async function saveRequestEdit(){
   alert('수정되었습니다.');
   closeRequestModal();
 
-  type === 'business' ? loadBusinessRequests() : loadAdRequests();
+  void loadApplications();
 }
 
 async function approveCurrentRequest(){
+  if (!applicationLegacyAllowed()) return;
   const type = val('requestType');
   const id = val('requestId');
 
@@ -1602,11 +1779,12 @@ async function approveCurrentRequest(){
 
     alert('광고 문의가 처리 완료되었습니다.');
     closeRequestModal();
-    loadAdRequests();
+    void loadApplications();
   }
 }
 
 async function deleteCurrentRequest(){
+  if (!applicationLegacyAllowed()) return;
   if(!confirm('정말 삭제할까요?')) return;
 
   const type = val('requestType');
@@ -1619,7 +1797,7 @@ async function deleteCurrentRequest(){
   alert('삭제되었습니다.');
   closeRequestModal();
 
-  type === 'business' ? loadBusinessRequests() : loadAdRequests();
+  void loadApplications();
 }
 
 window.openBusinessRequestModal = openBusinessRequestModal;
@@ -5709,6 +5887,7 @@ async function loadAdminSession() {
   }
 
   const profile={role:access.role,area:access.area};
+  applicationScope = access.source === 'profile' ? {...profile, actor:user.id} : undefined;
   window.ADMIN_ROLE = profile.role;
   window.ADMIN_AREA = profile.area;
   console.log('ADMIN_ROLE:', window.ADMIN_ROLE);
