@@ -5,6 +5,7 @@
   const pageHeading = get('owner-page-heading');
   const owner = get('pilot-owner');
   const ownerTitle = owner.querySelector('h2');
+  const businessPicker = get('owner-business-picker');
   const admin = get('admin');
   const labels = {new: '신규 업소', claim: '소유권', core: '핵심 정보', name_ko: '업소명',
     name_en: '영문 업소명', address: '주소', phone: '전화', category_ko: '업종'};
@@ -24,6 +25,8 @@
     const current = ++generation;
     pageHeading.textContent = '업주 관리';
     ownerTitle.textContent = '내 업소';
+    businessPicker.hidden = true;
+    owner.classList.remove('owner-workspace');
     descriptionObserver?.disconnect();
     descriptionObserver = undefined;
     admin.hidden = owner.hidden = true;
@@ -202,16 +205,18 @@
         businesses.replaceChildren();
         const resizeDescriptions = new Map();
         const findingBusiness = !isAdmin && location.hash === '#find';
-        if (findingBusiness && data.businesses.length > 1) {
-          const picker = append(append(businesses, 'label', '관리할 업소'), 'select', '');
-          append(picker, 'option', '업소 선택').value = '';
-          for (const business of data.businesses) {
-            append(picker, 'option', business.name_ko || business.name_en || '승인된 업소').value = business.id;
-          }
-          picker.onchange = () => {
-            document.getElementById('owner-business-' + picker.value)?.scrollIntoView({block:'start'});
-          };
+        const managedCards = new Map();
+        businessPicker.replaceChildren();
+        businessPicker.hidden = !data.businesses.length;
+        owner.classList.toggle('owner-workspace', !!data.businesses.length);
+        if (data.businesses.length) ownerTitle.textContent = isAdmin ? '관리 업소' : '내 업소관리';
+        for (const business of data.businesses) {
+          append(businessPicker, 'option', business.name_ko || business.name_en || '승인된 업소').value = business.id;
         }
+        businessPicker.onchange = () => {
+          for (const [id, entry] of managedCards) entry.card.hidden = id !== businessPicker.value;
+          managedCards.get(businessPicker.value)?.activate();
+        };
         if (data.claim_intake === true) showUnlinkedBusiness(businesses, false, data);
         if (!data.claim_intake && !isAdmin && (!findingBusiness || !data.businesses.length)) {
           const candidates = data.claim_candidates || [];
@@ -247,8 +252,8 @@
         if (!data.claim_intake && !isAdmin && !findingBusiness && !data.businesses.length) showUnlinkedBusiness(businesses, true);
         for (const business of data.businesses) {
           const card = append(businesses, 'article', '');
-          append(card, 'h3', business.name_ko || business.name_en || '시험 업소');
           card.classList.add('owner-management-card');
+          card.hidden = true;
           card.id = 'owner-business-' + business.id;
           const tabs = append(card, 'div', '');
           tabs.className = 'owner-management-tabs';
@@ -1293,13 +1298,17 @@
           };
           const basic = basicTab.panel;
           basic.classList.add('owner-basic-panel');
-          const publicInfo = append(basic, 'dl', '');
+          const infoCard = append(basic, 'div', '');
+          infoCard.className = 'owner-profile-card';
+          append(infoCard, 'h3', '기본정보');
+          const publicInfo = append(infoCard, 'dl', '');
           const publicFields = [['name_ko','업소명'],['name_en','영문 업소명'],['address','주소'],['phone','전화번호']]
             .map(([key,label]) => {
-              append(publicInfo, 'dt', label);
-              return [key, append(publicInfo, 'dd', '불러오는 중')];
+              const row = append(publicInfo, 'div', '');
+              append(row, 'dt', label);
+              return [key, append(row, 'dd', '불러오는 중')];
             });
-          const description = append(append(basic, 'label', '소개'), 'textarea', '');
+          const description = append(append(infoCard, 'label', '소개'), 'textarea', '');
           description.className = 'pilot-business-description';
           description.value = business.description || '';
           const fitDescription = () => {
@@ -1318,12 +1327,18 @@
             fitDescription();
           });
           descriptionObserver.observe(card);
-          const hours = append(basic, 'fieldset', '');
+          const hours = append(basic, 'div', '');
           hours.className = 'owner-hours';
-          append(hours, 'legend', '영업시간');
+          function hoursHeading() {
+            const title = append(hours, 'h3', '');
+            append(title, 'span', '◷').setAttribute('aria-hidden', 'true');
+            title.append(' 영업시간');
+          }
+          hoursHeading();
           const feedbackHours = append(basic, 'p', '');
           feedbackHours.setAttribute('role', 'status');
-          const saveInfo = append(basic, 'button', '정보 저장');
+          const saveInfo = append(basic, 'button', '✓ 저장하기');
+          saveInfo.className = 'owner-info-save';
           saveInfo.type = 'button';
           saveInfo.disabled = true;
           const hoursQuery = '?content=hours&business=' + encodeURIComponent(business.id);
@@ -1335,7 +1350,7 @@
             originalHours = value;
             dayFields.clear();
             hours.replaceChildren();
-            append(hours, 'legend', '영업시간');
+            hoursHeading();
             if (legacyHours) append(hours, 'p', '기존 영업시간 안내 · ' + legacyHours);
             if (value !== null && (typeof value !== 'object' || Array.isArray(value))) {
               append(hours, 'p', '기존 영업시간 형식은 관리자에게 수정을 요청해 주세요.');
@@ -1389,16 +1404,57 @@
               const closed = append(closedLabel, 'input', '');
               closed.type = 'checkbox';
               closed.checked = previous?.closed === true || previous?.closed === 'true';
-              closedLabel.append('휴무');
+              closedLabel.append('휴무 ');
+              append(closedLabel, 'small', '(선택한 요일 휴무)');
               const grid = append(row, 'div', '');
               grid.className = 'owner-hours-fields';
               const fields = new Map([['closed', closed]]);
               for (const [key, label] of [['open1','시작'],['close1','종료'],['open2','추가 시작'],['close2','추가 종료']]) {
-                const input = append(append(grid, 'label', label), 'input', '');
-                input.placeholder = '11:00 AM';
-                input.maxLength = 60;
-                input.value = typeof previous?.[key] === 'string' ? previous[key] : '';
-                fields.set(key,input);
+                const field = append(grid, 'div', '');
+                const caption = append(field, 'label', label);
+                if (key.endsWith('2')) append(caption, 'small', ' (선택)');
+                const select = append(field, 'select', '');
+                select.id = id + '-' + key;
+                caption.htmlFor = select.id;
+                append(select, 'option', '선택').value = '';
+                const formatTime = (hour, minute) => {
+                  const clock = (hour % 12 || 12) + ':' + String(minute).padStart(2, '0');
+                  return {value:clock + (hour < 12 ? ' AM' : ' PM'), text:(hour < 12 ? '오전 ' : '오후 ') + clock};
+                };
+                for (let minutes = 0; minutes < 1440; minutes += 15) {
+                  const time = formatTime(Math.floor(minutes / 60), minutes % 60);
+                  append(select, 'option', time.text).value = time.value;
+                }
+                const stored = typeof previous?.[key] === 'string' ? previous[key] : '';
+                if (stored && !Array.from(select.options).some(option => option.value === stored)) {
+                  const clock = /^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i.exec(stored.trim());
+                  const hour = clock ? Number(clock[1]) : -1;
+                  const minute = clock ? Number(clock[2]) : -1;
+                  const marker = clock?.[3]?.toUpperCase();
+                  const display = hour >= 0 && hour <= (marker ? 12 : 23) && minute >= 0 && minute < 60
+                    ? formatTime(marker ? (hour % 12) + (marker === 'PM' ? 12 : 0) : hour, minute).text : stored;
+                  append(select, 'option', display).value = stored;
+                }
+                select.value = stored;
+                const custom = append(select, 'option', '다른 시간 선택');
+                custom.value = stored === 'custom' ? 'custom-time' : 'custom';
+                const precise = append(field, 'input', '');
+                precise.type = 'time';
+                precise.hidden = true;
+                precise.setAttribute('aria-label', label + ' 직접 선택');
+                select.onchange = () => {
+                  precise.hidden = select.selectedOptions[0] !== custom;
+                  if (!precise.hidden) precise.focus();
+                };
+                fields.set(key, {
+                  get value() {
+                    if (select.selectedOptions[0] !== custom) return select.value;
+                    if (!precise.value) return stored;
+                    const [hour, minute] = precise.value.split(':').map(Number);
+                    return formatTime(hour, minute).value;
+                  },
+                  set disabled(value) { select.disabled = precise.disabled = value; },
+                });
               }
               dayFields.set(day, {fields, initial:new Map([...fields].map(([key,input])=>[key,key==='closed'?input.checked:input.value]))});
             }
@@ -1442,6 +1498,7 @@
             const command = {days, expected, key:crypto.randomUUID()};
             if (submittedDescription !== originalDescription) command.description=submittedDescription;
             saveInfo.disabled = true;
+            saveInfo.textContent = '저장 중…';
             for (const group of dayFields.values()) for (const input of group.fields.values()) input.disabled=true;
             description.readOnly = true;
             try {
@@ -1456,11 +1513,16 @@
               for (const group of dayFields.values()) for (const input of group.fields.values()) input.disabled=false;
               description.readOnly = false;
               saveInfo.disabled = false;
+              saveInfo.textContent = '✓ 저장하기';
             }
           };
-          selectTab(basicTab);
+          let opened = false;
+          managedCards.set(business.id, {card, activate() {
+            if (!opened) { opened = true; selectTab(basicTab); }
+          }});
         }
         owner.hidden = false;
+        businessPicker.onchange();
         for (const fitDescription of resizeDescriptions.values()) fitDescription();
         const queue = get('pilot-queue');
         queue.replaceChildren();
