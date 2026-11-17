@@ -913,7 +913,7 @@
               if (reviewMode) {
                 const states = await reviewRequest({action:'event_cancellation_status',business_id:business.id}).catch(() => []);
                 for (const state of states) publication.set(state.id,state);
-                eventReview?.setCancelledEvents([...publication.values()].filter(state=>state.cancelled_at).map(state=>state.id));
+                eventReview?.setEventPublication([...publication.values()]);
               }
               eventBody.replaceChildren();
               const list = append(eventBody, 'div', '');
@@ -1012,20 +1012,7 @@
                   fields.start_at.value = localTime(row.start_at);
                   fields.end_at.value = localTime(row.end_at);
                 };
-                if (state?.can_cancel) {
-                  const cancel = append(item, 'button', '이벤트 취소');
-                  cancel.type = 'button';
-                  cancel.onclick = async () => {
-                    if (eventBusy || !window.confirm('이벤트를 취소하고 공개 목록에서 내릴까요? 다시 게시하려면 새 승인이 필요합니다.')) return;
-                    eventBusy = cancel.disabled = true;
-                    try {
-                      await reviewRequest({action:'cancel_event',business_id:business.id,target_id:row.id});
-                      await loadEvents();
-                      eventStatus.textContent = '이벤트를 취소했습니다.';
-                    } catch (error) { eventStatus.textContent = error.message; }
-                    finally { eventBusy = cancel.disabled = false; }
-                  };
-                } else if (!reviewMode) {
+                if (!reviewMode) {
                   const end = append(item, 'button', '종료');
                   end.type = 'button';
                   end.disabled = !row.is_active;
