@@ -62,6 +62,7 @@
     const list=add(section,'div','');
     list.className='owner-listing';
     let cancelledEvents=new Set();
+    let publication=new Map();
     let target=null;
     let originals={};
     let pending;
@@ -80,6 +81,12 @@
       const rows=await request({action:'list',business_id:business});
       list.replaceChildren();
       const shown = new Set();
+      const cancellationRequests=new Map();
+      for (const row of rows) {
+        if (row.kind==='event' && row.payload.operation==='cancel_event' && !cancellationRequests.has(row.target_id)) {
+          cancellationRequests.set(row.target_id,row);
+        }
+      }
       for (const row of rows) {
         if (row.kind!==kind) continue;
         const card=add(list,'article','');
@@ -88,7 +95,13 @@
         const info=add(card,'div','');
         info.className='owner-listing-info';
         add(info,'h4',row.payload.title);
-        add(info,'span',stateLabels[row.status]).className='owner-listing-badge';
+        const cancellation=row.payload.operation==='cancel_event';
+        const state=cancellation && row.status==='approved'?'private':row.status;
+        card.dataset.state=state;
+        const stateLabel=cancellation
+          ? {pending:'취소 승인 대기',approved:'취소됨',rejected:row.reviewed_by?'취소 신청 거절':'취소 신청 철회됨'}[row.status]
+          : stateLabels[row.status];
+        add(info,'span',stateLabel).className='owner-listing-badge';
         const date=new Date(row.created_at);
         if (row.created_at && Number.isFinite(date.getTime())) {
           add(info,'p','신청일 · '+new Intl.DateTimeFormat('ko-KR',{dateStyle:'medium'}).format(date));
@@ -96,20 +109,56 @@
         const details=add(info,'details','');
         add(details,'summary','상세');
         if (row.review_reason) add(details,'p','거절 사유 · '+row.review_reason);
+        if (cancellation) add(details,'p','취소 신청 사유 · '+row.payload.cancellation_reason);
         if (row.payload.detail) add(details,'p',row.payload.detail);
         if (row.payload.description) add(details,'p',row.payload.description);
         const actions=add(card,'div','');
         actions.className='owner-listing-actions';
-        if (row.status==='approved' && row.published_id && !shown.has(row.published_id)) {
+        if (cancellation && row.status==='pending') {
+          const withdraw=add(actions,'button','취소 신청 철회');
+          withdraw.type='button';
+          withdraw.onclick=()=>{
+            if (window.confirm('취소 신청을 철회할까요?')) {
+              void sendCancellation(withdraw,{action:'withdraw_event_cancellation',business_id:business,request_id:row.id},'취소 신청을 철회했습니다.');
+            }
+          };
+        }
+        if (!cancellation && row.status==='approved' && row.published_id && !shown.has(row.published_id)) {
           shown.add(row.published_id);
           const edit=add(actions,'button','수정 신청'); edit.type='button';
           edit.dataset.eventTarget=row.published_id;
           edit.hidden=cancelledEvents.has(row.published_id);
           edit.onclick=()=>editPublished(row.published_id,row.payload);
+          if (kind==='event') {
+            const cancel=add(actions,'button','취소 신청');
+            cancel.type='button';
+            cancel.dataset.cancellationTarget=row.published_id;
+            cancel.dataset.pending=String(cancellationRequests.get(row.published_id)?.status==='pending');
+            cancel.hidden=!publication.get(row.published_id)?.can_cancel || cancel.dataset.pending==='true';
+            cancel.onclick=()=>{
+              const reason=window.prompt('이벤트 취소를 신청할까요? 관리자 승인 전까지 공개가 유지됩니다. 취소 사유를 입력해 주세요.');
+              if (reason===null) return;
+              if (!reason.trim() || reason.trim().length>1000) {
+                notice.textContent='취소 사유를 1~1000자로 입력해 주세요.';
+                return;
+              }
+              void sendCancellation(cancel,{action:'request_event_cancellation',business_id:business,target_id:row.published_id,key:crypto.randomUUID(),reason:reason.trim()},'취소 신청이 접수되었습니다.');
+            };
+          }
         }
       }
       if (!list.childElementCount) add(list,'p','신청 내역이 없습니다.');
       loaded=true;
+    }
+    async function sendCancellation(button,command,message) {
+      if (button.disabled) return;
+      button.disabled=true;
+      try {
+        await request(command);
+        notice.textContent=message;
+        await refresh().catch(()=>{loaded=false;notice.textContent+=' 목록을 새로고침해 주세요.';});
+      } catch(error) { notice.textContent=error.message; }
+      finally { button.disabled=false; }
     }
     function clearForm() {
       target=null;
@@ -159,12 +208,14 @@
       loading=refresh().catch(error=>{notice.textContent=error.message;}).finally(()=>{loading=null;});
       return loading;
     }
-    function setCancelledEvents(ids) {
-      cancelledEvents=new Set(ids);
+    function setEventPublication(states) {
+      publication=new Map(states.map(state=>[state.id,state]));
+      cancelledEvents=new Set(states.filter(state=>state.cancelled_at).map(state=>state.id));
       if (cancelledEvents.has(target) && !submit.disabled && !pending) clearForm();
       for (const button of list.querySelectorAll('[data-event-target]')) button.hidden=cancelledEvents.has(button.dataset.eventTarget);
+      for (const button of list.querySelectorAll('[data-cancellation-target]')) button.hidden=!publication.get(button.dataset.cancellationTarget)?.can_cancel || button.dataset.pending==='true';
     }
-    return {editPublished,load,setCancelledEvents};
+    return {editPublished,load,setEventPublication};
   }
 
   function mountAdmin(parent,request) {
@@ -177,7 +228,7 @@
       list.replaceChildren();
       for(const row of rows){
         const card=add(list,'article','');
-        add(card,'h4',row.business_name+' · '+kindLabels[row.kind]);
+        add(card,'h4',row.business_name+' · '+(row.payload.operation==='cancel_event'?'이벤트 취소 신청':kindLabels[row.kind]));
         add(card,'p','신청 계정 '+row.actor);
         keys.forEach((key,i)=>add(card,'p',labels[i]+' '+(row.payload[key]||'')));
         const reason=add(add(card,'label','처리 사유'),'textarea','');reason.maxLength=1000;
