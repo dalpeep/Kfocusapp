@@ -284,7 +284,14 @@
           card.classList.add('owner-management-card');
           card.hidden = true;
           card.id = 'owner-business-' + business.id;
-          const tabs = append(card, 'div', '');
+          const managementMenu = append(card, 'div', '');
+          managementMenu.className = 'owner-management-menu';
+          const home = append(managementMenu, 'a', '');
+          home.className = 'owner-management-home';
+          home.href = '/';
+          append(home, 'span', '🏠').setAttribute('aria-hidden', 'true');
+          append(home, 'span', '홈');
+          const tabs = append(managementMenu, 'div', '');
           tabs.className = 'owner-management-tabs';
           tabs.setAttribute('role', 'tablist');
           tabs.setAttribute('aria-label', '업소 관리 메뉴');
@@ -296,10 +303,6 @@
               entry.button.tabIndex = selected ? 0 : -1;
               entry.panel.hidden = !selected;
             }
-            const bounds = tabs.getBoundingClientRect();
-            const button = item.button.getBoundingClientRect();
-            if (button.left < bounds.left) tabs.scrollLeft += button.left - bounds.left;
-            else if (button.right > bounds.right) tabs.scrollLeft += button.right - bounds.right;
             void item.activate?.();
           }
           function managementPanel(key, label, icon) {
@@ -309,7 +312,7 @@
             button.id = 'owner-tab-' + business.id + '-' + key;
             button.setAttribute('role', 'tab');
             append(button, 'span', icon).setAttribute('aria-hidden', 'true');
-            button.append(label);
+            append(button, 'span', label);
             const panel = append(card, 'div', '');
             panel.className = 'owner-management-panel';
             panel.id = button.id + '-panel';
