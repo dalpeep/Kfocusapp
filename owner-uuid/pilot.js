@@ -1319,6 +1319,7 @@
           });
           descriptionObserver.observe(card);
           const hours = append(basic, 'fieldset', '');
+          hours.className = 'owner-hours';
           append(hours, 'legend', '영업시간');
           const feedbackHours = append(basic, 'p', '');
           feedbackHours.setAttribute('role', 'status');
@@ -1329,6 +1330,7 @@
           const dayFields = new Map();
           const legacyHours = typeof business.hours === 'string' ? business.hours : '';
           let originalHours, originalDescription = description.value, loadingHours = false;
+          let selectedHoursDay = 'mon';
           function drawHours(value) {
             originalHours = value;
             dayFields.clear();
@@ -1339,16 +1341,51 @@
               append(hours, 'p', '기존 영업시간 형식은 관리자에게 수정을 요청해 주세요.');
               return;
             }
-            for (const [day, name] of [['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금'],['sat','토'],['sun','일']]) {
-              const row = append(hours, 'fieldset', '');
+            const days = [['mon','월'],['tue','화'],['wed','수'],['thu','목'],['fri','금'],['sat','토'],['sun','일']];
+            const dayTabs = append(hours, 'div', '');
+            dayTabs.className = 'owner-hours-tabs';
+            dayTabs.setAttribute('role', 'tablist');
+            dayTabs.setAttribute('aria-label', '영업시간 요일');
+            const entries = [];
+            function selectDay(day) {
+              selectedHoursDay = day;
+              for (const entry of entries) {
+                const selected = entry.day === day;
+                entry.tab.setAttribute('aria-selected', String(selected));
+                entry.tab.tabIndex = selected ? 0 : -1;
+                entry.row.hidden = !selected;
+              }
+            }
+            for (const [index, [day, name]] of days.entries()) {
+              const id = basic.id + '-hours-' + day;
+              const tab = append(dayTabs, 'button', name);
+              tab.type = 'button';
+              tab.id = id;
+              tab.setAttribute('role', 'tab');
+              tab.setAttribute('aria-label', name + '요일');
+              tab.setAttribute('aria-controls', id + '-panel');
+              const row = append(hours, 'div', '');
               row.className = 'owner-hours-day';
-              append(row, 'legend', name + '요일');
+              row.id = id + '-panel';
+              row.setAttribute('role', 'tabpanel');
+              row.setAttribute('aria-labelledby', id);
+              entries.push({day, tab, row});
+              tab.onclick = () => selectDay(day);
+              tab.onkeydown = event => {
+                const next = {ArrowLeft:(index + days.length - 1) % days.length,
+                  ArrowRight:(index + 1) % days.length, Home:0, End:days.length - 1}[event.key];
+                if (next === undefined) return;
+                event.preventDefault();
+                selectDay(entries[next].day);
+                entries[next].tab.focus();
+              };
               const previous = value?.[day];
               if (previous !== undefined && (!previous || typeof previous !== 'object' || Array.isArray(previous))) {
                 append(row, 'p', '기존 값은 관리자에게 수정을 요청해 주세요.');
                 continue;
               }
               const closedLabel = append(row, 'label', '');
+              closedLabel.className = 'owner-hours-closed';
               const closed = append(closedLabel, 'input', '');
               closed.type = 'checkbox';
               closed.checked = previous?.closed === true || previous?.closed === 'true';
@@ -1365,6 +1402,7 @@
               }
               dayFields.set(day, {fields, initial:new Map([...fields].map(([key,input])=>[key,key==='closed'?input.checked:input.value]))});
             }
+            selectDay(selectedHoursDay);
           }
           basicTab.activate = async () => {
             fitDescription();
