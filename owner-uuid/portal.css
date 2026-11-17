@@ -100,8 +100,6 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
   margin-top: 8px;
 }
 
-.pilot-special-days { display: flex; flex-wrap: wrap; gap: 8px 16px; }
-.pilot-special-days label { display: flex; align-items: center; gap: 4px; margin: 0; }
 .pilot-special-image img { display: block; width: min(220px, 100%); border-radius: 8px; }
 
 .owner-hours-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 8px; }
@@ -144,9 +142,6 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .owner-booking-form > :is(fieldset,p,button), .owner-booking-form > label:first-child { grid-column: 1 / -1; }
 .owner-booking-form p { margin: 0; }
 .owner-booking-weekdays { margin: 0; padding: 6px; }
-.owner-booking-weekdays > div { display: flex; flex-wrap: wrap; gap: 4px; }
-.owner-booking-weekdays label { display: inline-flex; align-items: center; gap: 3px; min-height: 32px; padding-inline: 4px; }
-.owner-booking-weekdays input[type=checkbox] { width: 16px; min-height: 0; height: 16px; margin: 0; }
 .owner-management-panel label, .owner-management-panel fieldset { min-width: 0; }
 .owner-management-panel input, .owner-management-panel select, .owner-management-panel textarea { min-width: 0; }
 @media (max-width: 600px) {
@@ -243,3 +238,61 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
   body:has(.owner-workspace:not([hidden])) { background: #f8faff; }
   .owner-hours-tabs button { min-height: 38px; }
 }
+
+.owner-management-tabs button[data-menu=info] { background: #e1edff; }
+.owner-management-tabs button[data-menu=photos], .owner-management-tabs button[data-menu=booking] { background: #ebe7fb; }
+.owner-management-tabs button[data-menu=specials] { background: #fff0df; }
+.owner-management-tabs button[data-menu=coupons] { background: #ffe4ef; }
+.owner-management-tabs button[data-menu=events] { background: #e0f7e7; }
+.owner-management-tabs button[data-menu=menu] { background: #e3f3ff; }
+.owner-workspace .owner-management-tabs button[aria-selected=true] { background: #0868ed; }
+.owner-panel-banner { margin: 0 0 10px; padding: 10px 12px; border-radius: 14px; font-size: 19px; color: #fff; background: linear-gradient(110deg, #087cca, #1051bb); }
+.owner-panel-coupons .owner-panel-banner { background: linear-gradient(110deg, #b32458, #982453); }
+.owner-panel-events .owner-panel-banner { background: linear-gradient(110deg, #147447, #19693b); }
+.owner-listing { display: grid; gap: 10px; margin-bottom: 10px; }
+.owner-listing-card {
+  --owner-status-ink: #4b5563;
+  --owner-status-bg: #edf0f4;
+  --owner-status-line: #8993a3;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 10px;
+  padding: 10px;
+  border: 1px solid #dce6f3;
+  border-left: 4px solid var(--owner-status-line);
+  border-radius: 12px;
+  background: #fff;
+  margin: 0;
+  align-items: start;
+}
+.owner-listing-card[data-state=pending] { --owner-status-ink: #924713; --owner-status-bg: #fff0d5; --owner-status-line: #e48124; }
+.owner-listing-card[data-state=approved] { --owner-status-ink: #116039; --owner-status-bg: #dff6e7; --owner-status-line: #4aaa65; }
+.owner-listing-card[data-state=rejected] { --owner-status-ink: #9e2636; --owner-status-bg: #ffe6ea; --owner-status-line: #d35b69; }
+.owner-listing-info { min-width: 0; }
+.owner-listing-info h4 { margin: 0 0 4px; color: #102e59; }
+.owner-listing-info p { margin: 4px 0 0; font-size: 13px; }
+.owner-listing-badge { display: inline-block; border-radius: 999px; background: var(--owner-status-bg); color: var(--owner-status-ink); padding: 3px 8px; font-size: 12px; font-weight: 750; }
+.owner-listing-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.owner-listing-actions:empty { display: none; }
+.owner-listing-actions button, .owner-listing-info summary { color: #174b96; background: #f2f7ff; border: 1px solid #b7c8df; border-radius: 8px; font-size: 13px; padding: 5px 8px; min-height: 44px; margin: 0; }
+.owner-listing-info details { margin: 6px 0 0; }
+.owner-listing-info summary { box-sizing: border-box; display: inline-block; align-content: center; }
+.owner-listing-info .owner-listing-price { color: #075aca; font-size: 16px; font-weight: 750; }
+.owner-listing-with-image { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.owner-listing-with-image > img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; }
+.owner-weekday-choices { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.owner-weekday-choices label { position: relative; min-width: 0; margin: 0; cursor: pointer; }
+.owner-weekday-choices input[type=checkbox] { position: absolute; width: 1px; height: 1px; min-height: 0; opacity: 0; margin: 0; }
+.owner-weekday-choices span { display: grid; place-items: center; min-height: 40px; border-radius: 8px; background: #e9eef5; color: #18335f; font-size: 14px; font-weight: 700; }
+.owner-weekday-choices input:checked + span { background: #0868ed; color: #fff; }
+.owner-weekday-choices input:focus-visible + span { outline: 2px solid #174b96; outline-offset: 1px; }
+@media (max-width: 600px) {
+  .owner-management-panel .owner-listing-card { margin: 0; padding: 9px; }
+  .owner-listing-card { grid-template-columns: minmax(0, 1fr); }
+  .owner-listing-with-image { grid-template-columns: 64px minmax(0, 1fr); }
+  .owner-listing-actions { grid-column: 1 / -1; }
+}
+
+.owner-menu-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.owner-menu-banner h3 { margin: 0; font-size: inherit; }
+.owner-menu-banner button { margin: 0; min-height: 44px; color: #103161; background: #ffe070; border-color: transparent; font-size: 14px; font-weight: 750; }
