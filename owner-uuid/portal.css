@@ -32,18 +32,22 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .coupon-customer-summary{overflow-wrap:anywhere;background:#f5f8fc;padding:12px;border-radius:10px}
 .coupon-customer-summary p:first-child{font-size:20px;font-weight:700}.coupon-customer-summary p:nth-child(2){font-weight:700;color:#174ea6}
 .owner-management-card { min-width:0; }
-.owner-management-tabs {
-  display:flex; flex-wrap:nowrap; gap:6px; max-width:100%; overflow-x:auto;
-  overscroll-behavior-x:contain; padding:4px 2px 8px; margin-bottom:12px;
+.owner-management-menu {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 58px; gap: 6px; margin: 4px 0 12px;
 }
-.owner-management-tabs button {
-  display:flex; align-items:center; justify-content:center; gap:5px;
-  flex:1 0 auto; margin:0; padding:8px; min-height:48px;
-  white-space:nowrap; font-size:14px; font-weight:700;
-  background:#eff2f6; color:#18335f; border-color:transparent;
+.owner-management-tabs { display: contents; }
+.owner-management-menu :is(button, .owner-management-home) {
+  box-sizing: border-box; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 4px; min-width: 0; margin: 0; padding: 4px 2px;
+  border: 1px solid transparent; border-radius: 10px; background: #e9eef5;
+  color: #18335f; font-size: 13px; font-weight: 700; line-height: 1.15;
+  text-align: center; text-decoration: none;
 }
-.owner-management-tabs [aria-selected=true] { background:#1769e0; color:#fff; }
-.owner-management-tabs button:focus-visible { outline:2px solid #174b96; outline-offset:-3px; }
+.owner-management-menu [aria-hidden=true] { font-size: 19px; line-height: 1; }
+.owner-management-menu :is(button, .owner-management-home):focus-visible {
+  outline: 2px solid #174b96; outline-offset: -3px;
+}
 .owner-management-panel { max-width:740px; min-width:0; margin-inline:auto; }
 .owner-management-panel :is(input,textarea,select,button) { max-width:100%; }
 .owner-content>[role=status][data-state]{padding:12px;border-radius:8px;white-space:pre-wrap}.owner-content>[role=status][data-state=success]{background:#e8f6ee;color:#14532d}.owner-content>[role=status][data-state=error]{background:#fff0f0;color:#991b1b}
@@ -145,8 +149,6 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .owner-management-panel label, .owner-management-panel fieldset { min-width: 0; }
 .owner-management-panel input, .owner-management-panel select, .owner-management-panel textarea { min-width: 0; }
 @media (max-width: 600px) {
-  .owner-management-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); overflow: visible; padding: 0; margin-bottom: 10px; }
-  .owner-management-tabs button { min-width: 0; min-height: 44px; padding: 4px 2px; white-space: normal; }
   .owner-management-panel :is(form,fieldset,article) { margin-block: 8px; }
   .owner-management-panel button { margin-inline: 0; }
   .owner-basic-panel dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 10px; margin: 6px 0; }
@@ -156,9 +158,6 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 }
 @media (max-width: 430px) {
   .owner-review-dates { grid-template-columns: minmax(0, 1fr); }
-}
-@media (max-width: 340px) {
-  .owner-management-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .owner-hours-tabs {
@@ -186,9 +185,9 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .owner-hours-closed { display: flex; align-items: center; gap: 6px; min-height: 32px; margin: 0 0 4px; }
 .owner-hours-closed input[type=checkbox] { margin: 0; }
 
-.owner-workspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.owner-workspace-heading h2 { margin: 0; color: #102e59; }
-.owner-workspace-heading select { width: auto; min-width: 0; max-width: 52%; margin: 0; color: #102e59; font-weight: 650; }
+.owner-workspace-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.owner-workspace-heading h2 { margin: 0; color: #102e59; font-size: clamp(22px, 5vw, 25px); }
+.owner-workspace-heading select { width: auto; min-width: 0; max-width: 52%; margin: 0; color: #102e59; font-size: 16px; font-weight: 650; }
 .owner-profile-card, .owner-hours {
   background: #fff;
   border: 1px solid #dce6f3;
@@ -220,11 +219,9 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
   #signed-in:has(.owner-workspace:not([hidden])) { display: flex; flex-direction: column; }
   #signed-in:has(.owner-workspace:not([hidden])) > #logout { order: 2; align-self: flex-end; margin-bottom: 0; }
   #pilot-owner.owner-workspace { margin: 0; padding: 0; border: 0; background: transparent; }
-  .owner-workspace-heading select { min-height: 44px; border-color: transparent; background: transparent; padding: 3px 0 3px 4px; font-size: 14px; }
+  .owner-workspace-heading select { min-height: 44px; border-color: transparent; background: transparent; padding: 3px 0 3px 4px; }
   .owner-workspace .owner-management-card { padding: 0; border: 0; }
-  .owner-workspace .owner-management-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 4px 0 8px; }
-  .owner-workspace .owner-management-tabs button { min-height: 44px; border-radius: 10px; background: #e9eef5; }
-  .owner-workspace .owner-management-tabs button[aria-selected=true] { background: #0868ed; }
+  .owner-management-menu button[aria-selected=true] { background: #114fae; color: #fff; }
   .owner-profile-card, .owner-hours { font-size: 14px; }
   .owner-profile-card dl > div:nth-child(-n+2) dt { min-width: 85px; }
 }
@@ -250,7 +247,7 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .owner-management-tabs button[data-menu=coupons] { background: #ffe4ef; }
 .owner-management-tabs button[data-menu=events] { background: #e0f7e7; }
 .owner-management-tabs button[data-menu=menu] { background: #e3f3ff; }
-.owner-workspace .owner-management-tabs button[aria-selected=true] { background: #0868ed; }
+.owner-management-menu button[aria-selected=true] { background: #114fae; color: #fff; }
 .owner-panel-banner { margin: 0 0 10px; padding: 10px 12px; border-radius: 14px; font-size: 19px; color: #fff; background: linear-gradient(110deg, #087cca, #1051bb); }
 .owner-panel-coupons .owner-panel-banner { background: linear-gradient(110deg, #b32458, #982453); }
 .owner-panel-events .owner-panel-banner { background: linear-gradient(110deg, #147447, #19693b); }
@@ -309,7 +306,7 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .pilot-photo-actions .pilot-photo-remove { color: #a1263a; background: #fff; border-color: #dc9fa9; }
 .owner-booking :is(input,select,button) { box-sizing: border-box; }
 .owner-booking :is(input:not([type=checkbox]),select) {
-  width: 100%; min-width: 0; max-width: 100%; height: 44px; min-height: 44px; padding: 6px 8px;
+  display: block; width: 100%; min-width: 0; max-width: 100%; height: 44px; min-height: 44px; padding: 6px 8px;
 }
 .owner-booking :is(input[type=date],input[type=time]) { -webkit-min-logical-width: 0; }
 .owner-booking input::-webkit-date-and-time-value { min-width: 0; text-align: start; }
