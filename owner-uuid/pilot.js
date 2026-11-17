@@ -1280,6 +1280,12 @@
           };
           const bookingTab = managementPanel('booking', '예약 관리', '📅');
           const booking = bookingTab.panel;
+          const premiumBooking = append(booking, 'aside', '');
+          premiumBooking.className = 'owner-review-premium';
+          premiumBooking.setAttribute('aria-label', '프리미엄 예약 알림 서비스');
+          append(premiumBooking, 'strong', '👑 프리미엄 예약 알림 서비스');
+          append(premiumBooking, 'p', '프리미엄 업주는 고객의 예약 신청 및 변경 사항을 SMS 문자로 받아보실 수 있습니다.');
+          append(premiumBooking, 'p', '프리미엄 서비스는 현재 준비 중이며, 정식 오픈 시 이용 방법과 요금을 별도로 안내해 드립니다.');
           const bookingStatus=append(booking,'p','');
           bookingStatus.setAttribute('role','status');
           const bookingBody=append(booking,'div','');
