@@ -333,9 +333,27 @@
             };
             return item;
           }
+          function notificationNotice(panel, label) {
+            const notice = append(panel, 'aside', '');
+            notice.className = 'owner-notification-notice';
+            notice.setAttribute('aria-label', label);
+            return notice;
+          }
+          function notificationTier(notice, className, title, description) {
+            const tier = append(notice, 'div', '');
+            tier.className = className;
+            append(tier, 'strong', title);
+            append(tier, 'p', description);
+          }
           const basicTab = managementPanel('info', '기본정보', 'ℹ');
           const galleryTab = managementPanel('photos', '업소 사진', '📷');
           const gallery = galleryTab.panel;
+          const photoNotice = notificationNotice(gallery, '업소 사진 등록 안내');
+          notificationTier(photoNotice, 'owner-notification-basic', '기본 업주 — 무료 사진 등록',
+            '업소를 소개할 수 있는 대표 사진 1장을 무료로 등록하실 수 있습니다. 등록된 사진은 언제든지 교체할 수 있습니다.');
+          notificationTier(photoNotice, 'owner-review-premium', '👑 프리미엄 업주 — 사진 최대 5장',
+            '업소 내부, 시설, 상품 및 서비스 등을 소개하는 사진을 최대 5장까지 등록할 수 있습니다. 프리미엄 서비스는 추후 오픈 예정입니다.');
+          append(photoNotice, 'small', '현재는 기존 사진 등록 기준(최대 20장)이 적용됩니다.');
           const feedback = append(gallery, 'p', '');
           feedback.setAttribute('role', 'status');
           const galleryQuery = '?content=gallery&business=' + encodeURIComponent(business.id);
@@ -659,18 +677,6 @@
           function reviewPublished(panel, row, detail) {
             panel.editPublished(row.id, {title: row.title, description: row.description, detail,
               start_at: row.start_at, end_at: row.end_at});
-          }
-          function notificationNotice(panel, label) {
-            const notice = append(panel, 'aside', '');
-            notice.className = 'owner-notification-notice';
-            notice.setAttribute('aria-label', label);
-            return notice;
-          }
-          function notificationTier(notice, className, title, description) {
-            const tier = append(notice, 'div', '');
-            tier.className = className;
-            append(tier, 'strong', title);
-            append(tier, 'p', description);
           }
           const couponsTab = managementPanel('coupons', '쿠폰', '🎟');
           const coupons = couponsTab.panel;
