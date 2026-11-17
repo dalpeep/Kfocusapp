@@ -677,8 +677,8 @@
           coupons.classList.add('owner-panel-coupons');
           append(coupons, 'h3', '🎟 쿠폰 관리').className = 'owner-panel-banner';
           const couponNotifications = notificationNotice(coupons, '쿠폰 사용 알림 안내');
-          notificationTier(couponNotifications, 'owner-notification-basic', '✉️ 기본 업주 — 무료 이메일 알림 (준비 중)',
-            '쿠폰 사용 확정 내역을 승인된 업주 계정의 인증된 로그인 이메일로 알려드리는 기능을 준비 중입니다. 정확한 이메일 주소를 등록하고 확인해 주세요.');
+          notificationTier(couponNotifications, 'owner-notification-basic', '✉️ 기본 업주 — 무료 이메일 알림',
+            '고객의 쿠폰 사용이 확정되면 발송 조건을 충족하는 승인된 업주 계정의 인증된 로그인 이메일로 사용 내역을 알려드립니다. 정확한 이메일 주소를 등록하고 확인해 주세요.');
           notificationTier(couponNotifications, 'owner-review-premium', '👑 프리미엄 업주 — SMS 쿠폰 알림',
             '프리미엄 업주는 쿠폰 사용 내역을 문자(SMS)로도 받아보실 수 있습니다. 프리미엄 서비스는 추후 오픈 예정입니다.');
           const couponReview = reviewMode && window.OwnerContentReview?.mount(coupons, reviewRequest, business.id, 'coupon');
