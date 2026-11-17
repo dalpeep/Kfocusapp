@@ -16,7 +16,7 @@ function imageType(bytes) {
 
 const rpcNames = new Set(['owner_pilot_status_v1', 'owner_pilot_read_v1', 'owner_pilot_command_v1', 'owner_pilot_gallery_v1', 'owner_pilot_special_v1', 'owner_pilot_special_v2', 'owner_pilot_coupon_v1', 'owner_redeem_coupon_code_v3', 'owner_coupon_history_v3', 'owner_events_v1', 'owner_menu_v1', 'owner_reservations_v1', 'owner_business_hours_v1', 'owner_content_review_v1']);
 
-export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, specialsV2Enabled = false, couponsEnabled = false, contentReviewEnabled = false, reservationIntakeReady = false, transport = fetch}) {
+export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false, specialsEnabled = false, specialsV2Enabled = false, couponsEnabled = false, contentReviewEnabled = false, reservationIntakeReady = false, scheduleCouponMail = () => {}, transport = fetch}) {
   const json = (status, body) => Response.json(body, {status, headers: {'Cache-Control': 'no-store'}});
   const denied = () => json(403, {ok: false, error: '달타운맵에서만 이용할 수 있습니다.'});
   const off = () => json(503, {ok: false, phase1: true, code: 'OWNER_QA_PILOT_OFF',
@@ -138,7 +138,13 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
             const result = await client.rpc('owner_redeem_coupon_code_v3', {
               p_actor: params.p_actor, p_business: business, p_coupon: couponId, p_code: proof,
             });
-            if (!result.error) return json(200, {ok: true, result: result.data});
+            if (!result.error) {
+              if (result.data === 'redeemed' || result.data === 'used') {
+                try { scheduleCouponMail({actor: params.p_actor, business, coupon: couponId, proof}); }
+                catch { console.warn('COUPON_MAIL_SCHEDULE_FAILED'); }
+              }
+              return json(200, {ok: true, result: result.data});
+            }
             return json({OP403: 403, OP503: 503}[result.error.code] || 502, {ok: false});
           }
           if (contentReviewEnabled && method === 'POST' && (coupons || events)) {

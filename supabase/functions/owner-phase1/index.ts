@@ -1,5 +1,6 @@
 import {makeEdgeHandler, origin, supabase} from './handler.generated.mjs';
 import {scheduleReservationMail} from '../_shared/reservation-mail.mjs';
+import {makeCouponMailScheduler} from '../_shared/coupon-use-mail.mjs';
 
 const headers = {
   'Access-Control-Allow-Origin': origin,
@@ -16,7 +17,12 @@ const handle = makeEdgeHandler({projectUrl, serviceKey,
   specialsV2Enabled: Deno.env.get('OWNER_PHASE2_SPECIALS_V2_ENABLED') === 'true',
   contentReviewEnabled: Deno.env.get('OWNER_CONTENT_REVIEW_ENABLED') === 'true',
   reservationIntakeReady: !!Deno.env.get('RESERVATION_TURNSTILE_SECRET_KEY'),
-  couponsEnabled: Deno.env.get('OWNER_PHASE2_COUPONS_ENABLED') === 'true'});
+  couponsEnabled: Deno.env.get('OWNER_PHASE2_COUPONS_ENABLED') === 'true',
+  scheduleCouponMail: makeCouponMailScheduler({
+    project: supabase, service: serviceKey, secret: Deno.env.get('COUPON_NOTIFY_INTERNAL_SECRET'),
+    waitUntil: promise => EdgeRuntime.waitUntil(promise),
+  }),
+});
 
 Deno.serve(async request => {
   if (request.headers.get('origin') !== origin) return new Response(null, {status: 403});
