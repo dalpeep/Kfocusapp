@@ -614,17 +614,13 @@
             try { await loadSpecials(); }
             finally { specialsLoading = false; }
           };
-          const reviewTab = reviewMode && window.OwnerContentReview
-            ? managementPanel('review', '쿠폰·이벤트 심사', '') : null;
-          const reviewPanel = reviewTab && window.OwnerContentReview.mount(reviewTab.panel, reviewRequest, business.id);
-          function reviewPublished(kind, row, detail) {
-            selectTab(reviewTab);
-            const iso = value => Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : '';
-            reviewPanel.editPublished(kind, row.id, {title: row.title, description: row.description, detail,
-              start_at: iso(row.start_at), end_at: iso(row.end_at)});
+          function reviewPublished(panel, row, detail) {
+            panel.editPublished(row.id, {title: row.title, description: row.description, detail,
+              start_at: row.start_at, end_at: row.end_at});
           }
           const couponsTab = managementPanel('coupons', '쿠폰', '🎟');
           const coupons = couponsTab.panel;
+          const couponReview = reviewMode && window.OwnerContentReview?.mount(coupons, reviewRequest, business.id, 'coupon');
           const couponStatus = append(coupons, 'p', '');
           couponStatus.setAttribute('role', 'status');
           const couponBody = append(coupons, 'div', '');
@@ -743,9 +739,9 @@
                 append(item, 'p', row.title + (row.is_active ? ' · 공개' : ' · 비공개'));
                 const edit = append(item, 'button', reviewMode ? '수정 신청' : '수정');
                 edit.type = 'button';
-                edit.hidden = reviewMode && !reviewPanel;
+                edit.hidden = reviewMode && !couponReview;
                 edit.onclick = () => {
-                  if (reviewMode) return reviewPublished('coupon', row, row.discount_label);
+                  if (reviewMode) return reviewPublished(couponReview, row, row.discount_label);
                   selected = row;
                   imageUrl = row.image_url || null;
                   imageFile = undefined;
@@ -849,6 +845,7 @@
 
           let couponsLoading = false;
           couponsTab.activate = async () => {
+            void couponReview?.load();
             if (couponsLoading || couponBusy || couponBody.querySelector('form')) return;
             couponsLoading = true;
             try { await loadCoupons(); }
@@ -856,6 +853,7 @@
           };
           const eventsTab = managementPanel('events', '이벤트', '🎉');
           const events = eventsTab.panel;
+          const eventReview = reviewMode && window.OwnerContentReview?.mount(events, reviewRequest, business.id, 'event');
           const eventStatus = append(events, 'p', '');
           eventStatus.setAttribute('role', 'status');
           const eventBody = append(events, 'div', '');
@@ -944,9 +942,9 @@
                 append(item, 'p', row.title + (!row.is_active ? ' · 종료' : new Date(row.end_at)<=new Date() ? ' · 만료' : new Date(row.start_at)>new Date() ? ' · 공개 예정' : ' · 공개'));
                 const edit = append(item, 'button', reviewMode ? '수정 신청' : '수정');
                 edit.type = 'button';
-                edit.hidden = reviewMode && !reviewPanel;
+                edit.hidden = reviewMode && !eventReview;
                 edit.onclick = () => {
-                  if (reviewMode) return reviewPublished('event', row, row.address);
+                  if (reviewMode) return reviewPublished(eventReview, row, row.address);
                   selected = row;
                   imageUrl = row.image_url || null;
                   imageFile = undefined;
@@ -1014,6 +1012,7 @@
 
           let eventsLoading = false;
           eventsTab.activate = async () => {
+            void eventReview?.load();
             if (eventsLoading || eventBusy || eventBody.querySelector('form')) return;
             eventsLoading = true;
             try { await loadEvents(); }
@@ -1221,15 +1220,20 @@
             bookingBody.replaceChildren();
             const cfg=result.settings||{};
             const form=append(bookingBody,'form','');
-            function field(label,type,value){
-              const input=append(append(form,'label',label),'input','');
+            form.className='owner-booking-form';
+            function field(label,type,value,parent=form){
+              const input=append(append(parent,'label',label),'input','');
               input.type=type;
               if(type==='checkbox')input.checked=!!value;
               else input.value=value;
               return input;
             }
             const enabled=field('예약 기능 켜기','checkbox',cfg.enabled);
-            const days=['일','월','화','수','목','금','토'].map((label,i)=>field(label,'checkbox',(cfg.weekdays||[1,2,3,4,5]).includes(i)));
+            const weekdays=append(form,'fieldset','');
+            weekdays.className='owner-booking-weekdays';
+            append(weekdays,'legend','예약 가능 요일');
+            const dayChoices=append(weekdays,'div','');
+            const days=['일','월','화','수','목','금','토'].map((label,i)=>field(label,'checkbox',(cfg.weekdays||[1,2,3,4,5]).includes(i),dayChoices));
             const opens=field('접수 시작','time',cfg.opens||'09:00');
             const closes=field('접수 종료','time',cfg.closes||'17:00');
             function select(label,choices,value){
@@ -1288,6 +1292,7 @@
             finally { bookingBusy = false; }
           };
           const basic = basicTab.panel;
+          basic.classList.add('owner-basic-panel');
           const publicInfo = append(basic, 'dl', '');
           const publicFields = [['name_ko','업소명'],['name_en','영문 업소명'],['address','주소'],['phone','전화번호']]
             .map(([key,label]) => {
