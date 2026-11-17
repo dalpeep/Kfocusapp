@@ -660,10 +660,25 @@
             panel.editPublished(row.id, {title: row.title, description: row.description, detail,
               start_at: row.start_at, end_at: row.end_at});
           }
+          function notificationNotice(panel, label) {
+            const notice = append(panel, 'aside', '');
+            notice.className = 'owner-notification-notice';
+            notice.setAttribute('aria-label', label);
+            return notice;
+          }
+          function notificationTier(notice, className, title, description) {
+            const tier = append(notice, 'div', '');
+            tier.className = className;
+            append(tier, 'strong', title);
+            append(tier, 'p', description);
+          }
           const couponsTab = managementPanel('coupons', '쿠폰', '🎟');
           const coupons = couponsTab.panel;
           coupons.classList.add('owner-panel-coupons');
           append(coupons, 'h3', '🎟 쿠폰 관리').className = 'owner-panel-banner';
+          const couponNotifications = notificationNotice(coupons, '쿠폰 사용 알림 안내');
+          notificationTier(couponNotifications, 'owner-review-premium', '👑 프리미엄 SMS 알림',
+            '프리미엄 업주는 쿠폰 사용 내역을 문자로도 받아보실 수 있습니다. 프리미엄 서비스는 추후 오픈 예정입니다.');
           const couponReview = reviewMode && window.OwnerContentReview?.mount(coupons, reviewRequest, business.id, 'coupon');
           const couponStatus = append(coupons, 'p', '');
           couponStatus.setAttribute('role', 'status');
@@ -1280,12 +1295,11 @@
           };
           const bookingTab = managementPanel('booking', '예약 관리', '📅');
           const booking = bookingTab.panel;
-          const premiumBooking = append(booking, 'aside', '');
-          premiumBooking.className = 'owner-review-premium';
-          premiumBooking.setAttribute('aria-label', '프리미엄 예약 알림 서비스');
-          append(premiumBooking, 'strong', '👑 프리미엄 예약 알림 서비스');
-          append(premiumBooking, 'p', '프리미엄 업주는 고객의 예약 신청 및 변경 사항을 SMS 문자로 받아보실 수 있습니다.');
-          append(premiumBooking, 'p', '프리미엄 서비스는 현재 준비 중이며, 정식 오픈 시 이용 방법과 요금을 별도로 안내해 드립니다.');
+          const bookingNotifications = notificationNotice(booking, '예약 알림 안내');
+          notificationTier(bookingNotifications, 'owner-notification-basic', '기본 업주 — 무료 이메일 알림',
+            '고객이 예약을 신청하면 승인된 업주 계정의 인증된 로그인 이메일로 예약 알림이 발송됩니다. 알림을 정상적으로 받으실 수 있도록 정확한 이메일 주소를 등록하고 확인해 주세요.');
+          notificationTier(bookingNotifications, 'owner-review-premium', '👑 프리미엄 업주 — SMS 예약 알림',
+            '프리미엄 업주는 예약 신청 및 변경 사항을 SMS 문자로도 받아보실 수 있습니다. 프리미엄 서비스는 추후 오픈 예정입니다.');
           const bookingStatus=append(booking,'p','');
           bookingStatus.setAttribute('role','status');
           const bookingBody=append(booking,'div','');

@@ -130,6 +130,17 @@ dialog{box-sizing:border-box;max-width:min(420px,calc(100vw - 32px));padding:20p
 .owner-review-notice p { margin: 0; }
 .owner-review-premium { margin-top: 6px; padding: 8px 10px; border: 1px solid #e7d5a1; border-radius: 8px; background: #fffaec; color: #624310; }
 .owner-review-premium p { margin-top: 3px; }
+.owner-notification-notice {
+  display: grid; gap: 6px; margin: 0 0 10px; padding: 8px;
+  border: 1px solid #dce6f3; border-radius: 12px; background: #fff; overflow-wrap: anywhere;
+}
+.owner-notification-basic {
+  padding: 8px 10px; border: 1px solid #c9ddfa; border-radius: 8px;
+  background: #edf5ff; color: #153f7a;
+}
+.owner-notification-notice .owner-review-premium { margin-top: 0; }
+.owner-notification-notice p { margin: 3px 0 0; }
+
 .owner-review form { margin: 0 0 10px; }
 .owner-review h3 { margin: 0 0 8px; }
 .owner-review article p { margin: 4px 0; }
