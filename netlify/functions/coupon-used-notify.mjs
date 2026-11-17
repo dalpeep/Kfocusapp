@@ -7,10 +7,10 @@ const uuid = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 const email = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
 const reply = status => new Response(null, {status, headers: {'Cache-Control': 'no-store'}});
 
-export default async function handler(request) {
+export default async function handler(request, context) {
   const timestamp = request.headers.get('X-Coupon-Mail-Time');
   const signature = request.headers.get('X-Coupon-Mail-Signature');
-  if (timestamp === null && signature === null) return legacyHandler(request);
+  if (timestamp === null && signature === null) return legacyHandler(request, context);
   if (request.method !== 'POST') return reply(405);
 
   const secret = process.env.COUPON_NOTIFY_INTERNAL_SECRET;
