@@ -3487,6 +3487,7 @@ function renderHomeBoardSection(type='notice'){
     if(homeCommunityWrite&&!homeCommunityWrite.isConnected)homeCommunityActions?.prepend(homeCommunityWrite);
   }else homeCommunityWrite?.remove();
   $('#communityHomeFilters')?.classList.toggle('hidden',!life);
+  document.querySelector('.community-home-tools')?.classList.toggle('hidden',!life);
   if(promotion){globalThis.DtmCommunity?.renderPromotionHome(homeBoardList,boardPostsByType('business_story'));return;}
   if(life){
     globalThis.DtmCommunity?.renderHome(homeBoardList,selectedHomeCommunityCategory);
@@ -9373,7 +9374,7 @@ async function submitAdRequest(){
       contact_name: document.querySelector("#adName").value,
       phone: document.querySelector("#adPhone").value,
       email: document.querySelector("#adEmail").value,
-      ad_type: document.querySelector("#adType").value,
+      ad_type: '광고 문의',
       message: document.querySelector("#adMessage").value
     });
 
