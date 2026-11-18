@@ -457,15 +457,31 @@ document.addEventListener('error',event=>{
   }
 },true);
 let ui42HomeRequest=0;
+let homeQuery='';
+function ensureHomeSearch(container){
+  const host=container?.parentElement;
+  if(!host||el('communityHomeSearch'))return;
+  const tools=document.createElement('div');
+  tools.className='community-home-tools';
+  tools.innerHTML='<input id="communityHomeSearch" type="search" placeholder="제목, 내용, 지역 검색" aria-label="제목, 내용, 지역 검색"><button type="button" data-home-search>검색</button><button type="button" data-home-reset hidden>필터 초기화</button>';
+  container.before(tools);
+  const input=tools.querySelector('input'),reset=tools.querySelector('[data-home-reset]');
+  const search=()=>{homeQuery=input.value.trim();reset.hidden=!homeQuery;renderHome(container,el('communityHomeFilters')?.querySelector('.active')?.dataset.communityHomeCategory||'all');};
+  tools.querySelector('[data-home-search]').onclick=search;
+  input.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();search();}};
+  reset.onclick=()=>{input.value='';homeQuery='';reset.hidden=true;renderHome(container,'all');};
+}
+
 renderHome=async function(container,selectedCategory='all'){
   if(!container)return;
   ensureUI();
+  ensureHomeSearch(container);
   const category=selectedCategory==='business_promotion'?'business_promotion':ui4Categories.includes(selectedCategory)?selectedCategory:'all';
   ui4RenderCategoryChips(el('communityHomeFilters'),category,'data-community-home-category',false);
   const request=++ui42HomeRequest;
   container.innerHTML='<div class="community-home-empty">커뮤니티 글을 불러오는 중입니다.</div>';
   try{
-    const rows=await rpc('community_list_public_v2',{p_region:cfg().APP_REGION||'dallas',p_category:category==='all'?null:category,p_query:null,p_offset:0,p_limit:3});
+    const rows=await rpc('community_list_public_v2',{p_region:cfg().APP_REGION||'dallas',p_category:category==='all'?null:category,p_query:homeQuery||null,p_offset:0,p_limit:3});
     if(request!==ui42HomeRequest)return;
     if(!Array.isArray(rows))throw Error('Invalid Community response');
     container.innerHTML=rows.length?rows.slice(0,3).map(row=>homeCard(row)).join(''):`<div class="community-home-empty">아직 등록된 ${esc(category==='all'?'커뮤니티':ui4Labels[category])} 글이 없습니다.<button type="button" data-community-write data-community-category-hint="${category==='business_promotion'?'business_promotion':''}">＋ 글쓰기</button></div>`;

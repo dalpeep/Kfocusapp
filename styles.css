@@ -5644,15 +5644,6 @@ body.nearby-businesses-open{overflow:hidden!important}
   box-sizing: border-box;
   margin: 0;
 }
-@media (max-width: 480px) {
-  #page-community #communityCategoryFilters:not([hidden]) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  #page-community #communityCategoryFilters:not([hidden]) button {
-    flex-direction: row;
-    gap: 5px;
-  }
-}
 
 #page-community #communityCategoryFilters button[aria-pressed="true"] {
   background: #174d9c;
@@ -5850,3 +5841,21 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
   color:#174b96; background:#eaf2ff; border-radius:10px;
   text-decoration:none; font-weight:600;
 }
+
+/* The main feed and full community page share the same category presentation. */
+:is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;overflow:visible;
+}
+:is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) button {
+  box-sizing:border-box;width:100%;height:64px;min-height:64px;max-height:none;min-width:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  padding:8px 2px;border:2px solid transparent;border-radius:12px;font-size:12px;
+  line-height:1.2;white-space:nowrap;background:#eff6ff;color:#1d4ed8;
+}
+#communityCategoryFilters button[data-community-category=marketplace]{background:#fff7ed;color:#c2410c}
+#communityCategoryFilters button[data-community-category=housing]{background:#f0fdf4;color:#15803d}
+#communityCategoryFilters button[data-community-category=life_questions]{background:#faf5ff;color:#7e22ce}
+#communityCategoryFilters button[aria-pressed=true]{background:#174d9c;color:#fff;border-color:#174d9c}
+.community-home-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:10px}
+.community-home-tools input{min-width:0;box-sizing:border-box;width:100%;height:42px}
+.community-home-tools button{height:42px;border:0;border-radius:10px;padding:0 12px;background:#1769e0;color:#fff}
