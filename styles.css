@@ -5859,3 +5859,10 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 .community-home-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:10px}
 .community-home-tools input{min-width:0;box-sizing:border-box;width:100%;height:42px}
 .community-home-tools button{height:42px;border:0;border-radius:10px;padding:0 12px;background:#1769e0;color:#fff}
+
+:is(.community-home-card,#page-community) :is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) button{height:64px;min-height:64px;display:flex;flex-direction:column;white-space:normal}
+#page-community #communityCategoryFilters button[data-community-category=marketplace]{background:#fff7ed;color:#c2410c}
+#page-community #communityCategoryFilters button[data-community-category=housing]{background:#f0fdf4;color:#15803d}
+#page-community #communityCategoryFilters button[data-community-category=life_questions]{background:#faf5ff;color:#7e22ce}
+#page-community #communityCategoryFilters button[aria-pressed=true]{background:#174d9c;color:#fff}
+.community-home-tools input{border:1px solid #dbe3ef;border-radius:10px;padding:0 12px}

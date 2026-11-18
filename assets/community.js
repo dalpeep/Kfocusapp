@@ -462,7 +462,7 @@ function ensureHomeSearch(container){
   const host=container?.parentElement;
   if(!host||el('communityHomeSearch'))return;
   const tools=document.createElement('div');
-  tools.className='community-home-tools';
+  tools.className='community-tools community-home-tools';
   tools.innerHTML='<input id="communityHomeSearch" type="search" placeholder="제목, 내용, 지역 검색" aria-label="제목, 내용, 지역 검색"><button type="button" data-home-search>검색</button><button type="button" data-home-reset hidden>필터 초기화</button>';
   container.before(tools);
   const input=tools.querySelector('input'),reset=tools.querySelector('[data-home-reset]');
