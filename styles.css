@@ -5866,3 +5866,8 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 #page-community #communityCategoryFilters button[data-community-category=life_questions]{background:#faf5ff;color:#7e22ce}
 #page-community #communityCategoryFilters button[aria-pressed=true]{background:#174d9c;color:#fff}
 .community-home-tools input{border:1px solid #dbe3ef;border-radius:10px;padding:0 12px}
+
+:is(.community-home-card,#page-community) :is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) button:is([data-community-home-category=marketplace],[data-community-category=marketplace]){background:#fff7ed;color:#c2410c}
+:is(.community-home-card,#page-community) :is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) button:is([data-community-home-category=housing],[data-community-category=housing]){background:#f0fdf4;color:#15803d}
+:is(.community-home-card,#page-community) :is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) button:is([data-community-home-category=life_questions],[data-community-category=life_questions]){background:#faf5ff;color:#7e22ce}
+:is(.community-home-card,#page-community) :is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) button.active{background:#174d9c;color:#fff;border-color:#174d9c}
