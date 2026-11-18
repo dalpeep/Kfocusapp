@@ -1484,11 +1484,22 @@ async function loadApplications() {
       if (!page.is_admin) throw Error('업주 심사 관리자 권한이 필요합니다.');
       return {...page, rows:page.requests, total:page.request_total};
     },20);
+    const scoped = result.rows.filter(row => applicationScope.role==='super_admin' || row.region===applicationScope.area);
     const names = new Map([...result.claim_candidates||[],...result.businesses||[]].map(b => [b.id,b.name_ko||b.name_en]));
-    return result.rows.filter(row => applicationScope.role==='super_admin' || row.region===applicationScope.area)
-      .map(row => ({source:'owner',type:row.kind,id:row.id, title:applicationTypes[row.kind],
+    return scoped.map(row => {
+      const entry={source:'owner',type:row.kind,id:row.id,title:applicationTypes[row.kind],
         business:row.changes?.name_ko||row.changes?.name_en||row.baseline?.name_ko||row.baseline?.name_en||names.get(row.business_id),
-        contact:row.user_id,phone:row.changes?.phone,created:row.created_at,status:row.status,row}));
+        contact:row.user_id,phone:row.changes?.phone,created:row.created_at,status:row.status,row};
+      if (row.kind!=='claim') return entry;
+      const detail=row.claim_detail;
+      const target=detail?.business?.id===row.business_id ? detail.business : null;
+      const businessNames=[target?.name_ko,target?.name_en].filter(Boolean);
+      const primaryName=businessNames[0]||names.get(row.business_id);
+      return {...entry,target,business:businessNames.join(' / ')||primaryName||'미확인',
+        title:primaryName ? primaryName+' 업소 소유권 신청' : '소유권 신청',
+        contact:detail?.applicant_name||'미입력',phone:detail?.applicant_phone||'미입력',
+        email:detail?.applicant_email||'미확인'};
+    });
   };
   const content = async () => {
     let result;
@@ -1572,19 +1583,47 @@ async function openApplication(entry) {
   const dialog=qs('applicationDetail');
   const fields=qs('applicationDetailFields');fields.replaceChildren();
   qs('applicationDetailTitle').textContent=entry.title||applicationTypes[entry.type];
+  const claim=entry.source==='owner' && entry.type==='claim';
   const items=[['업소명',entry.business],['신청자',entry.contact],['처리 상태',applicationStates[entry.status]],
     ['신청일',entry.created?fmtLocal(entry.created):''],
     [row.review_status==='approved'||entry.status==='approved'?'승인일':'처리일',row.reviewed_at?fmtLocal(row.reviewed_at):''],
     ['처리 관리자',row.reviewed_by],['신청 사유',row.submission_reason],['처리 사유',row.review_reason||row.reason],
     ['취소일',row.cancelled_at?fmtLocal(row.cancelled_at):''],['취소 계정',row.cancelled_by]];
-  for (const [key,value] of Object.entries(row.payload||row.changes||{})) if(key!=='operation') items.push([({cancellation_reason:'취소 신청 사유',title:'제목',detail:'혜택·장소',description:'설명',start_at:'시작',end_at:'종료',name_ko:'업소명',name_en:'영문 업소명',address:'주소',phone:'전화',category_ko:'분류'})[key]||key,value]);
+  if (claim) {
+    const detail=row.claim_detail;
+    const evidence=Array.isArray(detail?.evidence)
+      ? detail.evidence.filter(value=>typeof value==='string'&&value.trim()).join(' · ') : detail?.evidence;
+    const history=detail?.history?.map(record=>[
+      record.at ? fmtLocal(record.at) : '',
+      {submit:'신청',approve:'승인',reject:'거절',cancel:'취소'}[record.action]||record.action,
+      record.actor,record.reason
+    ].filter(Boolean).join(' · ')).join(' / ');
+    items.push(
+      ['업소 주소',entry.target?.address||'미확인'],['업소 등록 전화번호',entry.target?.phone||'미확인'],
+      ['신청자 UUID',detail?.applicant_id||'미확인'],['신청자 전화번호',entry.phone],['신청자 이메일',entry.email],
+      ['소유자 연결',entry.target ? (entry.target.linked_owner_id?'연결됨':'미연결') : '미확인'],
+      ['연결 소유자 UUID',entry.target?.linked_owner_id],['증빙 자료',evidence||'미입력'],['처리 이력',history||'기록 없음']);
+  }
+  for (const [key,value] of Object.entries(claim?{}:row.payload||row.changes||{})) if(key!=='operation') items.push([({cancellation_reason:'취소 신청 사유',title:'제목',detail:'혜택·장소',description:'설명',start_at:'시작',end_at:'종료',name_ko:'업소명',name_en:'영문 업소명',address:'주소',phone:'전화',category_ko:'분류'})[key]||key,value]);
   for(const [label,value] of items) if(typeof value==='string'&&value){const name=document.createElement('dt');name.textContent=label;const text=document.createElement('dd');text.textContent=value;fields.append(name,text);}
+  if (claim && entry.target?.is_public===true) {
+    const label=document.createElement('dt');
+    label.textContent='공개 상세';
+    const details=document.createElement('dd');
+    const link=document.createElement('a');
+    link.href='/business/'+encodeURIComponent(entry.target.id);
+    link.textContent='공개 업소 상세 보기';
+    link.target='_blank';
+    link.rel='noopener noreferrer';
+    details.append(link);
+    fields.append(label,details);
+  }
   const actions=qs('applicationReviewActions');
   const area=qs('applicationReviewArea');
   const reason=qs('applicationReviewReason');
   const response=qs('applicationReviewResponse');
   const approve=qs('applicationApprove'), reject=qs('applicationReject');
-  actions.hidden=entry.status!=='pending'||entry.contact===applicationScope.actor;
+  actions.hidden=entry.status!=='pending'||(entry.source==='owner'?row.user_id:entry.contact)===applicationScope.actor;
   area.parentElement.hidden=!(entry.source==='owner'&&entry.type==='new');
   area.value=reason.value=response.textContent='';
   approve.disabled=reject.disabled=false;
