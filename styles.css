@@ -5835,12 +5835,8 @@ html:has(.reservation-dialog[open]) { overflow:hidden; }
 .home-owner-entry span { grid-column:1 / -1; }
 .home-owner-entry a { min-width:0; padding-inline:6px; }
 
-.business-register-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
-.business-register-nav a {
-  display:inline-flex; align-items:center; min-height:44px; padding:0 14px;
-  color:#174b96; background:#eaf2ff; border-radius:10px;
-  text-decoration:none; font-weight:600;
-}
+#page-business-register > .request-card,
+#page-advertise > .request-card { margin-top:0; padding-top:18px; }
 
 /* The main feed and full community page share the same category presentation. */
 :is(#communityHomeFilters,#communityCategoryFilters):not([hidden]) {
