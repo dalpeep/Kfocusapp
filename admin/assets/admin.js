@@ -1,4 +1,4 @@
-import { mountMailSettings } from './mail-settings.js';
+import { mountMailSettings } from './mail-settings.js?v=cards-20261119';
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
 import {initCommunityAdmin} from './community-admin.js?v=community-report-phase1';
 import {mountEventWinnerManager} from './event-winner-manager.js?v=event-winner-phase1';

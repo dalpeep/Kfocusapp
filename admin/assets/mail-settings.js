@@ -22,13 +22,23 @@ export function mountMailSettings(anchor, call) {
     }));
     for (const row of result.recipients) {
       const form = document.createElement('form');
+      form.className = 'admin-mail-recipient';
       const title = document.createElement('h4');
-      title.textContent = row.email + (row.verified ? '' : ' · 확인 대기');
-      form.append(title);
+      title.textContent = row.email;
+      const badge = document.createElement('span');
+      badge.className = 'pill';
+      badge.textContent = row.verified ? '인증 완료' : '확인 대기';
+      form.append(title, badge);
       const enabled = document.createElement('label');
       enabled.innerHTML = '<input type="checkbox"> 알림 활성화';
       enabled.firstElementChild.checked = row.enabled;
       form.append(enabled);
+      const filters = document.createElement('fieldset');
+      filters.className = 'admin-mail-filters';
+      const legend = document.createElement('legend');
+      legend.textContent = '신청 유형';
+      filters.append(legend);
+      form.append(filters);
       const choices = Object.entries(mailKinds).map(([key, label]) => {
         const choice = document.createElement('label');
         const input = document.createElement('input');
@@ -36,7 +46,7 @@ export function mountMailSettings(anchor, call) {
         input.value = key;
         input.checked = row.kinds.includes(key);
         choice.append(input, ' ' + label);
-        form.append(choice);
+        filters.append(choice);
         return input;
       });
       const save = document.createElement('button');
