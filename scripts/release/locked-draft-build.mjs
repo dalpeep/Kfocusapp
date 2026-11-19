@@ -93,6 +93,10 @@ try {
   // paths while publishing the same reviewed authorization fixes as the runtime.
   approved.add('admin/index.html');
   approved.add('admin/assets/admin.js');
+  approved.add('admin/assets/admin.css');
+  approved.add('admin/assets/mail-settings.js');
+  approved.add('admin/assets/mail-confirm.js');
+  approved.add('admin/mail-confirm.html');
   approved.add('netlify/functions/community-admin.js');
   approved.add('netlify/functions/lib/community-security.js');
   if(changed.some(file=>!approved.has(file)))throw Error();
