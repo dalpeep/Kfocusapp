@@ -1,0 +1,8 @@
+/* Pure spatial query. No DOM, SDK, network, credentials or persistent location. */
+(function(root){'use strict';
+function point(p){if(!p||[p.lat,p.lng].some(v=>!['number','string'].includes(typeof v)||String(v).trim()===''))return null;const lat=Number(p.lat),lng=Number(p.lng);return Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180?{lat,lng}:null;}
+function miles(a,b){a=point(a);b=point(b);if(!a||!b)return Infinity;const r=Math.PI/180,dlat=(b.lat-a.lat)*r,dlng=(b.lng-a.lng)*r,x=Math.sin(dlat/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dlng/2)**2;return 3958.8*2*Math.asin(Math.sqrt(Math.min(1,Math.max(0,x))));}
+function inBounds(p,b){p=point(p);if(!p||!b||![b.north,b.south,b.east,b.west].every(Number.isFinite)||b.north<b.south||Math.abs(b.north)>90||Math.abs(b.south)>90||Math.abs(b.east)>180||Math.abs(b.west)>180)return false;return p.lat>=b.south&&p.lat<=b.north&&(b.west<=b.east?p.lng>=b.west&&p.lng<=b.east:p.lng>=b.west||p.lng<=b.east);}
+function query(rows,scope,region){const origin=point(scope?.origin),seen=new Set();if(!scope||(scope.kind!=='viewport'&&!origin))return[];return(rows||[]).filter(b=>{const id=String(b?.id??'');if(!id||seen.has(id)||!point(b)||b.is_active===false||b.list_visible===false||b.deleted_at||(b.region&&String(b.region).toLowerCase()!==String(region).toLowerCase()))return false;const visible=scope.kind==='viewport'?inBounds(b,scope.bounds):miles(origin,b)<=7+1e-9;if(visible)seen.add(id);return visible;}).sort((a,b)=>(origin?miles(origin,a)-miles(origin,b):0)||String(a.id).localeCompare(String(b.id)));}
+const api={point,miles,inBounds,query};root.DtmMapSearch=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+})(globalThis);
