@@ -513,7 +513,7 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "263c77f7b13fc6d18edc78da6d0e88d8a5c525fb105c13277fe31f88675c964f"
+      "sha256": "0faedae7d46e24a07e82f60f7715036723ec958795c3084a98c6e77d0411d68d"
     }
   ],
   "files": [
@@ -1951,6 +1951,18 @@
       "target": "v115-home-section-controls.js",
       "source": "v115-home-section-controls.js",
       "publishedSha1": "2c27cfafc158658f758175066daff91c0c9a1c11"
+    },
+    {
+      "target": "admin/assets/mail-settings.js",
+      "source": "admin/assets/mail-settings.js"
+    },
+    {
+      "target": "admin/assets/mail-confirm.js",
+      "source": "admin/assets/mail-confirm.js"
+    },
+    {
+      "target": "admin/mail-confirm.html",
+      "source": "admin/mail-confirm.html"
     }
   ],
   "seoOrigin": "https://daltownmap.com",

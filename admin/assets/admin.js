@@ -1,3 +1,4 @@
+import { mountMailSettings } from './mail-settings.js?v=cards-20261119';
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
 import {initCommunityAdmin} from './community-admin.js?v=community-v11';
 import {mountEventWinnerManager} from './event-winner-manager.js?v=event-winner-phase1';
@@ -340,6 +341,8 @@ function setStatus(text) {
   safeText('statusPill', text);
 }
 function switchSection(section) {
+  if (section === 'adminMail' && applicationScope?.role !== 'super_admin') return;
+  qs('adminMailTab')?.setAttribute('aria-pressed', String(section === 'adminMail'));
   currentSection = section;
   $$('#adminNav .nav-item').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.section === section);
@@ -1535,6 +1538,21 @@ async function loadApplications() {
   else if (!reviews.value.pending) messages.push('쿠폰·이벤트는 서버의 대기 목록만 표시됩니다. 전체 이력과 정확한 대기 건수는 조회 기능 적용 후 표시됩니다.');
   notice.textContent = messages.join(' ');
   renderApplications();
+  const params = new URLSearchParams(location.search);
+  const mailApplicationId = params.get('applicationId');
+  const mailApplicationType = params.get('applicationType');
+  if (mailApplicationId && mailApplicationType) {
+    const type = mailApplicationType === 'business' ? 'new' : mailApplicationType;
+    const entry = applicationRows.find(row => String(row.id) === mailApplicationId && row.type === type);
+    if (entry) {
+      params.delete('applicationId');
+      params.delete('applicationType');
+      const query = params.toString();
+      history.replaceState(null, '', location.pathname + (query ? '?' + query : '') + location.hash);
+      void openApplication(entry);
+    }
+  }
+
 }
 
 function renderApplications() {
@@ -5930,6 +5948,29 @@ async function loadAdminSession() {
 
   const profile={role:access.role,area:access.area};
   applicationScope = access.source === 'profile' ? {...profile, actor:user.id} : undefined;
+  if (applicationScope?.role === 'super_admin') {
+    const tab = qs('adminMailTab');
+    tab.hidden = false;
+    tab.onclick = () => {
+      switchSection('adminMail');
+      qs('applicationMailSettings').querySelector('details').open = true;
+    };
+    mountMailSettings(qs('applicationMailSettings'), async body => {
+      const {data: {session}} = await supabase.auth.getSession();
+      if (!session) throw new Error('admin session required');
+      const response = await fetch(cfg.SUPABASE_URL + '/functions/v1/admin-application-mail', {
+        method: 'POST', redirect: 'error', cache: 'no-store',
+        headers: {apikey: cfg.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token,
+          'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error('mail settings unavailable');
+      return response.json();
+    });
+  } else {
+    qs('adminMailTab').hidden = true;
+    qs('applicationMailSettings').replaceChildren();
+  }
   window.ADMIN_ROLE = profile.role;
   window.ADMIN_AREA = profile.area;
   console.log('ADMIN_ROLE:', window.ADMIN_ROLE);
