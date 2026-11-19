@@ -31,6 +31,9 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
   ':(exclude)netlify/functions/coupon-used-notify.mjs',
   ':(exclude)docs/migrations/DRAFT-owner-phase1-pilot.sql',
   ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql',
+  // Administrator mail SQL is applied separately from Netlify builds.
+  ':(exclude)docs/migrations/ADD-admin-application-mail.sql',
+  ':(exclude)docs/migrations/ROLLBACK-admin-application-mail.sql',
   // Review-only phase-two SQL, applied separately from Netlify builds.
   ':(exclude)docs/migrations/DRAFT-owner-phase2-gallery.sql',
   ':(exclude)docs/migrations/DRAFT-owner-phase2-coupons.sql',
