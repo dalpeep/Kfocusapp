@@ -17,7 +17,7 @@
   <script src="/assets/request-coordinator.js?v=1"></script>
   <script src="/assets/pagination.js?v=1"></script>
   <script src="/assets/home-selection.js?v=313"></script>
-  <script type="module" src="assets/admin.js?v=application-claim-business-details"></script>
+  <script type="module" src="assets/admin.js?v=admin-mail-cards"></script>
   <script type="module" src="assets/event-routines.js?v=86.0-alert-business-fallback"></script>
   <script type="module" src="assets/newsroom-test.js?v=59.0"></script>
   <script type="module" src="assets/ai-studio.js?v=24.1.0"></script>
@@ -155,6 +155,7 @@
           </p>
         </div>
         <div class="topbar-actions">
+          <button id="adminMailTab" type="button" class="btn ghost" aria-controls="section-adminMail" aria-pressed="false" hidden>이메일 알림 관리</button>
           		 <div class="admin-home-links">
              <button type="button" id="openDallasHome" class="btn ghost">Dallas 홈 보기</button>
              <button type="button" id="openColoradoHome" class="btn ghost">Colorado 홈 보기</button>
@@ -167,6 +168,9 @@
 	  <div id="adminBuildMarker" class="admin-build-marker" data-admin-build="phase1.1-special-editor-20260920.2">Phase 1.1 · 특선 이미지·메뉴 편집기</div>
 	  
 
+      <section id="section-adminMail" class="admin-section" aria-labelledby="adminMailTab">
+        <div id="applicationMailSettings" class="card"></div>
+      </section>
       <section id="section-dashboard" class="admin-section active-section">
         <section class="card integration-hero">
           <div>
