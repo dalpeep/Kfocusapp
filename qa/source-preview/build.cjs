@@ -21,7 +21,7 @@ const topLevel = new Set([
 const tracked = execFileSync('git', ['ls-files', '-z'], {cwd: root, encoding: 'utf8'}).split('\0');
 const includeAdmin = isPreview(process.env) && process.env.REVIEW_ID === '59';
 const paths = [...new Set(tracked.filter(file => topLevel.has(file) ||
-  (includeAdmin && /^admin\/(?:index\.html|assets\/[\w.-]+\.(?:js|css))$/.test(file)) ||
+  (includeAdmin && /^admin\/(?:(?:index|mail-confirm)\.html|assets\/[\w.-]+\.(?:js|css))$/.test(file)) ||
   /^(assets|icons|owner-uuid)\/[\w./-]+\.(?:js|css|html|png|jpe?g|webp|svg|ico|woff2?)$/i.test(file)))];
 for (const file of topLevel) {
   if (!paths.includes(file)) throw Error('MISSING_QA_STATIC_SOURCE: ' + file);
@@ -51,7 +51,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data: blob: " + SUPABASE_URL + "/storage/v1/object/public/ https://maps.googleapis.com https://maps.gstatic.com",
-  "connect-src 'self' " + SUPABASE_URL + "/rest/v1/ " + SUPABASE_URL + "/auth/v1/ https://maps.googleapis.com https://maps.gstatic.com",
+  "connect-src 'self' " + SUPABASE_URL + "/rest/v1/ " + SUPABASE_URL + "/auth/v1/ " + SUPABASE_URL + "/functions/v1/admin-application-mail https://maps.googleapis.com https://maps.gstatic.com",
 ].join('; ');
 fs.writeFileSync(path.join(output, '_headers'),
   '/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: no-store\n  Content-Security-Policy: ' + csp + '\n');

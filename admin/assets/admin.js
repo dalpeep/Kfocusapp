@@ -1,3 +1,4 @@
+import { mountMailSettings } from './mail-settings.js';
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
 import {initCommunityAdmin} from './community-admin.js?v=community-report-phase1';
 import {mountEventWinnerManager} from './event-winner-manager.js?v=event-winner-phase1';
@@ -5695,6 +5696,21 @@ async function loadAdminSession() {
 
   const profile={role:access.role,area:access.area};
   window.ADMIN_ROLE = profile.role;
+  if (profile.role === 'super_admin') {
+    mountMailSettings(document.getElementById('applicationMailSettings'), async body => {
+      const {data: {session}} = await supabase.auth.getSession();
+      if (!session) throw new Error('admin session required');
+      const response = await fetch(cfg.SUPABASE_URL + '/functions/v1/admin-application-mail', {
+        method: 'POST', redirect: 'error', cache: 'no-store',
+        headers: {apikey: cfg.SUPABASE_ANON_KEY, Authorization: 'Bearer ' + session.access_token,
+          'Content-Type': 'application/json'},
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error('mail settings unavailable');
+      return response.json();
+    });
+  }
+
   window.ADMIN_AREA = profile.area;
   console.log('ADMIN_ROLE:', window.ADMIN_ROLE);
   console.log('ADMIN_AREA:', window.ADMIN_AREA);
