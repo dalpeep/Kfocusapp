@@ -341,6 +341,8 @@ function setStatus(text) {
   safeText('statusPill', text);
 }
 function switchSection(section) {
+  if (section === 'adminMail' && window.ADMIN_ROLE !== 'super_admin') return;
+  qs('adminMailTab')?.setAttribute('aria-pressed', String(section === 'adminMail'));
   currentSection = section;
   $$('#adminNav .nav-item').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.section === section);
@@ -5697,6 +5699,13 @@ async function loadAdminSession() {
   const profile={role:access.role,area:access.area};
   window.ADMIN_ROLE = profile.role;
   if (profile.role === 'super_admin') {
+    const tab = qs('adminMailTab');
+    tab.hidden = false;
+    tab.onclick = () => {
+      switchSection('adminMail');
+      const settings = qs('applicationMailSettings').querySelector('details');
+      settings.open = true;
+    };
     mountMailSettings(document.getElementById('applicationMailSettings'), async body => {
       const {data: {session}} = await supabase.auth.getSession();
       if (!session) throw new Error('admin session required');
