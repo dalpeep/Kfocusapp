@@ -394,12 +394,17 @@
               image.loading = 'lazy';
               image.referrerPolicy = 'no-referrer';
               if (/^https?:\/\//i.test(url)) image.src = url;
+              const buttons = append(photo, 'div', '');
+              buttons.className = 'pilot-photo-actions';
+              if (/^https?:\/\//i.test(url)) {
+                const representative = append(buttons, 'button', '대표 지정');
+                representative.type = 'button';
+                representative.onclick = () => void chooseRepresentative(url, representative);
+              }
               if (!url.startsWith(uploadPrefix)) {
                 append(photo, 'small', '관리자 등록 사진');
                 return;
               }
-              const buttons = append(photo, 'div', '');
-              buttons.className = 'pilot-photo-actions';
               const replace = append(buttons, 'button', '교체');
               const remove = append(buttons, 'button', '삭제');
               replace.type = remove.type = 'button';
@@ -411,6 +416,26 @@
                 void changePhotos([], index);
               };
             });
+          }
+
+          async function chooseRepresentative(url, button) {
+            if (busy || current !== generation || !expected) return;
+            busy = button.disabled = true;
+            try {
+              const result = await request(galleryQuery, {expected, representative:url});
+              if (result?.image_url !== url) throw Error('대표 사진 확인 실패');
+              feedback.textContent = '대표 사진을 변경했습니다.';
+            } catch (error) {
+              feedback.textContent = error.status === 409
+                ? '사진 목록이 변경됐습니다. 사진을 다시 확인해 주세요.'
+                : '대표 사진을 변경하지 못했습니다.';
+              if (error.status === 409) {
+                try { expected = await request(galleryQuery); renderPhotos(); }
+                catch { expected = undefined; grid.replaceChildren(); add.disabled = true; }
+              }
+            } finally {
+              busy = button.disabled = false;
+            }
           }
 
           async function changePhotos(files, index) {
