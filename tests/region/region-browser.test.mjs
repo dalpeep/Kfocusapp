@@ -112,6 +112,45 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     await mobile.getByRole('navigation', { name: '하단 메뉴' }).getByRole('link', { name: '지도' }).click();
     await mobile.locator('#map').getByText('검색 반경 450 km', { exact: false }).waitFor();
     await assertFits(mobile);
+    const preview = origin + '/admin/regions/preview/colorado';
+    for (const page of [mobile, desktop]) {
+      await page.goto(preview);
+      const card = page.locator('[data-module="community"]');
+      const categories = card.getByRole('navigation', { name: '커뮤니티 분류' });
+      const buttons = categories.getByRole('link');
+      assert.deepEqual(await buttons.allTextContents().then(labels => labels.map(label => label.trim())),
+        ['전체', '행사안내', '지역 라이프', '업체홍보', '구인·구직', '사고팔기', '부동산', '생활정보·질문']);
+      const layout = await buttons.evaluateAll(links => links.map(link => {
+        const rect = link.getBoundingClientRect();
+        const icon = getComputedStyle(link.querySelector('.community-category-icon'));
+        return { x: rect.left, y: rect.top, shape: icon.borderRadius, color: icon.backgroundColor };
+      }));
+      assert.equal(new Set(layout.map(item => item.x)).size, 4);
+      assert.equal(new Set(layout.map(item => item.y)).size, 2);
+      assert.ok(layout.every(item => item.shape === '50%'));
+      assert.equal(new Set(layout.map(item => item.color)).size, 8);
+      if (process.env.REGION_QA_SCREENSHOT_DIR) {
+        await card.screenshot({ path: process.env.REGION_QA_SCREENSHOT_DIR + '/issue139-' + page.viewportSize().width + '.png' });
+      }
+      await card.getByRole('link', { name: '전체보기' }).click();
+      await page.locator('#community').waitFor();
+      for (const label of ['행사안내', '생활정보·질문', '전체']) {
+        const board = page.locator('#community').getByRole('navigation', { name: '커뮤니티 분류' });
+        await board.getByRole('link', { name: label, exact: true }).click();
+        await page.waitForURL(url => url.hash === '#community' &&
+          url.searchParams.get('board') === (label === '전체' ? null : label));
+        assert.equal(await board.locator('[aria-current="true"]').innerText(), label);
+      }
+      await page.getByRole('navigation', { name: '하단 메뉴' }).getByRole('link', { name: '홈' }).click();
+      await card.waitFor();
+      await assertFits(page);
+    }
+
+    await desktop.goto(origin + '/admin/regions?edit=colorado');
+    await desktop.getByLabel('커뮤니티', { exact: true }).uncheck();
+    await desktop.getByRole('button', { name: '변경 저장' }).click();
+    await desktop.getByRole('link', { name: '미리보기' }).click();
+    assert.equal(await desktop.locator('.community-categories').count(), 0);
   } finally {
     await browser?.close();
     if (server.exitCode === null) {
@@ -126,3 +165,4 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     });
   }
 });
+

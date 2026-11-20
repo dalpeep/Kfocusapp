@@ -29,7 +29,16 @@ const collections = {
 };
 const quickColors = { promotions: '#ff8b00', coupons: '#18bd5c', deals: '#245eee', events: '#8958f5' };
 
-const communityBoards = ['전체', '행사안내', '지역 라이프', '업체홍보', '구인·구직', '사고팔기', '부동산', '생활정보·질문'];
+const communityBoards = [
+  ['전체', '#4756bb', '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'],
+  ['행사안내', '#773dd0', iconPaths.events],
+  ['지역 라이프', '#23734d', '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.9M16 3.2a4 4 0 0 1 0 7.6"/><circle cx="9" cy="7" r="4"/>'],
+  ['업체홍보', '#a84811', '<path d="m3 11 18-6v14L3 14v-3Zm3 4 2 6h3l-2-5"/>'],
+  ['구인·구직', '#2459b7', '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 13h18m-11 0v2h4v-2"/>'],
+  ['사고팔기', '#ac3565', '<path d="M5 8h14l2 13H3L5 8Zm4 0V6a3 3 0 0 1 6 0v2"/>'],
+  ['부동산', '#167083', iconPaths.home],
+  ['생활정보·질문', '#5844a2', iconPaths.community + '<path d="M10 8a2 2 0 1 1 3 1.7c-.7.4-1 1-1 1.8m0 3h.01"/>']
+];
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 
@@ -91,6 +100,15 @@ function filterLinks(key, parameter, values) {
     `<a href="?${index ? parameter + '=' + encodeURIComponent(value) : ''}#${key}">${value}</a>`).join('')}</div>`;
 }
 
+function communityCategories(board) {
+  const active = communityBoards.some(([label]) => label === board) ? board : '전체';
+  return `<nav class="community-categories" aria-label="커뮤니티 분류">${communityBoards.map(([label, color, path]) => {
+    const href = label === '전체' ? '?#community' : '?board=' + encodeURIComponent(label) + '#community';
+    return `<a href="${href}"${label === active ? ' aria-current="true"' : ''}>
+<span class="community-category-icon" style="--category-color:${color}"><svg aria-hidden="true" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${path}</svg></span>
+<span>${label}</span></a>`;
+  }).join('')}</nav>`;
+}
 function screen(key, content) {
   return `<section id="${key}" class="screen" aria-label="${labels[key]}"><h2 class="page-title">${labels[key]}</h2>${content}</section>`;
 }
@@ -118,7 +136,7 @@ export function demoPage(region, preview, query) {
       if (!withinRadius(region.map.center, item, region.map.radiusKm)) return false;
       if (categoryNames.includes(category) && category !== '전체' && item.category !== category) return false;
     }
-    if (key === 'community' && communityBoards.includes(board) && board !== '전체' && item.category !== board) return false;
+    if (key === 'community' && communityBoards.some(([label]) => label === board) && board !== '전체' && item.category !== board) return false;
     return [item.title, item.name, item.category].some(text => String(text ?? '').toLowerCase().includes(term.toLowerCase()));
   });
 
@@ -126,7 +144,7 @@ export function demoPage(region, preview, query) {
     `<label><input type="radio" name="directory-order" ${index ? '' : 'checked'}>${mode}</label>`).join('')}</div>`;
   const homeContent = {
     directory: () => sectionCard('directory', '업소 목록', tabs + businessList(list('directory'))),
-    community: () => sectionCard('community', '커뮤니티', filterLinks('community', 'board', communityBoards) + itemList(list('community'))),
+    community: () => sectionCard('community', '커뮤니티', communityCategories(board) + itemList(list('community'))),
     map: () => sectionCard('map', '지역 지도', `<p class="empty">중심 ${region.map.center.lat}, ${region.map.center.lng} · 검색 반경 ${region.map.radiusKm} km</p>`)
   };
   const priority = region.home.layout;
@@ -135,7 +153,7 @@ export function demoPage(region, preview, query) {
     if (key === 'map') return screen(key, searchForm(key, term, '업소 검색') + mapPanel(region) + businessList(list(key)));
     if (key === 'directory') return screen(key, searchForm(key, term, '업소명, 카테고리, 지역 검색') +
       '<br>' + filterLinks(key, 'category', categoryNames) + businessList(list(key)));
-    if (key === 'community') return screen(key, filterLinks(key, 'board', communityBoards) + itemList(list(key)));
+    if (key === 'community') return screen(key, communityCategories(board) + itemList(list(key)));
     if (key === 'ownerRegister' || key === 'ownerPortal') return screen(key,
       `<article class="card"><p>QA 관리자 로그인으로 등록·수정·소유권 신청을 테스트할 수 있습니다.</p>
 <a href="/admin/businesses?region=${escape(region.slug)}">업소관리 열기</a></article>`);
@@ -170,3 +188,4 @@ ${searchForm('search', term, '업소 / 쿠폰 / 게시판 검색')}
 ${term ? `<div class="search-results">${searchKeys.map(key => `<section><h3>${labels[key]}</h3>${itemList(list(key), '검색 결과가 없습니다.')}</section>`).join('') || '<p>검색 가능한 기능이 없습니다.</p>'}</div>` : ''}
 </section></div></body></html>`;
 }
+
