@@ -53,3 +53,7 @@ Dallas 관리자는 Supabase의 운영 `businesses` 테이블을 사용합니다
 ### Colorado 지역 설정과 owner-test 사전점검
 
 관리자 지역 범위에서 Colorado 전체, Denver, Aurora 또는 직접 설정을 선택할 수 있습니다. 신규 지역 생성은 기본 비공개이고 레코드는 비어 있습니다. 주 전체의 450km 값은 검색 반경 기본값입니다. [Issue #138 조사 및 승인 계획](audit/issue-138-owner-test-plan.md)을 참고하세요.
+
+### owner-test 독립 QA
+
+Issue #138에서 승인한 독립 QA 구현과 테스트 방법은 [owner-test QA 운영 기록](owner-test/README.md)에 있습니다.
