@@ -102,6 +102,16 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     for (const region of stored) {
       assert.ok(Object.values(region.content).every(items => items.length === 0));
     }
+    await addRegion(mobile, '콜로라도', 'colorado');
+    assert.equal(await mobile.getByLabel('지역 범위').inputValue(), 'colorado');
+    assert.equal(await mobile.getByLabel('도시·하위 지역').inputValue(), '');
+    assert.equal(await mobile.getByLabel('검색 반경 (km)').inputValue(), '450');
+    assert.equal((await mobile.request.get(origin + '/regions/colorado')).status(), 404);
+    await mobile.getByRole('link', { name: '미리보기' }).click();
+    await mobile.getByText('콜로라도맵', { exact: true }).first().waitFor();
+    await mobile.getByRole('navigation', { name: '하단 메뉴' }).getByRole('link', { name: '지도' }).click();
+    await mobile.locator('#map').getByText('검색 반경 450 km', { exact: false }).waitFor();
+    await assertFits(mobile);
   } finally {
     await browser?.close();
     if (server.exitCode === null) {
@@ -116,8 +126,3 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     });
   }
 });
-
-
-
-
-

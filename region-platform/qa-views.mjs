@@ -1,5 +1,5 @@
 import { createRegion, REGION_STATUS } from './region-config.mjs';
-import { menuKeys } from './qa-settings.mjs';
+import { areaOptions, menuKeys } from './qa-settings.mjs';
 export { demoPage } from './qa-app.mjs';
 
 const modules = {
@@ -79,12 +79,16 @@ ${regions.length ? `<ul>${regions.map(item =>
 <fieldset><legend>지역 정보</legend><div class="fields">
 ${input('지역 이름', 'name', region?.name, 'required maxlength="120"')}
 ${input('주소 이름', 'slug', region?.slug, 'pattern="[a-z][a-z0-9\\-]{0,61}[a-z0-9]" ' + (region ? 'readonly' : ''))}
-${input('주·도', 'state', data.state, 'maxlength="120"')}</div></fieldset>
+${select('지역 범위', 'areaPreset', data.geography?.preset ?? '', areaOptions)}
+${input('주·도', 'state', data.state, 'maxlength="120"')}
+${input('도시·하위 지역', 'subregion', data.geography?.subregion, 'maxlength="120"')}
+</div></fieldset>
 <fieldset><legend>지도 및 검색</legend><div class="fields">
 ${input('중심 위도', 'lat', region?.map.center.lat, 'type="number" step="any" min="-90" max="90"')}
 ${input('중심 경도', 'lng', region?.map.center.lng, 'type="number" step="any" min="-180" max="180"')}
 ${input('확대 수준', 'zoom', region?.map.zoom, 'type="number" min="3" max="18"')}
-${input('검색 반경 (km)', 'radiusKm', data.map.radiusKm ?? 35, 'type="number" required step="any" min="1" max="200"')}
+${input('검색 반경 (km)', 'radiusKm', region?.map.radiusKm, 'type="number" step="any" min="1" max="500" placeholder="자동"')}
+
 </div></fieldset>
 <fieldset><legend>메인 디자인</legend><div class="fields">
 ${select('테마', 'preset', data.theme.preset, presets)}
@@ -96,13 +100,12 @@ ${input('배너 설명', 'bannerText', data.home.banner?.message, 'maxlength="14
 ${input('배너 이미지 URL (HTTPS)', 'bannerImage', data.home.banner?.image, 'type="url" maxlength="1024"')}
 ${input('메뉴 순서', 'menuOrder', data.home.menuOrder?.join(', '), 'aria-describedby="menu-order-help"')}
 <p id="menu-order-help">${menuKeys.join(', ')}</p>
+
 </div></fieldset>
 <fieldset><legend>표시할 기능</legend><div class="fields">
 ${Object.entries(modules).map(([key, [label]]) => checkbox(label, key, (data.modules[key] ?? true))).join('')}
+
 </div></fieldset>
 ${checkbox('데모 공개', 'public', data.status === REGION_STATUS.demo)}
 <button>${region ? '변경 저장' : '지역 생성'}</button></form></section></div>`);
 }
-
-
-

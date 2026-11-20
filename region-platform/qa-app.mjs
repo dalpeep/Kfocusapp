@@ -155,7 +155,7 @@ ${preview ? '<div class="preview-note">관리자 미리보기 <a href="/admin/re
 ${enabled('ownerPortal') ? `<section class="owner"><p>업소를 운영하시나요?</p><div class="owner-links"><a href="#ownerRegister">내 업소 등록</a><a href="#ownerPortal">${icon('directory')}내 업소관리</a></div></section>` : ''}
 <section class="card hero" aria-label="메인 배너"><div class="hero-art">
 ${banner.image ? `<img src="${escape(banner.image)}" alt="">` : ''}
-<div class="hero-copy"><small>${escape(region.state || 'DalTownMap')}</small><h2>${escape(banner.title || title)}</h2>
+<div class="hero-copy"><small>${escape([region.state, region.geography?.subregion].filter(Boolean).join(' · ') || 'DalTownMap')}</small><h2>${escape(banner.title || title)}</h2>
 <p>${escape(banner.message || '지역 소식과 한인 업소를 한곳에서')}</p></div></div><span class="hero-dot" aria-hidden="true"></span></section>
 ${featured.length ? `<section class="quick"><h2>오늘의 ${escape(title)}</h2><div class="quick-links">${featured.map(key =>
   `<a href="#${key}"><span class="quick-icon" style="--icon-color:${quickColors[key]}">${icon(key)}</span>${labels[key]}</a>`).join('')}</div></section>` : ''}
@@ -170,5 +170,3 @@ ${searchForm('search', term, '업소 / 쿠폰 / 게시판 검색')}
 ${term ? `<div class="search-results">${searchKeys.map(key => `<section><h3>${labels[key]}</h3>${itemList(list(key), '검색 결과가 없습니다.')}</section>`).join('') || '<p>검색 가능한 기능이 없습니다.</p>'}</div>` : ''}
 </section></div></body></html>`;
 }
-
-
