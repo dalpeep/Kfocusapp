@@ -4,8 +4,11 @@ import { REGION_STATUS } from '../../region-config.mjs';
 import { saveRegion } from '../../qa-settings.mjs';
 import { adminPage, demoPage, page } from '../../qa-views.mjs';
 
+import { manageBusinesses } from '../../qa-business.mjs';
+import { businessAdminPage } from '../../qa-business-views.mjs';
+
 export const config = {
-  path: ['/', '/admin', '/admin/regions', '/admin/regions/preview/:slug', '/regions/:slug']
+  path: ['/', '/admin', '/admin/regions', '/admin/businesses', '/admin/regions/preview/:slug', '/regions/:slug']
 };
 
 const headers = {
@@ -66,6 +69,40 @@ export default async function handler(request) {
     const store = getDeployStore({ name: 'daltownmap-region-qa-136', consistency: 'strong' });
     const saved = await store.getWithMetadata('regions', { type: 'json' });
     const regions = saved?.data || [];
+    if (route === '/admin/businesses') {
+      const slug = url.searchParams.get('region');
+      const region = regions.find(item => item.slug === slug && item.status !== REGION_STATUS.disabled);
+      if (slug && !region) return respond(page('지역을 찾을 수 없습니다', '지역을 확인하세요.'), 404);
+      if (request.method === 'GET') {
+        const id = url.searchParams.get('id');
+        if (id && !region?.businessQa?.records.some(record => record.id === id)) {
+          return respond(page('업소를 찾을 수 없습니다', '선택한 지역에 등록된 업소를 확인하세요.'), 404);
+        }
+        return respond(businessAdminPage(regions, region, id));
+      }
+      if (request.method !== 'POST') return respond(page('요청 오류', '지원하지 않는 요청입니다.'), 405);
+      if (!region || request.headers.get('origin') !== url.origin ||
+          request.headers.get('content-type')?.split(';')[0] !== 'application/x-www-form-urlencoded') {
+        return respond(page('접근 제한', 'QA 관리자에서 지역을 선택한 뒤 다시 시도하세요.'), 403);
+      }
+      const form = await readForm(request);
+      if (!form) return respond(page('입력 오류', '입력값 길이를 확인하세요.'), 413);
+      const id = form.get('id');
+      let updated;
+      try {
+        updated = manageBusinesses(regions, slug, form);
+      } catch (error) {
+        if (error.message === 'NOT_FOUND') return respond(page('업소를 찾을 수 없습니다', '선택한 지역에 등록된 업소를 확인하세요.'), 404);
+        if (!/^[A-Z_]+$/.test(error.message)) throw error;
+        return respond(businessAdminPage(regions, region, id, error.message), 400);
+      }
+      const { modified } = await store.setJSON('regions', updated, { onlyIfMatch: saved.etag });
+      if (!modified) return respond(page('저장 충돌', '업소관리 화면을 새로 열고 다시 저장하세요.'), 409);
+      const current = updated.find(item => item.slug === slug);
+      const selected = form.get('action') === 'create' ? current.businessQa.records.at(-1).id :
+        current.businessQa.records.find(record => record.id === id)?.id;
+      return respond(null, 303, { Location: `/admin/businesses?region=${slug}${selected ? '&id=' + selected : ''}` });
+    }
     if (request.method === 'POST' && route === '/admin/regions') {
       if (request.headers.get('origin') !== url.origin ||
           request.headers.get('content-type')?.split(';')[0] !== 'application/x-www-form-urlencoded') {
@@ -95,8 +132,8 @@ export default async function handler(request) {
     }
     if (route === '/') {
       const publicRegions = regions.filter(region => region.status === REGION_STATUS.demo);
-      return respond(page('달타운맵 지역 QA', `<h1>달타운맵 지역 QA</h1>
-        <nav><a href="/admin/regions">관리자 지역 관리</a></nav>
+      return respond(page('온라인업소록', `<h1>온라인업소록</h1>
+        <nav><a href="/admin/regions">관리자 지역 관리</a> <a href="/admin/businesses">업소관리</a></nav>
         ${publicRegions.length ? '<ul>' + publicRegions.map(region =>
           `<li><a href="/regions/${region.slug}">${region.slug}</a></li>`).join('') + '</ul>' :
           '<p>공개된 지역이 없습니다.</p>'}`));
@@ -113,4 +150,5 @@ export default async function handler(request) {
     return respond(page('요청 처리 오류', '잠시 후 다시 시도하세요.'), 500);
   }
 }
+
 

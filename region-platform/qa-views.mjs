@@ -65,7 +65,7 @@ export function adminPage(regions, region, error) {
   const defaults = createRegion({ name: 'QA', slug: 'qa', center: { lat: 0, lng: 0 } });
   const data = region || defaults;
   return page('지역 관리', `<header><h1>지역 관리</h1></header>
-<nav aria-label="지역 관리"><a href="/admin/regions">신규 지역 추가</a>
+<nav aria-label="지역 관리"><a href="/admin/regions">신규 지역 추가</a> <a href="/admin/businesses${region ? '?region=' + data.slug : ''}">업소관리</a>
 ${region ? `<a href="/admin/regions/preview/${data.slug}">미리보기</a>
 ${data.status === REGION_STATUS.demo ? `<a href="/regions/${data.slug}">공개 데모 열기</a>` : ''}` : ''}</nav>
 ${error ? `<p role="alert">저장 실패 (${escape(error)})</p>` : ''}
@@ -103,5 +103,6 @@ ${Object.entries(modules).map(([key, [label]]) => checkbox(label, key, (data.mod
 ${checkbox('데모 공개', 'public', data.status === REGION_STATUS.demo)}
 <button>${region ? '변경 저장' : '지역 생성'}</button></form></section></div>`);
 }
+
 
 

@@ -6,7 +6,7 @@ export const appStyles = `
 .header-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:16px;color:#fff;background:#ffffff2c}
 .header-icon svg{width:23px;height:23px}.brand{display:flex;justify-content:center;align-items:center;gap:8px;color:white;min-width:0}
 .brand img{width:38px;height:38px;background:white;border-radius:10px;object-fit:contain;padding:2px}
-.brand h1{font-size:21px;letter-spacing:-.04em;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.brand-names{min-width:0}.brand-names span{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.business-results li{display:flex;align-items:flex-start;gap:10px}.business-results p{margin:3px 0;font-size:13px}.business-photo{width:72px;height:64px;object-fit:cover;border-radius:9px;flex:none}.brand h1{font-size:21px;letter-spacing:-.04em;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pages{padding:18px 10px 8px}.screen{display:none;scroll-margin-top:80px}.screen#home,.screen:target{display:block}
 .pages:has(.screen:not(#home):target) #home{display:none}
 .screen h2,.card h2{font-size:23px;letter-spacing:-.045em;margin:0}.screen>.page-title{margin:2px 2px 14px}
@@ -35,4 +35,5 @@ body:not(:has(.screen:not(#home):target)) .bottom-nav a[href="#home"] span,body:
 .map-frame{border:1px solid #d4e0f8;border-radius:15px;width:100%;height:min(56dvh,490px);display:block;margin:10px 0}
 .owner-form{border:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.owner-form label{min-width:0;font-size:13px}.owner-form input{display:block;width:100%;border:1px solid #d4e0f8;padding:8px;border-radius:8px;background:white}.owner-form button{grid-column:1/-1;padding:8px;border:0;border-radius:8px;background:#d5e1f4;color:#435674}.small{font-size:13px;color:#556785}.visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 `;
+
 

@@ -55,7 +55,10 @@ export function saveRegion(regions, slug, form) {
   const candidate = registerRegion(editing ? [] : regions, input).at(-1);
   candidate.map.radiusKm = radiusKm;
   candidate.status = form.has('public') ? REGION_STATUS.demo : REGION_STATUS.draft;
-  if (previous) candidate.content = previous.content;
+  if (previous) {
+    candidate.content = previous.content;
+    if (previous.businessQa) candidate.businessQa = previous.businessQa;
+  }
   let updated = updateRegionPresentation(candidate, {
     preset: form.get('preset') || 'daltown-default',
     primaryColor: form.get('primaryColor') || null,
@@ -76,4 +79,5 @@ export function saveRegion(regions, slug, form) {
   }
   return [...regions.filter(region => region.slug !== slug), updated];
 }
+
 

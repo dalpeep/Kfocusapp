@@ -49,7 +49,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     await assertFits(desktop);
     assert.equal((await mobile.goto(origin + '/regions/houston')).status(), 404);
     await desktop.getByRole('link', { name: '미리보기' }).click();
-    await desktop.getByRole('heading', { name: '휴스턴맵', level: 1 }).waitFor();
+    await desktop.getByRole('heading', { name: '온라인업소록', level: 1 }).waitFor();
     await desktop.getByRole('navigation', { name: '하단 메뉴' }).getByRole('link', { name: '지도' }).click();
     await desktop.getByTitle('지역 지도').waitFor();
     assert.match(await desktop.getByTitle('지역 지도').getAttribute('src'), /marker=29.76%2C-95.37/);
@@ -65,7 +65,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     await desktop.getByRole('button', { name: '변경 저장' }).click();
     await desktop.getByRole('link', { name: '공개 데모 열기' }).waitFor();
     assert.equal((await mobile.goto(origin + '/regions/houston')).status(), 200);
-    await mobile.getByRole('heading', { name: '휴스턴맵', level: 1 }).waitFor();
+    await mobile.getByRole('heading', { name: '온라인업소록', level: 1 }).waitFor();
     assert.equal(await mobile.locator('.home-card').first().getAttribute('data-module'), 'community');
     assert.equal(await mobile.locator('#coupons').count(), 0);
     assert.equal(await mobile.locator('html').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(248, 241, 229)');
@@ -79,7 +79,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     await addRegion(mobile, '오스틴', 'austin');
     await assertFits(mobile);
     await mobile.getByRole('link', { name: '미리보기' }).click();
-    await mobile.getByRole('heading', { name: '오스틴맵', level: 1 }).waitFor();
+    await mobile.getByRole('heading', { name: '온라인업소록', level: 1 }).waitFor();
     assert.equal(await mobile.locator('#coupons').count(), 1);
     assert.equal(await mobile.getByRole('heading', { name: '휴스턴 행사 소식' }).count(), 0);
     await mobile.getByRole('link', { name: '메뉴 열기' }).click();
@@ -116,6 +116,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     });
   }
 });
+
 
 
 

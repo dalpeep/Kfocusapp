@@ -6,6 +6,9 @@ import { REGION_STATUS } from './region-config.mjs';
 import { saveRegion } from './qa-settings.mjs';
 import { adminPage, demoPage, page } from './qa-views.mjs';
 
+import { manageBusinesses } from './qa-business.mjs';
+import { businessAdminPage } from './qa-business-views.mjs';
+
 const port = Number(process.env.REGION_QA_PORT || 4176);
 const origin = `http://127.0.0.1:${port}`;
 const storage = process.env.REGION_QA_FILE ? resolve(process.env.REGION_QA_FILE) : null;
@@ -41,7 +44,17 @@ createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'image/png' });
       return res.end(logo);
     }
-    if (req.method === 'POST' && route === '/admin/regions') {
+    const isBusiness = route === '/admin/businesses';
+    const scope = isBusiness && url.searchParams.get('region');
+    if (isBusiness && req.method === 'GET') {
+      const region = regions.find(item => item.slug === scope && item.status !== REGION_STATUS.disabled);
+      const id = url.searchParams.get('id');
+      if ((scope && !region) || (id && !region?.businessQa?.records.some(record => record.id === id))) {
+        return send(res, 404, page('업소를 찾을 수 없습니다', '선택한 지역과 업소를 확인하세요.'));
+      }
+      return send(res, 200, businessAdminPage(regions, region, id));
+    }
+    if (req.method === 'POST' && (route === '/admin/regions' || isBusiness)) {
       if (req.headers.origin !== origin || !req.headers['content-type']?.startsWith('application/x-www-form-urlencoded')) {
         return send(res, 403, page('접근 제한', '로컬 QA 화면에서 다시 시도하세요.'));
       }
@@ -51,10 +64,18 @@ createServer(async (req, res) => {
         if (body.length > 8192) return send(res, 413, page('입력 오류', '입력값이 너무 깁니다.'));
       }
       const form = new URLSearchParams(body);
-      let slug = form.get('slug')?.trim();
+      let slug = isBusiness ? scope : form.get('slug')?.trim();
+      let location;
       const operation = writes.then(async () => {
-        const updated = saveRegion(regions, slug, form);
-        slug = updated.at(-1).slug;
+        const updated = isBusiness ? manageBusinesses(regions, slug, form) : saveRegion(regions, slug, form);
+        if (isBusiness) {
+          const records = updated.find(item => item.slug === slug).businessQa.records;
+          const id = form.get('action') === 'create' ? records.at(-1).id : records.find(record => record.id === form.get('id'))?.id;
+          location = `/admin/businesses?region=${slug}${id ? '&id=' + id : ''}`;
+        } else {
+          slug = updated.at(-1).slug;
+          location = `/admin/regions?edit=${slug}`;
+        }
         if (storage) {
           const temporary = `${storage}.${randomUUID()}.tmp`;
           await writeFile(temporary, JSON.stringify(updated), { flag: 'wx' });
@@ -67,9 +88,13 @@ createServer(async (req, res) => {
         await operation;
       } catch (error) {
         const validation = /^[A-Z_]+$/.test(error.message);
+        if (isBusiness && validation) {
+          if (error.message === 'NOT_FOUND') return send(res, 404, page('업소를 찾을 수 없습니다', '선택한 지역과 업소를 확인하세요.'));
+          return send(res, 400, businessAdminPage(regions, regions.find(item => item.slug === slug), form.get('id'), error.message));
+        }
         return send(res, validation ? 400 : 500, adminPage(regions, null, validation ? error.message : '저장소에 기록할 수 없습니다.'));
       }
-      res.writeHead(303, { Location: `/admin/regions?edit=${slug}`, 'Cache-Control': 'no-store' });
+      res.writeHead(303, { Location: location, 'Cache-Control': 'no-store' });
       return res.end();
     }
     if (req.method !== 'GET') return send(res, 405, page('요청 오류', '지원하지 않는 요청입니다.'));
@@ -87,6 +112,7 @@ createServer(async (req, res) => {
     return send(res, 500, page('요청 처리 오류', '잠시 후 다시 시도하세요.'));
   }
 }).listen(port, '127.0.0.1', () => console.log(origin + '/admin/regions'));
+
 
 
 

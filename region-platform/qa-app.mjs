@@ -1,4 +1,5 @@
 import { appStyles } from './qa-app-styles.mjs';
+import { businessCategories, publicBusinesses } from './qa-business.mjs';
 import { regionBrand } from './qa-settings.mjs';
 
 const iconPaths = {
@@ -18,7 +19,7 @@ const icon = name => `<svg aria-hidden="true" viewBox="0 0 24 24" width="22" hei
 const labels = {
   home: '홈', directory: '업소', coupons: '쿠폰', map: '지도', guide: '가이드',
   promotions: '프로모션', deals: '할인', events: '이벤트', community: '커뮤니티',
-  jobs: '구인·구직', ownerPortal: '내 업소관리', ownerRegister: '내 업소 등록',
+  jobs: '구인·구직', ownerPortal: '업소관리', ownerRegister: '내 업소 등록',
   localAds: '한 줄 광고', reservations: '예약'
 };
 const collections = {
@@ -27,7 +28,7 @@ const collections = {
   guide: 'guides'
 };
 const quickColors = { promotions: '#ff8b00', coupons: '#18bd5c', deals: '#245eee', events: '#8958f5' };
-const categoryNames = ['전체', '식당', '카페', '마트', '병원', '교회', '생활 서비스'];
+
 const communityBoards = ['전체', '행사안내', '지역 라이프', '업체홍보', '구인·구직', '사고팔기', '부동산', '생활정보·질문'];
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -66,6 +67,15 @@ function itemList(items, empty = '등록된 콘텐츠가 없습니다.') {
     `<p class="empty">${empty}</p>`;
 }
 
+function businessList(items) {
+  if (!items.length) return itemList(items);
+  return `<ul class="results business-results">${items.map(item => `<li>
+${item.image ? `<img class="business-photo" src="${escape(item.image)}" alt="" loading="lazy">` : ''}
+<div><strong>${escape(item.name)}</strong><p>${escape(item.category)} · ${escape(item.address)}</p>
+${item.contact ? `<p>${escape(item.contact)}</p>` : ''}
+<a href="https://www.openstreetmap.org/?mlat=${item.lat}&amp;mlon=${item.lng}#map=17/${item.lat}/${item.lng}">지도 위치</a></div>
+</li>`).join('')}</ul>`;
+}
 function sectionCard(key, title, body, link = true) {
   return `<article class="card home-card" data-module="${key}"><div class="card-head"><h2>${icon(key)}${title}</h2>${link ? `<a href="#${key}">전체보기</a>` : ''}</div>${body}</article>`;
 }
@@ -87,6 +97,8 @@ function screen(key, content) {
 
 export function demoPage(region, preview, query) {
   const title = regionBrand(region.name);
+  const categoryNames = ['전체', ...businessCategories(region)];
+  const businesses = publicBusinesses(region);
   const enabled = key => region.modules[key] ?? ['guide', 'promotions', 'deals'].includes(key);
   const menu = region.home.menuOrder ?? [];
   const ordered = keys => [...menu.filter(key => keys.includes(key)), ...keys.filter(key => !menu.includes(key))].filter(enabled);
@@ -101,7 +113,7 @@ export function demoPage(region, preview, query) {
   const term = (query.get('q') || '').trim().slice(0, 100);
   const category = query.get('category');
   const board = query.get('board');
-  const list = key => (region.content[collections[key]] || []).filter(item => {
+  const list = key => (collections[key] === 'businesses' ? businesses : region.content[collections[key]] || []).filter(item => {
     if (key === 'directory' || key === 'map') {
       if (!withinRadius(region.map.center, item, region.map.radiusKm)) return false;
       if (categoryNames.includes(category) && category !== '전체' && item.category !== category) return false;
@@ -113,35 +125,29 @@ export function demoPage(region, preview, query) {
   const tabs = `<div class="tabs" aria-label="업소 정렬">${['추천', '신규', '인기'].map((mode, index) =>
     `<label><input type="radio" name="directory-order" ${index ? '' : 'checked'}>${mode}</label>`).join('')}</div>`;
   const homeContent = {
-    directory: () => sectionCard('directory', '업소 목록', tabs + itemList(list('directory'))),
+    directory: () => sectionCard('directory', '업소 목록', tabs + businessList(list('directory'))),
     community: () => sectionCard('community', '커뮤니티', filterLinks('community', 'board', communityBoards) + itemList(list('community'))),
     map: () => sectionCard('map', '지역 지도', `<p class="empty">중심 ${region.map.center.lat}, ${region.map.center.lng} · 검색 반경 ${region.map.radiusKm} km</p>`)
   };
   const priority = region.home.layout;
   const homeSections = [...new Set([priority, 'directory', 'community'])].filter(key => Object.hasOwn(homeContent, key) && enabled(key));
   const appScreens = drawer.map(key => {
-    if (key === 'map') return screen(key, searchForm(key, term, '업소 검색') + mapPanel(region) + itemList(list(key)));
+    if (key === 'map') return screen(key, searchForm(key, term, '업소 검색') + mapPanel(region) + businessList(list(key)));
     if (key === 'directory') return screen(key, searchForm(key, term, '업소명, 카테고리, 지역 검색') +
-      '<br>' + filterLinks(key, 'category', categoryNames) + itemList(list(key)));
+      '<br>' + filterLinks(key, 'category', categoryNames) + businessList(list(key)));
     if (key === 'community') return screen(key, filterLinks(key, 'board', communityBoards) + itemList(list(key)));
-    if (key === 'ownerRegister') return screen(key, `<article class="card"><p>지역 업소 등록 신청</p>
-      <fieldset class="owner-form" disabled>
-        <label>업소명<input placeholder="업소명"></label><label>담당자<input placeholder="담당자"></label>
-        <label>전화번호<input type="tel" placeholder="전화번호"></label><label>이메일<input type="email" placeholder="이메일"></label>
-        <label>업종<input placeholder="업종"></label><label>주소<input placeholder="주소"></label>
-        <label>웹사이트 (선택사항)<input type="url" placeholder="https://"></label>
-        <button type="button">업소 등록 신청</button>
-      </fieldset><p class="empty">QA에서는 신청 정보를 받지 않습니다.</p></article>`);
-    if (key === 'ownerPortal') return screen(key, '<p class="empty">업주 계정 연결을 준비 중입니다.</p>');
+    if (key === 'ownerRegister' || key === 'ownerPortal') return screen(key,
+      `<article class="card"><p>QA 관리자 로그인으로 등록·수정·소유권 신청을 테스트할 수 있습니다.</p>
+<a href="/admin/businesses?region=${escape(region.slug)}">업소관리 열기</a></article>`);
     return screen(key, itemList(list(key)));
   }).join('');
   const searchKeys = ['directory', 'coupons', 'community', 'events'].filter(enabled);
   return `<!doctype html><html lang="ko" style="--surface:${surface};--accent:${accent}"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>${escape(title)}</title><style>${appStyles}</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>온라인업소록</title><style>${appStyles}</style>
 </head><body><div class="app-shell">
 <header class="app-header">
 <a class="header-icon" href="#menu" aria-label="메뉴 열기">${icon('menu')}</a>
-<a class="brand" href="#home"><img src="${escape(region.theme.logoUrl || '/qa-ui/kfocus-icon.png')}" alt=""><h1>${escape(title)}</h1></a>
+<a class="brand" href="#home"><img src="${escape(region.theme.logoUrl || '/qa-ui/kfocus-icon.png')}" alt=""><div class="brand-names"><h1>온라인업소록</h1><span>${escape(title)}</span></div></a>
 <a class="header-icon" href="#search" aria-label="검색 열기">${icon('search')}</a>
 </header>
 ${preview ? '<div class="preview-note">관리자 미리보기 <a href="/admin/regions">지역 관리</a></div>' : ''}
@@ -164,4 +170,5 @@ ${searchForm('search', term, '업소 / 쿠폰 / 게시판 검색')}
 ${term ? `<div class="search-results">${searchKeys.map(key => `<section><h3>${labels[key]}</h3>${itemList(list(key), '검색 결과가 없습니다.')}</section>`).join('') || '<p>검색 가능한 기능이 없습니다.</p>'}</div>` : ''}
 </section></div></body></html>`;
 }
+
 
