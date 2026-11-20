@@ -26,7 +26,7 @@ function send(res, status, html) {
     'X-Content-Type-Options': 'nosniff',
     'X-Robots-Tag': 'noindex, nofollow',
     'Referrer-Policy': 'same-origin',
-    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src https:; frame-src https://www.openstreetmap.org; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
+    'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' https:; frame-src https://www.openstreetmap.org; frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
   });
   res.end(html);
 }
@@ -36,6 +36,11 @@ createServer(async (req, res) => {
     if (req.headers.host !== new URL(origin).host) return send(res, 403, page('접근 제한', '로컬 QA 주소를 사용하세요.'));
     const url = new URL(req.url, origin);
     const route = url.pathname;
+    if (req.method === 'GET' && route === '/qa-ui/kfocus-icon.png') {
+      const logo = await readFile(new URL('../assets/kfocus-icon.png', import.meta.url));
+      res.writeHead(200, { 'Content-Type': 'image/png' });
+      return res.end(logo);
+    }
     if (req.method === 'POST' && route === '/admin/regions') {
       if (req.headers.origin !== origin || !req.headers['content-type']?.startsWith('application/x-www-form-urlencoded')) {
         return send(res, 403, page('접근 제한', '로컬 QA 화면에서 다시 시도하세요.'));
@@ -46,9 +51,10 @@ createServer(async (req, res) => {
         if (body.length > 8192) return send(res, 413, page('입력 오류', '입력값이 너무 깁니다.'));
       }
       const form = new URLSearchParams(body);
-      const slug = form.get('slug');
+      let slug = form.get('slug')?.trim();
       const operation = writes.then(async () => {
         const updated = saveRegion(regions, slug, form);
+        slug = updated.at(-1).slug;
         if (storage) {
           const temporary = `${storage}.${randomUUID()}.tmp`;
           await writeFile(temporary, JSON.stringify(updated), { flag: 'wx' });
@@ -81,5 +87,7 @@ createServer(async (req, res) => {
     return send(res, 500, page('요청 처리 오류', '잠시 후 다시 시도하세요.'));
   }
 }).listen(port, '127.0.0.1', () => console.log(origin + '/admin/regions'));
+
+
 
 

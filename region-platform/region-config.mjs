@@ -11,6 +11,9 @@ export const REGION_STATUS = Object.freeze({
 
 const DEFAULT_MODULES = Object.freeze({
   directory: true,
+  promotions: true,
+  deals: true,
+  guide: true,
   map: true,
   community: true,
   coupons: true,

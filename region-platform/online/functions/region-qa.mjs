@@ -73,10 +73,11 @@ export default async function handler(request) {
       }
       const form = await readForm(request);
       if (!form) return respond(page('입력 오류', '입력값 길이를 확인하세요.'), 413);
-      const slug = form.get('slug');
+      let slug = form.get('slug')?.trim();
       let updated;
       try {
         updated = saveRegion(regions, slug, form);
+        slug = updated.at(-1).slug;
       } catch (error) {
         const current = form.get('mode') === 'edit' && regions.find(region => region.slug === slug);
         const message = /^[A-Z_]+$/.test(error.message) ? error.message : '입력값을 확인하세요.';
@@ -112,3 +113,4 @@ export default async function handler(request) {
     return respond(page('요청 처리 오류', '잠시 후 다시 시도하세요.'), 500);
   }
 }
+
