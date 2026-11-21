@@ -40,7 +40,7 @@ try {
   }
   // Keep the legacy public test bytes while GitHub QA runs the current tests.
   for(const [file,bytes] of Object.entries(snapshot.publicTestFiles||{})){
-    if(!/^tests\/(?:active-state-contract|discount-business-authority|event-count-authority|map-status)\.test\.cjs$/.test(file))throw Error();
+    if(!/^tests\/(?:active-state-contract|discount-business-authority|event-count-authority|home-selection|map-status)\.test\.cjs$/.test(file))throw Error();
     fs.writeFileSync(path.join(out,file),Buffer.from(bytes,'base64'));
   }
   stage='seo-output-audit';
@@ -91,6 +91,7 @@ try {
   const approved=new Set(['app-v99.js','assets/community.js','index.html','styles.css','netlify.toml','package.json','scripts/generate-seo.js','robots.txt','seo-index.json','seo.html','sitemap.xml','business-index.json','llms.txt',...files.map(p=>p.replaceAll('\\','/').replace(out+'/','')).filter(p=>/^(?:business|category)\/[^/]+\.html$/.test(p))]);
   // These source paths were already public in the legacy site. Preserve their
   // paths while publishing the same reviewed authorization fixes as the runtime.
+  approved.add('assets/home-selection.js');
   approved.add('admin/index.html');
   approved.add('admin/assets/admin.js');
   approved.add('admin/assets/admin.css');
