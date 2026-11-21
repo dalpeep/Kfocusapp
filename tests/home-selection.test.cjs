@@ -3,19 +3,21 @@ const assert=require('node:assert/strict');
 const shared=require('../assets/home-selection.js');
 const legacy=require('./fixtures/home-selection-v312.cjs');
 const now=Date.parse('2026-09-11T15:10:53Z'),day='2026-09-11';
+const keys=['featured','new','popular'];
 const ids=g=>Object.fromEntries(['featured','new','popular'].map(k=>[k,Array.from(g[k],b=>b.id)]));
 const row=(id,extra={})=>({id,name:id,address:id,region:'dallas',is_active:true,list_visible:true,created_at:new Date(now-3600000).toISOString(),lat:32.9,lng:-96.8,...extra});
-function parity(rows,options={}){
+function parity(rows,options={},groups=keys){
   options={now,...options};
   const actual=shared.create(options).select(day,rows,6);
-  assert.deepEqual(ids(actual),ids(legacy(options).select(day,rows,6)));
+  const previous=legacy(options).select(day,rows,6);
+  for(const group of groups) assert.deepEqual(ids(actual)[group],ids(previous)[group]);
   return actual;
 }
-test('unchanged production selection for no GPS / GPS / click ties / mixed paid pools',()=>{
+test('unchanged recommendation and popularity selection for no GPS / GPS / click ties / mixed paid pools',()=>{
   for(let seed=0;seed<30;seed++){
     const rows=Array.from({length:40},(_,i)=>row(`b${i}`,{lat:32.7+i*.01,lng:-96.8,paid_active:i%7===0,is_new:i%3===0,is_featured:i%3===1,is_popular:i%3===2,rotation_enabled:i%2===0,paid_weight:1+i%4,new_rank:i,created_at:new Date(now-((i+seed)%12)*86400000).toISOString(),paid_end_at:i%11===0?'2026-09-10':null}));
     const clickCounts=new Map(rows.map((b,i)=>[b.id,(i+seed)%5]));
-    parity(rows,{clickCounts});parity(rows,{origin:{lat:32.91,lng:-96.79},clickCounts});
+    parity(rows,{clickCounts},['featured','popular']);parity(rows,{origin:{lat:32.91,lng:-96.79},clickCounts},['featured','popular']);
   }
 });
 test('new: old paid fixed + old paid rotating first; free 168-hour boundary strict; no old free filler',()=>{
@@ -48,4 +50,24 @@ test('same snapshot repeats identically and Dallas week starts at local Monday m
   assert.equal(engine.midnight(engine.weekStart(day)),'2026-09-07T05:00:00.000Z');
   const rows=Array.from({length:20},(_,i)=>row(String(i)));
   assert.deepEqual(ids(engine.select(day,rows,6)),ids(engine.select(day,rows,6)));
+});
+
+test('new: admin ranked unpaid placement survives age limit and precedes automatic entries',()=>{
+  const old='2026-07-01T00:00:00Z';
+  const rows=[
+    row('paid',{paid_active:true,is_new:true,rotation_enabled:false,created_at:old}),
+    row('rank-2',{is_new:true,new_rank:2,created_at:old}),
+    row('rank-1',{is_new:true,new_rank:1,created_at:old}),
+    row('recent'),
+    row('old-unranked',{is_new:true,new_rank:1000,created_at:old}),
+    row('expired',{paid_active:true,is_new:true,new_rank:1,paid_end_at:'2026-09-10',created_at:old}),
+    row('unchecked',{is_new:false,new_rank:1,created_at:old}),
+    row('hidden',{is_new:true,new_rank:1,list_visible:false,created_at:old}),
+    row('inactive',{is_new:true,new_rank:1,is_active:false,created_at:old}),
+    row('outside',{region:'colorado',is_new:true,new_rank:1,created_at:old})
+  ];
+  const engine=shared.create({now});
+  assert.deepEqual(ids(engine.select(day,shared.prepareRows(rows,'dallas'),6)).new,
+    ['paid','rank-1','rank-2','recent']);
+  assert.deepEqual(ids(engine.select(day,[rows[2]],6)).new,['rank-1']);
 });

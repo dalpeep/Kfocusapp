@@ -1,7 +1,7 @@
 /* Shared public home selection. Extracted unchanged from production V312.
  * No DOM, network, storage or analytics. Both public and admin use this implementation.
  * Fixed placement means an active paid group with rotation_enabled=false.
- * Free records, including legacy unpaid group flags, retain the public 168-hour rule.
+ * Explicitly ranked unpaid new placements precede automatic 168-hour candidates.
  */
 (function(root){
 'use strict';
@@ -208,11 +208,17 @@ function v296BuildGroup(section,dateValue,allRows,limit){
       freeShown=v295RotateChunk(ordered,dateValue,need,'featured');
     }
   }else if(section==='new'){
-    const fresh=free.filter(v295IsNewWithin7Days).sort((a,b)=>
+    const manuallyRanked=b=>b.is_new===true && b.paid_active!==true &&
+      businessGroupRank(b,'new')>0 && businessGroupRank(b,'new')<1000;
+    const assigned=free.filter(manuallyRanked).sort((a,b)=>
+      businessGroupRank(a,'new')-businessGroupRank(b,'new') ||
+      v295CreatedAtMs(b)-v295CreatedAtMs(a)
+    );
+    const fresh=free.filter(b=>!manuallyRanked(b)&&v295IsNewWithin7Days(b)).sort((a,b)=>
       v295CreatedAtMs(b)-v295CreatedAtMs(a) ||
       rotationHash(`${rotationDateKey(dateValue)}|v296-new|${a.id}`)-rotationHash(`${rotationDateKey(dateValue)}|v296-new|${b.id}`)
     );
-    freeShown=fresh.slice(0,need);
+    freeShown=[...assigned,...fresh].slice(0,need);
   }else if(section==='popular'){
     freeShown=v295PopularFreeOrder(free,dateValue).slice(0,need);
   }
