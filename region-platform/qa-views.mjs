@@ -39,6 +39,16 @@ header{border-bottom:5px solid var(--accent);padding:0 0 1rem;display:flex;align
 h1,h2,p{margin:.4rem 0 .75rem}h1{overflow-wrap:anywhere}a{color:#164e3a}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr));gap:1rem}
 .panel{background:#fff;border:1px solid #b7c9bf;border-radius:1rem;padding:1rem;min-width:0;overflow-wrap:anywhere}
+summary{cursor:pointer;font-weight:700;padding:.55rem 0}
+details[open] summary{margin-bottom:.65rem}
+.feature-row{padding:.5rem 0;border-bottom:1px solid #dce8e0}
+.feature-switch{display:grid;grid-template-columns:1.2rem 1fr auto;gap:.6rem;align-items:center;cursor:pointer}
+.feature-switch input,.feature-inherit input{width:1.1rem;height:1.1rem;accent-color:#176143;margin:0;vertical-align:middle}
+.feature-state{font-size:.82rem;font-weight:700;border-radius:.4rem;padding:.13rem .35rem;background:#edf1ee;color:#38473d}
+.feature-state span:first-child,.feature-switch input:checked~.feature-state span:last-child{display:none}
+.feature-switch input:checked~.feature-state span:first-child{display:inline}
+.feature-switch input:checked~.feature-state{background:#daf2e4;color:#12472f}
+.feature-row small,.feature-inherit{margin-left:1.8rem;font-size:.83rem;color:#48564d}
 fieldset{border:0;margin:0;padding:0}.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));gap:.75rem}
 label{display:block}input:not([type=checkbox]),select{display:block;width:100%;max-width:100%;padding:.55rem;border:1px solid #879991;border-radius:.4rem;font:inherit;background:white;color:inherit}
 button,.action{display:inline-block;border:0;border-radius:.5rem;background:#184a36;color:white;font:inherit;padding:.55rem .9rem;text-decoration:none;cursor:pointer}
@@ -68,7 +78,7 @@ export function adminPage(regions, region, error) {
 <nav aria-label="지역 관리"><a href="/admin/regions">신규 지역 추가</a> <a href="/admin/features${region ? '?region=' + data.slug : ''}">기능 설정</a> <a href="/admin/businesses${region ? '?region=' + data.slug : ''}">업소관리</a>
 ${region ? `<a href="/admin/regions/preview/${data.slug}">미리보기</a>
 ${data.status === REGION_STATUS.demo ? `<a href="/regions/${data.slug}">공개 데모 열기</a>` : ''}` : ''}</nav>
-${error ? `<p role="alert">저장 실패 (${escape(error)})</p>` : ''}
+${error ? `<p role="alert">${escape(error === 'REGION_ALREADY_EXISTS' ? '같은 주소 이름이 이미 있습니다. 등록 지역에서 해당 지역을 열거나 상세 설정에서 다른 주소 이름을 입력하세요.' : '저장 실패 (' + error + ')')}</p>` : ''}
 <div class="grid"><section class="panel"><h2>등록 지역</h2>
 ${regions.length ? `<ul>${regions.map(item =>
   `<li><a href="/admin/regions?edit=${item.slug}">${escape(item.name)}</a> · ${item.status === REGION_STATUS.demo ? '공개' : '비공개'}</li>`).join('')}</ul>` : '<p>등록된 지역이 없습니다.</p>'}
@@ -76,8 +86,12 @@ ${regions.length ? `<ul>${regions.map(item =>
 <form method="post" action="/admin/regions">
 <input type="hidden" name="moduleForm" value="1">
 <input type="hidden" name="mode" value="${region ? 'edit' : 'create'}">
-<fieldset><legend>지역 정보</legend><div class="fields">
+${region?.state ? `<p>${escape([region.state,region.geography?.subregion].filter(Boolean).join(' · '))}</p>` : ''}
 ${input('지역 이름', 'name', region?.name, 'required maxlength="120"')}
+${region ? '' : '<button type="submit">추가</button><p>지역명에 맞춰 범위와 지도 기본값을 제안합니다. 예를 들어 콜로라도는 주 전체, Denver와 Aurora는 도시로 설정됩니다.</p>'}
+<details><summary>상세 설정</summary>
+<fieldset><legend>지역 정보</legend><div class="fields">
+
 ${input('영문 표시명', 'nameEn', region?.nameEn, 'maxlength="120"')}
 ${input('주소 이름', 'slug', region?.slug, 'pattern="[a-z][a-z0-9\\-]{0,61}[a-z0-9]" ' + (region ? 'readonly' : ''))}
 ${select('지역 범위', 'areaPreset', data.geography?.preset ?? '', areaOptions)}
@@ -108,5 +122,6 @@ ${Object.entries(modules).map(([key, [label]]) => checkbox(label, key, (data.mod
 
 </div></fieldset>
 ${checkbox('데모 공개', 'public', data.status === REGION_STATUS.demo)}
-<button>${region ? '변경 저장' : '지역 생성'}</button></form></section></div>`);
+</details>
+${region ? '<button>변경 저장</button>' : ''}</form></section></div>`);
 }

@@ -33,12 +33,14 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
       await page.goto(origin + '/admin/regions');
       await page.getByLabel('지역 이름').fill(name);
       if (configure) {
+        assert.equal(await page.locator('details').getAttribute('open'),null);
+        await page.getByText('상세 설정',{exact:true}).click();
         await page.getByLabel('주소 이름').fill(slug);
         await page.getByLabel('중심 위도').fill('29.76');
         await page.getByLabel('중심 경도').fill('-95.37');
         await page.getByLabel('검색 반경 (km)').fill('40');
       }
-      await page.getByRole('button', { name: '지역 생성' }).click();
+      await page.getByRole('button', { name: '추가' }).click();
       await page.waitForURL(origin + '/admin/regions?edit=' + slug, { timeout: 5000 }).catch(async error => { throw Error(await page.locator('main').innerText(), { cause: error }); });
     }
     async function assertFits(page) {
@@ -56,6 +58,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     await assertFits(desktop);
 
     await desktop.goto(origin + '/admin/regions?edit=houston');
+    await desktop.getByText('상세 설정',{exact:true}).click();
     await desktop.getByLabel('테마').selectOption('sand');
     await desktop.getByLabel('레이아웃').selectOption('community');
     await desktop.getByLabel('배너 제목').fill('휴스턴 행사 소식');
@@ -93,6 +96,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     assert.equal(invalidOrigin.status(), 403);
 
     await desktop.goto(origin + '/admin/regions?edit=houston');
+    await desktop.getByText('상세 설정',{exact:true}).click();
     await desktop.getByLabel('데모 공개').uncheck();
     await desktop.getByRole('button', { name: '변경 저장' }).click();
     await desktop.getByRole('link', { name: '공개 데모 열기' }).waitFor({ state: 'detached' });
@@ -103,6 +107,8 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
       assert.ok(Object.values(region.content).every(items => items.length === 0));
     }
     await addRegion(mobile, '콜로라도', 'colorado');
+    assert.equal(await mobile.locator('details').getAttribute('open'),null);
+    await mobile.getByText('상세 설정',{exact:true}).click();
     assert.equal(await mobile.getByLabel('지역 범위').inputValue(), 'colorado');
     assert.equal(await mobile.getByLabel('도시·하위 지역').inputValue(), '');
     assert.equal(await mobile.getByLabel('검색 반경 (km)').inputValue(), '450');
@@ -147,6 +153,7 @@ test('지역 관리부터 공개 및 비공개 전환까지 데스크톱과 모�
     }
 
     await desktop.goto(origin + '/admin/regions?edit=colorado');
+    await desktop.getByText('상세 설정',{exact:true}).click();
     await desktop.getByLabel('커뮤니티', { exact: true }).uncheck();
     await desktop.getByRole('button', { name: '변경 저장' }).click();
     await desktop.getByRole('link', { name: '미리보기' }).click();

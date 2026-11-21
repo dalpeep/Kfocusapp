@@ -61,10 +61,10 @@ test('Colorado QA feature forms, write guards, public projection and restore', {
         await intercepted.fulfill({status:result.status,headers:Object.fromEntries(result.headers),body:Buffer.from(await result.arrayBuffer())});
       });
       await page.goto(host+route);
-      await page.locator('[name=boardHelp]').selectOption('off');
-      await page.locator('[name=search]').selectOption('off');
-      await page.locator('[name=registration]').selectOption('off');
-      await page.locator('[name=photos]').selectOption('off');
+      await page.locator('[name=boardHelp]').uncheck();
+      await page.locator('[name=search]').uncheck();
+      await page.locator('[name=registration]').uncheck();
+      await page.locator('[name=photos]').uncheck();
       await page.getByRole('button',{name:'저장',exact:true}).click();
       await page.getByRole('status').waitFor();
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -75,10 +75,14 @@ test('Colorado QA feature forms, write guards, public projection and restore', {
       assert.equal((await request('/media/colorado/'+id)).status,404);
       assert.equal((await request('/admin/businesses?region=colorado','qa-owner',new URLSearchParams({action:'create'}))).status,404);
       assert.equal((await request(route,'qa-regional',form({search:'on'}))).status,409);
-      for(const key of ['boardHelp','search','registration','photos'])await page.locator('[name='+key+']').selectOption('inherit');
+      await page.goto(host+route);
+      assert.equal(await page.locator('[name=boardHelp]').isChecked(), false);
+      assert.equal(await page.locator('[name=banner]').isChecked(), false);
+      for(const key of ['boardHelp','search','registration','photos'])await page.locator('[name="inherit:'+key+'"]').check();
       await page.getByRole('button',{name:'저장',exact:true}).click();
       await page.getByRole('status').waitFor();
       assert.match(await (await request(publicPath)).text(),/Fixture question/);
+      assert.equal(values.get('region/colorado').data.flags.search,undefined);
       assert.equal((await request('/media/colorado/'+id)).status,200);
       await page.close();
     }

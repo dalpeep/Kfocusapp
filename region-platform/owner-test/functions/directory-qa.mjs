@@ -173,10 +173,12 @@ async function regions(request, url, auth) {
     const [document] = saveRegion(form.get('mode') === 'edit' ? current.filter(item => item.slug === form.get('slug')) : [],
       form.get('slug')?.trim(), form).slice(-1);
     const editing = form.get('mode') === 'edit';
+    if (!editing && current.some(region => region.slug === document.slug)) return html(adminPage(current, null, 'REGION_ALREADY_EXISTS'), 409);
     const previous = editing ? await database('read', auth, document.slug) : {};
     // Recompute from the version that is written to preserve parallel business edits.
     const next = editing ? saveRegion([previous.region], document.slug, form).at(-1) : document;
     const result = await database('write', auth, next.slug, previous.version, { document: next, action: editing ? 'region-edit' : 'region-create' });
+    if (!editing && result.status === 409) return html(adminPage(current, null, 'REGION_ALREADY_EXISTS'), 409);
     if (result.status !== 200) return error(result.status, '최신 지역 정보를 확인하고 다시 저장하세요.');
     return redirect('/admin/regions?edit=' + next.slug);
   } catch (e) {

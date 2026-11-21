@@ -9,7 +9,7 @@ export const REGION_STATUS = Object.freeze({
   disabled: 'disabled'
 });
 
-const DEFAULT_MODULES = Object.freeze({
+export const DEFAULT_MODULES = Object.freeze({
   directory: true,
   promotions: true,
   deals: true,
