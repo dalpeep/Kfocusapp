@@ -4,13 +4,16 @@ import { businessAdminPage } from '../../qa-business-views.mjs';
 import { saveRegion } from '../../qa-settings.mjs';
 import { adminPage, demoPage, page } from '../../qa-views.mjs';
 
+import { enabled, actionEnabled, allowsQuery } from '../../qa-features.mjs';
+import { withFeatures, settings, saveSettings, featuresPage } from '../feature-store.mjs';
+
 const project = 'https://aaikttogoejfvxbosktg.supabase.co';
 const site = 'online-business-directory-qa-138.netlify.app';
 const slugPattern = /^[a-z][a-z0-9-]{1,62}$/;
 const uuidPattern = /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/;
 
 export const config = {
-  path: ['/', '/admin', '/admin/regions', '/admin/businesses', '/admin/regions/preview/:slug', '/regions/:slug', '/media/:slug/:id']
+  path: ['/', '/admin', '/admin/regions', '/admin/businesses', '/admin/features', '/admin/regions/preview/:slug', '/regions/:slug', '/media/:slug/:id']
 };
 
 const headers = {
@@ -102,15 +105,17 @@ async function businesses(request, url, auth, identity) {
   if (slug && (!slugPattern.test(slug) || (scoped && slug !== identity.region))) return error(404, '지역을 찾을 수 없습니다.');
   const saved = slug ? await database('read', auth, slug) : {};
   if (slug && saved.status !== 200) return error(saved.status, '지역을 찾을 수 없습니다.');
-  const region = saved.region;
+  const region = saved.region ? await withFeatures(saved.region) : null;
+  if (region && identity.role === 'owner' && !enabled(region,'ownerPortal')) return error(404,'업주 메뉴가 꺼져 있습니다.');
   const selected = url.searchParams.get('id');
   const filtered = ownerView(region, identity);
   const display = async (id, message, status = 200) => {
     const regions = scoped ? [filtered].filter(Boolean) : (await database('list', auth)).regions;
     const menuRegions = regions.map(item => item.slug === filtered?.slug ? filtered : item);
-    return html(businessAdminPage(menuRegions, filtered, id, message, { ...identity, upload: true }), status);
+    return html(businessAdminPage(menuRegions, filtered, id, message, { ...identity, upload: true, photos: !region || enabled(region,'photos'), allowed: action => !region || actionEnabled(region,action), listing: !region || enabled(region,'directory') || identity.role !== 'owner' }), status);
   };
   if (request.method === 'GET') {
+    if (selected && identity.role === 'owner' && !enabled(region ?? {},'directory') && !filtered?.businessQa?.records.some(record=>record.id===selected && record.ownerAccount===identity.name)) return error(404,'업소를 찾을 수 없습니다.');
     if (selected && !filtered?.businessQa?.records.some(record => record.id === selected)) return error(404, '업소를 찾을 수 없습니다.');
     return display(selected);
   }
@@ -119,8 +124,10 @@ async function businesses(request, url, auth, identity) {
   const form = await formData(request, multipart);
   if (!form) return error(413, '입력 또는 이미지 크기를 확인하세요.');
   const action = form.get('action');
+  if (!actionEnabled(region,action)) return error(404, '이 지역에서 꺼져 있는 기능입니다.');
   const id = form.get('id');
   const record = region.businessQa?.records.find(item => item.id === id);
+  if (!enabled(region,'photos') && ['create','edit'].includes(action)) form.set('image',(record?.pending ?? record?.approved)?.image ?? '');
   if (identity.role === 'owner') {
     if (!['create','edit','image','claim'].includes(action)) return error(403, '관리자 권한이 필요합니다.');
     if (action !== 'create' && (!record ||
@@ -135,7 +142,7 @@ async function businesses(request, url, auth, identity) {
   try {
     const prepared = action === 'image' ? await prepareImage(form, record, region, url) : null;
     upload = prepared?.upload;
-    [document] = manageBusinesses([region], slug, prepared?.edit ?? form);
+    [document] = manageBusinesses([saved.region], slug, prepared?.edit ?? form);
     const next = action === 'create' ? document.businessQa.records.at(-1) :
       document.businessQa.records.find(item => item.id === id);
     if (action === 'create' && identity.role === 'owner') next.ownerAccount = identity.name;
@@ -178,6 +185,34 @@ async function regions(request, url, auth) {
   }
 }
 
+async function featureAdmin(request,url,auth,identity) {
+  const central = identity.role === 'superadmin';
+  if (!central && identity.role !== 'region-admin') return error(403,'관리자 권한이 필요합니다.');
+  const requested = url.searchParams.get('region') ?? (central ? '*' : identity.region);
+  if (!central && requested !== identity.region) return error(404,'지역을 찾을 수 없습니다.');
+  const scope = requested;
+  const record = scope === '*' ? null : await database('read',auth,scope);
+  if (record && record.status!==200) return error(404,'지역을 찾을 수 없습니다.');
+  if(request.method==='POST'){
+    if(request.headers.get('content-type')?.split(';')[0]!=='application/x-www-form-urlencoded')return error(400,'지원하지 않는 양식입니다.');
+    const form=await formData(request,false);
+    if(!form)return error(413,'입력값 길이를 확인하세요.');
+    try {
+      if(!await saveSettings(scope,form,identity))return error(409,'다른 변경이 저장됐습니다. 설정을 다시 여세요.');
+    } catch(e) {
+      if(e.message==='INVALID_FEATURE')return error(400,'설정값을 확인하세요.');
+      throw e;
+    }
+    return redirect('/admin/features?region='+encodeURIComponent(requested)+'&saved=1');
+  }
+  const regions=central?(await database('list',auth)).regions:[];
+  return html(featuresPage(regions,scope,record?await withFeatures(record.region):null,await settings(scope),url.searchParams.has('saved'),central));
+}
+
+async function renderRegion(region,preview,query){
+  const view=await withFeatures(region);
+  return allowsQuery(view,query)?html(demoPage(view,preview,query)):error(404,'이 지역에서 꺼져 있는 기능입니다.');
+}
 export default async function handler(request) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -188,6 +223,11 @@ export default async function handler(request) {
     if (path.startsWith('/media/') && request.method === 'GET') {
       const [, , slug, id] = path.split('/');
       if (!uuidPattern.test(id)) return error(404, '이미지를 찾을 수 없습니다.');
+      const visible = auth ? await database('read',auth,slug) : {};
+      const scope = visible.status===200 ? visible : await database('public',null,slug);
+      if(scope.status!==200)return error(404,'이미지를 찾을 수 없습니다.');
+      const mediaRegion = await withFeatures(scope.region);
+      if(!enabled(mediaRegion,'photos') || (visible.status!==200 && !enabled(mediaRegion,'directory')))return error(404,'이미지를 찾을 수 없습니다.');
       const result = await database('image', auth, slug, undefined, { id });
       return result.status === 200 ? new Response(Buffer.from(result.image,'base64'), {
         headers: { ...headers, 'Content-Type': result.type }
@@ -198,6 +238,7 @@ export default async function handler(request) {
       const identity = await database('identity', auth);
       if (identity.status !== 200) return challenge();
       if (request.method === 'POST' && request.headers.get('origin') !== url.origin) return error(403, 'QA 양식에서 다시 시도하세요.');
+      if (path === '/admin/features') return await featureAdmin(request,url,auth,identity);
       if (path === '/admin/businesses') return await businesses(request, url, auth, identity);
       const preview = /^\/admin\/regions\/preview\/([a-z0-9-]+)$/.exec(path);
       if (preview && request.method === 'GET') {
@@ -205,7 +246,7 @@ export default async function handler(request) {
         if (result.status !== 200) return error(result.status, '지역을 찾을 수 없습니다.');
         const viewRegion = identity.role === 'owner' ?
           { ...result.region, businessQa: ownerView(result.region, identity).businessQa } : result.region;
-        return html(demoPage(viewRegion, true, url.searchParams));
+        return await renderRegion(viewRegion,true,url.searchParams);
       }
       if (identity.role !== 'superadmin') return error(403, '총괄 관리자 권한이 필요합니다.');
       if (path === '/admin' || path === '/admin/regions') return await regions(request, url, auth);
@@ -213,16 +254,18 @@ export default async function handler(request) {
     const match = /^\/regions\/([a-z0-9-]+)$/.exec(path);
     if (match && request.method === 'GET') {
       const result = await database('public', null, match[1]);
-      return result.status === 200 ? html(demoPage(result.region, false, url.searchParams)) :
+      return result.status === 200 ? await renderRegion(result.region,false,url.searchParams) :
         error(result.status, '공개된 지역을 찾을 수 없습니다.');
     }
     if (path === '/' && request.method === 'GET') return html(page('온라인업소록', `<h1>온라인업소록 Colorado QA</h1>
 <p>콜로라도 전체 지역은 비공개 QA 상태입니다.</p><nav><a href="/admin/regions/preview/colorado">콜로라도맵 미리보기</a>
-<a href="/admin/businesses?region=colorado">업소관리</a><a href="/admin/regions">지역 관리</a></nav>`));
+<a href="/admin/businesses?region=colorado">업소관리</a><a href="/admin/regions">지역 관리</a><a href="/admin/features?region=colorado">기능 설정</a></nav>`));
     return error(404, '페이지를 찾을 수 없습니다.');
   } catch (e) {
     console.error('Directory QA:', e.message);
     return error(503, 'QA 저장소에 연결할 수 없습니다.');
   }
 }
+
+
 

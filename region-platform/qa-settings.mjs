@@ -81,6 +81,9 @@ export function saveRegion(regions, slug, form) {
   const radiusKm = parseNumber('radiusKm', previous?.map.radiusKm ?? area?.radiusKm ?? 35);
   if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 500) throw Error('INVALID_RADIUS');
   const candidate = registerRegion(editing ? [] : regions, input).at(-1);
+  const nameEn = (form.get('nameEn') ?? previous?.nameEn ?? '').trim();
+  if (nameEn.length > 120) throw Error('INVALID_ENGLISH_NAME');
+  if (nameEn) candidate.nameEn = nameEn;
   candidate.map.radiusKm = radiusKm;
   if (area || selection === 'custom' || subregion) {
     candidate.geography = { preset: areaKey ?? 'custom', subregion };

@@ -65,7 +65,7 @@ export function adminPage(regions, region, error) {
   const defaults = createRegion({ name: 'QA', slug: 'qa', center: { lat: 0, lng: 0 } });
   const data = region || defaults;
   return page('지역 관리', `<header><h1>지역 관리</h1></header>
-<nav aria-label="지역 관리"><a href="/admin/regions">신규 지역 추가</a> <a href="/admin/businesses${region ? '?region=' + data.slug : ''}">업소관리</a>
+<nav aria-label="지역 관리"><a href="/admin/regions">신규 지역 추가</a> <a href="/admin/features${region ? '?region=' + data.slug : ''}">기능 설정</a> <a href="/admin/businesses${region ? '?region=' + data.slug : ''}">업소관리</a>
 ${region ? `<a href="/admin/regions/preview/${data.slug}">미리보기</a>
 ${data.status === REGION_STATUS.demo ? `<a href="/regions/${data.slug}">공개 데모 열기</a>` : ''}` : ''}</nav>
 ${error ? `<p role="alert">저장 실패 (${escape(error)})</p>` : ''}
@@ -78,6 +78,7 @@ ${regions.length ? `<ul>${regions.map(item =>
 <input type="hidden" name="mode" value="${region ? 'edit' : 'create'}">
 <fieldset><legend>지역 정보</legend><div class="fields">
 ${input('지역 이름', 'name', region?.name, 'required maxlength="120"')}
+${input('영문 표시명', 'nameEn', region?.nameEn, 'maxlength="120"')}
 ${input('주소 이름', 'slug', region?.slug, 'pattern="[a-z][a-z0-9\\-]{0,61}[a-z0-9]" ' + (region ? 'readonly' : ''))}
 ${select('지역 범위', 'areaPreset', data.geography?.preset ?? '', areaOptions)}
 ${input('주·도', 'state', data.state, 'maxlength="120"')}
