@@ -81,11 +81,24 @@ function businessList(items) {
   if (!items.length) return itemList(items);
   return `<ul class="results business-results">${items.map(item => `<li>
 ${item.image ? `<img class="business-photo" src="${escape(item.image)}" alt="" loading="lazy">` : ''}
-<div><strong>${escape(item.name)}</strong><p>${escape(item.category)} · ${escape(item.address)}</p>
+<div><strong><a href="?business=${encodeURIComponent(item.id)}#business">${escape(item.name)}</a></strong><p>${escape(item.category)} · ${escape(item.address)}</p>
 ${item.contact ? `<p>${escape(item.contact)}</p>` : ''}
 <a href="https://www.openstreetmap.org/?mlat=${item.lat}&amp;mlon=${item.lng}#map=17/${item.lat}/${item.lng}">지도 위치</a></div>
 </li>`).join('')}</ul>`;
 }
+function businessDetail(item) {
+  return `<section id="business" class="screen" aria-label="업소 상세">
+<a href="?#directory">업소 목록으로 돌아가기</a>
+<article class="card business-detail">
+<h2>${escape(item.name)}</h2>
+${item.image ? `<img src="${escape(item.image)}" alt="" loading="lazy">` : ''}
+<dl><dt>카테고리</dt><dd>${escape(item.category)}</dd>
+<dt>주소</dt><dd>${escape(item.address)}</dd>
+${item.contact ? `<dt>연락처</dt><dd>${escape(item.contact)}</dd>` : ''}</dl>
+<a href="https://www.openstreetmap.org/?mlat=${item.lat}&amp;mlon=${item.lng}#map=17/${item.lat}/${item.lng}">지도 위치</a>
+</article></section>`;
+}
+
 function sectionCard(key, title, body, link = true) {
   return `<article class="card home-card" data-module="${key}"><div class="card-head"><h2>${icon(key)}${title}</h2>${link ? `<a href="#${key}">전체보기</a>` : ''}</div>${body}</article>`;
 }
@@ -120,6 +133,7 @@ export function demoPage(region, preview, query) {
   const categoryNames = ['전체', ...businessCategories(region)];
   const enabled = key => featureEnabled(region,key);
   const businesses = enabled('directory') ? publicBusinesses(region).map(b=>enabled('photos')?b:{...b,image:null}) : [];
+  const selectedBusiness = businesses.find(item=>item.id===query.get('business'));
   const menu = region.home.menuOrder ?? [];
   const ordered = keys => [...menu.filter(key => keys.includes(key)), ...keys.filter(key => !menu.includes(key))].filter(enabled);
   const featured = ordered(['promotions', 'coupons', 'deals', 'events']);
@@ -180,7 +194,7 @@ ${featured.length ? `<section class="quick"><h2>오늘의 ${escape(title)}</h2><
   `<a href="#${key}"><span class="quick-icon" style="--icon-color:${quickColors[key]}">${icon(key)}</span>${labels[key]}</a>`).join('')}</div></section>` : ''}
 ${enabled('localAds') ? `<a class="ticker" href="#localAds"><b>📣 한 줄 광고</b><span>${escape(list('localAds')[0]?.title || '등록된 광고가 없습니다.')}</span></a>` : ''}
 ${homeSections.map(key => homeContent[key]()).join('')}
-</section>${appScreens}</main>
+</section>${appScreens}${selectedBusiness ? businessDetail(selectedBusiness) : ''} </main>
 <nav class="bottom-nav" aria-label="하단 메뉴">${bottom.map(key => nav(key)).join('')}</nav>
 <aside id="menu" class="overlay drawer" aria-label="전체 메뉴"><div class="overlay-head"><h2>${escape(title)}</h2><a class="close" href="#home" aria-label="메뉴 닫기">닫기</a></div>
 <nav aria-label="지역 메뉴">${drawer.map(key => nav(key)).join('')}</nav></aside>

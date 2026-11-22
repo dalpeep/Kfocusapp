@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { manageBusinesses } from '../../qa-business.mjs';
+import { manageBusinesses, publicBusinesses } from '../../qa-business.mjs';
 import { businessAdminPage } from '../../qa-business-views.mjs';
 import { saveRegion } from '../../qa-settings.mjs';
 import { adminPage, demoPage, page } from '../../qa-views.mjs';
@@ -213,7 +213,11 @@ async function featureAdmin(request,url,auth,identity) {
 
 async function renderRegion(region,preview,query){
   const view=await withFeatures(region);
-  return allowsQuery(view,query)?html(demoPage(view,preview,query)):error(404,'이 지역에서 꺼져 있는 기능입니다.');
+  if (!allowsQuery(view,query)) return error(404,'이 지역에서 꺼져 있는 기능입니다.');
+  if (query.has('business') && !publicBusinesses(view).some(item=>item.id===query.get('business'))) {
+    return error(404,'공개된 업소를 찾을 수 없습니다.');
+  }
+  return html(demoPage(view,preview,query));
 }
 export default async function handler(request) {
   const url = new URL(request.url);

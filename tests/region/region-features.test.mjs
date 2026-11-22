@@ -49,6 +49,14 @@ test('Colorado QA feature forms, write guards, public projection and restore', {
   assert.equal((await request('/admin/features?region=austin','qa-regional')).status,404);
   const form=(changes,version='')=>new URLSearchParams({version,...Object.fromEntries(featureKeys.map(k=>[k,'inherit'])),...changes});
   assert.equal((await request('/admin/features?region=*','qa-central',form({banner:'off'}))).status,303);
+  const detailPath=publicPath+'?business='+id;
+  assert.equal((await request(detailPath)).status,200);
+  assert.match(await (await request(detailPath)).text(),/id="business"/);
+  assert.equal((await request(publicPath+'?business=unknown')).status,404);
+  assert.equal((await request(route,'qa-central',form({directory:'off'}))).status,303);
+  assert.equal((await request(detailPath)).status,404);
+  assert.equal((await request(route,'qa-central',form({},'1'))).status,303);
+  assert.match(await (await request(detailPath)).text(),/Fixture Business/);
   const unchanged=JSON.stringify(region);
   const browser=await chromium.launch({executablePath:process.env.REGION_QA_BROWSER});
   try {
@@ -60,6 +68,12 @@ test('Colorado QA feature forms, write guards, public projection and restore', {
         if(result.status===303) result=await request(result.headers.get('location'),role);
         await intercepted.fulfill({status:result.status,headers:Object.fromEntries(result.headers),body:Buffer.from(await result.arrayBuffer())});
       });
+      await page.goto(host+publicPath+'#directory');
+      await page.locator('#directory').getByRole('link',{name:'Fixture Business',exact:true}).click();
+      await page.getByRole('region',{name:'업소 상세'}).getByRole('heading',{name:'Fixture Business'}).waitFor();
+      assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+      await page.getByRole('link',{name:'업소 목록으로 돌아가기'}).click();
+      await page.locator('#directory').getByRole('link',{name:'Fixture Business',exact:true}).waitFor();
       await page.goto(host+route);
       await page.locator('[name=boardHelp]').uncheck();
       await page.locator('[name=search]').uncheck();
@@ -89,4 +103,5 @@ test('Colorado QA feature forms, write guards, public projection and restore', {
     assert.equal(JSON.stringify(region),unchanged);
   } finally { await browser.close(); }
 });
+
 

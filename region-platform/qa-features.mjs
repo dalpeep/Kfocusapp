@@ -26,6 +26,6 @@ export function actionEnabled(region, action) {
 export function allowsQuery(region, query) {
   const board = query.get('board');
   return (!query.has('q') || enabled(region,'search')) &&
-    (!query.has('category') || enabled(region,'directory')) &&
+    (!(query.has('category') || query.has('business')) || enabled(region,'directory')) &&
     (!query.has('board') || (enabled(region,'community') && (!Object.hasOwn(boardFeatures,board) || enabled(region,boardFeatures[board]))));
 }
