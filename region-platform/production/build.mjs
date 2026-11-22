@@ -2,6 +2,7 @@ import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 
 const root = new URL('./', import.meta.url);
 const expectedDatabase = 'https://uzxttrkcagvjiehcjfad.supabase.co';
+const productionSite = 'aeab4005-52d6-4a5c-ac5a-a5353b289d0d';
 const excludedSites = new Set([
   'e2667e40-0999-42a3-892b-2b2edff61434', // Dallas
   '11a5d9d2-43e1-46dc-ae02-b6d5551e5f9c', // Colorado QA
@@ -9,7 +10,7 @@ const excludedSites = new Set([
   'ec0bc146-8184-4627-90e0-df82ec2b06f9'  // Owner QA
 ]);
 
-if (excludedSites.has(process.env.SITE_ID)) {
+if (excludedSites.has(process.env.SITE_ID) || (process.env.SITE_ID && process.env.SITE_ID !== productionSite)) {
   throw new Error('This branch is restricted to the independent directory site.');
 }
 const suppliedUrl = process.env.ONLINE_DIRECTORY_SUPABASE_URL;
