@@ -1,52 +1,14 @@
 [build]
-  base = "."
-  publish = ".public-build"
-  functions = "netlify/functions"
-  command = "node scripts/release/locked-draft-build.mjs && node scripts/release/build-functions.mjs && node scripts/release/verify-standalone-runtime.mjs"
-  # Preparation branch: skip every Netlify build until separately approved.
-  ignore = "exit 1"
-
-[functions]
-  included_files = ["node_modules/@supabase/**", "node_modules/@netlify/aws-lambda-compat/**", "node_modules/@netlify/types/**", "node_modules/iceberg-js/**", "node_modules/tslib/**"]
-
-[functions."raffle-auto-draw"]
-  schedule = "*/10 * * * *"
-
-[functions."newsroom-daily"]
-  schedule = "0 11 * * *"
-
-[[redirects]]
-  from = "/privacy"
-  to = "/privacy.html"
-  status = 200
-
-# V263: HTML/manifest는 항상 최신 여부를 확인하고, 버전된 정적자산만 장기 캐시합니다.
-[[headers]]
-  for = "/"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
+  base = "region-platform/production"
+  command = "node build.mjs"
+  publish = "public"
+  functions = "functions"
 
 [[headers]]
-  for = "/index.html"
+  for = "/*"
   [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-
-[[headers]]
-  for = "/manifest.json"
-  [headers.values]
-    Cache-Control = "no-cache, must-revalidate"
-
-[[headers]]
-  for = "/app-v99.js"
-  [headers.values]
-    Cache-Control = "no-cache, must-revalidate"
-
-[[headers]]
-  for = "/main-banners.js"
-  [headers.values]
-    Cache-Control = "no-cache, must-revalidate"
-
-[[headers]]
-  for = "/styles.css"
-  [headers.values]
-    Cache-Control = "no-cache, must-revalidate"
+    Cache-Control = "no-store"
+    X-Robots-Tag = "noindex, nofollow"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Content-Security-Policy = "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'"
