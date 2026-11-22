@@ -30,18 +30,41 @@ const html = (body, status = 200, extra = {}) =>
 const error = (status, message) => html(page('온라인업소록 QA', message), status);
 const redirect = location => html(null, 303, { Location: location });
 const sessionCookie = '__Host-directory_session';
-const loginPage = (status = 200) => html(page('온라인업소록 로그인', `<h1>온라인업소록 로그인</h1>
+function loginPage(status = 200) {
+  const nonce = randomUUID();
+  return html(page('온라인업소록 로그인', `<h1>온라인업소록 로그인</h1>
 ${status === 401 ? '<p role="alert">로그인에 실패했거나 운영 권한이 없습니다.</p>' : ''}
-<form method="post" action="/login"><label>이메일<input type="email" name="email" autocomplete="username" required></label>
+<form id="directory-login" method="post" action="/login"><label>이메일<input type="email" name="email" autocomplete="username" required></label>
 <label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
-<button>로그인</button></form>`),status);
+<button>로그인</button></form>
+<form id="directory-invite" method="post" action="/login" hidden>
+<input type="hidden" name="invite">
+<label>새 비밀번호<input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="72" required></label>
+<button>비밀번호 설정</button></form>
+<script nonce="${nonce}">
+const fragment = new URLSearchParams(location.hash.slice(1));
+if (location.hash) history.replaceState(null, '', location.pathname);
+const token = fragment.get('access_token');
+if (fragment.get('type') === 'invite' && token) {
+  const invite = document.getElementById('directory-invite');
+  invite.elements.invite.value = token;
+  document.getElementById('directory-login').hidden = true;
+  invite.hidden = false;
+}
+</script>`), status, {'Content-Security-Policy': headers['Content-Security-Policy'] + "; script-src 'nonce-" + nonce + "'"});
+}
 const challenge = () => html(page('관리자 인증', '<h1>관리자 인증</h1><p><a href="/login">운영 계정으로 로그인</a></p>'),401);
 const cookie = (value,age) => `${sessionCookie}=${value}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=${age}`;
+
+function validToken(token) {
+  return typeof token === 'string' && token.length <= 4096 &&
+    /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(token);
+}
 
 function credentials(request) {
   const values = (request.headers.get('cookie') ?? '').split(';').map(value=>value.trim());
   const jwt = values.find(value=>value.startsWith(sessionCookie+'='))?.slice(sessionCookie.length+1);
-  return jwt && jwt.length<=4096 && /^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+$/.test(jwt) ? jwt : null;
+  return validToken(jwt) ? jwt : null;
 }
 
 function connection() {
@@ -73,6 +96,23 @@ async function login(request,url) {
   const form=await formData(request,false);
   const email=form?.get('email');
   const password=form?.get('password');
+  if (form?.has('invite')) {
+    const token = form.get('invite');
+    if (!validToken(token) || !password || password.length < 12 ||
+        Buffer.byteLength(password, 'utf8') > 72) return loginPage(401);
+    const {key} = connection();
+    const authHeaders = {apikey:key, Authorization:'Bearer '+token, 'Content-Type':'application/json'};
+    const verified = await fetch(project + '/auth/v1/user', {
+      headers:authHeaders, signal:AbortSignal.timeout(8000)
+    });
+    if (!verified.ok) return loginPage(401);
+    const user = await verified.json();
+    if (!user.invited_at || !user.email_confirmed_at) return loginPage(401);
+    const updated = await fetch(project + '/auth/v1/user', {
+      method:'PUT', headers:authHeaders, body:JSON.stringify({password}), signal:AbortSignal.timeout(8000)
+    });
+    return updated.ok ? redirect('/login') : loginPage(401);
+  }
   if(!email || email.length>254 || !password || password.length>256)return loginPage(401);
   const {key}=connection();
   const response=await fetch(project+'/auth/v1/token?grant_type=password',{
@@ -309,6 +349,7 @@ export default async function handler(request) {
     return error(503, '운영 저장소에 연결할 수 없습니다.');
   }
 }
+
 
 
 
