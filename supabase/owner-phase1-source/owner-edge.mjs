@@ -173,9 +173,15 @@ export function makeEdgeHandler({projectUrl, serviceKey, galleryEnabled = false,
         if (method === 'POST') {
           let payload;
           try { payload = JSON.parse(body.toString('utf8')); } catch { return json(400, {ok: false}); }
-          if (!Array.isArray(payload?.expected) || !Array.isArray(payload?.urls)) return json(400, {ok: false});
+          if (!Array.isArray(payload?.expected)) return json(400, {ok: false});
           params.p_expected = payload.expected;
-          params.p_urls = payload.urls;
+          if (Array.isArray(payload.urls) && payload.representative === undefined) {
+            params.p_urls = payload.urls;
+          } else if (typeof payload.representative === 'string' && payload.urls === undefined) {
+            params.p_urls = {representative:payload.representative};
+          } else {
+            return json(400, {ok: false});
+          }
         }
         const result = await client.rpc('owner_pilot_gallery_v1', params);
         if (!result.error) return json(200, {ok: true, result: result.data});

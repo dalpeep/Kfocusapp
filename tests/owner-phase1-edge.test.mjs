@@ -115,6 +115,7 @@ test('gallery uses the verified actor, is off by default, and maps scoped RPC er
   const actor = '11111111-1111-4111-8111-111111111111';
   const business = '33333333-3333-4333-8333-333333333333';
   let code = 'OP403';
+  let representative;
   const calls = [];
   const options = {
     projectUrl: supabase, serviceKey: 'fixture-server',
@@ -125,13 +126,13 @@ test('gallery uses the verified actor, is off by default, and maps scoped RPC er
           ? Response.json({id: actor}) : Response.json({}, {status: 401});
       }
       assert.equal(url, supabase + '/rest/v1/rpc/owner_pilot_gallery_v1');
-      assert.deepEqual(JSON.parse(options.body), {p_actor: actor, p_business: business, p_expected: [], p_urls: []});
+      assert.deepEqual(JSON.parse(options.body), {p_actor: actor, p_business: business, p_expected: [], p_urls: representative ? {representative} : []});
       return code ? Response.json({code, message: 'private detail'}, {status: 400}) : Response.json([]);
     },
   };
-  const request = token => new Request(supabase + '?content=gallery&business=' + business, {
+  const request = (token, data = {urls:[]}) => new Request(supabase + '?content=gallery&business=' + business, {
     method: 'POST', headers: {Origin: origin, Authorization: 'Bearer ' + token},
-    body: JSON.stringify({actor: 'forged', expected: [], urls: []}),
+    body: JSON.stringify({actor: 'forged', expected: [], ...data}),
   });
   assert.equal((await makeEdgeHandler(options)(request('valid'))).status, 503);
   assert.equal(calls.length, 0);
@@ -145,6 +146,11 @@ test('gallery uses the verified actor, is off by default, and maps scoped RPC er
   assert.equal((await handle(request('valid'))).status, 409);
   code = null;
   assert.deepEqual(await (await handle(request('valid'))).json(), {ok: true, result: []});
+  representative = 'https://fixture.invalid/photo.png';
+  assert.equal((await handle(request('valid', {representative}))).status, 200);
+  const before = calls.length;
+  assert.equal((await handle(request('valid', {representative,urls:[]}))).status, 400);
+  assert.deepEqual(calls.slice(before), [supabase + '/auth/v1/user']);
 });
 
 test('photo upload checks ownership before writing a new object without upsert', async () => {
