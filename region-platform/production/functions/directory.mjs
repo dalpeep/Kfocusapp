@@ -45,7 +45,7 @@ ${status === 401 ? '<p role="alert">로그인에 실패했거나 운영 권한�
 const fragment = new URLSearchParams(location.hash.slice(1));
 if (location.hash) history.replaceState(null, '', location.pathname);
 const token = fragment.get('access_token');
-if (fragment.get('type') === 'invite' && token) {
+if (['invite', 'recovery'].includes(fragment.get('type')) && token) {
   const invite = document.getElementById('directory-invite');
   invite.elements.invite.value = token;
   document.getElementById('directory-login').hidden = true;
