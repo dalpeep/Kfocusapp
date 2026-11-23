@@ -71,3 +71,28 @@ test('new: admin ranked unpaid placement survives age limit and precedes automat
     ['paid','rank-1','rank-2','recent']);
   assert.deepEqual(ids(engine.select(day,[rows[2]],6)).new,['rank-1']);
 });
+
+test('ranked featured and popular placements precede GPS and clicks without displacing paid slots',()=>{
+  const ranks=(rank)=>({is_featured:true,featured_rank:rank,is_popular:true,popular_rank:rank});
+  const rows=[
+    row('paid',{...ranks(7),paid_active:true,rotation_enabled:false}),
+    row('enc-pro',{...ranks(2),lat:null,lng:null,featured:false,featured_order:1000}),
+    row('rank-first',ranks(1)),
+    row('closest',{lat:32.91,lng:-96.79}),
+    row('legacy-only',{featured:true,featured_order:1,is_featured:false,featured_rank:1,is_popular:false,popular_rank:1}),
+    row('unranked',ranks(1000)),
+    row('inactive',{...ranks(1),is_active:false}),
+    row('hidden',{...ranks(1),list_visible:false}),
+    row('other-region',{...ranks(1),region:'colorado'}),
+    row('expired',{...ranks(1),paid_active:true,paid_end_at:'2026-09-10'})
+  ];
+  for(const origin of [undefined,{lat:32.91,lng:-96.79}]){
+    const engine=shared.create({now,origin,clickCounts:new Map([['closest',100]])});
+    const result=ids(engine.select(day,shared.prepareRows(rows,'dallas'),4));
+    for(const group of ['featured','popular']){
+      assert.deepEqual(result[group].slice(0,3),['paid','rank-first','enc-pro']);
+    }
+    assert.equal(result.popular[3],'closest');
+    if(origin)assert.equal(result.featured[3],'closest');
+  }
+});
