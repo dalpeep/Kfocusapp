@@ -3,6 +3,7 @@ import { manageBusinesses, publicBusinesses } from '../../qa-business.mjs';
 import { businessAdminPage } from '../../qa-business-views.mjs';
 import { saveRegion } from '../../qa-settings.mjs';
 import { adminPage, demoPage, page } from '../../qa-views.mjs';
+import { createRegion } from '../../region-config.mjs';
 
 import { enabled, actionEnabled, allowsQuery } from '../../qa-features.mjs';
 import { withFeatures, settings, saveSettings, featuresPage } from '../feature-store.mjs';
@@ -329,8 +330,10 @@ async function businesses(request, url, auth, identity) {
 }
 
 async function regions(request, url, auth) {
-  const current = (await database('list', auth)).regions;
-  if (request.method === 'GET') return html(adminPage(current, current.find(item => item.slug === url.searchParams.get('edit'))));
+  const result = await database('list', auth);
+  if (result.status !== 200) return error(result.status, '지역 정보를 불러오지 못했습니다.');
+  const current = result.regions;
+  if (request.method === 'GET') return html(adminPage(current, current.find(item => item.slug === url.searchParams.get('edit')), undefined, true));
   const form = await formData(request, false);
   if (!form) return error(413, '입력값 길이를 확인하세요.');
   try {
@@ -375,13 +378,22 @@ async function featureAdmin(request,url,auth,identity) {
   return html(featuresPage(regions,scope,record?await withFeatures(record.region):null,await settings(scope),url.searchParams.has('saved'),central));
 }
 
-async function renderRegion(region,preview,query){
+async function renderRegion(region, preview, query, waiting = false) {
   const view=await withFeatures(region);
   if (!allowsQuery(view,query)) return error(404,'이 지역에서 꺼져 있는 기능입니다.');
   if (query.has('business') && !publicBusinesses(view).some(item=>item.id===query.get('business'))) {
     return error(404,'공개된 업소를 찾을 수 없습니다.');
   }
-  return html(demoPage(view,preview,query));
+  return html(demoPage(view, preview, query, {waiting}));
+}
+
+async function directoryHome(query) {
+  const published = await database('public', null, 'colorado');
+  if (published.status === 200) return renderRegion(published.region, false, query);
+  if (published.status !== 404) return error(503, '지역 정보를 불러오지 못했습니다.');
+  // Render the shared shell with empty defaults while Colorado is private.
+  const empty = createRegion({name:'온라인업소록', slug:'directory-home', center:{lat:0,lng:0}});
+  return renderRegion(empty, false, query, true);
 }
 export default async function handler(request) {
   const url = new URL(request.url);
@@ -416,11 +428,12 @@ export default async function handler(request) {
       if (path === '/admin/businesses') return await businesses(request, url, auth, identity);
       const preview = /^\/admin\/regions\/preview\/([a-z0-9-]+)$/.exec(path);
       if (preview && request.method === 'GET') {
+        if (identity.role !== 'superadmin' && identity.role !== 'region-admin') {
+          return error(403, '관리자 권한이 필요합니다.');
+        }
         const result = await database('read', auth, preview[1]);
         if (result.status !== 200) return error(result.status, '지역을 찾을 수 없습니다.');
-        const viewRegion = identity.role === 'owner' ?
-          { ...result.region, businessQa: ownerView(result.region, identity).businessQa } : result.region;
-        return await renderRegion(viewRegion,true,url.searchParams);
+        return await renderRegion(result.region,true,url.searchParams);
       }
       if (path === '/admin' && identity.role !== 'superadmin' && request.method==='GET') return redirect('/admin/businesses');
       if (identity.role !== 'superadmin') return error(403, '총괄 관리자 권한이 필요합니다.');
@@ -432,16 +445,13 @@ export default async function handler(request) {
       return result.status === 200 ? await renderRegion(result.region,false,url.searchParams) :
         error(result.status, '공개된 지역을 찾을 수 없습니다.');
     }
-    if (path === '/' && request.method === 'GET') return html(page('온라인업소록', `<h1>온라인업소록</h1>
-<nav><a href="/login">운영 계정 로그인</a><a href="/admin">관리자</a></nav>
-<form method="post" action="/logout"><button>로그아웃</button></form>`));
+    if (path === '/' && request.method === 'GET') return await directoryHome(url.searchParams);
     return error(404, '페이지를 찾을 수 없습니다.');
   } catch (e) {
     console.error('Online Directory:', e.message);
     return error(503, '운영 저장소에 연결할 수 없습니다.');
   }
 }
-
 
 
 

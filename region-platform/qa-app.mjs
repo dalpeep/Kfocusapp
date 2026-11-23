@@ -128,8 +128,8 @@ function screen(key, content) {
   return `<section id="${key}" class="screen" aria-label="${labels[key]}"><h2 class="page-title">${labels[key]}</h2>${content}</section>`;
 }
 
-export function demoPage(region, preview, query) {
-  const title = regionBrand(region.name);
+export function demoPage(region, preview, query, production) {
+  const title = production?.waiting ? '지역 서비스' : regionBrand(region.name);
   const categoryNames = ['전체', ...businessCategories(region)];
   const enabled = key => featureEnabled(region,key);
   const businesses = enabled('directory') ? publicBusinesses(region).map(b=>enabled('photos')?b:{...b,image:null}) : [];
@@ -158,19 +158,23 @@ export function demoPage(region, preview, query) {
   });
 
   const homeContent = {
-    directory: () => sectionCard('directory', '업소 목록', businessList(list('directory'))),
+    directory: () => sectionCard('directory', '업소 목록',
+      (production ? '<div class="chips" aria-label="준비 중인 업소 정렬"><span>추천 · 준비 중</span><span>신규 · 준비 중</span><span>인기 · 준비 중</span></div>' : '') +
+      businessList(list('directory'))),
     community: () => sectionCard('community', '커뮤니티', communityCategories(board,enabled) + itemList(list('community'))),
     map: () => sectionCard('map', '지역 지도', `<p class="empty">중심 ${region.map.center.lat}, ${region.map.center.lng} · 검색 반경 ${region.map.radiusKm} km</p>`)
   };
   const priority = region.home.layout;
   const homeSections = [...new Set([priority, 'directory', 'community'])].filter(key => Object.hasOwn(homeContent, key) && enabled(key));
   const appScreens = drawer.map(key => {
-    if (key === 'map') return screen(key, (enabled('search') && enabled('directory') ? searchForm(key, term, '업소 검색') : '') + mapPanel(region) + businessList(list(key)));
+    if (key === 'map') return screen(key, production?.waiting ? itemList([], '지역 지도를 준비 중입니다.') :
+      (enabled('search') && enabled('directory') ? searchForm(key, term, '업소 검색') : '') + mapPanel(region) + businessList(list(key)));
     if (key === 'directory') return screen(key, (enabled('search') ? searchForm(key, term, '업소명, 카테고리, 지역 검색') : '') +
       '<br>' + filterLinks(key, 'category', categoryNames) + businessList(list(key)));
     if (key === 'community') return screen(key, communityCategories(board,enabled) + itemList(list(key)));
     if (key === 'ownerRegister' || key === 'ownerPortal') return screen(key,
-      `<article class="card"><p>QA 관리자 로그인으로 등록·수정·소유권 신청을 테스트할 수 있습니다.</p>
+      production?.waiting ? itemList([], '지역 업소관리 서비스를 준비 중입니다.') :
+      `<article class="card"><p>${production ? '업주 계정으로 업소 등록·수정·소유권 신청을 할 수 있습니다.' : 'QA 관리자 로그인으로 등록·수정·소유권 신청을 테스트할 수 있습니다.'}</p>
 <a href="/admin/businesses?region=${escape(region.slug)}">업소관리 열기</a></article>`);
     return screen(key, itemList(list(key)));
   }).join('');
@@ -180,10 +184,10 @@ export function demoPage(region, preview, query) {
 </head><body><div class="app-shell">
 <header class="app-header">
 <a class="header-icon" href="#menu" aria-label="메뉴 열기">${icon('menu')}</a>
-<a class="brand" href="#home"><img src="${escape(region.theme.logoUrl || '/qa-ui/kfocus-icon.png')}" alt=""><div class="brand-names"><h1>온라인업소록</h1><span>${escape(title)}${region.nameEn ? ` · ${escape(region.nameEn)}` : ''} </span></div></a>
+<a class="brand" href="#home"><img src="${escape(region.theme.logoUrl || (production ? '/logo.png' : '/qa-ui/kfocus-icon.png'))}" alt=""><div class="brand-names"><h1>온라인업소록</h1><span>${escape(title)}${region.nameEn ? ` · ${escape(region.nameEn)}` : ''} </span></div></a>
 ${enabled('search') ? `<a class="header-icon" href="#search" aria-label="검색 열기">${icon('search')}</a>` : ''}
 </header>
-${preview ? '<div class="preview-note">관리자 미리보기 <a href="/admin/regions">지역 관리</a></div>' : ''}
+${preview ? '<div class="preview-note">관리자 미리보기 <a href="/admin/regions' + (production ? '?edit=' + encodeURIComponent(region.slug) : '') + '">지역 관리</a></div>' : ''}
 <main class="pages"><section id="home" class="screen" aria-label="홈">
 ${enabled('ownerPortal') ? `<section class="owner"><p>업소를 운영하시나요?</p><div class="owner-links">${enabled('registration')?'<a href="#ownerRegister">내 업소 등록</a>':''}<a href="#ownerPortal">${icon('directory')}내 업소관리</a></div></section>` : ''}
 ${enabled('banner') ? `<section class="card hero" aria-label="메인 배너"><div class="hero-art">
@@ -197,7 +201,7 @@ ${homeSections.map(key => homeContent[key]()).join('')}
 </section>${appScreens}${selectedBusiness ? businessDetail(selectedBusiness) : ''} </main>
 <nav class="bottom-nav" aria-label="하단 메뉴">${bottom.map(key => nav(key)).join('')}</nav>
 <aside id="menu" class="overlay drawer" aria-label="전체 메뉴"><div class="overlay-head"><h2>${escape(title)}</h2><a class="close" href="#home" aria-label="메뉴 닫기">닫기</a></div>
-<nav aria-label="지역 메뉴">${drawer.map(key => nav(key)).join('')}</nav></aside>
+<nav aria-label="지역 메뉴">${drawer.map(key => nav(key)).join('')}${production ? '<a href="/admin">관리자</a><a href="/login">운영 계정 로그인</a>' : ''}</nav></aside>
 ${enabled('search') ? `<section id="search" class="overlay search-overlay" aria-label="통합 검색"><div class="overlay-head"><h2>통합 검색</h2><a class="close" href="#home" aria-label="검색 닫기">닫기</a></div>
 ${searchForm('search', term, '업소 / 쿠폰 / 게시판 검색')}
 ${term ? `<div class="search-results">${searchKeys.map(key => `<section><h3>${labels[key]}</h3>${itemList(list(key), '검색 결과가 없습니다.')}</section>`).join('') || '<p>검색 가능한 기능이 없습니다.</p>'}</div>` : ''}

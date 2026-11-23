@@ -71,7 +71,7 @@ function select(label, name, value, choices) {
 const checkbox = (label, name, checked) =>
   `<label><input type="checkbox" name="${name}" ${checked ? 'checked' : ''}> ${label}</label>`;
 
-export function adminPage(regions, region, error) {
+export function adminPage(regions, region, error, production = false) {
   const defaults = createRegion({ name: 'QA', slug: 'qa', center: { lat: 0, lng: 0 } });
   const data = region || defaults;
   return page('지역 관리', `<header><h1>지역 관리</h1></header>
@@ -81,7 +81,8 @@ ${data.status === REGION_STATUS.demo ? `<a href="/regions/${data.slug}">공개 �
 ${error ? `<p role="alert">${escape(error === 'REGION_ALREADY_EXISTS' ? '같은 주소 이름이 이미 있습니다. 등록 지역에서 해당 지역을 열거나 상세 설정에서 다른 주소 이름을 입력하세요.' : '저장 실패 (' + error + ')')}</p>` : ''}
 <div class="grid"><section class="panel"><h2>등록 지역</h2>
 ${regions.length ? `<ul>${regions.map(item =>
-  `<li><a href="/admin/regions?edit=${item.slug}">${escape(item.name)}</a> · ${item.status === REGION_STATUS.demo ? '공개' : '비공개'}</li>`).join('')}</ul>` : '<p>등록된 지역이 없습니다.</p>'}
+  `<li><a href="/admin/regions?edit=${item.slug}">${escape(item.name)}</a> · ${item.status === REGION_STATUS.demo ? '공개' : '비공개'}
+  ${production ? ` · <a href="/admin/regions/preview/${item.slug}" aria-label="${escape(item.name)} 사용자 화면 미리보기">사용자 화면 미리보기</a>` : ''}</li>`).join('')}</ul>` : '<p>등록된 지역이 없습니다.</p>'}
 </section><section class="panel"><h2>${region ? '지역 수정' : '지역 추가'}</h2>
 <form method="post" action="/admin/regions">
 <input type="hidden" name="moduleForm" value="1">
