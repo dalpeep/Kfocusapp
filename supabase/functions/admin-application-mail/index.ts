@@ -27,6 +27,8 @@ async function rpc(name: string, args: Record<string, unknown>) {
   return data;
 }
 async function send(to: string, subject: string, text: string, key: string) {
+  const from = env("RESEND_FROM_EMAIL");
+  const sender = (from.match(/<([^<>]+)>\s*$/)?.[1] ?? from).trim().toLowerCase();
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
@@ -34,7 +36,10 @@ async function send(to: string, subject: string, text: string, key: string) {
         Authorization: "Bearer " + env("RESEND_API_KEY"),
         "Content-Type": "application/json", "Idempotency-Key": key,
       },
-      body: JSON.stringify({ from: env("RESEND_FROM_EMAIL"), to: [to], subject, text }),
+      body: JSON.stringify({
+        from, to: [to], subject, text,
+        ...(sender === "reservations@daltownmap.com" ? { reply_to: "info@daltownmap.com" } : {}),
+      }),
     });
     if (response.ok) return { status: "sent", provider_id: (await response.json()).id };
     const status = response.status;
@@ -104,3 +109,4 @@ Deno.serve(async request => {
     return json({ error: code === "42501" ? "forbidden" : "request_failed" }, code === "42501" ? 403 : 400);
   }
 });
+
