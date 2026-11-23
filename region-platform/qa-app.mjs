@@ -73,15 +73,15 @@ function nav(key, caption = labels[key]) {
 }
 
 function itemList(items, empty = '등록된 콘텐츠가 없습니다.') {
-  return items.length ? `<ul class="results">${items.map(item => `<li>${escape(item.title || item.name)}</li>`).join('')}</ul>` :
+  return items.length ? `<ul class="results">${items.map(item => `<li data-category="${escape(item.category)}">${escape(item.title || item.name)}</li>`).join('')}</ul>` :
     `<p class="empty">${empty}</p>`;
 }
 
-function businessList(items) {
+function businessList(items, staticDemo) {
   if (!items.length) return itemList(items);
-  return `<ul class="results business-results">${items.map(item => `<li>
+  return `<ul class="results business-results">${items.map(item => `<li data-category="${escape(item.category)}">
 ${item.image ? `<img class="business-photo" src="${escape(item.image)}" alt="" loading="lazy">` : ''}
-<div><strong><a href="?business=${encodeURIComponent(item.id)}#business">${escape(item.name)}</a></strong><p>${escape(item.category)} · ${escape(item.address)}</p>
+<div><strong><a href="${staticDemo ? '/business/' + encodeURIComponent(item.id) + '/#business' : '?business=' + encodeURIComponent(item.id) + '#business'}">${escape(item.name)}</a></strong><p>${escape(item.category)} · ${escape(item.address)}</p>
 ${item.contact ? `<p>${escape(item.contact)}</p>` : ''}
 <a href="https://www.openstreetmap.org/?mlat=${item.lat}&amp;mlon=${item.lng}#map=17/${item.lat}/${item.lng}">지도 위치</a></div>
 </li>`).join('')}</ul>`;
@@ -129,6 +129,7 @@ function screen(key, content) {
 }
 
 export function demoPage(region, preview, query, production) {
+  const staticDemo = production?.staticDemo;
   const title = production?.waiting ? '지역 서비스' : regionBrand(region.name);
   const categoryNames = ['전체', ...businessCategories(region)];
   const enabled = key => featureEnabled(region,key);
@@ -160,7 +161,7 @@ export function demoPage(region, preview, query, production) {
   const homeContent = {
     directory: () => sectionCard('directory', '업소 목록',
       (production ? '<div class="chips" aria-label="준비 중인 업소 정렬"><span>추천 · 준비 중</span><span>신규 · 준비 중</span><span>인기 · 준비 중</span></div>' : '') +
-      businessList(list('directory'))),
+      businessList(list('directory'), staticDemo)),
     community: () => sectionCard('community', '커뮤니티', communityCategories(board,enabled) + itemList(list('community'))),
     map: () => sectionCard('map', '지역 지도', `<p class="empty">중심 ${region.map.center.lat}, ${region.map.center.lng} · 검색 반경 ${region.map.radiusKm} km</p>`)
   };
@@ -168,9 +169,9 @@ export function demoPage(region, preview, query, production) {
   const homeSections = [...new Set([priority, 'directory', 'community'])].filter(key => Object.hasOwn(homeContent, key) && enabled(key));
   const appScreens = drawer.map(key => {
     if (key === 'map') return screen(key, production?.waiting ? itemList([], '지역 지도를 준비 중입니다.') :
-      (enabled('search') && enabled('directory') ? searchForm(key, term, '업소 검색') : '') + mapPanel(region) + businessList(list(key)));
+      (enabled('search') && enabled('directory') ? searchForm(key, term, '업소 검색') : '') + mapPanel(region) + businessList(list(key), staticDemo));
     if (key === 'directory') return screen(key, (enabled('search') ? searchForm(key, term, '업소명, 카테고리, 지역 검색') : '') +
-      '<br>' + filterLinks(key, 'category', categoryNames) + businessList(list(key)));
+      '<br>' + filterLinks(key, 'category', categoryNames) + businessList(list(key), staticDemo));
     if (key === 'community') return screen(key, communityCategories(board,enabled) + itemList(list(key)));
     if (key === 'ownerRegister' || key === 'ownerPortal') return screen(key,
       production?.waiting ? itemList([], '지역 업소관리 서비스를 준비 중입니다.') :
@@ -188,6 +189,7 @@ export function demoPage(region, preview, query, production) {
 ${enabled('search') ? `<a class="header-icon" href="#search" aria-label="검색 열기">${icon('search')}</a>` : ''}
 </header>
 ${preview ? '<div class="preview-note">관리자 미리보기 <a href="/admin/regions' + (production ? '?edit=' + encodeURIComponent(region.slug) : '') + '">지역 관리</a></div>' : ''}
+${staticDemo ? '<div class="preview-note">Colorado 공개 데모 · 모든 콘텐츠는 예시입니다.</div>' : ''}
 <main class="pages"><section id="home" class="screen" aria-label="홈">
 ${enabled('ownerPortal') ? `<section class="owner"><p>업소를 운영하시나요?</p><div class="owner-links">${enabled('registration')?'<a href="#ownerRegister">내 업소 등록</a>':''}<a href="#ownerPortal">${icon('directory')}내 업소관리</a></div></section>` : ''}
 ${enabled('banner') ? `<section class="card hero" aria-label="메인 배너"><div class="hero-art">
@@ -201,10 +203,10 @@ ${homeSections.map(key => homeContent[key]()).join('')}
 </section>${appScreens}${selectedBusiness ? businessDetail(selectedBusiness) : ''} </main>
 <nav class="bottom-nav" aria-label="하단 메뉴">${bottom.map(key => nav(key)).join('')}</nav>
 <aside id="menu" class="overlay drawer" aria-label="전체 메뉴"><div class="overlay-head"><h2>${escape(title)}</h2><a class="close" href="#home" aria-label="메뉴 닫기">닫기</a></div>
-<nav aria-label="지역 메뉴">${drawer.map(key => nav(key)).join('')}${production ? '<a href="/admin">관리자</a><a href="/login">운영 계정 로그인</a>' : ''}</nav></aside>
+<nav aria-label="지역 메뉴">${drawer.map(key => nav(key)).join('')}${production && !staticDemo ? '<a href="/admin">관리자</a><a href="/login">운영 계정 로그인</a>' : ''}</nav></aside>
 ${enabled('search') ? `<section id="search" class="overlay search-overlay" aria-label="통합 검색"><div class="overlay-head"><h2>통합 검색</h2><a class="close" href="#home" aria-label="검색 닫기">닫기</a></div>
 ${searchForm('search', term, '업소 / 쿠폰 / 게시판 검색')}
 ${term ? `<div class="search-results">${searchKeys.map(key => `<section><h3>${labels[key]}</h3>${itemList(list(key), '검색 결과가 없습니다.')}</section>`).join('') || '<p>검색 가능한 기능이 없습니다.</p>'}</div>` : ''}
-</section>` : ''}</div></body></html>`;
+</section>` : ''}</div>${staticDemo ? '<script src="/demo.js" defer></script>' : ''}</body></html>`;
 }
 
