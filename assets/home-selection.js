@@ -1,7 +1,7 @@
 /* Shared public home selection. Extracted unchanged from production V312.
  * No DOM, network, storage or analytics. Both public and admin use this implementation.
  * Fixed placement means an active paid group with rotation_enabled=false.
- * Explicitly ranked unpaid new placements precede automatic 168-hour candidates.
+ * Explicitly ranked unpaid placements precede automatic candidates.
  */
 (function(root){
 'use strict';
@@ -196,33 +196,36 @@ function v296BuildGroup(section,dateValue,allRows,limit){
 
   // 유료로 이미 노출된 동일 업소는 무료 후보에서 다시 나오지 않게 합니다.
   const free=v295FreePool(cleanRows,dateValue).filter(b=>!paidKeys.has(v296BusinessDedupeKey(b)));
+  const manuallyRanked=b=>{
+    const rank=businessGroupRank(b,section);
+    return sectionAssigned(b,section) && b.paid_active!==true && Number.isInteger(rank) && rank>0 && rank<1000;
+  };
+  const assigned=free.filter(manuallyRanked).sort((a,b)=>
+    businessGroupRank(a,section)-businessGroupRank(b,section) ||
+    v295CreatedAtMs(b)-v295CreatedAtMs(a)
+  ).slice(0,need);
+  const automatic=free.filter(b=>!manuallyRanked(b));
+  const remaining=need-assigned.length;
   let freeShown=[];
   if(section==='featured'){
-    const ordered=v295DistanceOrderedFree(free,dateValue);
+    const ordered=v295DistanceOrderedFree(automatic,dateValue);
     if(v293DistanceOrigin()){
       // 실제 GPS가 있으면 반드시 가까운 순서부터 노출합니다.
       // 같은 거리권의 동률만 V295의 날짜 해시가 tie-breaker로 순환시킵니다.
-      freeShown=ordered.slice(0,need);
+      freeShown=ordered.slice(0,remaining);
     }else{
       // 위치 권한이 없을 때만 기존 전체 로테이션을 사용합니다.
-      freeShown=v295RotateChunk(ordered,dateValue,need,'featured');
+      freeShown=remaining ? v295RotateChunk(ordered,dateValue,remaining,'featured') : [];
     }
   }else if(section==='new'){
-    const manuallyRanked=b=>b.is_new===true && b.paid_active!==true &&
-      businessGroupRank(b,'new')>0 && businessGroupRank(b,'new')<1000;
-    const assigned=free.filter(manuallyRanked).sort((a,b)=>
-      businessGroupRank(a,'new')-businessGroupRank(b,'new') ||
-      v295CreatedAtMs(b)-v295CreatedAtMs(a)
-    );
-    const fresh=free.filter(b=>!manuallyRanked(b)&&v295IsNewWithin7Days(b)).sort((a,b)=>
+    freeShown=automatic.filter(v295IsNewWithin7Days).sort((a,b)=>
       v295CreatedAtMs(b)-v295CreatedAtMs(a) ||
       rotationHash(`${rotationDateKey(dateValue)}|v296-new|${a.id}`)-rotationHash(`${rotationDateKey(dateValue)}|v296-new|${b.id}`)
-    );
-    freeShown=[...assigned,...fresh].slice(0,need);
+    ).slice(0,remaining);
   }else if(section==='popular'){
-    freeShown=v295PopularFreeOrder(free,dateValue).slice(0,need);
+    freeShown=v295PopularFreeOrder(automatic,dateValue).slice(0,remaining);
   }
-  freeShown=v296DedupeBusinesses(freeShown).slice(0,need);
+  freeShown=v296DedupeBusinesses([...assigned,...freeShown]).slice(0,need);
   return {rows:v296DedupeBusinesses([...paidShown,...freeShown]).slice(0,limit),paid:paidShown.length,free:freeShown.length};
 }
 function canonicalHomeGroups(dateValue=todayKey(),allRows=businesses,limit=6){

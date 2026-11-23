@@ -17,7 +17,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "33c151ac797c2d06e728e40166ce5bda2abec234c16f0001e1c602c72b30fe2c"
+      "sha256": "bd2fd8611ef917c3e432d08312229ab8d7ffddac67e5f925a3c6f817ac473b1b"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -517,11 +517,11 @@
     },
     {
       "path": "admin/index.html",
-      "sha256": "e245b13583c3dc78f314bca272657c368263f57d42ff50b597d18b24bb05d62e"
+      "sha256": "23134640eb259d45bcdd06452b7234b056ff08e2ec8fecd9fa1278e9255158a6"
     },
     {
       "path": "assets/home-selection.js",
-      "sha256": "12fef45cb8c603fc32a41050d4d38e9f18732c025cce3712f6fa2b185688c289"
+      "sha256": "ae74dadba0394ab221badf55642205606cb785efee38bd3f372c73d8f03611be"
     }
   ],
   "files": [
