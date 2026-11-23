@@ -4,6 +4,14 @@
   "siteId": "e2667e40-0999-42a3-892b-2b2edff61434",
   "fingerprint": [
     {
+      "path": "supabase/community-admin-promotion-images-draft.sql",
+      "sha256": "bc7979fdda94a97b85c4d2d1258e696d7e2e4f116e81653e64483ff977c0fd6f"
+    },
+    {
+      "path": "supabase/community-admin-promotion-images-rollback.sql",
+      "sha256": "77bb70758ac69ee6a434c20be01ca7a1654cd8ac290908b1dfa7500fa7d99799"
+    },
+    {
       "path": ".node-version",
       "sha256": "0c4bf84f9bedd485b2c4eac05f59e35addc86ce7dbf0d90435528e04384c6314"
     },
@@ -269,7 +277,7 @@
     },
     {
       "path": "netlify/legacy-functions/community-admin.js",
-      "sha256": "9cd727b308294b0c3d3a3eea5147be7fdffc0e71736552f56b258ddb540cac69"
+      "sha256": "f2f849b7ecd7081b54dd4f7de276b8b0c24da48edb0e4207d2817bfc0fe0cd1c"
     },
     {
       "path": "netlify/legacy-functions/community-cleanup-scheduled.mjs",
@@ -513,11 +521,11 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "080483c91c67b1076530badeeb97304790e59d2c7d42822a2ea3c51520fb5aaf"
+      "sha256": "e465f312ffd6e7231605dafae672283b6c04bf5efb3bb4aa6aa1ce6a109afabd"
     },
     {
       "path": "admin/index.html",
-      "sha256": "870a8115a3246a9359b0ba8ceaae92ce077690d0a6656519430012051152e744"
+      "sha256": "e81824ea2f09a4eddfecf85ff515627169a93d9e63748300acbcb4144e0ddbfc"
     },
     {
       "path": "assets/home-selection.js",
