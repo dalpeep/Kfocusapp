@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 const code=fs.readFileSync('assets/community.js','utf8');
 const ctx={Date,AREAS:[],ui4Labels:{business_promotion:'업체홍보'},timeLabel:()=> 'QA',ui4Badge:s=>s,esc:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')};
 vm.createContext(ctx);
@@ -27,7 +28,11 @@ test('runtime changes are limited to approved patches, coupon notifications and 
 });
 test('the UI release retains the deployed build settings, SQL, and activation gate',()=>{
  const production='e0aecb4c91726f3be5031df3f6244c86e1e58c93';
+ const communityAdmin='netlify/legacy-functions/community-admin.js';
+ const approved=JSON.parse(fs.readFileSync('release-baseline/community-security-patches.json')).patches.find(item=>item.path===communityAdmin);
+ assert.equal(createHash('sha256').update(fs.readFileSync(communityAdmin)).digest('hex'),approved?.sha256);
  const diff=execFileSync('git',['diff',production,'--','netlify','*.sql','release-baseline/activation.json',
+  ':(exclude)'+communityAdmin,
   ':(exclude)netlify/functions/coupon-used-notify.mjs',
   ':(exclude)docs/migrations/DRAFT-owner-phase1-pilot.sql',
   ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql',

@@ -94,6 +94,7 @@ try {
   approved.add('assets/home-selection.js');
   approved.add('admin/index.html');
   approved.add('admin/assets/admin.js');
+  approved.add('admin/assets/community-admin.js');
   approved.add('admin/assets/admin.css');
   approved.add('admin/assets/mail-settings.js');
   approved.add('admin/assets/mail-confirm.js');

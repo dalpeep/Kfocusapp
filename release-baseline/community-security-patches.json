@@ -4,7 +4,7 @@
     {
       "path": "netlify/legacy-functions/community-admin.js",
       "baselineSha256": "3f689e3c037f071f664a319f27c8c8a6bfb9d41c536f3dcb1cb43dde524a9c9c",
-      "sha256": "be03a323a73ea1e89cbf31eaff90e5ba6248e788313c04ac33c2ece2d1001efb"
+      "sha256": "9cd727b308294b0c3d3a3eea5147be7fdffc0e71736552f56b258ddb540cac69"
     },
     {
       "path": "netlify/legacy-functions/lib/community-security.js",
