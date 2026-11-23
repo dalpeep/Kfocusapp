@@ -30,13 +30,19 @@ const html = (body, status = 200, extra = {}) =>
 const error = (status, message) => html(page('온라인업소록 QA', message), status);
 const redirect = location => html(null, 303, { Location: location });
 const sessionCookie = '__Host-directory_session';
-function loginPage(status = 200) {
+function loginPage(status = 200, message = '') {
   const nonce = randomUUID();
   return html(page('온라인업소록 로그인', `<h1>온라인업소록 로그인</h1>
-${status === 401 ? '<p role="alert">로그인에 실패했거나 운영 권한이 없습니다.</p>' : ''}
+${message ? `<p role="alert">${message}</p>` : ''}
+<p id="directory-link-error" role="alert" hidden>이메일 링크가 만료됐거나 이미 사용됐습니다. 새 링크를 요청하세요.</p>
 <form id="directory-login" method="post" action="/login"><label>이메일<input type="email" name="email" autocomplete="username" required></label>
 <label>비밀번호<input type="password" name="password" autocomplete="current-password" required></label>
 <button>로그인</button></form>
+<details id="directory-recover"><summary>비밀번호 재설정</summary>
+<form method="post" action="/login">
+<input type="hidden" name="recover" value="1">
+<label>이메일<input type="email" name="email" autocomplete="email" required></label>
+<button>재설정 메일 요청</button></form></details>
 <form id="directory-invite" method="post" action="/login" hidden>
 <input type="hidden" name="invite">
 <label>새 비밀번호<input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="72" required></label>
@@ -49,7 +55,11 @@ if (['invite', 'recovery'].includes(fragment.get('type')) && token) {
   const invite = document.getElementById('directory-invite');
   invite.elements.invite.value = token;
   document.getElementById('directory-login').hidden = true;
+  document.getElementById('directory-recover').hidden = true;
   invite.hidden = false;
+} else if (fragment.get('error')) {
+  document.getElementById('directory-link-error').hidden = false;
+  document.getElementById('directory-recover').open = true;
 }
 </script>`), status, {'Content-Security-Policy': headers['Content-Security-Policy'] + "; script-src 'nonce-" + nonce + "'"});
 }
@@ -94,34 +104,56 @@ async function login(request,url) {
   if(request.headers.get('origin')!==url.origin ||
      request.headers.get('content-type')?.split(';')[0]!=='application/x-www-form-urlencoded')return error(403,'로그인 페이지에서 다시 시도하세요.');
   const form=await formData(request,false);
-  const email=form?.get('email');
+  const email=form?.get('email')?.trim();
   const password=form?.get('password');
+  if (form?.has('recover')) {
+    if (!email || email.length > 254) return loginPage(400, '이메일 주소를 확인하세요.');
+    const {key} = connection();
+    const callback = new URL('/login', url.origin);
+    const recovery = await fetch(project + '/auth/v1/recover?redirect_to=' + encodeURIComponent(callback.href), {
+      method:'POST', headers:{apikey:key,'Content-Type':'application/json'},
+      body:JSON.stringify({email}), signal:AbortSignal.timeout(8000)
+    });
+    if (recovery.status >= 500) return loginPage(503, '재설정 요청을 처리할 수 없습니다. 잠시 후 다시 시도하세요.');
+    return loginPage(200, '등록된 주소라면 재설정 메일이 발송됩니다. 가장 최근에 받은 링크를 사용하세요.');
+  }
   if (form?.has('invite')) {
     const token = form.get('invite');
     if (!validToken(token) || !password || password.length < 12 ||
-        Buffer.byteLength(password, 'utf8') > 72) return loginPage(401);
+        Buffer.byteLength(password, 'utf8') > 72) return loginPage(400, '새 비밀번호는 12자 이상, UTF-8 기준 72바이트 이하여야 합니다. 새 링크로 다시 시도하세요.');
     const {key} = connection();
     const authHeaders = {apikey:key, Authorization:'Bearer '+token, 'Content-Type':'application/json'};
     const verified = await fetch(project + '/auth/v1/user', {
       headers:authHeaders, signal:AbortSignal.timeout(8000)
     });
-    if (!verified.ok) return loginPage(401);
+    if (!verified.ok) return loginPage(401, '이메일 링크의 세션을 확인할 수 없습니다. 새 링크를 요청하세요.');
     const user = await verified.json();
-    if (!user.invited_at || !user.email_confirmed_at) return loginPage(401);
+    if (!user.email_confirmed_at) return loginPage(403, '이메일 인증이 완료된 운영 계정이 필요합니다.');
     const updated = await fetch(project + '/auth/v1/user', {
       method:'PUT', headers:authHeaders, body:JSON.stringify({password}), signal:AbortSignal.timeout(8000)
     });
-    return updated.ok ? redirect('/login') : loginPage(401);
+    if (!updated.ok) return loginPage(updated.status >= 500 ? 503 : 400, '비밀번호를 저장하지 못했습니다. 새 링크를 요청해 다시 시도하세요.');
+    return loginPage(200, '비밀번호가 저장됐습니다. 새 비밀번호로 로그인하세요.');
   }
-  if(!email || email.length>254 || !password || password.length>256)return loginPage(401);
+  if (!email || email.length > 254 || !password || password.length > 256) {
+    return loginPage(400, '이메일과 비밀번호를 입력하세요.');
+  }
   const {key}=connection();
   const response=await fetch(project+'/auth/v1/token?grant_type=password',{
     method:'POST',headers:{apikey:key,'Content-Type':'application/json'},
     body:JSON.stringify({email,password}),signal:AbortSignal.timeout(8000)
   });
-  if(!response.ok)return loginPage(401);
+  if (!response.ok) {
+    const failure = await response.json().catch(() => ({}));
+    if (failure.error_code === 'invalid_credentials') return loginPage(401, '이메일 또는 비밀번호가 올바르지 않습니다.');
+    if (response.status === 429) return loginPage(429, '로그인 시도가 너무 많습니다. 잠시 후 다시 시도하세요.');
+    return loginPage(503, '운영 인증 서비스에 연결할 수 없습니다. 잠시 후 다시 시도하세요.');
+  }
   const result=await response.json();
-  if(!result.access_token || (await database('identity',result.access_token)).status!==200)return loginPage(401);
+  if (!validToken(result.access_token)) return loginPage(503, '운영 로그인 세션을 생성할 수 없습니다.');
+  const identity = await database('identity', result.access_token);
+  if (identity.status === 401) return loginPage(403, '로그인은 확인됐지만 운영 앱 접근 권한을 확인할 수 없습니다.');
+  if (identity.status !== 200) return loginPage(503, '운영 권한 조회를 완료할 수 없습니다.');
   return html(null,303,{Location:'/admin','Set-Cookie':cookie(result.access_token,Math.min(3600,Number(result.expires_in)||3600))});
 }
 
