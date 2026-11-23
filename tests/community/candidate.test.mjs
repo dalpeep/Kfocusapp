@@ -31,8 +31,12 @@ test('the UI release retains the deployed build settings, SQL, and activation ga
  const communityAdmin='netlify/legacy-functions/community-admin.js';
  const approved=JSON.parse(fs.readFileSync('release-baseline/community-security-patches.json')).patches.find(item=>item.path===communityAdmin);
  assert.equal(createHash('sha256').update(fs.readFileSync(communityAdmin)).digest('hex'),approved?.sha256);
+ const imageSql=['supabase/community-admin-promotion-images-draft.sql','supabase/community-admin-promotion-images-rollback.sql'];
+ const fingerprints=JSON.parse(fs.readFileSync('release-baseline/draft-build.json')).fingerprint;
+ for(const path of imageSql)assert.equal(createHash('sha256').update(fs.readFileSync(path)).digest('hex'),fingerprints.find(item=>item.path===path)?.sha256);
  const diff=execFileSync('git',['diff',production,'--','netlify','*.sql','release-baseline/activation.json',
   ':(exclude)'+communityAdmin,
+  ...imageSql.map(path=>':(exclude)'+path),
   ':(exclude)netlify/functions/coupon-used-notify.mjs',
   ':(exclude)docs/migrations/DRAFT-owner-phase1-pilot.sql',
   ':(exclude)docs/migrations/PROD-OWNER-PHASE1-ACCOUNT-PREFLIGHT-READONLY.sql',

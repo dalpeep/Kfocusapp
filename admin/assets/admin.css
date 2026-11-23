@@ -967,3 +967,40 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 }
 .admin-mail-filters label { display: flex; align-items: center; gap: 4px; }
 .admin-mail-filters input, .admin-mail-recipient input[type=checkbox] { width: auto; }
+
+/* Community moderation and promotion editor */
+.community-status-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:16px 0}
+.community-status-card{--tone:#74480b;--wash:#fff4dc;display:grid;align-content:start;justify-items:start;gap:6px;min-width:0;min-height:112px;border:1px solid color-mix(in srgb,var(--tone) 22%,white);border-radius:15px;padding:12px;background:var(--wash);color:var(--tone);text-align:left;cursor:pointer}
+.community-status-card[data-community-status=approved]{--tone:#146347;--wash:#e7f7ef}
+.community-status-card[data-community-status=hidden]{--tone:#4b5974;--wash:#edf1f7}
+.community-status-card[data-community-status=rejected]{--tone:#9e344e;--wash:#ffedf2}
+.community-status-card[data-community-status=expired]{--tone:#6644a7;--wash:#f2ecff}
+.community-status-card[data-community-status=sold]{--tone:#2454a5;--wash:#e9f1ff}
+.community-status-card[aria-pressed=true]{border-color:var(--tone);box-shadow:inset 0 0 0 1px var(--tone)}
+.community-status-card:focus-visible,.promotion-editor :focus-visible{outline:2px solid #2454a5;outline-offset:3px}
+.community-status-icon{display:grid;place-items:center;width:30px;height:30px;color:white;background:var(--tone);border-radius:9px;font-size:18px;font-weight:700}
+.community-status-label{font-size:.84rem;font-weight:700}
+.community-status-card strong{font-size:clamp(1.45rem,2.4vw,2.1rem);line-height:1.1;font-variant-numeric:tabular-nums}
+.community-status-card .count-error{font-size:.82rem;line-height:1.6}
+#communityAdminFeedback:empty,.promotion-editor [data-edit-feedback]:empty{display:none}
+.promotion-editor{margin:16px 0;padding:20px;border:1px solid #cbd8e9;border-radius:16px;background:#f8fafd;color:#172a46}
+.promotion-editor h4{margin:0 0 16px;font-size:1.15rem}
+.promotion-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.promotion-fields label{display:grid;min-width:0;gap:6px;font-size:.88rem;font-weight:700}
+.promotion-span{grid-column:1/-1}
+.promotion-fields input:not([type=file]),.promotion-fields textarea,.promotion-fields select{box-sizing:border-box;width:100%;min-height:43px;padding:10px 12px;border:1px solid #a9b9cf;border-radius:10px;background:white;color:#172a46;font:inherit}
+.promotion-fields textarea{min-height:138px;resize:vertical}
+.promotion-images{min-width:0;margin:0;padding:14px;border:1px solid #cbd8e9;border-radius:12px;background:white}
+.promotion-images legend{padding:0 5px;font-weight:700}.promotion-images small,.promotion-images legend span{color:#526681}
+.promotion-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.promotion-image{position:relative;margin:0;min-width:0;overflow:hidden;border:1px solid #d9e3f0;border-radius:10px}
+.promotion-image img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#edf2f8}
+.promotion-remove{position:absolute;top:5px;right:5px;width:29px;height:29px;border:0;border-radius:50%;background:#1d2b41;color:white;font-size:20px;cursor:pointer}
+.promotion-editor .promotion-replace,.promotion-editor .promotion-add{position:relative;display:inline-flex;align-items:center;justify-content:center;min-height:37px;padding:6px 10px;border-radius:8px;background:#e8f0ff;color:#204c91;cursor:pointer}
+.promotion-editor .promotion-replace{display:flex;border-radius:0;min-width:0}.promotion-editor .promotion-add{margin-right:8px}
+.promotion-editor input[type=file]{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}
+.promotion-preview{padding:11px 12px;border:1px solid #cbd8e9;border-radius:10px;background:white}
+.promotion-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.promotion-actions .btn{min-width:84px;min-height:42px;border-radius:10px}
+@media(max-width:850px){.community-status-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:600px){.community-status-grid{gap:7px}.community-status-card{min-height:100px;padding:9px}.promotion-editor{padding:13px}.promotion-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.promotion-gallery{gap:5px}}
