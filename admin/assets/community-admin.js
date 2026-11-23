@@ -7,7 +7,9 @@ function drawTabs(){document.querySelectorAll('[data-community-status]').forEach
 async function load(){const pass=++loadId,box=document.getElementById('communityAdminList'),totals=document.getElementById('communityAdminTotals'),pages=document.getElementById('communityAdminPages');totals.textContent='전체 상태 건수 조회 중…';pages.replaceChildren();rows=[];box.innerHTML='<div class="dashboard-empty">불러오는 중...</div>';try{const data=await call({action:'list',status,from:pageIndex*50,to:pageIndex*50+49});if(pass!==loadId)return;drawCounts(data.counts);if(pageIndex>0&&Number.isInteger(data.count)&&pageIndex*50>=data.count){pageIndex--;return load()}rows=data.rows||[];document.getElementById('communityAdminCount').textContent=Number.isInteger(data.count)?`${data.count}개`:'건수 조회 실패';drawPages(pages,data.count);box.innerHTML=rows.length?rows.map(row=>`<article class="admin-card" data-community-admin-id="${esc(row.id)}" style="margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px"><div><span class="dashboard-status-chip">${esc(LABELS[row.category]||row.category)}</span><h3>${esc(row.title)}</h3><small>${esc(row.author_name)} · ${esc(row.area)} · ${esc(row.created_at)}</small></div><span class="dashboard-status-chip ${row.status==='approved'?'live':''}">${esc(row.status)}</span></div><p style="white-space:pre-wrap">${esc(row.body)}</p><div style="display:flex;gap:8px;overflow:auto">${(row.community_post_images||[]).map(i=>`<img src="${esc(i.image_url)}" alt="" style="width:120px;height:90px;object-fit:cover;border-radius:10px">`).join('')}</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><select data-admin-category>${Object.entries(LABELS).map(([k,v])=>`<option value="${k}" ${k===row.category?'selected':''}>${v}</option>`).join('')}</select><button class="btn primary" data-admin-action="approved">승인</button><button class="btn ghost" data-admin-action="rejected">거절</button><button class="btn danger" data-admin-action="deleted">삭제</button><button class="btn ghost" data-admin-comments>댓글 관리</button>${row.category==='business_promotion'?'<button class="btn ghost" type="button" data-admin-edit>수정</button>':''}</div><div data-admin-comment-list></div></article>`).join(''):'<div class="dashboard-empty">해당 게시글이 없습니다.</div>'}catch(e){if(pass!==loadId)return;document.getElementById('communityAdminCount').textContent='';drawCounts(null);box.textContent=e.message}}
 const baseLoad=load;
 load=async function(){
+  const pass=loadId+1;
   await baseLoad();
+  if(pass!==loadId)return;
   if(status==='pending')document.getElementById('communityAdminCount').prepend('검토 필요 · ');
   for(const row of rows){
     const card=[...document.querySelectorAll('[data-community-admin-id]')].find(el=>el.dataset.communityAdminId===row.id);
@@ -32,7 +34,9 @@ load=async function(){
 };
 const videoBaseLoad=load;
 load=async function(){
+  const pass=loadId+1;
   await videoBaseLoad();
+  if(pass!==loadId)return;
   for(const row of rows){
     if(!['marketplace','housing'].includes(row.category)||!row.video_url)continue;
     let url;try{url=new URL(row.video_url)}catch{continue}
@@ -47,7 +51,9 @@ load=async function(){
 };
 const retentionBaseLoad=load;
 load=async function(){
+  const pass=loadId+1;
   await retentionBaseLoad();
+  if(pass!==loadId)return;
   for(const row of rows){
     if(!['marketplace','housing'].includes(row.category))continue;
     const card=[...document.querySelectorAll('[data-community-admin-id]')].find(el=>el.dataset.communityAdminId===row.id);
