@@ -15,6 +15,11 @@
       "path": "netlify/functions/lib/community-security.js",
       "baselineSha256": "aa05fbcf517550dcf1d5b9e373e4f81afacdaaa70c9b98246506b9c6258d73bf",
       "sha256": "8376d481e4e735d1f910343e0685e313d521a8d7a1a46e6a0ee6c13a0b8d0535"
+    },
+    {
+      "path": "netlify/legacy-functions/community-post-owner.js",
+      "baselineSha256": "36d46fbac55f1bb491fb302bac854158461a68a740c332719d8ad8600f2540d8",
+      "sha256": "81cbf75a93e7a9a04e6d78e10e144a1526e72292854dff6ea8a4b58d6d8fa7b6"
     }
   ]
 }

@@ -4,6 +4,14 @@
   "siteId": "e2667e40-0999-42a3-892b-2b2edff61434",
   "fingerprint": [
     {
+      "path": "supabase/community-view-count-draft.sql",
+      "sha256": "4b9992b7b5777acc4fa88f745dc74ccbdadd76af7bea897323b1d6df1713ddd6"
+    },
+    {
+      "path": "supabase/community-view-count-rollback.sql",
+      "sha256": "99a527ca2bb350a682aa6cc510b58d853e1490220ec61e3645f85b9bc198fa3a"
+    },
+    {
       "path": "supabase/community-admin-promotion-images-draft.sql",
       "sha256": "bc7979fdda94a97b85c4d2d1258e696d7e2e4f116e81653e64483ff977c0fd6f"
     },
@@ -21,11 +29,11 @@
     },
     {
       "path": "assets/community.js",
-      "sha256": "bddd6752180632194c84efd39bb6450a44ae3df94ee9246ea0813da085fd1c20"
+      "sha256": "f7e65dc210c50e08279da2eb1d785c6a6cf5b3b2573ce0a32bb61cfc4511b004"
     },
     {
       "path": "index.html",
-      "sha256": "bd2fd8611ef917c3e432d08312229ab8d7ffddac67e5f925a3c6f817ac473b1b"
+      "sha256": "e8634eb2034e1f0b2dc029b4a25f7c75665c9e6ef5c9121aae8b713badb0691e"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -305,7 +313,7 @@
     },
     {
       "path": "netlify/legacy-functions/community-post-owner.js",
-      "sha256": "36d46fbac55f1bb491fb302bac854158461a68a740c332719d8ad8600f2540d8"
+      "sha256": "81cbf75a93e7a9a04e6d78e10e144a1526e72292854dff6ea8a4b58d6d8fa7b6"
     },
     {
       "path": "netlify/legacy-functions/community-post-sold.js",
@@ -517,11 +525,11 @@
     },
     {
       "path": "scripts/release/locked-draft-build.mjs",
-      "sha256": "18bec3f27a141fc160f4587f6eda59b9de3a0236f435f960d6a739ddf6b2ae3a"
+      "sha256": "ff0eb54bbcb570bec2824f9d6647749105005f647402977a64d1a16449604d54"
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "e465f312ffd6e7231605dafae672283b6c04bf5efb3bb4aa6aa1ce6a109afabd"
+      "sha256": "212e4b1c35b4b2d2eadc883d4c7d2176ceaf5536cd80ec8dd0ad1483059af736"
     },
     {
       "path": "admin/index.html",
