@@ -100,6 +100,7 @@ try {
   approved.add('admin/assets/mail-confirm.js');
   approved.add('admin/mail-confirm.html');
   approved.add('netlify/functions/community-admin.js');
+  approved.add('netlify/functions/community-post-owner.js');
   approved.add('netlify/functions/lib/community-security.js');
   if(changed.some(file=>!approved.has(file)))throw Error();
   fs.mkdirSync('.release-artifacts',{recursive:true});
