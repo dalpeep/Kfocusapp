@@ -18,6 +18,7 @@ function fixture({failed, role='super_admin', area='', updated=true}={}){
     const q={
       select(_columns,options){state.options=options;return q;},
       eq(name,value){state.filters[name]=value;return q;},
+      or(expression){state.compound=expression;return q;},
       range(from,to){state.range=[from,to];return q;},
       order(name){state.order.push(name);return q;},
       update(changes){state.changes=changes;return q;},
@@ -25,8 +26,9 @@ function fixture({failed, role='super_admin', area='', updated=true}={}){
       then(resolve){
         if(state.changes){writes.push(state);return resolve({data:updated?[{id:post.id}]:[]});}
         reads.push(state);
-        if(state.filters.status===failed)return resolve({error:new Error('count failed')});
-        return resolve({data:state.range?[post]:null,count:totals[state.filters.status]});
+        const status=state.filters.status||(state.compound?.startsWith('status.eq.expired,')?'expired':null);
+        if(status===failed)return resolve({error:new Error('count failed')});
+        return resolve({data:state.range?[post]:null,count:totals[status]});
       }
     };
     return q;
@@ -54,6 +56,8 @@ test('status counts are exact scoped queries independent of paging and report er
   assert.deepEqual(Array.from(reads[0].range),[50,99]);
   assert.ok(reads.every(read=>read.filters.region==='dallas'));
   assert.ok(reads.slice(1).every(read=>read.options.head&&read.options.count==='exact'&&!read.range));
+  assert.match(reads.find(read=>read.filters.status==='approved').compound,/publish_starts_at\.lte/);
+  assert.match(reads.find(read=>read.compound?.startsWith('status.eq.expired,')).compound,/expires_at\.lte/);
 });
 
 const edit={action:'edit_promotion',id:post.id,updated_at:post.updated_at,title:'새 제목',body:'새 본문',author_name:'표시 이름',area:'plano',contact_type:'email',contact_value:'example@example.invalid',status:'pending',password_hash:'ignored',comment_count:999};
