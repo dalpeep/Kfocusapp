@@ -12644,6 +12644,8 @@ function mountBusinessEmailQa(adminProfile) {
         <option value="eligible">인증·동의</option><option value="pending">인증·동의 대기</option>
         <option value="unsubscribed">수신 거부</option><option value="suppressed">반송·기타 차단</option>
         <option value="missing">미등록</option><option value="unavailable">상태 확인 불가</option></select></label>
+      <label>등록 출처 <select data-email-live-origin><option value="">전체</option>
+        <option value="direct">기존 직접 등록 신청</option><option value="other">그 외 업소</option></select></label>
       <label>업소명 <input type="search" data-email-live-search placeholder="업소명 검색"></label>
       </div>
       <p data-email-live-selection role="status"></p>
@@ -12732,6 +12734,10 @@ function mountBusinessEmailQa(adminProfile) {
       return;
     }
     const [row]=rows;
+    if(row.directRequest){
+      feedback.textContent='기존 직접 신청 업소에는 인증 요청을 다시 보내지 않습니다.';
+      return;
+    }
     if(!window.confirm(`${row.name} · ${row.email}에 이메일 인증 링크를 보내시겠습니까?`))return;
     const button=el('verify');
     button.disabled=true;
@@ -12969,6 +12975,25 @@ function mountBusinessEmailQa(adminProfile) {
   }
   el('target').addEventListener('change',renderRecipientReview);
   let visibleContacts=[];
+  function legacyDirectRequestIds(source,requests){
+    const namesByEmail=new Map();
+    for(const row of source){
+      const email=String(row.email||'').trim().toLowerCase();
+      if(!email)continue;
+      const names=[row.name,row.name_ko,row.name_en].map(name=>String(name||'').trim().toLowerCase()).filter(Boolean);
+      const matches=namesByEmail.get(email)||[];
+      matches.push({id:String(row.id),names});
+      namesByEmail.set(email,matches);
+    }
+    const ids=new Set();
+    for(const request of requests){
+      const email=String(request.email||'').trim().toLowerCase();
+      const name=String(request.business_name||'').trim().toLowerCase();
+      const matches=(namesByEmail.get(email)||[]).filter(row=>row.names.includes(name));
+      if(matches.length===1)ids.add(matches[0].id);
+    }
+    return ids;
+  }
   function updateLiveSelection(){
     const available=visibleContacts.filter(selectable);
     const selected=available.filter(row=>liveSelected.has(row.id)).length;
@@ -13011,10 +13036,12 @@ function mountBusinessEmailQa(adminProfile) {
     const scope=el('live-scope').value;
     const category=el('live-category').value;
     const area=el('live-area').value;
+    const origin=el('live-origin').value;
     const query=el('live-search').value.trim().toLocaleLowerCase();
     visibleContacts=liveRecords.filter(row=>
       (!filter||filter===liveState(row))&&
       (!scope||(scope==='registered')===Boolean(row.email))&&
+      (!origin||(origin==='direct')===row.directRequest)&&
       (!category||category===row.category_ko)&&(!area||area===row.area)&&
       (!query||[row.name,row.name_ko,row.name_en].some(name=>String(name||'').toLocaleLowerCase().includes(query))));
     for(const row of visibleContacts){
@@ -13029,7 +13056,8 @@ function mountBusinessEmailQa(adminProfile) {
       check.checked=liveSelected.has(row.id);
       cell.append(check);
       item.append(cell);
-      for(const text of [row.name,row.category_ko,row.area,row.email,liveLabels[state]]){
+      const status=liveLabels[state]+(row.directRequest?' · 신청 이력 관리자 확인 완료':'');
+      for(const text of [row.name,row.category_ko,row.area,row.email,status]){
         const td=document.createElement('td');
         td.textContent=text||'—';
         item.append(td);
@@ -13043,7 +13071,7 @@ function mountBusinessEmailQa(adminProfile) {
     }
     updateLiveSelection();
   }
-  for(const key of ['scope','category','area','filter'])el('live-'+key).addEventListener('change',renderLiveContacts);
+  for(const key of ['scope','category','area','filter','origin'])el('live-'+key).addEventListener('change',renderLiveContacts);
   el('live-search').addEventListener('input',renderLiveContacts);
   el('live-all').addEventListener('change',event=>{
     for(const row of visibleContacts.filter(selectable)){
@@ -13064,7 +13092,11 @@ function mountBusinessEmailQa(adminProfile) {
       return;
     }
     el('live-summary').textContent='업소 주소를 불러오는 중입니다.';
-    const {data:records,error}=await supabase.rpc('business_mail_admin_v1',{p_action:'contacts'});
+    const [{data:records,error},{data:requests,error:requestError}]=await Promise.all([
+      supabase.rpc('business_mail_admin_v1',{p_action:'contacts'}),
+      supabase.from('business_requests').select('business_name,email')
+        .lte('created_at','2026-11-21T06:19:35.811381').order('id').limit(1000)
+    ]);
     if(request!==liveRequest||getAppRegion()!==region)return;
     if(error||!Array.isArray(records)){
       liveSelected.clear();
@@ -13075,12 +13107,13 @@ function mountBusinessEmailQa(adminProfile) {
     }
     const contacts=new Map(records.map(row=>[String(row.id),row]));
     const source=businessesRegion===region?businesses:[];
+    const direct=legacyDirectRequestIds(source,requestError?[]:requests||[]);
     liveRecords=source.map(row=>{
       const contact=contacts.get(String(row.id));
       return {...contact,id:String(row.id),name:row.name_ko||row.name_en||row.name||'이름 없음',
         name_ko:row.name_ko,name_en:row.name_en,category_ko:String(row.category_ko||'').trim(),
         area:String(row.area||'').trim(),email:contact?.email||String(row.email||'').trim(),
-        campaignContact:Boolean(contact)};
+        campaignContact:Boolean(contact),directRequest:direct.has(String(row.id))};
     }).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     setLiveOptions('category',businessCategoryValues(source));
     setLiveOptions('area',[...new Set(liveRecords.map(row=>row.area).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')));
@@ -13089,7 +13122,7 @@ function mountBusinessEmailQa(adminProfile) {
     renderLiveContacts();
     const registered=liveRecords.filter(row=>row.email).length;
     el('live-summary').textContent=businessesRegion===region?
-      `전체 업소 ${liveRecords.length}개 · 이메일 등록 ${registered}개 · 미등록 ${liveRecords.length-registered}개`:
+      `전체 업소 ${liveRecords.length}개 · 이메일 등록 ${registered}개 · 미등록 ${liveRecords.length-registered}개 · ${requestError?'직접 신청 이력 조회 실패':'직접 신청 확인 '+direct.size+'곳'}`:
       '전체 업소 목록을 불러오는 중입니다.';
   };
   el('live-list').addEventListener('change',event=>{
