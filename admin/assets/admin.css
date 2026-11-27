@@ -1017,6 +1017,28 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .business-email-attachment-help p:empty{display:none}
 .business-email-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(100%,540px)}
 .business-email-actions .btn{min-width:0;min-height:44px;padding:6px;text-align:center;white-space:normal}
+.business-email-table-scroll{max-block-size:min(62vh,620px);overflow:auto;position:relative;border:1px solid #cbd8e9;border-radius:12px;background:#fff}
+.business-email-table-scroll:focus-visible{outline:2px solid #2454a5;outline-offset:2px}
+.business-email-table{width:100%;min-width:760px;border-spacing:0;font-size:.9rem;line-height:1.4}
+.business-email-table :is(th,td){box-sizing:border-box;height:58px;padding:8px 14px;text-align:left;vertical-align:middle;border-bottom:1px solid #dbe4f0}
+.business-email-table th{position:sticky;top:0;z-index:1;height:46px;background:#e9f0fb;color:#183764;white-space:nowrap;border-bottom-color:#b8c9e2}
+.business-email-table :is(th,td):first-child{width:1%;white-space:nowrap}
+.business-email-table td:nth-child(2){font-weight:700;min-width:128px}
+.business-email-table td:nth-child(5){overflow-wrap:anywhere;min-width:175px}
+.business-email-table tbody tr:nth-child(odd){background:#fff}
+.business-email-table tbody tr:nth-child(even){background:#f3f7fd}
+.business-email-table tbody tr:last-child td{border-bottom:0}
+.business-email-table input[type=checkbox]{width:16px;height:16px;margin:0 4px 0 0;vertical-align:middle}
+.business-email-statuses{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.business-email-status{display:inline-block;padding:3px 7px;border-radius:6px;background:#eef2f7;color:#34465d;font-size:.77rem;font-weight:700;white-space:nowrap}
+.business-email-status[data-state=eligible]{background:#dcf4e4;color:#125330}
+.business-email-status[data-state=pending]{background:#fff0cb;color:#624307}
+.business-email-status:is([data-state=invalid],[data-state=unsubscribed],[data-state=suppressed]){background:#fbe3e3;color:#851e26}
+.business-email-status[data-state=reviewed]{background:#e0ebff;color:#1d4687}
+@media(max-width:600px){
+  .business-email-table-scroll{max-block-size:55vh}
+  .business-email-table :is(th,td){padding-inline:10px}
+}
 [data-email-recipient-review] .application-table-wrap{overflow-x:auto}
 [data-email-recipient-review] table{width:100%;border-collapse:collapse}
 [data-email-recipient-review] :is(th,td){padding:8px;text-align:left;border-bottom:1px solid #dbe4f0}
