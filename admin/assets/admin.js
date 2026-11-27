@@ -12650,8 +12650,8 @@ function mountBusinessEmailQa(adminProfile) {
       </div>
       <p data-email-live-selection role="status"></p>
       <button type="button" class="btn ghost" data-email-verify>선택 업소에 인증 링크 보내기</button>
-      <div class="application-table-wrap">
-        <table class="application-table" aria-label="업소 이메일 목록">
+      <div class="business-email-table-scroll" role="region" aria-label="업소 이메일 목록 스크롤 영역" tabindex="0">
+        <table class="business-email-table" aria-label="업소 이메일 목록">
           <thead><tr><th scope="col"><label><input type="checkbox" data-email-live-all> 모두 선택</label></th>
             <th scope="col">업소명</th><th scope="col">업종</th><th scope="col">지역</th>
             <th scope="col">이메일</th><th scope="col">상태</th></tr></thead>
@@ -13056,13 +13056,27 @@ function mountBusinessEmailQa(adminProfile) {
       check.checked=liveSelected.has(row.id);
       cell.append(check);
       item.append(cell);
-      const status=liveLabels[state]+(row.addressReviewed?' · 발송 이력 관리자 확인 완료':
-        row.directRequest?' · 신청 이력 관리자 확인 완료':'');
-      for(const text of [row.name,row.category_ko,row.area,row.email,status]){
+      for(const text of [row.name,row.category_ko,row.area,row.email]){
         const td=document.createElement('td');
         td.textContent=text||'—';
         item.append(td);
       }
+      const status=item.insertCell();
+      const badges=document.createElement('div');
+      badges.className='business-email-statuses';
+      const eligibility=document.createElement('span');
+      eligibility.className='business-email-status';
+      eligibility.dataset.state=state;
+      eligibility.textContent=liveLabels[state];
+      badges.append(eligibility);
+      if(row.addressReviewed||row.directRequest){
+        const review=document.createElement('span');
+        review.className='business-email-status';
+        review.dataset.state='reviewed';
+        review.textContent=row.addressReviewed?'발송 이력 관리자 확인 완료':'신청 이력 관리자 확인 완료';
+        badges.append(review);
+      }
+      status.append(badges);
       list.append(item);
     }
     if(!visibleContacts.length){
