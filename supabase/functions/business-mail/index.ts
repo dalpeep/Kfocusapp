@@ -36,14 +36,17 @@ async function isAdmin(request: Request) {
 }
 
 async function remainingQuota() {
-  const key = env("BUSINESS_MAIL_USAGE_KEY") || env("RESEND_API_KEY");
-  if (!key) return { error: "quota_key_missing" };
+  const configured = env("BUSINESS_MAIL_USAGE_KEY").trim();
+  if (!configured) return { error: "quota_key_missing" };
+  const key = configured.replace(/^(["'])(.*)\1$/, "$2").trim().replace(/^Bearer\s+/i, "");
+  if (!/^re_[a-z0-9_-]+$/i.test(key)) return { error: "quota_key_format" };
   const response = await fetch("https://api.resend.com/usage", {
     headers: { Authorization: "Bearer " + key }, redirect: "error", signal: AbortSignal.timeout(8000),
   });
   if (!response.ok) {
     await response.body?.cancel();
-    return { error: [401, 403].includes(response.status) ? "quota_permission" : "quota_unavailable",
+    return { error: response.status === 401 ? "quota_key_invalid" :
+      response.status === 403 ? "quota_permission" : "quota_unavailable",
       providerStatus: response.status };
   }
   const { emails } = await response.json();
