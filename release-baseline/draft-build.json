@@ -529,11 +529,11 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "212e4b1c35b4b2d2eadc883d4c7d2176ceaf5536cd80ec8dd0ad1483059af736"
+      "sha256": "5b2167ba267fbac6ef6df383902bec4e6e7510b8ed5e298fcd5bb450505f4c4f"
     },
     {
       "path": "admin/index.html",
-      "sha256": "e81824ea2f09a4eddfecf85ff515627169a93d9e63748300acbcb4144e0ddbfc"
+      "sha256": "6fcd0769fde2f6ea4827f9c24faf10bf45dcab6a350744f403ac381b928d9166"
     },
     {
       "path": "assets/home-selection.js",
