@@ -513,6 +513,7 @@ let suppressCardClickUntil = 0;
 let boardPosts = [];
 let alertNoticePosts = [];
 let slideRows = [];
+let mainBanners = [];
 let currentDetailVideoOverride = '';
 let businessQuickFilter = '';
 let selectedBoardType = 'life';
@@ -2662,7 +2663,6 @@ async function loadBannersFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
 
   try {
-    const select = 'id,title,image_url,link_url,business_id,region,sort_order,is_active,created_at';
     const url = `${SUPABASE_URL}/rest/v1/banners?select=*&is_active=eq.true&order=sort_order.asc,created_at.desc`;
 
     const res = await fetch(url, {
@@ -2782,22 +2782,6 @@ function buildHeroSlides() {
     Number(a.sortOrder ?? 1000) - Number(b.sortOrder ?? 1000) ||
     String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
   );
-
-  if (!heroSlides.length) {
-    heroSlides = [
-      {
-        type: 'BANNER',
-        title: '추천 업소',
-        desc: '홈 상단 배너 영역입니다.',
-        button: '',
-        bg: 'https://images.unsplash.com/photo-1526318896980-cf78c088247c?auto=format&fit=crop&w=1600&q=80',
-        bizId: '',
-        video_url: ''
-      }
-    ];
-  }
-
-  console.log('buildHeroSlides result =', heroSlides);
 }
 
 // V87: 기존 해시 URL을 유지하면서 검색·공유용 실제 경로도 병행 지원합니다.
@@ -5290,11 +5274,12 @@ function renderMainBanners(){
   if(mainBannerCarouselTimer){ clearInterval(mainBannerCarouselTimer); mainBannerCarouselTimer=null; }
   const now = Date.now();
   const rows = (Array.isArray(mainBanners) ? mainBanners : []).filter(b => {
+    if (b.is_active !== true || !b.region || normalizeRegionKey(b.region) !== normalizeRegionKey(currentRegion)) return false;
     const placement = String(b.placement || (linkedBusinessIds(b).length ? 'both' : 'home')).toLowerCase();
     if (!['home','both'].includes(placement)) return false;
     if (!bannerMatchesCurrentHomeCategory(b)) return false;
     if(!mapPeriodActive(b.start_at,b.end_at,now)) return false;
-    return b.is_active !== false && !!(b.image_url || b.video_url);
+    return !!(b.image_url || b.video_url);
   }).sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
   if(!rows.length){
     // Completely remove the banner slot from layout. `hidden` alone can be
@@ -7634,7 +7619,14 @@ function buildSlideVideoHTML(videoUrl, fallbackImage=''){
 function renderHero(){
   if(!heroTrack) return;
 
-  const total = Math.max((heroSlides || []).length, 1);
+  const total = heroSlides.length;
+  const section = document.getElementById('homeHeroSection');
+  if(section) section.hidden = total === 0;
+  if(!total){
+    heroTrack.replaceChildren();
+    heroDotsWrap?.replaceChildren();
+    return;
+  }
 
   heroTrack.innerHTML = (heroSlides || []).map((s, idx) => {
     const media = s.video_url
