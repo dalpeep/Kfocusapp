@@ -4,7 +4,7 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 async function call(body){if(!dependencies)throw new Error('관리자 로그인이 필요합니다.');const client=dependencies.getSupabaseClient?.();if(!client)throw new Error('관리자 로그인이 필요합니다.');const session=await dependencies.getSession?.(),token=session?.data?.session?.access_token;if(!token)throw new Error('관리자 로그인이 필요합니다.');const scope=dependencies.getAdminScope?.()||{};const res=await fetch('/.netlify/functions/community-admin',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({region:scope.role==='regional_editor'?scope.area:(window.getAppRegion?.()||'dallas'),...body})}),json=await res.json().catch(()=>({}));if(!res.ok)throw new Error(json.error||'요청 실패');return json}
 function ensure(){if(document.getElementById('section-communityAdmin'))return;const nav=document.getElementById('adminNav'),anchor=nav?.querySelector('[data-section="board"]'),btn=document.createElement('button');btn.type='button';btn.className='nav-item';btn.dataset.section='communityAdmin';btn.textContent='커뮤니티 관리';anchor?.after(btn);const section=document.createElement('section');section.id='section-communityAdmin';section.className='admin-section';section.innerHTML=`<div class="panel-head"><div><h2>커뮤니티 관리</h2><p class="muted">익명 게시글 승인과 댓글 moderation</p></div></div><div id="communityAdminTabs" class="community-status-grid" aria-label="게시글 상태별 건수">${statusCards()}</div><p id="communityAdminFeedback" role="status" class="muted"></p><div id="communityAdminList" class="biz-list"></div><nav id="communityAdminPages" aria-label="커뮤니티 목록 페이지"></nav>`;document.querySelector('main.content')?.appendChild(section);btn.onclick=()=>{const bridge=window.KFocusAdminBridge;if(bridge?.switchSection)bridge.switchSection('communityAdmin');else{document.querySelectorAll('.admin-section').forEach(x=>x.classList.remove('active-section'));section.classList.add('active-section')}document.getElementById('pageTitle').textContent='커뮤니티 관리';load()};section.onclick=click;section.onchange=change;section.onsubmit=saveEdit;drawTabs()}
 function drawTabs(){document.querySelectorAll('[data-community-status]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.communityStatus===status)))}
-async function load(){const pass=++loadId,box=document.getElementById('communityAdminList'),totals=document.getElementById('communityAdminFeedback'),pages=document.getElementById('communityAdminPages');totals.textContent='전체 상태 건수 조회 중…';pages.replaceChildren();box.querySelectorAll('[data-promotion-edit]').forEach(disposePromotionEdit);rows=[];box.innerHTML='<div class="dashboard-empty">불러오는 중...</div>';try{const data=await call({action:'list',status,from:pageIndex*50,to:pageIndex*50+49});if(pass!==loadId)return;drawCounts(data.counts);if(pageIndex>0&&Number.isInteger(data.count)&&pageIndex*50>=data.count){pageIndex--;return load()}rows=data.rows||[];totals.textContent='';drawPages(pages,data.count);box.innerHTML=rows.length?rows.map(row=>`<article class="admin-card" data-community-admin-id="${esc(row.id)}" style="margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px"><div><span class="dashboard-status-chip">${esc(LABELS[row.category]||row.category)}</span><h3>${esc(row.title)}</h3><small>${esc(row.author_name)} · ${esc(row.area)} · ${esc(row.created_at)}</small></div><span class="dashboard-status-chip ${(row.display_status||row.status)==='approved'?'live':''}">${esc(({approved:'게시중',expired:'만료',scheduled:'게시 예정'})[row.display_status||row.status]||row.status)}</span></div><p style="white-space:pre-wrap">${esc(row.body)}</p><div style="display:flex;gap:8px;overflow:auto">${(row.community_post_images||[]).map(i=>`<img src="${esc(i.image_url)}" alt="" style="width:120px;height:90px;object-fit:cover;border-radius:10px">`).join('')}</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><select data-admin-category>${Object.entries(LABELS).map(([k,v])=>`<option value="${k}" ${k===row.category?'selected':''}>${v}</option>`).join('')}</select><button class="btn primary" data-admin-action="approved">승인</button><button class="btn ghost" data-admin-action="rejected">거절</button><button class="btn danger" data-admin-action="deleted">삭제</button><button class="btn ghost" data-admin-comments>댓글 관리</button>${row.category==='business_promotion'?'<button class="btn ghost" type="button" data-admin-edit>수정</button>':''}</div><div data-admin-comment-list></div></article>`).join(''):'<div class="dashboard-empty">해당 게시글이 없습니다.</div>'}catch(e){if(pass!==loadId)return;totals.textContent='';drawCounts(null);box.textContent=e.message}}
+async function load(){const pass=++loadId,box=document.getElementById('communityAdminList'),totals=document.getElementById('communityAdminFeedback'),pages=document.getElementById('communityAdminPages');totals.textContent='전체 상태 건수 조회 중…';pages.replaceChildren();box.querySelectorAll('[data-promotion-edit]').forEach(disposePromotionEdit);rows=[];box.innerHTML='<div class="dashboard-empty">불러오는 중...</div>';try{const data=await call({action:'list',status,from:pageIndex*50,to:pageIndex*50+49});if(pass!==loadId)return;drawCounts(data.counts);if(pageIndex>0&&Number.isInteger(data.count)&&pageIndex*50>=data.count){pageIndex--;return load()}rows=data.rows||[];totals.textContent='';drawPages(pages,data.count);box.innerHTML=rows.length?rows.map(row=>`<article class="admin-card" data-community-admin-id="${esc(row.id)}" style="margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px"><div><span class="dashboard-status-chip">${esc(LABELS[row.category]||row.category)}</span><h3>${esc(row.title)}</h3><small>${esc(row.author_name)} · ${esc(row.area)} · ${esc(row.created_at)}</small></div><span class="dashboard-status-chip ${(row.display_status||row.status)==='approved'?'live':''}">${esc(({approved:'게시중',expired:'만료',scheduled:'게시 예정'})[row.display_status||row.status]||row.status)}</span></div><p style="white-space:pre-wrap">${esc(row.body)}</p><div style="display:flex;gap:8px;overflow:auto">${(row.community_post_images||[]).map(i=>`<img src="${esc(i.image_url)}" alt="" style="width:120px;height:90px;object-fit:cover;border-radius:10px">`).join('')}</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px"><select data-admin-category>${Object.entries(LABELS).map(([k,v])=>`<option value="${k}" ${k===row.category?'selected':''}>${v}</option>`).join('')}</select><button class="btn primary" data-admin-action="approved">승인</button><button class="btn ghost" data-admin-action="rejected">거절</button><button class="btn danger" data-admin-action="deleted">삭제</button><button class="btn ghost" data-admin-comments>댓글 관리</button>${row.category==='business_promotion'||canEditPublicationPeriod(row)?'<button class="btn ghost" type="button" data-admin-edit>수정</button>':''}</div><div data-admin-comment-list></div></article>`).join(''):'<div class="dashboard-empty">해당 게시글이 없습니다.</div>'}catch(e){if(pass!==loadId)return;totals.textContent='';drawCounts(null);box.textContent=e.message}}
 const baseLoad=load;
 load=async function(){
   const pass=loadId+1;
@@ -211,6 +211,40 @@ function promotionDatePlus(value,days){
   return date.toISOString().slice(0,10);
 }
 
+function canEditPublicationPeriod(row){
+  return row&&Object.hasOwn(row,'publish_starts_at')&&globalThis.DtmDallasTime&&['approved','expired'].includes(row.status);
+}
+
+function publicationPeriodFields(row){
+  const time=globalThis.DtmDallasTime;
+  const start=time.dateKey(row.publish_starts_at||row.approved_at||row.created_at);
+  const expires=row.publish_ends_at||row.expires_at;
+  const end=expires?time.dateKey(Date.parse(expires)-1):'';
+  return `<fieldset class="promotion-span promotion-images">
+    <legend>게시 기간 · Dallas 기준</legend>
+    <div class="promotion-fields">
+      <label>게시 시작일 <input type="date" name="publish_start_date" value="${esc(start)}"></label>
+      <label>게시 종료일 <input type="date" name="publish_end_date" value="${esc(end)}"></label>
+      <div class="promotion-span promotion-actions">
+        ${[30,60,90].map(days=>`<button type="button" class="btn ghost" data-promotion-extend="${days}">${days}일 연장</button>`).join('')}
+      </div>
+    </div>
+  </fieldset>`;
+}
+
+function bindPublicationExtensions(form){
+  form.addEventListener('click',event=>{
+    const button=event.target.closest('[data-promotion-extend]');
+    if(!button)return;
+    const today=globalThis.DtmDallasTime.dateKey();
+    const end=form.elements.publish_end_date;
+    const start=form.elements.publish_start_date;
+    const base=[today,start.value,end.value].sort().at(-1);
+    if(!start.value)start.value=today;
+    end.value=promotionDatePlus(base,Number(button.dataset.promotionExtend));
+  });
+}
+
 function openEdit(card,row){
   if(!row||card.querySelector('[data-promotion-edit]'))return;
   const form=document.createElement('form');
@@ -219,11 +253,23 @@ function openEdit(card,row){
   form.setAttribute('aria-label','업체홍보 수정');
   const options=(choices,value)=>Object.entries(choices).map(([key,label])=>
     `<option value="${key}" ${key===value?'selected':''}>${label}</option>`).join('');
-  const time=globalThis.DtmDallasTime;
-  const canEditPeriod=Object.hasOwn(row,'publish_starts_at')&&time&&['approved','expired'].includes(row.status);
-  const start=canEditPeriod?time.dateKey(row.publish_starts_at||row.approved_at||row.created_at):'';
-  // A midnight expiry is an exclusive next-day boundary.
-  const end=canEditPeriod&&row.expires_at?time.dateKey(Date.parse(row.expires_at)-1):'';
+  const canEditPeriod=canEditPublicationPeriod(row);
+  if(row.category!=='business_promotion'){
+    if(!canEditPeriod)return;
+    form.dataset.periodOnly='';
+    form.setAttribute('aria-label','게시 기간 수정');
+    form.innerHTML=`<h4>게시 기간 수정</h4>
+      <input type="hidden" name="updated_at" value="${esc(row.updated_at)}">
+      ${publicationPeriodFields(row)}
+      <p role="status" data-edit-feedback></p>
+      <div class="promotion-actions"><button type="submit" class="btn primary">저장</button>
+        <button type="button" class="btn ghost" data-admin-edit-cancel>취소</button></div>`;
+    bindPublicationExtensions(form);
+    form.originalFields=Object.fromEntries(new FormData(form));
+    card.querySelector('[data-admin-comment-list]').before(form);
+    form.elements.publish_start_date.focus();
+    return;
+  }
   form.innerHTML=`<h4>업체홍보 수정</h4>
     <input type="hidden" name="updated_at" value="${esc(row.updated_at)}">
     <div class="promotion-fields">
@@ -233,16 +279,7 @@ function openEdit(card,row){
       <label>지역 <select name="area">${options(AREA_LABELS,row.area||'other')}</select></label>
       <label>연락 방법 <select name="contact_type">${options(CONTACT_LABELS,row.contact_type||'')}</select></label>
       <label class="promotion-span">연락처 <input name="contact_value" maxlength="200" value="${esc(row.contact_value)}"></label>
-      ${canEditPeriod?`<fieldset class="promotion-span promotion-images">
-        <legend>게시 기간 · Dallas 기준</legend>
-        <div class="promotion-fields">
-          <label>게시 시작일 <input type="date" name="publish_start_date" value="${esc(start)}"></label>
-          <label>게시 종료일 <input type="date" name="publish_end_date" value="${esc(end)}"></label>
-          <div class="promotion-span promotion-actions">
-            ${[30,60,90].map(days=>`<button type="button" class="btn ghost" data-promotion-extend="${days}">${days}일 연장</button>`).join('')}
-          </div>
-        </div>
-      </fieldset>`:''}
+      ${canEditPeriod?publicationPeriodFields(row):''}
       <fieldset class="promotion-span promotion-images"><legend>이미지 <span data-promotion-image-count></span></legend>
         <div class="promotion-gallery" data-promotion-gallery></div>
         <label class="promotion-add">＋ 이미지 추가 <input data-promotion-add type="file" accept="${imageAccept}" multiple></label>
@@ -257,16 +294,7 @@ function openEdit(card,row){
     form.querySelector('[data-preview-body]').textContent=form.elements.body.value;
   };
   form.addEventListener('input',preview);
-  if(canEditPeriod)form.addEventListener('click',event=>{
-    const button=event.target.closest('[data-promotion-extend]');
-    if(!button)return;
-    const today=time.dateKey();
-    const endInput=form.elements.publish_end_date;
-    const startInput=form.elements.publish_start_date;
-    const base=[today,startInput.value,endInput.value].sort().at(-1);
-    if(!startInput.value)startInput.value=today;
-    endInput.value=promotionDatePlus(base,Number(button.dataset.promotionExtend));
-  });
+  if(canEditPeriod)bindPublicationExtensions(form);
   preview();
   initPromotionImages(form,row);
   form.originalFields=Object.fromEntries(new FormData(form));
@@ -287,6 +315,10 @@ async function saveEdit(event){
   if(form.elements.publish_start_date){
     const unchanged=fields.publish_start_date===form.elements.publish_start_date.defaultValue&&
       fields.publish_end_date===form.elements.publish_end_date.defaultValue;
+    if(unchanged&&Object.hasOwn(form.dataset,'periodOnly')){
+      feedback.textContent='변경할 게시 기간을 지정해 주세요.';
+      return;
+    }
     if(unchanged){
       delete fields.publish_start_date;
       delete fields.publish_end_date;
@@ -295,7 +327,7 @@ async function saveEdit(event){
       return;
     }else{
       periodChanged=true;
-      const contentChanged=form.promotionImages.dirty||Object.keys(form.originalFields).some(key=>
+      const contentChanged=form.promotionImages?.dirty||Object.keys(form.originalFields).some(key=>
         !key.startsWith('publish_')&&fields[key]!==form.originalFields[key]);
       if(contentChanged){
         feedback.textContent='게시 기간 변경은 본문·이미지 수정과 따로 저장해 주세요.';
