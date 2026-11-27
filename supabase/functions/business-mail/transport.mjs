@@ -69,6 +69,13 @@ export function buildBusinessMail({from, to, subject, body, businessName, images
   };
 }
 
+export class ResendResponseError extends Error {
+  constructor(status) {
+    super('Resend test delivery failed');
+    this.status = status;
+  }
+}
+
 export async function sendBusinessMail({mode, message, requestId, apiKey, internalRecipient, fetcher = fetch}) {
   if (mode !== 'admin-test' || internalRecipient !== replyTo ||
       !Array.isArray(message?.to) || message.to.length !== 1 || message.to[0] !== internalRecipient ||
@@ -82,7 +89,10 @@ export async function sendBusinessMail({mode, message, requestId, apiKey, intern
       'Idempotency-Key':'business-mail-test/' + requestId},
     body: JSON.stringify(message)
   });
-  if (!result.ok) throw new Error('Resend test delivery failed (' + result.status + ')');
+  if (!result.ok) {
+    await result.body?.cancel();
+    throw new ResendResponseError(result.status);
+  }
   const data = await result.json();
   if (typeof data.id !== 'string' || !data.id) throw new Error('Resend response missing message ID');
   return data.id;

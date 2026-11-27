@@ -12740,7 +12740,17 @@ function mountBusinessEmailQa(adminProfile) {
     if(getAppRegion()!=='dallas')return;
     const button=el('send-test');
     const feedback=el('live-feedback');
+    const originalLabel=button.textContent;
+    const subject=el('subject').value.trim();
+    const body=el('body').value;
+    if(!subject||!body.trim()){
+      feedback.textContent='테스트 메일의 제목과 본문을 입력해 주세요.';
+      return;
+    }
     button.disabled=true;
+    button.textContent='발송 요청 중…';
+    button.setAttribute('aria-busy','true');
+    feedback.textContent='첨부 파일을 준비하고 있습니다.';
     try{
       const images=await Promise.all(attachments.map(async({file,inline})=>{
         const data=await new Promise((resolve,reject)=>{
@@ -12751,22 +12761,43 @@ function mountBusinessEmailQa(adminProfile) {
         });
         return {filename:file.name,mime:file.type,content:String(data).split(',',2)[1],inline};
       }));
+      feedback.textContent='발송 잔여량을 확인하고 Resend에 접수를 요청하고 있습니다.';
       const {data,error}=await supabase.functions.invoke('business-mail?action=admin-test',{
-        body:{subject:'[테스트] '+el('subject').value.trim(),body:el('body').value,images}
+        body:{subject:'[테스트] '+subject,body,images}
       });
       if(error){
-        let code;
-        try{code=(await error.context?.json())?.error;}catch{}
-        feedback.textContent=code==='quota_unavailable'?'Resend 잔여 발송량을 확인할 수 없어 발송하지 않았습니다.':
-          code==='quota_exhausted'?'무료 발송 한도에 도달했습니다.':
-          '테스트 발송 접수를 확인할 수 없습니다.';
+        let details;
+        try{details=await error.context?.json();}catch{}
+        const messages={
+          authorization:'최고 관리자 권한을 확인할 수 없습니다. 다시 로그인해 주세요.',
+          quota_key_missing:'Resend 사용량 조회 키가 설정되지 않아 발송하지 않았습니다.',
+          quota_permission:'Resend 사용량 조회 권한이 없어 발송하지 않았습니다.',
+          quota_unavailable:'Resend 잔여 발송량을 조회하지 못해 발송하지 않았습니다.',
+          quota_plan_unverified:'무료 요금제 한도를 확인할 수 없어 발송하지 않았습니다.',
+          quota_exhausted:'무료 발송 한도에 도달했습니다.',
+          invalid_message:'제목 길이와 이미지 형식·용량을 확인해 주세요.',
+          message_too_large:'첨부 파일의 전체 용량이 너무 큽니다.',
+          sender_configuration:'운영 발신 주소 설정을 확인해 주세요.',
+          provider_limit:'Resend가 발송 요청을 제한했습니다.',
+          provider_rejected:'Resend가 발송 요청을 거부했습니다.',
+          provider_uncertain:'Resend 응답이 불확실합니다. 재시도 전에 Resend 발송 이력을 확인해 주세요.',
+          transport_unavailable:'발송 서버에서 요청을 처리할 수 없습니다.'
+        };
+        feedback.textContent=(messages[details?.error]||(error.context?.status===401?
+          '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.':
+          '발송 서버의 응답을 확인할 수 없습니다. 재시도 전에 발송 이력을 확인해 주세요.'))+
+          (details?.reference?` (참조 ${details.reference})`:'');
       }else{
-        feedback.textContent=data?.id?'info@daltownmap.com 테스트 메일을 Resend가 접수했습니다.':
-          '테스트 발송 접수를 확인할 수 없습니다.';
+        feedback.textContent=data?.id?`Resend 접수 완료 · info@daltownmap.com · 메시지 ID ${data.id}`:
+          '발송 서비스가 메시지 ID를 반환하지 않았습니다. 발송 이력을 확인해 주세요.';
       }
     }catch{
-      feedback.textContent='테스트 메일을 준비할 수 없습니다.';
-    }finally{button.disabled=false;}
+      feedback.textContent='테스트 메일을 준비하거나 발송 서버에 연결하지 못했습니다.';
+    }finally{
+      button.disabled=false;
+      button.textContent=originalLabel;
+      button.removeAttribute('aria-busy');
+    }
   });
   el('images').addEventListener('change',()=>{
     const input=el('images');
