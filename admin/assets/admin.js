@@ -343,6 +343,7 @@ function setStatus(text) {
 }
 function switchSection(section) {
   if (section === 'adminMail' && applicationScope?.role !== 'super_admin') return;
+  if (section === 'businessEmailQa' && !qs('section-businessEmailQa')) return;
   qs('adminMailTab')?.setAttribute('aria-pressed', String(section === 'adminMail'));
   currentSection = section;
   $$('#adminNav .nav-item').forEach((btn) => {
@@ -360,6 +361,7 @@ function switchSection(section) {
     }
   });
   setPageMeta();
+  if (section === 'businessEmailQa') refreshCampaignAddressList?.();
 
   if (section === 'couponRedemptions' && typeof loadCouponRedemptions === 'function') {
     loadCouponRedemptions();
@@ -397,6 +399,7 @@ function setPageMeta() {
     newsroom: ['AI 운영센터', '수집부터 AI 기사 작성과 게시까지 관리자 화면에서 처리합니다.'],
 	banners: ['배너 관리자', '메인 스폰서 배너를 등록/수정/삭제합니다.'],
     requests: ['신청 관리', '업소·소유권·정보 수정·쿠폰·이벤트 신청과 광고 문의를 확인합니다.'],
+    businessEmailQa: ['업소 이메일 발송 관리', '등록 이메일과 캠페인, 수신 거부 및 반송 상태를 확인합니다.'],
     trafficSources: ['유입 분석', '신문·플라이어·SNS 등 홍보 경로별 유입을 확인합니다.'],
     adsOps: ['광고 센터', '광고 현황, 편성, 오늘 로테이션과 종료 예정 광고를 관리합니다.'],
     push: ['푸시 발송', '공지와 알림 메시지를 발송합니다.'],
@@ -5397,7 +5400,8 @@ async function init() {
   clearBannerForm();
   ensureBannerExtrasUI();
   clearSlideForm();
-  switchSection('business');
+  const requestedMail = new URLSearchParams(location.search).get('section') === 'business-email';
+  switchSection(requestedMail && qs('section-businessEmailQa') ? 'businessEmailQa' : 'business');
 
   await Promise.all([loadBusinesses(), loadBusinessSpecials(), loadCoupons(), loadBanners(), loadBoards(), loadSlides(), loadBusinessStats()]);
   await loadDalpicks();
@@ -12612,7 +12616,7 @@ console.info('[DalTownMap Admin] V290 Google Place ID storage loaded');
 
 console.info('[DalTownMap Admin] V292 map coordinate repair loaded');
 
-/* Issue 159: local campaign QA. No address book, network transport or persistent history. */
+/* Issue 159: Dallas campaign workspace and sample-only send preview. */
 function mountBusinessEmailQa(adminProfile) {
   if (adminProfile.role !== 'super_admin' || document.getElementById('section-businessEmailQa')) return;
   const nav = document.getElementById('adminNav');
@@ -12635,15 +12639,20 @@ function mountBusinessEmailQa(adminProfile) {
   section.id = 'section-businessEmailQa';
   section.className = 'admin-section';
   section.innerHTML = `<div class="panel-head"><div><h2>업소 이메일 발송 관리</h2></div></div>
-    <div class="promotion-editor"><h3>실제 등록 이메일</h3>
+    <div class="community-status-grid" data-email-live-counts></div>
+    <div class="promotion-editor"><h3>등록 이메일 관리</h3>
       <p class="muted">Dallas 활성 업소의 연락처입니다. 개별 또는 여러 업소를 골라 발송 승인 전 초안을 저장할 수 있습니다.</p>
       <p data-email-live-summary role="status"></p>
+      <label>상태 <select data-email-live-filter><option value="">전체</option>
+        <option value="eligible">인증·동의</option><option value="pending">인증·동의 대기</option>
+        <option value="unsubscribed">수신 거부</option><option value="suppressed">반송·기타 차단</option></select></label>
       <ul data-email-live-list></ul>
-      <button type="button" class="btn ghost" data-email-live-draft>선택 업소로 초안 저장</button>
+    </div>
+    <div class="promotion-editor"><h3>발송 이력</h3>
       <button type="button" class="btn ghost" data-email-live-history>저장된 캠페인 보기</button>
-      <p data-email-live-feedback role="status"></p>
       <ol data-email-live-history-list></ol>
     </div>
+    <details class="promotion-editor"><summary>샘플 수신자 및 모의 발송 이력</summary>
     <h3>캠페인 모의 발송</h3><p class="muted">아래 테스트는 샘플 주소만 사용합니다.</p>
     <div class="community-status-grid" data-email-counts></div>
     <div class="promotion-editor">
@@ -12655,7 +12664,8 @@ function mountBusinessEmailQa(adminProfile) {
         <div class="promotion-span" data-email-list></div>
       </div>
     </div>
-    <div class="promotion-editor">
+    <ol data-email-history></ol></details>
+    <div class="promotion-editor"><h3>이메일 작성 및 이미지 첨부</h3>
       <div class="promotion-fields">
         <label class="promotion-span">제목 <input data-email-subject maxlength="160" value="{{업소명}} 사장님께 드리는 안내"></label>
         <label class="promotion-span">본문 <textarea data-email-body maxlength="10000">안녕하세요, {{업소명}} 운영자님. 달타운맵 운영팀입니다.</textarea></label>
@@ -12665,24 +12675,34 @@ function mountBusinessEmailQa(adminProfile) {
         <div class="promotion-span" data-email-image-list></div>
         <p class="promotion-span muted">PNG, JPEG, WebP 최대 4개 및 합계 1 MB. 이 화면에서는 미리보기만 가능합니다.</p>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
-        <div class="promotion-span promotion-actions"><button type="button" class="btn ghost" data-email-preview>미리보기</button>
+        <div class="promotion-span promotion-actions"><button type="button" class="btn primary" data-email-live-draft>선택 업소로 초안 저장</button><button type="button" class="btn ghost" data-email-preview>미리보기</button>
         <button type="button" class="btn ghost" data-email-test>테스트 발송 모의 실행</button>
         <button type="button" class="btn primary" data-email-simulate>선택 대상 모의 발송</button></div>
         <p class="promotion-span" data-email-result role="status"></p>
+        <p class="promotion-span" data-email-live-feedback role="status"></p>
         <pre class="promotion-span" data-email-output style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
       </div>
-    </div>
-    <div class="promotion-editor"><h3>모의 발송 이력</h3><ol data-email-history></ol></div>`;
+    </div>`;
   const button=document.createElement('button');
   button.type='button';
   button.className='nav-item';
   button.dataset.section='businessEmailQa';
   button.textContent='업소 이메일 발송 관리';
-  button.addEventListener('click',()=>{
-    switchSection('businessEmailQa');
-    refreshCampaignAddressList?.();
-  });
-  nav.append(button);
+  const requestsNav=nav.querySelector('[data-section="requests"]');
+  if(requestsNav)requestsNav.after(button);else nav.append(button);
+  const requestsHeading=qs('section-requests')?.querySelector('h2');
+  if(requestsHeading){
+    const link=document.createElement('a');
+    link.className='btn ghost';
+    link.href='?section=business-email';
+    link.textContent='업소 이메일 발송 관리';
+    link.addEventListener('click',event=>{
+      if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;
+      event.preventDefault();
+      switchSection('businessEmailQa');
+    });
+    requestsHeading.after(link);
+  }
   content.append(section);
 
   const el=key=>section.querySelector('[data-email-'+key+']');
@@ -12715,6 +12735,44 @@ function mountBusinessEmailQa(adminProfile) {
   });
   let liveRequest=0;
   const liveSelected=new Set();
+  let liveRecords=[];
+  const liveState=row=>row.opted_out_at?'unsubscribed':row.suppressed?'suppressed':
+    row.consented_at&&row.verified_at?'eligible':'pending';
+  const liveLabels={eligible:'인증·동의 확인',pending:'인증·동의 대기',unsubscribed:'수신 거부',suppressed:'반송·기타 차단'};
+  const liveColors={eligible:'approved',pending:'pending',unsubscribed:'hidden',suppressed:'rejected'};
+  function renderLiveContacts(){
+    const counts=el('live-counts');
+    counts.replaceChildren();
+    for(const [state,label] of Object.entries(liveLabels)){
+      const card=document.createElement('div');
+      card.className='community-status-card';
+      card.dataset.communityStatus=liveColors[state];
+      const title=document.createElement('span');
+      title.className='community-status-label';
+      title.textContent=label;
+      const count=document.createElement('strong');
+      count.textContent=String(liveRecords.filter(row=>liveState(row)===state).length);
+      card.append(title,count);
+      counts.append(card);
+    }
+    const list=el('live-list');
+    list.replaceChildren();
+    const filter=el('live-filter').value;
+    for(const row of liveRecords){
+      const state=liveState(row);
+      if(filter&&filter!==state)continue;
+      const item=document.createElement('li');
+      const check=document.createElement('input');
+      const label=document.createElement('label');
+      check.type='checkbox';
+      check.dataset.emailLiveId=row.id;
+      check.checked=liveSelected.has(row.id);
+      label.append(check,document.createTextNode(` ${row.name||'이름 없음'} · ${row.area||'Dallas'} · ${row.email} · ${liveLabels[state]}`));
+      item.append(label);
+      list.append(item);
+    }
+  }
+  el('live-filter').addEventListener('change',renderLiveContacts);
   refreshCampaignAddressList=async()=>{
     const request=++liveRequest;
     const region=getAppRegion();
@@ -12722,6 +12780,8 @@ function mountBusinessEmailQa(adminProfile) {
     list.replaceChildren();
     if(region!=='dallas'){
       liveSelected.clear();
+      liveRecords=[];
+      renderLiveContacts();
       el('live-summary').textContent='Dallas에서만 캠페인 주소를 조회할 수 있습니다.';
       return;
     }
@@ -12730,23 +12790,15 @@ function mountBusinessEmailQa(adminProfile) {
     if(request!==liveRequest||getAppRegion()!==region)return;
     if(error||!Array.isArray(records)){
       liveSelected.clear();
+      liveRecords=[];
+      renderLiveContacts();
       el('live-summary').textContent='업소 주소를 조회하지 못했습니다.';
       return;
     }
     const addresses=new Set(records.map(row=>String(row.email).trim().toLowerCase()));
     for(const id of liveSelected)if(!records.some(row=>row.id===id))liveSelected.delete(id);
-    for(const row of records){
-      const item=document.createElement('li');
-      const check=document.createElement('input');
-      const label=document.createElement('label');
-      check.type='checkbox';
-      check.dataset.emailLiveId=row.id;
-      check.checked=liveSelected.has(row.id);
-      const state=row.suppressed||row.opted_out_at?'발송 차단':row.consented_at&&row.verified_at?'인증·동의 확인':row.verified_at?'인증 완료 · 동의 대기':'미인증 · 미동의';
-      label.append(check,document.createTextNode(` ${row.name||'이름 없음'} · ${row.area||region} · ${row.email} · ${state}`));
-      item.append(label);
-      list.append(item);
-    }
+    liveRecords=records;
+    renderLiveContacts();
     el('live-summary').textContent=`등록된 연락처 ${records.length}개 · 중복 제외 ${addresses.size}개 · 실제 발송 잠금`;
   };
   el('live-list').addEventListener('change',event=>{

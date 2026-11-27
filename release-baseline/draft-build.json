@@ -529,11 +529,11 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "22a97f0f72a13420924766eb1803ce201a096e98cc93d3dd10d11f1210492362"
+      "sha256": "29a39471f098e988ed1d7b6b1172677febe62850d70ea051bf383c1f9f814b51"
     },
     {
       "path": "admin/index.html",
-      "sha256": "7918b067c3074668c19da5c8284bf3c2c71a9044505a5a0546a84318dc783b50"
+      "sha256": "ac0dbfff3377707f784c6913b10fd4a608e4c3a82b195633b92fdbca60c0ed57"
     },
     {
       "path": "assets/home-selection.js",
@@ -541,7 +541,7 @@
     },
     {
       "path": "admin/assets/admin.js",
-      "sha256": "29a9deff9280246cd3e0ba925eb5ac9279104b3bdde68ae391da56e72001d637"
+      "sha256": "6976978ab533061adf022dc6f94e2451fa668fe42ffa73169cd8da7131db8b6f"
     },
     {
       "path": "supabase/business-mail-foundation.sql",
