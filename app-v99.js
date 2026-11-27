@@ -3540,6 +3540,7 @@ let v43AlertTimer = null;
 let v44HomeRenderSequence = 0;
 let v44HomeFeedLoadedAt = 0;
 let v45HomeConfig = {};
+let v45SavedHomeConfig = null;
 let v45ProposalItems = [];
 let v45CommunityItems = [];
 let v45CommunityIndex = 0;
@@ -3845,14 +3846,17 @@ function v45SetupCommunity(config){
   }
 }
 function v45RenderAuthoritativeRecommendation(config={},delayOverride=null){
-  const biz=v45SelectedBusinesses(config);
+  const effective=v61EffectiveHomeConfig(config);
+  const enabled=v45SavedHomeConfig?.show_recommend_section===true && effective.show_recommend_section!==false;
+  const card=document.getElementById('v37RecommendCard');
+  const biz=enabled?v45SelectedBusinesses(config):[];
   v37RecommendationItems=biz.map(b=>({kind:'business',data:b}));
   v37RecommendationIndex=0;
   paintV37Recommendation();
   const label=document.getElementById('v45BusinessModeLabel');
   if(label){const text=v83RecommendationLabel(config);label.textContent=text;label.hidden=!text;}
-  if(v37RecommendationTimer)clearInterval(v37RecommendationTimer);
-  const effective=v61EffectiveHomeConfig(config||{});
+  if(card) card.hidden=!enabled;
+  if(v37RecommendationTimer){clearInterval(v37RecommendationTimer);v37RecommendationTimer=null;}
   const play=effective.autoplay?.today!==false;
   const delay=delayOverride||(
     v73RoutineRecommendationOptions().length
@@ -3996,6 +4000,9 @@ async function v471FetchPublicHomeSettings(){
   const directHasRoutines=Array.isArray(directConfig.event_routines);
   const edgeHasRoutines=Array.isArray(edgeConfig.event_routines);
   const result=directHasRoutines?{...edgeConfig,...directConfig}:{...directConfig,...edgeConfig};
+  for(const flag of ['show_recommend_section','show_ticker_section']){
+    if(typeof directConfig[flag]==='boolean')result[flag]=directConfig[flag];
+  }
   if(!Object.keys(result).length)throw(edgeError||directError||new Error('메인 설정을 읽지 못했습니다.'));
   console.info('[V83 settings] resolved',{region,source:directHasRoutines?'newsroom_settings':(edgeHasRoutines?'home_settings':'merged'),routines:Array.isArray(result.event_routines)?result.event_routines.length:0});
   return result;
@@ -4011,6 +4018,7 @@ async function loadMainSettings(forceRefresh=false){
   const feedMeta=items?.feed_meta&&typeof items.feed_meta==='object'?items.feed_meta:{};
   const config=Object.keys(dedicatedConfig||{}).length?dedicatedConfig:feedConfig;
   v45HomeConfig=config||{};
+  v45SavedHomeConfig=v45HomeConfig;
   window.__DALTOWN_SERVER_SETTINGS_LOADED__=true;
   window.__DALTOWN_MAIN_SETTINGS__=v45HomeConfig;
   window.__DALTOWN_HOME_FEED_META__=feedMeta;
@@ -4818,6 +4826,7 @@ async function v51RefreshToday(){
     const coreWeatherTrafficItems=settled[3].status==='fulfilled'?settled[3].value:[];
     settled.forEach((r,i)=>{if(r.status==='rejected')console.warn('[V120 Today] partial source failed',i,r.reason);});
     v45HomeConfig=v61EffectiveHomeConfig(mainData.config||v45HomeConfig||{});
+    if(settled[0].status==='fulfilled')v45RenderAuthoritativeRecommendation(v45HomeConfig);
     if(typeof renderDalpicks==='function')renderDalpicks();
     const combined=v51MergeTodaySources(mainData.items||[],[...coreWeatherTrafficItems,...netlifyEditorItems,...directEditorItems]);
     const prepared=v461PrepareProposalItems(combined,{...v45HomeConfig,proposal_categories:['weather','traffic','business','shopping','emergency','event','education','real_estate','finance','seminar','faith']});
@@ -4853,22 +4862,10 @@ function v119RenderOneLineAds(){
 
 function v116ApplyHomeSectionVisibility(config={}){
   const showToday=config.show_today_section!==false;
-  const showRecommend=config.show_recommend_section!==false;
   const showCommunity=config.show_community_section!==false;
   const showAlert=config.show_alert_section!==false;
   const showTicker=config.show_ticker_section!==false;
   const brief=document.getElementById('v37BriefCard'); if(brief)brief.hidden=!showToday;
-  const recommend=document.getElementById('v37RecommendCard');
-  if(recommend){
-    // V184: P130 weekly market reel uses this legacy recommendation-card slot.
-    // Market visibility must not be controlled by the old recommendation-section toggle.
-    // Otherwise P130 can render successfully and then be hidden moments later by home settings.
-    if(recommend.classList.contains('p130-market')){
-      recommend.hidden=false;
-    }else{
-      recommend.hidden=!showRecommend;
-    }
-  }
   const community=document.getElementById('v45CommunityTicker');
   if(community&&!showCommunity){community.hidden=true;community.innerHTML='';}
   const alertSection=document.getElementById('homeAlertSection')||document.querySelector('.home-ticker-section');
@@ -10593,7 +10590,7 @@ async function v221LoadTickerWeatherFallback(){
     const style = document.createElement('style');
     style.id = 'p122OneLineStepStyle';
     style.textContent = `
-      #homeAdTickerSection{
+      #homeAdTickerSection:not([hidden]){
         display:block!important;
         margin:0!important;
       }
@@ -10759,6 +10756,10 @@ async function v221LoadTickerWeatherFallback(){
     const section=document.getElementById('homeAdTickerSection');
     const box=document.getElementById('homeAdTickerList');
     if(!section||!box) return false;
+    if(!homeAdTickerEnabled()){
+      section.hidden=true;
+      return false;
+    }
 
     p122Rows=normalizeRows();
     if(!p122Rows.length){
@@ -10779,8 +10780,6 @@ async function v221LoadTickerWeatherFallback(){
       ?`${prefix}: ${title}`:title;
 
     section.hidden=false;
-    section.removeAttribute('hidden');
-    section.style.setProperty('display','block','important');
     box.classList.remove('p124-ready');
     box.classList.add('p125-ready');
     box.innerHTML=`
@@ -10885,19 +10884,26 @@ async function v221LoadTickerWeatherFallback(){
 })();
 
 
+function homeAdTickerEnabled(){
+  return v45SavedHomeConfig!==null && v45SavedHomeConfig.show_ticker_section!==false &&
+    v61EffectiveHomeConfig(v45SavedHomeConfig).show_ticker_section!==false;
+}
+
 // V222: 다른 홈 모듈이 ticker를 다시 숨겨도 복구합니다.
 (() => {
   function repair(){
     const section=document.getElementById('homeAdTickerSection');
     const box=document.getElementById('homeAdTickerList');
     if(!section||!box) return;
+    if(!homeAdTickerEnabled()){
+      section.hidden=true;
+      return;
+    }
     if(!box.querySelector('.p122-shell')){
       window.P122OneLineTicker?.refresh?.(false);
       return;
     }
     section.hidden=false;
-    section.removeAttribute('hidden');
-    section.style.setProperty('display','block','important');
     box.classList.add('p125-ready');
   }
   document.addEventListener('DOMContentLoaded',()=>{

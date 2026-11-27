@@ -135,11 +135,13 @@
 </script>
 </script>
 
-  <meta name="daltownmap-version" content="issue181-banner-init">
+  <meta name="daltownmap-version" content="home-section-loading">
 
 <style>
 #p130MarketHost{display:block;width:100%;margin:12px 0}
-#homeHeroSection[hidden],#mainBanners[hidden]{display:none!important}
+#homeHeroSection[hidden],#mainBanners[hidden],#v37RecommendCard[hidden],#homeAdTickerSection[hidden],
+#v37BriefCard,#v45CommunityTicker,#homeAlertSection,
+.v37-ai-home:not(:has(> #v37RecommendCard:not([hidden]))){display:none!important}
 #p130MarketHost[hidden]{display:none!important}
 #p130MarketHost .p130-market{display:block!important}
 </style>
@@ -294,7 +296,7 @@ onclick="showPage('contact');closeMenu();">
 
         <!-- Daily Dallas home: local briefing and recommendations -->
         <section class="v37-ai-home" aria-label="달타운 홈 추천">
-          <article class="v37-brief-card v51-today-card" id="v37BriefCard" aria-live="polite">
+          <article class="v37-brief-card v51-today-card" id="v37BriefCard" hidden aria-live="polite">
             <div class="v51-today-top">
               <div class="v51-today-heading">
                 <span class="v51-today-pin">📍</span>
@@ -318,7 +320,7 @@ onclick="showPage('contact');closeMenu();">
             <div class="v51-today-dots" id="v51TodayDots" aria-hidden="true"></div>
           </article>
 
-          <article class="v37-recommend-card" id="v37RecommendCard">
+          <article class="v37-recommend-card" id="v37RecommendCard" hidden>
             <button class="v37-recommend-main" id="v37RecommendMain" type="button">
               <span class="v37-recommend-badge">📍 달타운 추천 <small id="v45BusinessModeLabel">오늘의 추천</small></span>
               <span class="v37-recommend-copy">
@@ -680,7 +682,7 @@ onclick="showPage('contact');closeMenu();">
 <script src="/assets/community-contract.js?v=community-event-ui-20261011-r3"></script>
 <script src="/assets/community.js?v=legacy-promotion-dedup"></script>
 <script src="/assets/home-selection.js?v=issue152-ranked-home"></script>
-  <script src="/app-v99.js?v=issue181-banner-init"></script>
+  <script src="/app-v99.js?v=home-section-loading"></script>
 <script src="/owner-uuid/navigation.js?v=owner-navigation" defer></script>
 
 <div id="videoModal" class="video-modal hidden">
