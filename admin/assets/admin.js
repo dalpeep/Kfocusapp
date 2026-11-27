@@ -12643,7 +12643,7 @@ function mountBusinessEmailQa(adminProfile) {
       <label>이메일 상태 <select data-email-live-filter><option value="">전체</option>
         <option value="eligible">인증·동의</option><option value="pending">인증·동의 대기</option>
         <option value="unsubscribed">수신 거부</option><option value="suppressed">반송·기타 차단</option>
-        <option value="missing">미등록</option><option value="unavailable">상태 확인 불가</option></select></label>
+        <option value="missing">미등록</option><option value="invalid">주소 수정 필요</option><option value="unavailable">상태 확인 불가</option></select></label>
       <label>등록 출처 <select data-email-live-origin><option value="">전체</option>
         <option value="direct">기존 직접 등록 신청</option><option value="other">그 외 업소</option></select></label>
       <label>업소명 <input type="search" data-email-live-search placeholder="업소명 검색"></label>
@@ -12734,8 +12734,8 @@ function mountBusinessEmailQa(adminProfile) {
       return;
     }
     const [row]=rows;
-    if(row.directRequest){
-      feedback.textContent='기존 직접 신청 업소에는 인증 요청을 다시 보내지 않습니다.';
+    if(row.directRequest||row.addressReviewed){
+      feedback.textContent='기존 이력이 확인된 이 업소에는 인증 요청을 다시 보내지 않습니다.';
       return;
     }
     if(!window.confirm(`${row.name} · ${row.email}에 이메일 인증 링크를 보내시겠습니까?`))return;
@@ -12903,13 +12903,13 @@ function mountBusinessEmailQa(adminProfile) {
   const liveSelected=new Set();
   const reviewedRecipients=new Map();
   let liveRecords=[];
-  const liveState=row=>!row.email?'missing':!row.campaignContact?'unavailable':
+  const liveState=row=>!row.email?'missing':row.reviewInvalid?'invalid':!row.campaignContact?'unavailable':
     row.opted_out_at?'unsubscribed':row.suppressed?'suppressed':
     row.consented_at&&row.verified_at?'eligible':'pending';
   const liveLabels={eligible:'인증·동의 확인',pending:'인증·동의 대기',unsubscribed:'수신 거부',
-    suppressed:'반송·기타 차단',missing:'미등록',unavailable:'상태 확인 불가'};
+    suppressed:'반송·기타 차단',missing:'미등록',invalid:'주소 수정 필요 · 발송 제외',unavailable:'상태 확인 불가'};
   const liveColors={eligible:'approved',pending:'pending',unsubscribed:'hidden',suppressed:'rejected'};
-  const selectable=row=>row.campaignContact && !row.opted_out_at && !row.suppressed;
+  const selectable=row=>row.campaignContact && !row.opted_out_at && !row.suppressed && !row.reviewInvalid;
   function selectedBusinessRecipients(){
     const unique=new Map();
     for(const row of liveRecords){
@@ -13056,7 +13056,8 @@ function mountBusinessEmailQa(adminProfile) {
       check.checked=liveSelected.has(row.id);
       cell.append(check);
       item.append(cell);
-      const status=liveLabels[state]+(row.directRequest?' · 신청 이력 관리자 확인 완료':'');
+      const status=liveLabels[state]+(row.addressReviewed?' · 발송 이력 관리자 확인 완료':
+        row.directRequest?' · 신청 이력 관리자 확인 완료':'');
       for(const text of [row.name,row.category_ko,row.area,row.email,status]){
         const td=document.createElement('td');
         td.textContent=text||'—';
@@ -13092,10 +13093,11 @@ function mountBusinessEmailQa(adminProfile) {
       return;
     }
     el('live-summary').textContent='업소 주소를 불러오는 중입니다.';
-    const [{data:records,error},{data:requests,error:requestError}]=await Promise.all([
+    const [{data:records,error},{data:requests,error:requestError},{data:reviews,error:reviewError}]=await Promise.all([
       supabase.rpc('business_mail_admin_v1',{p_action:'contacts'}),
       supabase.from('business_requests').select('business_name,email')
-        .lte('created_at','2026-11-21T06:19:35.811381').order('id').limit(1000)
+        .lte('created_at','2026-11-21T06:19:35.811381').order('id').limit(1000),
+      supabase.rpc('business_mail_address_reviews_v1')
     ]);
     if(request!==liveRequest||getAppRegion()!==region)return;
     if(error||!Array.isArray(records)){
@@ -13108,11 +13110,15 @@ function mountBusinessEmailQa(adminProfile) {
     const contacts=new Map(records.map(row=>[String(row.id),row]));
     const source=businessesRegion===region?businesses:[];
     const direct=legacyDirectRequestIds(source,requestError?[]:requests||[]);
+    const reviewsById=new Map((reviewError?[]:reviews||[]).map(row=>[String(row.business_id),row]));
     liveRecords=source.map(row=>{
       const contact=contacts.get(String(row.id));
+      const review=reviewsById.get(String(row.id));
+      const email=contact?.email||String(row.email||'').trim();
+      const addressReviewed=review?.email===email.toLowerCase();
       return {...contact,id:String(row.id),name:row.name_ko||row.name_en||row.name||'이름 없음',
         name_ko:row.name_ko,name_en:row.name_en,category_ko:String(row.category_ko||'').trim(),
-        area:String(row.area||'').trim(),email:contact?.email||String(row.email||'').trim(),
+        area:String(row.area||'').trim(),email,addressReviewed,reviewInvalid:addressReviewed&&review.invalid===true,
         campaignContact:Boolean(contact),directRequest:direct.has(String(row.id))};
     }).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
     setLiveOptions('category',businessCategoryValues(source));
@@ -13122,7 +13128,7 @@ function mountBusinessEmailQa(adminProfile) {
     renderLiveContacts();
     const registered=liveRecords.filter(row=>row.email).length;
     el('live-summary').textContent=businessesRegion===region?
-      `전체 업소 ${liveRecords.length}개 · 이메일 등록 ${registered}개 · 미등록 ${liveRecords.length-registered}개 · ${requestError?'직접 신청 이력 조회 실패':'직접 신청 확인 '+direct.size+'곳'}`:
+      `전체 업소 ${liveRecords.length}개 · 이메일 등록 ${registered}개 · 미등록 ${liveRecords.length-registered}개 · ${requestError?'직접 신청 이력 조회 실패':'직접 신청 확인 '+direct.size+'곳'} · ${reviewError?'발송 이력 확인 조회 실패':'발송 이력 확인 '+liveRecords.filter(row=>row.addressReviewed).length+'곳'}`:
       '전체 업소 목록을 불러오는 중입니다.';
   };
   el('live-list').addEventListener('change',event=>{
