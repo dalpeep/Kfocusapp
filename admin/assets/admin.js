@@ -12620,25 +12620,13 @@ console.info('[DalTownMap Admin] V290 Google Place ID storage loaded');
 
 console.info('[DalTownMap Admin] V292 map coordinate repair loaded');
 
-/* Issue 159: Dallas campaign workspace and sample-only send preview. */
+/* Issue 159: Dallas campaign workspace. */
 function mountBusinessEmailQa(adminProfile) {
   if (adminProfile.role !== 'super_admin' || document.getElementById('section-businessEmailQa')) return;
   const nav = document.getElementById('adminNav');
   const content = document.querySelector('main.content');
   if (!nav || !content) return;
 
-  const fixtures = [
-    ['샘플 식당','식당','Dallas','dining@example.invalid','verified'],
-    ['샘플 카페','식당','Plano','cafe@example.invalid','verified'],
-    ['샘플 마트','소매','Carrollton','market@example.invalid','unverified'],
-    ['샘플 서비스','서비스','Dallas','service@example.invalid','unsubscribed'],
-    ['샘플 스튜디오','서비스','Plano','studio@example.invalid','bounced'],
-    ['샘플 상점','소매','Dallas','shop@example.invalid','complaint'],
-    ['샘플 식당 지점','식당','Plano','DINING@example.invalid','verified']
-  ].map(([name,industry,area,email,status],i)=>({id:i,name,industry,area,email:email.toLowerCase(),status}));
-  const labels={verified:'인증',unverified:'미인증',unsubscribed:'수신 거부',bounced:'반송',complaint:'스팸 신고'};
-  const colors={verified:'approved',unverified:'pending',unsubscribed:'hidden',bounced:'rejected',complaint:'expired'};
-  const selected = new Set();
   const section = document.createElement('section');
   section.id = 'section-businessEmailQa';
   section.className = 'admin-section';
@@ -12672,19 +12660,6 @@ function mountBusinessEmailQa(adminProfile) {
       <button type="button" class="btn ghost" data-email-live-history>저장된 캠페인 보기</button>
       <ol data-email-live-history-list></ol>
     </div>
-    <details class="promotion-editor"><summary>샘플 수신자 및 모의 발송 이력</summary>
-    <h3>캠페인 모의 발송</h3><p class="muted">아래 테스트는 샘플 주소만 사용합니다.</p>
-    <div class="community-status-grid" data-email-counts></div>
-    <div class="promotion-editor">
-      <div class="promotion-fields">
-        <label>업종 <select data-email-industry><option value="">전체</option></select></label>
-        <label>지역 <select data-email-area><option value="">전체</option></select></label>
-        <label>업소 검색 <input type="search" data-email-search></label>
-        <label class="promotion-span"><span><input type="checkbox" data-email-all> 필터 내 발송 가능 주소 전체 선택</span></label>
-        <div class="promotion-span" data-email-list></div>
-      </div>
-    </div>
-    <ol data-email-history></ol></details>
     <div class="promotion-editor"><h3>이메일 작성 및 이미지 첨부</h3>
       <div class="promotion-fields">
         <label class="promotion-span">제목 <input data-email-subject maxlength="160" value="{{업소명}} 사장님께 드리는 안내"></label>
@@ -12698,13 +12673,13 @@ function mountBusinessEmailQa(adminProfile) {
           <small class="muted">PNG, JPEG, WebP 최대 4개, 합계 1 MB. 이미지는 관리자 테스트 메일에 포함됩니다.</small>
           <p data-email-image-feedback role="status"></p>
         </div>
+        <label class="promotion-span">발송 대상
+          <select data-email-target><option value="admin">관리자 운영 이메일 (info@daltownmap.com)</option>
+            <option value="businesses">선택한 업소</option></select>
+        </label>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
         <div class="promotion-span business-email-actions"><button type="button" class="btn primary" data-email-live-draft>초안 저장</button><button type="button" class="btn ghost" data-email-preview>미리보기</button>
-        <button type="button" class="btn ghost" data-email-send-test>관리자 테스트 발송</button></div>
-        <div class="promotion-span business-email-actions">
-        <button type="button" class="btn ghost" data-email-test>테스트 발송 모의 실행</button>
-        <button type="button" class="btn ghost" data-email-simulate>선택 대상 모의 발송</button></div>
-        <p class="promotion-span" data-email-result role="status"></p>
+        <button type="button" class="btn ghost" data-email-send-test>발송</button></div>
         <p class="promotion-span" data-email-live-feedback role="status"></p>
         <pre class="promotion-span" data-email-output style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
       </div>
@@ -12747,6 +12722,18 @@ function mountBusinessEmailQa(adminProfile) {
       feedback.textContent='테스트 메일의 제목과 본문을 입력해 주세요.';
       return;
     }
+    if(el('target').value==='businesses'){
+      const recipients=selectedBusinessRecipients();
+      if(!recipients.length){
+        feedback.textContent='인증과 수신 동의가 확인된 업소를 선택해 주세요.';
+        return;
+      }
+      const visible=recipients.slice(0,10).map(row=>row.name+' · '+row.email).join('\n');
+      const remaining=recipients.length>10?'\n외 '+(recipients.length-10)+'개':'';
+      const confirmed=window.confirm(`발송 조건을 충족한 업소 이메일 ${recipients.length}개입니다. 실제 업소 발송은 별도 승인 후 진행할 수 있습니다.\n\n${visible}${remaining}`);
+      if(confirmed)feedback.textContent='선택한 업소 발송은 운영 승인 대기 상태입니다. 메일은 발송되지 않았습니다.';
+      return;
+    }
     button.disabled=true;
     button.textContent='발송 요청 중…';
     button.setAttribute('aria-busy','true');
@@ -12771,6 +12758,8 @@ function mountBusinessEmailQa(adminProfile) {
         const messages={
           authorization:'최고 관리자 권한을 확인할 수 없습니다. 다시 로그인해 주세요.',
           quota_key_missing:'Resend 사용량 조회 키가 설정되지 않아 발송하지 않았습니다.',
+          quota_key_format:'Resend 사용량 조회 키 형식이 올바르지 않습니다.',
+          quota_key_invalid:'Resend에서 사용량 조회 키를 거부했습니다. 활성 Full access 키 값을 확인해 주세요.',
           quota_permission:'Resend 사용량 조회 권한이 없어 발송하지 않았습니다.',
           quota_unavailable:'Resend 잔여 발송량을 조회하지 못해 발송하지 않았습니다.',
           quota_plan_unverified:'무료 요금제 한도를 확인할 수 없어 발송하지 않았습니다.',
@@ -12857,6 +12846,13 @@ function mountBusinessEmailQa(adminProfile) {
     suppressed:'반송·기타 차단',missing:'미등록',unavailable:'상태 확인 불가'};
   const liveColors={eligible:'approved',pending:'pending',unsubscribed:'hidden',suppressed:'rejected'};
   const selectable=row=>row.campaignContact && !row.opted_out_at && !row.suppressed;
+  function selectedBusinessRecipients(){
+    const unique=new Map();
+    for(const row of liveRecords){
+      if(liveSelected.has(row.id)&&liveState(row)==='eligible')unique.set(row.email,row);
+    }
+    return [...unique.values()];
+  }
   let visibleContacts=[];
   function updateLiveSelection(){
     const available=visibleContacts.filter(selectable);
@@ -13033,76 +13029,22 @@ function mountBusinessEmailQa(adminProfile) {
       list.append(item);
     }
   });
-  for(const [key,property] of [['industry','industry'],['area','area']]){
-    for(const value of [...new Set(fixtures.map(row=>row[property]))].sort())el(key).add(new Option(value,value));
-  }
-  const eligible=row=>row.status==='verified'&&!fixtures.some(other=>other.email===row.email&&other.status!=='verified');
-  const visible=()=>fixtures.filter(row=>(!el('industry').value||el('industry').value===row.industry)&&
-    (!el('area').value||el('area').value===row.area)&&row.name.includes(el('search').value.trim()));
-  const distinct=rows=>[...new Map(rows.map(row=>[row.email,row])).values()];
-  const recipients=()=>distinct(fixtures.filter(row=>selected.has(row.id)&&eligible(row)));
-  function draw(){
-    section.querySelector('[data-email-counts]').innerHTML=Object.entries(labels).map(([status,label])=>
-      `<div class="community-status-card" data-community-status="${colors[status]}"><span class="community-status-label">${label}</span>
-      <strong>${fixtures.filter(row=>row.status===status).length}</strong></div>`).join('');
-    const matches=visible();
-    el('list').innerHTML=matches.map(row=>`<div><label><span><input type="checkbox" data-email-row="${row.id}" ${eligible(row)?'':'disabled'} ${selected.has(row.id)?'checked':''}>
-      ${row.name} · ${row.industry} · ${row.area} · ${row.email} · ${labels[row.status]}</span></label>
-      ${row.status==='unverified'? `<button type="button" class="btn ghost" data-email-verify="${row.id}">이메일 인증 모의 처리</button>` :
-        eligible(row)? `<button type="button" class="btn ghost" data-email-unsubscribe="${row.id}">수신 거부 모의 처리</button>`:''}</div>`).join('')||'<p>일치하는 샘플 업소가 없습니다.</p>';
-    const valid=matches.filter(eligible);
-    el('all').disabled=!valid.length;
-    el('all').checked=Boolean(valid.length)&&valid.every(row=>selected.has(row.id));
-    el('result').textContent=`선택 ${selected.size}개 · 중복 제외 후 대상 ${recipients().length}명 · 현재 필터에서 제외 ${matches.length-valid.length}개`;
-  }
-  function preview(row){
-    const personalize=value=>value.replaceAll('{{업소명}}',row.name);
-    return {to:row.email,subject:personalize(el('subject').value),body:personalize(el('body').value)};
-  }
-  section.addEventListener('input',event=>{
-    if(event.target.matches('[data-email-search]'))draw();
-    if(event.target.matches('[data-email-subject],[data-email-body]'))el('output').textContent='';
-  });
-  section.addEventListener('change',event=>{
-    el('output').textContent='';
-    if(event.target===el('all')){
-      for(const row of visible().filter(eligible)){
-        if(event.target.checked)selected.add(row.id);else selected.delete(row.id);
-      }
-    }else if(event.target.hasAttribute('data-email-row')){
-      const id=Number(event.target.dataset.emailRow);
-      if(event.target.checked)selected.add(id);else selected.delete(id);
-    }
-    draw();
-  });
-  section.addEventListener('click',event=>{
-    const change=event.target.closest('[data-email-verify],[data-email-unsubscribe]');
-    if(change){
-      const row=fixtures.find(row=>row.id===Number(change.dataset.emailVerify??change.dataset.emailUnsubscribe));
-      if(change.hasAttribute('data-email-verify')&&row?.status==='unverified')row.status='verified';
-      if(change.hasAttribute('data-email-unsubscribe')&&row&&eligible(row)){
-        for(const duplicate of fixtures.filter(item=>item.email===row.email)){
-          duplicate.status='unsubscribed';
-          selected.delete(duplicate.id);
-        }
-      }
-      el('output').textContent='';
-      draw();
+  el('preview').addEventListener('click',()=>{
+    const target=el('target').value==='businesses'?selectedBusinessRecipients()[0]:
+      {name:'관리자 테스트',email:'info@daltownmap.com'};
+    if(!target){
+      el('live-feedback').textContent='인증과 수신 동의가 확인된 업소를 선택해 주세요.';
       return;
     }
-    const action=event.target.closest('[data-email-preview],[data-email-test],[data-email-simulate]');
-    if(!action)return;
-    const isTest=action===el('test'),isPreview=action===el('preview');
-    const rows=isTest?[{name:'테스트 업소',email:'test@example.invalid'}]:recipients();
-    if(!rows.length||!el('subject').value.trim()||!el('body').value.trim()){
-      el('result').textContent='발송 가능 대상과 제목·본문을 확인해 주세요.';return;
-    }
-    const message=preview(rows[0]);
-    el('output').textContent=`보내는 사람: 달타운맵 운영팀\n받는 사람: ${message.to}\n회신: info@daltownmap.com\n제목: ${message.subject}\n\n${message.body}`;
-    if(isPreview)return;
-    const entry=document.createElement('li');
-    entry.textContent=`${new Date().toLocaleTimeString('ko-KR')} · ${isTest?'테스트':'캠페인'} · ${rows.length}건 모의 처리 · 실제 발송 0건`;
-    el('history').prepend(entry);
+    const personalize=value=>value.replaceAll('{{업소명}}',()=>target.name);
+    const images=attachments.map(({file,inline})=>file.name+' ('+(inline?'본문 삽입':'첨부')+')');
+    el('live-feedback').textContent='';
+    el('output').textContent=['보내는 사람: 달타운맵 운영팀','받는 사람: '+target.email,
+      '회신: info@daltownmap.com','제목: '+personalize(el('subject').value),'',
+      personalize(el('body').value),...images].join('\n');
   });
-  draw();
+  for(const key of ['target','subject','body','images','live-list','live-all']){
+    el(key).addEventListener('input',()=>{el('output').textContent='';});
+    el(key).addEventListener('change',()=>{el('output').textContent='';});
+  }
 }
