@@ -78,8 +78,9 @@ export class ResendResponseError extends Error {
 }
 
 export async function sendBusinessMail({mode, message, requestId, apiKey, internalRecipient, fetcher = fetch}) {
-  if (mode !== 'admin-test' || internalRecipient !== replyTo ||
-      !Array.isArray(message?.to) || message.to.length !== 1 || message.to[0] !== internalRecipient ||
+  const recipient = mode === 'admin-test' ? replyTo : internalRecipient;
+  if (!['admin-test','verify','campaign'].includes(mode) || !emailPattern.test(recipient) ||
+      !Array.isArray(message?.to) || message.to.length !== 1 || message.to[0] !== recipient ||
       message.cc || message.bcc || message.reply_to !== replyTo) throw new Error('Business sending is locked');
   if (!apiKey || typeof requestId !== 'string' || !/^[a-z0-9-]{16,80}$/i.test(requestId)) {
     throw new Error('Test transport unavailable');
@@ -87,7 +88,7 @@ export async function sendBusinessMail({mode, message, requestId, apiKey, intern
   const result = await fetcher('https://api.resend.com/emails', {
     method: 'POST', redirect: 'error', signal: AbortSignal.timeout(8000),
     headers: {Authorization: 'Bearer ' + apiKey, 'Content-Type':'application/json',
-      'Idempotency-Key':'business-mail-test/' + requestId},
+      'Idempotency-Key':(mode === 'admin-test' ? 'business-mail-test/' : 'business-mail-'+mode+'/') + requestId},
     body: JSON.stringify(message)
   });
   if (!result.ok) {

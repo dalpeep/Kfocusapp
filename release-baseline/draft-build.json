@@ -525,15 +525,15 @@
     },
     {
       "path": "scripts/release/locked-draft-build.mjs",
-      "sha256": "ff0eb54bbcb570bec2824f9d6647749105005f647402977a64d1a16449604d54"
+      "sha256": "397317609371e16ae5baa3afcc5930e7d23a7e7f89f5b33d7ce623ad8c63963b"
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "e0e6145472601299c39e242d7f85971537f8e5fcd009f92ee9558ef0c8f08bdf"
+      "sha256": "65d8ea5c4b5e4246306200e0ba323933453ff59c6ea0fc6ad6d4a8e75b21f05e"
     },
     {
       "path": "admin/index.html",
-      "sha256": "252feff0a780a1c12fb42844dbfebba479deebe76bbef75e57d9ba49d24465fc"
+      "sha256": "140ddba8c1b40b0a0449bc99157b4424e9ca4a4fcdafa57d8d2ec42c1592d376"
     },
     {
       "path": "assets/home-selection.js",
@@ -541,7 +541,7 @@
     },
     {
       "path": "admin/assets/admin.js",
-      "sha256": "bfd62fff51c91e52ebe05e0c53dbc4f5fbd51335e0108735dd9b430edb6f5321"
+      "sha256": "2ef20856eb004ce84a26f93346484ecda2415ad6daa2163612836dbebe106072"
     },
     {
       "path": "supabase/business-mail-foundation.sql",
@@ -558,6 +558,22 @@
     {
       "path": "supabase/business-mail-delivery-rollback.sql",
       "sha256": "d4fc7c57f7922d32e09277718d8e9ec8c1e88af7acc308fd93cd0502a0debc6d"
+    },
+    {
+      "path": "business-mail/index.html",
+      "sha256": "4e5c0e7bf6a8004d1a301fd4a58d5a313e9301550fee4b8fbc3ec4e8f03a4935"
+    },
+    {
+      "path": "business-mail/confirm.js",
+      "sha256": "01454290110cfdfc309f6e92e6aae015bb1b03e7833d11245dadd4dc8e27c904"
+    },
+    {
+      "path": "supabase/business-mail-dispatch-draft.sql",
+      "sha256": "d3263bf3a4b31b9fc880a6e5fde899baee3772ad58120746285ea336f49f4258"
+    },
+    {
+      "path": "supabase/business-mail-dispatch-rollback.sql",
+      "sha256": "92d1ce2d23deae9a7096ebb58bb9269df6c8bc7f268992e05ab8f8043b9a8d0f"
     }
   ],
   "files": [
@@ -2007,6 +2023,16 @@
     {
       "target": "admin/mail-confirm.html",
       "source": "admin/mail-confirm.html"
+    },
+    {
+      "target": "business-mail/index.html",
+      "source": "business-mail/index.html",
+      "publishedSha1": null
+    },
+    {
+      "target": "business-mail/confirm.js",
+      "source": "business-mail/confirm.js",
+      "publishedSha1": null
     }
   ],
   "seoOrigin": "https://daltownmap.com",

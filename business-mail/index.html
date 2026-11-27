@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; connect-src https://ydrxuqmjzayejlnjzzew.supabase.co; base-uri 'none'; form-action 'none'">
+  <title>달타운맵 이메일 설정</title>
+  <script src="./confirm.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1 id="heading">달타운맵 이메일 설정</h1>
+    <form id="confirmation" hidden>
+      <label id="consent-choice" hidden>
+        <input id="consent" type="checkbox">
+        달타운맵 운영팀의 홍보 이메일 수신에 동의합니다. 이메일에서 언제든 수신을 거부할 수 있습니다.
+      </label>
+      <p><button id="confirm" type="submit">확인</button></p>
+    </form>
+    <p id="status" role="status">링크를 확인하고 있습니다.</p>
+    <p><a href="mailto:info@daltownmap.com">달타운맵 운영팀에 문의</a></p>
+  </main>
+</body>
+</html>

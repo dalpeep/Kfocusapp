@@ -12647,6 +12647,7 @@ function mountBusinessEmailQa(adminProfile) {
       <label>업소명 <input type="search" data-email-live-search placeholder="업소명 검색"></label>
       </div>
       <p data-email-live-selection role="status"></p>
+      <button type="button" class="btn ghost" data-email-verify>선택 업소에 인증 링크 보내기</button>
       <div class="application-table-wrap">
         <table class="application-table" aria-label="업소 이메일 목록">
           <thead><tr><th scope="col"><label><input type="checkbox" data-email-live-all> 모두 선택</label></th>
@@ -12711,6 +12712,28 @@ function mountBusinessEmailQa(adminProfile) {
   const attachments=[];
   const imageTypes=new Set(['image/png','image/jpeg','image/webp']);
   const fileSize=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:1});
+  async function sendVerification(){
+    const rows=liveRecords.filter(row=>liveSelected.has(row.id)&&selectable(row));
+    const feedback=el('live-feedback');
+    if(getAppRegion()!=='dallas'||rows.length!==1){
+      feedback.textContent='인증 안내를 받을 업소 한 곳을 선택해 주세요.';
+      return;
+    }
+    const [row]=rows;
+    if(!window.confirm(`${row.name} · ${row.email}에 이메일 인증 링크를 보내시겠습니까?`))return;
+    const button=el('verify');
+    button.disabled=true;
+    feedback.textContent='인증 메일을 요청하고 있습니다.';
+    try{
+      const {data,error}=await supabase.functions.invoke('business-mail?action=verify',{
+        body:{id:row.id,email:row.email,confirmed:true}
+      });
+      feedback.textContent=!error&&data?.id?'인증 메일이 접수되었습니다.':'인증 메일을 접수하지 못했습니다. 발송 한도와 주소를 확인해 주세요.';
+    }catch{
+      feedback.textContent='인증 메일 접수 상태를 확인할 수 없습니다.';
+    }finally{button.disabled=false;}
+  }
+  el('verify').addEventListener('click',sendVerification);
   el('send-test').addEventListener('click',async()=>{
     if(getAppRegion()!=='dallas')return;
     const button=el('send-test');
@@ -12722,17 +12745,16 @@ function mountBusinessEmailQa(adminProfile) {
       feedback.textContent='테스트 메일의 제목과 본문을 입력해 주세요.';
       return;
     }
-    if(el('target').value==='businesses'){
-      const recipients=selectedBusinessRecipients();
+    const businessSend=el('target').value==='businesses';
+    const recipients=businessSend?selectedBusinessRecipients():[];
+    if(businessSend){
       if(!recipients.length){
         feedback.textContent='인증과 수신 동의가 확인된 업소를 선택해 주세요.';
         return;
       }
       const visible=recipients.slice(0,10).map(row=>row.name+' · '+row.email).join('\n');
       const remaining=recipients.length>10?'\n외 '+(recipients.length-10)+'개':'';
-      const confirmed=window.confirm(`발송 조건을 충족한 업소 이메일 ${recipients.length}개입니다. 실제 업소 발송은 별도 승인 후 진행할 수 있습니다.\n\n${visible}${remaining}`);
-      if(confirmed)feedback.textContent='선택한 업소 발송은 운영 승인 대기 상태입니다. 메일은 발송되지 않았습니다.';
-      return;
+      if(!window.confirm(`아래 업소 이메일 ${recipients.length}개에 실제로 발송하시겠습니까?\n\n${visible}${remaining}`))return;
     }
     button.disabled=true;
     button.textContent='발송 요청 중…';
@@ -12749,9 +12771,15 @@ function mountBusinessEmailQa(adminProfile) {
         return {filename:file.name,mime:file.type,content:String(data).split(',',2)[1],inline};
       }));
       feedback.textContent='발송 잔여량을 확인하고 Resend에 접수를 요청하고 있습니다.';
-      const {data,error}=await supabase.functions.invoke('business-mail?action=admin-test',{
-        body:{subject:'[테스트] '+subject,body,images}
-      });
+      let payload={subject:'[테스트] '+subject,body,images};
+      if(businessSend){
+        const {data:draft,error:draftError}=await supabase.rpc('business_mail_admin_v1',{
+          p_action:'draft',p_input:{ids:recipients.map(row=>row.id),subject,body}
+        });
+        if(draftError||!draft?.id){feedback.textContent='발송 초안을 저장하지 못했습니다.';return;}
+        payload={campaignId:draft.id,confirmed:true,recipients:recipients.map(({id,email})=>({id,email})),images};
+      }
+      const {data,error}=await supabase.functions.invoke('business-mail?action='+(businessSend?'campaign':'admin-test'),{body:payload});
       if(error){
         let details;
         try{details=await error.context?.json();}catch{}
@@ -12764,6 +12792,10 @@ function mountBusinessEmailQa(adminProfile) {
           quota_unavailable:'Resend 잔여 발송량을 조회하지 못해 발송하지 않았습니다.',
           quota_plan_unverified:'무료 요금제 한도를 확인할 수 없어 발송하지 않았습니다.',
           quota_exhausted:'무료 발송 한도에 도달했습니다.',
+          campaign_invalid:'수신자 수와 주소를 확인해 주세요. 한 번에 최대 13곳까지 발송할 수 있습니다.',
+          campaign_configuration:'캠페인 발송 설정을 확인해 주세요.',
+          campaign_duplicate:'동일한 제목·본문·수신자의 캠페인이 최근 24시간 내에 승인되었습니다. 발송 이력을 확인해 주세요.',
+          campaign_eligibility_changed:'수신자 동의·인증 또는 주소가 바뀌었습니다. 목록을 갱신해 주세요.',
           invalid_message:'제목 길이와 이미지 형식·용량을 확인해 주세요.',
           message_too_large:'첨부 파일의 전체 용량이 너무 큽니다.',
           sender_configuration:'운영 발신 주소 설정을 확인해 주세요.',
@@ -12777,7 +12809,9 @@ function mountBusinessEmailQa(adminProfile) {
           '발송 서버의 응답을 확인할 수 없습니다. 재시도 전에 발송 이력을 확인해 주세요.'))+
           (details?.reference?` (참조 ${details.reference})`:'');
       }else{
-        feedback.textContent=data?.id?`Resend 접수 완료 · info@daltownmap.com · 메시지 ID ${data.id}`:
+        feedback.textContent=businessSend&&Number.isInteger(data?.accepted)?
+          `Resend 접수 ${data.accepted}건 · 실패 ${data.failed}건 · 차단 ${data.suppressed}건 · 확인 필요 ${data.uncertain}건`:
+          data?.id?`Resend 접수 완료 · info@daltownmap.com · 메시지 ID ${data.id}`:
           '발송 서비스가 메시지 ID를 반환하지 않았습니다. 발송 이력을 확인해 주세요.';
       }
     }catch{
