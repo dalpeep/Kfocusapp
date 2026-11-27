@@ -12659,6 +12659,11 @@ function mountBusinessEmailQa(adminProfile) {
       <div class="promotion-fields">
         <label class="promotion-span">제목 <input data-email-subject maxlength="160" value="{{업소명}} 사장님께 드리는 안내"></label>
         <label class="promotion-span">본문 <textarea data-email-body maxlength="10000">안녕하세요, {{업소명}} 운영자님. 달타운맵 운영팀입니다.</textarea></label>
+        <label class="promotion-span">홍보 이미지 미리보기
+          <input type="file" data-email-images multiple accept="image/png,image/jpeg,image/webp">
+        </label>
+        <div class="promotion-span" data-email-image-list></div>
+        <p class="promotion-span muted">PNG, JPEG, WebP 최대 4개 및 합계 1 MB. 이 화면에서는 미리보기만 가능합니다.</p>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
         <div class="promotion-span promotion-actions"><button type="button" class="btn ghost" data-email-preview>미리보기</button>
         <button type="button" class="btn ghost" data-email-test>테스트 발송 모의 실행</button>
@@ -12681,6 +12686,33 @@ function mountBusinessEmailQa(adminProfile) {
   content.append(section);
 
   const el=key=>section.querySelector('[data-email-'+key+']');
+  let imageUrls=[];
+  el('images').addEventListener('change',()=>{
+    for(const url of imageUrls)URL.revokeObjectURL(url);
+    imageUrls=[];
+    const list=el('image-list');
+    list.replaceChildren();
+    const files=Array.from(el('images').files);
+    if(files.length>4||files.reduce((sum,file)=>sum+file.size,0)>1_000_000||
+      files.some(file=>!['image/png','image/jpeg','image/webp'].includes(file.type))){
+      el('images').value='';
+      list.textContent='허용되는 이미지 종류, 개수 및 용량을 확인해 주세요.';
+      return;
+    }
+    for(const file of files){
+      const url=URL.createObjectURL(file);
+      imageUrls.push(url);
+      const figure=document.createElement('figure');
+      const image=document.createElement('img');
+      const caption=document.createElement('figcaption');
+      image.src=url;
+      image.alt=file.name;
+      image.style.maxWidth='min(100%, 280px)';
+      caption.textContent=file.name;
+      figure.append(image,caption);
+      list.append(figure);
+    }
+  });
   let liveRequest=0;
   const liveSelected=new Set();
   refreshCampaignAddressList=async()=>{
@@ -12746,7 +12778,31 @@ function mountBusinessEmailQa(adminProfile) {
     el('live-feedback').textContent=data.length?'':'저장한 캠페인이 없습니다.';
     for(const row of data){
       const item=document.createElement('li');
-      item.textContent=`${row.subject} · 선택 ${row.target_count}개 · 발송 기록 ${row.delivery_count}건 · ${row.approved_at?'승인됨':'발송 승인 대기'}`;
+      const details=document.createElement('details');
+      const summary=document.createElement('summary');
+      const results=document.createElement('ul');
+      results.setAttribute('aria-live','polite');
+      summary.textContent=`${row.subject} · 선택 ${row.target_count}개 · 발송 기록 ${row.delivery_count}건 · ${row.approved_at?'승인됨':'발송 승인 대기'}`;
+      details.append(summary,results);
+      item.append(details);
+      details.addEventListener('toggle',async()=>{
+        if(!details.open||getAppRegion()!=='dallas')return;
+        results.replaceChildren();
+        const status=document.createElement('li');
+        status.textContent='수신자별 결과를 불러오는 중입니다.';
+        results.append(status);
+        const {data:deliveries,error}=await supabase.rpc('business_mail_results_v1',{p_campaign_id:row.id});
+        if(!details.open||!details.isConnected||getAppRegion()!=='dallas')return;
+        if(error||!Array.isArray(deliveries)){status.textContent='발송 결과를 조회하지 못했습니다.';return;}
+        if(!deliveries.length){status.textContent='발송 기록이 없습니다.';return;}
+        const labels={pending:'대기',held:'보류',accepted:'발송 서비스 접수',delivered:'전달 완료',
+          bounced:'반송',complaint:'스팸 신고',failed:'실패',uncertain:'상태 확인 필요',suppressed:'차단'};
+        results.replaceChildren(...deliveries.map(delivery=>{
+          const result=document.createElement('li');
+          result.textContent=`${delivery.email} · ${labels[delivery.state]||'상태 확인 필요'} · 시도 ${delivery.attempts}회`;
+          return result;
+        }));
+      });
       list.append(item);
     }
   });
