@@ -53,7 +53,8 @@ export function buildBusinessMail({from, to, subject, body, businessName, images
     const attachment = {filename,content,content_type:mime};
     if (inline === true) {
       attachment.content_id = 'business-image-' + index;
-      html += '<p><img src="cid:' + attachment.content_id + '" alt="' + escapeHtml(filename) + '"></p>';
+      html += '<p><img src="cid:' + attachment.content_id + '" alt="' + escapeHtml(filename) +
+        '" width="600" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></p>';
     }
     attachments.push(attachment);
   }
