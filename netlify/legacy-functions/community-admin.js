@@ -26,17 +26,31 @@ async function listPosts(db,region,b){
   const from=Number(b.from??0),to=Number(b.to??99);
   if(!Number.isSafeInteger(from)||!Number.isSafeInteger(to)||from<0||to<from||to-from>=200)
     throw fail(400,'Invalid page.');
-  let query=db.from('community_posts').select('id,region,area,category,title,body,author_name,contact_type,contact_value,video_url,video_provider,status,expires_at,extension_count,cleanup_after,moderation_reason,moderation_note,sold_at,view_count,comment_count,approved_at,created_at,updated_at,community_post_images(id,image_url,sort_order)',{count:'exact'})
+  const now=new Date().toISOString();
+  const byStatus=(query,key)=>{
+    if(key==='approved')return query.eq('status',key).or(
+      `category.neq.business_promotion,publish_starts_at.is.null,and(publish_starts_at.lte.${now},expires_at.gt.${now})`);
+    if(key==='expired')return query.or(
+      `status.eq.expired,and(status.eq.approved,category.eq.business_promotion,publish_starts_at.not.is.null,expires_at.lte.${now})`);
+    return query.eq('status',key);
+  };
+  let query=db.from('community_posts').select('id,region,area,category,title,body,author_name,contact_type,contact_value,video_url,video_provider,status,expires_at,publish_starts_at,extension_count,cleanup_after,moderation_reason,moderation_note,sold_at,view_count,comment_count,approved_at,created_at,updated_at,community_post_images(id,image_url,sort_order)',{count:'exact'})
     .eq('region',region).order('created_at',{ascending:false}).order('id',{ascending:false}).range(from,to);
-  if(status!=='all')query=query.eq('status',status);
+  if(status!=='all')query=byStatus(query,status);
   const [page,...totals]=await Promise.all([query,...statuses.map(key=>
-    db.from('community_posts').select('id',{head:true,count:'exact'}).eq('region',region).eq('status',key))]);
+    byStatus(db.from('community_posts').select('id',{head:true,count:'exact'}).eq('region',region),key))]);
   if(page.error)throw page.error;
   const counts=Object.fromEntries(statuses.map((key,index)=>{
     const total=totals[index];
     return [key,total.error||!Number.isInteger(total.count)?null:total.count];
   }));
-  return S.response(200,{ok:true,rows:page.data||[],count:page.count,counts});
+  const rows=(page.data||[]).map(row=>{
+    if(row.category!=='business_promotion'||row.status!=='approved'||!row.publish_starts_at)return row;
+    const display_status=Date.parse(row.expires_at)<=Date.parse(now)?'expired':
+      Date.parse(row.publish_starts_at)>Date.parse(now)?'scheduled':'approved';
+    return {...row,display_status};
+  });
+  return S.response(200,{ok:true,rows,count:page.count,counts});
 }
 
 async function authorizePromotionUpload(event,auth,region,post,input){
@@ -144,6 +158,19 @@ exports.handler=S.handler(async event=>{
   const post=await db.from('community_posts').select('id,region,category,status,created_at,expires_at,cleanup_after,updated_at,video_url').eq('id',b.id).single();if(post.error)throw Object.assign(new Error('Not found.'),{status:404});if(auth.role==='regional_editor'&&post.data.region!==auth.area)throw Object.assign(new Error('Forbidden region.'),{status:403});
   if(action==='promotion_upload')return authorizePromotionUpload(event,auth,region,post.data,b);
   if(action==='edit_promotion')return editPromotion(event,db,auth,region,post.data,b);
+  if(action==='edit_promotion_period'){
+    if(post.data.region!==region||post.data.category!=='business_promotion'||
+      !['approved','expired'].includes(post.data.status))throw fail(409,'게시중 또는 만료된 업체홍보만 기간을 변경할 수 있습니다.');
+    if(b.updated_at!==post.data.updated_at)throw fail(409,'게시글이 변경되었습니다. 다시 열어 주세요.');
+    if(![b.publish_start_date,b.publish_end_date].every(value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)))
+      throw fail(400,'게시 시작일과 종료일을 확인해 주세요.');
+    const result=await db.rpc('community_admin_set_promotion_period',{p_id:b.id,p_region:region,
+      p_expected_updated_at:b.updated_at,p_start:b.publish_start_date,p_end:b.publish_end_date});
+    if(result.error?.code==='40001')throw fail(409,'게시글이 변경되었습니다. 다시 열어 주세요.');
+    if(['22007','22008','22023'].includes(result.error?.code))throw fail(400,'게시 시작일과 종료일을 확인해 주세요.');
+    if(result.error)throw result.error;
+    return S.response(200,{ok:true});
+  }
   if(action==='status'){const status=S.text(b.status,20);if(!['approved','rejected','deleted','expired','hidden'].includes(status))throw Object.assign(new Error('Invalid status.'),{status:400});if(status==='approved'&&!['pending','hidden'].includes(post.data.status))throw Object.assign(new Error('Invalid approval transition.'),{status:400});const changes=L.adminStatusChanges(post.data,status);if(status==='hidden'){const reason=S.text(b.reason,40),note=S.text(b.note,501);if(!['abuse','personal_info','off_topic','promotion','duplicate','other'].includes(reason)||note.length>500)throw Object.assign(new Error('숨김 사유를 선택해 주세요.'),{status:400});changes.moderation_reason=reason;changes.moderation_note=note||null}else if(status==='approved'){changes.moderation_reason=null;changes.moderation_note=null}const r=await db.from('community_posts').update(changes).eq('id',b.id).eq('status',post.data.status).select('id');if(r.error)throw r.error;if(r.data?.length!==1)throw Object.assign(new Error('게시글 상태가 변경되었습니다. 다시 확인해 주세요.'),{status:409});return S.response(200,{ok:true})}
   if(action==='category'){if(post.data.status==='hidden')throw Object.assign(new Error('숨김 글의 카테고리는 작성자 재검토 과정에서만 변경할 수 있습니다.'),{status:400});if(!S.CATEGORIES.has(b.category))throw Object.assign(new Error('Invalid category.'),{status:400});const video=['marketplace','housing','business_promotion'].includes(b.category)?{}:{video_url:null,video_provider:null};const r=await db.from('community_posts').update({category:b.category,...video}).eq('id',b.id);if(r.error)throw r.error;return S.response(200,{ok:true})}
   if(action==='comment_status'){const r=await db.from('community_comments').update({status:['active','hidden','deleted'].includes(b.status)?b.status:'hidden'}).eq('id',b.comment_id).eq('post_id',b.id);if(r.error)throw r.error;return S.response(200,{ok:true})}

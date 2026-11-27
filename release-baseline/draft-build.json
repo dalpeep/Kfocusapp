@@ -285,7 +285,7 @@
     },
     {
       "path": "netlify/legacy-functions/community-admin.js",
-      "sha256": "f2f849b7ecd7081b54dd4f7de276b8b0c24da48edb0e4207d2817bfc0fe0cd1c"
+      "sha256": "807e2411b8e194fb8ff330741fafd1f5ef94ad236a8fe54cb46de5a1ba4c4a50"
     },
     {
       "path": "netlify/legacy-functions/community-cleanup-scheduled.mjs",
@@ -529,11 +529,11 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "19c39a35f74c6eff4b9a633140fc723fe5f228e09ed7b28d19a56d7a8542cdb0"
+      "sha256": "b185b3af331ace9fb4d094c8a3c7a2c780b68394deb2f0785e0fa2673e1ef6f3"
     },
     {
       "path": "admin/index.html",
-      "sha256": "34e4dc9695a2c1976325e421ab6ff301b16d572ca0e56ab4fe2cd2f9c390439d"
+      "sha256": "f7dedcb2e4b9365774e82bcd38922eea150942634e13e1978f31faa443416ae3"
     },
     {
       "path": "assets/home-selection.js",
@@ -541,7 +541,7 @@
     },
     {
       "path": "admin/assets/admin.js",
-      "sha256": "4d26e5eaebddc37d46667ceb1def4c2cd86a49640b17014b19741f58302aa1b9"
+      "sha256": "fe31f530599ee81c1747db98ab0bee6eb2712078cfc91a5f71712b6f6afdfba6"
     },
     {
       "path": "supabase/business-mail-foundation.sql",
@@ -582,6 +582,22 @@
     {
       "path": "supabase/business-mail-address-review.sql",
       "sha256": "e3482697e5c472e3797697ead167a6eeb467d7e5fa6f44907b6f41c3d55aafe5"
+    },
+    {
+      "path": "admin/assets/community-admin.js",
+      "sha256": "9bf0bc2c5544bef9263be5aa41d78f28fa3d6e41025bbe73183d4934bc8c1661"
+    },
+    {
+      "path": "release-baseline/community-security-patches.json",
+      "sha256": "6b780a518daf21be29d00cb35612833f98c61588074caa6311fa37eb61a7e136"
+    },
+    {
+      "path": "supabase/community-promotion-period-draft.sql",
+      "sha256": "2201098bae0cba11a7d40b0b8bf030e2f1146cbf319b395423840342433bc39c"
+    },
+    {
+      "path": "supabase/community-promotion-period-rollback.sql",
+      "sha256": "6214e80e3d73689a219cf9f2d392b5ff2694c97fc431c1fb3291d6d0af535f41"
     }
   ],
   "files": [
