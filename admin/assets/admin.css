@@ -1017,5 +1017,11 @@ body{margin:0;font-family:Arial,"Noto Sans KR",sans-serif;background:var(--bg);c
 .business-email-attachment-help p:empty{display:none}
 .business-email-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:min(100%,540px)}
 .business-email-actions .btn{min-width:0;min-height:44px;padding:6px;text-align:center;white-space:normal}
+[data-email-recipient-review] .application-table-wrap{overflow-x:auto}
+[data-email-recipient-review] table{width:100%;border-collapse:collapse}
+[data-email-recipient-review] :is(th,td){padding:8px;text-align:left;border-bottom:1px solid #dbe4f0}
+[data-email-recipient-review] th{white-space:nowrap}
+[data-email-recipient-review] td:nth-child(2){overflow-wrap:anywhere}
+[data-email-recipient-review] input[type=checkbox]{width:16px;height:16px;min-height:0;margin:0;padding:0}
 @media(max-width:850px){.community-status-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){.community-status-grid{gap:7px}.community-status-card{min-height:100px;padding:9px}.promotion-editor{padding:13px}.promotion-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.promotion-gallery{gap:5px}}
