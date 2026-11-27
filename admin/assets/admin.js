@@ -122,6 +122,7 @@ const esc = (s = '') =>
 let supabase = null;
 
 let businesses = [];
+let refreshCampaignAddressList;
 let coupons = [];
 let businessSpecials = [];
 let businessSpecialItems = [];
@@ -2347,6 +2348,7 @@ async function loadBusinesses() {
   }
   if(region!==getAppRegion())return;
   businesses = result.rows;
+  refreshCampaignAddressList?.();
   window.KFocusAdminBridge = window.KFocusAdminBridge || {};
   window.KFocusAdminBridge.getBusinesses = () => [...businesses];
   window.KFocusAdminBridge.getRegion = () => getAppRegion();
@@ -5380,7 +5382,7 @@ async function init() {
 
   const adminProfile=await loadAdminSession();
   if(!adminProfile)return;
-  mountBusinessEmailQa();
+  mountBusinessEmailQa(adminProfile);
   initCommunityAdmin({
     getSupabaseClient:()=>supabase,
     getSession:()=>supabase.auth.getSession(),
@@ -12611,7 +12613,7 @@ console.info('[DalTownMap Admin] V290 Google Place ID storage loaded');
 console.info('[DalTownMap Admin] V292 map coordinate repair loaded');
 
 /* Issue 159: local campaign QA. No address book, network transport or persistent history. */
-function mountBusinessEmailQa() {
+function mountBusinessEmailQa(adminProfile) {
   if (adminProfile.role !== 'super_admin' || document.getElementById('section-businessEmailQa')) return;
   const nav = document.getElementById('adminNav');
   const content = document.querySelector('main.content');
@@ -12632,7 +12634,13 @@ function mountBusinessEmailQa() {
   const section = document.createElement('section');
   section.id = 'section-businessEmailQa';
   section.className = 'admin-section';
-  section.innerHTML = `<div class="panel-head"><div><h2>업소 이메일 발송 관리</h2><p class="muted">모의 발송 전용 · 현재 세션의 샘플만 사용합니다.</p></div></div>
+  section.innerHTML = `<div class="panel-head"><div><h2>업소 이메일 발송 관리</h2></div></div>
+    <div class="promotion-editor"><h3>실제 등록 이메일</h3>
+      <p class="muted">현재 지역의 활성 업소 연락처입니다. 캠페인 인증·수신 동의는 확인되지 않아 발송 대상에서 제외합니다.</p>
+      <p data-email-live-summary role="status"></p>
+      <ul data-email-live-list></ul>
+    </div>
+    <h3>캠페인 모의 발송</h3><p class="muted">아래 테스트는 샘플 주소만 사용합니다.</p>
     <div class="community-status-grid" data-email-counts></div>
     <div class="promotion-editor">
       <div class="promotion-fields">
@@ -12660,12 +12668,36 @@ function mountBusinessEmailQa() {
   button.type='button';
   button.className='nav-item';
   button.dataset.section='businessEmailQa';
-  button.textContent='업소 이메일 (QA)';
-  button.addEventListener('click',()=>switchSection('businessEmailQa'));
+  button.textContent='업소 이메일 발송 관리';
+  button.addEventListener('click',()=>{
+    switchSection('businessEmailQa');
+    refreshCampaignAddressList?.();
+  });
   nav.append(button);
   content.append(section);
 
   const el=key=>section.querySelector('[data-email-'+key+']');
+  refreshCampaignAddressList=()=>{
+    const region=getAppRegion();
+    const loaded=window.__DTM_DATA_LOAD_STATE__?.adminBusinesses;
+    const list=el('live-list');
+    list.replaceChildren();
+    if(!loaded||loaded.region!==region||!loaded.complete){
+      el('live-summary').textContent=loaded?.region===region&&!loaded.complete?'업소 주소를 조회하지 못했습니다.':'업소 주소를 불러오는 중입니다.';
+      return;
+    }
+    const records=businesses.filter(row=>row.region===region&&row.is_active===true&&String(row.email??'').trim());
+    const addresses=new Set(records.map(row=>String(row.email).trim().toLowerCase()));
+    for(const row of records){
+      const item=document.createElement('li');
+      const name=row.name_ko||row.name_en||row.name||'이름 없음';
+      const area=row.area||region;
+      item.textContent=`${name} · ${area} · ${String(row.email).trim()} · 인증·수신 동의 미확인`;
+      list.append(item);
+    }
+    el('live-summary').textContent=`등록된 연락처 ${records.length}개 · 중복 제외 ${addresses.size}개 · 발송 가능 0개`;
+  };
+  refreshCampaignAddressList();
   for(const [key,property] of [['industry','industry'],['area','area']]){
     for(const value of [...new Set(fixtures.map(row=>row[property]))].sort())el(key).add(new Option(value,value));
   }
