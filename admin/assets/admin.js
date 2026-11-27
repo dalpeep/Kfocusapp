@@ -12673,10 +12673,11 @@ function mountBusinessEmailQa(adminProfile) {
           <input type="file" data-email-images multiple accept="image/png,image/jpeg,image/webp">
         </label>
         <div class="promotion-span" data-email-image-list></div>
-        <p class="promotion-span muted">PNG, JPEG, WebP 최대 4개 및 합계 1 MB. 이 화면에서는 미리보기만 가능합니다.</p>
+        <p class="promotion-span muted">PNG, JPEG, WebP 최대 4개 및 합계 1 MB. 선택한 이미지는 관리자 테스트 메일에 포함됩니다.</p>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
         <div class="promotion-span promotion-actions"><button type="button" class="btn primary" data-email-live-draft>선택 업소로 초안 저장</button><button type="button" class="btn ghost" data-email-preview>미리보기</button>
         <button type="button" class="btn ghost" data-email-test>테스트 발송 모의 실행</button>
+        <button type="button" class="btn ghost" data-email-send-test>관리자 주소로 실제 테스트 발송</button>
         <button type="button" class="btn primary" data-email-simulate>선택 대상 모의 발송</button></div>
         <p class="promotion-span" data-email-result role="status"></p>
         <p class="promotion-span" data-email-live-feedback role="status"></p>
@@ -12707,9 +12708,45 @@ function mountBusinessEmailQa(adminProfile) {
 
   const el=key=>section.querySelector('[data-email-'+key+']');
   let imageUrls=[];
+  const inlineChoices=[];
+  el('send-test').addEventListener('click',async()=>{
+    if(getAppRegion()!=='dallas')return;
+    const button=el('send-test');
+    const feedback=el('live-feedback');
+    button.disabled=true;
+    try{
+      const files=Array.from(el('images').files);
+      const images=await Promise.all(files.map(async(file,index)=>{
+        const data=await new Promise((resolve,reject)=>{
+          const reader=new FileReader();
+          reader.onload=()=>resolve(reader.result);
+          reader.onerror=()=>reject(reader.error);
+          reader.readAsDataURL(file);
+        });
+        return {filename:file.name,mime:file.type,content:String(data).split(',',2)[1],
+          inline:inlineChoices[index]?.checked===true};
+      }));
+      const {data,error}=await supabase.functions.invoke('business-mail?action=admin-test',{
+        body:{subject:'[테스트] '+el('subject').value.trim(),body:el('body').value,images}
+      });
+      if(error){
+        let code;
+        try{code=(await error.context?.json())?.error;}catch{}
+        feedback.textContent=code==='quota_unavailable'?'Resend 잔여 발송량을 확인할 수 없어 발송하지 않았습니다.':
+          code==='quota_exhausted'?'무료 발송 한도에 도달했습니다.':
+          '테스트 발송 접수를 확인할 수 없습니다.';
+      }else{
+        feedback.textContent=data?.id?'info@daltownmap.com 테스트 메일을 Resend가 접수했습니다.':
+          '테스트 발송 접수를 확인할 수 없습니다.';
+      }
+    }catch{
+      feedback.textContent='테스트 메일을 준비할 수 없습니다.';
+    }finally{button.disabled=false;}
+  });
   el('images').addEventListener('change',()=>{
     for(const url of imageUrls)URL.revokeObjectURL(url);
     imageUrls=[];
+    inlineChoices.length=0;
     const list=el('image-list');
     list.replaceChildren();
     const files=Array.from(el('images').files);
@@ -12725,11 +12762,16 @@ function mountBusinessEmailQa(adminProfile) {
       const figure=document.createElement('figure');
       const image=document.createElement('img');
       const caption=document.createElement('figcaption');
+      const inline=document.createElement('label');
+      const checkbox=document.createElement('input');
+      checkbox.type='checkbox';
+      inlineChoices.push(checkbox);
+      inline.append(checkbox,document.createTextNode(' 본문에 삽입'));
       image.src=url;
       image.alt=file.name;
       image.style.maxWidth='min(100%, 280px)';
       caption.textContent=file.name;
-      figure.append(image,caption);
+      figure.append(image,caption,inline);
       list.append(figure);
     }
   });
