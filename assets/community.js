@@ -525,6 +525,7 @@ renderHome=async function(container,selectedCategory='all'){
   }catch{
     if(request===ui42HomeRequest)container.innerHTML='<div class="community-home-empty">커뮤니티 글을 불러오지 못했습니다.</div>';
   }
+  return request===ui42HomeRequest?request:undefined;
 };
 const ui4RenderList=renderList;
 renderList=function(){ui4RenderList();if(all.length||query)return;const box=el('communityResults');if(box)box.innerHTML=`<div class="community-empty"><p>${filter==='event'?'등록된 행사안내 글이 없습니다':`아직 등록된 ${esc(filter==='all'?'커뮤니티':ui4Labels[filter]||'커뮤니티')} 글이 없습니다.`}</p><p>첫 번째 글을 등록해 보세요.</p><button class="community-write" type="button" data-community-write>＋ 글쓰기</button></div>`};
@@ -615,7 +616,23 @@ openPost=async function(id){
     };
   });
 };
-async function renderPromotionHome(container,rows=[]){await renderHome(container,'business_promotion');if(!container||!container.isConnected||document.querySelector('#communityTabs .active')?.dataset.board!=='business_promotion')return;if(rows.length)container.insertAdjacentHTML('beforeend','<h3>기존 업소탐방</h3>'+rows.slice(0,3).map(row=>homeCard(row,'promotion')).join(''));container.querySelectorAll('[data-legacy-promotion]').forEach(button=>button.onclick=()=>root.openBoardPost?.(button.dataset.legacyPromotion))}
+function uniqueLegacyPromotionRows(rows){
+  const seen=new Set();
+  return rows.filter(row=>{
+    const id=String(row.id);
+    if(seen.has(id))return false;
+    seen.add(id);
+    return true;
+  });
+}
+async function renderPromotionHome(container,rows=[]){
+  const request=await renderHome(container,'business_promotion');
+  if(!request||request!==ui42HomeRequest||!container?.isConnected||
+    document.querySelector('#communityTabs .active')?.dataset.board!=='business_promotion')return;
+  const legacyRows=uniqueLegacyPromotionRows(rows).slice(0,3);
+  if(legacyRows.length)container.insertAdjacentHTML('beforeend','<h3>기존 업소탐방</h3>'+legacyRows.map(row=>homeCard(row,'promotion')).join(''));
+  container.querySelectorAll('[data-legacy-promotion]').forEach(button=>button.onclick=()=>root.openBoardPost?.(button.dataset.legacyPromotion));
+}
 
 function lifeCategoryButton(key,label){
  const paths={jobs:'M8 7V4h8v3M3 7h18v14H3zM3 12h18M10 12v3h4v-3',marketplace:'M5 7h14l2 14H3zM9 8V5a3 3 0 016 0v3',housing:'M3 11l9-8 9 8M5 10v11h14V10M9 21v-7h6v7',life_questions:'M9 8a3 3 0 016 0c0 2-3 2-3 5M12 17h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0'};
@@ -648,6 +665,6 @@ async function renderEventsHome(container,legacyRows=[]){
  container.querySelectorAll('[data-event-legacy]').forEach(button=>button.onclick=()=>root.openBoardPost?.(button.dataset.eventLegacy));
  }catch{if(request===eventHomeRequest)container.innerHTML='<div class="community-home-empty">행사안내를 불러오지 못했습니다.</div>';}
 }
-root.DtmCommunity={openEventsPage:rows=>openPage(rows,'event'),renderEventsHome,renderPromotionHome,openPromotionPage:rows=>openPage(rows,'business_promotion'),LABELS,BATCH,ensureUI,openPage,setLegacyRows,renderHome,load,openPost,compress,closeModal,syncRobots,_state:()=>({all:[...all],total,visible,filter})};
+root.DtmCommunity={openEventsPage:rows=>openPage(rows,'event'),renderEventsHome,renderPromotionHome,openPromotionPage:(rows=[])=>openPage(uniqueLegacyPromotionRows(rows),'business_promotion'),LABELS,BATCH,ensureUI,openPage,setLegacyRows,renderHome,load,openPost,compress,closeModal,syncRobots,_state:()=>({all:[...all],total,visible,filter})};
 document.addEventListener('DOMContentLoaded',()=>{ensureUI();setTimeout(()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'||location.hash==='#community/promotion'||location.hash==='#community/events'){filter=location.hash.endsWith('/promotion')?'business_promotion':location.hash.endsWith('/events')?'event':'all';renderFilters();root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}},0)});window.addEventListener('popstate',()=>{const match=location.hash.match(/^#community\/post\/([^/?]+)/);if(match){root.DtmNavigatePage?.('community',{skipRoute:true});openPost(decodeURIComponent(match[1])).catch(showError)}else if(location.hash==='#community'||location.hash==='#community/promotion'||location.hash==='#community/events'){filter=location.hash.endsWith('/promotion')?'business_promotion':location.hash.endsWith('/events')?'event':'all';renderFilters();closeModal();root.DtmNavigatePage?.('community',{skipRoute:true});load().catch(showError)}else closeModal()});
 })(globalThis);

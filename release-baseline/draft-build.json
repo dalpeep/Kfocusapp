@@ -29,11 +29,11 @@
     },
     {
       "path": "assets/community.js",
-      "sha256": "f7e65dc210c50e08279da2eb1d785c6a6cf5b3b2573ce0a32bb61cfc4511b004"
+      "sha256": "07b7b2e77649536696bf307980cef09512c2fdd31965649851958c8ce241d51d"
     },
     {
       "path": "index.html",
-      "sha256": "c1178e863347aaa67c3ff6c399092e3bee8ffd60acdbdc0f1ebf2e5e70d9b968"
+      "sha256": "4fed7ddded94bf3bceec8c4d78efa65800f7fe22166831f1e14993311cea2c14"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -529,7 +529,7 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "78992a39b5222515a0a95011edae74246e0e38debfc2669477a51ad7a966619e"
+      "sha256": "53e01eaf0e1870a707a368957fa778488d772f2998a59e91f9f802d50d3c9438"
     },
     {
       "path": "admin/index.html",
