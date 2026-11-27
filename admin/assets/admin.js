@@ -12689,17 +12689,21 @@ function mountBusinessEmailQa(adminProfile) {
       <div class="promotion-fields">
         <label class="promotion-span">제목 <input data-email-subject maxlength="160" value="{{업소명}} 사장님께 드리는 안내"></label>
         <label class="promotion-span">본문 <textarea data-email-body maxlength="10000">안녕하세요, {{업소명}} 운영자님. 달타운맵 운영팀입니다.</textarea></label>
-        <div class="promotion-span">
+        <div class="promotion-span business-email-attachments">
+          <div data-email-image-list></div>
           <button type="button" class="btn ghost" data-email-add-images>이미지 추가</button>
           <input type="file" data-email-images hidden multiple accept="image/png,image/jpeg,image/webp">
         </div>
-        <div class="promotion-span" data-email-image-list></div>
-        <p class="promotion-span muted">PNG, JPEG, WebP 최대 4개 및 합계 1 MB. 선택한 이미지는 관리자 테스트 메일에 포함됩니다.</p>
+        <div class="promotion-span business-email-attachment-help">
+          <small class="muted">PNG, JPEG, WebP 최대 4개, 합계 1 MB. 이미지는 관리자 테스트 메일에 포함됩니다.</small>
+          <p data-email-image-feedback role="status"></p>
+        </div>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
-        <div class="promotion-span promotion-actions"><button type="button" class="btn primary" data-email-live-draft>선택 업소로 초안 저장</button><button type="button" class="btn ghost" data-email-preview>미리보기</button>
+        <div class="promotion-span business-email-actions"><button type="button" class="btn primary" data-email-live-draft>초안 저장</button><button type="button" class="btn ghost" data-email-preview>미리보기</button>
+        <button type="button" class="btn ghost" data-email-send-test>관리자 테스트 발송</button></div>
+        <div class="promotion-span business-email-actions">
         <button type="button" class="btn ghost" data-email-test>테스트 발송 모의 실행</button>
-        <button type="button" class="btn ghost" data-email-send-test>관리자 주소로 실제 테스트 발송</button>
-        <button type="button" class="btn primary" data-email-simulate>선택 대상 모의 발송</button></div>
+        <button type="button" class="btn ghost" data-email-simulate>선택 대상 모의 발송</button></div>
         <p class="promotion-span" data-email-result role="status"></p>
         <p class="promotion-span" data-email-live-feedback role="status"></p>
         <pre class="promotion-span" data-email-output style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
@@ -12729,24 +12733,23 @@ function mountBusinessEmailQa(adminProfile) {
 
   const el=key=>section.querySelector('[data-email-'+key+']');
   el('add-images').addEventListener('click',()=>el('images').click());
-  let imageUrls=[];
-  const inlineChoices=[];
+  const attachments=[];
+  const imageTypes=new Set(['image/png','image/jpeg','image/webp']);
+  const fileSize=new Intl.NumberFormat('ko-KR',{maximumFractionDigits:1});
   el('send-test').addEventListener('click',async()=>{
     if(getAppRegion()!=='dallas')return;
     const button=el('send-test');
     const feedback=el('live-feedback');
     button.disabled=true;
     try{
-      const files=Array.from(el('images').files);
-      const images=await Promise.all(files.map(async(file,index)=>{
+      const images=await Promise.all(attachments.map(async({file,inline})=>{
         const data=await new Promise((resolve,reject)=>{
           const reader=new FileReader();
           reader.onload=()=>resolve(reader.result);
           reader.onerror=()=>reject(reader.error);
           reader.readAsDataURL(file);
         });
-        return {filename:file.name,mime:file.type,content:String(data).split(',',2)[1],
-          inline:inlineChoices[index]?.checked===true};
+        return {filename:file.name,mime:file.type,content:String(data).split(',',2)[1],inline};
       }));
       const {data,error}=await supabase.functions.invoke('business-mail?action=admin-test',{
         body:{subject:'[테스트] '+el('subject').value.trim(),body:el('body').value,images}
@@ -12766,35 +12769,51 @@ function mountBusinessEmailQa(adminProfile) {
     }finally{button.disabled=false;}
   });
   el('images').addEventListener('change',()=>{
-    for(const url of imageUrls)URL.revokeObjectURL(url);
-    imageUrls=[];
-    inlineChoices.length=0;
-    const list=el('image-list');
-    list.replaceChildren();
-    const files=Array.from(el('images').files);
-    if(files.length>4||files.reduce((sum,file)=>sum+file.size,0)>1_000_000||
-      files.some(file=>!['image/png','image/jpeg','image/webp'].includes(file.type))){
-      el('images').value='';
-      list.textContent='허용되는 이미지 종류, 개수 및 용량을 확인해 주세요.';
+    const input=el('images');
+    const files=Array.from(input.files);
+    input.value='';
+    if(!files.length)return;
+    const feedback=el('image-feedback');
+    const total=[...attachments.map(item=>item.file),...files].reduce((sum,file)=>sum+file.size,0);
+    if(attachments.length+files.length>4||total>1_000_000||files.some(file=>!imageTypes.has(file.type))){
+      feedback.textContent='이미지 종류, 최대 4개 및 합계 1 MB 제한을 확인해 주세요.';
       return;
     }
+    feedback.textContent='';
     for(const file of files){
       const url=URL.createObjectURL(file);
-      imageUrls.push(url);
+      const attachment={file,inline:false};
+      attachments.push(attachment);
       const figure=document.createElement('figure');
+      figure.className='business-email-attachment';
       const image=document.createElement('img');
       const caption=document.createElement('figcaption');
+      const name=document.createElement('strong');
+      const size=document.createElement('small');
       const inline=document.createElement('label');
       const checkbox=document.createElement('input');
+      const remove=document.createElement('button');
       checkbox.type='checkbox';
-      inlineChoices.push(checkbox);
+      checkbox.addEventListener('change',()=>{attachment.inline=checkbox.checked;});
       inline.append(checkbox,document.createTextNode(' 본문에 삽입'));
       image.src=url;
-      image.alt=file.name;
-      image.style.maxWidth='min(100%, 280px)';
-      caption.textContent=file.name;
-      figure.append(image,caption,inline);
-      list.append(figure);
+      image.alt='';
+      name.textContent=file.name;
+      size.textContent=file.size<1000?`${file.size} B`:`${fileSize.format(file.size/1000)} KB`;
+      caption.append(name,size,inline);
+      remove.type='button';
+      remove.className='btn ghost';
+      remove.textContent='삭제';
+      remove.setAttribute('aria-label',`${file.name} 삭제`);
+      remove.addEventListener('click',()=>{
+        attachments.splice(attachments.indexOf(attachment),1);
+        URL.revokeObjectURL(url);
+        figure.remove();
+        feedback.textContent=`${file.name} 파일을 삭제했습니다.`;
+        el('add-images').focus();
+      });
+      figure.append(image,caption,remove);
+      el('image-list').append(figure);
     }
   });
   let liveRequest=0;
