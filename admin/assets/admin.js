@@ -12636,9 +12636,13 @@ function mountBusinessEmailQa(adminProfile) {
   section.className = 'admin-section';
   section.innerHTML = `<div class="panel-head"><div><h2>업소 이메일 발송 관리</h2></div></div>
     <div class="promotion-editor"><h3>실제 등록 이메일</h3>
-      <p class="muted">현재 지역의 활성 업소 연락처입니다. 캠페인 인증·수신 동의는 확인되지 않아 발송 대상에서 제외합니다.</p>
+      <p class="muted">Dallas 활성 업소의 연락처입니다. 개별 또는 여러 업소를 골라 발송 승인 전 초안을 저장할 수 있습니다.</p>
       <p data-email-live-summary role="status"></p>
       <ul data-email-live-list></ul>
+      <button type="button" class="btn ghost" data-email-live-draft>선택 업소로 초안 저장</button>
+      <button type="button" class="btn ghost" data-email-live-history>저장된 캠페인 보기</button>
+      <p data-email-live-feedback role="status"></p>
+      <ol data-email-live-history-list></ol>
     </div>
     <h3>캠페인 모의 발송</h3><p class="muted">아래 테스트는 샘플 주소만 사용합니다.</p>
     <div class="community-status-grid" data-email-counts></div>
@@ -12677,27 +12681,75 @@ function mountBusinessEmailQa(adminProfile) {
   content.append(section);
 
   const el=key=>section.querySelector('[data-email-'+key+']');
-  refreshCampaignAddressList=()=>{
+  let liveRequest=0;
+  const liveSelected=new Set();
+  refreshCampaignAddressList=async()=>{
+    const request=++liveRequest;
     const region=getAppRegion();
-    const loaded=window.__DTM_DATA_LOAD_STATE__?.adminBusinesses;
     const list=el('live-list');
     list.replaceChildren();
-    if(!loaded||loaded.region!==region||!loaded.complete){
-      el('live-summary').textContent=loaded?.region===region&&!loaded.complete?'업소 주소를 조회하지 못했습니다.':'업소 주소를 불러오는 중입니다.';
+    if(region!=='dallas'){
+      liveSelected.clear();
+      el('live-summary').textContent='Dallas에서만 캠페인 주소를 조회할 수 있습니다.';
       return;
     }
-    const records=businesses.filter(row=>row.region===region&&row.is_active===true&&String(row.email??'').trim());
+    el('live-summary').textContent='업소 주소를 불러오는 중입니다.';
+    const {data:records,error}=await supabase.rpc('business_mail_admin_v1',{p_action:'contacts'});
+    if(request!==liveRequest||getAppRegion()!==region)return;
+    if(error||!Array.isArray(records)){
+      liveSelected.clear();
+      el('live-summary').textContent='업소 주소를 조회하지 못했습니다.';
+      return;
+    }
     const addresses=new Set(records.map(row=>String(row.email).trim().toLowerCase()));
+    for(const id of liveSelected)if(!records.some(row=>row.id===id))liveSelected.delete(id);
     for(const row of records){
       const item=document.createElement('li');
-      const name=row.name_ko||row.name_en||row.name||'이름 없음';
-      const area=row.area||region;
-      item.textContent=`${name} · ${area} · ${String(row.email).trim()} · 인증·수신 동의 미확인`;
+      const check=document.createElement('input');
+      const label=document.createElement('label');
+      check.type='checkbox';
+      check.dataset.emailLiveId=row.id;
+      check.checked=liveSelected.has(row.id);
+      const state=row.suppressed||row.opted_out_at?'발송 차단':row.consented_at&&row.verified_at?'인증·동의 확인':row.verified_at?'인증 완료 · 동의 대기':'미인증 · 미동의';
+      label.append(check,document.createTextNode(` ${row.name||'이름 없음'} · ${row.area||region} · ${row.email} · ${state}`));
+      item.append(label);
       list.append(item);
     }
-    el('live-summary').textContent=`등록된 연락처 ${records.length}개 · 중복 제외 ${addresses.size}개 · 발송 가능 0개`;
+    el('live-summary').textContent=`등록된 연락처 ${records.length}개 · 중복 제외 ${addresses.size}개 · 실제 발송 잠금`;
   };
-  refreshCampaignAddressList();
+  el('live-list').addEventListener('change',event=>{
+    const id=event.target.dataset.emailLiveId;
+    if(!id)return;
+    if(event.target.checked)liveSelected.add(id);else liveSelected.delete(id);
+  });
+  el('live-draft').addEventListener('click',async()=>{
+    if(!liveSelected.size||getAppRegion()!=='dallas'){
+      el('live-feedback').textContent='Dallas 업소를 한 곳 이상 선택하세요.';
+      return;
+    }
+    const button=el('live-draft');
+    button.disabled=true;
+    try{
+      const {error}=await supabase.rpc('business_mail_admin_v1',{p_action:'draft',p_input:{
+        ids:[...liveSelected],subject:el('subject').value,body:el('body').value
+      }});
+      el('live-feedback').textContent=error?'초안을 저장하지 못했습니다.':'초안을 저장했습니다. 발송된 메일은 없습니다.';
+    }finally{button.disabled=false;}
+  });
+  el('live-history').addEventListener('click',async()=>{
+    if(getAppRegion()!=='dallas')return;
+    const list=el('live-history-list');
+    list.replaceChildren();
+    const {data,error}=await supabase.rpc('business_mail_admin_v1',{p_action:'history'});
+    if(getAppRegion()!=='dallas')return;
+    if(error||!Array.isArray(data)){el('live-feedback').textContent='캠페인 이력을 조회하지 못했습니다.';return;}
+    el('live-feedback').textContent=data.length?'':'저장한 캠페인이 없습니다.';
+    for(const row of data){
+      const item=document.createElement('li');
+      item.textContent=`${row.subject} · 선택 ${row.target_count}개 · 발송 기록 ${row.delivery_count}건 · ${row.approved_at?'승인됨':'발송 승인 대기'}`;
+      list.append(item);
+    }
+  });
   for(const [key,property] of [['industry','industry'],['area','area']]){
     for(const value of [...new Set(fixtures.map(row=>row[property]))].sort())el(key).add(new Option(value,value));
   }
