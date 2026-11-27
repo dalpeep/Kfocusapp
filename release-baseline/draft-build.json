@@ -25,7 +25,7 @@
     },
     {
       "path": "app-v99.js",
-      "sha256": "e8e1a77a370067280b25ae7347d7df0306045d9926013bfb54ba67e88081d95d"
+      "sha256": "34d4f5e0cb267842e0e529dd45f952701e266edd1594692d2d5cb57a940760a5"
     },
     {
       "path": "assets/community.js",
@@ -33,7 +33,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "e8634eb2034e1f0b2dc029b4a25f7c75665c9e6ef5c9121aae8b713badb0691e"
+      "sha256": "c1178e863347aaa67c3ff6c399092e3bee8ffd60acdbdc0f1ebf2e5e70d9b968"
     },
     {
       "path": "netlify/functions/ai-daily-home.mjs",
@@ -529,11 +529,11 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "7dada5b179b93668d27f9ba4a369e9a8e5a91c0f0af452c370dba103472eb2d2"
+      "sha256": "78992a39b5222515a0a95011edae74246e0e38debfc2669477a51ad7a966619e"
     },
     {
       "path": "admin/index.html",
-      "sha256": "89a70bbb86fc3d3576d51a1b69d5873e7f400b5ffd82ea6110486ea494f57d9b"
+      "sha256": "4635cd0d64e4e2ea4ed76873461ba975cd4edf12e704d85153d582a9500c53e6"
     },
     {
       "path": "assets/home-selection.js",
@@ -541,7 +541,7 @@
     },
     {
       "path": "admin/assets/admin.js",
-      "sha256": "e8471080cd72edee31692cdf23a88a90983ac62b1063fe611a5f147400b36f3e"
+      "sha256": "3692afb01c59c7f5c909020b3c897f0e464aadecbb4757337ecb1ce2e9d9ef91"
     },
     {
       "path": "supabase/business-mail-foundation.sql",
@@ -585,7 +585,7 @@
     },
     {
       "path": "admin/assets/community-admin.js",
-      "sha256": "73d90441c325910daac7423f5dbd03c0c0562defd598a25b909302ecec16d337"
+      "sha256": "9a840415d5ace11ed837c18b148e77b82ae466846e1c10d7d7ce1524425a80a0"
     },
     {
       "path": "release-baseline/community-security-patches.json",
@@ -606,6 +606,14 @@
     {
       "path": "supabase/community-period-expansion-rollback.sql",
       "sha256": "577613e2e5fca34430967a1eb411b90d1ba40f5f537afc432a3869a01d8bdb00"
+    },
+    {
+      "path": "supabase/legacy-posts-period-policy-draft.sql",
+      "sha256": "e6a1a9ab8483b0d97624d2e9d1c9dfbdce1f5635ce33f999f00fbad240e030cc"
+    },
+    {
+      "path": "supabase/legacy-posts-period-policy-rollback.sql",
+      "sha256": "2fea3e87f057724155d4d15f094ca0a841a03d2bf39481279ee05e5f84db7f40"
     }
   ],
   "files": [

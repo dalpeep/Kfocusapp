@@ -1,6 +1,6 @@
 import { mountMailSettings } from './mail-settings.js?v=cards-20261119';
 import {refreshExposurePreview, requestPreviewLocation} from './exposure-preview.js?v=300';
-import {initCommunityAdmin} from './community-admin.js?v=community-publication-period';
+import {initCommunityAdmin,renderLegacyPublicationEditor} from './community-admin.js?v=legacy-publication-period';
 import {mountEventWinnerManager} from './event-winner-manager.js?v=event-winner-phase1';
 const DTM_ADMIN_BUILD='phase1.1-special-editor-20260920.2';
 document.documentElement.dataset.dtmAdminBuild=DTM_ADMIN_BUILD;
@@ -3976,6 +3976,7 @@ async function loadBoards() {
   return;
 }
   const selects = [
+    'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at,community_publish_starts_at,community_publish_ends_at',
     'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,business_id,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
     'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
     'id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at'
@@ -4009,6 +4010,7 @@ function boardHomePinKey(){ return `kfocus_board_home_pins_v66_${getAppRegion()}
 function readBoardHomePins(){ try { const v=JSON.parse(localStorage.getItem(boardHomePinKey())||'[]'); return Array.isArray(v)?v.map(String):[]; } catch { return []; } }
 function writeBoardHomePin(id, pinned){ if(!id)return; const set=new Set(readBoardHomePins()); pinned?set.add(String(id)):set.delete(String(id)); localStorage.setItem(boardHomePinKey(),JSON.stringify([...set])); window.dispatchEvent(new CustomEvent('kfocus:board-home-pins-updated')); }
 function clearBoardForm() {
+  renderLegacyPublicationEditor(qs('boardPublicationEditor'),null);
   setVal('board_id', '');
   setVal('board_type', 'notice');
   updateBoardSubtypeOptions('');
@@ -4043,6 +4045,18 @@ function clearBoardForm() {
   $$('.board-row').forEach((el) => el.classList.remove('active'));
 }
 function fillBoardForm(row) {
+  renderLegacyPublicationEditor(qs('boardPublicationEditor'),row,async(post,start,end)=>{
+    const {error}=await supabase.rpc('admin_set_legacy_post_period',{
+      p_post_id:post.id,p_region:post.region,
+      p_expected_start:post.community_publish_starts_at,p_expected_end:post.community_publish_ends_at,
+      p_start:start,p_end:end
+    });
+    if(error)throw Error(error.code==='40001'?'다른 관리자와 저장 내용이 겹쳤습니다. 게시글을 다시 열어 주세요.':
+      error.code==='42501'?'이 게시글의 게시 기간을 변경할 권한이 없습니다.':'게시 기간을 저장하지 못했습니다.');
+    await loadBoards();
+    const updated=boards.find(item=>item.id===post.id);
+    if(updated)Object.assign(post,updated);
+  });
   setVal('board_id', row.id || '');
   setVal('board_type', normalizeAdminBoardType(row.type || 'notice'));
   updateBoardSubtypeOptions(row.subtype || (row.type === 'rent' ? 'rent' : row.type === 'sale' ? 'sale' : ''));

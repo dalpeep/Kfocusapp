@@ -232,16 +232,49 @@ function publicationPeriodFields(row){
   </fieldset>`;
 }
 
-function bindPublicationExtensions(form){
-  form.addEventListener('click',event=>{
+function bindPublicationExtensions(container,fields){
+  container.addEventListener('click',event=>{
     const button=event.target.closest('[data-promotion-extend]');
     if(!button)return;
     const today=globalThis.DtmDallasTime.dateKey();
-    const end=form.elements.publish_end_date;
-    const start=form.elements.publish_start_date;
+    const end=fields.publish_end_date;
+    const start=fields.publish_start_date;
     const base=[today,start.value,end.value].sort().at(-1);
     if(!start.value)start.value=today;
     end.value=promotionDatePlus(base,Number(button.dataset.promotionExtend));
+  });
+}
+
+export function renderLegacyPublicationEditor(host,row,savePeriod){
+  host.replaceChildren();
+  host.hidden=!row||!Object.hasOwn(row,'community_publish_starts_at');
+  if(host.hidden)return;
+  const editor=document.createElement('div');
+  editor.className='promotion-editor';
+  editor.innerHTML=`${publicationPeriodFields({
+    publish_starts_at:row.community_publish_starts_at,
+    publish_ends_at:row.community_publish_ends_at,
+    created_at:row.created_at
+  })}
+  <p role="status" data-edit-feedback></p>
+  <div class="promotion-actions"><button type="button" class="btn primary" data-legacy-period-save>게시 기간 저장</button></div>`;
+  host.append(editor);
+  // This editor lives inside the existing operator form, so submit only dates.
+  const inputs={publish_start_date:editor.querySelector('[name=publish_start_date]'),
+    publish_end_date:editor.querySelector('[name=publish_end_date]')};
+  bindPublicationExtensions(editor,inputs);
+  editor.querySelector('[data-legacy-period-save]').addEventListener('click',async event=>{
+    const button=event.currentTarget,feedback=editor.querySelector('[data-edit-feedback]');
+    const start=inputs.publish_start_date.value,end=inputs.publish_end_date.value;
+    if(!start||!end||start>end){feedback.textContent='게시 시작일과 종료일을 올바르게 입력해 주세요.';return;}
+    const controls=[button,...Object.values(inputs),...editor.querySelectorAll('[data-promotion-extend]')];
+    controls.forEach(control=>{control.disabled=true;});
+    try{
+      feedback.textContent='저장 중…';
+      await savePeriod(row,start,end);
+      feedback.textContent='게시 기간을 저장했습니다.';
+    }catch(error){feedback.textContent=error.message||'게시 기간을 저장하지 못했습니다.';}
+    finally{controls.forEach(control=>{control.disabled=false;});}
   });
 }
 
@@ -264,7 +297,7 @@ function openEdit(card,row){
       <p role="status" data-edit-feedback></p>
       <div class="promotion-actions"><button type="submit" class="btn primary">저장</button>
         <button type="button" class="btn ghost" data-admin-edit-cancel>취소</button></div>`;
-    bindPublicationExtensions(form);
+    bindPublicationExtensions(form,form.elements);
     form.originalFields=Object.fromEntries(new FormData(form));
     card.querySelector('[data-admin-comment-list]').before(form);
     form.elements.publish_start_date.focus();
@@ -294,7 +327,7 @@ function openEdit(card,row){
     form.querySelector('[data-preview-body]').textContent=form.elements.body.value;
   };
   form.addEventListener('input',preview);
-  if(canEditPeriod)bindPublicationExtensions(form);
+  if(canEditPeriod)bindPublicationExtensions(form,form.elements);
   preview();
   initPromotionImages(form,row);
   form.originalFields=Object.fromEntries(new FormData(form));

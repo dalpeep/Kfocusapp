@@ -1340,6 +1340,7 @@ function activePublicEventPosts(now=Date.now()){
     if(normalizeBoardType(row?.type)!=='notice')return false;
     if(!globalThis.DtmActiveState.explicitlyEnabled(row,'event'))return false;
     if(row?.region&&normalizeRegionKey(row.region)!==currentRegion)return false;
+    if(!legacyPublicationActive(row,now))return false;
     const {start,end}=globalThis.DtmActiveState.bounds(row,'event');
     if((start||end)&&!globalThis.DtmDallasTime.periodActive(start,end,now))return false;
     const key=String(row?.id||`${row?.title||''}|${row?.created_at||''}|${index}`);
@@ -1349,12 +1350,17 @@ function activePublicEventPosts(now=Date.now()){
   });
 }
 window.activePublicEventPosts=activePublicEventPosts;
+function legacyPublicationActive(post,now=Date.now()){
+  const start=post.community_publish_starts_at,end=post.community_publish_ends_at;
+  return (!start&&!end)||Boolean(start&&end&&Date.parse(start)<=now&&Date.parse(end)>now);
+}
 function boardPostsByType(type){
   const hiddenThemeTitles=new Set((dalpicks||[]).filter(isThemeDalpick).map(d=>String(d.title||'').trim()).filter(Boolean));
   const source=normalizeBoardType(type)==='notice'?activePublicEventPosts():boardPosts;
   return source
     .filter(p=>
       normalizeBoardType(p.type)===type &&
+      legacyPublicationActive(p) &&
       p.is_active!==false &&
       !hiddenThemeTitles.has(String(p.title||'').trim()) &&
       (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion)
@@ -1426,6 +1432,7 @@ async function loadBoardPostsFromSupabase(){
   if(!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
   const tryTables = ['posts','board_posts'];
   const selects = [
+    'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,event_start_at,event_end_at,is_published,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at,community_publish_starts_at,community_publish_ends_at',
     'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,address,phone,event_start_at,event_end_at,is_published,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
     'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,start_at,end_at,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at',
     'id,business_id,title,content,type,subtype,region,image_url,image_link_url,gallery_urls,video_url,external_url,link_label,author_name,is_active,is_pinned,pin_order,is_alert_notice,alert_order,created_at'
@@ -1460,6 +1467,8 @@ async function loadBoardPostsFromSupabase(){
             is_published: row.is_published,
             start_at: row.start_at || '',
             end_at: row.end_at || '',
+            community_publish_starts_at: row.community_publish_starts_at || '',
+            community_publish_ends_at: row.community_publish_ends_at || '',
             is_active: row.is_active !== false,
             is_pinned: row.is_pinned === true,
             pin_order: Number(row.pin_order || 999),
@@ -1566,7 +1575,7 @@ function couponSearchResults(query){
 function boardSearchResults(query){
   const q = normalizeSearchText(query);
   if(!q) return [];
-  return boardPosts.filter(p => (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion) && queryMatches(q, [p.title, p.content, p.type])).slice(0,8);
+  return boardPosts.filter(p => legacyPublicationActive(p) && (adminSession || !p.region || normalizeRegionKey(p.region)===currentRegion) && queryMatches(q, [p.title, p.content, p.type])).slice(0,8);
 }
 function openSearchOverlay(prefill=''){
   if(!searchOverlay) return;
@@ -7884,7 +7893,7 @@ function renderBoardPage(type = 'notice', postId = null) {
   if (!page) return;
 
   if (postId) {
-    const post = boardPosts.find(p => String(p.id) === String(postId));
+    const post = boardPosts.find(p => String(p.id) === String(postId)&&legacyPublicationActive(p));
     if (!post) {
       page.innerHTML = `<h3 id="boardTitle">${esc(boardLabel(normalizedType))}</h3><div class="board-empty">게시글을 찾을 수 없습니다.</div>`;
       return;
