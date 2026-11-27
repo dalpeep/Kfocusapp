@@ -12689,9 +12689,10 @@ function mountBusinessEmailQa(adminProfile) {
       <div class="promotion-fields">
         <label class="promotion-span">제목 <input data-email-subject maxlength="160" value="{{업소명}} 사장님께 드리는 안내"></label>
         <label class="promotion-span">본문 <textarea data-email-body maxlength="10000">안녕하세요, {{업소명}} 운영자님. 달타운맵 운영팀입니다.</textarea></label>
-        <label class="promotion-span">홍보 이미지 미리보기
-          <input type="file" data-email-images multiple accept="image/png,image/jpeg,image/webp">
-        </label>
+        <div class="promotion-span">
+          <button type="button" class="btn ghost" data-email-add-images>이미지 추가</button>
+          <input type="file" data-email-images hidden multiple accept="image/png,image/jpeg,image/webp">
+        </div>
         <div class="promotion-span" data-email-image-list></div>
         <p class="promotion-span muted">PNG, JPEG, WebP 최대 4개 및 합계 1 MB. 선택한 이미지는 관리자 테스트 메일에 포함됩니다.</p>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
@@ -12727,6 +12728,7 @@ function mountBusinessEmailQa(adminProfile) {
   content.append(section);
 
   const el=key=>section.querySelector('[data-email-'+key+']');
+  el('add-images').addEventListener('click',()=>el('images').click());
   let imageUrls=[];
   const inlineChoices=[];
   el('send-test').addEventListener('click',async()=>{
