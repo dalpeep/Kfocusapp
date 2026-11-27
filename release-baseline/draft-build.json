@@ -529,11 +529,11 @@
     },
     {
       "path": "release-baseline/dallas-life-seo.json.gz",
-      "sha256": "3f8578143b31b268f22d1e8d1c084a8a9794c61407a0eb19a8deda838fb9ec4a"
+      "sha256": "fe40307d63ab0913bd05507ac4dd2ee3919511d859dee3540fd1436eba1a880c"
     },
     {
       "path": "admin/index.html",
-      "sha256": "1fdf8dd94baf9a6d11fec03b7476c6bd00c264b4d75b40fefd7ec4d7850557be"
+      "sha256": "3bca17c80045249eb3270472b41ef7a7b2db46882b509a60d0cc30d1267239dc"
     },
     {
       "path": "assets/home-selection.js",
@@ -541,7 +541,7 @@
     },
     {
       "path": "admin/assets/admin.js",
-      "sha256": "a0733bacbfaa0d0ded1df799aabdfef57dc46c4eb03abbb42c9170bd5ed8bc4e"
+      "sha256": "320c91403b99be3cd8336654625a5d0df414fff6b7d1c89063e32edb5cb28810"
     },
     {
       "path": "supabase/business-mail-foundation.sql",
@@ -578,6 +578,10 @@
     {
       "path": "supabase/application-email-verification-draft.sql",
       "sha256": "f268c0d7fb5c0a7b8b61d3a62eadd1f214e013260f5b8803f03b25302bb9fbf9"
+    },
+    {
+      "path": "supabase/business-mail-address-review.sql",
+      "sha256": "e3482697e5c472e3797697ead167a6eeb467d7e5fa6f44907b6f41c3d55aafe5"
     }
   ],
   "files": [
