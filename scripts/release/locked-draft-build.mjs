@@ -99,6 +99,8 @@ try {
   approved.add('admin/assets/mail-settings.js');
   approved.add('admin/assets/mail-confirm.js');
   approved.add('admin/mail-confirm.html');
+  approved.add('business-mail/index.html');
+  approved.add('business-mail/confirm.js');
   approved.add('netlify/functions/community-admin.js');
   approved.add('netlify/functions/community-post-owner.js');
   approved.add('netlify/functions/lib/community-security.js');
