@@ -12678,6 +12678,18 @@ function mountBusinessEmailQa(adminProfile) {
           <select data-email-target><option value="admin">관리자 운영 이메일 (info@daltownmap.com)</option>
             <option value="businesses">선택한 업소</option></select>
         </label>
+        <div class="promotion-span" data-email-recipient-review hidden>
+          <h4>선택한 업소 수신자</h4>
+          <p class="muted">각 주소를 직접 확인해 주세요. 이메일 인증과 수신 동의가 완료된 주소만 발송할 수 있습니다.</p>
+          <p data-email-recipient-summary role="status"></p>
+          <div class="application-table-wrap">
+            <table class="application-table" aria-label="선택한 업소 수신자">
+              <thead><tr><th scope="col">업소명</th><th scope="col">이메일 주소</th>
+                <th scope="col">발송 상태</th><th scope="col">관리자 확인</th><th scope="col">제외</th></tr></thead>
+              <tbody data-email-recipient-list></tbody>
+            </table>
+          </div>
+        </div>
         <p class="promotion-span muted">발신 표시명 달타운맵 운영팀 · 회신 info@daltownmap.com</p>
         <div class="promotion-span business-email-actions"><button type="button" class="btn primary" data-email-live-draft>초안 저장</button><button type="button" class="btn ghost" data-email-preview>미리보기</button>
         <button type="button" class="btn ghost" data-email-send-test>발송</button></div>
@@ -12752,9 +12764,20 @@ function mountBusinessEmailQa(adminProfile) {
         feedback.textContent='인증과 수신 동의가 확인된 업소를 선택해 주세요.';
         return;
       }
-      const visible=recipients.slice(0,10).map(row=>row.name+' · '+row.email).join('\n');
-      const remaining=recipients.length>10?'\n외 '+(recipients.length-10)+'개':'';
-      if(!window.confirm(`아래 업소 이메일 ${recipients.length}개에 실제로 발송하시겠습니까?\n\n${visible}${remaining}`))return;
+      if(recipients.length!==liveSelected.size){
+        feedback.textContent='발송할 수 없거나 주소가 중복되는 업소를 수신자 목록에서 제외해 주세요.';
+        return;
+      }
+      if(recipients.some(row=>reviewedRecipients.get(row.id)!==row.email)){
+        feedback.textContent='수신자 목록에서 각 업소 이메일의 관리자 확인을 선택해 주세요.';
+        return;
+      }
+      if(recipients.length>13){
+        feedback.textContent='한 번에 최대 13곳까지 발송할 수 있습니다.';
+        return;
+      }
+      const visible=recipients.map(row=>row.name+' · '+row.email).join('\n');
+      if(!window.confirm(`아래 업소 이메일 ${recipients.length}개에 실제로 발송하시겠습니까?\n\n${visible}`))return;
     }
     button.disabled=true;
     button.textContent='발송 요청 중…';
@@ -12872,6 +12895,7 @@ function mountBusinessEmailQa(adminProfile) {
   });
   let liveRequest=0;
   const liveSelected=new Set();
+  const reviewedRecipients=new Map();
   let liveRecords=[];
   const liveState=row=>!row.email?'missing':!row.campaignContact?'unavailable':
     row.opted_out_at?'unsubscribed':row.suppressed?'suppressed':
@@ -12887,6 +12911,63 @@ function mountBusinessEmailQa(adminProfile) {
     }
     return [...unique.values()];
   }
+  function updateRecipientSummary(){
+    const ready=selectedBusinessRecipients();
+    const reviewed=ready.filter(row=>reviewedRecipients.get(row.id)===row.email).length;
+    el('recipient-summary').textContent=`선택 ${liveSelected.size}곳 · 발송 조건 충족 ${ready.length}곳 · 관리자 확인 완료 ${reviewed}곳`;
+  }
+  function renderRecipientReview(){
+    const panel=el('recipient-review');
+    panel.hidden=el('target').value!=='businesses';
+    if(panel.hidden)return;
+    const list=el('recipient-list');
+    list.replaceChildren();
+    updateRecipientSummary();
+    const rows=liveRecords.filter(row=>liveSelected.has(row.id));
+    const emailCounts=new Map();
+    for(const row of rows)emailCounts.set(row.email,(emailCounts.get(row.email)||0)+1);
+    for(const row of rows){
+      const item=list.insertRow();
+      item.insertCell().textContent=row.name;
+      item.insertCell().textContent=row.email;
+      const status=item.insertCell();
+      const check=document.createElement('input');
+      check.type='checkbox';
+      check.setAttribute('aria-label',`${row.name} 이메일 확인`);
+      const duplicate=emailCounts.get(row.email)>1;
+      check.disabled=duplicate||liveState(row)!=='eligible';
+      check.checked=!check.disabled&&reviewedRecipients.get(row.id)===row.email;
+      const updateStatus=()=>{status.textContent=duplicate?'중복 주소 · 한 곳을 제외해 주세요.':
+        check.disabled?liveLabels[liveState(row)]:
+        check.checked?'발송 가능 · 관리자 확인 완료':'발송 가능 · 관리자 확인 대기';};
+      check.addEventListener('change',()=>{
+        if(check.checked)reviewedRecipients.set(row.id,row.email);else reviewedRecipients.delete(row.id);
+        updateStatus();
+        updateRecipientSummary();
+      });
+      updateStatus();
+      item.insertCell().append(check);
+      const remove=document.createElement('button');
+      remove.type='button';
+      remove.className='btn ghost';
+      remove.textContent='제외';
+      remove.setAttribute('aria-label',`${row.name} 발송 대상에서 제외`);
+      remove.addEventListener('click',()=>{
+        liveSelected.delete(row.id);
+        reviewedRecipients.delete(row.id);
+        el('output').textContent='';
+        renderLiveContacts();
+        el('target').focus();
+      });
+      item.insertCell().append(remove);
+    }
+    if(!liveSelected.size){
+      const empty=list.insertRow().insertCell();
+      empty.colSpan=5;
+      empty.textContent='등록 이메일 관리에서 업소를 선택해 주세요.';
+    }
+  }
+  el('target').addEventListener('change',renderRecipientReview);
   let visibleContacts=[];
   function updateLiveSelection(){
     const available=visibleContacts.filter(selectable);
@@ -12896,6 +12977,12 @@ function mountBusinessEmailQa(adminProfile) {
     all.checked=available.length>0&&selected===available.length;
     all.indeterminate=selected>0&&selected<available.length;
     el('live-selection').textContent=`표시 ${visibleContacts.length}개 · 선택 ${liveSelected.size}개 (현재 필터 ${selected}개)`;
+    for(const [id,email] of reviewedRecipients){
+      if(!liveSelected.has(id)||!liveRecords.some(row=>row.id===id&&row.email===email&&liveState(row)==='eligible')){
+        reviewedRecipients.delete(id);
+      }
+    }
+    renderRecipientReview();
   }
   function setLiveOptions(key,values){
     const input=el('live-'+key);
